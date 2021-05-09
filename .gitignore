@@ -1,0 +1,12 @@
+mainnet_private_key
+.secret
+build
+
+node_modules
+
+#Hardhat files
+cache
+artifacts
+coverage/
+coverage.json
+
