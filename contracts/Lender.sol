@@ -8,8 +8,8 @@ contract Lender is Ownable {
 
     using SafeMath for uint256;
 
-    event NewContribution(address indexable lender, uint amount);
-    event NewExtraction(address indexable lender, uint amount);
+    event NewContribution(address indexed lender, uint amount);
+    event NewExtraction(address indexed lender, uint amount);
 
     mapping (address => uint) loans;
     mapping (address => uint) moneyPool;
