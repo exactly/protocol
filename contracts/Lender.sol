@@ -16,16 +16,16 @@ contract Lender is Ownable {
 
     function pool(uint money) public payable {
         address payable contractLender = payable(address(this));
-        moneyPool[msg.sender] = moneyPool[msg.sender].add(money);
         contractLender.transfer(money);
+        moneyPool[msg.sender] = moneyPool[msg.sender].add(money);
         emit NewContribution(msg.sender, money);
     }
 
     function withdraw(uint money) public payable {
         require(moneyPool[msg.sender] >= money);
         address payable lender = payable(address(msg.sender));
-        moneyPool[msg.sender] = moneyPool[msg.sender].sub(money);
         lender.transfer(money);
+        moneyPool[msg.sender] = moneyPool[msg.sender].sub(money);
         emit NewExtraction(msg.sender, money);
     }
 
