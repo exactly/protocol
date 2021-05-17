@@ -29,7 +29,7 @@ describe("Lender", function() {
     it("Should revert because not enough funds", async function() {
         await lender.pool(1, { value: 50 });
         expect(await lender.balance()).to.equal(1);
-        expect(await lender.withdraw(2)).to.be.reverted;
+        expect(lender.withdraw(2)).to.be.reverted;
     });
 
 });
