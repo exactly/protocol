@@ -1,7 +1,9 @@
 import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-solhint";
-import "solidity-coverage"
+import "@openzeppelin/hardhat-upgrades";
+import "solidity-coverage";
+import "hardhat-abi-exporter";
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html

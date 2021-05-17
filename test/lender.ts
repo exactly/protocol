@@ -19,7 +19,14 @@ describe("Lender", function() {
         expect(await lender.balance()).to.equal(2);
     });
 
-    it("Should fail on trying to retrieve more than the pool", async function() {
+    it("Should decrease to 0", async function() {
+        await lender.pool(1, { value: 50 });
+        expect(await lender.balance()).to.equal(1);
+        expect(await lender.withdraw(1));
+        expect(await lender.balance()).to.equal(0);
+    });
+
+    it("Should revert because not enough funds", async function() {
         await lender.pool(1, { value: 50 });
         expect(await lender.balance()).to.equal(1);
         expect(await lender.withdraw(2)).to.be.reverted;
