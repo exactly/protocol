@@ -16,15 +16,24 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
 });
 
 const ALCHEMY_API_KEY = "DsGLl69IRAWy4BM4fVlUOOlMsr40OWHO";
-const ROPSTEN_PRIVATE_KEY = fs.readFileSync('.secret','utf8');
+let config: HardhatUserConfig
 
-const config: HardhatUserConfig = {
-    solidity: "0.8.0",
-    networks: {
-        rinkeby: {
-            url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-            accounts: [`0x${ROPSTEN_PRIVATE_KEY}`]
+try {
+    const ROPSTEN_PRIVATE_KEY = fs.readFileSync('.secret', 'utf8');
+    console.log("Deploy Capability Available")
+    config = {
+        solidity: "0.8.0",
+        networks: {
+            rinkeby: {
+                url: `https://eth-rinkeby.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
+                    accounts: [`0x${ROPSTEN_PRIVATE_KEY}`]
+            }
         }
     }
-};
+} catch (err) {
+    config = {
+        solidity: "0.8.0",
+    }
+}
+
 export default config;

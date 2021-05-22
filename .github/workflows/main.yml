@@ -28,9 +28,6 @@ jobs:
       - name: Setup Dependencies
         run: npm install
 
-      - name: Set Secrets
-        run: echo $ETH_KEY > .secret
-
       # Runs a set of commands using the runners shell
       - name: Run Tests
         run: |
