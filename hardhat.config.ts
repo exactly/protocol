@@ -5,7 +5,7 @@ import "@nomiclabs/hardhat-solhint";
 import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
 import "hardhat-abi-exporter";
-import fs from 'fs';
+import * as fs from 'fs';
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners();
