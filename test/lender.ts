@@ -9,7 +9,9 @@ describe("Lender", function() {
 
     beforeEach(async () => {
         const Lender = await ethers.getContractFactory("Lender");
-        lender = await Lender.deploy();
+        const Dai = await ethers.getContractFactory("Dai");
+        const dai = await Dai.deploy();
+        lender = await Lender.deploy(dai.address);
     })
 
     it("Should increase balance when pooling", async function() {
