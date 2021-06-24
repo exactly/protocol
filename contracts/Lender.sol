@@ -23,19 +23,14 @@ contract Lender is Ownable {
     }
 
     function pool(uint amount) public payable {
-        // address payable contractLender = payable(address(this));
-        daiToken.increaseAllowance(address(this), amount);
         daiToken.transfer(address(this), amount);
         moneyPool[msg.sender] = moneyPool[msg.sender].add(amount);
         emit NewContribution(msg.sender, amount);
     }
 
-    receive() external payable {}
-
     function withdraw(uint money) public {
         require(moneyPool[msg.sender] >= money, "Not enough money on account");
-        address payable lender = payable(address(msg.sender));
-        lender.transfer(money);
+        daiToken.transfer(address(msg.sender), money);
         moneyPool[msg.sender] = moneyPool[msg.sender].sub(money);
         emit NewExtraction(msg.sender, money);
     }
