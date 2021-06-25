@@ -22,16 +22,22 @@ contract Lender is Ownable {
         daiToken = IERC20(daiAddress);
     }
 
-    function pool(uint amount) public payable {
-        daiToken.transfer(address(this), amount);
-        moneyPool[msg.sender] = moneyPool[msg.sender].add(amount);
+    function pool() public payable {
+        uint amount = msg.value;
+        require(amount > 0, "You need to send some money");
+        uint256 allowance = daiToken.allowance(msg.sender, address(this));
+        require(allowance >= amount, "Check the token allowance");
+        uint moneyInPool = moneyPool[msg.sender];
+        daiToken.transferFrom(msg.sender, address(this), amount);
+        moneyPool[msg.sender] = moneyInPool.add(amount);
         emit NewContribution(msg.sender, amount);
     }
 
     function withdraw(uint money) public {
-        require(moneyPool[msg.sender] >= money, "Not enough money on account");
+        uint moneyInPool = moneyPool[msg.sender];
+        require(moneyInPool >= money, "Not enough money on account");
         daiToken.transfer(address(msg.sender), money);
-        moneyPool[msg.sender] = moneyPool[msg.sender].sub(money);
+        moneyPool[msg.sender] = moneyInPool.sub(money);
         emit NewExtraction(msg.sender, money);
     }
 

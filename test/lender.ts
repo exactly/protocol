@@ -21,22 +21,21 @@ describe("Lender", function() {
 
     await dai.faucet(lender.address, initialFunds);
     await dai.faucet(ownerAddress, initialFunds);
-
-    console.log("Lender deployed to:", lender.address);
-    console.log("Dai deployed to:", dai.address);
   })
 
   it("Should increase balance when pooling", async function() {
-    await lender.pool(1, { value: 50 });
+    await dai.approve(lender.address, 2);
+    await lender.pool({ value: 1 });
     expect(await lender.balance()).to.equal(1);
-    await lender.pool(1, { value: 50 });
+    await lender.pool({ value: 1 });
     expect(await lender.balance()).to.equal(2);
     expect(await dai.balanceOf(lender.address)).to.equal(initialFunds + 2);
     expect(await dai.balanceOf(ownerAddress)).to.equal(initialFunds - 2);
   });
 
   it("Should decrease to 0", async function() {
-    await lender.pool(1, { value: 50 });
+    await dai.approve(lender.address, 2);
+    await lender.pool({ value: 1 });
     expect(await lender.balance()).to.equal(1);
     expect(await lender.withdraw(1));
     expect(await lender.balance()).to.equal(0);
@@ -45,10 +44,11 @@ describe("Lender", function() {
   });
 
   it("Should revert because not enough funds", async function() {
-    await lender.pool(1, { value: 50 });
+    await dai.approve(lender.address, 2);
+    await lender.pool({ value: 1 });
     expect(await lender.balance()).to.equal(1);
     expect(lender.withdraw(2)).to.be.reverted;
-    expect(await dai.balanceOf(ownerAddress)).to.equal(initialFunds)
-    expect(await dai.balanceOf(lender.address)).to.equal(initialFunds);
+    expect(await dai.balanceOf(ownerAddress)).to.equal(initialFunds - 1)
+    expect(await dai.balanceOf(lender.address)).to.equal(initialFunds + 1);
   });
 });
