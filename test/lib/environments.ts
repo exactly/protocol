@@ -22,7 +22,7 @@ export class MakerEnv {
   public static async setup() {
     const Vat = await ethers.getContractFactory("Vat");
     const GemJoin = await ethers.getContractFactory("GemJoin");
-    const Weth = await ethers.getContractFactory("WETH9");
+    const Weth = await ethers.getContractFactory("WETH10");
 
     // Set up vat, join and weth
     const weth = await Weth.deploy()
