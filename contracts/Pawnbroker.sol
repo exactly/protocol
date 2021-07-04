@@ -15,7 +15,7 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
     event CollateralChanged(address indexed user, ValueChange changeType, uint256 amount);
 
     bytes32 public constant WETH = "ETH-A";
-    uint256 public constant MIN_COLLATERAL = 50e15; // 0.05 ETH ~= 100 USD (2021)
+    uint256 public constant DUST = 50e15; // 0.05 ETH ~= 100 USD (2021)
     uint256 public constant UNIT = 1e27; // RAY (27 decimals)
 
     mapping(address => uint256) public collaterals;
@@ -53,7 +53,7 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
 
     function hasMoreThanMinimum(address user) public view returns (bool) {
         uint256 collateral = collaterals[user];
-        return MIN_COLLATERAL < collateral;
+        return DUST < collateral;
     }
 
     function hasZeroCollateral(address user) public view returns (bool) {
@@ -74,7 +74,7 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
         */
         (,, uint256 spot,,) = vat.ilks(WETH);
         uint256 collateral = collaterals[user];
-        // dai = (collateral (ie: 1ETH) * price (ie: 2200 DAI/ETH)) / 1e27(RAD->RAY) 
+        // dai = (collateral (ie: 1ETH) * price (ie: 2200 DAI/ETH)) / 1e27(RAD->RAY)
         return collateral.mul(spot).div(UNIT);
     }
 
