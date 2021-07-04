@@ -36,14 +36,16 @@ describe("Treasury", function() {
   it('allows to post collateral', async () => {
     expect(await weth.balanceOf(wethJoin.address)).to.equal(0)
 
-    await weth.deposit({ from: ownerAddress, value: 1 })
-    await weth.approve(treasury.address, 1, { from: ownerAddress })
-    await treasury.pushWeth(ownerAddress, 1, { from: ownerAddress })
+    let wethAmount = ethers.utils.parseEther('2.5')
+
+    await weth.deposit({ from: ownerAddress, value: wethAmount })
+    await weth.approve(treasury.address, wethAmount, { from: ownerAddress })
+    await treasury.pushWeth(ownerAddress, wethAmount, { from: ownerAddress })
 
     // Test transfer of collateral to weth adapter
-    expect(await weth.balanceOf(wethJoin.address)).to.equal(1)
+    expect(await weth.balanceOf(wethJoin.address)).to.equal(wethAmount)
 
     // Test collateral registering via `frob`
-    expect((await vat.urns(MakerLabels.WETH, treasury.address)).ink).to.equal(1)
+    expect((await vat.urns(MakerLabels.WETH, treasury.address)).ink).to.equal(wethAmount)
   })
 });
