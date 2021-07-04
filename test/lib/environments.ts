@@ -78,15 +78,15 @@ export class ExactlyEnv {
   public static async setupPawnbroker(treasury: Contract) {
     const Pawnbroker = await ethers.getContractFactory("Pawnbroker");
 
-    const controller = await Pawnbroker.deploy(treasury.address)
-    await controller.deployed();
+    const pawnbroker = await Pawnbroker.deploy(treasury.address)
+    await pawnbroker.deployed();
 
     const treasuryFunctions = ['pushWeth', 'pullWeth'].map((func) =>
-      id(func + '(address,uint256)')
+      id(func + '(address,uint256)').slice(0,10) // "0x" + bytes4 => 10 chars
     )
-    await treasury.batchOrchestrate(controller.address, treasuryFunctions)
+    await treasury.batchOrchestrate(pawnbroker.address, treasuryFunctions)
 
-    return controller
+    return pawnbroker
   }
 
   public static async setup() {

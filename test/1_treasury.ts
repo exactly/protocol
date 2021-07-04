@@ -27,8 +27,7 @@ describe("Treasury", function() {
 
     // Setup tests - Allow owner to interact directly with Treasury, not for production
     const treasuryFunctions = ['pushWeth', 'pullWeth'].map((func) =>
-      id(func + '(address,uint256)').slice(0,10)
-      // ^ "0x" + bytes4 => 10 chars
+      id(func + '(address,uint256)').slice(0,10) // "0x" + bytes4 => 10 chars
     )
 
     await treasury.batchOrchestrate(ownerAddress, treasuryFunctions)
