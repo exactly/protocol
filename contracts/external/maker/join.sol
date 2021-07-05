@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.6.0;
 
 import "./lib.sol";
 
@@ -76,7 +76,7 @@ contract GemJoin is LibNote {
     uint    public dec;
     uint    public live;  // Access Flag
 
-    constructor(address vat_, bytes32 ilk_, address gem_) {
+    constructor(address vat_, bytes32 ilk_, address gem_) public {
         wards[msg.sender] = 1;
         live = 1;
         vat = VatLike(vat_);
@@ -114,7 +114,7 @@ contract ETHJoin is LibNote {
     bytes32 public ilk;
     uint    public live;  // Access Flag
 
-    constructor(address vat_, bytes32 ilk_) {
+    constructor(address vat_, bytes32 ilk_) public {
         wards[msg.sender] = 1;
         live = 1;
         vat = VatLike(vat_);
@@ -149,7 +149,7 @@ contract DaiJoin is LibNote {
     DSTokenLike public dai;
     uint    public live;  // Access Flag
 
-    constructor(address vat_, address dai_) {
+    constructor(address vat_, address dai_) public {
         wards[msg.sender] = 1;
         live = 1;
         vat = VatLike(vat_);

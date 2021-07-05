@@ -4,6 +4,7 @@ import { Contract, BigNumber } from "ethers"
 import { id } from 'ethers/lib/utils'
 import { MakerEnv, ExactlyEnv } from './lib/environments'
 import { MakerLabels } from './lib/config'
+import { signERC2612Permit } from 'eth-permit';
 
 Error.stackTraceLimit = Infinity;
 
@@ -42,6 +43,30 @@ describe("Treasury", function() {
 
     await weth.deposit({ from: ownerAddress, value: wethAmount })
     await weth.approve(treasury.address, wethAmount, { from: ownerAddress })
+    await treasury.pushWeth(ownerAddress, wethAmount, { from: ownerAddress })
+
+    // Test transfer of collateral to weth adapter
+    expect(await weth.balanceOf(wethJoin.address)).to.equal(wethAmount)
+
+    // Test collateral registering via `frob`
+    expect((await vat.urns(MakerLabels.WETH, treasury.address)).ink).to.equal(wethAmount)
+
+  })
+
+  it('allows to post collateral with permit', async () => {
+    expect(await weth.balanceOf(wethJoin.address)).to.equal(0)
+
+    let wethAmount = ethers.utils.parseEther('2.5')
+
+    await weth.deposit({ from: ownerAddress, value: wethAmount })
+
+    // Sign message using injected provider (ie Metamask).
+    const result = await signERC2612Permit(ethers.provider, weth.address, ownerAddress, treasury.address, wethAmount.toString());
+    await weth.permit(ownerAddress, treasury.address, wethAmount.toString(), result.deadline, result.v, result.r, result.s, {
+      from: ownerAddress,
+    });
+
+    // tell the treasury to move money to weth
     await treasury.pushWeth(ownerAddress, wethAmount, { from: ownerAddress })
 
     // Test transfer of collateral to weth adapter
