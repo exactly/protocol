@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
-import { Contract } from "ethers"
+import { Contract, BigNumber } from "ethers"
 import { id } from 'ethers/lib/utils'
 import { MakerEnv, ExactlyEnv } from './lib/environments'
 import { MakerLabels } from './lib/config'
@@ -14,10 +14,12 @@ describe("Treasury", function() {
   let wethJoin: Contract
 
   let ownerAddress: string
+  let userAddress: string
 
   beforeEach(async () => {
-    const [owner] = await ethers.getSigners()
+    const [owner, user] = await ethers.getSigners()
     ownerAddress = await owner.getAddress()
+    userAddress = await user.getAddress()
 
     const maker = await MakerEnv.setup()
     treasury = await ExactlyEnv.setupTreasury(maker)
@@ -47,5 +49,29 @@ describe("Treasury", function() {
 
     // Test collateral registering via `frob`
     expect((await vat.urns(MakerLabels.WETH, treasury.address)).ink).to.equal(wethAmount)
+  })
+
+  describe('with added collateral', () => {
+    let wethAmount: BigNumber
+    beforeEach(async () => {
+      wethAmount = ethers.utils.parseEther('0.5')
+      await weth.deposit({ from: ownerAddress, value: wethAmount })
+      await weth.approve(treasury.address, wethAmount, { from: ownerAddress })
+      await treasury.pushWeth(ownerAddress, wethAmount, { from: ownerAddress })
+    })
+
+    it('allows to withdraw collateral for user', async () => {
+      expect(await weth.balanceOf(userAddress)).to.equal(0)
+      const ink = (await vat.urns(MakerLabels.WETH, treasury.address)).ink.toString()
+
+      // Testing pull from treasury to user
+      await treasury.pullWeth(userAddress, ink, { from: ownerAddress })
+
+      // Verify balance is in WETH for user to be tat amount
+      expect(await weth.balanceOf(userAddress)).to.equal(ink)
+
+      // Test that collateral is out
+      expect((await vat.urns(MakerLabels.WETH, treasury.address)).ink).to.equal(0)
+    })
   })
 });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity ^0.8.0;
+pragma solidity ^0.6.0;
 
 /// vat.sol -- Dai CDP database
 
@@ -75,7 +75,7 @@ contract Vat {
     }
 
     // --- Init ---
-    constructor() {
+    constructor() public {
         wards[msg.sender] = 1;
         live = 1;
     }
@@ -156,6 +156,7 @@ contract Vat {
 
         Urn memory urn = urns[i][u];
         Ilk memory ilk = ilks[i];
+
         // ilk has been initialised
         require(ilk.rate != 0, "Vat/ilk-not-init");
 
@@ -169,13 +170,16 @@ contract Vat {
 
         // either debt has decreased, or debt ceilings are not exceeded
         require(either(dart <= 0, both(mul_(ilk.Art, ilk.rate) <= ilk.line, debt <= Line)), "Vat/ceiling-exceeded");
+
         // urn is either less risky than before, or it is safe
         require(either(both(dart <= 0, dink >= 0), tab <= mul_(urn.ink, ilk.spot)), "Vat/not-safe");
 
         // urn is either more safe, or the owner consents
         require(either(both(dart <= 0, dink >= 0), wish(u, msg.sender)), "Vat/not-allowed-u");
+
         // collateral src consents
         require(either(dink <= 0, wish(v, msg.sender)), "Vat/not-allowed-v");
+
         // debt dst consents
         require(either(dart >= 0, wish(w, msg.sender)), "Vat/not-allowed-w");
 

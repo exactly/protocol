@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "./interfaces/ITreasury.sol";
 import "./utils/Orchestrated.sol";
+import "hardhat/console.sol";
 
 contract Treasury is ITreasury, Orchestrated() {
     using SafeCast for uint256;
@@ -49,6 +50,7 @@ contract Treasury is ITreasury, Orchestrated() {
         public override
         onlyOrchestrated("Treasury: Not Authorized")
     {
+
         // Remove collateral from vault using frob
         vat.frob(
             WETH,
@@ -58,6 +60,7 @@ contract Treasury is ITreasury, Orchestrated() {
             -amountWeth.toInt256(), // Weth collateral to retrieve
             0                       // No DAI to add
         );
+
         // `GemJoin` reverts on failures
         // sends directly to `to`
         wethJoin.exit(to, amountWeth);
