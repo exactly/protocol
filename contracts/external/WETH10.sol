@@ -284,7 +284,6 @@ contract WETH10 is IWETH10 {
 
         address signer = ecrecover(hash, v, r, s);
         require(signer != address(0) && signer == owner, "WETH: invalid permit");
-
         // _approve(owner, spender, value);
         allowance[owner][spender] = value;
         emit Approval(owner, spender, value);
