@@ -8,21 +8,38 @@ export class MakerEnv {
   vat: Contract
   weth: Contract
   wethJoin: Contract
+  dai: Contract
+  daiJoin: Contract
+  chai: Contract
+  pot: Contract
+
 
   constructor(
     vat: Contract,
     weth: Contract,
-    wethJoin: Contract
+    wethJoin: Contract,
+    dai: Contract,
+    daiJoin: Contract,
+    chai: Contract,
+    pot: Contract
   ) {
     this.vat = vat
     this.weth = weth
     this.wethJoin = wethJoin
+    this.dai = dai
+    this.daiJoin = daiJoin
+    this.chai = chai
+    this.pot = pot
   }
 
   public static async setup() {
     const Vat = await ethers.getContractFactory("Vat");
     const GemJoin = await ethers.getContractFactory("GemJoin");
     const Weth = await ethers.getContractFactory("WETH10");
+    const Dai = await ethers.getContractFactory("Dai");
+    const DaiJoin = await ethers.getContractFactory("DaiJoin");
+    const Chai = await ethers.getContractFactory("Chai");
+    const Pot = await ethers.getContractFactory("Pot");
 
     // Set up vat, join and weth
     const weth = await Weth.deploy()
@@ -35,6 +52,21 @@ export class MakerEnv {
     const wethJoin = await GemJoin.deploy(vat.address, MakerLabels.WETH, weth.address)
     await wethJoin.deployed();
 
+    // Setup DAI
+    const dai = await Dai.deploy(31337)
+    await dai.deployed();
+    const daiJoin = await DaiJoin.deploy(vat.address, dai.address)
+    await daiJoin.deployed();
+
+    // Setup pot
+    const pot = await Pot.deploy(vat.address)
+    await pot.deployed()
+    await pot.setChi(MakerDemoValues.chi1)
+    
+    // Setup chai
+    const chai = await Chai.deploy(vat.address, pot.address, daiJoin.address, dai.address)
+    await chai.deployed()
+
     // Setup vat
     await vat.functions['file(bytes32,bytes32,uint256)'](MakerLabels.WETH, MakerLabels.spotLabel, MakerDemoValues.spot)
     await vat.functions['file(bytes32,bytes32,uint256)'](MakerLabels.WETH, MakerLabels.upperBoundLineLabelForCollateral, MakerDemoValues.limits)
@@ -45,8 +77,11 @@ export class MakerEnv {
     // Permissions
     await vat.rely(vat.address)
     await vat.rely(wethJoin.address)
+    await vat.rely(daiJoin.address)
+    await vat.rely(pot.address)
+    await dai.rely(daiJoin.address)
 
-    return new MakerEnv(vat, weth, wethJoin)
+    return new MakerEnv(vat, weth, wethJoin, dai, daiJoin, chai, pot)
   }
 
 }
@@ -67,7 +102,11 @@ export class ExactlyEnv {
     const treasury = await Treasury.deploy(
       maker.vat.address,
       maker.weth.address,
-      maker.wethJoin.address
+      maker.wethJoin.address,
+      maker.dai.address,
+      maker.daiJoin.address,
+      maker.chai.address,
+      maker.pot.address
     )
 
     await treasury.deployed()

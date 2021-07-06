@@ -2,14 +2,12 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "dss-interfaces/src/dss/VatAbstract.sol";
 import "./interfaces/IPawnbroker.sol";
 import "./interfaces/ITreasury.sol";
 import "./utils/Orchestrated.sol";
 
 contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
-    using SafeMath for uint256;
 
     enum ValueChange { Increased, Decreased }
     event CollateralChanged(address indexed user, ValueChange changeType, uint256 amount);
@@ -31,7 +29,7 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
 
     function addCollateral(address from, address to, uint256 amount) public override {
         uint256 collateral = collaterals[to];
-        collaterals[to] = collateral.add(amount);
+        collaterals[to] = collateral += amount;
         require(hasMoreThanMinimum(to), "Pawnbroker: total collateral below minimum");
         treasury.pushWeth(from, amount);
         emit CollateralChanged(to, ValueChange.Increased, amount);
@@ -39,7 +37,7 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
 
     function withdrawCollateral(address from, address to, uint256 amount) public override {
         uint256 collateral = collaterals[from];
-        collaterals[from] = collateral.sub(amount);
+        collaterals[from] = collateral -= (amount);
 
         require(isCollateralized(from), "Pawnbroker: Too much debt");
         require(hasMoreThanMinimum(from) || hasZeroCollateral(from), "Pawnbroker: total collateral left under minimum");
@@ -75,7 +73,7 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
         (,, uint256 spot,,) = vat.ilks(WETH);
         uint256 collateral = collaterals[user];
         // dai = (collateral (ie: 1ETH) * price (ie: 2200 DAI/ETH)) / 1e27(RAD->RAY)
-        return collateral.mul(spot).div(UNIT);
+        return (collateral * spot) / (UNIT);
     }
 
     function totalDebtDai(address user) public view returns (uint256) {

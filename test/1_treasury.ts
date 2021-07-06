@@ -60,7 +60,7 @@ describe("Treasury", function() {
 
     await weth.deposit({ from: ownerAddress, value: wethAmount })
 
-    // Sign message using injected provider (ie Metamask).
+    // Sign message using injected provider.
     const result = await signERC2612Permit(ethers.provider, weth.address, ownerAddress, treasury.address, wethAmount.toString());
     await weth.permit(ownerAddress, treasury.address, wethAmount.toString(), result.deadline, result.v, result.r, result.s, {
       from: ownerAddress,
