@@ -14,7 +14,7 @@
     "eth-permit": "^0.1.10",
     "ethereum-waffle": "^3.3.0",
     "ethers": "^5.1.4",
-    "hardhat": "^2.4.1",
+    "hardhat": "^2.5.0",
     "hardhat-abi-exporter": "^2.2.1",
     "solidity-coverage": "^0.7.16",
     "ts-node": "^9.1.1",
