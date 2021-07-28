@@ -6,8 +6,9 @@ import "dss-interfaces/src/dss/GemJoinAbstract.sol";
 import "dss-interfaces/src/dss/DaiJoinAbstract.sol";
 import "dss-interfaces/src/dss/VatAbstract.sol";
 import {DecimalMath} from "./DecimalMath.sol";
+import "hardhat/console.sol";
 
-interface MakerAdaptersHolder { 
+interface MakerAdaptersProvider { 
     function makerAdapters() external view returns (Maker.Adapters memory);
 }
 
@@ -24,7 +25,7 @@ library Maker {
     }
 
     function getAdapters() internal view returns (Maker.Adapters memory) {
-        return MakerAdaptersHolder(address(this)).makerAdapters();
+        return MakerAdaptersProvider(address(this)).makerAdapters();
     }
 
     /// @dev Returns the Treasury debt towards MakerDAO, in Dai.
@@ -76,7 +77,7 @@ library Maker {
         getAdapters().wethJoin.exit(to, amountWeth);
     }
 
-    function addDai(uint256 amountDai) internal {
+    function returnDai(uint256 amountDai) internal {
         getAdapters().daiJoin.join(address(this), amountDai);
         // Remove debt from vault using frob
         (, uint256 rate,,,) = getAdapters().vat.ilks(WETH);// Retrieve the MakerDAO stability fee
