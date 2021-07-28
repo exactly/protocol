@@ -29,7 +29,7 @@ describe("Treasury", function() {
     wethJoin = maker.wethJoin
 
     // Setup tests - Allow owner to interact directly with Treasury, not for production
-    const treasuryFunctions = ['pushWeth', 'pullWeth'].map((func) =>
+    const treasuryFunctions = ['pushWeth', 'pullWeth', 'pushDai', 'pullDai'].map((func) =>
       id(func + '(address,uint256)').slice(0,10) // "0x" + bytes4 => 10 chars
     )
 

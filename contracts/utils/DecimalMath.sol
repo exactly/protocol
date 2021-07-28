@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /// @dev Implements simple fixed point math mul and div operations for 27 decimals.
-contract DecimalMath {
+library DecimalMath {
     using SafeMath for uint256;
 
     uint256 constant public UNIT = 1e27;

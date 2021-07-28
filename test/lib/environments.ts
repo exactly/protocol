@@ -10,8 +10,6 @@ export class MakerEnv {
   wethJoin: Contract
   dai: Contract
   daiJoin: Contract
-  chai: Contract
-  pot: Contract
 
 
   constructor(
@@ -19,17 +17,13 @@ export class MakerEnv {
     weth: Contract,
     wethJoin: Contract,
     dai: Contract,
-    daiJoin: Contract,
-    chai: Contract,
-    pot: Contract
+    daiJoin: Contract
   ) {
     this.vat = vat
     this.weth = weth
     this.wethJoin = wethJoin
     this.dai = dai
     this.daiJoin = daiJoin
-    this.chai = chai
-    this.pot = pot
   }
 
   public static async setup() {
@@ -38,8 +32,6 @@ export class MakerEnv {
     const Weth = await ethers.getContractFactory("WETH10");
     const Dai = await ethers.getContractFactory("Dai");
     const DaiJoin = await ethers.getContractFactory("DaiJoin");
-    const Chai = await ethers.getContractFactory("Chai");
-    const Pot = await ethers.getContractFactory("Pot");
 
     // Set up vat, join and weth
     const weth = await Weth.deploy()
@@ -57,16 +49,7 @@ export class MakerEnv {
     await dai.deployed();
     const daiJoin = await DaiJoin.deploy(vat.address, dai.address)
     await daiJoin.deployed();
-
-    // Setup pot
-    const pot = await Pot.deploy(vat.address)
-    await pot.deployed()
-    await pot.setChi(MakerDemoValues.chi1)
     
-    // Setup chai
-    const chai = await Chai.deploy(vat.address, pot.address, daiJoin.address, dai.address)
-    await chai.deployed()
-
     // Setup vat
     await vat.functions['file(bytes32,bytes32,uint256)'](MakerLabels.WETH, MakerLabels.spotLabel, MakerDemoValues.spot)
     await vat.functions['file(bytes32,bytes32,uint256)'](MakerLabels.WETH, MakerLabels.upperBoundLineLabelForCollateral, MakerDemoValues.limits)
@@ -78,10 +61,9 @@ export class MakerEnv {
     await vat.rely(vat.address)
     await vat.rely(wethJoin.address)
     await vat.rely(daiJoin.address)
-    await vat.rely(pot.address)
     await dai.rely(daiJoin.address)
 
-    return new MakerEnv(vat, weth, wethJoin, dai, daiJoin, chai, pot)
+    return new MakerEnv(vat, weth, wethJoin, dai, daiJoin)
   }
 
 }
@@ -104,9 +86,7 @@ export class ExactlyEnv {
       maker.weth.address,
       maker.wethJoin.address,
       maker.dai.address,
-      maker.daiJoin.address,
-      maker.chai.address,
-      maker.pot.address
+      maker.daiJoin.address
     )
 
     await treasury.deployed()
@@ -120,7 +100,7 @@ export class ExactlyEnv {
     const pawnbroker = await Pawnbroker.deploy(treasury.address)
     await pawnbroker.deployed();
 
-    const treasuryFunctions = ['pushWeth', 'pullWeth'].map((func) =>
+    const treasuryFunctions = ['pushWeth', 'pullWeth', 'pushDai', 'pullDai'].map((func) =>
       id(func + '(address,uint256)').slice(0,10) // "0x" + bytes4 => 10 chars
     )
     await treasury.batchOrchestrate(pawnbroker.address, treasuryFunctions)
