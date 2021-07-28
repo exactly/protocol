@@ -7,7 +7,7 @@ import "./utils/Orchestrated.sol";
 import "./utils/Maker.sol";
 import "hardhat/console.sol";
 
-contract Treasury is ITreasury, Orchestrated(), MakerAdaptersHolder {
+contract Treasury is ITreasury, Orchestrated(), MakerAdaptersProvider {
 
     IWeth public override weth;
     DaiAbstract public override dai;
@@ -29,18 +29,15 @@ contract Treasury is ITreasury, Orchestrated(), MakerAdaptersHolder {
         weth = IWeth(weth_);
         dai = DaiAbstract(dai_);
 
-        GemJoinAbstract wethJoin = GemJoinAbstract(wethJoin_); // adapter of the valt for ERC20
-        DaiJoinAbstract daiJoin = DaiJoinAbstract(daiJoin_);
-        VatAbstract vat = VatAbstract(vat_);
-        vat.hope(wethJoin_); // add gemJoin contract to talk for me to Vault engine
-        vat.hope(daiJoin_); // add gemJoin contract to talk for me to Vault engine
+        madapter.wethJoin = GemJoinAbstract(wethJoin_);
+        madapter.daiJoin = DaiJoinAbstract(daiJoin_);
+        madapter.vat = VatAbstract(vat_);
 
-        madapter.wethJoin = wethJoin;
-        madapter.daiJoin = daiJoin;
-        madapter.vat = vat;
+        madapter.vat.hope(wethJoin_);// add gemJoin contract to talk for me to Vault engine
+        madapter.vat.hope(daiJoin_); // add daiJoin contract to talk for me to Vault engine
 
-        weth.approve(address(wethJoin), type(uint256).max); // weth we trust
-        dai.approve(address(daiJoin), type(uint256).max); // dai we trust
+        weth.approve(address(madapter.wethJoin), type(uint256).max); // weth we trust
+        dai.approve(address(madapter.daiJoin), type(uint256).max); // dai we trust
     }
 
     function pushWeth(address from, uint256 amountWeth)
@@ -48,7 +45,6 @@ contract Treasury is ITreasury, Orchestrated(), MakerAdaptersHolder {
         onlyOrchestrated("Treasury: Not Authorized")
     {
         require(weth.transferFrom(from, address(this), amountWeth));
-
         Maker.addWeth(amountWeth);
     }
 
@@ -72,7 +68,7 @@ contract Treasury is ITreasury, Orchestrated(), MakerAdaptersHolder {
 
         uint256 toRepay = Math.min(debt(), amountDai);
         if (toRepay > 0) {
-            Maker.addDai(toRepay);
+            Maker.returnDai(toRepay);
         }
 
         uint256 toSave = amountDai - toRepay;          // toRepay can't be greater than dai
@@ -98,7 +94,7 @@ contract Treasury is ITreasury, Orchestrated(), MakerAdaptersHolder {
         if (toBorrow > 0) {
             Maker.retrieveDai(toBorrow, address(this));
         }
-        dai.transfer(to, amountDai);               // Give dai to user - Dai doesn't have a return value for `transfer`
+        dai.transfer(to, amountDai);              // Give dai to user - Dai doesn't have a return value for `transfer`
     }
 
     /// @dev Returns the Treasury debt towards MakerDAO, in Dai.

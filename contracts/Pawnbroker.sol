@@ -8,7 +8,7 @@ import "./interfaces/ITreasury.sol";
 import "./utils/Orchestrated.sol";
 import "./utils/Maker.sol";
 
-contract Pawnbroker is Ownable, IPawnbroker, Orchestrated(), MakerAdaptersHolder {
+contract Pawnbroker is Ownable, IPawnbroker, Orchestrated(), MakerAdaptersProvider {
 
     enum ValueChange { Increased, Decreased }
     event CollateralChanged(address indexed user, ValueChange changeType, uint256 amount);
@@ -29,7 +29,7 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated(), MakerAdaptersHolder
 
     constructor (address treasury_) {
         treasury = ITreasury(treasury_);
-        madapter = MakerAdaptersHolder(treasury_).makerAdapters();
+        madapter = MakerAdaptersProvider(treasury_).makerAdapters();
     }
 
     function addCollateral(address from, address to, uint256 amount) public override {

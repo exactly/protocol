@@ -6,36 +6,24 @@ import { DSSMath } from './dssmath'
 
 export class MakerEnv {
   vat: Contract
-  weth: Contract
   wethJoin: Contract
-  dai: Contract
   daiJoin: Contract
 
 
   constructor(
     vat: Contract,
-    weth: Contract,
     wethJoin: Contract,
-    dai: Contract,
     daiJoin: Contract
   ) {
     this.vat = vat
-    this.weth = weth
     this.wethJoin = wethJoin
-    this.dai = dai
     this.daiJoin = daiJoin
   }
 
-  public static async setup() {
+  public static async setup(weth: Contract, dai: Contract) {
     const Vat = await ethers.getContractFactory("Vat");
     const GemJoin = await ethers.getContractFactory("GemJoin");
-    const Weth = await ethers.getContractFactory("WETH10");
-    const Dai = await ethers.getContractFactory("Dai");
     const DaiJoin = await ethers.getContractFactory("DaiJoin");
-
-    // Set up vat, join and weth
-    const weth = await Weth.deploy()
-    await weth.deployed();
 
     const vat = await Vat.deploy()
     await vat.deployed();
@@ -44,9 +32,6 @@ export class MakerEnv {
     const wethJoin = await GemJoin.deploy(vat.address, MakerLabels.WETH, weth.address)
     await wethJoin.deployed();
 
-    // Setup DAI
-    const dai = await Dai.deploy(31337)
-    await dai.deployed();
     const daiJoin = await DaiJoin.deploy(vat.address, dai.address)
     await daiJoin.deployed();
     
@@ -63,29 +48,33 @@ export class MakerEnv {
     await vat.rely(daiJoin.address)
     await dai.rely(daiJoin.address)
 
-    return new MakerEnv(vat, weth, wethJoin, dai, daiJoin)
+    return new MakerEnv(vat, wethJoin, daiJoin)
   }
 
 }
 
 export class ExactlyEnv {
   maker: MakerEnv
+  weth: Contract
+  dai: Contract
   treasury: Contract
   pawnbroker: Contract
 
-  constructor(maker: MakerEnv, treasury: Contract, pawnbroker: Contract) {
+  constructor(maker: MakerEnv, treasury: Contract, pawnbroker: Contract, weth: Contract, dai: Contract) {
     this.maker = maker
     this.treasury = treasury
     this.pawnbroker = pawnbroker
+    this.weth = weth
+    this.dai = dai
   }
 
-  public static async setupTreasury(maker: MakerEnv) {
+  public static async setupTreasury(maker: MakerEnv, weth: Contract, dai: Contract) {
     const Treasury = await ethers.getContractFactory("Treasury")
     const treasury = await Treasury.deploy(
       maker.vat.address,
-      maker.weth.address,
+      weth.address,
       maker.wethJoin.address,
-      maker.dai.address,
+      dai.address,
       maker.daiJoin.address
     )
 
@@ -98,27 +87,40 @@ export class ExactlyEnv {
     const Pawnbroker = await ethers.getContractFactory("Pawnbroker");
 
     const pawnbroker = await Pawnbroker.deploy(treasury.address)
-    await pawnbroker.deployed();
-
-    const treasuryFunctions = ['pushWeth', 'pullWeth', 'pushDai', 'pullDai'].map((func) =>
-      id(func + '(address,uint256)').slice(0,10) // "0x" + bytes4 => 10 chars
-    )
-    await treasury.batchOrchestrate(pawnbroker.address, treasuryFunctions)
+    await pawnbroker.deployed()
 
     return pawnbroker
   }
 
   public static async setup() {
-    const maker = await MakerEnv.setup()
-    const treasury = await this.setupTreasury(maker)
+
+    const Weth = await ethers.getContractFactory("WETH10")
+    const Dai = await ethers.getContractFactory("Dai")
+
+    // Set up vat, join and weth
+    const weth = await Weth.deploy()
+    await weth.deployed()
+
+    // Setup DAI
+    const dai = await Dai.deploy(31337)
+    await dai.deployed()
+
+    const maker = await MakerEnv.setup(weth, dai)
+    const treasury = await this.setupTreasury(maker, weth, dai)
     const pawnbroker = await this.setupPawnbroker(treasury)
-    return new ExactlyEnv(maker, treasury, pawnbroker)
+    return new ExactlyEnv(maker, treasury, pawnbroker, weth, dai)
   }
 
-  // Convert eth to weth and post it to fyDai
+  public async enableTreasuryFunctionsFor(address: string) {
+    const treasuryFunctions = ['pushWeth', 'pullWeth', 'pushDai', 'pullDai'].map((func) =>
+      id(func + '(address,uint256)').slice(0,10) // "0x" + bytes4 => 10 chars
+    )
+    await this.treasury.batchOrchestrate(address, treasuryFunctions)
+  }
+
   public async postWeth(user: string, _wethTokens: BigNumber) {
-    await this.maker.weth.deposit({ from: user, value: _wethTokens.toString() })
-    await this.maker.weth.approve(this.treasury.address, _wethTokens, { from: user })
+    await this.weth.deposit({ from: user, value: _wethTokens.toString() })
+    await this.weth.approve(this.treasury.address, _wethTokens, { from: user })
     await this.pawnbroker.post(MakerLabels.WETH, user, user, _wethTokens, { from: user })
   }
 
