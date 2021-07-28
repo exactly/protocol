@@ -8,21 +8,30 @@ export class MakerEnv {
   vat: Contract
   weth: Contract
   wethJoin: Contract
+  dai: Contract
+  daiJoin: Contract
+
 
   constructor(
     vat: Contract,
     weth: Contract,
-    wethJoin: Contract
+    wethJoin: Contract,
+    dai: Contract,
+    daiJoin: Contract
   ) {
     this.vat = vat
     this.weth = weth
     this.wethJoin = wethJoin
+    this.dai = dai
+    this.daiJoin = daiJoin
   }
 
   public static async setup() {
     const Vat = await ethers.getContractFactory("Vat");
     const GemJoin = await ethers.getContractFactory("GemJoin");
     const Weth = await ethers.getContractFactory("WETH10");
+    const Dai = await ethers.getContractFactory("Dai");
+    const DaiJoin = await ethers.getContractFactory("DaiJoin");
 
     // Set up vat, join and weth
     const weth = await Weth.deploy()
@@ -35,6 +44,12 @@ export class MakerEnv {
     const wethJoin = await GemJoin.deploy(vat.address, MakerLabels.WETH, weth.address)
     await wethJoin.deployed();
 
+    // Setup DAI
+    const dai = await Dai.deploy(31337)
+    await dai.deployed();
+    const daiJoin = await DaiJoin.deploy(vat.address, dai.address)
+    await daiJoin.deployed();
+    
     // Setup vat
     await vat.functions['file(bytes32,bytes32,uint256)'](MakerLabels.WETH, MakerLabels.spotLabel, MakerDemoValues.spot)
     await vat.functions['file(bytes32,bytes32,uint256)'](MakerLabels.WETH, MakerLabels.upperBoundLineLabelForCollateral, MakerDemoValues.limits)
@@ -45,8 +60,10 @@ export class MakerEnv {
     // Permissions
     await vat.rely(vat.address)
     await vat.rely(wethJoin.address)
+    await vat.rely(daiJoin.address)
+    await dai.rely(daiJoin.address)
 
-    return new MakerEnv(vat, weth, wethJoin)
+    return new MakerEnv(vat, weth, wethJoin, dai, daiJoin)
   }
 
 }
@@ -67,7 +84,9 @@ export class ExactlyEnv {
     const treasury = await Treasury.deploy(
       maker.vat.address,
       maker.weth.address,
-      maker.wethJoin.address
+      maker.wethJoin.address,
+      maker.dai.address,
+      maker.daiJoin.address
     )
 
     await treasury.deployed()
@@ -81,7 +100,7 @@ export class ExactlyEnv {
     const pawnbroker = await Pawnbroker.deploy(treasury.address)
     await pawnbroker.deployed();
 
-    const treasuryFunctions = ['pushWeth', 'pullWeth'].map((func) =>
+    const treasuryFunctions = ['pushWeth', 'pullWeth', 'pushDai', 'pullDai'].map((func) =>
       id(func + '(address,uint256)').slice(0,10) // "0x" + bytes4 => 10 chars
     )
     await treasury.batchOrchestrate(pawnbroker.address, treasuryFunctions)

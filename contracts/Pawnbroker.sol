@@ -2,36 +2,39 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "dss-interfaces/src/dss/VatAbstract.sol";
 import "./interfaces/IPawnbroker.sol";
 import "./interfaces/ITreasury.sol";
 import "./utils/Orchestrated.sol";
+import "./utils/Maker.sol";
 
-contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
-    using SafeMath for uint256;
+contract Pawnbroker is Ownable, IPawnbroker, Orchestrated(), MakerAdaptersHolder {
 
     enum ValueChange { Increased, Decreased }
     event CollateralChanged(address indexed user, ValueChange changeType, uint256 amount);
 
-    bytes32 public constant WETH = "ETH-A";
     uint256 public constant DUST = 50e15; // 0.05 ETH ~= 100 USD (2021)
-    uint256 public constant UNIT = 1e27; // RAY (27 decimals)
 
     mapping(address => uint256) public collaterals;
     mapping(address => uint256) public debt;
 
     ITreasury public treasury;
-    VatAbstract public vat;
+
+    Maker.Adapters private madapter;
+
+    function makerAdapters() external view override returns (Maker.Adapters memory) {
+        Maker.Adapters memory ma = madapter;
+        return ma;
+    }
 
     constructor (address treasury_) {
         treasury = ITreasury(treasury_);
-        vat = treasury.vat();
+        madapter = MakerAdaptersHolder(treasury_).makerAdapters();
     }
 
     function addCollateral(address from, address to, uint256 amount) public override {
         uint256 collateral = collaterals[to];
-        collaterals[to] = collateral.add(amount);
+        collaterals[to] = collateral += amount;
         require(hasMoreThanMinimum(to), "Pawnbroker: total collateral below minimum");
         treasury.pushWeth(from, amount);
         emit CollateralChanged(to, ValueChange.Increased, amount);
@@ -39,8 +42,7 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
 
     function withdrawCollateral(address from, address to, uint256 amount) public override {
         uint256 collateral = collaterals[from];
-        collaterals[from] = collateral.sub(amount);
-
+        collaterals[from] = collateral -= (amount);
         require(isCollateralized(from), "Pawnbroker: Too much debt");
         require(hasMoreThanMinimum(from) || hasZeroCollateral(from), "Pawnbroker: total collateral left under minimum");
         treasury.pullWeth(to, amount);
@@ -62,20 +64,8 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
     }
 
     function powerOf(address user) public view returns (uint256) {
-        /*
-        https://github.com/makerdao/developerguides/blob/master/vault/monitoring-collateral-types-and-vaults/monitoring-collateral-types-and-vaults.md
-        struct Ilk {
-            uint256 Art;   // Total Normalised Debt     [wad]
-            uint256 rate;  // Accumulated Rates         [ray]
-            uint256 spot;  // Price with Safety Margin  [ray]
-            uint256 line;  // Debt Ceiling              [rad]
-            uint256 dust;  // Urn Debt Floor            [rad]
-        }
-        */
-        (,, uint256 spot,,) = vat.ilks(WETH);
         uint256 collateral = collaterals[user];
-        // dai = (collateral (ie: 1ETH) * price (ie: 2200 DAI/ETH)) / 1e27(RAD->RAY)
-        return collateral.mul(spot).div(UNIT);
+        return Maker.ethPriceInDai(collateral);
     }
 
     function totalDebtDai(address user) public view returns (uint256) {
