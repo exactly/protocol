@@ -17,4 +17,6 @@ interface ITreasury {
 
     function weth() external view returns (IWeth);
     function dai() external view returns (DaiAbstract);
+
+    function getAdapter() external view returns (Maker.Adapters memory);
 }
