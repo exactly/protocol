@@ -8,10 +8,6 @@ import "dss-interfaces/src/dss/VatAbstract.sol";
 import {DecimalMath} from "./DecimalMath.sol";
 import "hardhat/console.sol";
 
-interface MakerAdaptersProvider { 
-    function makerAdapters() external view returns (Maker.Adapters memory);
-}
-
 library Maker {
     bytes32 constant WETH = "ETH-A";
     uint256 public constant UNIT = 1e27; // RAY (27 decimals)
