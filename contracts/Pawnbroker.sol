@@ -60,7 +60,6 @@ contract Pawnbroker is Ownable, IPawnbroker, Orchestrated() {
     }
 
     function totalDebtDai(address user) public view returns (uint256) {
-        // TODO: Implement this. This is only to remove warnings from compiler
         return debt[user];
     }
 }
