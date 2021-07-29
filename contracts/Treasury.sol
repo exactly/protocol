@@ -7,16 +7,17 @@ import "./utils/Orchestrated.sol";
 import "./utils/Maker.sol";
 import "hardhat/console.sol";
 
-contract Treasury is ITreasury, Orchestrated(), MakerAdaptersProvider {
+contract Treasury is ITreasury, Orchestrated() {
 
     IWeth public override weth;
     DaiAbstract public override dai;
 
-    Maker.Adapters private madapter;
+    using Maker for Maker.Adapters;
 
-    function makerAdapters() external view override returns (Maker.Adapters memory) {
-        Maker.Adapters memory ma = madapter;
-        return ma;
+    Maker.Adapters private makerAdapter;
+
+    function getAdapter() external override view returns (Maker.Adapters memory) {
+        return makerAdapter;
     }
 
     constructor (
@@ -29,15 +30,15 @@ contract Treasury is ITreasury, Orchestrated(), MakerAdaptersProvider {
         weth = IWeth(weth_);
         dai = DaiAbstract(dai_);
 
-        madapter.wethJoin = GemJoinAbstract(wethJoin_);
-        madapter.daiJoin = DaiJoinAbstract(daiJoin_);
-        madapter.vat = VatAbstract(vat_);
+        makerAdapter.wethJoin = GemJoinAbstract(wethJoin_);
+        makerAdapter.daiJoin = DaiJoinAbstract(daiJoin_);
+        makerAdapter.vat = VatAbstract(vat_);
 
-        madapter.vat.hope(wethJoin_);// add gemJoin contract to talk for me to Vault engine
-        madapter.vat.hope(daiJoin_); // add daiJoin contract to talk for me to Vault engine
+        makerAdapter.vat.hope(wethJoin_);// add gemJoin contract to talk for me to Vault engine
+        makerAdapter.vat.hope(daiJoin_); // add daiJoin contract to talk for me to Vault engine
 
-        weth.approve(address(madapter.wethJoin), type(uint256).max); // weth we trust
-        dai.approve(address(madapter.daiJoin), type(uint256).max); // dai we trust
+        weth.approve(address(makerAdapter.wethJoin), type(uint256).max); // weth we trust
+        dai.approve(address(makerAdapter.daiJoin), type(uint256).max); // dai we trust
     }
 
     function pushWeth(address from, uint256 amountWeth)
@@ -45,14 +46,14 @@ contract Treasury is ITreasury, Orchestrated(), MakerAdaptersProvider {
         onlyOrchestrated("Treasury: Not Authorized")
     {
         require(weth.transferFrom(from, address(this), amountWeth));
-        Maker.addWeth(amountWeth);
+        makerAdapter.addWeth(amountWeth);
     }
 
     function pullWeth(address to, uint256 amountWeth)
         public override
         onlyOrchestrated("Treasury: Not Authorized")
     {
-        Maker.retrieveWeth(amountWeth, to);
+        makerAdapter.retrieveWeth(amountWeth, to);
     }
 
     /// @dev Takes dai from user and pays as much system debt as possible, saving the rest.
@@ -68,7 +69,7 @@ contract Treasury is ITreasury, Orchestrated(), MakerAdaptersProvider {
 
         uint256 toRepay = Math.min(debt(), amountDai);
         if (toRepay > 0) {
-            Maker.returnDai(toRepay);
+            makerAdapter.returnDai(toRepay);
         }
 
         uint256 toSave = amountDai - toRepay;          // toRepay can't be greater than dai
@@ -85,21 +86,16 @@ contract Treasury is ITreasury, Orchestrated(), MakerAdaptersProvider {
         public override
         onlyOrchestrated("Treasury: Not Authorized")
     {
-        uint256 toRelease = Math.min(savings(), amountDai);
-        if (toRelease > 0) {
-            // TODO: Go get to the savings account (Yearn or something)
-        }
-
-        uint256 toBorrow = amountDai - toRelease; // toRelease can't be greater than dai
-        if (toBorrow > 0) {
-            Maker.retrieveDai(toBorrow, address(this));
-        }
+        // uint256 toBorrow = amountDai - toRelease; // toRelease can't be greater than dai
+        // if (toBorrow > 0) {
+        //     makerAdapter.retrieveDai(toBorrow, address(this));
+        // }
         dai.transfer(to, amountDai);              // Give dai to user - Dai doesn't have a return value for `transfer`
     }
 
     /// @dev Returns the Treasury debt towards MakerDAO, in Dai.
     function debt() public view override returns(uint256) {
-        return Maker.debtFor(address(this));
+        return makerAdapter.debtFor(address(this));
     }
 
     /// @dev Returns the amount of savings in this contract, converted to Dai.
