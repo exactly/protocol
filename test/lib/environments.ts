@@ -9,7 +9,6 @@ export class MakerEnv {
   wethJoin: Contract
   daiJoin: Contract
 
-
   constructor(
     vat: Contract,
     wethJoin: Contract,
@@ -96,6 +95,7 @@ export class ExactlyEnv {
 
     const Weth = await ethers.getContractFactory("WETH10")
     const Dai = await ethers.getContractFactory("Dai")
+    const YDai = await ethers.getContractFactory("YDAI")
 
     // Set up vat, join and weth
     const weth = await Weth.deploy()
@@ -104,6 +104,10 @@ export class ExactlyEnv {
     // Setup DAI
     const dai = await Dai.deploy(31337)
     await dai.deployed()
+
+    // Setup yEarn YDAI
+    const ydai = await YDai.deploy()
+    await ydai.deployed()
 
     const maker = await MakerEnv.setup(weth, dai)
     const treasury = await this.setupTreasury(maker, weth, dai)
