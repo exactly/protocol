@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "dss-interfaces/src/dss/GemJoinAbstract.sol";
 import "dss-interfaces/src/dss/DaiJoinAbstract.sol";
 import "dss-interfaces/src/dss/VatAbstract.sol";
-import {DecimalMath} from "./DecimalMath.sol";
+import {DecimalMath27} from "./DecimalMath.sol";
 import "hardhat/console.sol";
 
 library Maker {
@@ -36,7 +36,7 @@ library Maker {
         */
         (, uint256 rate,,,) = adapter.vat.ilks(WETH);  // Retrieve the MakerDAO stability fee for Weth (ray)
         (, uint256 art) = adapter.vat.urns(WETH, who); // Retrieve the Treasury debt in MakerDAO (wad)
-        return DecimalMath.muld(art, rate);
+        return DecimalMath27.muld(art, rate);
     }
 
     function addWeth(Adapters memory adapter, uint256 amountWeth) internal {
@@ -78,8 +78,8 @@ library Maker {
             address(this),
             address(this),
             address(this),
-            0,                                             // Weth collateral to add
-            -DecimalMath.divd(amountDai, rate).toInt256()  // Dai debt to remove
+            0,                                               // Weth collateral to add
+            -DecimalMath27.divd(amountDai, rate).toInt256()  // Dai debt to remove
         );
     }
 
@@ -100,7 +100,7 @@ library Maker {
                 address(this),
                 address(this),
                 0,
-                DecimalMath.divdrup(amountDai, rate).toInt256() // We need to round up, otherwise we won't exit toBorrow
+                DecimalMath27.divdrup(amountDai, rate).toInt256() // We need to round up, otherwise we won't exit toBorrow
             );
         adapter.daiJoin.exit(destination, amountDai);   // `daiJoin` reverts on failures
     }
