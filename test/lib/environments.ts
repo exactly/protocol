@@ -9,7 +9,6 @@ export class MakerEnv {
   wethJoin: Contract
   daiJoin: Contract
 
-
   constructor(
     vat: Contract,
     wethJoin: Contract,
@@ -68,14 +67,15 @@ export class ExactlyEnv {
     this.dai = dai
   }
 
-  public static async setupTreasury(maker: MakerEnv, weth: Contract, dai: Contract) {
+  public static async setupTreasury(maker: MakerEnv, weth: Contract, dai: Contract, cToken: Contract) {
     const Treasury = await ethers.getContractFactory("Treasury")
     const treasury = await Treasury.deploy(
       maker.vat.address,
       weth.address,
       maker.wethJoin.address,
       dai.address,
-      maker.daiJoin.address
+      maker.daiJoin.address,
+      cToken.address
     )
 
     await treasury.deployed()
@@ -96,6 +96,7 @@ export class ExactlyEnv {
 
     const Weth = await ethers.getContractFactory("WETH10")
     const Dai = await ethers.getContractFactory("Dai")
+    const CToken = await ethers.getContractFactory("CToken")
 
     // Set up vat, join and weth
     const weth = await Weth.deploy()
@@ -105,8 +106,12 @@ export class ExactlyEnv {
     const dai = await Dai.deploy(31337)
     await dai.deployed()
 
+    // Setup cToken
+    const cToken = await CToken.deploy(dai.address)
+    await cToken.deployed()
+
     const maker = await MakerEnv.setup(weth, dai)
-    const treasury = await this.setupTreasury(maker, weth, dai)
+    const treasury = await this.setupTreasury(maker, weth, dai, cToken)
     const pawnbroker = await this.setupPawnbroker(treasury)
     return new ExactlyEnv(maker, treasury, pawnbroker, weth, dai)
   }
