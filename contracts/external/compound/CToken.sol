@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  */
 contract CToken is ICToken, ERC20 {
 
-    constructor (string memory name_, string memory symbol_, address daiAddress) ERC20 (name_, symbol_) {
+    constructor (address daiAddress) ERC20 ("CToken", "CToken") {
         dai = IERC20(daiAddress);
     }
 
