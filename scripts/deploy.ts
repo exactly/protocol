@@ -2,10 +2,10 @@ import { ethers } from "hardhat";
 
 async function main() {
   // We get the contract to deploy
-  const Lender = await ethers.getContractFactory("Lender");
-  const lender = await Lender.deploy();
+  const Exafin = await ethers.getContractFactory("Exafin");
+  const exafin = await Exafin.deploy();
 
-  console.log("Lender deployed to:", lender.address);
+  console.log("Exafin deployed to:", exafin.address);
 }
 
 main()
