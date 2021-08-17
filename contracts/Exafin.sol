@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IExafin.sol";
 import "./utils/TSUtils.sol";
 import "hardhat/console.sol";
@@ -12,6 +13,7 @@ contract Exafin is Ownable, IExafin {
 
     using SafeCast for uint256;
     using TSUtils for uint256;
+    using SafeERC20 for IERC20;
 
     struct Pool {
         uint256 totalLent;
@@ -63,7 +65,7 @@ contract Exafin is Ownable, IExafin {
         uint256 borrowedForDate = borrowerAmounts[dateId][to];
         require(borrowedForDate == 0, "Exafin: Wallet already has a loan for this maturity");
 
-        require(underlying.transferFrom(address(this), to, amount), "Exafin: error transferring");
+        underlying.safeTransferFrom(address(this), to, amount);
 
         uint256 commission = rateBorrow(to, amount, maturityDate);
     }
@@ -82,7 +84,7 @@ contract Exafin is Ownable, IExafin {
         uint256 borrowedForDate = lenderAmounts[dateId][from];
         require(borrowedForDate == 0, "Exafin: Wallet already has a supply for this maturity");
 
-        require(underlying.transferFrom(from, address(this), amount), "Exafin: error transferring");
+        underlying.safeTransferFrom(from, address(this), amount);
     }
 
     /**
