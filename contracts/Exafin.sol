@@ -16,12 +16,12 @@ contract Exafin is Ownable, IExafin {
     using SafeERC20 for IERC20;
 
     struct Pool {
-        uint256 totalLent;
-        uint256 totalOwed;
+        uint256 borrowed;
+        uint256 lent;
     }
 
-    mapping(uint256 => mapping(address => uint256)) borrowerAmounts;
-    mapping(uint256 => mapping(address => uint256)) lenderAmounts; 
+    mapping(uint256 => mapping(address => uint256)) borrowedAmounts;
+    mapping(uint256 => mapping(address => uint256)) lentAmounts; 
     mapping(uint256 => Pool) public pools;
     mapping(address => uint256[]) public addressPools;
 
@@ -31,25 +31,30 @@ contract Exafin is Ownable, IExafin {
         underlying = IERC20(stableAddress);
     }
 
-    function rateLend(address from, uint256 amount, uint256 maturityDate) public view returns (uint256) {
+    function rateLend(uint256 amount, uint256 maturityDate) public view returns (uint256, Pool memory) {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
-
-        uint256 daysDifference = (maturityDate - block.timestamp).trimmedDay() / 1 days;
-        return daysDifference * 5e18 / 100; // 0.05 per day
-    }
-
-    function rateBorrow(address to, uint256 amount, uint256 maturityDate) public view returns (uint256) {
-        uint dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
-
-        uint256 daysDifference = (maturityDate - block.timestamp).trimmedDay() / 1 days;
 
         Pool memory pool = pools[dateId];
-        pool.totalLent += amount;
+        pool.lent += amount;
 
-        uint256 utilizationRatio = pool.totalLent / pool.totalOwed;
-        return utilizationRatio * 15/10 + daysDifference * 5/100; // 0.05 per day
+        uint256 daysDifference = (maturityDate - block.timestamp).trimmedDay() / 1 days;
+        uint256 utilizationRatio = pool.borrowed / pool.lent;
+
+        return (utilizationRatio * 15/10 + daysDifference * 5/100, pool);
+    }
+
+    function rateBorrow(uint256 amount, uint256 maturityDate) public view returns (uint256, Pool memory) {
+        uint dateId = nextPoolIndex(maturityDate);
+        require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
+
+        Pool memory pool = pools[dateId];
+        pool.borrowed += amount;
+
+        uint256 daysDifference = (maturityDate - block.timestamp).trimmedDay() / 1 days;
+        uint256 utilizationRatio = pool.borrowed / pool.lent;
+
+        return (utilizationRatio * 15/10 + daysDifference * 5/100, pool);
     }
 
     /**
@@ -62,12 +67,15 @@ contract Exafin is Ownable, IExafin {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
 
-        uint256 borrowedForDate = borrowerAmounts[dateId][to];
+        uint256 borrowedForDate = borrowedAmounts[dateId][to];
         require(borrowedForDate == 0, "Exafin: Wallet already has a loan for this maturity");
 
         underlying.safeTransferFrom(address(this), to, amount);
 
-        uint256 commission = rateBorrow(to, amount, maturityDate);
+        (uint256 commission, Pool memory newPoolState) = rateBorrow(amount, maturityDate);
+
+        borrowedAmounts[dateId][to] = amount + commission;
+        pools[dateId] = newPoolState;
     }
 
     /**
@@ -81,10 +89,14 @@ contract Exafin is Ownable, IExafin {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
 
-        uint256 borrowedForDate = lenderAmounts[dateId][from];
+        uint256 borrowedForDate = lentAmounts[dateId][from];
         require(borrowedForDate == 0, "Exafin: Wallet already has a supply for this maturity");
 
         underlying.safeTransferFrom(from, address(this), amount);
+
+        (uint256 commission, Pool memory newPoolState) = rateLend(amount, maturityDate);
+        lentAmounts[dateId][from] = amount + commission;
+        pools[dateId] = newPoolState;
     }
 
     /**
