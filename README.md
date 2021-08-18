@@ -1,7 +1,7 @@
 # Exactly.finance Protocol v1 - Smart Contracts
 
 ![CI Status](https://github.com/exactly-finance/protocol/actions/workflows/main.yml/badge.svg)
-[![codecov](https://codecov.io/gh/exactly-finance/protocol/branch/main/graph/badge.svg?token=1XT95Z8UZJ)](https://codecov.io/gh/exactly-finance/protocol)
+[![codecov](https://codecov.io/gh/exactly-finance/protocol/branch/main/graph/badge.svg?token=qYngTpvXBT)](https://codecov.io/gh/exactly-finance/protocol)
 
 ## Install Locally
 
