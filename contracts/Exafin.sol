@@ -94,7 +94,7 @@ contract Exafin is Ownable, IExafin {
         lentAmounts[dateId][to] = amount + commission;
         pools[dateId] = newPoolState;
 
-        emit Lent(to, amount, maturityDate);
+        emit Lent(to, amount, dateId);
     }
 
     /**
@@ -118,7 +118,7 @@ contract Exafin is Ownable, IExafin {
         lentAmounts[dateId][from] = amount + commission;
         pools[dateId] = newPoolState;
 
-        emit Borrowed(from, amount, maturityDate);
+        emit Borrowed(from, amount, dateId);
     }
 
     /**
