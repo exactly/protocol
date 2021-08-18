@@ -23,12 +23,6 @@ let config: HardhatUserConfig = {
         version: "0.8.0"
       },
       {
-        version: "0.6.0"
-      },
-      {
-        version: "0.6.2"
-      },
-      {
         version: "0.6.10"
       }
     ]
