@@ -15,6 +15,9 @@ contract Exafin is Ownable, IExafin {
     using TSUtils for uint256;
     using SafeERC20 for IERC20;
 
+    event Borrowed(address indexed to, uint amount, uint maturityDate);
+    event Lent(address indexed from, uint amount, uint maturityDate);
+    
     struct Pool {
         uint256 borrowed;
         uint256 lent;
@@ -32,7 +35,13 @@ contract Exafin is Ownable, IExafin {
         underlying.safeApprove(address(this), type(uint256).max);
     }
 
-    function rateLend(uint256 amount, uint256 maturityDate) public view returns (uint256, Pool memory) {
+    /**
+        @dev Rate that the protocol will pay when borrowing from an address a certain amount
+             at the end of the maturity date
+        @param amount amount to calculate how it would affect the pool 
+        @param maturityDate maturity date to calculate the pool
+     */
+    function rateBorrow(uint256 amount, uint256 maturityDate) public view returns (uint256, Pool memory) {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
 
@@ -45,7 +54,13 @@ contract Exafin is Ownable, IExafin {
         return (utilizationRatio * 15/10 + daysDifference * 5/100, pool);
     }
 
-    function rateBorrow(uint256 amount, uint256 maturityDate) public view returns (uint256, Pool memory) {
+    /**
+        @dev Rate that the protocol will collect when lending to an address a certain amount
+             at the end of the maturity date
+        @param amount amount to calculate how it would affect the pool 
+        @param maturityDate maturity date to calculate the pool
+     */
+    function rateLend(uint256 amount, uint256 maturityDate) public view returns (uint256, Pool memory) {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
 
@@ -59,45 +74,51 @@ contract Exafin is Ownable, IExafin {
     }
 
     /**
-        @dev Borrows for a certain maturity date/pool
-        @param to wallet to send the borrowed amount
+        @dev Lends to a wallet for a certain maturity date/pool
+        @param to wallet to send the amount
         @param amount amount to send to the specified wallet
-        @param maturityDate maturity date 
+        @param maturityDate maturity date for repayment
      */
-    function borrow(address to, uint256 amount, uint256 maturityDate) public {
+    function lend(address to, uint256 amount, uint256 maturityDate) public {
+       
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
 
-        uint256 borrowedForDate = borrowedAmounts[dateId][to];
-        require(borrowedForDate == 0, "Exafin: Wallet already has a loan for this maturity");
+        uint256 lentForDate = lentAmounts[dateId][to];
+        require(lentForDate == 0, "Exafin: Wallet already has a loan for this maturity");
 
         underlying.safeTransferFrom(address(this), to, amount);
 
-        (uint256 commission, Pool memory newPoolState) = rateBorrow(amount, maturityDate);
+        (uint256 commission, Pool memory newPoolState) = rateLend(amount, maturityDate);
 
-        borrowedAmounts[dateId][to] = amount + commission;
+        lentAmounts[dateId][to] = amount + commission;
         pools[dateId] = newPoolState;
+
+        emit Lent(to, amount, maturityDate);
     }
 
     /**
-        @dev Lends for a certain maturity date/pool
+        @dev Borrows from a wallet for a certain maturity date/pool
         @param from wallet to receive amount from
         @param amount amount to receive from the specified wallet
         @param maturityDate maturity date 
      */
-    function lend(address from, uint256 amount, uint256 maturityDate) public {
-
+    function borrow(address from, uint256 amount, uint256 maturityDate) public {
+        
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool for that date has reached maturity");
 
-        uint256 borrowedForDate = lentAmounts[dateId][from];
+        uint256 borrowedForDate = borrowedAmounts[dateId][from];
         require(borrowedForDate == 0, "Exafin: Wallet already has a supply for this maturity");
 
         underlying.safeTransferFrom(from, address(this), amount);
 
-        (uint256 commission, Pool memory newPoolState) = rateLend(amount, maturityDate);
+        (uint256 commission, Pool memory newPoolState) = rateBorrow(amount, maturityDate);
+
         lentAmounts[dateId][from] = amount + commission;
         pools[dateId] = newPoolState;
+
+        emit Borrowed(from, amount, maturityDate);
     }
 
     /**
