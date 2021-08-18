@@ -17,8 +17,9 @@ describe("Exafin", function() {
         ownerAddress = await owner.getAddress()
         userAddress = await user.getAddress()
 
+        const totalSupply = ethers.utils.parseUnits("100000000000", 18);
         const SomeToken = await ethers.getContractFactory("SomeToken")
-        underlyingToken = await SomeToken.deploy("Fake Stable", "FSTA", "100000000000000000000000000000000")
+        underlyingToken = await SomeToken.deploy("Fake Stable", "FSTA", totalSupply.toString())
         await underlyingToken.deployed()
 
         const Exafin = await ethers.getContractFactory("Exafin");
