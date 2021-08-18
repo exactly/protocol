@@ -26,24 +26,28 @@ describe("Exafin", function() {
         await exafin.deployed();
     })
 
-    it('it allows to lend to a pool', async () => {
+    it('it allows to give money to a pool', async () => {
         const now = Math.floor(Date.now() / 1000)
         const underlyingAmount = 100
         await underlyingToken.approve(exafin.address, underlyingAmount)
-        await exafin.lend(ownerAddress, underlyingAmount, now)
-        expect (await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
+        expect(await exafin.borrow(ownerAddress, underlyingAmount, now))
+            .to.emit(exafin, 'Borrowed')
+            .withArgs(ownerAddress, underlyingAmount, now - (now % (86400 * 30)) + 86400 * 30)
+        expect(await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
     })
 
-    it('it allows to borrow from a pool', async () => {
+    it('it allows to get money from a pool', async () => {
         const now = Math.floor(Date.now() / 1000)
         const underlyingAmount = 100
-        // Send from owner to protocol
+        // borrow from owneraddress wallet 
         await underlyingToken.approve(exafin.address, underlyingAmount)
-        await exafin.lend(ownerAddress, underlyingAmount, now)
+        await exafin.borrow(ownerAddress, underlyingAmount, now)
 
-        // Borrow from userAddress wallet
-        await exafin.borrow(userAddress, underlyingAmount, now)
-        expect (await underlyingToken.balanceOf(userAddress)).to.equal(underlyingAmount)
+        // Lend to userAddress wallet
+        expect(await exafin.lend(userAddress, underlyingAmount, now))
+            .to.emit(exafin, 'Lent')
+            .withArgs(userAddress, underlyingAmount, now - (now % (86400 * 30)) + 86400 * 30)
+        expect(await underlyingToken.balanceOf(userAddress)).to.equal(underlyingAmount)
     })
 
 });
