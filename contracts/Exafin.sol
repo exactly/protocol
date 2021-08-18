@@ -29,6 +29,7 @@ contract Exafin is Ownable, IExafin {
 
     constructor (address stableAddress) onlyOwner {
         underlying = IERC20(stableAddress);
+        underlying.safeApprove(address(this), type(uint256).max);
     }
 
     function rateLend(uint256 amount, uint256 maturityDate) public view returns (uint256, Pool memory) {
@@ -38,7 +39,7 @@ contract Exafin is Ownable, IExafin {
         Pool memory pool = pools[dateId];
         pool.lent += amount;
 
-        uint256 daysDifference = (maturityDate - block.timestamp).trimmedDay() / 1 days;
+        uint256 daysDifference = (dateId - block.timestamp).trimmedDay() / 1 days;
         uint256 utilizationRatio = pool.borrowed / pool.lent;
 
         return (utilizationRatio * 15/10 + daysDifference * 5/100, pool);
@@ -51,7 +52,7 @@ contract Exafin is Ownable, IExafin {
         Pool memory pool = pools[dateId];
         pool.borrowed += amount;
 
-        uint256 daysDifference = (maturityDate - block.timestamp).trimmedDay() / 1 days;
+        uint256 daysDifference = (dateId - block.timestamp).trimmedDay() / 1 days;
         uint256 utilizationRatio = pool.borrowed / pool.lent;
 
         return (utilizationRatio * 15/10 + daysDifference * 5/100, pool);
