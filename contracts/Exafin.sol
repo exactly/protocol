@@ -23,11 +23,19 @@ contract Exafin is Ownable, IExafin {
     mapping(uint256 => Pool) public pools;
     mapping(address => uint256[]) public addressPools;
 
+    uint private baseRate;
+    uint private marginRate;
+    uint private slopeRate;
+    uint private constant RATE_UNIT = 1e18;
+
     IERC20 private trustedUnderlying;
 
     constructor (address stableAddress) {
         trustedUnderlying = IERC20(stableAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
+        baseRate = 2e16;   // 0.02
+        marginRate = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
+        slopeRate = 7e16;  // 0.07
     }
 
     /**
@@ -41,12 +49,13 @@ contract Exafin is Ownable, IExafin {
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         Pool memory pool = pools[dateId];
-        pool.lent += amount;
+        pool.borrowed += amount;
 
         uint256 daysDifference = (dateId - block.timestamp).trimmedDay() / 1 days;
-        uint256 utilizationRatio = pool.borrowed / pool.lent;
+        uint256 utilizationRatio = (pool.lent * RATE_UNIT / pool.borrowed);
+        uint256 yearlyRate = baseRate + (slopeRate * utilizationRatio) / RATE_UNIT;
 
-        return (utilizationRatio * 15/10 + daysDifference * 5/100, pool);
+        return ((yearlyRate * daysDifference) / 365, pool);
     }
 
     /**
@@ -60,12 +69,13 @@ contract Exafin is Ownable, IExafin {
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         Pool memory pool = pools[dateId];
-        pool.borrowed += amount;
+        pool.lent += amount;
 
         uint256 daysDifference = (dateId - block.timestamp).trimmedDay() / 1 days;
-        uint256 utilizationRatio = pool.borrowed / pool.lent;
+        uint256 utilizationRatio = (pool.lent * RATE_UNIT / pool.borrowed);
+        uint256 yearlyRate = baseRate + marginRate + (slopeRate * utilizationRatio) / RATE_UNIT;
 
-        return (utilizationRatio * 15/10 + daysDifference * 5/100, pool);
+        return ((yearlyRate * daysDifference) / 365, pool);
     }
 
     /**
@@ -110,6 +120,7 @@ contract Exafin is Ownable, IExafin {
 
         (uint256 commission, Pool memory newPoolState) = rateBorrow(amount, maturityDate);
 
+        // Commission for now it's 18 decimals. TODO: make it dependent on underlying's decimals
         lentAmounts[dateId][from] = amount + commission;
         pools[dateId] = newPoolState;
 

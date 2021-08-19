@@ -39,16 +39,18 @@ describe("Exafin", function() {
 
     it('it allows to get money from a pool', async () => {
         const now = Math.floor(Date.now() / 1000)
-        const underlyingAmount = 100
+        const borrowAmount = 100
+        const lendAmount = 50
+
         // borrow from owneraddress wallet 
-        await underlyingToken.approve(exafin.address, underlyingAmount)
-        await exafin.borrow(ownerAddress, underlyingAmount, now)
+        await underlyingToken.approve(exafin.address, borrowAmount)
+        await exafin.borrow(ownerAddress, borrowAmount, now)
 
         // Lend to userAddress wallet
-        expect(await exafin.lend(userAddress, underlyingAmount, now))
+        expect(await exafin.lend(userAddress, lendAmount, now))
             .to.emit(exafin, 'Lent')
-            .withArgs(userAddress, underlyingAmount, now - (now % (86400 * 30)) + 86400 * 30)
-        expect(await underlyingToken.balanceOf(userAddress)).to.equal(underlyingAmount)
+            .withArgs(userAddress, lendAmount, now - (now % (86400 * 30)) + 86400 * 30)
+        expect(await underlyingToken.balanceOf(userAddress)).to.equal(lendAmount)
     })
 
 });
