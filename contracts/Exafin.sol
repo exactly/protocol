@@ -24,7 +24,7 @@ contract Exafin is Ownable, IExafin {
     mapping(address => uint256[]) public addressPools;
 
     uint private baseRate;
-    uint private marginRate;
+    uint private marginRateLoco;
     uint private slopeRate;
     uint private constant RATE_UNIT = 1e18;
 
@@ -34,7 +34,7 @@ contract Exafin is Ownable, IExafin {
         trustedUnderlying = IERC20(stableAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
         baseRate = 2e16;   // 0.02
-        marginRate = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
+        marginRateLoco = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
         slopeRate = 7e16;  // 0.07
     }
 
