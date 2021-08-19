@@ -85,9 +85,9 @@ contract Exafin is Ownable, IExafin {
         @param maturityDate maturity date for repayment
      */
     function lend(address to, uint256 amount, uint256 maturityDate) override public {
+        require(block.timestamp < maturityDate, "Exafin: Pool Matured");
        
         uint dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         uint256 lentForDate = lentAmounts[dateId][to];
         require(lentForDate == 0, "Exafin: Wallet Already Used");
@@ -109,9 +109,9 @@ contract Exafin is Ownable, IExafin {
         @param maturityDate maturity date 
      */
     function borrow(address from, uint256 amount, uint256 maturityDate) override public {
-        
+        require(block.timestamp < maturityDate, "Exafin: Pool Matured");
+
         uint dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         uint256 borrowedForDate = borrowedAmounts[dateId][from];
         require(borrowedForDate == 0, "Exafin: Wallet Already Used");
