@@ -1,11 +1,22 @@
-import { ethers } from "hardhat";
+import { ethers } from "hardhat"
+import fs from 'fs'
+import YAML from 'yaml'
+const hre = require("hardhat");
 
 async function main() {
-  // We get the contract to deploy
-  const Exafin = await ethers.getContractFactory("Exafin");
-  const exafin = await Exafin.deploy();
 
-  console.log("Exafin deployed to:", exafin.address);
+  const file = fs.readFileSync('./scripts/config.yml', 'utf8')
+  const config = YAML.parse(file)
+  const Exafin = await ethers.getContractFactory("Exafin")
+
+  let tokensForNetwork = config.token_addresses[hre.hardhatArguments.network]
+  for (const [tokenName, tokenAddress] of Object.entries(tokensForNetwork)) { 
+    // We get the contract to deploy
+    const exafin = await Exafin.deploy(String(tokenAddress))
+    await exafin.deployed()
+    console.log("Exafin %s deployed to: ", tokenName, exafin.address)
+  }
+  
 }
 
 main()
