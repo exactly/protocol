@@ -1,20 +1,21 @@
 import { task } from "hardhat/config"
 import { HardhatUserConfig } from "hardhat/types"
 import "@nomiclabs/hardhat-waffle"
-import "@nomiclabs/hardhat-ethers"
+//import "@nomiclabs/hardhat-ethers"
 import "@openzeppelin/hardhat-upgrades"
 import "solidity-coverage"
 import "hardhat-abi-exporter"
-import "hardhat-deploy";
+import "hardhat-deploy"
+import "hardhat-deploy-ethers"
+import "hardhat-gas-reporter"
 
 import * as fs from 'fs'
-
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners()
 
   for (const account of accounts) {
-    console.log(await account.address)
+    console.log(account.address)
   }
 });
 
@@ -42,5 +43,11 @@ try {
       }
     }
 } catch (err) {}
+
+config['gasReporter'] = {
+    currency: 'USD',
+    gasPrice: 100,
+    enabled: process.env.REPORT_GAS ? true : false
+}
 
 export default config
