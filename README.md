@@ -14,3 +14,10 @@ npm install
 ```bash
 npx hardhat test
 ```
+
+## Run Coverate
+
+```bash
+npx hardhat coverage
+```
+
