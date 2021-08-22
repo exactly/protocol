@@ -29,3 +29,10 @@ npx hardhat test
 npx hardhat coverage
 ```
 
+## Deploy
+
+```bash
+echo "YOUR_PRIVATE_KEY" > .secret
+npx hardhat deploy --network rinkeby
+```
+
