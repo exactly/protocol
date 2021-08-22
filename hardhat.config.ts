@@ -1,7 +1,6 @@
 import { task } from "hardhat/config"
 import { HardhatUserConfig } from "hardhat/types"
 import "@nomiclabs/hardhat-waffle"
-//import "@nomiclabs/hardhat-ethers"
 import "@openzeppelin/hardhat-upgrades"
 import "solidity-coverage"
 import "hardhat-abi-exporter"
