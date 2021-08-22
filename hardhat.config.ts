@@ -25,7 +25,7 @@ try {
     PRIVATE_KEY = fs.readFileSync('.secret', 'utf8')
     console.log("Deploy Capability Available")
 } catch (err) {
-    PRIVATE_KEY = ""
+    PRIVATE_KEY = "1d5936cde3529f635db8e6d0761a0be0a3830e3188bb350b802e95e7ff2a31bb" // Dummy private key
 }
 
 let config: HardhatUserConfig = {
