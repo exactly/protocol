@@ -10,8 +10,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const [deployer] = await hre.getUnnamedAccounts()
 
-  console.log(hre.network.name)
-
   let tokensForNetwork = config.token_addresses[hre.network.name]
   for (const [tokenName, tokenAddress] of Object.entries(tokensForNetwork)) { 
 
@@ -22,8 +20,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     })  
     console.log("Exafin %s deployed to: %s", tokenName, exafin.address)
   }
-
-
 }
 
 func.skip = (hre: HardhatRuntimeEnvironment) => Promise.resolve(hre.network.name === 'mainnet')
