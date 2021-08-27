@@ -23,7 +23,7 @@ describe("Exafin", function() {
         await underlyingToken.deployed()
 
         const Exafin = await ethers.getContractFactory("Exafin");
-        exafin = await Exafin.deploy(underlyingToken.address)
+        exafin = await Exafin.deploy(underlyingToken.address, "FSTA")
         await exafin.deployed();
     })
 

@@ -29,10 +29,12 @@ contract Exafin is Ownable, IExafin {
     uint private constant RATE_UNIT = 1e18;
 
     IERC20 private trustedUnderlying;
+    string override public tokenName;
 
-    constructor (address stableAddress) {
-        trustedUnderlying = IERC20(stableAddress);
+    constructor (address _stableAddress, string memory _tokenName) {
+        trustedUnderlying = IERC20(_stableAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
+        tokenName = _tokenName;
         baseRate = 2e16;   // 0.02
         marginRate = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
         slopeRate = 7e16;  // 0.07
@@ -125,6 +127,13 @@ contract Exafin is Ownable, IExafin {
         pools[dateId] = newPoolState;
 
         emit Borrowed(from, amount, dateId);
+    }
+
+    function getAccountSnapshot(address who, uint256 maturityDate) override public view returns (uint, uint, uint) {
+        uint dateId = nextPoolIndex(maturityDate);
+        require(block.timestamp < dateId, "Exafin: Pool Matured");
+
+        return (0, borrowedAmounts[dateId][who], lentAmounts[dateId][who]);
     }
 
     /**
