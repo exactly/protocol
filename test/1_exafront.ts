@@ -59,14 +59,25 @@ describe("Exafront", function() {
 
     it('it allows to give money to a pool', async () => {
         const exafinDai = exafinContracts.get('DAI')!
-        const underlyingToken = underlyingContracts.get('DAI')!
+        const dai = underlyingContracts.get('DAI')!
         const now = Math.floor(Date.now() / 1000)
-        const underlyingAmount = parseUnits("100", 18)
-        await underlyingToken.approve(exafinDai.address, underlyingAmount)
-        await exafinDai.borrow(ownerAddress, underlyingAmount, now)
-        expect(await underlyingToken.balanceOf(exafinDai.address)).to.equal(underlyingAmount)
+
+        const amountDai = parseUnits("100", 18)
+        await dai.approve(exafinDai.address, amountDai)
+        await exafinDai.borrow(ownerAddress, amountDai, now)
+        expect(await dai.balanceOf(exafinDai.address)).to.equal(amountDai)
 
         await exaFront.enterMarkets([exafinDai.address])
+
+        const exafinETH = exafinContracts.get('ETH')!
+        const eth = underlyingContracts.get('ETH')!
+
+        const ethAmount = parseUnits("1", 18)
+        await eth.approve(exafinETH.address, ethAmount)
+        await exafinETH.borrow(ownerAddress, ethAmount, now)
+        expect(await eth.balanceOf(exafinETH.address)).to.equal(ethAmount)
+
+        await exaFront.enterMarkets([exafinETH.address])
 
         let liquidity = await exaFront.getAccountLiquidity(ownerAddress)
         console.log(liquidity[1].toString())

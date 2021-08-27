@@ -123,7 +123,7 @@ contract Exafin is Ownable, IExafin {
         (uint256 commission, Pool memory newPoolState) = rateBorrow(amount, maturityDate);
 
         // Commission for now it's 18 decimals. TODO: make it dependent on underlying's decimals
-        lentAmounts[dateId][from] = amount + commission;
+        borrowedAmounts[dateId][from] = amount + commission;
         pools[dateId] = newPoolState;
 
         emit Borrowed(from, amount, dateId);

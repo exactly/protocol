@@ -117,19 +117,18 @@ contract ExaFront is Ownable {
                 return (Error.PRICE_ERROR, 0, 0);
             }
 
+            console.log("valor previo");
+            console.log(vars.sumCollateral);
+
             // We sum all the collateral prices
-            vars.sumCollateral = vars.balance.mul_(vars.collateralFactor).mul_(vars.oraclePrice, 6) + vars.sumCollateral;
+            vars.sumCollateral = vars.balance.mul_(vars.collateralFactor).mul_(vars.oraclePrice, 1e6) + vars.sumCollateral;
 
             // We sum all the debt
-            vars.sumDebt = vars.borrowBalance.mul_(vars.oraclePrice, 6) + vars.sumDebt;
+            vars.sumDebt = vars.borrowBalance.mul_(vars.oraclePrice, 1e6) + vars.sumDebt;
 
             console.log("-----------");
             console.log("Some Values");
-            console.log(vars.balance);
-            console.log(vars.collateralFactor);
-            console.log("-----------");
-            console.log(vars.balance.mul_(vars.collateralFactor));
-            console.log(vars.oraclePrice);
+            console.log(vars.balance.mul_(vars.collateralFactor).mul_(vars.oraclePrice, 1e6));
             console.log("-----------");
             console.log(vars.sumCollateral);
             console.log(vars.sumDebt);
