@@ -82,14 +82,15 @@ contract ExaFront is Ownable {
         return Error.NO_ERROR;
     }
 
-    function getAccountLiquidity(address account) public view returns (uint, uint, uint) {
-        (Error err, uint liquidity, uint shortfall) = getHypotheticalAccountLiquidityInternal(account, address(0), 0, 0);
+    function getAccountLiquidity(address account, uint256 maturityDate) public view returns (uint, uint, uint) {
+        (Error err, uint liquidity, uint shortfall) = getHypotheticalAccountLiquidityInternal(account, maturityDate, address(0), 0, 0);
 
         return (uint(err), liquidity, shortfall);
     }
 
     function getHypotheticalAccountLiquidityInternal(
         address account,
+        uint256 maturityDate,
         address exafinModify,
         uint redeemTokens,
         uint borrowAmount) internal view returns (Error, uint, uint) {
@@ -103,7 +104,7 @@ contract ExaFront is Ownable {
             IExafin asset = assets[i];
 
             // Read the balances // TODO calculate using NFT
-            (oErr, vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, block.timestamp);
+            (oErr, vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, maturityDate);
 
             if (oErr != 0) { // semi-opaque error code, we assume NO_ERROR == 0 is invariant between upgrades
                 return (Error.SNAPSHOT_ERROR, 0, 0);

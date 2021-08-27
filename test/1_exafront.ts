@@ -79,7 +79,7 @@ describe("Exafront", function() {
 
         await exaFront.enterMarkets([exafinETH.address])
 
-        let liquidity = await exaFront.getAccountLiquidity(ownerAddress)
+        let liquidity = await exaFront.getAccountLiquidity(ownerAddress, now)
         console.log(liquidity[1].toString())
     })
 });
