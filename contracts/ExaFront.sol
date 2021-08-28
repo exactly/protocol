@@ -50,6 +50,11 @@ contract ExaFront is Ownable {
         oracle = Oracle(_priceOracleAddress);
     }
 
+    /**
+        @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
+             By performing this action, the wallet's money could be used as collateral
+        @param exafins contracts addresses to enable for `msg.sender`
+     */
     function enterMarkets(address[] calldata exafins) external returns (uint256[] memory) {
         uint len = exafins.length;
 
@@ -63,6 +68,12 @@ contract ExaFront is Ownable {
         return results;
     }
 
+    /**
+        @dev (internal)
+            Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
+            By performing this action, the wallet's money could be used as collateral
+        @param exafins contracts addresses to enable for `msg.sender`
+     */
     function addToMarketInternal(IExafin exafin, address borrower) internal returns (Error) {
         Market storage marketToJoin = markets[address(exafin)];
 
@@ -82,12 +93,22 @@ contract ExaFront is Ownable {
         return Error.NO_ERROR;
     }
 
+    /**
+        @dev Function to get account's liquidity for a certain maturity pool
+        @param account wallet to retrieve liquidity for a certain maturity date
+        @param maturityDate timestamp to calculate maturity's pool
+     */
     function getAccountLiquidity(address account, uint256 maturityDate) public view returns (uint, uint, uint) {
         (Error err, uint liquidity, uint shortfall) = getHypotheticalAccountLiquidityInternal(account, maturityDate, address(0), 0, 0);
 
         return (uint(err), liquidity, shortfall);
     }
 
+    /**
+        @dev Function to get account's liquidity for a certain maturity pool (allows estimations TODO)
+        @param account wallet to retrieve liquidity for a certain maturity date
+        @param maturityDate timestamp to calculate maturity's pool
+     */
     function getHypotheticalAccountLiquidityInternal(
         address account,
         uint256 maturityDate,
@@ -118,22 +139,11 @@ contract ExaFront is Ownable {
                 return (Error.PRICE_ERROR, 0, 0);
             }
 
-            console.log("valor previo");
-            console.log(vars.sumCollateral);
-
             // We sum all the collateral prices
             vars.sumCollateral = vars.balance.mul_(vars.collateralFactor).mul_(vars.oraclePrice, 1e6) + vars.sumCollateral;
 
             // We sum all the debt
             vars.sumDebt = vars.borrowBalance.mul_(vars.oraclePrice, 1e6) + vars.sumDebt;
-
-            console.log("-----------");
-            console.log("Some Values");
-            console.log(vars.balance.mul_(vars.collateralFactor).mul_(vars.oraclePrice, 1e6));
-            console.log("-----------");
-            console.log(vars.sumCollateral);
-            console.log(vars.sumDebt);
-            console.log("-----------");
 
             // Calculate effects of borrowing from/lending to a pool
             // TODO
@@ -147,6 +157,11 @@ contract ExaFront is Ownable {
         }
     }
 
+    /**
+        @dev Function to get account's liquidity for a certain maturity pool (allows estimations TODO)
+        @param exafin address to add to the protocol
+        @param collateralFactor exafin's collateral factor for the underlying asset
+     */
     function enableMarket(address exafin, uint collateralFactor) public onlyOwner {
         Market storage market = markets[exafin];
         market.isListed = true;

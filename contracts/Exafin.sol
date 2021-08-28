@@ -129,6 +129,11 @@ contract Exafin is Ownable, IExafin {
         emit Borrowed(from, amount, dateId);
     }
 
+    /**
+        @dev Gets current snapshot for a wallet in a certain maturity
+        @param who wallet to return status snapshot in the specified maturity date
+        @param maturityDate maturity date
+     */
     function getAccountSnapshot(address who, uint256 maturityDate) override public view returns (uint, uint, uint) {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
