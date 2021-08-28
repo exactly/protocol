@@ -9,8 +9,8 @@ struct Pool {
 interface IExafin {
     function rateBorrow(uint256 amount, uint256 maturityDate) external view returns (uint256, Pool memory);
     function rateLend(uint256 amount, uint256 maturityDate) external view returns (uint256, Pool memory);
-    function lend(address to, uint256 amount, uint256 maturityDate) external;
-    function borrow(address from, uint256 amount, uint256 maturityDate) external;
+    function lendTo(address to, uint256 amount, uint256 maturityDate) external;
+    function borrowFrom(address from, uint256 amount, uint256 maturityDate) external;
     function tokenName() external view returns (string calldata);
     function getAccountSnapshot(address who, uint timestamp) external view returns (uint, uint, uint);
 }

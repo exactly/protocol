@@ -31,7 +31,7 @@ describe("Exafin", function() {
         const now = Math.floor(Date.now() / 1000)
         const underlyingAmount = 100
         await underlyingToken.approve(exafin.address, underlyingAmount)
-        expect(await exafin.borrow(ownerAddress, underlyingAmount, now))
+        expect(await exafin.borrowFrom(ownerAddress, underlyingAmount, now))
             .to.emit(exafin, 'Borrowed')
             .withArgs(ownerAddress, underlyingAmount, now - (now % (86400 * 30)) + 86400 * 30)
         expect(await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
@@ -44,10 +44,10 @@ describe("Exafin", function() {
 
         // borrow from owneraddress wallet 
         await underlyingToken.approve(exafin.address, borrowAmount)
-        await exafin.borrow(ownerAddress, borrowAmount, now)
+        await exafin.borrowFrom(ownerAddress, borrowAmount, now)
 
         // Lend to userAddress wallet
-        expect(await exafin.lend(userAddress, lendAmount, now))
+        expect(await exafin.lendTo(userAddress, lendAmount, now))
             .to.emit(exafin, 'Lent')
             .withArgs(userAddress, lendAmount, now - (now % (86400 * 30)) + 86400 * 30)
         expect(await underlyingToken.balanceOf(userAddress)).to.equal(lendAmount)

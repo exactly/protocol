@@ -86,7 +86,7 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to send to the specified wallet
         @param maturityDate maturity date for repayment
      */
-    function lend(address to, uint256 amount, uint256 maturityDate) override public {
+    function lendTo(address to, uint256 amount, uint256 maturityDate) override public {
        
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
@@ -110,7 +110,7 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to receive from the specified wallet
         @param maturityDate maturity date 
      */
-    function borrow(address from, uint256 amount, uint256 maturityDate) override public {
+    function borrowFrom(address from, uint256 amount, uint256 maturityDate) override public {
         
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");

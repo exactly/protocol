@@ -64,7 +64,7 @@ describe("Exafront", function() {
 
         const amountDai = parseUnits("100", 18)
         await dai.approve(exafinDai.address, amountDai)
-        await exafinDai.borrow(ownerAddress, amountDai, now)
+        await exafinDai.borrowFrom(ownerAddress, amountDai, now)
         expect(await dai.balanceOf(exafinDai.address)).to.equal(amountDai)
 
         await exaFront.enterMarkets([exafinDai.address])
@@ -74,7 +74,7 @@ describe("Exafront", function() {
 
         const ethAmount = parseUnits("1", 18)
         await eth.approve(exafinETH.address, ethAmount)
-        await exafinETH.borrow(ownerAddress, ethAmount, now)
+        await exafinETH.borrowFrom(ownerAddress, ethAmount, now)
         expect(await eth.balanceOf(exafinETH.address)).to.equal(ethAmount)
 
         await exaFront.enterMarkets([exafinETH.address])
