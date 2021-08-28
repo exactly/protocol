@@ -29,10 +29,12 @@ contract Exafin is Ownable, IExafin {
     uint private constant RATE_UNIT = 1e18;
 
     IERC20 private trustedUnderlying;
+    string override public tokenName;
 
-    constructor (address stableAddress) {
-        trustedUnderlying = IERC20(stableAddress);
+    constructor (address _stableAddress, string memory _tokenName) {
+        trustedUnderlying = IERC20(_stableAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
+        tokenName = _tokenName;
         baseRate = 2e16;   // 0.02
         marginRate = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
         slopeRate = 7e16;  // 0.07
@@ -84,7 +86,7 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to send to the specified wallet
         @param maturityDate maturity date for repayment
      */
-    function lend(address to, uint256 amount, uint256 maturityDate) override public {
+    function lendTo(address to, uint256 amount, uint256 maturityDate) override public {
        
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
@@ -108,7 +110,7 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to receive from the specified wallet
         @param maturityDate maturity date 
      */
-    function borrow(address from, uint256 amount, uint256 maturityDate) override public {
+    function borrowFrom(address from, uint256 amount, uint256 maturityDate) override public {
         
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
@@ -121,10 +123,22 @@ contract Exafin is Ownable, IExafin {
         (uint256 commission, Pool memory newPoolState) = rateBorrow(amount, maturityDate);
 
         // Commission for now it's 18 decimals. TODO: make it dependent on underlying's decimals
-        lentAmounts[dateId][from] = amount + commission;
+        borrowedAmounts[dateId][from] = amount + commission;
         pools[dateId] = newPoolState;
 
         emit Borrowed(from, amount, dateId);
+    }
+
+    /**
+        @dev Gets current snapshot for a wallet in a certain maturity
+        @param who wallet to return status snapshot in the specified maturity date
+        @param maturityDate maturity date
+     */
+    function getAccountSnapshot(address who, uint256 maturityDate) override public view returns (uint, uint, uint) {
+        uint dateId = nextPoolIndex(maturityDate);
+        require(block.timestamp < dateId, "Exafin: Pool Matured");
+
+        return (0, borrowedAmounts[dateId][who], lentAmounts[dateId][who]);
     }
 
     /**
