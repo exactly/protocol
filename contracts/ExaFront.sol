@@ -72,7 +72,8 @@ contract ExaFront is Ownable {
         @dev (internal)
             Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
             By performing this action, the wallet's money could be used as collateral
-        @param exafins contracts addresses to enable for `msg.sender`
+        @param exafin contracts addresses to enable
+        @param borrower wallet that wants to enter a market
      */
     function addToMarketInternal(IExafin exafin, address borrower) internal returns (Error) {
         Market storage marketToJoin = markets[address(exafin)];
