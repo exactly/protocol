@@ -94,12 +94,12 @@ contract Exafin is Ownable, IExafin {
         uint256 lentForDate = lentAmounts[dateId][to];
         require(lentForDate == 0, "Exafin: Wallet Already Used");
 
-        trustedUnderlying.safeTransferFrom(address(this), to, amount);
-
         (uint256 commission, Pool memory newPoolState) = rateLend(amount, maturityDate);
 
         lentAmounts[dateId][to] = amount + commission;
         pools[dateId] = newPoolState;
+
+        trustedUnderlying.safeTransferFrom(address(this), to, amount);
 
         emit Lent(to, amount, dateId);
     }
@@ -118,13 +118,13 @@ contract Exafin is Ownable, IExafin {
         uint256 borrowedForDate = borrowedAmounts[dateId][from];
         require(borrowedForDate == 0, "Exafin: Wallet Already Used");
 
-        trustedUnderlying.safeTransferFrom(from, address(this), amount);
-
         (uint256 commission, Pool memory newPoolState) = rateBorrow(amount, maturityDate);
 
         // Commission for now it's 18 decimals. TODO: make it dependent on underlying's decimals
         borrowedAmounts[dateId][from] = amount + commission;
         pools[dateId] = newPoolState;
+
+        trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
         emit Borrowed(from, amount, dateId);
     }
