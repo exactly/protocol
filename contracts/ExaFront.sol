@@ -159,7 +159,7 @@ contract ExaFront is Ownable {
     }
 
     /**
-        @dev Function to get account's liquidity for a certain maturity pool (allows estimations TODO)
+        @dev Function to enable a certain Exafin market to be used as collateral
         @param exafin address to add to the protocol
         @param collateralFactor exafin's collateral factor for the underlying asset
      */
