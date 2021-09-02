@@ -33,8 +33,6 @@ describe("Exafin", function() {
         const underlyingAmount = 100
         await underlyingToken.approve(exafin.address, underlyingAmount)
 
-        ethers.getDefaultProvider().pollingInterval = 2000
-
         let tx = await exafin.borrowFrom(ownerAddress, underlyingAmount, now)
         let event = await parseBorrowEvent(tx)
 
