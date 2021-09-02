@@ -8,7 +8,7 @@ export interface BorrowEventInterface {
 }
 
 export interface LendEventInterface {
-    to: string;
+    from: string;
     amount: BigNumber;
     commission: BigNumber;
     maturityDate: BigNumber;
@@ -35,11 +35,11 @@ export function parseBorrowEvent(tx: ContractTransaction) {
 export function parseLendEvent(tx: ContractTransaction) {
     return new Promise<LendEventInterface>(async (resolve, reject) => {
         let receipt: ContractReceipt = await tx.wait();
-        let args = receipt.events?.filter((x) => { return x.event == "Lend" })[0]["args"]
+        let args = receipt.events?.filter((x) => { return x.event == "Lent" })[0]["args"]
 
         if (args != undefined) {
             resolve({
-                to: args.to.toString(),
+                from: args.from.toString(),
                 amount: BigNumber.from(args.amount),
                 commission: BigNumber.from(args.commission),
                 maturityDate: BigNumber.from(args.maturityDate)

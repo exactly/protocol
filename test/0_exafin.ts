@@ -57,7 +57,7 @@ describe("Exafin", function() {
         let tx = await exafin.lendTo(userAddress, lendAmount, now)
         let event = await parseLendEvent(tx) 
 
-        expect(event.to).to.equal(userAddress)
+        expect(event.from).to.equal(userAddress)
         expect(event.amount).to.equal(lendAmount)
         expect(event.maturityDate).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
         expect(await underlyingToken.balanceOf(userAddress)).to.equal(lendAmount)
