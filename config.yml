@@ -1,4 +1,6 @@
 token_addresses:
   rinkeby:
-    DAI: "0x95b58a6bff3d14b7db2f5cb5f0ad413dc2940658"
-    WETH: "0xc778417e063141139fce010982780140aa0cd5ab"
+    price_oracle: "0x6d2299c48a8dd07a872fdd0f8233924872ad1071"
+    assets:
+      DAI: "0x95b58a6bff3d14b7db2f5cb5f0ad413dc2940658"
+      WETH: "0xc778417e063141139fce010982780140aa0cd5ab"
