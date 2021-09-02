@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
 import { Contract, BigNumber } from "ethers"
-import { parseBorrowEvent, parseLendEvent } from "./exactlyUtils"
+import { parseBorrowEvent, parseSupplyEvent } from "./exactlyUtils"
 
 Error.stackTraceLimit = Infinity;
 
@@ -33,10 +33,10 @@ describe("Exafin", function() {
         const underlyingAmount = 100
         await underlyingToken.approve(exafin.address, underlyingAmount)
 
-        let tx = await exafin.borrowFrom(ownerAddress, underlyingAmount, now)
-        let event = await parseBorrowEvent(tx)
+        let tx = await exafin.supply(ownerAddress, underlyingAmount, now)
+        let event = await parseSupplyEvent(tx)
 
-        expect(event.to).to.equal(ownerAddress)
+        expect(event.from).to.equal(ownerAddress)
         expect(event.amount).to.equal(underlyingAmount)
         expect(event.maturityDate).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
 
@@ -50,12 +50,12 @@ describe("Exafin", function() {
 
         // borrow from owneraddress wallet 
         await underlyingToken.approve(exafin.address, borrowAmount)
-        await exafin.borrowFrom(ownerAddress, borrowAmount, now)
+        await exafin.supply(ownerAddress, borrowAmount, now)
 
-        let tx = await exafin.lendTo(userAddress, lendAmount, now)
-        let event = await parseLendEvent(tx) 
+        let tx = await exafin.borrow(userAddress, lendAmount, now)
+        let event = await parseBorrowEvent(tx) 
 
-        expect(event.from).to.equal(userAddress)
+        expect(event.to).to.equal(userAddress)
         expect(event.amount).to.equal(lendAmount)
         expect(event.maturityDate).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
         expect(await underlyingToken.balanceOf(userAddress)).to.equal(lendAmount)

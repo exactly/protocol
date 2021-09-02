@@ -16,10 +16,10 @@ contract Exafin is Ownable, IExafin {
     using SafeERC20 for IERC20;
 
     event Borrowed(address indexed to, uint amount, uint commission, uint maturityDate);
-    event Lent(address indexed from, uint amount, uint commission, uint maturityDate);
-    
+    event Supplied(address indexed from, uint amount, uint commission, uint maturityDate);
+
+    mapping(uint256 => mapping(address => uint256)) public suppliedAmmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
-    mapping(uint256 => mapping(address => uint256)) public lentAmounts;
     mapping(uint256 => Pool) public pools;
     mapping(address => uint256[]) public addressPools;
 
@@ -46,7 +46,7 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to calculate how it would affect the pool 
         @param maturityDate maturity date to calculate the pool
      */
-    function rateBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256, Pool memory) {
+    function rateForSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256, Pool memory) {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
@@ -66,7 +66,7 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to calculate how it would affect the pool 
         @param maturityDate maturity date to calculate the pool
      */
-    function rateLend(uint256 amount, uint256 maturityDate) override public view returns (uint256, Pool memory) {
+    function rateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256, Pool memory) {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
@@ -86,22 +86,22 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to send to the specified wallet
         @param maturityDate maturity date for repayment
      */
-    function lendTo(address to, uint256 amount, uint256 maturityDate) override public onlyOwner {
+    function borrow(address to, uint256 amount, uint256 maturityDate) override public onlyOwner {
        
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        uint256 lentForDate = lentAmounts[dateId][to];
+        uint256 lentForDate = borrowedAmounts[dateId][to];
         require(lentForDate == 0, "Exafin: Wallet Already Used");
 
-        (uint256 commission, Pool memory newPoolState) = rateLend(amount, maturityDate);
+        (uint256 commission, Pool memory newPoolState) = rateToBorrow(amount, maturityDate);
 
-        lentAmounts[dateId][to] = amount + commission;
+        borrowedAmounts[dateId][to] = amount + commission;
         pools[dateId] = newPoolState;
 
         trustedUnderlying.safeTransferFrom(address(this), to, amount);
 
-        emit Lent(to, amount, commission, dateId);
+        emit Borrowed(to, amount, commission, dateId);
     }
 
     /**
@@ -110,23 +110,23 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to receive from the specified wallet
         @param maturityDate maturity date 
      */
-    function borrowFrom(address from, uint256 amount, uint256 maturityDate) override public {
+    function supply(address from, uint256 amount, uint256 maturityDate) override public {
         
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        uint256 borrowedForDate = borrowedAmounts[dateId][from];
+        uint256 borrowedForDate = suppliedAmmounts[dateId][from];
         require(borrowedForDate == 0, "Exafin: Wallet Already Used");
 
-        (uint256 commission, Pool memory newPoolState) = rateBorrow(amount, maturityDate);
+        (uint256 commission, Pool memory newPoolState) = rateForSupply(amount, maturityDate);
 
         // Commission for now it's 18 decimals. TODO: make it dependent on underlying's decimals
-        borrowedAmounts[dateId][from] = amount + commission;
+        suppliedAmmounts[dateId][from] = amount + commission;
         pools[dateId] = newPoolState;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
-        emit Borrowed(from, amount, commission, dateId);
+        emit Supplied(from, amount, commission, dateId);
     }
 
     /**
@@ -138,7 +138,7 @@ contract Exafin is Ownable, IExafin {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        return (0, borrowedAmounts[dateId][who], lentAmounts[dateId][who]);
+        return (0, suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 
     /**
