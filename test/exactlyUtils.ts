@@ -1,54 +1,51 @@
-import { Contract, BigNumber, ethers } from "ethers"
-import { poll } from "ethers/lib/utils";
+import { Contract, BigNumber, ContractTransaction, ContractReceipt } from "ethers"
 
 export interface BorrowEventInterface {
-    borrowAddress: string;
-    borrowAmount: BigNumber;
-    borrowCommission: BigNumber;
-    borrowMaturity: BigNumber;
+    to: string;
+    amount: BigNumber;
+    commission: BigNumber;
+    maturityDate: BigNumber;
 }
 
 export interface LendEventInterface {
-    lendAddress: string;
-    lendAmount: BigNumber;
-    lendCommission: BigNumber;
-    lendMaturity: BigNumber;
+    to: string;
+    amount: BigNumber;
+    commission: BigNumber;
+    maturityDate: BigNumber;
 }
 
-export function newBorrowEventListener(exafin: Contract) { 
-    return new Promise<BorrowEventInterface>((resolve, reject) => {
-        exafin.on('Borrowed', (borrowAddress: string, borrowedAmount: BigNumber, borrowedCommission: BigNumber, borrowMaturity: BigNumber, event) => {
-            event.removeListener();
-    
+export function parseBorrowEvent(tx: ContractTransaction) {
+    return new Promise<BorrowEventInterface>(async (resolve, reject) => {
+        let receipt: ContractReceipt = await tx.wait();
+        let args = receipt.events?.filter((x) => { return x.event == "Borrowed" })[0]["args"]
+
+        if (args != undefined) {
             resolve({
-                borrowAddress: borrowAddress,
-                borrowAmount: borrowedAmount,
-                borrowCommission: borrowedCommission,
-                borrowMaturity: borrowMaturity
-            });
-        });
-    
-        setTimeout(() => {
-            reject(new Error('timeout'));
-        }, 60000)
-    });
+                to: args.to.toString(),
+                amount: BigNumber.from(args.amount),
+                commission: BigNumber.from(args.commission),
+                maturityDate: BigNumber.from(args.maturityDate)
+            })
+        } else {
+            reject(new Error('Event not found'))
+        }
+    })
 }
 
-export function newLendEventListener(exafin: Contract) {
-    return new Promise<LendEventInterface>((resolve, reject) => {
-        exafin.on('Lent', (lendAddress: string, lendAmount: BigNumber, lendCommission: BigNumber, lendMaturity: BigNumber, event) => {
-            event.removeListener();
+export function parseLendEvent(tx: ContractTransaction) {
+    return new Promise<LendEventInterface>(async (resolve, reject) => {
+        let receipt: ContractReceipt = await tx.wait();
+        let args = receipt.events?.filter((x) => { return x.event == "Lend" })[0]["args"]
 
+        if (args != undefined) {
             resolve({
-                lendAddress: lendAddress,
-                lendAmount: lendAmount,
-                lendCommission: lendCommission,
-                lendMaturity: lendMaturity
-            });
-        });
-
-        setTimeout(() => {
-            reject(new Error('timeout'));
-        }, 60000)
-    });
+                to: args.to.toString(),
+                amount: BigNumber.from(args.amount),
+                commission: BigNumber.from(args.commission),
+                maturityDate: BigNumber.from(args.maturityDate)
+            })
+        } else {
+            reject(new Error('Event not found'))
+        }
+    })
 }

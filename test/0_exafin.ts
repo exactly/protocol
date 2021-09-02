@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
 import { Contract, BigNumber } from "ethers"
-import { BorrowEventInterface, LendEventInterface, newBorrowEventListener, newLendEventListener } from "./exactlyUtils"
+import { parseBorrowEvent, parseLendEvent } from "./exactlyUtils"
 
 Error.stackTraceLimit = Infinity;
 
@@ -35,12 +35,12 @@ describe("Exafin", function() {
 
         ethers.getDefaultProvider().pollingInterval = 2000
 
-        await exafin.borrowFrom(ownerAddress, underlyingAmount, now)
-        let event = await newBorrowEventListener(exafin)
+        let tx = await exafin.borrowFrom(ownerAddress, underlyingAmount, now)
+        let event = await parseBorrowEvent(tx)
 
-        expect(event.borrowAddress).to.equal(ownerAddress)
-        expect(event.borrowAmount).to.equal(underlyingAmount)
-        expect(event.borrowMaturity).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
+        expect(event.to).to.equal(ownerAddress)
+        expect(event.amount).to.equal(underlyingAmount)
+        expect(event.maturityDate).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
 
         expect(await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
     })
@@ -54,12 +54,12 @@ describe("Exafin", function() {
         await underlyingToken.approve(exafin.address, borrowAmount)
         await exafin.borrowFrom(ownerAddress, borrowAmount, now)
 
-        await exafin.lendTo(userAddress, lendAmount, now)
-        let event = await newLendEventListener(exafin) 
+        let tx = await exafin.lendTo(userAddress, lendAmount, now)
+        let event = await parseLendEvent(tx) 
 
-        expect(event.lendAddress).to.equal(userAddress)
-        expect(event.lendAmount).to.equal(lendAmount)
-        expect(event.lendMaturity).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
+        expect(event.to).to.equal(userAddress)
+        expect(event.amount).to.equal(lendAmount)
+        expect(event.maturityDate).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
         expect(await underlyingToken.balanceOf(userAddress)).to.equal(lendAmount)
     })
 
