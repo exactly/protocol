@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
 import { Contract, BigNumber } from "ethers"
+import { BorrowEventInterface, LendEventInterface, newBorrowEventListener, newLendEventListener } from "./exactlyUtils"
 
 Error.stackTraceLimit = Infinity;
 
@@ -31,9 +32,16 @@ describe("Exafin", function() {
         const now = Math.floor(Date.now() / 1000)
         const underlyingAmount = 100
         await underlyingToken.approve(exafin.address, underlyingAmount)
-        expect(await exafin.borrowFrom(ownerAddress, underlyingAmount, now))
-            .to.emit(exafin, 'Borrowed')
-            .withArgs(ownerAddress, underlyingAmount, now - (now % (86400 * 30)) + 86400 * 30)
+
+        ethers.getDefaultProvider().pollingInterval = 2000
+
+        await exafin.borrowFrom(ownerAddress, underlyingAmount, now)
+        let event = await newBorrowEventListener(exafin)
+
+        expect(event.borrowAddress).to.equal(ownerAddress)
+        expect(event.borrowAmount).to.equal(underlyingAmount)
+        expect(event.borrowMaturity).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
+
         expect(await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
     })
 
@@ -46,10 +54,12 @@ describe("Exafin", function() {
         await underlyingToken.approve(exafin.address, borrowAmount)
         await exafin.borrowFrom(ownerAddress, borrowAmount, now)
 
-        // Lend to userAddress wallet
-        expect(await exafin.lendTo(userAddress, lendAmount, now))
-            .to.emit(exafin, 'Lent')
-            .withArgs(userAddress, lendAmount, now - (now % (86400 * 30)) + 86400 * 30)
+        await exafin.lendTo(userAddress, lendAmount, now)
+        let event = await newLendEventListener(exafin) 
+
+        expect(event.lendAddress).to.equal(userAddress)
+        expect(event.lendAmount).to.equal(lendAmount)
+        expect(event.lendMaturity).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
         expect(await underlyingToken.balanceOf(userAddress)).to.equal(lendAmount)
     })
 
