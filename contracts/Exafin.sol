@@ -15,8 +15,8 @@ contract Exafin is Ownable, IExafin {
     using TSUtils for uint256;
     using SafeERC20 for IERC20;
 
-    event Borrowed(address indexed to, uint amount, uint maturityDate);
-    event Lent(address indexed from, uint amount, uint maturityDate);
+    event Borrowed(address indexed to, uint amount, uint commission, uint maturityDate);
+    event Lent(address indexed from, uint amount, uint commission, uint maturityDate);
     
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
     mapping(uint256 => mapping(address => uint256)) public lentAmounts;
@@ -101,7 +101,7 @@ contract Exafin is Ownable, IExafin {
 
         trustedUnderlying.safeTransferFrom(address(this), to, amount);
 
-        emit Lent(to, amount, dateId);
+        emit Lent(to, amount, commission, dateId);
     }
 
     /**
@@ -126,7 +126,7 @@ contract Exafin is Ownable, IExafin {
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
-        emit Borrowed(from, amount, dateId);
+        emit Borrowed(from, amount, commission, dateId);
     }
 
     /**
