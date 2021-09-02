@@ -93,8 +93,17 @@ describe("Exafront", function() {
         await exaFront.enterMarkets([exafinETH.address])
 
         let liquidity = (await exaFront.getAccountLiquidity(ownerAddress, now))[1]
-        let collaterDAI = amountDAI.add(borrowDAIEvent.commission).mul(tokensCollateralRate.get("DAI")!).div(parseUnits("1", 18)).mul(tokensUSDPrice.get("DAI")!).div(parseUnits("1", 6))
-        let collaterETH = amountETH.add(borrowETHEvent.commission).mul(tokensCollateralRate.get("ETH")!).div(parseUnits("1", 18)).mul(tokensUSDPrice.get("ETH")!).div(parseUnits("1", 6))
+        let collaterDAI = amountDAI.add(borrowDAIEvent.commission)
+                                    .mul(tokensCollateralRate.get("DAI")!)
+                                    .div(parseUnits("1", 18))
+                                    .mul(tokensUSDPrice.get("DAI")!)
+                                    .div(parseUnits("1", 6))
+
+        let collaterETH = amountETH.add(borrowETHEvent.commission)
+                                    .mul(tokensCollateralRate.get("ETH")!)
+                                    .div(parseUnits("1", 18))
+                                    .mul(tokensUSDPrice.get("ETH")!)
+                                    .div(parseUnits("1", 6))
 
         expect(liquidity).to.be.equal((collaterDAI.add(collaterETH)))
     })
