@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat"
 import { parseUnits } from "@ethersproject/units";
 import { Contract, BigNumber } from "ethers"
-import { newBorrowEventListener } from "./exactlyUtils";
+import { parseBorrowEvent, parseLendEvent } from "./exactlyUtils";
 
 describe("Exafront", function() {
 
@@ -70,9 +70,8 @@ describe("Exafront", function() {
         // we borrow Dai to the protocol
         const amountDAI = parseUnits("100", 18)
         await dai.approve(exafinDai.address, amountDAI)
-        await exafinDai.borrowFrom(ownerAddress, amountDAI, now)
-
-        let borrowDAIEvent = await newBorrowEventListener(exafinDai)
+        let txDAI = await exafinDai.borrowFrom(ownerAddress, amountDAI, now)
+        let borrowDAIEvent = await parseBorrowEvent(txDAI)
 
         expect(await dai.balanceOf(exafinDai.address)).to.equal(amountDAI)
 
@@ -85,20 +84,17 @@ describe("Exafront", function() {
         // we borrow Eth to the protocol
         const amountETH = parseUnits("1", 18)
         await eth.approve(exafinETH.address, amountETH)
-        await exafinETH.borrowFrom(ownerAddress, amountETH, now)
-
-        let borrowETHEvent = await newBorrowEventListener(exafinETH)
+        let txETH = await exafinETH.borrowFrom(ownerAddress, amountETH, now)
+        let borrowETHEvent = await parseBorrowEvent(txETH)
 
         expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH)
-
-        const something = await eth.balanceOf(exafinETH.address)
 
         // we make it count as collateral (ETH)
         await exaFront.enterMarkets([exafinETH.address])
 
         let liquidity = (await exaFront.getAccountLiquidity(ownerAddress, now))[1]
-        let collaterDAI = amountDAI.add(borrowDAIEvent.borrowCommission).mul(tokensCollateralRate.get("DAI")!).div(parseUnits("1", 18)).mul(tokensUSDPrice.get("DAI")!).div(parseUnits("1", 6))
-        let collaterETH = amountETH.add(borrowETHEvent.borrowCommission).mul(tokensCollateralRate.get("ETH")!).div(parseUnits("1", 18)).mul(tokensUSDPrice.get("ETH")!).div(parseUnits("1", 6))
+        let collaterDAI = amountDAI.add(borrowDAIEvent.commission).mul(tokensCollateralRate.get("DAI")!).div(parseUnits("1", 18)).mul(tokensUSDPrice.get("DAI")!).div(parseUnits("1", 6))
+        let collaterETH = amountETH.add(borrowETHEvent.commission).mul(tokensCollateralRate.get("ETH")!).div(parseUnits("1", 18)).mul(tokensUSDPrice.get("ETH")!).div(parseUnits("1", 6))
 
         expect(liquidity).to.be.equal((collaterDAI.add(collaterETH)))
     })
