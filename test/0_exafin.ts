@@ -1,7 +1,9 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
-import { Contract, BigNumber } from "ethers"
-import { parseBorrowEvent, parseSupplyEvent } from "./exactlyUtils"
+import { parseUnits } from "@ethersproject/units";
+import { Contract } from "ethers"
+import { parseSupplyEvent } from "./exactlyUtils"
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 Error.stackTraceLimit = Infinity;
 
@@ -10,18 +12,18 @@ describe("Exafin", function() {
     let exafin: Contract
     let underlyingToken: Contract
 
-    let ownerAddress: string
-    let userAddress: string
+    let user: SignerWithAddress
+    let owner: SignerWithAddress
   
     beforeEach(async () => {
-        const [owner, user] = await ethers.getSigners()
-        ownerAddress = await owner.getAddress()
-        userAddress = await user.getAddress()
+        [owner, user] = await ethers.getSigners()
 
-        const totalSupply = ethers.utils.parseUnits("100000000000", 18);
+        const totalSupply = parseUnits("100000000000", 18);
         const SomeToken = await ethers.getContractFactory("SomeToken")
         underlyingToken = await SomeToken.deploy("Fake Stable", "FSTA", totalSupply.toString())
         await underlyingToken.deployed()
+
+        underlyingToken.transfer(user.address, parseUnits("100"))
 
         const Exafin = await ethers.getContractFactory("Exafin");
         exafin = await Exafin.deploy(underlyingToken.address, "FSTA")
@@ -33,32 +35,27 @@ describe("Exafin", function() {
         const underlyingAmount = 100
         await underlyingToken.approve(exafin.address, underlyingAmount)
 
-        let tx = await exafin.supply(ownerAddress, underlyingAmount, now)
+        let tx = await exafin.supply(owner.address, underlyingAmount, now)
         let event = await parseSupplyEvent(tx)
 
-        expect(event.from).to.equal(ownerAddress)
+        expect(event.from).to.equal(owner.address)
         expect(event.amount).to.equal(underlyingAmount)
         expect(event.maturityDate).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
 
         expect(await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
     })
 
-    it('it allows to get money from a pool', async () => {
+    it('it doesnt allow you to directly borrow money', async () => {
         const now = Math.floor(Date.now() / 1000)
-        const borrowAmount = 100
-        const lendAmount = 50
 
-        // borrow from owneraddress wallet 
-        await underlyingToken.approve(exafin.address, borrowAmount)
-        await exafin.supply(ownerAddress, borrowAmount, now)
+        // Using a user account
+        let exafinUser = exafin.connect(user)
 
-        let tx = await exafin.borrow(userAddress, lendAmount, now)
-        let event = await parseBorrowEvent(tx) 
-
-        expect(event.to).to.equal(userAddress)
-        expect(event.amount).to.equal(lendAmount)
-        expect(event.maturityDate).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
-        expect(await underlyingToken.balanceOf(userAddress)).to.equal(lendAmount)
+        // If you expect on the TX, the await goes outside of the expect
+        // If you expect on the Result, the await goes inside of the expect
+        await expect(
+            exafinUser.borrow(user.address, parseUnits("1"), now)
+        ).to.be.revertedWith("Ownable: caller is not the owner")
     })
 
 });
