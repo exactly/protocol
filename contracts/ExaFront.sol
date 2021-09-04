@@ -3,12 +3,13 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IExafin.sol";
+import "./interfaces/IExaFront.sol";
 import "./interfaces/Oracle.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "hardhat/console.sol";
 
-contract ExaFront is Ownable {
+contract ExaFront is Ownable, IExaFront {
     
     using TSUtils for uint256;
     using DecimalMath for uint256;
@@ -99,7 +100,7 @@ contract ExaFront is Ownable {
         @param account wallet to retrieve liquidity for a certain maturity date
         @param maturityDate timestamp to calculate maturity's pool
      */
-    function getAccountLiquidity(address account, uint256 maturityDate) public view returns (uint, uint, uint) {
+    function getAccountLiquidity(address account, uint256 maturityDate) override public view returns (uint, uint, uint) {
         (Error err, uint liquidity, uint shortfall) = getHypotheticalAccountLiquidityInternal(account, maturityDate, address(0), 0, 0);
 
         return (uint(err), liquidity, shortfall);

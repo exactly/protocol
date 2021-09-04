@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IExafin.sol";
+import "./interfaces/IExaFront.sol";
 import "./utils/TSUtils.sol";
 import "hardhat/console.sol";
 
@@ -31,10 +32,15 @@ contract Exafin is Ownable, IExafin {
     IERC20 private trustedUnderlying;
     string override public tokenName;
 
-    constructor (address _stableAddress, string memory _tokenName) {
-        trustedUnderlying = IERC20(_stableAddress);
+    IExaFront private exaFront;
+
+    constructor (address _tokenAddress, string memory _tokenName, address _exaFrontAddress) {
+        trustedUnderlying = IERC20(_tokenAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
+
+        exaFront = IExaFront(_exaFrontAddress);
+
         baseRate = 2e16;   // 0.02
         marginRate = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
         slopeRate = 7e16;  // 0.07
@@ -91,12 +97,9 @@ contract Exafin is Ownable, IExafin {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        uint256 lentForDate = borrowedAmounts[dateId][to];
-        require(lentForDate == 0, "Exafin: Wallet Already Used");
-
         (uint256 commission, Pool memory newPoolState) = rateToBorrow(amount, maturityDate);
 
-        borrowedAmounts[dateId][to] = amount + commission;
+        borrowedAmounts[dateId][to] += amount + commission;
         pools[dateId] = newPoolState;
 
         trustedUnderlying.safeTransferFrom(address(this), to, amount);
@@ -115,13 +118,10 @@ contract Exafin is Ownable, IExafin {
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        uint256 borrowedForDate = suppliedAmmounts[dateId][from];
-        require(borrowedForDate == 0, "Exafin: Wallet Already Used");
-
         (uint256 commission, Pool memory newPoolState) = rateForSupply(amount, maturityDate);
 
         // Commission for now it's 18 decimals. TODO: make it dependent on underlying's decimals
-        suppliedAmmounts[dateId][from] = amount + commission;
+        suppliedAmmounts[dateId][from] += amount + commission;
         pools[dateId] = newPoolState;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
