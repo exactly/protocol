@@ -1,6 +1,5 @@
 import { ethers } from "hardhat"
 import { Contract, BigNumber, ContractTransaction, ContractReceipt } from "ethers"
-import { assert } from "console";
 
 export interface BorrowEventInterface {
     to: string;

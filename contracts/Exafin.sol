@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IExafin.sol";
 import "./interfaces/IExaFront.sol";
 import "./utils/TSUtils.sol";
+import { Error } from "./utils/Errors.sol";
 import "hardhat/console.sol";
 
 contract Exafin is Ownable, IExafin {
@@ -92,12 +93,17 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to send to the specified wallet
         @param maturityDate maturity date for repayment
      */
-    function borrow(address to, uint256 amount, uint256 maturityDate) override public onlyOwner {
+    function borrow(address to, uint256 amount, uint256 maturityDate) override public {
        
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         (uint256 commission, Pool memory newPoolState) = rateToBorrow(amount, maturityDate);
+
+        uint errorCode = exaFront.borrowAllowed(address(this), to, amount, maturityDate);
+        if (errorCode != uint(Error.NO_ERROR)) {
+            revert("exaFront not allowing borrow");
+        }
 
         borrowedAmounts[dateId][to] += amount + commission;
         pools[dateId] = newPoolState;
@@ -114,7 +120,7 @@ contract Exafin is Ownable, IExafin {
         @param maturityDate maturity date 
      */
     function supply(address from, uint256 amount, uint256 maturityDate) override public {
-        
+       
         uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
@@ -139,6 +145,11 @@ contract Exafin is Ownable, IExafin {
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         return (0, suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
+    }
+
+    function getTotalBorrows(uint256 maturityDate) override public view returns (uint) {
+        uint dateId = nextPoolIndex(maturityDate);
+        return pools[dateId].borrowed;
     }
 
     /**
