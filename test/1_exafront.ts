@@ -3,14 +3,15 @@ import { ethers } from "hardhat"
 import { parseUnits } from "@ethersproject/units";
 import { Contract, BigNumber } from "ethers"
 import { ExactlyEnv, parseBorrowEvent, parseSupplyEvent } from "./exactlyUtils";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Exafront", function() {
 
     let exaFront: Contract
     let exactlyEnv: ExactlyEnv
 
-    let ownerAddress: string
-    let userAddress: string
+    let owner: SignerWithAddress
+    let user: SignerWithAddress
 
     let tokensCollateralRate = new Map([
         ['DAI', parseUnits("0.8", 18)],
@@ -24,9 +25,7 @@ describe("Exafront", function() {
     ]);
 
     beforeEach(async () => {
-        const [owner, user] = await ethers.getSigners()
-        ownerAddress = await owner.getAddress()
-        userAddress = await user.getAddress()
+        [owner, user] = await ethers.getSigners()
 
         exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate)
         exaFront = exactlyEnv.exaFront
@@ -40,7 +39,7 @@ describe("Exafront", function() {
         // we borrow Dai to the protocol
         const amountDAI = parseUnits("100", 18)
         await dai.approve(exafinDai.address, amountDAI)
-        let txDAI = await exafinDai.supply(ownerAddress, amountDAI, now)
+        let txDAI = await exafinDai.supply(owner.address, amountDAI, now)
         let borrowDAIEvent = await parseSupplyEvent(txDAI)
 
         expect(await dai.balanceOf(exafinDai.address)).to.equal(amountDAI)
@@ -54,7 +53,7 @@ describe("Exafront", function() {
         // we borrow Eth to the protocol
         const amountETH = parseUnits("1", 18)
         await eth.approve(exafinETH.address, amountETH)
-        let txETH = await exafinETH.supply(ownerAddress, amountETH, now)
+        let txETH = await exafinETH.supply(owner.address, amountETH, now)
         let borrowETHEvent = await parseSupplyEvent(txETH)
 
         expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH)
@@ -62,7 +61,7 @@ describe("Exafront", function() {
         // we make it count as collateral (ETH)
         await exaFront.enterMarkets([exafinETH.address])
 
-        let liquidity = (await exaFront.getAccountLiquidity(ownerAddress, now))[1]
+        let liquidity = (await exaFront.getAccountLiquidity(owner.address, now))[1]
         let collaterDAI = amountDAI.add(borrowDAIEvent.commission)
                                     .mul(tokensCollateralRate.get("DAI")!)
                                     .div(parseUnits("1", 18))
