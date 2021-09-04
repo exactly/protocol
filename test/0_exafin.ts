@@ -13,6 +13,7 @@ describe("Exafin", function() {
 
     let underlyingToken: Contract
     let exafin: Contract
+    let exaFront: Contract
 
     let tokensCollateralRate = new Map([
         ['DAI', parseUnits("0.8", 18)],
@@ -35,6 +36,10 @@ describe("Exafin", function() {
 
         underlyingToken = exactlyEnv.getUnderlying("DAI")
         exafin = exactlyEnv.getExafin("DAI")
+        exaFront = exactlyEnv.exaFront
+
+        // From Owner to User
+        underlyingToken.transfer(user.address, parseUnits("100"))
     })
 
     it('it allows to give money to a pool', async () => {
@@ -52,17 +57,30 @@ describe("Exafin", function() {
         expect(await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
     })
 
-    it('it doesnt allow you to directly borrow money', async () => {
+    it('it allows you to borrow money', async () => {
         const now = Math.floor(Date.now() / 1000)
 
-        // Using a user account
         let exafinUser = exafin.connect(user)
+        let exaFrontUser = exaFront.connect(user)
+        let underlyingTokenUser = underlyingToken.connect(user)
 
-        // If you expect on the TX, the await goes outside of the expect
-        // If you expect on the Result, the await goes inside of the expect
-        await expect(
-            exafinUser.borrow(user.address, parseUnits("1"), now)
-        ).to.be.revertedWith("Ownable: caller is not the owner")
+        await underlyingTokenUser.approve(exafin.address, parseUnits("1"))
+        await exafinUser.supply(user.address, parseUnits("1"), now)
+        await exaFrontUser.enterMarkets([exafinUser.address])
+        expect(await exafinUser.borrow(user.address, parseUnits("0.8"), now)).to.emit(exafinUser, "Borrowed")
+    })
+
+    it('it doesnt allow user to borrow money because not collateralized enough', async () => {
+        const now = Math.floor(Date.now() / 1000)
+
+        let exafinUser = exafin.connect(user)
+        let exaFrontUser = exaFront.connect(user)
+        let underlyingTokenUser = underlyingToken.connect(user)
+
+        await underlyingTokenUser.approve(exafin.address, parseUnits("1"))
+        await exafinUser.supply(user.address, parseUnits("1"), now)
+        await exaFrontUser.enterMarkets([exafinUser.address])
+        await expect(exafinUser.borrow(user.address, parseUnits("0.9"), now)).to.be.reverted
     })
 
 });

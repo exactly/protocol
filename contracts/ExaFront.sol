@@ -7,6 +7,7 @@ import "./interfaces/IExaFront.sol";
 import "./interfaces/Oracle.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
+import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
 contract ExaFront is Ownable, IExaFront {
@@ -15,8 +16,11 @@ contract ExaFront is Ownable, IExaFront {
     using DecimalMath for uint256;
 
     event MarketEntered(IExafin exafin, address account);
+    event ActionPaused(address exafin, string action, bool paused);
 
     mapping(address => Market) public markets;
+    mapping(address => bool) public borrowPaused;
+    mapping(address => uint256) public borrowCaps;
     mapping(address => IExafin[]) public accountAssets;
  
     struct Market {
@@ -34,12 +38,6 @@ contract ExaFront is Ownable, IExaFront {
         uint sumDebt;
     }
 
-    enum Error {
-        MARKET_NOT_LISTED,
-        NO_ERROR,
-        SNAPSHOT_ERROR,
-        PRICE_ERROR
-    }
 
     Oracle private oracle;
 
@@ -47,9 +45,6 @@ contract ExaFront is Ownable, IExaFront {
         oracle = Oracle(_priceOracleAddress);
     }
 
-    function setOracle(address _priceOracleAddress) public onlyOwner { 
-        oracle = Oracle(_priceOracleAddress);
-    }
 
     /**
         @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
@@ -148,7 +143,11 @@ contract ExaFront is Ownable, IExaFront {
             vars.sumDebt = vars.borrowBalance.mul_(vars.oraclePrice, 1e6) + vars.sumDebt;
 
             // Calculate effects of borrowing from/lending to a pool
-            // TODO
+            if (asset == IExafin(exafinModify)) {
+                if (borrowAmount != 0) {
+                    vars.sumDebt = borrowAmount.mul_(vars.oraclePrice, 1e6) + vars.sumDebt;
+                }
+            }
         }
 
         // These are safe, as the underflow condition is checked first
@@ -157,6 +156,51 @@ contract ExaFront is Ownable, IExaFront {
         } else {
             return (Error.NO_ERROR, 0, vars.sumDebt - vars.sumCollateral);
         }
+    }
+
+    function borrowAllowed(address exafinAddress, address borrower, uint borrowAmount, uint maturityDate) override external returns (uint) {
+        // Pausing is a very serious situation - we revert to sound the alarms
+        require(!borrowPaused[exafinAddress], "borrow is paused");
+
+        if (!markets[exafinAddress].isListed) {
+            return uint(Error.MARKET_NOT_LISTED);
+        }
+
+        if (!markets[exafinAddress].accountMembership[borrower]) {
+            // only cTokens may call borrowAllowed if borrower not in market
+            require(msg.sender == exafinAddress, "sender must be cToken");
+
+            // attempt to add borrower to the market
+            Error errAdd = addToMarketInternal(IExafin(msg.sender), borrower);
+            if (errAdd != Error.NO_ERROR) {
+                return uint(errAdd);
+            }
+
+            // it should be impossible to break the important invariant
+            assert(markets[exafinAddress].accountMembership[borrower]);
+        }
+
+        if (oracle.price(IExafin(exafinAddress).tokenName()) == 0) {
+            return uint(Error.PRICE_ERROR);
+        }
+
+        uint borrowCap = borrowCaps[exafinAddress];
+        // Borrow cap of 0 corresponds to unlimited borrowing
+        if (borrowCap != 0) {
+            uint totalBorrows = IExafin(exafinAddress).getTotalBorrows(maturityDate);
+            uint nextTotalBorrows = totalBorrows + borrowAmount;
+            require(nextTotalBorrows < borrowCap, "market borrow cap reached");
+        }
+
+        (Error err, , uint shortfall) = getHypotheticalAccountLiquidityInternal(borrower, maturityDate, exafinAddress, 0, borrowAmount);
+        if (err != Error.NO_ERROR) {
+            return uint(err);
+        }
+        if (shortfall > 0) {
+            return uint(Error.INSUFFICIENT_LIQUIDITY);
+        }
+
+        return uint(Error.NO_ERROR);
     }
 
     /**
@@ -169,4 +213,22 @@ contract ExaFront is Ownable, IExaFront {
         market.isListed = true;
         market.collateralFactor = collateralFactor;
     }
+
+    /**
+        @dev Function to pause/unpause borrowing on a certain market
+        @param exafin address to pause
+        @param paused true/false
+     */
+    function pauseBorrow(address exafin, bool paused) public onlyOwner returns (bool) {
+        require(markets[exafin].isListed, "not listed");
+
+        borrowPaused[address(exafin)] = paused;
+        emit ActionPaused(exafin, "Borrow", paused);
+        return paused;
+    }
+
+    function setOracle(address _priceOracleAddress) public onlyOwner { 
+        oracle = Oracle(_priceOracleAddress);
+    }
+
 }

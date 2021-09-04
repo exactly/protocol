@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
 import { parseUnits } from "@ethersproject/units";
-import { Contract, BigNumber } from "ethers"
-import { ExactlyEnv, parseBorrowEvent, parseSupplyEvent } from "./exactlyUtils";
+import { Contract } from "ethers"
+import { ExactlyEnv, parseSupplyEvent } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Exafront", function() {
@@ -36,7 +36,7 @@ describe("Exafront", function() {
         const dai = exactlyEnv.getUnderlying('DAI')
         const now = Math.floor(Date.now() / 1000)
 
-        // we borrow Dai to the protocol
+        // we supply Dai to the protocol
         const amountDAI = parseUnits("100", 18)
         await dai.approve(exafinDai.address, amountDAI)
         let txDAI = await exafinDai.supply(owner.address, amountDAI, now)
@@ -50,7 +50,7 @@ describe("Exafront", function() {
         const exafinETH = exactlyEnv.getExafin('ETH')
         const eth = exactlyEnv.getUnderlying('ETH')
 
-        // we borrow Eth to the protocol
+        // we supply Eth to the protocol
         const amountETH = parseUnits("1", 18)
         await eth.approve(exafinETH.address, amountETH)
         let txETH = await exafinETH.supply(owner.address, amountETH, now)
