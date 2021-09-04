@@ -1,14 +1,14 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
 import { parseUnits } from "@ethersproject/units";
-import { Contract } from "ethers"
-import { parseSupplyEvent } from "./exactlyUtils";
+import { Contract, BigNumber } from "ethers"
+import { ExactlyEnv, parseBorrowEvent, parseSupplyEvent } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Exafront", function() {
 
-    let oracle: Contract
     let exaFront: Contract
+    let exactlyEnv: ExactlyEnv
 
     let owner: SignerWithAddress
     let user: SignerWithAddress
@@ -24,46 +24,16 @@ describe("Exafront", function() {
         ['ETH', parseUnits("3100", 6)]
     ]);
 
-    let exafinContracts = new Map<string, Contract>();
-    let underlyingContracts = new Map<string, Contract>();
-
     beforeEach(async () => {
         [owner, user] = await ethers.getSigners()
 
-        const SomeOracle = await ethers.getContractFactory("SomeOracle")
-        oracle = await SomeOracle.deploy()
-        await oracle.deployed()
-        
-        const ExaFront = await ethers.getContractFactory("ExaFront")
-        exaFront = await ExaFront.deploy(oracle.address)
-        await exaFront.deployed()
-
-        // We have to enable all the Exafins in the ExaFront
-        await Promise.all(Array.from(tokensCollateralRate.keys()).map(async tokenName => {
-            const totalSupply = ethers.utils.parseUnits("100000000000", 18);
-            const SomeToken = await ethers.getContractFactory("SomeToken")
-            const underlyingToken = await SomeToken.deploy("Fake " + tokenName, "F" + tokenName, totalSupply.toString())
-            await underlyingToken.deployed()
-
-            const Exafin = await ethers.getContractFactory("Exafin")
-            const exafin = await Exafin.deploy(underlyingToken.address, tokenName)
-            await exafin.deployed();
-            await exafin.transferOwnership(exaFront.address);
-
-            // Mock PriceOracle setting dummy price
-            await oracle.setPrice(tokenName, tokensUSDPrice.get(tokenName))
-            // Enable Market for Exafin-TOKEN by setting the collateral rates
-            await exaFront.enableMarket(exafin.address, tokensCollateralRate.get(tokenName))
-
-            // Handy maps with all the exafins and underlying tokens
-            exafinContracts.set(tokenName, exafin)
-            underlyingContracts.set(tokenName, underlyingToken)
-        }))
+        exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate)
+        exaFront = exactlyEnv.exaFront
     })
 
     it('we deposit dai & eth to the protocol and we use them both for collateral to take a loan', async () => {
-        const exafinDai = exafinContracts.get('DAI')!
-        const dai = underlyingContracts.get('DAI')!
+        const exafinDai = exactlyEnv.getExafin('DAI')
+        const dai = exactlyEnv.getUnderlying('DAI')
         const now = Math.floor(Date.now() / 1000)
 
         // we borrow Dai to the protocol
@@ -77,8 +47,8 @@ describe("Exafront", function() {
         // we make it count as collateral (DAI)
         await exaFront.enterMarkets([exafinDai.address])
 
-        const exafinETH = exafinContracts.get('ETH')!
-        const eth = underlyingContracts.get('ETH')!
+        const exafinETH = exactlyEnv.getExafin('ETH')
+        const eth = exactlyEnv.getUnderlying('ETH')
 
         // we borrow Eth to the protocol
         const amountETH = parseUnits("1", 18)

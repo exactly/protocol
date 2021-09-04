@@ -1,16 +1,29 @@
 import { expect } from "chai";
 import { ethers } from "hardhat"
-import { parseUnits } from "@ethersproject/units";
-import { Contract } from "ethers"
-import { parseSupplyEvent } from "./exactlyUtils"
+import { Contract, BigNumber } from "ethers"
+import { ExactlyEnv, parseBorrowEvent, parseSupplyEvent } from "./exactlyUtils"
+import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 Error.stackTraceLimit = Infinity;
 
 describe("Exafin", function() {
 
-    let exafin: Contract
+    let exactlyEnv: ExactlyEnv
+
     let underlyingToken: Contract
+    let exafin: Contract
+
+    let tokensCollateralRate = new Map([
+        ['DAI', parseUnits("0.8", 18)],
+        ['ETH', parseUnits("0.7", 18)]
+    ]);
+
+    // Oracle price is in 10**6
+    let tokensUSDPrice = new Map([
+        ['DAI', parseUnits("1", 6)],
+        ['ETH', parseUnits("3100", 6)]
+    ]);
 
     let user: SignerWithAddress
     let owner: SignerWithAddress
@@ -18,21 +31,15 @@ describe("Exafin", function() {
     beforeEach(async () => {
         [owner, user] = await ethers.getSigners()
 
-        const totalSupply = parseUnits("100000000000", 18);
-        const SomeToken = await ethers.getContractFactory("SomeToken")
-        underlyingToken = await SomeToken.deploy("Fake Stable", "FSTA", totalSupply.toString())
-        await underlyingToken.deployed()
+        exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate)
 
-        underlyingToken.transfer(user.address, parseUnits("100"))
-
-        const Exafin = await ethers.getContractFactory("Exafin");
-        exafin = await Exafin.deploy(underlyingToken.address, "FSTA")
-        await exafin.deployed();
+        underlyingToken = exactlyEnv.getUnderlying("DAI")
+        exafin = exactlyEnv.getExafin("DAI")
     })
 
     it('it allows to give money to a pool', async () => {
         const now = Math.floor(Date.now() / 1000)
-        const underlyingAmount = 100
+        const underlyingAmount = parseUnits("100")
         await underlyingToken.approve(exafin.address, underlyingAmount)
 
         let tx = await exafin.supply(owner.address, underlyingAmount, now)
