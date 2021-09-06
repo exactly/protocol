@@ -96,7 +96,8 @@ describe("Exafin", function() {
 
         // We supply the money
         await underlyingTokenUser.approve(exafin.address, unitsToSupply)
-        await exafinUser.supply(user.address, unitsToSupply, now)
+        let tx = await exafinUser.supply(user.address, unitsToSupply, now)
+        let supplyEvent = await parseSupplyEvent(tx)
 
         // It should be the base rate since there are no other deposits
         let nextExpirationDate = exaTime.nextPoolID().timestamp
@@ -105,6 +106,9 @@ describe("Exafin", function() {
 
         // Expected "19999999999999985" to be within 20 of 20000000000000000
         expect(BigNumber.from(yearlyRateProjected)).to.be.closeTo(exactlyEnv.baseRate, 20)
+
+        // We expect that the actual rate was taken when we submitted the supply transaction
+        expect(supplyEvent.commission).to.be.closeTo(unitsToSupply.mul(rateSupplyToApply).div(parseUnits("1")), 20)
     })
 
     it('Calculates the right rate to borrow', async () => {
