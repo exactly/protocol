@@ -135,6 +135,7 @@ describe("Exafin", function() {
             .mul(365)
             .div(daysToExpiration)
 
+        // This Rate is purely calculated on JS/TS side
         let yearlyRateCalculated = exactlyEnv.baseRate
             .add(exactlyEnv.marginRate)
             .add(exactlyEnv.slopeRate
