@@ -7,8 +7,11 @@ import "hardhat-abi-exporter"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
 import "hardhat-gas-reporter"
-
+import chai from "chai"
+import { solidity } from "ethereum-waffle"
 import * as fs from 'fs'
+
+chai.use(solidity)
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners()

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 struct Pool {
-    uint256 borrowed;
     uint256 lent;
+    uint256 supplied;
 }
 
 interface IExafin {

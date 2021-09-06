@@ -1,11 +1,11 @@
-import { expect } from "chai";
+import { expect } from "chai"
 import { ethers } from "hardhat"
 import { Contract, BigNumber } from "ethers"
-import { ExactlyEnv, parseBorrowEvent, parseSupplyEvent } from "./exactlyUtils"
-import { parseUnits } from "ethers/lib/utils";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { ExactlyEnv, ExaTime, parseBorrowEvent, parseSupplyEvent } from "./exactlyUtils"
+import { formatUnits, parseUnits } from "ethers/lib/utils"
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 
-Error.stackTraceLimit = Infinity;
+Error.stackTraceLimit = Infinity
 
 describe("Exafin", function() {
 
@@ -28,6 +28,8 @@ describe("Exafin", function() {
 
     let user: SignerWithAddress
     let owner: SignerWithAddress
+    let now: number
+    let exaTime: ExaTime 
   
     beforeEach(async () => {
         [owner, user] = await ethers.getSigners()
@@ -40,10 +42,12 @@ describe("Exafin", function() {
 
         // From Owner to User
         underlyingToken.transfer(user.address, parseUnits("100"))
+
+        exaTime = new ExaTime() // Defaults to now
+        now = exaTime.timestamp
     })
 
     it('it allows to give money to a pool', async () => {
-        const now = Math.floor(Date.now() / 1000)
         const underlyingAmount = parseUnits("100")
         await underlyingToken.approve(exafin.address, underlyingAmount)
 
@@ -52,14 +56,12 @@ describe("Exafin", function() {
 
         expect(event.from).to.equal(owner.address)
         expect(event.amount).to.equal(underlyingAmount)
-        expect(event.maturityDate).to.equal(now - (now % (86400 * 30)) + 86400 * 30)
+        expect(event.maturityDate).to.equal(exaTime.nextPoolID().timestamp)
 
         expect(await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
     })
 
     it('it allows you to borrow money', async () => {
-        const now = Math.floor(Date.now() / 1000)
-
         let exafinUser = exafin.connect(user)
         let exaFrontUser = exaFront.connect(user)
         let underlyingTokenUser = underlyingToken.connect(user)
@@ -71,8 +73,6 @@ describe("Exafin", function() {
     })
 
     it('it doesnt allow user to borrow money because not collateralized enough', async () => {
-        const now = Math.floor(Date.now() / 1000)
-
         let exafinUser = exafin.connect(user)
         let exaFrontUser = exaFront.connect(user)
         let underlyingTokenUser = underlyingToken.connect(user)
@@ -83,4 +83,66 @@ describe("Exafin", function() {
         await expect(exafinUser.borrow(user.address, parseUnits("0.9"), now)).to.be.reverted
     })
 
-});
+    it('Calculates the right rate to supply', async () => {
+        let exafinUser = exafin.connect(user)
+        let underlyingTokenUser = underlyingToken.connect(user)
+        let unitsToSupply = parseUnits("1")
+
+        let [rateSupplyToApply, poolStateAfterSupply] = await exafinUser.rateForSupply(unitsToSupply, now)
+
+        // We verify that the state of the pool is what we suppose it is
+        expect(poolStateAfterSupply[1]).to.be.equal(unitsToSupply)
+        expect(poolStateAfterSupply[0]).to.be.equal(0)
+
+        // We supply the money
+        await underlyingTokenUser.approve(exafin.address, unitsToSupply)
+        await exafinUser.supply(user.address, unitsToSupply, now)
+
+        // It should be the base rate since there are no other deposits
+        let nextExpirationDate = exaTime.nextPoolID().timestamp
+        let daysToExpiration = exaTime.daysDiffWith(nextExpirationDate)
+        let yearlyRateProjected = BigNumber.from(rateSupplyToApply).mul(365).div(daysToExpiration)
+
+        // Expected "19999999999999985" to be within 20 of 20000000000000000
+        expect(BigNumber.from(yearlyRateProjected)).to.be.closeTo(exactlyEnv.baseRate, 20)
+    })
+
+    it('Calculates the right rate to borrow', async () => {
+        let exafinUser = exafin.connect(user)
+        let underlyingTokenUser = underlyingToken.connect(user)
+        let unitsToSupply = parseUnits("1")
+        let unitsToBorrow = parseUnits("0.8")
+        
+        await underlyingTokenUser.approve(exafin.address, unitsToSupply)
+        await exafinUser.supply(user.address, unitsToSupply, now)
+
+        let [rateBorrowToApply, poolStateAfterBorrow] = await exafinUser.rateToBorrow(unitsToBorrow, now)
+
+        expect(poolStateAfterBorrow[1]).to.be.equal(unitsToSupply)
+        expect(poolStateAfterBorrow[0]).to.be.equal(unitsToBorrow)
+
+        let tx = await exafinUser.borrow(user.address, unitsToBorrow, now)
+        expect(tx).to.emit(exafinUser, "Borrowed")
+        let borrowEvent = await parseBorrowEvent(tx)
+
+        // It should be the base rate since there are no other deposits
+        let nextExpirationDate = exaTime.nextPoolID().timestamp
+        let daysToExpiration = exaTime.daysDiffWith(nextExpirationDate)
+
+        // We just receive the multiplying factor for the amount "rateBorrowToApply"
+        // so by multiplying we get the APY
+        let yearlyRateProjected = BigNumber.from(rateBorrowToApply)
+            .mul(365)
+            .div(daysToExpiration)
+
+        let yearlyRateCalculated = exactlyEnv.baseRate
+            .add(exactlyEnv.marginRate)
+            .add(exactlyEnv.slopeRate
+                .mul(unitsToBorrow)
+                .div(unitsToSupply))
+
+        // Expected "85999999999999996" to be within 20 of 86000000000000000
+        expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 20)
+    })
+
+})

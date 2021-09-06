@@ -1,5 +1,6 @@
 import { ethers } from "hardhat"
 import { Contract, BigNumber, ContractTransaction, ContractReceipt } from "ethers"
+import { parseUnits } from "ethers/lib/utils";
 
 export interface BorrowEventInterface {
     to: string;
@@ -56,6 +57,9 @@ export class ExactlyEnv {
     exaFront: Contract
     exafinContracts: Map<string, Contract>
     underlyingContracts: Map<string, Contract>
+    baseRate: BigNumber
+    marginRate: BigNumber
+    slopeRate: BigNumber
 
     constructor(
         _oracle: Contract,
@@ -67,6 +71,9 @@ export class ExactlyEnv {
         this.exaFront = _exaFront
         this.exafinContracts = _exafinContracts
         this.underlyingContracts = _underlyingContracts
+        this.baseRate = parseUnits("0.02")
+        this.marginRate = parseUnits("0.01")
+        this.slopeRate = parseUnits("0.07")
     }
 
     public getExafin(key: string): Contract {
@@ -118,5 +125,28 @@ export class ExactlyEnv {
         return new Promise<ExactlyEnv>((resolve) => {
             resolve(new ExactlyEnv(oracle, exaFront, exafinContracts, underlyingContracts))
         })
+    }
+}
+
+export class ExaTime {
+    timestamp: number
+
+    private oneDay: number = 86400
+    private thirtyDays: number = 86400 * 30
+
+    constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
+        this.timestamp = timestamp;
+    }
+
+    public nextPoolID(): ExaTime { 
+        return new ExaTime(this.timestamp - (this.timestamp % this.thirtyDays) + this.thirtyDays)
+    }
+
+    public trimmedDay(): ExaTime { 
+        return new ExaTime(this.timestamp - (this.timestamp % this.oneDay))
+    }
+
+    public daysDiffWith(anotherTimestamp: number): number {
+        return (anotherTimestamp - this.trimmedDay().timestamp) / this.oneDay
     }
 }
