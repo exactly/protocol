@@ -144,6 +144,9 @@ describe("Exafin", function() {
 
         // Expected "85999999999999996" to be within 20 of 86000000000000000
         expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 20)
+
+        // We expect that the actual rate was taken when we submitted the borrowing transaction
+        expect(borrowEvent.commission).to.be.closeTo(unitsToBorrow.mul(rateBorrowToApply).div(parseUnits("1")), 20)
     })
 
 })
