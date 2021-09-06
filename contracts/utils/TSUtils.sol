@@ -8,7 +8,7 @@ import "hardhat/console.sol";
 
 library TSUtils {
     function trimmedDay(uint256 timestamp) internal pure returns (uint256) { 
-        return timestamp - (timestamp % 84600);
+        return timestamp - (timestamp % 86400);
     }
 
     function trimmedMonth(uint256 timestamp) internal pure returns (uint256) { 

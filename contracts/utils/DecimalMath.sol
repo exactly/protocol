@@ -13,7 +13,7 @@ library DecimalMath {
         return a * b / NUMBER_SCALE;
     }
 
-    function mul_(uint a, uint b, uint decimals) internal pure returns (uint) {
-        return a * b / decimals;
+    function mul_(uint a, uint b, uint scale) internal pure returns (uint) {
+        return a * b / scale;
     }
 }
