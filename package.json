@@ -11,7 +11,7 @@
     "chai": "^4.3.4",
     "dotenv": "^10.0.0",
     "eth-permit": "^0.1.10",
-    "ethereum-waffle": "^3.3.0",
+    "ethereum-waffle": "^3.4.0",
     "ethers": "^5.4.5",
     "hardhat": "^2.6.1",
     "hardhat-abi-exporter": "^2.2.1",

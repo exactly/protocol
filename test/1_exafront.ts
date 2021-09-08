@@ -77,8 +77,4 @@ describe("Exafront", function () {
 
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
   });
-
-  it("getMarkets is empty", async () => {
-    expect(await exaFront.getMarkets()).to.be.equal(1);
-  });
 });

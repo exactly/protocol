@@ -76,14 +76,12 @@ contract Exafin is Ownable, IExafin {
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         Pool memory pool = pools[dateId];
-        pool.borrowed += amount;
+        pool.supplied += amount;
 
-        uint256 daysDifference = (dateId - block.timestamp).trimmedDay() /
+        uint256 daysDifference = (dateId - block.timestamp.trimmedDay()) /
             1 days;
-        uint256 utilizationRatio = ((pool.lent * RATE_UNIT) / pool.borrowed);
         uint256 yearlyRate = baseRate +
-            (slopeRate * utilizationRatio) /
-            RATE_UNIT;
+            ((slopeRate * pool.lent) / pool.supplied);
 
         return ((yearlyRate * daysDifference) / 365, pool);
     }
@@ -106,13 +104,11 @@ contract Exafin is Ownable, IExafin {
         Pool memory pool = pools[dateId];
         pool.lent += amount;
 
-        uint256 daysDifference = (dateId - block.timestamp).trimmedDay() /
+        uint256 daysDifference = (dateId - block.timestamp.trimmedDay()) /
             1 days;
-        uint256 utilizationRatio = ((pool.lent * RATE_UNIT) / pool.borrowed);
         uint256 yearlyRate = baseRate +
             marginRate +
-            (slopeRate * utilizationRatio) /
-            RATE_UNIT;
+            ((slopeRate * pool.lent) / pool.supplied);
 
         return ((yearlyRate * daysDifference) / 365, pool);
     }
@@ -131,7 +127,7 @@ contract Exafin is Ownable, IExafin {
         uint256 dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        (uint256 commission, Pool memory newPoolState) = rateToBorrow(
+        (uint256 commissionRate, Pool memory newPoolState) = rateToBorrow(
             amount,
             maturityDate
         );
@@ -146,6 +142,7 @@ contract Exafin is Ownable, IExafin {
             revert("exaFront not allowing borrow");
         }
 
+        uint256 commission = (amount * commissionRate) / RATE_UNIT;
         borrowedAmounts[dateId][to] += amount + commission;
         pools[dateId] = newPoolState;
 
@@ -168,12 +165,12 @@ contract Exafin is Ownable, IExafin {
         uint256 dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        (uint256 commission, Pool memory newPoolState) = rateForSupply(
+        (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(
             amount,
             maturityDate
         );
 
-        // Commission for now it's 18 decimals. TODO: make it dependent on underlying's decimals
+        uint256 commission = ((amount * commissionRate) / RATE_UNIT);
         suppliedAmmounts[dateId][from] += amount + commission;
         pools[dateId] = newPoolState;
 
@@ -203,6 +200,10 @@ contract Exafin is Ownable, IExafin {
         return (0, suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 
+    /**
+        @dev Gets the total amount of borrowed money for a maturityDate
+        @param maturityDate maturity date
+     */
     function getTotalBorrows(uint256 maturityDate)
         public
         view
@@ -210,7 +211,7 @@ contract Exafin is Ownable, IExafin {
         returns (uint256)
     {
         uint256 dateId = nextPoolIndex(maturityDate);
-        return pools[dateId].borrowed;
+        return pools[dateId].lent;
     }
 
     /**
