@@ -1,4 +1,13 @@
 token_addresses:
+  hardhat:
+    price_oracle: "0x6d2299c48a8dd07a872fdd0f8233924872ad1071"
+    assets:
+      DAI:
+        name: "Dai"
+        address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      USDT:
+        name: "Tether"
+        address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
   rinkeby:
     price_oracle: "0x6d2299c48a8dd07a872fdd0f8233924872ad1071"
     assets:
