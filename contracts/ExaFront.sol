@@ -337,6 +337,32 @@ contract ExaFront is Ownable, IExaFront {
     }
 
     /**
+        @dev Get market data filtered by address
+        @param contractAddress address to get market data
+     */
+    function getMarketByAddress(address contractAddress)
+        public
+        view
+        returns (
+            address,
+            string memory,
+            bool,
+            uint256,
+            string memory
+        )
+    {
+        Market storage market = markets[contractAddress];
+
+        return (
+            contractAddress,
+            market.baseMarket.symbol,
+            market.baseMarket.isListed,
+            market.baseMarket.collateralFactor,
+            market.baseMarket.name
+        );
+    }
+
+    /**
         @dev Add market to listedMarkets and change boolean to true
         @param exafin address to add to the protocol
      */

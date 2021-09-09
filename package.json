@@ -17,6 +17,7 @@
     "hardhat-abi-exporter": "^2.2.1",
     "hardhat-deploy": "^0.9.0-next.0",
     "hardhat-deploy-ethers": "*",
+    "hardhat-ethernal": "^0.3.10",
     "hardhat-gas-reporter": "^1.0.4",
     "solidity-coverage": "^0.7.16",
     "ts-node": "^9.1.1",

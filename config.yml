@@ -8,8 +8,15 @@ token_addresses:
       USDT:
         name: "Tether"
         address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+      WETH:
+        name: "Wrapped ETH"
+        address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
   rinkeby:
     price_oracle: "0x6d2299c48a8dd07a872fdd0f8233924872ad1071"
     assets:
-      DAI: "0x95b58a6bff3d14b7db2f5cb5f0ad413dc2940658"
-      WETH: "0xc778417e063141139fce010982780140aa0cd5ab"
+      DAI:
+        name: "Dai"
+        address: "0x95b58a6bff3d14b7db2f5cb5f0ad413dc2940658"
+      WETH:
+        name: "Wrapped ETH"
+        address: "0xc778417e063141139fce010982780140aa0cd5ab"

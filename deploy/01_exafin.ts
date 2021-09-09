@@ -3,6 +3,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import fs from "fs";
 import YAML from "yaml";
+import { ethers } from "hardhat";
 
 let tokensCollateralRate = new Map([
   ["DAI", parseUnits("0.8", 18)],
@@ -34,6 +35,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [priceOracleAddress],
     log: true,
   });
+
+  async function impersonate(
+    address = "0x2c8fbb630289363ac80705a1a61273f76fd5a161"
+  ) {
+    await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [address],
+    });
+
+    const signer = await ethers.provider.getSigner(address);
+    return signer;
+  }
 
   for (const symbol of Object.keys(tokensForNetwork)) {
     const { name, address } = tokensForNetwork[symbol];
@@ -71,6 +84,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     );
 
     console.log("Exafin %s deployed to: %s", symbol, exafin.address);
+
+    let dai = await ethers.getContractAt(
+      "IERC20",
+      "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+    );
+    const whaleSigner = await impersonate();
+
+    dai = dai.connect(whaleSigner);
+    await dai.transfer(
+      "0xd1Cd4c2e15Bf0D05796c7C9f7c0Eaba30119f454",
+      ethers.utils.parseEther("100")
+    );
   }
 };
 
