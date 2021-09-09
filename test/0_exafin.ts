@@ -200,7 +200,7 @@ describe("Exafin", function() {
         await expect(exafinMaria.redeem(mariaUser.address, supplyEvent.amount, supplyEvent.commission, now)).to.be.revertedWith("Pool not matured yet")
 
         // Move in time to maturity
-        await ethers.provider.send('evm_setNextBlockTimestamp', [1632960000])
+        await ethers.provider.send('evm_setNextBlockTimestamp', [exaTime.nextPoolID().timestamp])
         await ethers.provider.send('evm_mine', [])
 
         // finally redeem voucher and we expect maria to have her original amount + the comission earned
