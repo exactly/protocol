@@ -70,28 +70,6 @@ describe("Exafin", function() {
 
     it('it allows you to borrow money', async () => {
         let exafinMaria = exafin.connect(mariaUser)
-        underlyingToken.transfer(mariaUser.address, parseUnits("100"))
-
-        exaTime = new ExaTime() // Defaults to now
-        now = exaTime.timestamp
-    })
-
-    it('it allows to give money to a pool', async () => {
-        const underlyingAmount = parseUnits("100")
-        await underlyingToken.approve(exafin.address, underlyingAmount)
-
-        let tx = await exafin.supply(owner.address, underlyingAmount, now)
-        let event = await parseSupplyEvent(tx)
-
-        expect(event.from).to.equal(owner.address)
-        expect(event.amount).to.equal(underlyingAmount)
-        expect(event.maturityDate).to.equal(exaTime.nextPoolID().timestamp)
-
-        expect(await underlyingToken.balanceOf(exafin.address)).to.equal(underlyingAmount)
-    })
-
-    it('it allows you to borrow money', async () => {
-        let exafinMaria = exafin.connect(mariaUser)
         let exaFrontUser = exaFront.connect(mariaUser)
         let underlyingTokenUser = underlyingToken.connect(mariaUser)
 
