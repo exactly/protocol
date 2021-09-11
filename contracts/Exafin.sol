@@ -19,6 +19,7 @@ contract Exafin is Ownable, IExafin {
 
     event Borrowed(address indexed to, uint amount, uint commission, uint maturityDate);
     event Supplied(address indexed from, uint amount, uint commission, uint maturityDate);
+    event Redeemed(address indexed from, uint amount, uint commission, uint maturityDate);
 
     mapping(uint256 => mapping(address => uint256)) public suppliedAmmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
@@ -99,9 +100,7 @@ contract Exafin is Ownable, IExafin {
         (uint256 commissionRate, Pool memory newPoolState) = rateToBorrow(amount, maturityDate);
 
         uint errorCode = exaFront.borrowAllowed(address(this), to, amount, maturityDate);
-        if (errorCode != uint(Error.NO_ERROR)) {
-            revert("exaFront not allowing borrow");
-        }
+        require(errorCode == uint(Error.NO_ERROR), "exaFront not allowing borrow");
 
         uint256 commission = amount * commissionRate / RATE_UNIT;
         borrowedAmounts[dateId][to] += amount + commission;
@@ -135,14 +134,39 @@ contract Exafin is Ownable, IExafin {
     }
 
     /**
+        @notice User redeems (TODO: voucher NFT) in exchange for the underlying asset
+        @dev The pool that the user is trying to retrieve the money should be matured
+        @param redeemer The address of the account which is redeeming the tokens
+        @param redeemAmount The number of underlying tokens to receive from redeeming cTokens (only one of redeemTokensIn or redeemAmountIn may be non-zero)
+        @param commission the amount that should be redeemed in comissions
+     */
+    function redeem(address payable redeemer, uint redeemAmount, uint commission, uint maturityDate) override external {
+        require(redeemAmount != 0, "Redeem can't be zero");
+
+        uint allowedError = exaFront.redeemAllowed(address(this), redeemer, redeemAmount, maturityDate);
+        require(allowedError == uint(Error.NO_ERROR), "cant redeem");
+
+        uint dateId = nextPoolIndex(maturityDate);
+
+        // We should see if in the future we want to let them leave the pool if there are certain conditions
+        require(block.timestamp > dateId, "Pool not matured yet");
+
+        suppliedAmmounts[dateId][redeemer] -= redeemAmount + commission;
+
+        require(trustedUnderlying.balanceOf(address(this)) > redeemAmount + commission, "Not enough liquidity");
+
+        trustedUnderlying.safeTransferFrom(address(this), redeemer, redeemAmount + commission);
+
+        emit Redeemed(redeemer, redeemAmount, commission, maturityDate);
+    }
+
+    /**
         @dev Gets current snapshot for a wallet in a certain maturity
         @param who wallet to return status snapshot in the specified maturity date
         @param maturityDate maturity date
      */
     function getAccountSnapshot(address who, uint256 maturityDate) override public view returns (uint, uint, uint) {
         uint dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
-
         return (0, suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 
