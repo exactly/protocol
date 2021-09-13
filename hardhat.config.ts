@@ -45,16 +45,10 @@ let config: HardhatUserConfig = {
       },
     },
     rinkeby: {
-      url: `https://eth-rinkeby.alchemyapi.io/v2/${
-        process.env.ALKEMY_RINKEBY_API_KEY ?? "DsGLl69IRAWy4BM4fVlUOOlMsr40OWHO"
-      }`,
-      accounts: process.env.MNEMONIC
-        ? {
-            mnemonic: process.env.MNEMONIC,
-          }
-        : [
-            `0x1111111111111111111111111111111111111111111111111111111111111111`,
-          ],
+      url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALKEMY_RINKEBY_API_KEY}`,
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+      },
     },
   },
   gasReporter: {
