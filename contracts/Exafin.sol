@@ -168,27 +168,17 @@ contract Exafin is Ownable, IExafin {
     ) public override {
         uint256 dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
-        console.log(1);
 
         (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(
             amount,
             maturityDate
         );
-        console.log(2);
 
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
         suppliedAmmounts[dateId][from] += amount + commission;
         pools[dateId] = newPoolState;
 
-        console.log(3);
-
-        console.log(from);
-        console.log(address(this));
-        console.log(amount);
-        console.log(trustedUnderlying.balanceOf(from));
         trustedUnderlying.transferFrom(from, address(this), amount);
-
-        console.log(4);
 
         emit Supplied(from, amount, commission, dateId);
     }
@@ -236,16 +226,5 @@ contract Exafin is Ownable, IExafin {
     function nextPoolIndex(uint256 timestamp) private pure returns (uint256) {
         uint256 poolindex = timestamp.trimmedMonth().nextMonth();
         return poolindex;
-    }
-
-    function increaseAllowance(address spender, uint256 value)
-        public
-        virtual
-        returns (bool)
-    {
-        console.log(spender, value);
-        trustedUnderlying.approve(spender, value);
-
-        return true;
     }
 }
