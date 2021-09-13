@@ -123,26 +123,20 @@ contract ExaFront is Ownable, IExaFront {
             Error err,
             uint256 liquidity,
             uint256 shortfall
-        ) = getHypotheticalAccountLiquidityInternal(
-                account,
-                maturityDate,
-                address(0),
-                0,
-                0
-            );
+        ) = accountLiquidityInternal(account, maturityDate, address(0), 0, 0);
 
         return (uint256(err), liquidity, shortfall);
     }
 
     /**
-        @dev Function to get account's liquidity for a certain maturity pool (allows estimations TODO)
+        @dev Function to get account's liquidity for a certain maturity pool
         @param account wallet to retrieve liquidity for a certain maturity date
         @param maturityDate timestamp to calculate maturity's pool
      */
-    function getHypotheticalAccountLiquidityInternal(
+    function accountLiquidityInternal(
         address account,
         uint256 maturityDate,
-        address exafinModify,
+        address exafinToSimulate,
         uint256 redeemTokens,
         uint256 borrowAmount
     )
@@ -167,11 +161,7 @@ contract ExaFront is Ownable, IExaFront {
                 account,
                 maturityDate
             );
-
-            if (oErr != 0) {
-                // semi-opaque error code, we assume NO_ERROR == 0 is invariant between upgrades
-                return (Error.SNAPSHOT_ERROR, 0, 0);
-            }
+            require(oErr == uint256(Error.NO_ERROR), "Snapshot error");
 
             vars.collateralFactor = markets[address(asset)]
                 .baseMarket
@@ -179,29 +169,30 @@ contract ExaFront is Ownable, IExaFront {
 
             // Get the normalized price of the asset (6 decimals)
             vars.oraclePrice = oracle.price(asset.tokenName());
-            if (vars.oraclePrice == 0) {
-                return (Error.PRICE_ERROR, 0, 0);
-            }
+            require(vars.oraclePrice != 0, "Price Oracle error");
 
             // We sum all the collateral prices
-            vars.sumCollateral =
-                vars.balance.mul_(vars.collateralFactor).mul_(
-                    vars.oraclePrice,
-                    1e6
-                ) +
-                vars.sumCollateral;
+            vars.sumCollateral += vars.balance.mul_(vars.collateralFactor).mul_(
+                vars.oraclePrice,
+                1e6
+            );
 
             // We sum all the debt
-            vars.sumDebt =
-                vars.borrowBalance.mul_(vars.oraclePrice, 1e6) +
-                vars.sumDebt;
+            vars.sumDebt += vars.borrowBalance.mul_(vars.oraclePrice, 1e6);
 
-            // Calculate effects of borrowing from/lending to a pool
-            if (asset == IExafin(exafinModify)) {
+            // Simulate the effects of borrowing from/lending to a pool
+            if (asset == IExafin(exafinToSimulate)) {
+                // Calculate the effects of borrowing exafins
                 if (borrowAmount != 0) {
-                    vars.sumDebt =
-                        borrowAmount.mul_(vars.oraclePrice, 1e6) +
-                        vars.sumDebt;
+                    vars.sumDebt += borrowAmount.mul_(vars.oraclePrice, 1e6);
+                }
+
+                // Calculate the effects of redeeming exafins (usage ie: see if it's still collaterized)
+                if (redeemTokens != 0) {
+                    vars.sumCollateral -= redeemTokens.mul_(
+                        vars.oraclePrice,
+                        1e6
+                    );
                 }
             }
         }
@@ -255,17 +246,46 @@ contract ExaFront is Ownable, IExaFront {
             require(nextTotalBorrows < borrowCap, "market borrow cap reached");
         }
 
-        (
-            Error err,
-            ,
-            uint256 shortfall
-        ) = getHypotheticalAccountLiquidityInternal(
-                borrower,
-                maturityDate,
-                exafinAddress,
-                0,
-                borrowAmount
-            );
+        (Error err, , uint256 shortfall) = accountLiquidityInternal(
+            borrower,
+            maturityDate,
+            exafinAddress,
+            0,
+            borrowAmount
+        );
+        if (err != Error.NO_ERROR) {
+            return uint256(err);
+        }
+        if (shortfall > 0) {
+            return uint256(Error.INSUFFICIENT_LIQUIDITY);
+        }
+
+        return uint256(Error.NO_ERROR);
+    }
+
+    function redeemAllowed(
+        address exafinAddress,
+        address redeemer,
+        uint256 redeemTokens,
+        uint256 maturityDate
+    ) external view override returns (uint256) {
+        if (!markets[exafinAddress].baseMarket.isListed) {
+            return uint256(Error.MARKET_NOT_LISTED);
+        }
+
+        /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
+        if (!markets[exafinAddress].accountMembership[redeemer]) {
+            return uint256(Error.NO_ERROR);
+        }
+
+        /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
+        (Error err, , uint256 shortfall) = accountLiquidityInternal(
+            redeemer,
+            maturityDate,
+            exafinAddress,
+            redeemTokens,
+            0
+        );
         if (err != Error.NO_ERROR) {
             return uint256(err);
         }
@@ -399,6 +419,10 @@ contract ExaFront is Ownable, IExaFront {
         return paused;
     }
 
+    /**
+        @dev Function to set Oracle's to be used
+        @param _priceOracleAddress address of the new oracle
+     */
     function setOracle(address _priceOracleAddress) public onlyOwner {
         oracle = Oracle(_priceOracleAddress);
     }

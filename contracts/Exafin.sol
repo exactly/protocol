@@ -22,7 +22,15 @@ contract Exafin is Ownable, IExafin {
         uint256 commission,
         uint256 maturityDate
     );
+
     event Supplied(
+        address indexed from,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
+
+    event Redeemed(
         address indexed from,
         uint256 amount,
         uint256 commission,
@@ -50,11 +58,6 @@ contract Exafin is Ownable, IExafin {
         address _exaFrontAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
-        // trustedUnderlying.safeApprove(address(this), type(uint256).max);
-        // trustedUnderlying.safeIncreaseAllowance(
-        //     address(this),
-        //     type(uint256).max
-        // );
         tokenName = _tokenName;
 
         exaFront = IExaFront(_exaFrontAddress);
@@ -142,9 +145,10 @@ contract Exafin is Ownable, IExafin {
             amount,
             maturityDate
         );
-        if (errorCode != uint256(Error.NO_ERROR)) {
-            revert("exaFront not allowing borrow");
-        }
+        require(
+            errorCode == uint256(Error.NO_ERROR),
+            "exaFront not allowing borrow"
+        );
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
         borrowedAmounts[dateId][to] += amount + commission;
@@ -184,6 +188,51 @@ contract Exafin is Ownable, IExafin {
     }
 
     /**
+        @notice User redeems (TODO: voucher NFT) in exchange for the underlying asset
+        @dev The pool that the user is trying to retrieve the money should be matured
+        @param redeemer The address of the account which is redeeming the tokens
+        @param redeemAmount The number of underlying tokens to receive from redeeming cTokens (only one of redeemTokensIn or redeemAmountIn may be non-zero)
+        @param commission the amount that should be redeemed in comissions
+     */
+    function redeem(
+        address payable redeemer,
+        uint256 redeemAmount,
+        uint256 commission,
+        uint256 maturityDate
+    ) external override {
+        require(redeemAmount != 0, "Redeem can't be zero");
+
+        uint256 allowedError = exaFront.redeemAllowed(
+            address(this),
+            redeemer,
+            redeemAmount,
+            maturityDate
+        );
+        require(allowedError == uint256(Error.NO_ERROR), "cant redeem");
+
+        uint256 dateId = nextPoolIndex(maturityDate);
+
+        // We should see if in the future we want to let them leave the pool if there are certain conditions
+        require(block.timestamp > dateId, "Pool not matured yet");
+
+        suppliedAmmounts[dateId][redeemer] -= redeemAmount + commission;
+
+        require(
+            trustedUnderlying.balanceOf(address(this)) >
+                redeemAmount + commission,
+            "Not enough liquidity"
+        );
+
+        trustedUnderlying.safeTransferFrom(
+            address(this),
+            redeemer,
+            redeemAmount + commission
+        );
+
+        emit Redeemed(redeemer, redeemAmount, commission, maturityDate);
+    }
+
+    /**
         @dev Gets current snapshot for a wallet in a certain maturity
         @param who wallet to return status snapshot in the specified maturity date
         @param maturityDate maturity date
@@ -199,8 +248,6 @@ contract Exafin is Ownable, IExafin {
         )
     {
         uint256 dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
-
         return (0, suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 

@@ -29,6 +29,13 @@ interface IExafin {
         uint256 maturityDate
     ) external;
 
+    function redeem(
+        address payable redeemer,
+        uint256 redeemAmount,
+        uint256 commission,
+        uint256 maturityDate
+    ) external;
+
     function tokenName() external view returns (string calldata);
 
     function getAccountSnapshot(address who, uint256 timestamp)
