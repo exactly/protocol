@@ -58,6 +58,8 @@ contract Exafin is Ownable, IExafin {
         address _exaFrontAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
+
+        trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
 
         exaFront = IExaFront(_exaFrontAddress);
@@ -182,7 +184,7 @@ contract Exafin is Ownable, IExafin {
         suppliedAmmounts[dateId][from] += amount + commission;
         pools[dateId] = newPoolState;
 
-        trustedUnderlying.transferFrom(from, address(this), amount);
+        trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
         emit Supplied(from, amount, commission, dateId);
     }
