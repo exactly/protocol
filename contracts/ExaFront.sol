@@ -137,7 +137,7 @@ contract ExaFront is Ownable, IExaFront {
         address account,
         uint256 maturityDate,
         address exafinToSimulate,
-        uint256 redeemTokens,
+        uint256 redeemAmount,
         uint256 borrowAmount
     )
         internal
@@ -148,6 +148,7 @@ contract ExaFront is Ownable, IExaFront {
             uint256
         )
     {
+
         AccountLiquidity memory vars; // Holds all our calculation results
         uint256 oErr;
 
@@ -187,12 +188,12 @@ contract ExaFront is Ownable, IExaFront {
                     vars.sumDebt += borrowAmount.mul_(vars.oraclePrice, 1e6);
                 }
 
-                // Calculate the effects of redeeming exafins (usage ie: see if it's still collaterized)
-                if (redeemTokens != 0) {
-                    vars.sumCollateral -= redeemTokens.mul_(
-                        vars.oraclePrice,
-                        1e6
-                    );
+                // Calculate the effects of redeeming exafins
+                // (having less collateral is the same as having more debt for this calculation)
+                if (redeemAmount != 0) {
+                    vars.sumDebt += redeemAmount
+                        .mul_(vars.collateralFactor)
+                        .mul_(vars.oraclePrice, 1e6);
                 }
             }
         }
@@ -294,6 +295,20 @@ contract ExaFront is Ownable, IExaFront {
         }
 
         return uint256(Error.NO_ERROR);
+    }
+
+    function repayAllowed(
+        address exafinAddress,
+        address borrower,
+        uint repayAmount) override external view returns (uint) {
+        borrower;
+        repayAmount;
+
+        if (!markets[exafinAddress].isListed) {
+            return uint(Error.MARKET_NOT_LISTED);
+        }
+
+        return uint(Error.NO_ERROR);
     }
 
     /**

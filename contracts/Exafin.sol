@@ -37,6 +37,13 @@ contract Exafin is Ownable, IExafin {
         uint256 maturityDate
     );
 
+    event Repaid(
+        address indexed from,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
+
     mapping(uint256 => mapping(address => uint256)) public suppliedAmmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
     mapping(uint256 => Pool) public pools;
@@ -193,7 +200,7 @@ contract Exafin is Ownable, IExafin {
         @notice User redeems (TODO: voucher NFT) in exchange for the underlying asset
         @dev The pool that the user is trying to retrieve the money should be matured
         @param redeemer The address of the account which is redeeming the tokens
-        @param redeemAmount The number of underlying tokens to receive from redeeming cTokens (only one of redeemTokensIn or redeemAmountIn may be non-zero)
+        @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin (only one of redeemTokensIn or redeemAmountIn may be non-zero)
         @param commission the amount that should be redeemed in comissions
      */
     function redeem(
@@ -204,34 +211,79 @@ contract Exafin is Ownable, IExafin {
     ) external override {
         require(redeemAmount != 0, "Redeem can't be zero");
 
+        uint256 totalAmountToRedeem = commission + redeemAmount;
+
         uint256 allowedError = exaFront.redeemAllowed(
             address(this),
             redeemer,
-            redeemAmount,
+            totalAmountToRedeem,
             maturityDate
         );
-        require(allowedError == uint256(Error.NO_ERROR), "cant redeem");
-
-        uint256 dateId = nextPoolIndex(maturityDate);
+        require(allowedError == uint(Error.NO_ERROR), "cant redeem");
 
         // We should see if in the future we want to let them leave the pool if there are certain conditions
+        uint dateId = nextPoolIndex(maturityDate);
         require(block.timestamp > dateId, "Pool not matured yet");
 
-        suppliedAmmounts[dateId][redeemer] -= redeemAmount + commission;
+        suppliedAmmounts[dateId][redeemer] -= totalAmountToRedeem;
 
         require(
-            trustedUnderlying.balanceOf(address(this)) >
-                redeemAmount + commission,
+            trustedUnderlying.balanceOf(address(this)) > 
+                totalAmountToRedeem, 
             "Not enough liquidity"
         );
 
         trustedUnderlying.safeTransferFrom(
             address(this),
             redeemer,
-            redeemAmount + commission
+            totalAmountToRedeem
         );
 
         emit Redeemed(redeemer, redeemAmount, commission, maturityDate);
+    }
+
+    /**
+        @notice User repays (TODO: voucher NFT?) in exchange for the underlying asset
+        @dev The pool that the user is trying to retrieve the money should be matured
+        @param borrower The address of the account that has the debt
+        @param repayAmount the amount of debt of the underlying token to be paid
+        @param commission the amount that should be paid in commissions
+     */
+    function repay(
+        address payable borrower,
+        uint256 repayAmount, 
+        uint256 commission,
+        uint256 maturityDate
+    ) override external {
+
+        require(repayAmount != 0, "You can't repay zero");
+
+        uint256 allowed = exaFront.repayAllowed(
+            address(this),
+            borrower,
+            repayAmount
+        );
+        require(allowed == uint(Error.NO_ERROR), "Not allowed");
+
+        // We should see if in the future we want to let them leave the pool if there are certain conditions
+        uint256 dateId = nextPoolIndex(maturityDate);
+        require(block.timestamp > dateId, "Pool not matured yet");
+
+        // TODO: Unify this? (comission doesn't need to be separate)
+        uint256 amountToPay = repayAmount + commission;
+        uint256 amountBorrowed = borrowedAmounts[dateId][borrower];
+
+        require(amountBorrowed == amountToPay, "debt must be paid in full");
+
+        trustedUnderlying.safeTransferFrom(
+            borrower,
+            address(this),
+            amountToPay
+        );
+
+        delete borrowedAmounts[dateId][borrower];
+
+        emit Repaid(borrower, repayAmount, commission, maturityDate);
     }
 
     /**
