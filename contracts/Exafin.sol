@@ -8,44 +8,65 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IExafin.sol";
 import "./interfaces/IExaFront.sol";
 import "./utils/TSUtils.sol";
-import { Error } from "./utils/Errors.sol";
+import {Error} from "./utils/Errors.sol";
 import "hardhat/console.sol";
 
 contract Exafin is Ownable, IExafin {
-
     using SafeCast for uint256;
     using TSUtils for uint256;
     using SafeERC20 for IERC20;
 
-    event Borrowed(address indexed to, uint amount, uint commission, uint maturityDate);
-    event Supplied(address indexed from, uint amount, uint commission, uint maturityDate);
-    event Redeemed(address indexed from, uint amount, uint commission, uint maturityDate);
+    event Borrowed(
+        address indexed to,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
+
+    event Supplied(
+        address indexed from,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
+
+    event Redeemed(
+        address indexed from,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
 
     mapping(uint256 => mapping(address => uint256)) public suppliedAmmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
     mapping(uint256 => Pool) public pools;
     mapping(address => uint256[]) public addressPools;
 
-    uint private baseRate;
-    uint private marginRate;
-    uint private slopeRate;
-    uint private constant RATE_UNIT = 1e18;
+    uint256 private baseRate;
+    uint256 private marginRate;
+    uint256 private slopeRate;
+    uint256 private constant RATE_UNIT = 1e18;
 
     IERC20 private trustedUnderlying;
-    string override public tokenName;
+    string public override tokenName;
 
     IExaFront private exaFront;
 
-    constructor (address _tokenAddress, string memory _tokenName, address _exaFrontAddress) {
+    constructor(
+        address _tokenAddress,
+        string memory _tokenName,
+        address _exaFrontAddress
+    ) {
         trustedUnderlying = IERC20(_tokenAddress);
+
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
 
         exaFront = IExaFront(_exaFrontAddress);
 
-        baseRate = 2e16;   // 0.02
+        baseRate = 2e16; // 0.02
         marginRate = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
-        slopeRate = 7e16;  // 0.07
+        slopeRate = 7e16; // 0.07
     }
 
     /**
@@ -54,15 +75,22 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to calculate how it would affect the pool 
         @param maturityDate maturity date to calculate the pool
      */
-    function rateForSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256, Pool memory) {
-        uint dateId = nextPoolIndex(maturityDate);
+    function rateForSupply(uint256 amount, uint256 maturityDate)
+        public
+        view
+        override
+        returns (uint256, Pool memory)
+    {
+        uint256 dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         Pool memory pool = pools[dateId];
         pool.supplied += amount;
 
-        uint256 daysDifference = (dateId - block.timestamp.trimmedDay()) / 1 days;
-        uint256 yearlyRate = baseRate + (slopeRate * pool.lent / pool.supplied);
+        uint256 daysDifference = (dateId - block.timestamp.trimmedDay()) /
+            1 days;
+        uint256 yearlyRate = baseRate +
+            ((slopeRate * pool.lent) / pool.supplied);
 
         return ((yearlyRate * daysDifference) / 365, pool);
     }
@@ -73,16 +101,24 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to calculate how it would affect the pool 
         @param maturityDate maturity date to calculate the pool
      */
-    function rateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256, Pool memory) {
-        uint dateId = nextPoolIndex(maturityDate);
+    function rateToBorrow(uint256 amount, uint256 maturityDate)
+        public
+        view
+        override
+        returns (uint256, Pool memory)
+    {
+        uint256 dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         Pool memory pool = pools[dateId];
         pool.lent += amount;
 
-        uint256 daysDifference = (dateId - block.timestamp.trimmedDay()) / 1 days;
-        uint256 yearlyRate = baseRate + marginRate + (slopeRate * pool.lent / pool.supplied);
-        
+        uint256 daysDifference = (dateId - block.timestamp.trimmedDay()) /
+            1 days;
+        uint256 yearlyRate = baseRate +
+            marginRate +
+            ((slopeRate * pool.lent) / pool.supplied);
+
         return ((yearlyRate * daysDifference) / 365, pool);
     }
 
@@ -92,17 +128,31 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to send to the specified wallet
         @param maturityDate maturity date for repayment
      */
-    function borrow(address to, uint256 amount, uint256 maturityDate) override public {
-       
-        uint dateId = nextPoolIndex(maturityDate);
+    function borrow(
+        address to,
+        uint256 amount,
+        uint256 maturityDate
+    ) public override {
+        uint256 dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        (uint256 commissionRate, Pool memory newPoolState) = rateToBorrow(amount, maturityDate);
+        (uint256 commissionRate, Pool memory newPoolState) = rateToBorrow(
+            amount,
+            maturityDate
+        );
 
-        uint errorCode = exaFront.borrowAllowed(address(this), to, amount, maturityDate);
-        require(errorCode == uint(Error.NO_ERROR), "exaFront not allowing borrow");
+        uint256 errorCode = exaFront.borrowAllowed(
+            address(this),
+            to,
+            amount,
+            maturityDate
+        );
+        require(
+            errorCode == uint256(Error.NO_ERROR),
+            "exaFront not allowing borrow"
+        );
 
-        uint256 commission = amount * commissionRate / RATE_UNIT;
+        uint256 commission = (amount * commissionRate) / RATE_UNIT;
         borrowedAmounts[dateId][to] += amount + commission;
         pools[dateId] = newPoolState;
 
@@ -117,14 +167,20 @@ contract Exafin is Ownable, IExafin {
         @param amount amount to receive from the specified wallet
         @param maturityDate maturity date 
      */
-    function supply(address from, uint256 amount, uint256 maturityDate) override public {
-       
-        uint dateId = nextPoolIndex(maturityDate);
+    function supply(
+        address from,
+        uint256 amount,
+        uint256 maturityDate
+    ) public override {
+        uint256 dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
-        (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(amount, maturityDate);
+        (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(
+            amount,
+            maturityDate
+        );
 
-        uint256 commission = (amount * commissionRate / RATE_UNIT);
+        uint256 commission = ((amount * commissionRate) / RATE_UNIT);
         suppliedAmmounts[dateId][from] += amount + commission;
         pools[dateId] = newPoolState;
 
@@ -140,22 +196,40 @@ contract Exafin is Ownable, IExafin {
         @param redeemAmount The number of underlying tokens to receive from redeeming cTokens (only one of redeemTokensIn or redeemAmountIn may be non-zero)
         @param commission the amount that should be redeemed in comissions
      */
-    function redeem(address payable redeemer, uint redeemAmount, uint commission, uint maturityDate) override external {
+    function redeem(
+        address payable redeemer,
+        uint256 redeemAmount,
+        uint256 commission,
+        uint256 maturityDate
+    ) external override {
         require(redeemAmount != 0, "Redeem can't be zero");
 
-        uint allowedError = exaFront.redeemAllowed(address(this), redeemer, redeemAmount, maturityDate);
-        require(allowedError == uint(Error.NO_ERROR), "cant redeem");
+        uint256 allowedError = exaFront.redeemAllowed(
+            address(this),
+            redeemer,
+            redeemAmount,
+            maturityDate
+        );
+        require(allowedError == uint256(Error.NO_ERROR), "cant redeem");
 
-        uint dateId = nextPoolIndex(maturityDate);
+        uint256 dateId = nextPoolIndex(maturityDate);
 
         // We should see if in the future we want to let them leave the pool if there are certain conditions
         require(block.timestamp > dateId, "Pool not matured yet");
 
         suppliedAmmounts[dateId][redeemer] -= redeemAmount + commission;
 
-        require(trustedUnderlying.balanceOf(address(this)) > redeemAmount + commission, "Not enough liquidity");
+        require(
+            trustedUnderlying.balanceOf(address(this)) >
+                redeemAmount + commission,
+            "Not enough liquidity"
+        );
 
-        trustedUnderlying.safeTransferFrom(address(this), redeemer, redeemAmount + commission);
+        trustedUnderlying.safeTransferFrom(
+            address(this),
+            redeemer,
+            redeemAmount + commission
+        );
 
         emit Redeemed(redeemer, redeemAmount, commission, maturityDate);
     }
@@ -165,8 +239,17 @@ contract Exafin is Ownable, IExafin {
         @param who wallet to return status snapshot in the specified maturity date
         @param maturityDate maturity date
      */
-    function getAccountSnapshot(address who, uint256 maturityDate) override public view returns (uint, uint, uint) {
-        uint dateId = nextPoolIndex(maturityDate);
+    function getAccountSnapshot(address who, uint256 maturityDate)
+        public
+        view
+        override
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        uint256 dateId = nextPoolIndex(maturityDate);
         return (0, suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 
@@ -174,8 +257,13 @@ contract Exafin is Ownable, IExafin {
         @dev Gets the total amount of borrowed money for a maturityDate
         @param maturityDate maturity date
      */
-    function getTotalBorrows(uint256 maturityDate) override public view returns (uint) {
-        uint dateId = nextPoolIndex(maturityDate);
+    function getTotalBorrows(uint256 maturityDate)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        uint256 dateId = nextPoolIndex(maturityDate);
         return pools[dateId].lent;
     }
 
@@ -184,9 +272,8 @@ contract Exafin is Ownable, IExafin {
         @param timestamp uint
         @return uint256 is the timestamp cropped to match a pool id
      */
-    function nextPoolIndex(uint timestamp) private pure returns (uint256) {
-        uint poolindex = timestamp.trimmedMonth().nextMonth();
+    function nextPoolIndex(uint256 timestamp) private pure returns (uint256) {
+        uint256 poolindex = timestamp.trimmedMonth().nextMonth();
         return poolindex;
     }
-
 }
