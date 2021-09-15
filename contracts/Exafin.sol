@@ -228,7 +228,7 @@ contract Exafin is Ownable, IExafin {
         suppliedAmmounts[dateId][redeemer] -= totalAmountToRedeem;
 
         require(
-            trustedUnderlying.balanceOf(address(this)) > 
+            trustedUnderlying.balanceOf(address(this)) >
                 totalAmountToRedeem, 
             "Not enough liquidity"
         );
