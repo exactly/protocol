@@ -22,7 +22,22 @@ contract Exafin is Ownable, IExafin {
         uint256 commission,
         uint256 maturityDate
     );
+
     event Supplied(
+        address indexed from,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
+
+    event Redeemed(
+        address indexed from,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
+
+    event Repaid(
         address indexed from,
         uint256 amount,
         uint256 commission,
@@ -50,11 +65,8 @@ contract Exafin is Ownable, IExafin {
         address _exaFrontAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
-        // trustedUnderlying.safeApprove(address(this), type(uint256).max);
-        // trustedUnderlying.safeIncreaseAllowance(
-        //     address(this),
-        //     type(uint256).max
-        // );
+
+        trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
 
         exaFront = IExaFront(_exaFrontAddress);
@@ -142,9 +154,10 @@ contract Exafin is Ownable, IExafin {
             amount,
             maturityDate
         );
-        if (errorCode != uint256(Error.NO_ERROR)) {
-            revert("exaFront not allowing borrow");
-        }
+        require(
+            errorCode == uint256(Error.NO_ERROR),
+            "exaFront not allowing borrow"
+        );
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
         borrowedAmounts[dateId][to] += amount + commission;
@@ -168,29 +181,109 @@ contract Exafin is Ownable, IExafin {
     ) public override {
         uint256 dateId = nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
-        console.log(1);
 
         (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(
             amount,
             maturityDate
         );
-        console.log(2);
 
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
         suppliedAmmounts[dateId][from] += amount + commission;
         pools[dateId] = newPoolState;
 
-        console.log(3);
-
-        console.log(from);
-        console.log(address(this));
-        console.log(amount);
-        console.log(trustedUnderlying.balanceOf(from));
-        trustedUnderlying.transferFrom(from, address(this), amount);
-
-        console.log(4);
+        trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
         emit Supplied(from, amount, commission, dateId);
+    }
+
+    /**
+        @notice User redeems (TODO: voucher NFT) in exchange for the underlying asset
+        @dev The pool that the user is trying to retrieve the money should be matured
+        @param redeemer The address of the account which is redeeming the tokens
+        @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin (only one of redeemTokensIn or redeemAmountIn may be non-zero)
+        @param commission the amount that should be redeemed in comissions
+     */
+    function redeem(
+        address payable redeemer,
+        uint256 redeemAmount,
+        uint256 commission,
+        uint256 maturityDate
+    ) external override {
+        require(redeemAmount != 0, "Redeem can't be zero");
+
+        uint256 totalAmountToRedeem = commission + redeemAmount;
+
+        uint256 allowedError = exaFront.redeemAllowed(
+            address(this),
+            redeemer,
+            totalAmountToRedeem,
+            maturityDate
+        );
+        require(allowedError == uint(Error.NO_ERROR), "cant redeem");
+
+        // We should see if in the future we want to let them leave the pool if there are certain conditions
+        uint dateId = nextPoolIndex(maturityDate);
+        require(block.timestamp > dateId, "Pool not matured yet");
+
+        suppliedAmmounts[dateId][redeemer] -= totalAmountToRedeem;
+
+        require(
+            trustedUnderlying.balanceOf(address(this)) >
+                totalAmountToRedeem, 
+            "Not enough liquidity"
+        );
+
+        trustedUnderlying.safeTransferFrom(
+            address(this),
+            redeemer,
+            totalAmountToRedeem
+        );
+
+        emit Redeemed(redeemer, redeemAmount, commission, maturityDate);
+    }
+
+    /**
+        @notice User repays (TODO: voucher NFT?) in exchange for the underlying asset
+        @dev The pool that the user is trying to retrieve the money should be matured
+        @param borrower The address of the account that has the debt
+        @param repayAmount the amount of debt of the underlying token to be paid
+        @param commission the amount that should be paid in commissions
+     */
+    function repay(
+        address payable borrower,
+        uint256 repayAmount, 
+        uint256 commission,
+        uint256 maturityDate
+    ) override external {
+
+        require(repayAmount != 0, "You can't repay zero");
+
+        uint256 allowed = exaFront.repayAllowed(
+            address(this),
+            borrower,
+            repayAmount
+        );
+        require(allowed == uint(Error.NO_ERROR), "Not allowed");
+
+        // We should see if in the future we want to let them leave the pool if there are certain conditions
+        uint256 dateId = nextPoolIndex(maturityDate);
+        require(block.timestamp > dateId, "Pool not matured yet");
+
+        // TODO: Unify this? (comission doesn't need to be separate)
+        uint256 amountToPay = repayAmount + commission;
+        uint256 amountBorrowed = borrowedAmounts[dateId][borrower];
+
+        require(amountBorrowed == amountToPay, "debt must be paid in full");
+
+        trustedUnderlying.safeTransferFrom(
+            borrower,
+            address(this),
+            amountToPay
+        );
+
+        delete borrowedAmounts[dateId][borrower];
+
+        emit Repaid(borrower, repayAmount, commission, maturityDate);
     }
 
     /**
@@ -209,8 +302,6 @@ contract Exafin is Ownable, IExafin {
         )
     {
         uint256 dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
-
         return (0, suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 
@@ -236,16 +327,5 @@ contract Exafin is Ownable, IExafin {
     function nextPoolIndex(uint256 timestamp) private pure returns (uint256) {
         uint256 poolindex = timestamp.trimmedMonth().nextMonth();
         return poolindex;
-    }
-
-    function increaseAllowance(address spender, uint256 value)
-        public
-        virtual
-        returns (bool)
-    {
-        console.log(spender, value);
-        trustedUnderlying.approve(spender, value);
-
-        return true;
     }
 }
