@@ -13,3 +13,5 @@ coverage.json
 abi
 
 *.code-workspace
+
+deployments/
