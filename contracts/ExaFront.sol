@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
 import "./interfaces/IExafin.sol";
 import "./interfaces/IExaFront.sol";
 import "./interfaces/Oracle.sol";
@@ -10,7 +12,9 @@ import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract ExaFront is Ownable, IExaFront {
+contract ExaFront is Ownable, IExaFront, AccessControl {
+    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
+
     using TSUtils for uint256;
     using DecimalMath for uint256;
 
@@ -52,6 +56,8 @@ contract ExaFront is Ownable, IExaFront {
 
     constructor(address _priceOracleAddress) {
         oracle = Oracle(_priceOracleAddress);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(TEAM_ROLE, msg.sender);
     }
 
     /**
@@ -306,7 +312,7 @@ contract ExaFront is Ownable, IExaFront {
         uint256 collateralFactor,
         string memory symbol,
         string memory name
-    ) public onlyOwner {
+    ) public onlyRole(TEAM_ROLE) {
         Market storage market = markets[exafin];
         market.baseMarket.isListed = true;
         market.baseMarket.exists = true;
@@ -386,7 +392,7 @@ contract ExaFront is Ownable, IExaFront {
         @dev Add market to listedMarkets and change boolean to true
         @param exafin address to add to the protocol
      */
-    function listMarket(address exafin) public {
+    function listMarket(address exafin) public onlyRole(TEAM_ROLE) {
         require(markets[exafin].baseMarket.exists, "Address is not a market");
         markets[exafin].baseMarket.isListed = true;
         listedMarkets[exafin] = markets[exafin].baseMarket;
@@ -396,7 +402,7 @@ contract ExaFront is Ownable, IExaFront {
         @dev Delete market to listedMarkets and change boolean to false
         @param exafin address to add to the protocol
      */
-    function unlistMarket(address exafin) public {
+    function unlistMarket(address exafin) public onlyRole(TEAM_ROLE) {
         require(markets[exafin].baseMarket.exists, "Address is not a market");
         markets[exafin].baseMarket.isListed = false;
         delete listedMarkets[exafin];
@@ -409,7 +415,7 @@ contract ExaFront is Ownable, IExaFront {
      */
     function pauseBorrow(address exafin, bool paused)
         public
-        onlyOwner
+        onlyRole(TEAM_ROLE)
         returns (bool)
     {
         require(markets[exafin].baseMarket.isListed, "not listed");
@@ -423,7 +429,7 @@ contract ExaFront is Ownable, IExaFront {
         @dev Function to set Oracle's to be used
         @param _priceOracleAddress address of the new oracle
      */
-    function setOracle(address _priceOracleAddress) public onlyOwner {
+    function setOracle(address _priceOracleAddress) public onlyRole(TEAM_ROLE) {
         oracle = Oracle(_priceOracleAddress);
     }
 }
