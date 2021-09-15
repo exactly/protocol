@@ -222,6 +222,71 @@ describe("Exafin", function () {
     );
   });
 
+  it('it allows the mariaUser to repay her debt only after maturity', async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(exafin.address, parseUnits("100"));
+
+    // connect through Maria
+    let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
+    let exafinMaria = exafin.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    // supply some money and parse event
+    await underlyingTokenUser.approve(exafin.address, parseUnits("5.0"));
+    let txSupply = await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
+    let supplyEvent = await parseSupplyEvent(txSupply);
+    let tx = await exafinMaria.borrow(mariaUser.address, parseUnits("0.8"), now);
+    let borrowEvent = await parseBorrowEvent(tx);
+
+    // try to redeem before maturity
+    await expect(
+      exafinMaria.repay(
+        mariaUser.address,
+        borrowEvent.amount,
+        borrowEvent.commission,
+        now
+      )
+    ).to.be.revertedWith("Pool not matured yet");
+
+    // Move in time to maturity
+    await ethers.provider.send('evm_setNextBlockTimestamp', [exaTime.nextPoolID().timestamp]);
+    await ethers.provider.send('evm_mine', []);
+
+    // try to pay a little less and fail
+    await expect(
+      exafinMaria.repay(
+        mariaUser.address,
+        borrowEvent.amount.sub(10),
+        borrowEvent.commission,
+        now
+      )
+    ).to.be.revertedWith("debt must be paid in full");
+
+    // repay and succeed
+    await exafinMaria.repay(
+      mariaUser.address,
+      borrowEvent.amount,
+      borrowEvent.commission,
+      now
+    );
+
+    // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
+    await exafinMaria.redeem(
+      mariaUser.address,
+      supplyEvent.amount,
+      supplyEvent.commission,
+      now
+    );
+
+    expect(
+        await underlyingToken.balanceOf(mariaUser.address)
+    ).to.be.equal(
+        originalAmount
+            .add(supplyEvent.commission)
+            .sub(borrowEvent.commission)
+    );
+  });
+
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
   });
