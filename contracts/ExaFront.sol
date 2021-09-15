@@ -304,7 +304,7 @@ contract ExaFront is Ownable, IExaFront {
         borrower;
         repayAmount;
 
-        if (!markets[exafinAddress].isListed) {
+        if (!markets[exafinAddress].baseMarket.isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
 
