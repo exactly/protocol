@@ -5,14 +5,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "./interfaces/IExafin.sol";
-import "./interfaces/IExaFront.sol";
+import "./interfaces/IAuditor.sol";
 import "./interfaces/Oracle.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract ExaFront is Ownable, IExaFront, AccessControl {
+contract Auditor is Ownable, IAuditor, AccessControl {
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     using TSUtils for uint256;
@@ -28,7 +28,9 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
     mapping(address => IExafin[]) public accountAssets;
 
     uint256 private marketCount = 0;
-    address[] marketsAddress;
+    address[] public marketsAddress;
+
+    uint256 public closeFactor = 5e17;
 
     struct BaseMarket {
         string symbol;
@@ -75,20 +77,20 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
         for (uint256 i = 0; i < len; i++) {
             IExafin exafin = IExafin(exafins[i]);
 
-            results[i] = uint256(addToMarketInternal(exafin, msg.sender));
+            results[i] = uint256(_addToMarket(exafin, msg.sender));
         }
 
         return results;
     }
 
     /**
-        @dev (internal)
+        @dev
             Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
             By performing this action, the wallet's money could be used as collateral
         @param exafin contracts addresses to enable
         @param borrower wallet that wants to enter a market
      */
-    function addToMarketInternal(IExafin exafin, address borrower)
+    function _addToMarket(IExafin exafin, address borrower)
         internal
         returns (Error)
     {
@@ -129,7 +131,7 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
             Error err,
             uint256 liquidity,
             uint256 shortfall
-        ) = accountLiquidityInternal(account, maturityDate, address(0), 0, 0);
+        ) = _accountLiquidity(account, maturityDate, address(0), 0, 0);
 
         return (uint256(err), liquidity, shortfall);
     }
@@ -139,7 +141,7 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
         @param account wallet to retrieve liquidity for a certain maturity date
         @param maturityDate timestamp to calculate maturity's pool
      */
-    function accountLiquidityInternal(
+    function _accountLiquidity(
         address account,
         uint256 maturityDate,
         address exafinToSimulate,
@@ -156,19 +158,17 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
     {
 
         AccountLiquidity memory vars; // Holds all our calculation results
-        uint256 oErr;
 
         // For each asset the account is in
         IExafin[] memory assets = accountAssets[account];
         for (uint256 i = 0; i < assets.length; i++) {
             IExafin asset = assets[i];
 
-            // Read the balances // TODO calculate using NFT
-            (oErr, vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
+            // Read the balances
+            (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
                 account,
                 maturityDate
             );
-            require(oErr == uint256(Error.NO_ERROR), "Snapshot error");
 
             vars.collateralFactor = markets[address(asset)]
                 .baseMarket
@@ -230,7 +230,7 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
             require(msg.sender == exafinAddress, "sender must be cToken");
 
             // attempt to add borrower to the market
-            Error errAdd = addToMarketInternal(IExafin(msg.sender), borrower);
+            Error errAdd = _addToMarket(IExafin(msg.sender), borrower);
             if (errAdd != Error.NO_ERROR) {
                 return uint256(errAdd);
             }
@@ -253,7 +253,7 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
             require(nextTotalBorrows < borrowCap, "market borrow cap reached");
         }
 
-        (Error err, , uint256 shortfall) = accountLiquidityInternal(
+        (Error err, , uint256 shortfall) = _accountLiquidity(
             borrower,
             maturityDate,
             exafinAddress,
@@ -286,7 +286,7 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
         }
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (Error err, , uint256 shortfall) = accountLiquidityInternal(
+        (Error err, , uint256 shortfall) = _accountLiquidity(
             redeemer,
             maturityDate,
             exafinAddress,

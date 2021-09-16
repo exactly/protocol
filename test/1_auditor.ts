@@ -5,8 +5,8 @@ import { Contract } from "ethers";
 import { ExactlyEnv, parseSupplyEvent } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-describe("Exafront", function () {
-  let exaFront: Contract;
+describe("Auditor", function () {
+  let auditor: Contract;
   let exactlyEnv: ExactlyEnv;
 
   let owner: SignerWithAddress;
@@ -27,7 +27,7 @@ describe("Exafront", function () {
     [owner, user] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
-    exaFront = exactlyEnv.exaFront;
+    auditor = exactlyEnv.auditor;
   });
 
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
@@ -44,7 +44,7 @@ describe("Exafront", function () {
     expect(await dai.balanceOf(exafinDai.address)).to.equal(amountDAI);
 
     // we make it count as collateral (DAI)
-    await exaFront.enterMarkets([exafinDai.address]);
+    await auditor.enterMarkets([exafinDai.address]);
 
     const exafinETH = exactlyEnv.getExafin("ETH");
     const eth = exactlyEnv.getUnderlying("ETH");
@@ -58,9 +58,9 @@ describe("Exafront", function () {
     expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH);
 
     // we make it count as collateral (ETH)
-    await exaFront.enterMarkets([exafinETH.address]);
+    await auditor.enterMarkets([exafinETH.address]);
 
-    let liquidity = (await exaFront.getAccountLiquidity(owner.address, now))[1];
+    let liquidity = (await auditor.getAccountLiquidity(owner.address, now))[1];
     let collaterDAI = amountDAI
       .add(borrowDAIEvent.commission)
       .mul(tokensCollateralRate.get("DAI")!)

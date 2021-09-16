@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import "./IAuditor.sol";
+
 struct Pool {
     uint256 lent;
     uint256 supplied;
@@ -37,7 +39,8 @@ interface IExafin {
     ) external;
 
     function repay(
-        address payable borrower,
+        address payable payer,
+        address borrower,
         uint256 repayAmount,
         uint256 commission,
         uint256 maturityDate
@@ -50,7 +53,6 @@ interface IExafin {
         view
         returns (
             uint256,
-            uint256,
             uint256
         );
 
@@ -58,4 +60,6 @@ interface IExafin {
         external
         view
         returns (uint256);
+
+    function getAuditor() external view returns (IAuditor);
 }

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IExafin.sol";
-import "./interfaces/IExaFront.sol";
+import "./interfaces/IAuditor.sol";
 import "./utils/TSUtils.sol";
 import {Error} from "./utils/Errors.sol";
 import "hardhat/console.sol";
@@ -38,7 +38,8 @@ contract Exafin is Ownable, IExafin {
     );
 
     event Repaid(
-        address indexed from,
+        address indexed payer,
+        address indexed borrower,
         uint256 amount,
         uint256 commission,
         uint256 maturityDate
@@ -57,19 +58,19 @@ contract Exafin is Ownable, IExafin {
     IERC20 private trustedUnderlying;
     string public override tokenName;
 
-    IExaFront private exaFront;
+    IAuditor private auditor;
 
     constructor(
         address _tokenAddress,
         string memory _tokenName,
-        address _exaFrontAddress
+        address _auditorAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
 
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
 
-        exaFront = IExaFront(_exaFrontAddress);
+        auditor = IAuditor(_auditorAddress);
 
         baseRate = 2e16; // 0.02
         marginRate = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
@@ -148,7 +149,7 @@ contract Exafin is Ownable, IExafin {
             maturityDate
         );
 
-        uint256 errorCode = exaFront.borrowAllowed(
+        uint256 errorCode = auditor.borrowAllowed(
             address(this),
             to,
             amount,
@@ -156,7 +157,7 @@ contract Exafin is Ownable, IExafin {
         );
         require(
             errorCode == uint256(Error.NO_ERROR),
-            "exaFront not allowing borrow"
+            "Auditor not allowing borrow"
         );
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
@@ -202,6 +203,7 @@ contract Exafin is Ownable, IExafin {
         @param redeemer The address of the account which is redeeming the tokens
         @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin (only one of redeemTokensIn or redeemAmountIn may be non-zero)
         @param commission the amount that should be redeemed in comissions
+        @param maturityDate the date to calculate the pool id
      */
     function redeem(
         address payable redeemer,
@@ -213,7 +215,7 @@ contract Exafin is Ownable, IExafin {
 
         uint256 totalAmountToRedeem = commission + redeemAmount;
 
-        uint256 allowedError = exaFront.redeemAllowed(
+        uint256 allowedError = auditor.redeemAllowed(
             address(this),
             redeemer,
             totalAmountToRedeem,
@@ -243,22 +245,24 @@ contract Exafin is Ownable, IExafin {
     }
 
     /**
-        @notice User repays (TODO: voucher NFT?) in exchange for the underlying asset
+        @notice User repays its debt
         @dev The pool that the user is trying to retrieve the money should be matured
         @param borrower The address of the account that has the debt
         @param repayAmount the amount of debt of the underlying token to be paid
         @param commission the amount that should be paid in commissions
+        @param maturityDate the maturityDate to access the pool
      */
-    function repay(
-        address payable borrower,
+    function _repay(
+        address payable payer,
+        address borrower,
         uint256 repayAmount, 
         uint256 commission,
         uint256 maturityDate
-    ) override external {
+    ) internal {
 
         require(repayAmount != 0, "You can't repay zero");
 
-        uint256 allowed = exaFront.repayAllowed(
+        uint256 allowed = auditor.repayAllowed(
             address(this),
             borrower,
             repayAmount
@@ -276,14 +280,31 @@ contract Exafin is Ownable, IExafin {
         require(amountBorrowed == amountToPay, "debt must be paid in full");
 
         trustedUnderlying.safeTransferFrom(
-            borrower,
+            payer,
             address(this),
             amountToPay
         );
 
         delete borrowedAmounts[dateId][borrower];
 
-        emit Repaid(borrower, repayAmount, commission, maturityDate);
+        emit Repaid(payer, borrower, repayAmount, commission, maturityDate);
+    }
+
+    /**
+        @notice User repays its debt
+        @dev The pool that the user is trying to retrieve the money should be matured
+        @param borrower The address of the account that has the debt
+        @param repayAmount the amount of debt of the underlying token to be paid
+        @param commission the amount that should be paid in commissions
+     */
+    function repay(
+        address payable payer,
+        address borrower,
+        uint256 repayAmount, 
+        uint256 commission,
+        uint256 maturityDate
+    ) override external {
+        _repay(payer, borrower, repayAmount, commission, maturityDate);
     }
 
     /**
@@ -297,12 +318,11 @@ contract Exafin is Ownable, IExafin {
         override
         returns (
             uint256,
-            uint256,
             uint256
         )
     {
         uint256 dateId = nextPoolIndex(maturityDate);
-        return (0, suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
+        return (suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 
     /**
@@ -327,5 +347,9 @@ contract Exafin is Ownable, IExafin {
     function nextPoolIndex(uint256 timestamp) private pure returns (uint256) {
         uint256 poolindex = timestamp.trimmedMonth().nextMonth();
         return poolindex;
+    }
+
+    function getAuditor() override public view returns (IAuditor) {
+        return IAuditor(auditor);
     }
 }
