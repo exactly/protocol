@@ -17,7 +17,7 @@ describe("Exafin", function () {
 
   let underlyingToken: Contract;
   let exafin: Contract;
-  let exaFront: Contract;
+  let auditor: Contract;
 
   let tokensCollateralRate = new Map([
     ["DAI", parseUnits("0.8", 18)],
@@ -45,7 +45,7 @@ describe("Exafin", function () {
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     exafin = exactlyEnv.getExafin("DAI");
-    exaFront = exactlyEnv.exaFront;
+    auditor = exactlyEnv.auditor;
 
     // From Owner to User
     underlyingToken.transfer(mariaUser.address, parseUnits("100"));
@@ -76,12 +76,12 @@ describe("Exafin", function () {
 
   it("it allows you to borrow money", async () => {
     let exafinMaria = exafin.connect(mariaUser);
-    let exaFrontUser = exaFront.connect(mariaUser);
+    let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
     await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
-    await exaFrontUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address]);
     expect(
       await exafinMaria.borrow(mariaUser.address, parseUnits("0.8"), now)
     ).to.emit(exafinMaria, "Borrowed");
@@ -89,12 +89,12 @@ describe("Exafin", function () {
 
   it("it doesnt allow mariaUser to borrow money because not collateralized enough", async () => {
     let exafinMaria = exafin.connect(mariaUser);
-    let exaFrontUser = exaFront.connect(mariaUser);
+    let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
     await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
-    await exaFrontUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address]);
     await expect(exafinMaria.borrow(mariaUser.address, parseUnits("0.9"), now))
       .to.be.reverted;
   });
@@ -126,7 +126,7 @@ describe("Exafin", function () {
     // Expected "19999999999999985" to be within 20 of 20000000000000000
     expect(BigNumber.from(yearlyRateProjected)).to.be.closeTo(
       exactlyEnv.baseRate,
-      20
+      100
     );
 
     // We expect that the actual rate was taken when we submitted the supply transaction
@@ -242,6 +242,7 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.repay(
         mariaUser.address,
+        mariaUser.address,
         borrowEvent.amount,
         borrowEvent.commission,
         now
@@ -256,6 +257,7 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.repay(
         mariaUser.address,
+        mariaUser.address,
         borrowEvent.amount.sub(10),
         borrowEvent.commission,
         now
@@ -264,6 +266,7 @@ describe("Exafin", function () {
 
     // repay and succeed
     await exafinMaria.repay(
+      mariaUser.address,
       mariaUser.address,
       borrowEvent.amount,
       borrowEvent.commission,

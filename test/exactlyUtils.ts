@@ -63,7 +63,7 @@ export function parseSupplyEvent(tx: ContractTransaction) {
 
 export class ExactlyEnv {
   oracle: Contract;
-  exaFront: Contract;
+  auditor: Contract;
   exafinContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   baseRate: BigNumber;
@@ -72,12 +72,12 @@ export class ExactlyEnv {
 
   constructor(
     _oracle: Contract,
-    _exaFront: Contract,
+    _auditor: Contract,
     _exafinContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>
   ) {
     this.oracle = _oracle;
-    this.exaFront = _exaFront;
+    this.auditor = _auditor;
     this.exafinContracts = _exafinContracts;
     this.underlyingContracts = _underlyingContracts;
     this.baseRate = parseUnits("0.02");
@@ -104,11 +104,11 @@ export class ExactlyEnv {
     let oracle = await SomeOracle.deploy();
     await oracle.deployed();
 
-    const ExaFront = await ethers.getContractFactory("ExaFront");
-    let exaFront = await ExaFront.deploy(oracle.address);
-    await exaFront.deployed();
+    const Auditor = await ethers.getContractFactory("Auditor");
+    let auditor = await Auditor.deploy(oracle.address);
+    await auditor.deployed();
 
-    // We have to enable all the Exafins in the ExaFront
+    // We have to enable all the Exafins in the auditor 
     await Promise.all(
       Array.from(tokensCollateralRate.keys()).map(async (tokenName) => {
         const totalSupply = ethers.utils.parseUnits("100000000000", 18);
@@ -124,15 +124,15 @@ export class ExactlyEnv {
         const exafin = await Exafin.deploy(
           underlyingToken.address,
           tokenName,
-          exaFront.address
+          auditor.address
         );
         await exafin.deployed();
-        await exafin.transferOwnership(exaFront.address);
+        await exafin.transferOwnership(auditor.address);
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, tokensUSDPrice.get(tokenName));
         // Enable Market for Exafin-TOKEN by setting the collateral rates
-        await exaFront.enableMarket(
+        await auditor.enableMarket(
           exafin.address,
           tokensCollateralRate.get(tokenName),
           tokenName,
@@ -147,7 +147,7 @@ export class ExactlyEnv {
 
     return new Promise<ExactlyEnv>((resolve) => {
       resolve(
-        new ExactlyEnv(oracle, exaFront, exafinContracts, underlyingContracts)
+        new ExactlyEnv(oracle, auditor, exafinContracts, underlyingContracts)
       );
     });
   }

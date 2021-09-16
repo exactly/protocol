@@ -5,14 +5,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "./interfaces/IExafin.sol";
-import "./interfaces/IExaFront.sol";
+import "./interfaces/IAuditor.sol";
 import "./interfaces/Oracle.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract ExaFront is Ownable, IExaFront, AccessControl {
+contract Auditor is Ownable, IAuditor, AccessControl {
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     using TSUtils for uint256;
@@ -28,7 +28,9 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
     mapping(address => IExafin[]) public accountAssets;
 
     uint256 private marketCount = 0;
-    address[] marketsAddress;
+    address[] public marketsAddress;
+
+    uint256 public closeFactor = 5e17;
 
     struct BaseMarket {
         string symbol;
@@ -156,19 +158,17 @@ contract ExaFront is Ownable, IExaFront, AccessControl {
     {
 
         AccountLiquidity memory vars; // Holds all our calculation results
-        uint256 oErr;
 
         // For each asset the account is in
         IExafin[] memory assets = accountAssets[account];
         for (uint256 i = 0; i < assets.length; i++) {
             IExafin asset = assets[i];
 
-            // Read the balances // TODO calculate using NFT
-            (oErr, vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
+            // Read the balances
+            (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
                 account,
                 maturityDate
             );
-            require(oErr == uint256(Error.NO_ERROR), "Snapshot error");
 
             vars.collateralFactor = markets[address(asset)]
                 .baseMarket
