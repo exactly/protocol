@@ -77,20 +77,20 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         for (uint256 i = 0; i < len; i++) {
             IExafin exafin = IExafin(exafins[i]);
 
-            results[i] = uint256(addToMarketInternal(exafin, msg.sender));
+            results[i] = uint256(_addToMarket(exafin, msg.sender));
         }
 
         return results;
     }
 
     /**
-        @dev (internal)
+        @dev
             Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
             By performing this action, the wallet's money could be used as collateral
         @param exafin contracts addresses to enable
         @param borrower wallet that wants to enter a market
      */
-    function addToMarketInternal(IExafin exafin, address borrower)
+    function _addToMarket(IExafin exafin, address borrower)
         internal
         returns (Error)
     {
@@ -131,7 +131,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             Error err,
             uint256 liquidity,
             uint256 shortfall
-        ) = accountLiquidityInternal(account, maturityDate, address(0), 0, 0);
+        ) = _accountLiquidity(account, maturityDate, address(0), 0, 0);
 
         return (uint256(err), liquidity, shortfall);
     }
@@ -141,7 +141,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         @param account wallet to retrieve liquidity for a certain maturity date
         @param maturityDate timestamp to calculate maturity's pool
      */
-    function accountLiquidityInternal(
+    function _accountLiquidity(
         address account,
         uint256 maturityDate,
         address exafinToSimulate,
@@ -230,7 +230,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             require(msg.sender == exafinAddress, "sender must be cToken");
 
             // attempt to add borrower to the market
-            Error errAdd = addToMarketInternal(IExafin(msg.sender), borrower);
+            Error errAdd = _addToMarket(IExafin(msg.sender), borrower);
             if (errAdd != Error.NO_ERROR) {
                 return uint256(errAdd);
             }
@@ -253,7 +253,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             require(nextTotalBorrows < borrowCap, "market borrow cap reached");
         }
 
-        (Error err, , uint256 shortfall) = accountLiquidityInternal(
+        (Error err, , uint256 shortfall) = _accountLiquidity(
             borrower,
             maturityDate,
             exafinAddress,
@@ -286,7 +286,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         }
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (Error err, , uint256 shortfall) = accountLiquidityInternal(
+        (Error err, , uint256 shortfall) = _accountLiquidity(
             redeemer,
             maturityDate,
             exafinAddress,

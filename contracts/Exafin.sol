@@ -252,7 +252,7 @@ contract Exafin is Ownable, IExafin {
         @param commission the amount that should be paid in commissions
         @param maturityDate the maturityDate to access the pool
      */
-    function repayInternal(
+    function _repay(
         address payable payer,
         address borrower,
         uint256 repayAmount, 
@@ -304,7 +304,7 @@ contract Exafin is Ownable, IExafin {
         uint256 commission,
         uint256 maturityDate
     ) override external {
-        repayInternal(payer, borrower, repayAmount, commission, maturityDate);
+        _repay(payer, borrower, repayAmount, commission, maturityDate);
     }
 
     /**
