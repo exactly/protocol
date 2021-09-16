@@ -27,35 +27,36 @@ let config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.0",
+        version: "0.8.0"
       },
       {
-        version: "0.6.10",
-      },
-    ],
+        version: "0.6.10"
+      }
+    ]
   },
   networks: {
     hardhat: {
       initialBaseFeePerGas: 0,
       forking: {
-        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALKEMY_MAINNET_API_KEY}`,
+        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALKEMY_MAINNET_API_KEY}`
       },
       accounts: {
-        mnemonic: process.env.MNEMONIC,
+        mnemonic: process.env.MNEMONIC
       },
+      chainId: 1337
     },
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALKEMY_RINKEBY_API_KEY}`,
       accounts: {
-        mnemonic: process.env.MNEMONIC,
-      },
-    },
+        mnemonic: process.env.MNEMONIC
+      }
+    }
   },
   gasReporter: {
     currency: "USD",
     gasPrice: 100,
-    enabled: process.env.REPORT_GAS ? true : false,
-  },
+    enabled: process.env.REPORT_GAS ? true : false
+  }
 };
 
 export default config;

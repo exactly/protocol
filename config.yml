@@ -5,12 +5,31 @@ token_addresses:
       DAI:
         name: "Dai"
         address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+        whale: "0x2c8fbb630289363ac80705a1a61273f76fd5a161"
+        collateralRate: "0.8"
+        oracleName: "DAI"
+        decimals: 18
+      USDC:
+        name: "USD Coin"
+        address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        whale: "0x47ac0fb4f2d84898e4d9e7b4dab3c24507a6d503"
+        collateralRate: "0.8"
+        oracleName: "USDC"
+        decimals: 6
       USDT:
         name: "Tether"
         address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        whale: "0x5754284f345afc66a98fbb0a0afe71e0f007b949"
+        collateralRate: "0.8"
+        oracleName: "USDT"
+        decimals: 6
       WETH:
         name: "Wrapped ETH"
         address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        whale: "0xa5d07e978398eb1715056d3ca5cb31035c02fdad"
+        collateralRate: "0.8"
+        oracleName: "ETH"
+        decimals: 18
   rinkeby:
     price_oracle: "0x6d2299c48a8dd07a872fdd0f8233924872ad1071"
     assets:
