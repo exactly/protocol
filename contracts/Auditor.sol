@@ -301,18 +301,14 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
+        // We should see if in the future we want to let them leave the pool if there are certain conditions
+        uint dateId = TSUtils.nextPoolIndex(maturityDate);
+        require(block.timestamp > dateId, "Pool not matured yet");
+
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
         if (!markets[exafinAddress].accountMembership[redeemer]) {
             return uint256(Error.NO_ERROR);
         }
-
-        // We should see if in the future we want to let them leave the pool if there are certain conditions
-        console.log("REDEEM------");
-        uint dateId = TSUtils.nextPoolIndex(maturityDate);
-        console.log(maturityDate);
-        console.log(dateId);
-        console.log(block.timestamp);
-        require(block.timestamp > dateId, "Pool not matured yet");
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
         (Error err, , uint256 shortfall) = _accountLiquidity(

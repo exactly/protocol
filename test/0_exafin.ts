@@ -195,9 +195,6 @@ describe("Exafin", function () {
     let tx = await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
     let supplyEvent = await parseSupplyEvent(tx);
 
-    console.log("LUCAS------");
-    console.log(now);
-
     // try to redeem before maturity
     await expect(
       exafinMaria.redeem(
@@ -207,9 +204,6 @@ describe("Exafin", function () {
         now
       )
     ).to.be.revertedWith("Pool not matured yet");
-
-    console.log("LUCAS2------");
-    console.log(now);
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
