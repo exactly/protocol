@@ -186,12 +186,14 @@ contract Exafin is Ownable, IExafin {
             maturityDate
         );
 
-        uint256 errorCode = auditor.supplyAllowed(
-            address(this),
-            from,
-            amount,
-            maturityDate
-        );
+        // uint256 errorCode = auditor.supplyAllowed(
+        //     address(this),
+        //     from,
+        //     amount,
+        //     maturityDate
+        // );
+
+        uint256 errorCode = 0;
 
         require(
             errorCode == uint256(Error.NO_ERROR),

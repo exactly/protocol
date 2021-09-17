@@ -182,8 +182,6 @@ describe("Exafin", function () {
 
   it("it allows the mariaUser to withdraw money only after maturity", async () => {
 
-    await ethers.provider.send("hardhat_reset", []);
-
     // give the protocol some solvency
     await underlyingToken.transfer(exafin.address, parseUnits("100"));
     let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
@@ -209,6 +207,9 @@ describe("Exafin", function () {
         now
       )
     ).to.be.revertedWith("Pool not matured yet");
+
+    console.log("LUCAS2------");
+    console.log(now);
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -298,5 +299,6 @@ describe("Exafin", function () {
 
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send('evm_mine', []);
   });
 });

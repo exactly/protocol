@@ -224,13 +224,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
-        console.log("REDEEM------");
-        uint dateId = TSUtils.nextPoolIndex(maturityDate);
-        console.log(dateId);
-        console.log(block.timestamp);
-        //require(block.timestamp > dateId, "Pool not matured yet");
-
-        //uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         return uint256(Error.NO_ERROR);
@@ -315,6 +309,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         // We should see if in the future we want to let them leave the pool if there are certain conditions
         console.log("REDEEM------");
         uint dateId = TSUtils.nextPoolIndex(maturityDate);
+        console.log(maturityDate);
         console.log(dateId);
         console.log(block.timestamp);
         require(block.timestamp > dateId, "Pool not matured yet");
