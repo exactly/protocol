@@ -169,6 +169,12 @@ export class ExaTime {
     );
   }
 
+  public pastPoolID(): ExaTime {
+    return new ExaTime(
+      this.timestamp - (this.timestamp % this.thirtyDays) - this.thirtyDays
+    );
+  }
+
   public trimmedDay(): ExaTime {
     return new ExaTime(this.timestamp - (this.timestamp % this.oneDay));
   }

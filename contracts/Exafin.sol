@@ -89,7 +89,7 @@ contract Exafin is Ownable, IExafin {
         returns (uint256, Pool memory)
     {
         uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
+        require(block.timestamp < dateId, "Pool Matured");
 
         Pool memory pool = pools[dateId];
         pool.supplied += amount;
@@ -115,7 +115,7 @@ contract Exafin is Ownable, IExafin {
         returns (uint256, Pool memory)
     {
         uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
+        require(block.timestamp < dateId, "Pool Matured");
 
         Pool memory pool = pools[dateId];
         pool.lent += amount;

@@ -74,6 +74,15 @@ describe("Exafin", function () {
     );
   });
 
+  it("it doesn't allow you to give money to a pool that expired", async () => {
+    const underlyingAmount = parseUnits("100");
+    await underlyingToken.approve(exafin.address, underlyingAmount);
+
+    await expect(
+      exafin.supply(owner.address, underlyingAmount, exaTime.pastPoolID().timestamp)
+    ).to.be.revertedWith("Pool Matured");
+  });
+
   it("it allows you to borrow money", async () => {
     let exafinMaria = exafin.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
@@ -203,7 +212,7 @@ describe("Exafin", function () {
         supplyEvent.commission,
         now
       )
-    ).to.be.revertedWith("Pool not matured yet");
+    ).to.be.revertedWith("Pool Not Mature");
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -248,7 +257,7 @@ describe("Exafin", function () {
         borrowEvent.commission,
         now
       )
-    ).to.be.revertedWith("Pool not matured yet");
+    ).to.be.revertedWith("Pool Not Mature");
 
     // Move in time to maturity
     await ethers.provider.send('evm_setNextBlockTimestamp', [exaTime.nextPoolID().timestamp]);
