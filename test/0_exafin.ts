@@ -171,7 +171,7 @@ describe("Exafin", function () {
       .add(exactlyEnv.slopeRate.mul(unitsToBorrow).div(unitsToSupply));
 
     // Expected "85999999999999996" to be within 20 of 86000000000000000
-    expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 20);
+    expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 100);
 
     // We expect that the actual rate was taken when we submitted the borrowing transaction
     expect(borrowEvent.commission).to.be.closeTo(
@@ -181,6 +181,9 @@ describe("Exafin", function () {
   });
 
   it("it allows the mariaUser to withdraw money only after maturity", async () => {
+
+    await ethers.provider.send("hardhat_reset", []);
+
     // give the protocol some solvency
     await underlyingToken.transfer(exafin.address, parseUnits("100"));
     let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
@@ -193,6 +196,9 @@ describe("Exafin", function () {
     await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
     let tx = await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
     let supplyEvent = await parseSupplyEvent(tx);
+
+    console.log("LUCAS------");
+    console.log(now);
 
     // try to redeem before maturity
     await expect(

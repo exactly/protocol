@@ -13,7 +13,6 @@ import "hardhat/console.sol";
 
 contract Exafin is Ownable, IExafin {
     using SafeCast for uint256;
-    using TSUtils for uint256;
     using SafeERC20 for IERC20;
 
     event Borrowed(
@@ -89,13 +88,13 @@ contract Exafin is Ownable, IExafin {
         override
         returns (uint256, Pool memory)
     {
-        uint256 dateId = nextPoolIndex(maturityDate);
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         Pool memory pool = pools[dateId];
         pool.supplied += amount;
 
-        uint256 daysDifference = (dateId - block.timestamp.trimmedDay()) /
+        uint256 daysDifference = (dateId - TSUtils.trimmedDay(block.timestamp)) /
             1 days;
         uint256 yearlyRate = baseRate +
             ((slopeRate * pool.lent) / pool.supplied);
@@ -115,13 +114,13 @@ contract Exafin is Ownable, IExafin {
         override
         returns (uint256, Pool memory)
     {
-        uint256 dateId = nextPoolIndex(maturityDate);
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         Pool memory pool = pools[dateId];
         pool.lent += amount;
 
-        uint256 daysDifference = (dateId - block.timestamp.trimmedDay()) /
+        uint256 daysDifference = (dateId - TSUtils.trimmedDay(block.timestamp)) /
             1 days;
         uint256 yearlyRate = baseRate +
             marginRate +
@@ -141,8 +140,6 @@ contract Exafin is Ownable, IExafin {
         uint256 amount,
         uint256 maturityDate
     ) public override {
-        uint256 dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         (uint256 commissionRate, Pool memory newPoolState) = rateToBorrow(
             amount,
@@ -155,6 +152,9 @@ contract Exafin is Ownable, IExafin {
             amount,
             maturityDate
         );
+
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
+
         require(
             errorCode == uint256(Error.NO_ERROR),
             "Auditor not allowing borrow"
@@ -180,14 +180,25 @@ contract Exafin is Ownable, IExafin {
         uint256 amount,
         uint256 maturityDate
     ) public override {
-        uint256 dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Exafin: Pool Matured");
 
         (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(
             amount,
             maturityDate
         );
 
+        uint256 errorCode = auditor.supplyAllowed(
+            address(this),
+            from,
+            amount,
+            maturityDate
+        );
+
+        require(
+            errorCode == uint256(Error.NO_ERROR),
+            "Auditor not allowing borrow"
+        );
+
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
         suppliedAmmounts[dateId][from] += amount + commission;
         pools[dateId] = newPoolState;
@@ -223,10 +234,7 @@ contract Exafin is Ownable, IExafin {
         );
         require(allowedError == uint(Error.NO_ERROR), "cant redeem");
 
-        // We should see if in the future we want to let them leave the pool if there are certain conditions
-        uint dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp > dateId, "Pool not matured yet");
-
+        uint dateId = TSUtils.nextPoolIndex(maturityDate);
         suppliedAmmounts[dateId][redeemer] -= totalAmountToRedeem;
 
         require(
@@ -265,13 +273,12 @@ contract Exafin is Ownable, IExafin {
         uint256 allowed = auditor.repayAllowed(
             address(this),
             borrower,
-            repayAmount
+            repayAmount,
+            maturityDate
         );
         require(allowed == uint(Error.NO_ERROR), "Not allowed");
 
-        // We should see if in the future we want to let them leave the pool if there are certain conditions
-        uint256 dateId = nextPoolIndex(maturityDate);
-        require(block.timestamp > dateId, "Pool not matured yet");
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
 
         // TODO: Unify this? (comission doesn't need to be separate)
         uint256 amountToPay = repayAmount + commission;
@@ -321,7 +328,7 @@ contract Exafin is Ownable, IExafin {
             uint256
         )
     {
-        uint256 dateId = nextPoolIndex(maturityDate);
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         return (suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 
@@ -335,19 +342,10 @@ contract Exafin is Ownable, IExafin {
         override
         returns (uint256)
     {
-        uint256 dateId = nextPoolIndex(maturityDate);
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         return pools[dateId].lent;
     }
 
-    /**
-        @dev Converts any timestamp to one of the pool's indexes
-        @param timestamp uint
-        @return uint256 is the timestamp cropped to match a pool id
-     */
-    function nextPoolIndex(uint256 timestamp) private pure returns (uint256) {
-        uint256 poolindex = timestamp.trimmedMonth().nextMonth();
-        return poolindex;
-    }
 
     function getAuditor() override public view returns (IAuditor) {
         return IAuditor(auditor);
