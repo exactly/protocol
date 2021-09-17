@@ -37,9 +37,9 @@ let config: HardhatUserConfig = {
   networks: {
     hardhat: {
       initialBaseFeePerGas: 0,
- //     forking: {
- //       url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALKEMY_MAINNET_API_KEY}`
- //     },
+      forking: {
+        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALKEMY_MAINNET_API_KEY}`
+      },
       accounts: {
         mnemonic: process.env.MNEMONIC
       },
