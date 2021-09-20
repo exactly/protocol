@@ -18,4 +18,10 @@ library TSUtils {
     function nextMonth(uint256 timestamp) internal pure returns (uint256) { 
         return timestamp + 30 days;
     }
+
+    function nextPoolIndex(uint256 timestamp) internal pure returns (uint256) {
+        uint256 poolindex = nextMonth(trimmedMonth(timestamp));
+        return poolindex;
+    }
+
 }

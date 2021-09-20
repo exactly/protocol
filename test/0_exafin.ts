@@ -74,6 +74,15 @@ describe("Exafin", function () {
     );
   });
 
+  it("it doesn't allow you to give money to a pool that expired", async () => {
+    const underlyingAmount = parseUnits("100");
+    await underlyingToken.approve(exafin.address, underlyingAmount);
+
+    await expect(
+      exafin.supply(owner.address, underlyingAmount, exaTime.pastPoolID().timestamp)
+    ).to.be.revertedWith("Pool Matured");
+  });
+
   it("it allows you to borrow money", async () => {
     let exafinMaria = exafin.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
@@ -171,7 +180,7 @@ describe("Exafin", function () {
       .add(exactlyEnv.slopeRate.mul(unitsToBorrow).div(unitsToSupply));
 
     // Expected "85999999999999996" to be within 20 of 86000000000000000
-    expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 20);
+    expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 100);
 
     // We expect that the actual rate was taken when we submitted the borrowing transaction
     expect(borrowEvent.commission).to.be.closeTo(
@@ -181,6 +190,7 @@ describe("Exafin", function () {
   });
 
   it("it allows the mariaUser to withdraw money only after maturity", async () => {
+
     // give the protocol some solvency
     await underlyingToken.transfer(exafin.address, parseUnits("100"));
     let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
@@ -198,11 +208,10 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.redeem(
         mariaUser.address,
-        supplyEvent.amount,
-        supplyEvent.commission,
+        supplyEvent.amount.add(supplyEvent.commission),
         now
       )
-    ).to.be.revertedWith("Pool not matured yet");
+    ).to.be.revertedWith("Pool Not Mature");
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -213,8 +222,7 @@ describe("Exafin", function () {
     // finally redeem voucher and we expect maria to have her original amount + the comission earned
     await exafinMaria.redeem(
       mariaUser.address,
-      supplyEvent.amount,
-      supplyEvent.commission,
+      supplyEvent.amount.add(supplyEvent.commission),
       now
     );
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
@@ -243,11 +251,10 @@ describe("Exafin", function () {
       exafinMaria.repay(
         mariaUser.address,
         mariaUser.address,
-        borrowEvent.amount,
-        borrowEvent.commission,
+        borrowEvent.amount.add(borrowEvent.commission),
         now
       )
-    ).to.be.revertedWith("Pool not matured yet");
+    ).to.be.revertedWith("Pool Not Mature");
 
     // Move in time to maturity
     await ethers.provider.send('evm_setNextBlockTimestamp', [exaTime.nextPoolID().timestamp]);
@@ -258,8 +265,7 @@ describe("Exafin", function () {
       exafinMaria.repay(
         mariaUser.address,
         mariaUser.address,
-        borrowEvent.amount.sub(10),
-        borrowEvent.commission,
+        borrowEvent.amount.sub(10).add(borrowEvent.commission), // -10 to force it not be enough
         now
       )
     ).to.be.revertedWith("debt must be paid in full");
@@ -268,16 +274,14 @@ describe("Exafin", function () {
     await exafinMaria.repay(
       mariaUser.address,
       mariaUser.address,
-      borrowEvent.amount,
-      borrowEvent.commission,
+      borrowEvent.amount.add(borrowEvent.commission),
       now
     );
 
     // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
     await exafinMaria.redeem(
       mariaUser.address,
-      supplyEvent.amount,
-      supplyEvent.commission,
+      supplyEvent.amount.add(supplyEvent.commission),
       now
     );
 
@@ -292,5 +296,6 @@ describe("Exafin", function () {
 
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send('evm_mine', []);
   });
 });

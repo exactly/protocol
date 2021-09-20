@@ -15,7 +15,6 @@ import "hardhat/console.sol";
 contract Auditor is Ownable, IAuditor, AccessControl {
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
-    using TSUtils for uint256;
     using DecimalMath for uint256;
 
     event MarketEntered(IExafin exafin, address account);
@@ -212,6 +211,25 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         }
     }
 
+    function supplyAllowed(
+        address exafinAddress,
+        address supplier,
+        uint256 supplyAmount,
+        uint256 maturityDate
+    ) external view override returns (uint256) {
+        supplier;
+        supplyAmount;
+
+        if (!markets[exafinAddress].baseMarket.isListed) {
+            return uint256(Error.MARKET_NOT_LISTED);
+        }
+
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
+        require(block.timestamp < dateId, "Pool Matured");
+
+        return uint256(Error.NO_ERROR);
+    }
+
     function borrowAllowed(
         address exafinAddress,
         address borrower,
@@ -220,6 +238,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     ) external override returns (uint256) {
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!borrowPaused[exafinAddress], "borrow is paused");
+
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
+        require(block.timestamp < dateId, "Pool Matured");
 
         if (!markets[exafinAddress].baseMarket.isListed) {
             return uint256(Error.MARKET_NOT_LISTED);
@@ -280,6 +301,10 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
+        // We should see if in the future we want to let them leave the pool if there are certain conditions
+        uint dateId = TSUtils.nextPoolIndex(maturityDate);
+        require(block.timestamp > dateId, "Pool Not Mature");
+
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
         if (!markets[exafinAddress].accountMembership[redeemer]) {
             return uint256(Error.NO_ERROR);
@@ -306,13 +331,18 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     function repayAllowed(
         address exafinAddress,
         address borrower,
-        uint repayAmount) override external view returns (uint) {
+        uint256 repayAmount,
+        uint256 maturityDate) override external view returns (uint) {
         borrower;
         repayAmount;
 
         if (!markets[exafinAddress].baseMarket.isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
+
+        // We should see if in the future we want to let them leave the pool if there are certain conditions
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
+        require(block.timestamp > dateId, "Pool Not Mature");
 
         return uint(Error.NO_ERROR);
     }

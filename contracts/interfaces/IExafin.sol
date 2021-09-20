@@ -34,7 +34,6 @@ interface IExafin {
     function redeem(
         address payable redeemer,
         uint256 redeemAmount,
-        uint256 commission,
         uint256 maturityDate
     ) external;
 
@@ -42,7 +41,6 @@ interface IExafin {
         address payable payer,
         address borrower,
         uint256 repayAmount,
-        uint256 commission,
         uint256 maturityDate
     ) external;
     
