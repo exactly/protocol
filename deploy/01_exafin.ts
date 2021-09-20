@@ -15,7 +15,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   let priceOracleAddress =
     config.token_addresses[hre.network.name].price_oracle;
 
-  const exaFront = await hre.deployments.deploy("ExaFront", {
+  const auditor = await hre.deployments.deploy("Auditor", {
     from: deployer,
     args: [priceOracleAddress],
     log: true
@@ -27,7 +27,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       params: [address]
     });
 
-    const signer = await ethers.provider.getSigner(address);
+    const signer = ethers.provider.getSigner(address);
     return signer;
   }
 
@@ -39,26 +39,26 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       "Exafin for %s will use: %s",
       symbol,
       address,
-      exaFront.address
+      auditor.address
     );
 
     const exafin = await hre.deployments.deploy("Exafin", {
       from: deployer,
-      args: [address, oracleName, exaFront.address],
+      args: [address, oracleName, auditor.address],
       log: true
     });
 
-    // We transfer ownership of Exafin to ExaFront
+    // We transfer ownership of Exafin to Auditor 
     await hre.deployments.execute(
       "Exafin",
       { from: deployer },
       "transferOwnership",
-      exaFront.address
+      auditor.address
     );
 
-    // We enable this ExaFin Market on ExaFront
+    // We enable this ExaFin Market on Auditor 
     await hre.deployments.execute(
-      "ExaFront",
+      "Auditor",
       { from: deployer },
       "enableMarket",
       exafin.address,
