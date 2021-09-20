@@ -208,8 +208,7 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.redeem(
         mariaUser.address,
-        supplyEvent.amount,
-        supplyEvent.commission,
+        supplyEvent.amount.add(supplyEvent.commission),
         now
       )
     ).to.be.revertedWith("Pool Not Mature");
@@ -223,8 +222,7 @@ describe("Exafin", function () {
     // finally redeem voucher and we expect maria to have her original amount + the comission earned
     await exafinMaria.redeem(
       mariaUser.address,
-      supplyEvent.amount,
-      supplyEvent.commission,
+      supplyEvent.amount.add(supplyEvent.commission),
       now
     );
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
@@ -253,8 +251,7 @@ describe("Exafin", function () {
       exafinMaria.repay(
         mariaUser.address,
         mariaUser.address,
-        borrowEvent.amount,
-        borrowEvent.commission,
+        borrowEvent.amount.add(borrowEvent.commission),
         now
       )
     ).to.be.revertedWith("Pool Not Mature");
@@ -268,8 +265,7 @@ describe("Exafin", function () {
       exafinMaria.repay(
         mariaUser.address,
         mariaUser.address,
-        borrowEvent.amount.sub(10),
-        borrowEvent.commission,
+        borrowEvent.amount.sub(10).add(borrowEvent.commission), // -10 to force it not be enough
         now
       )
     ).to.be.revertedWith("debt must be paid in full");
@@ -278,16 +274,14 @@ describe("Exafin", function () {
     await exafinMaria.repay(
       mariaUser.address,
       mariaUser.address,
-      borrowEvent.amount,
-      borrowEvent.commission,
+      borrowEvent.amount.add(borrowEvent.commission),
       now
     );
 
     // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
     await exafinMaria.redeem(
       mariaUser.address,
-      supplyEvent.amount,
-      supplyEvent.commission,
+      supplyEvent.amount.add(supplyEvent.commission),
       now
     );
 

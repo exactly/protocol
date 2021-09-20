@@ -32,7 +32,6 @@ contract Exafin is Ownable, IExafin {
     event Redeemed(
         address indexed from,
         uint256 amount,
-        uint256 commission,
         uint256 maturityDate
     );
 
@@ -40,7 +39,6 @@ contract Exafin is Ownable, IExafin {
         address indexed payer,
         address indexed borrower,
         uint256 amount,
-        uint256 commission,
         uint256 maturityDate
     );
 
@@ -213,43 +211,39 @@ contract Exafin is Ownable, IExafin {
         @dev The pool that the user is trying to retrieve the money should be matured
         @param redeemer The address of the account which is redeeming the tokens
         @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin (only one of redeemTokensIn or redeemAmountIn may be non-zero)
-        @param commission the amount that should be redeemed in comissions
         @param maturityDate the date to calculate the pool id
      */
     function redeem(
         address payable redeemer,
         uint256 redeemAmount,
-        uint256 commission,
         uint256 maturityDate
     ) external override {
         require(redeemAmount != 0, "Redeem can't be zero");
 
-        uint256 totalAmountToRedeem = commission + redeemAmount;
-
         uint256 allowedError = auditor.redeemAllowed(
             address(this),
             redeemer,
-            totalAmountToRedeem,
+            redeemAmount,
             maturityDate
         );
         require(allowedError == uint(Error.NO_ERROR), "cant redeem");
 
         uint dateId = TSUtils.nextPoolIndex(maturityDate);
-        suppliedAmmounts[dateId][redeemer] -= totalAmountToRedeem;
+        suppliedAmmounts[dateId][redeemer] -= redeemAmount;
 
         require(
             trustedUnderlying.balanceOf(address(this)) >
-                totalAmountToRedeem, 
+                redeemAmount,
             "Not enough liquidity"
         );
 
         trustedUnderlying.safeTransferFrom(
             address(this),
             redeemer,
-            totalAmountToRedeem
+            redeemAmount 
         );
 
-        emit Redeemed(redeemer, redeemAmount, commission, maturityDate);
+        emit Redeemed(redeemer, redeemAmount, maturityDate);
     }
 
     /**
@@ -257,14 +251,12 @@ contract Exafin is Ownable, IExafin {
         @dev The pool that the user is trying to retrieve the money should be matured
         @param borrower The address of the account that has the debt
         @param repayAmount the amount of debt of the underlying token to be paid
-        @param commission the amount that should be paid in commissions
         @param maturityDate the maturityDate to access the pool
      */
     function _repay(
         address payable payer,
         address borrower,
         uint256 repayAmount, 
-        uint256 commission,
         uint256 maturityDate
     ) internal {
 
@@ -280,21 +272,20 @@ contract Exafin is Ownable, IExafin {
 
         uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
 
-        // TODO: Unify this? (comission doesn't need to be separate)
-        uint256 amountToPay = repayAmount + commission;
+        // the commission is included
         uint256 amountBorrowed = borrowedAmounts[dateId][borrower];
 
-        require(amountBorrowed == amountToPay, "debt must be paid in full");
+        require(amountBorrowed == repayAmount, "debt must be paid in full");
 
         trustedUnderlying.safeTransferFrom(
             payer,
             address(this),
-            amountToPay
+            repayAmount
         );
 
         delete borrowedAmounts[dateId][borrower];
 
-        emit Repaid(payer, borrower, repayAmount, commission, maturityDate);
+        emit Repaid(payer, borrower, repayAmount, maturityDate);
     }
 
     /**
@@ -302,16 +293,14 @@ contract Exafin is Ownable, IExafin {
         @dev The pool that the user is trying to retrieve the money should be matured
         @param borrower The address of the account that has the debt
         @param repayAmount the amount of debt of the underlying token to be paid
-        @param commission the amount that should be paid in commissions
      */
     function repay(
         address payable payer,
         address borrower,
         uint256 repayAmount, 
-        uint256 commission,
         uint256 maturityDate
     ) override external {
-        _repay(payer, borrower, repayAmount, commission, maturityDate);
+        _repay(payer, borrower, repayAmount, maturityDate);
     }
 
     /**
