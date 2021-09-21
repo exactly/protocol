@@ -29,11 +29,7 @@ contract Exafin is Ownable, IExafin {
         uint256 maturityDate
     );
 
-    event Redeemed(
-        address indexed from,
-        uint256 amount,
-        uint256 maturityDate
-    );
+    event Redeemed(address indexed from, uint256 amount, uint256 maturityDate);
 
     event Repaid(
         address indexed payer,
@@ -63,7 +59,7 @@ contract Exafin is Ownable, IExafin {
         address _auditorAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
-
+        trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
 
         auditor = IAuditor(_auditorAddress);
@@ -91,8 +87,8 @@ contract Exafin is Ownable, IExafin {
         Pool memory pool = pools[dateId];
         pool.supplied += amount;
 
-        uint256 daysDifference = (dateId - TSUtils.trimmedDay(block.timestamp)) /
-            1 days;
+        uint256 daysDifference = (dateId -
+            TSUtils.trimmedDay(block.timestamp)) / 1 days;
         uint256 yearlyRate = baseRate +
             ((slopeRate * pool.borrowed) / pool.supplied);
 
@@ -117,8 +113,8 @@ contract Exafin is Ownable, IExafin {
         Pool memory pool = pools[dateId];
         pool.borrowed += amount;
 
-        uint256 daysDifference = (dateId - TSUtils.trimmedDay(block.timestamp)) /
-            1 days;
+        uint256 daysDifference = (dateId -
+            TSUtils.trimmedDay(block.timestamp)) / 1 days;
         uint256 yearlyRate = baseRate +
             marginRate +
             ((slopeRate * pool.borrowed) / pool.supplied);
@@ -137,7 +133,6 @@ contract Exafin is Ownable, IExafin {
         uint256 amount,
         uint256 maturityDate
     ) public override {
-
         (uint256 commissionRate, Pool memory newPoolState) = rateToBorrow(
             amount,
             maturityDate
@@ -177,7 +172,6 @@ contract Exafin is Ownable, IExafin {
         uint256 amount,
         uint256 maturityDate
     ) public override {
-
         (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(
             amount,
             maturityDate
@@ -225,21 +219,20 @@ contract Exafin is Ownable, IExafin {
             redeemAmount,
             maturityDate
         );
-        require(allowedError == uint(Error.NO_ERROR), "cant redeem");
+        require(allowedError == uint256(Error.NO_ERROR), "cant redeem");
 
-        uint dateId = TSUtils.nextPoolIndex(maturityDate);
+        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         suppliedAmounts[dateId][redeemer] -= redeemAmount;
 
         require(
-            trustedUnderlying.balanceOf(address(this)) >
-                redeemAmount,
+            trustedUnderlying.balanceOf(address(this)) > redeemAmount,
             "Not enough liquidity"
         );
 
         trustedUnderlying.safeTransferFrom(
             address(this),
             redeemer,
-            redeemAmount 
+            redeemAmount
         );
 
         emit Redeemed(redeemer, redeemAmount, maturityDate);
@@ -255,10 +248,9 @@ contract Exafin is Ownable, IExafin {
     function _repay(
         address payable payer,
         address borrower,
-        uint256 repayAmount, 
+        uint256 repayAmount,
         uint256 maturityDate
     ) internal {
-
         require(repayAmount != 0, "You can't repay zero");
 
         uint256 allowed = auditor.repayAllowed(
@@ -267,7 +259,7 @@ contract Exafin is Ownable, IExafin {
             repayAmount,
             maturityDate
         );
-        require(allowed == uint(Error.NO_ERROR), "Not allowed");
+        require(allowed == uint256(Error.NO_ERROR), "Not allowed");
 
         uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
 
@@ -276,11 +268,7 @@ contract Exafin is Ownable, IExafin {
 
         require(amountBorrowed == repayAmount, "debt must be paid in full");
 
-        trustedUnderlying.safeTransferFrom(
-            payer,
-            address(this),
-            repayAmount
-        );
+        trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
         delete borrowedAmounts[dateId][borrower];
 
@@ -296,9 +284,9 @@ contract Exafin is Ownable, IExafin {
     function repay(
         address payable payer,
         address borrower,
-        uint256 repayAmount, 
+        uint256 repayAmount,
         uint256 maturityDate
-    ) override external {
+    ) external override {
         _repay(payer, borrower, repayAmount, maturityDate);
     }
 
@@ -311,10 +299,7 @@ contract Exafin is Ownable, IExafin {
         public
         view
         override
-        returns (
-            uint256,
-            uint256
-        )
+        returns (uint256, uint256)
     {
         uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         return (suppliedAmounts[dateId][who], borrowedAmounts[dateId][who]);
@@ -334,8 +319,7 @@ contract Exafin is Ownable, IExafin {
         return pools[dateId].borrowed;
     }
 
-
-    function getAuditor() override public view returns (IAuditor) {
+    function getAuditor() public view override returns (IAuditor) {
         return IAuditor(auditor);
     }
 }
