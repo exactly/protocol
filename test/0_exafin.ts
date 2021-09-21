@@ -48,7 +48,7 @@ describe("Exafin", function () {
     auditor = exactlyEnv.auditor;
 
     // From Owner to User
-    underlyingToken.transfer(mariaUser.address, parseUnits("100"));
+    underlyingToken.transfer(mariaUser.address, parseUnits("10"));
 
     exaTime = new ExaTime(); // Defaults to now
     now = exaTime.timestamp;
@@ -79,7 +79,11 @@ describe("Exafin", function () {
     await underlyingToken.approve(exafin.address, underlyingAmount);
 
     await expect(
-      exafin.supply(owner.address, underlyingAmount, exaTime.pastPoolID().timestamp)
+      exafin.supply(
+        owner.address,
+        underlyingAmount,
+        exaTime.pastPoolID().timestamp
+      )
     ).to.be.revertedWith("Pool Matured");
   });
 
@@ -190,7 +194,6 @@ describe("Exafin", function () {
   });
 
   it("it allows the mariaUser to withdraw money only after maturity", async () => {
-
     // give the protocol some solvency
     await underlyingToken.transfer(exafin.address, parseUnits("100"));
     let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
@@ -230,7 +233,7 @@ describe("Exafin", function () {
     );
   });
 
-  it('it allows the mariaUser to repay her debt only after maturity', async () => {
+  it("it allows the mariaUser to repay her debt only after maturity", async () => {
     // give the protocol some solvency
     await underlyingToken.transfer(exafin.address, parseUnits("100"));
 
@@ -241,9 +244,17 @@ describe("Exafin", function () {
 
     // supply some money and parse event
     await underlyingTokenUser.approve(exafin.address, parseUnits("5.0"));
-    let txSupply = await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
+    let txSupply = await exafinMaria.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      now
+    );
     let supplyEvent = await parseSupplyEvent(txSupply);
-    let tx = await exafinMaria.borrow(mariaUser.address, parseUnits("0.8"), now);
+    let tx = await exafinMaria.borrow(
+      mariaUser.address,
+      parseUnits("0.8"),
+      now
+    );
     let borrowEvent = await parseBorrowEvent(tx);
 
     // try to redeem before maturity
@@ -257,8 +268,10 @@ describe("Exafin", function () {
     ).to.be.revertedWith("Pool Not Mature");
 
     // Move in time to maturity
-    await ethers.provider.send('evm_setNextBlockTimestamp', [exaTime.nextPoolID().timestamp]);
-    await ethers.provider.send('evm_mine', []);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      exaTime.nextPoolID().timestamp,
+    ]);
+    await ethers.provider.send("evm_mine", []);
 
     // try to pay a little less and fail
     await expect(
@@ -285,17 +298,13 @@ describe("Exafin", function () {
       now
     );
 
-    expect(
-        await underlyingToken.balanceOf(mariaUser.address)
-    ).to.be.equal(
-        originalAmount
-            .add(supplyEvent.commission)
-            .sub(borrowEvent.commission)
+    expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
+      originalAmount.add(supplyEvent.commission).sub(borrowEvent.commission)
     );
   });
 
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
-    await ethers.provider.send('evm_mine', []);
+    await ethers.provider.send("evm_mine", []);
   });
 });
