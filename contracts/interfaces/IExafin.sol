@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "./IAuditor.sol";
 
 struct Pool {
-    uint256 lent;
+    uint256 borrowed;
     uint256 supplied;
 }
 

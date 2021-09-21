@@ -42,7 +42,7 @@ contract Exafin is Ownable, IExafin {
         uint256 maturityDate
     );
 
-    mapping(uint256 => mapping(address => uint256)) public suppliedAmmounts;
+    mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
     mapping(uint256 => Pool) public pools;
     mapping(address => uint256[]) public addressPools;
@@ -64,7 +64,6 @@ contract Exafin is Ownable, IExafin {
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
 
-        trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
 
         auditor = IAuditor(_auditorAddress);
@@ -95,7 +94,7 @@ contract Exafin is Ownable, IExafin {
         uint256 daysDifference = (dateId - TSUtils.trimmedDay(block.timestamp)) /
             1 days;
         uint256 yearlyRate = baseRate +
-            ((slopeRate * pool.lent) / pool.supplied);
+            ((slopeRate * pool.borrowed) / pool.supplied);
 
         return ((yearlyRate * daysDifference) / 365, pool);
     }
@@ -116,13 +115,13 @@ contract Exafin is Ownable, IExafin {
         require(block.timestamp < dateId, "Pool Matured");
 
         Pool memory pool = pools[dateId];
-        pool.lent += amount;
+        pool.borrowed += amount;
 
         uint256 daysDifference = (dateId - TSUtils.trimmedDay(block.timestamp)) /
             1 days;
         uint256 yearlyRate = baseRate +
             marginRate +
-            ((slopeRate * pool.lent) / pool.supplied);
+            ((slopeRate * pool.borrowed) / pool.supplied);
 
         return ((yearlyRate * daysDifference) / 365, pool);
     }
@@ -198,7 +197,7 @@ contract Exafin is Ownable, IExafin {
 
         uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
-        suppliedAmmounts[dateId][from] += amount + commission;
+        suppliedAmounts[dateId][from] += amount + commission;
         pools[dateId] = newPoolState;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
@@ -229,7 +228,7 @@ contract Exafin is Ownable, IExafin {
         require(allowedError == uint(Error.NO_ERROR), "cant redeem");
 
         uint dateId = TSUtils.nextPoolIndex(maturityDate);
-        suppliedAmmounts[dateId][redeemer] -= redeemAmount;
+        suppliedAmounts[dateId][redeemer] -= redeemAmount;
 
         require(
             trustedUnderlying.balanceOf(address(this)) >
@@ -318,7 +317,7 @@ contract Exafin is Ownable, IExafin {
         )
     {
         uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        return (suppliedAmmounts[dateId][who], borrowedAmounts[dateId][who]);
+        return (suppliedAmounts[dateId][who], borrowedAmounts[dateId][who]);
     }
 
     /**
@@ -332,7 +331,7 @@ contract Exafin is Ownable, IExafin {
         returns (uint256)
     {
         uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        return pools[dateId].lent;
+        return pools[dateId].borrowed;
     }
 
 
