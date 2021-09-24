@@ -261,7 +261,6 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.repay(
         mariaUser.address,
-        mariaUser.address,
         borrowEvent.amount.add(borrowEvent.commission),
         now
       )
@@ -277,7 +276,6 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.repay(
         mariaUser.address,
-        mariaUser.address,
         borrowEvent.amount.sub(10).add(borrowEvent.commission), // -10 to force it not be enough
         now
       )
@@ -285,7 +283,6 @@ describe("Exafin", function () {
 
     // repay and succeed
     await exafinMaria.repay(
-      mariaUser.address,
       mariaUser.address,
       borrowEvent.amount.add(borrowEvent.commission),
       now

@@ -29,7 +29,11 @@ contract Exafin is Ownable, IExafin {
         uint256 maturityDate
     );
 
-    event Redeemed(address indexed from, uint256 amount, uint256 maturityDate);
+    event Redeemed(
+        address indexed from,
+        uint256 amount,
+        uint256 maturityDate
+    );
 
     event Repaid(
         address indexed payer,
@@ -246,7 +250,7 @@ contract Exafin is Ownable, IExafin {
         @param maturityDate the maturityDate to access the pool
      */
     function _repay(
-        address payable payer,
+        address payer,
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
@@ -276,18 +280,17 @@ contract Exafin is Ownable, IExafin {
     }
 
     /**
-        @notice User repays its debt
-        @dev The pool that the user is trying to retrieve the money should be matured
+        @notice Someone pays borrower's debt (can be borrower)
+        @dev The pool that the user is trying to repay to should be matured
         @param borrower The address of the account that has the debt
         @param repayAmount the amount of debt of the underlying token to be paid
      */
     function repay(
-        address payable payer,
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
     ) external override {
-        _repay(payer, borrower, repayAmount, maturityDate);
+        _repay(msg.sender, borrower, repayAmount, maturityDate);
     }
 
     /**
