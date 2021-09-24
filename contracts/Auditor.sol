@@ -224,8 +224,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Pool Matured");
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        require(block.timestamp < maturityDate, "Pool Matured");
 
         return uint256(Error.NO_ERROR);
     }
@@ -239,8 +239,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!borrowPaused[exafinAddress], "borrow is paused");
 
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Pool Matured");
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        require(block.timestamp < maturityDate, "Pool Matured");
 
         if (!markets[exafinAddress].baseMarket.isListed) {
             return uint256(Error.MARKET_NOT_LISTED);
@@ -301,9 +301,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
-        // We should see if in the future we want to let them leave the pool if there are certain conditions
-        uint dateId = TSUtils.nextPoolIndex(maturityDate);
-        require(block.timestamp > dateId, "Pool Not Mature");
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        require(block.timestamp > maturityDate, "Pool Not Mature");
 
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
         if (!markets[exafinAddress].accountMembership[redeemer]) {
@@ -340,9 +339,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             return uint(Error.MARKET_NOT_LISTED);
         }
 
-        // We should see if in the future we want to let them leave the pool if there are certain conditions
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        require(block.timestamp > dateId, "Pool Not Mature");
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        require(block.timestamp > maturityDate, "Pool Not Mature");
 
         return uint(Error.NO_ERROR);
     }

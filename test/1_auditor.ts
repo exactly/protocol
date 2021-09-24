@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ExactlyEnv, parseSupplyEvent } from "./exactlyUtils";
+import { ExactlyEnv, ExaTime, parseSupplyEvent } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Auditor", function () {
@@ -33,12 +33,12 @@ describe("Auditor", function () {
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
     const exafinDai = exactlyEnv.getExafin("DAI");
     const dai = exactlyEnv.getUnderlying("DAI");
-    const now = Math.floor(Date.now() / 1000);
+    const nextPoolID = (new ExaTime()).nextPoolID();
 
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100", 18);
     await dai.approve(exafinDai.address, amountDAI);
-    let txDAI = await exafinDai.supply(owner.address, amountDAI, now);
+    let txDAI = await exafinDai.supply(owner.address, amountDAI, nextPoolID);
     let borrowDAIEvent = await parseSupplyEvent(txDAI);
 
     expect(await dai.balanceOf(exafinDai.address)).to.equal(amountDAI);
@@ -52,7 +52,7 @@ describe("Auditor", function () {
     // we supply Eth to the protocol
     const amountETH = parseUnits("1", 18);
     await eth.approve(exafinETH.address, amountETH);
-    let txETH = await exafinETH.supply(owner.address, amountETH, now);
+    let txETH = await exafinETH.supply(owner.address, amountETH, nextPoolID);
     let borrowETHEvent = await parseSupplyEvent(txETH);
 
     expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH);
@@ -60,7 +60,7 @@ describe("Auditor", function () {
     // we make it count as collateral (ETH)
     await auditor.enterMarkets([exafinETH.address]);
 
-    let liquidity = (await auditor.getAccountLiquidity(owner.address, now))[1];
+    let liquidity = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[1];
     let collaterDAI = amountDAI
       .add(borrowDAIEvent.commission)
       .mul(tokensCollateralRate.get("DAI")!)

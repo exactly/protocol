@@ -157,29 +157,35 @@ export class ExaTime {
   timestamp: number;
 
   private oneDay: number = 86400;
-  private thirtyDays: number = 86400 * 30;
+  private twoWeeks: number = 86400 * 14;
 
   constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
     this.timestamp = timestamp;
   }
 
-  public nextPoolID(): ExaTime {
-    return new ExaTime(
-      this.timestamp - (this.timestamp % this.thirtyDays) + this.thirtyDays
+  public nextPoolID(): number {
+    return (
+      this.timestamp - (this.timestamp % this.twoWeeks) + this.twoWeeks
     );
   }
 
-  public pastPoolID(): ExaTime {
-    return new ExaTime(
-      this.timestamp - (this.timestamp % this.thirtyDays) - this.thirtyDays
+  public isPoolID(): boolean {
+    return (
+      (this.timestamp % this.twoWeeks) == 0
     );
   }
 
-  public trimmedDay(): ExaTime {
-    return new ExaTime(this.timestamp - (this.timestamp % this.oneDay));
+  public pastPoolID(): number {
+    return (
+      this.timestamp - (this.timestamp % this.twoWeeks) - this.twoWeeks
+    );
+  }
+
+  public trimmedDay(): number {
+    return (this.timestamp - (this.timestamp % this.oneDay));
   }
 
   public daysDiffWith(anotherTimestamp: number): number {
-    return (anotherTimestamp - this.trimmedDay().timestamp) / this.oneDay;
+    return (anotherTimestamp - this.trimmedDay()) / this.oneDay;
   }
 }
