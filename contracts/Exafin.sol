@@ -5,15 +5,18 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IExafin.sol";
 import "./interfaces/IAuditor.sol";
 import "./utils/TSUtils.sol";
+import "./utils/DecimalMath.sol";
 import {Error} from "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract Exafin is Ownable, IExafin {
+contract Exafin is Ownable, IExafin, ReentrancyGuard {
     using SafeCast for uint256;
     using SafeERC20 for IERC20;
+    using DecimalMath for uint256;
 
     event Borrowed(
         address indexed to,
@@ -42,6 +45,28 @@ contract Exafin is Ownable, IExafin {
         uint256 maturityDate
     );
 
+    event LiquidateBorrow(
+        address liquidator,
+        address borrower,
+        uint256 repayAmount,
+        address exafinCollateral,
+        uint256 seizeAmount,
+        uint256 maturityDate
+    );
+
+    event Seized(
+        address liquidator,
+        address borrower,
+        uint256 seizedAmount,
+        uint256 maturityDate
+    );
+
+    event ReservesAdded(
+        address benefactor,
+        uint256 addAmount
+    );
+
+
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
     mapping(uint256 => Pool) public pools;
@@ -51,6 +76,7 @@ contract Exafin is Ownable, IExafin {
     uint256 private marginRate;
     uint256 private slopeRate;
     uint256 private constant RATE_UNIT = 1e18;
+    uint256 private constant PROTOCOL_SEIZE_SHARE = 2.8e16; //2.8%
 
     IERC20 private trustedUnderlying;
     string public override tokenName;
@@ -136,7 +162,7 @@ contract Exafin is Ownable, IExafin {
         address to,
         uint256 amount,
         uint256 maturityDate
-    ) public override {
+    ) override public nonReentrant {
         (uint256 commissionRate, Pool memory newPoolState) = rateToBorrow(
             amount,
             maturityDate
@@ -173,7 +199,7 @@ contract Exafin is Ownable, IExafin {
         address from,
         uint256 amount,
         uint256 maturityDate
-    ) public override {
+    ) override public nonReentrant {
         (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(
             amount,
             maturityDate
@@ -211,7 +237,7 @@ contract Exafin is Ownable, IExafin {
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
-    ) external override {
+    ) external override nonReentrant {
         require(redeemAmount != 0, "Redeem can't be zero");
 
         uint256 allowedError = auditor.redeemAllowed(
@@ -270,6 +296,137 @@ contract Exafin is Ownable, IExafin {
         delete borrowedAmounts[maturityDate][borrower];
 
         emit Repaid(payer, borrower, repayAmount, maturityDate);
+    }
+
+    /**
+        @notice This function allows to partially repay a position on liquidation
+        @dev repay function on liquidation, it allows to partially pay debt, and it
+             doesn't check `repayAllowed` on the auditor. It should be called after 
+             liquidateAllowed
+        @param payer The address of the account that will pay the debt
+        @param borrower The address of the account that has the debt
+        @param repayAmount the amount of debt of the pool that should be paid
+        @param maturityDate the maturityDate to access the pool
+     */
+    function _repayLiquidate(
+        address payer,
+        address borrower,
+        uint256 repayAmount,
+        uint256 maturityDate
+    ) internal {
+        require(repayAmount != 0, "You can't repay zero");
+
+        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
+
+        trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
+
+        borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
+
+        // That repayment diminishes debt in the pool
+        Pool memory pool = pools[maturityDate];
+        pool.borrowed -= repayAmount;
+        pools[maturityDate] = pool;
+
+        emit Repaid(payer, borrower, repayAmount, maturityDate);
+    }
+
+    function liquidate(
+        address borrower,
+        uint256 repayAmount,
+        IExafin exafinCollateral,
+        uint256 maturityDate
+    ) override external nonReentrant returns (uint, uint) {
+        return _liquidate(msg.sender, borrower, repayAmount, exafinCollateral, maturityDate);
+    }
+
+    function _liquidate(
+        address liquidator,
+        address borrower,
+        uint256 repayAmount,
+        IExafin exafinCollateral,
+        uint256 maturityDate
+    ) internal returns (uint, uint) {
+
+        uint allowed = auditor.liquidateAllowed(
+            address(this),
+            address(exafinCollateral),
+            liquidator,
+            borrower,
+            repayAmount, 
+            maturityDate
+        );
+        require(allowed == 0, "Auditor Rejected");
+
+        _repayLiquidate(liquidator, borrower, repayAmount, maturityDate);
+
+        (uint amountSeizeError, uint seizeTokens) = auditor.liquidateCalculateSeizeAmount(address(this), address(exafinCollateral), repayAmount);
+        require(amountSeizeError == uint(Error.NO_ERROR), "Error calculating Seize");
+
+        /* Revert if borrower collateral token balance < seizeTokens */
+        (uint256 balance,) = exafinCollateral.getAccountSnapshot(borrower, maturityDate);
+        require(balance >= seizeTokens, "LIQUIDATE_SEIZE_TOO_MUCH");
+
+        // If this is also the collateral
+        // run seizeInternal to avoid re-entrancy, otherwise make an external call
+        uint seizeError;
+        if (address(exafinCollateral) == address(this)) {
+            seizeError = _seize(address(this), liquidator, borrower, seizeTokens, maturityDate);
+        } else {
+            seizeError = exafinCollateral.seize(liquidator, borrower, seizeTokens, maturityDate);
+        }
+
+        /* Revert if seize tokens fails (since we cannot be sure of side effects) */
+        require(seizeError == uint(Error.NO_ERROR), "token seizure failed");
+
+        /* We emit a LiquidateBorrow event */
+        emit LiquidateBorrow(liquidator, borrower, repayAmount, address(exafinCollateral), seizeTokens, maturityDate);
+
+        return (uint(Error.NO_ERROR), repayAmount);
+    }
+
+    function seize(
+        address liquidator,
+        address borrower,
+        uint256 seizeTokens,
+        uint256 maturityDate
+    ) override external nonReentrant returns (uint) {
+        // removing msg.sender from here means DEATH
+        return _seize(msg.sender, liquidator, borrower, seizeTokens, maturityDate);
+    }
+
+    function _seize(
+        address seizerToken,
+        address liquidator,
+        address borrower,
+        uint256 seizeAmount,
+        uint256 maturityDate
+    ) internal returns (uint) {
+
+        uint allowed = auditor.seizeAllowed(
+            address(this),
+            seizerToken,
+            liquidator,
+            borrower,
+            seizeAmount
+        );
+        require(allowed == 0, "Seize Allowed Failed");
+
+        uint256 protocolAmount = seizeAmount.mul_(PROTOCOL_SEIZE_SHARE);
+        uint256 amountToTransfer = seizeAmount - protocolAmount;
+
+        suppliedAmounts[maturityDate][borrower] -= seizeAmount;
+
+        // That seize amount diminishes liquidity in the pool
+        Pool memory pool = pools[maturityDate];
+        pool.supplied -= seizeAmount;
+        pools[maturityDate] = pool;
+
+        trustedUnderlying.transfer(liquidator, amountToTransfer);
+
+        emit Seized(liquidator, borrower, seizeAmount, maturityDate);
+        emit ReservesAdded(address(this), protocolAmount);
+
+        return uint(Error.NO_ERROR);
     }
 
     /**

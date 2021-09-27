@@ -42,6 +42,20 @@ interface IExafin {
         uint256 repayAmount,
         uint256 maturityDate
     ) external;
+
+    function seize(
+        address liquidator,
+        address borrower,
+        uint256 seizeTokens,
+        uint256 maturityDate
+    ) external returns (uint);
+
+    function liquidate(
+        address borrower,
+        uint256 repayAmount,
+        IExafin exafinCollateral,
+        uint256 maturityDate
+    ) external returns (uint, uint);
     
     function tokenName() external view returns (string calldata);
 

@@ -122,17 +122,10 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         override
         returns (
             uint256,
-            uint256,
             uint256
         )
     {
-        (
-            Error err,
-            uint256 liquidity,
-            uint256 shortfall
-        ) = _accountLiquidity(account, maturityDate, address(0), 0, 0);
-
-        return (uint256(err), liquidity, shortfall);
+        return _accountLiquidity(account, maturityDate, address(0), 0, 0);
     }
 
     /**
@@ -150,7 +143,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         internal
         view
         returns (
-            Error,
             uint256,
             uint256
         )
@@ -205,9 +197,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         // These are safe, as the underflow condition is checked first
         if (vars.sumCollateral > vars.sumDebt) {
-            return (Error.NO_ERROR, vars.sumCollateral - vars.sumDebt, 0);
+            return (vars.sumCollateral - vars.sumDebt, 0);
         } else {
-            return (Error.NO_ERROR, 0, vars.sumDebt - vars.sumCollateral);
+            return (0, vars.sumDebt - vars.sumCollateral);
         }
     }
 
@@ -274,16 +266,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             require(nextTotalBorrows < borrowCap, "market borrow cap reached");
         }
 
-        (Error err, , uint256 shortfall) = _accountLiquidity(
+        (, uint256 shortfall) = _accountLiquidity(
             borrower,
             maturityDate,
             exafinAddress,
             0,
             borrowAmount
         );
-        if (err != Error.NO_ERROR) {
-            return uint256(err);
-        }
         if (shortfall > 0) {
             return uint256(Error.INSUFFICIENT_LIQUIDITY);
         }
@@ -310,16 +299,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         }
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (Error err, , uint256 shortfall) = _accountLiquidity(
+        (, uint256 shortfall) = _accountLiquidity(
             redeemer,
             maturityDate,
             exafinAddress,
             redeemTokens,
             0
         );
-        if (err != Error.NO_ERROR) {
-            return uint256(err);
-        }
         if (shortfall > 0) {
             return uint256(Error.INSUFFICIENT_LIQUIDITY);
         }
@@ -331,7 +317,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         address exafinAddress,
         address borrower,
         uint256 repayAmount,
-        uint256 maturityDate) override external view returns (uint) {
+        uint256 maturityDate
+    ) override external view returns (uint) {
         borrower;
         repayAmount;
 
@@ -344,6 +331,85 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         return uint(Error.NO_ERROR);
     }
+
+    function liquidateCalculateSeizeAmount(
+        address exafinBorrowed,
+        address exafinCollateral,
+        uint256 actualRepayAmount
+    ) override external view returns (uint, uint) {
+
+        /* Read oracle prices for borrowed and collateral markets */
+        uint256 priceBorrowed = oracle.price(IExafin(exafinBorrowed).tokenName());
+        uint256 priceCollateral = oracle.price(IExafin(exafinCollateral).tokenName());
+        if (priceBorrowed == 0 || priceCollateral == 0) {
+            return (uint(Error.PRICE_ERROR), 0);
+        }
+
+        uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e6);
+        uint256 seizeTokens = priceCollateral.div_(amountInUSD);
+
+        return (uint(Error.NO_ERROR), seizeTokens);
+    }
+
+
+    function liquidateAllowed(
+        address exafinBorrowed,
+        address exafinCollateral,
+        address liquidator,
+        address borrower,
+        uint256 repayAmount,
+        uint256 maturityDate
+    ) override external view returns (uint) {
+
+        require(repayAmount > 0, "Repay amount shouldn't be zero");
+        require(borrower != liquidator, "Liquidator shouldn't be borrower");
+
+        if (!markets[exafinBorrowed].baseMarket.isListed || !markets[exafinCollateral].baseMarket.isListed) {
+            return uint(Error.MARKET_NOT_LISTED);
+        }
+
+        if (IExafin(exafinBorrowed).getAuditor() != IExafin(exafinCollateral).getAuditor()) {
+            return uint(Error.AUDITOR_MISMATCH);
+        }
+
+        /* The borrower must have shortfall in order to be liquidatable */
+        (, uint256 shortfall) =  _accountLiquidity(borrower, maturityDate, address(0), 0, 0);
+        require(shortfall > 0, "Unsufficient Shortfall");
+
+        /* The liquidator may not repay more than what is allowed by the closeFactor */
+        (uint borrowBalance,) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
+        uint maxClose = closeFactor.mul_(borrowBalance);
+        if (repayAmount > maxClose) {
+            return uint(Error.TOO_MUCH_REPAY);
+        }
+
+        return uint(Error.NO_ERROR);
+    }
+
+    function seizeAllowed(
+        address exafinCollateral,
+        address exafinBorrowed,
+        address liquidator,
+        address borrower,
+        uint seizeTokens
+    ) override external view returns (uint) {
+
+        // Shh - currently unused
+        seizeTokens;
+
+        require(borrower != liquidator, "Liquidator shouldn't be borrower");
+
+        if (!markets[exafinCollateral].baseMarket.isListed || !markets[exafinBorrowed].baseMarket.isListed) {
+            return uint(Error.MARKET_NOT_LISTED);
+        }
+
+        if (IExafin(exafinCollateral).getAuditor() != IExafin(exafinBorrowed).getAuditor()) {
+            return uint(Error.AUDITOR_MISMATCH);
+        }
+
+        return uint(Error.NO_ERROR);
+    }
+
 
     /**
         @dev Function to enable a certain Exafin market to be used as collateral
