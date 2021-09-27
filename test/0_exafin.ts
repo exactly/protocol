@@ -33,7 +33,6 @@ describe("Exafin", function () {
   let mariaUser: SignerWithAddress;
   let johnUser: SignerWithAddress;
   let owner: SignerWithAddress;
-  let now: number;
   let exaTime: ExaTime;
 
   let snapshot: any;
@@ -50,8 +49,7 @@ describe("Exafin", function () {
     // From Owner to User
     underlyingToken.transfer(mariaUser.address, parseUnits("10"));
 
-    exaTime = new ExaTime(); // Defaults to now
-    now = exaTime.timestamp;
+    exaTime = new ExaTime(); // Defaults to exaTime.nextPoolID().timestamp 
 
     // This can be optimized (so we only do it once per file, not per test)
     // This helps with tests that use evm_setNextBlockTimestamp
@@ -62,12 +60,12 @@ describe("Exafin", function () {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(exafin.address, underlyingAmount);
 
-    let tx = await exafin.supply(owner.address, underlyingAmount, now);
+    let tx = await exafin.supply(owner.address, underlyingAmount, exaTime.nextPoolID());
     let event = await parseSupplyEvent(tx);
 
     expect(event.from).to.equal(owner.address);
     expect(event.amount).to.equal(underlyingAmount);
-    expect(event.maturityDate).to.equal(exaTime.nextPoolID().timestamp);
+    expect(event.maturityDate).to.equal(exaTime.nextPoolID());
 
     expect(await underlyingToken.balanceOf(exafin.address)).to.equal(
       underlyingAmount
@@ -82,7 +80,7 @@ describe("Exafin", function () {
       exafin.supply(
         owner.address,
         underlyingAmount,
-        exaTime.pastPoolID().timestamp
+        exaTime.pastPoolID()
       )
     ).to.be.revertedWith("Pool Matured");
   });
@@ -93,10 +91,10 @@ describe("Exafin", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
+    await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets([exafinMaria.address]);
     expect(
-      await exafinMaria.borrow(mariaUser.address, parseUnits("0.8"), now)
+      await exafinMaria.borrow(mariaUser.address, parseUnits("0.8"), exaTime.nextPoolID())
     ).to.emit(exafinMaria, "Borrowed");
   });
 
@@ -106,9 +104,9 @@ describe("Exafin", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
+    await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets([exafinMaria.address]);
-    await expect(exafinMaria.borrow(mariaUser.address, parseUnits("0.9"), now))
+    await expect(exafinMaria.borrow(mariaUser.address, parseUnits("0.9"), exaTime.nextPoolID()))
       .to.be.reverted;
   });
 
@@ -118,7 +116,7 @@ describe("Exafin", function () {
     let unitsToSupply = parseUnits("1");
 
     let [rateSupplyToApply, poolStateAfterSupply] =
-      await exafinMaria.rateForSupply(unitsToSupply, now);
+      await exafinMaria.rateForSupply(unitsToSupply, exaTime.nextPoolID());
 
     // We verify that the state of the pool is what we suppose it is
     expect(poolStateAfterSupply[1]).to.be.equal(unitsToSupply);
@@ -126,11 +124,11 @@ describe("Exafin", function () {
 
     // We supply the money
     await underlyingTokenUser.approve(exafin.address, unitsToSupply);
-    let tx = await exafinMaria.supply(mariaUser.address, unitsToSupply, now);
+    let tx = await exafinMaria.supply(mariaUser.address, unitsToSupply, exaTime.nextPoolID());
     let supplyEvent = await parseSupplyEvent(tx);
 
     // It should be the base rate since there are no other deposits
-    let nextExpirationDate = exaTime.nextPoolID().timestamp;
+    let nextExpirationDate = exaTime.nextPoolID();
     let daysToExpiration = exaTime.daysDiffWith(nextExpirationDate);
     let yearlyRateProjected = BigNumber.from(rateSupplyToApply)
       .mul(365)
@@ -156,20 +154,20 @@ describe("Exafin", function () {
     let unitsToBorrow = parseUnits("0.8");
 
     await underlyingTokenUser.approve(exafin.address, unitsToSupply);
-    await exafinMaria.supply(mariaUser.address, unitsToSupply, now);
+    await exafinMaria.supply(mariaUser.address, unitsToSupply, exaTime.nextPoolID());
 
     let [rateBorrowToApply, poolStateAfterBorrow] =
-      await exafinMaria.rateToBorrow(unitsToBorrow, now);
+      await exafinMaria.rateToBorrow(unitsToBorrow,  exaTime.nextPoolID());
 
     expect(poolStateAfterBorrow[1]).to.be.equal(unitsToSupply);
     expect(poolStateAfterBorrow[0]).to.be.equal(unitsToBorrow);
 
-    let tx = await exafinMaria.borrow(mariaUser.address, unitsToBorrow, now);
+    let tx = await exafinMaria.borrow(mariaUser.address, unitsToBorrow, exaTime.nextPoolID());
     expect(tx).to.emit(exafinMaria, "Borrowed");
     let borrowEvent = await parseBorrowEvent(tx);
 
     // It should be the base rate since there are no other deposits
-    let nextExpirationDate = exaTime.nextPoolID().timestamp;
+    let nextExpirationDate = exaTime.nextPoolID();
     let daysToExpiration = exaTime.daysDiffWith(nextExpirationDate);
 
     // We just receive the multiplying factor for the amount "rateBorrowToApply"
@@ -204,7 +202,7 @@ describe("Exafin", function () {
 
     // supply some money and parse event
     await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    let tx = await exafinMaria.supply(mariaUser.address, parseUnits("1"), now);
+    let tx = await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
     let supplyEvent = await parseSupplyEvent(tx);
 
     // try to redeem before maturity
@@ -212,13 +210,13 @@ describe("Exafin", function () {
       exafinMaria.redeem(
         mariaUser.address,
         supplyEvent.amount.add(supplyEvent.commission),
-        now
+        exaTime.nextPoolID()
       )
     ).to.be.revertedWith("Pool Not Mature");
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      exaTime.nextPoolID().timestamp,
+      exaTime.nextPoolID()
     ]);
     await ethers.provider.send("evm_mine", []);
 
@@ -226,7 +224,7 @@ describe("Exafin", function () {
     await exafinMaria.redeem(
       mariaUser.address,
       supplyEvent.amount.add(supplyEvent.commission),
-      now
+      exaTime.nextPoolID()
     );
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
       originalAmount.add(supplyEvent.commission)
@@ -247,13 +245,13 @@ describe("Exafin", function () {
     let txSupply = await exafinMaria.supply(
       mariaUser.address,
       parseUnits("1"),
-      now
+      exaTime.nextPoolID()
     );
     let supplyEvent = await parseSupplyEvent(txSupply);
     let tx = await exafinMaria.borrow(
       mariaUser.address,
       parseUnits("0.8"),
-      now
+      exaTime.nextPoolID()
     );
     let borrowEvent = await parseBorrowEvent(tx);
 
@@ -261,15 +259,14 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.repay(
         mariaUser.address,
-        mariaUser.address,
         borrowEvent.amount.add(borrowEvent.commission),
-        now
+        exaTime.nextPoolID()
       )
     ).to.be.revertedWith("Pool Not Mature");
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      exaTime.nextPoolID().timestamp,
+      exaTime.nextPoolID()
     ]);
     await ethers.provider.send("evm_mine", []);
 
@@ -277,25 +274,23 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.repay(
         mariaUser.address,
-        mariaUser.address,
         borrowEvent.amount.sub(10).add(borrowEvent.commission), // -10 to force it not be enough
-        now
+        exaTime.nextPoolID()
       )
     ).to.be.revertedWith("debt must be paid in full");
 
     // repay and succeed
     await exafinMaria.repay(
       mariaUser.address,
-      mariaUser.address,
       borrowEvent.amount.add(borrowEvent.commission),
-      now
+      exaTime.nextPoolID()
     );
 
     // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
     await exafinMaria.redeem(
       mariaUser.address,
       supplyEvent.amount.add(supplyEvent.commission),
-      now
+      exaTime.nextPoolID()
     );
 
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(

@@ -29,7 +29,11 @@ contract Exafin is Ownable, IExafin {
         uint256 maturityDate
     );
 
-    event Redeemed(address indexed from, uint256 amount, uint256 maturityDate);
+    event Redeemed(
+        address indexed from,
+        uint256 amount,
+        uint256 maturityDate
+    );
 
     event Repaid(
         address indexed payer,
@@ -81,13 +85,13 @@ contract Exafin is Ownable, IExafin {
         override
         returns (uint256, Pool memory)
     {
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Pool Matured");
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        require(block.timestamp < maturityDate, "Pool Matured");
 
-        Pool memory pool = pools[dateId];
+        Pool memory pool = pools[maturityDate];
         pool.supplied += amount;
 
-        uint256 daysDifference = (dateId -
+        uint256 daysDifference = (maturityDate -
             TSUtils.trimmedDay(block.timestamp)) / 1 days;
         uint256 yearlyRate = baseRate +
             ((slopeRate * pool.borrowed) / pool.supplied);
@@ -107,13 +111,13 @@ contract Exafin is Ownable, IExafin {
         override
         returns (uint256, Pool memory)
     {
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        require(block.timestamp < dateId, "Pool Matured");
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        require(block.timestamp < maturityDate, "Pool Matured");
 
-        Pool memory pool = pools[dateId];
+        Pool memory pool = pools[maturityDate];
         pool.borrowed += amount;
 
-        uint256 daysDifference = (dateId -
+        uint256 daysDifference = (maturityDate -
             TSUtils.trimmedDay(block.timestamp)) / 1 days;
         uint256 yearlyRate = baseRate +
             marginRate +
@@ -145,20 +149,18 @@ contract Exafin is Ownable, IExafin {
             maturityDate
         );
 
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-
         require(
             errorCode == uint256(Error.NO_ERROR),
             "Auditor not allowing borrow"
         );
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
-        borrowedAmounts[dateId][to] += amount + commission;
-        pools[dateId] = newPoolState;
+        borrowedAmounts[maturityDate][to] += amount + commission;
+        pools[maturityDate] = newPoolState;
 
         trustedUnderlying.safeTransferFrom(address(this), to, amount);
 
-        emit Borrowed(to, amount, commission, dateId);
+        emit Borrowed(to, amount, commission, maturityDate);
     }
 
     /**
@@ -189,14 +191,13 @@ contract Exafin is Ownable, IExafin {
             "Auditor not allowing borrow"
         );
 
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
-        suppliedAmounts[dateId][from] += amount + commission;
-        pools[dateId] = newPoolState;
+        suppliedAmounts[maturityDate][from] += amount + commission;
+        pools[maturityDate] = newPoolState;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
-        emit Supplied(from, amount, commission, dateId);
+        emit Supplied(from, amount, commission, maturityDate);
     }
 
     /**
@@ -221,8 +222,7 @@ contract Exafin is Ownable, IExafin {
         );
         require(allowedError == uint256(Error.NO_ERROR), "cant redeem");
 
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        suppliedAmounts[dateId][redeemer] -= redeemAmount;
+        suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
 
         require(
             trustedUnderlying.balanceOf(address(this)) > redeemAmount,
@@ -246,7 +246,7 @@ contract Exafin is Ownable, IExafin {
         @param maturityDate the maturityDate to access the pool
      */
     function _repay(
-        address payable payer,
+        address payer,
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
@@ -261,33 +261,29 @@ contract Exafin is Ownable, IExafin {
         );
         require(allowed == uint256(Error.NO_ERROR), "Not allowed");
 
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-
         // the commission is included
-        uint256 amountBorrowed = borrowedAmounts[dateId][borrower];
-
+        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
         require(amountBorrowed == repayAmount, "debt must be paid in full");
 
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
-        delete borrowedAmounts[dateId][borrower];
+        delete borrowedAmounts[maturityDate][borrower];
 
         emit Repaid(payer, borrower, repayAmount, maturityDate);
     }
 
     /**
-        @notice User repays its debt
-        @dev The pool that the user is trying to retrieve the money should be matured
+        @notice Someone pays borrower's debt (can be borrower)
+        @dev The pool that the user is trying to repay to should be matured
         @param borrower The address of the account that has the debt
         @param repayAmount the amount of debt of the underlying token to be paid
      */
     function repay(
-        address payable payer,
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
     ) external override {
-        _repay(payer, borrower, repayAmount, maturityDate);
+        _repay(msg.sender, borrower, repayAmount, maturityDate);
     }
 
     /**
@@ -301,8 +297,8 @@ contract Exafin is Ownable, IExafin {
         override
         returns (uint256, uint256)
     {
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        return (suppliedAmounts[dateId][who], borrowedAmounts[dateId][who]);
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        return (suppliedAmounts[maturityDate][who], borrowedAmounts[maturityDate][who]);
     }
 
     /**
@@ -315,8 +311,8 @@ contract Exafin is Ownable, IExafin {
         override
         returns (uint256)
     {
-        uint256 dateId = TSUtils.nextPoolIndex(maturityDate);
-        return pools[dateId].borrowed;
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        return pools[maturityDate].borrowed;
     }
 
     function getAuditor() public view override returns (IAuditor) {
