@@ -421,7 +421,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         pool.supplied -= seizeAmount;
         pools[maturityDate] = pool;
 
-        trustedUnderlying.transfer(liquidator, amountToTransfer);
+        trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
 
         emit Seized(liquidator, borrower, seizeAmount, maturityDate);
         emit ReservesAdded(address(this), protocolAmount);
