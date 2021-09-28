@@ -7,6 +7,8 @@ import "hardhat-abi-exporter";
 import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import "hardhat-gas-reporter";
+import "hardhat-contract-sizer";
+
 import chai from "chai";
 import { solidity } from "ethereum-waffle";
 

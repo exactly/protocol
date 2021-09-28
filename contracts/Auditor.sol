@@ -435,68 +435,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     }
 
     /**
-        @dev List all markets, listed or not
-     */
-    function getMarkets()
-        public
-        view
-        returns (
-            address[] memory,
-            string[] memory,
-            bool[] memory,
-            uint256[] memory,
-            string[] memory
-        )
-    {
-        bool[] memory marketsListed = new bool[](marketCount);
-        string[] memory marketsSymbol = new string[](marketCount);
-        string[] memory marketsName = new string[](marketCount);
-        uint256[] memory marketsCollateralFactor = new uint256[](marketCount);
-
-        for (uint256 i = 0; i < marketCount; i++) {
-            Market storage market = markets[marketsAddress[i]];
-            marketsListed[i] = market.baseMarket.isListed;
-            marketsSymbol[i] = market.baseMarket.symbol;
-            marketsName[i] = market.baseMarket.name;
-            marketsCollateralFactor[i] = market.baseMarket.collateralFactor;
-        }
-
-        return (
-            marketsAddress,
-            marketsSymbol,
-            marketsListed,
-            marketsCollateralFactor,
-            marketsName
-        );
-    }
-
-    /**
-        @dev Get market data filtered by address
-        @param contractAddress address to get market data
-     */
-    function getMarketByAddress(address contractAddress)
-        public
-        view
-        returns (
-            address,
-            string memory,
-            bool,
-            uint256,
-            string memory
-        )
-    {
-        Market storage market = markets[contractAddress];
-
-        return (
-            contractAddress,
-            market.baseMarket.symbol,
-            market.baseMarket.isListed,
-            market.baseMarket.collateralFactor,
-            market.baseMarket.name
-        );
-    }
-
-    /**
         @dev Add market to listedMarkets and change boolean to true
         @param exafin address to add to the protocol
      */
