@@ -239,8 +239,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         }
 
         if (!markets[exafinAddress].accountMembership[borrower]) {
-            // only cTokens may call borrowAllowed if borrower not in market
-            require(msg.sender == exafinAddress, "sender must be cToken");
+            // only exafins may call borrowAllowed if borrower not in market
+            require(msg.sender == exafinAddress, "sender must be exafin");
 
             // attempt to add borrower to the market
             Error errAdd = _addToMarket(IExafin(msg.sender), borrower);
@@ -409,7 +409,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         return uint(Error.NO_ERROR);
     }
-
 
     /**
         @dev Function to enable a certain Exafin market to be used as collateral
