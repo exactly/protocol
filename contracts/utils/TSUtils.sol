@@ -11,19 +11,6 @@ library TSUtils {
         return timestamp - (timestamp % 86400);
     }
 
-    function trimmedCycle(uint256 timestamp) internal pure returns (uint256) { 
-        return timestamp - (timestamp % 14 days);
-    }
-
-    function nextCycle(uint256 timestamp) internal pure returns (uint256) { 
-        return timestamp + 14 days;
-    }
-
-    function nextPoolID(uint256 timestamp) internal pure returns (uint256) {
-        uint256 poolindex = nextCycle(trimmedCycle(timestamp));
-        return poolindex;
-    }
-
     function isPoolID(uint256 timestamp) internal pure returns (bool) {
         return (timestamp % 14 days) == 0;
     }
