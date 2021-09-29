@@ -181,8 +181,8 @@ describe("Exafin", function () {
       .add(exactlyEnv.marginRate)
       .add(exactlyEnv.slopeRate.mul(unitsToBorrow).div(unitsToSupply));
 
-    // Expected "85999999999999996" to be within 20 of 86000000000000000
-    expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 100);
+    // Expected "85999999999999996" (changes from day to day) to be within 1000 of 86000000000000000
+    expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 1000);
 
     // We expect that the actual rate was taken when we submitted the borrowing transaction
     expect(borrowEvent.commission).to.be.closeTo(
