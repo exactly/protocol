@@ -60,7 +60,7 @@ describe("Auditor", function () {
     // we make it count as collateral (ETH)
     await auditor.enterMarkets([exafinETH.address]);
 
-    let liquidity = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[1];
+    let liquidity = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
     let collaterDAI = amountDAI
       .add(borrowDAIEvent.commission)
       .mul(tokensCollateralRate.get("DAI")!)
