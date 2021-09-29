@@ -187,7 +187,7 @@ describe("Exafin", function () {
     // We expect that the actual rate was taken when we submitted the borrowing transaction
     expect(borrowEvent.commission).to.be.closeTo(
       unitsToBorrow.mul(rateBorrowToApply).div(parseUnits("1")),
-      100
+      1000
     );
   });
 

@@ -77,4 +77,26 @@ describe("Auditor", function () {
 
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
   });
+
+  it("Uncollaterized position can be liquidated", async () => {
+    const nextPoolID = (new ExaTime()).nextPoolID();
+    const exafinETH = exactlyEnv.getExafin("ETH");
+    const eth = exactlyEnv.getUnderlying("ETH");
+
+    // we supply Eth to the protocol
+    const amountETH = parseUnits("1", 18);
+    await eth.approve(exafinETH.address, amountETH);
+    
+    expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH);
+
+    // we make it count as collateral (ETH)
+    await auditor.enterMarkets([exafinETH.address]);
+    let liquidity = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
+
+    // user borrows all liquidity
+    let exafinDAI = exactlyEnv.getExafin("DAI");
+    await exafinDAI.borrow(owner.address, liquidity, nextPoolID);
+
+
+  });
 });
