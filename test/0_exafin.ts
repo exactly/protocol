@@ -49,7 +49,7 @@ describe("Exafin", function () {
     // From Owner to User
     underlyingToken.transfer(mariaUser.address, parseUnits("10"));
 
-    exaTime = new ExaTime(); // Defaults to exaTime.nextPoolID().timestamp 
+    exaTime = new ExaTime();
 
     // This can be optimized (so we only do it once per file, not per test)
     // This helps with tests that use evm_setNextBlockTimestamp
