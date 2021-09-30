@@ -94,7 +94,7 @@ describe("Exafin", function () {
     await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets([exafinMaria.address]);
     expect(
-      await exafinMaria.borrow(mariaUser.address, parseUnits("0.8"), exaTime.nextPoolID())
+      await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
     ).to.emit(exafinMaria, "Borrowed");
   });
 
@@ -106,7 +106,7 @@ describe("Exafin", function () {
     await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
     await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets([exafinMaria.address]);
-    await expect(exafinMaria.borrow(mariaUser.address, parseUnits("0.9"), exaTime.nextPoolID()))
+    await expect(exafinMaria.borrow(parseUnits("0.9"), exaTime.nextPoolID()))
       .to.be.reverted;
   });
 
@@ -162,7 +162,7 @@ describe("Exafin", function () {
     expect(poolStateAfterBorrow[1]).to.be.equal(unitsToSupply);
     expect(poolStateAfterBorrow[0]).to.be.equal(unitsToBorrow);
 
-    let tx = await exafinMaria.borrow(mariaUser.address, unitsToBorrow, exaTime.nextPoolID());
+    let tx = await exafinMaria.borrow(unitsToBorrow, exaTime.nextPoolID());
     expect(tx).to.emit(exafinMaria, "Borrowed");
     let borrowEvent = await parseBorrowEvent(tx);
 
@@ -249,7 +249,6 @@ describe("Exafin", function () {
     );
     let supplyEvent = await parseSupplyEvent(txSupply);
     let tx = await exafinMaria.borrow(
-      mariaUser.address,
       parseUnits("0.8"),
       exaTime.nextPoolID()
     );

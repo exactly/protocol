@@ -154,12 +154,10 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
     /**
         @dev Lends to a wallet for a certain maturity date/pool
-        @param to wallet to send the amount
         @param amount amount to send to the specified wallet
         @param maturityDate maturity date for repayment
      */
     function borrow(
-        address to,
         uint256 amount,
         uint256 maturityDate
     ) override public nonReentrant {
@@ -170,7 +168,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         uint256 errorCode = auditor.borrowAllowed(
             address(this),
-            to,
+            msg.sender,
             amount,
             maturityDate
         );
@@ -181,12 +179,12 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         );
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
-        borrowedAmounts[maturityDate][to] += amount + commission;
+        borrowedAmounts[maturityDate][msg.sender] += amount + commission;
         pools[maturityDate] = newPoolState;
 
-        trustedUnderlying.safeTransferFrom(address(this), to, amount);
+        trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
-        emit Borrowed(to, amount, commission, maturityDate);
+        emit Borrowed(msg.sender, amount, commission, maturityDate);
     }
 
     /**

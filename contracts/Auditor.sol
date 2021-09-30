@@ -377,11 +377,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         require(shortfall > 0, "Unsufficient Shortfall");
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
-        (uint borrowBalance,) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
+        (,uint borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
         uint maxClose = closeFactor.mul_(borrowBalance);
-        if (repayAmount > maxClose) {
-            return uint(Error.TOO_MUCH_REPAY);
-        }
+        require(repayAmount < maxClose, "Too Much Repay");
 
         return uint(Error.NO_ERROR);
     }

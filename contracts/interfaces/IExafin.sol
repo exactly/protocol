@@ -20,7 +20,6 @@ interface IExafin {
         returns (uint256, Pool memory);
 
     function borrow(
-        address to,
         uint256 amount,
         uint256 maturityDate
     ) external;

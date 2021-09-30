@@ -93,6 +93,10 @@ export class ExactlyEnv {
     return this.underlyingContracts.get(key)!;
   }
 
+  public async setOraclePrice(tokenName: string, valueString: string) {
+    await this.oracle.setPrice(tokenName, parseUnits(valueString, 6));
+  }
+
   static async create(
     tokensUSDPrice: Map<string, BigNumber>,
     tokensCollateralRate: Map<string, BigNumber>
