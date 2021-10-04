@@ -8,8 +8,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IExafin.sol";
 import "./interfaces/IAuditor.sol";
+import "./interfaces/IInterestRateModel.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
+import "./utils/Poollib.sol";
 import {Error} from "./utils/Errors.sol";
 import "hardhat/console.sol";
 
@@ -17,6 +19,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
     using SafeCast for uint256;
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
+    using Poollib for Poollib.Pool;
 
     event Borrowed(
         address indexed to,
@@ -69,87 +72,62 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
-    mapping(uint256 => Pool) public pools;
+    mapping(uint256 => Poollib.Pool) public pools;
     mapping(address => uint256[]) public addressPools;
 
-    uint256 private baseRate;
-    uint256 private marginRate;
-    uint256 private slopeRate;
     uint256 private constant RATE_UNIT = 1e18;
     uint256 private constant PROTOCOL_SEIZE_SHARE = 2.8e16; //2.8%
 
     IERC20 private trustedUnderlying;
     string public override tokenName;
 
-    IAuditor private auditor;
+    IAuditor public auditor;
+    IInterestRateModel public interestRateModel;
+
+    // POC for eternal pool
+    uint256 public totalSupply;
+    mapping(address => uint256) public balances;
 
     constructor(
         address _tokenAddress,
         string memory _tokenName,
-        address _auditorAddress
+        address _auditorAddress,
+        address _interestRateModelAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
 
         auditor = IAuditor(_auditorAddress);
-
-        baseRate = 2e16; // 0.02
-        marginRate = 1e16; // 0.01 => Difference between rate to borrow from and to lend to
-        slopeRate = 7e16; // 0.07
+        interestRateModel = IInterestRateModel(_interestRateModelAddress);
     }
 
-    /**
-        @dev Rate that the protocol will pay when borrowing from an address a certain amount
-             at the end of the maturity date
-        @param amount amount to calculate how it would affect the pool 
-        @param maturityDate maturity date to calculate the pool
-     */
-    function rateForSupply(uint256 amount, uint256 maturityDate)
-        public
-        view
-        override
-        returns (uint256, Pool memory)
-    {
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
-        require(block.timestamp < maturityDate, "Pool Matured");
-
-        Pool memory pool = pools[maturityDate];
-        pool.supplied += amount;
-
-        uint256 daysDifference = (maturityDate -
-            TSUtils.trimmedDay(block.timestamp)) / 1 days;
-        uint256 yearlyRate = baseRate +
-            ((slopeRate * pool.borrowed) / pool.supplied);
-
-        return ((yearlyRate * daysDifference) / 365, pool);
+    function mint(uint256 amount) public {
+        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
+        uint256 balance = balances[msg.sender];
+        balances[msg.sender] = balance + amount;
+        totalSupply = totalSupply + amount;
+        // TODO: Emit
     }
 
-    /**
-        @dev Rate that the protocol will collect when lending to an address a certain amount
-             at the end of the maturity date
-        @param amount amount to calculate how it would affect the pool 
-        @param maturityDate maturity date to calculate the pool
-     */
-    function rateToBorrow(uint256 amount, uint256 maturityDate)
-        public
-        view
-        override
-        returns (uint256, Pool memory)
-    {
+    function burn(uint256 amount) public {
+        uint256 balance = balances[msg.sender];
+        balances[msg.sender] = balance - amount;
+        totalSupply = totalSupply - amount;
+        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
+        // TODO: Emit
+    }
+
+    function rateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
-        require(block.timestamp < maturityDate, "Pool Matured");
+        Poollib.Pool memory poolMaturity = pools[maturityDate];
+        return interestRateModel.rateToBorrow(amount, maturityDate, poolMaturity, poolMaturity);
+    }
 
-        Pool memory pool = pools[maturityDate];
-        pool.borrowed += amount;
-
-        uint256 daysDifference = (maturityDate -
-            TSUtils.trimmedDay(block.timestamp)) / 1 days;
-        uint256 yearlyRate = baseRate +
-            marginRate +
-            ((slopeRate * pool.borrowed) / pool.supplied);
-
-        return ((yearlyRate * daysDifference) / 365, pool);
+    function rateForSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        Poollib.Pool memory poolMaturity = pools[maturityDate];
+        return interestRateModel.rateForSupply(amount, maturityDate, poolMaturity, poolMaturity);
     }
 
     /**
@@ -161,9 +139,15 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         uint256 amount,
         uint256 maturityDate
     ) override public nonReentrant {
-        (uint256 commissionRate, Pool memory newPoolState) = rateToBorrow(
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+
+        Poollib.Pool memory pool = pools[maturityDate];
+
+        uint256 commissionRate = interestRateModel.rateToBorrow(
             amount,
-            maturityDate
+            maturityDate,
+            pool,
+            pool // TO BE REPLACED BY POT
         );
 
         uint256 errorCode = auditor.borrowAllowed(
@@ -180,7 +164,8 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
         borrowedAmounts[maturityDate][msg.sender] += amount + commission;
-        pools[maturityDate] = newPoolState;
+        pool.borrowed += amount;
+        pools[maturityDate] = pool;
 
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
@@ -199,9 +184,16 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         uint256 amount,
         uint256 maturityDate
     ) override public nonReentrant {
-        (uint256 commissionRate, Pool memory newPoolState) = rateForSupply(
+
+        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+
+        Poollib.Pool memory pool = pools[maturityDate];
+
+        uint256 commissionRate = interestRateModel.rateForSupply(
             amount,
-            maturityDate
+            maturityDate,
+            pool,
+            pool // TO BE REPLACED BY POT
         );
 
         uint256 errorCode = auditor.supplyAllowed(
@@ -218,7 +210,8 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
         suppliedAmounts[maturityDate][from] += amount + commission;
-        pools[maturityDate] = newPoolState;
+        pool.supplied += amount;
+        pools[maturityDate] = pool;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
@@ -338,7 +331,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
 
         // That repayment diminishes debt in the pool
-        Pool memory pool = pools[maturityDate];
+        Poollib.Pool memory pool = pools[maturityDate];
         pool.borrowed -= repayAmount;
         pools[maturityDate] = pool;
 
@@ -470,7 +463,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         suppliedAmounts[maturityDate][borrower] -= seizeAmount;
 
         // That seize amount diminishes liquidity in the pool
-        Pool memory pool = pools[maturityDate];
+        Poollib.Pool memory pool = pools[maturityDate];
         pool.supplied -= seizeAmount;
         pools[maturityDate] = pool;
 

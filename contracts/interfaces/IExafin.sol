@@ -2,22 +2,18 @@
 pragma solidity ^0.8.0;
 
 import "./IAuditor.sol";
-
-struct Pool {
-    uint256 borrowed;
-    uint256 supplied;
-}
+import "../utils/Poollib.sol";
 
 interface IExafin {
     function rateForSupply(uint256 amount, uint256 maturityDate)
         external
         view
-        returns (uint256, Pool memory);
+        returns (uint256);
 
     function rateToBorrow(uint256 amount, uint256 maturityDate)
         external
         view
-        returns (uint256, Pool memory);
+        returns (uint256);
 
     function borrow(
         uint256 amount,
