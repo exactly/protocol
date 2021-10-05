@@ -386,7 +386,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         /* Revert if borrower collateral token balance < seizeTokens */
         (uint256 balance,) = exafinCollateral.getAccountSnapshot(borrower, maturityDate);
-        require(balance >= seizeTokens, "LIQUIDATE_SEIZE_TOO_MUCH");
+        require(balance >= seizeTokens, "Tokens to seize are more than balance");
 
         // If this is also the collateral
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
@@ -448,8 +448,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
             address(this),
             seizerExafin,
             liquidator,
-            borrower,
-            seizeAmount
+            borrower
         );
         require(allowed == 0, "Seize Allowed Failed");
 

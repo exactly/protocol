@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "@ethersproject/units";
+import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import { ExactlyEnv, ExaTime, parseSupplyEvent } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -97,14 +97,13 @@ describe("Auditor", function () {
     
     expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH);
 
-    // we supply DAI to the protocol
+    // we supply DAI to the protocol to have money in the pool
     const amountDAI = parseUnits("5000", 18);
     await dai.connect(user).approve(exafinDAI.address, amountDAI);
     await exafinDAI.connect(user).supply(user.address, amountDAI, nextPoolID);
-
     expect(await dai.connect(user).balanceOf(exafinDAI.address)).to.equal(amountDAI);
 
-    // we make it count as collateral (ETH)
+    // we make ETH count as collateral
     await auditor.enterMarkets([exafinETH.address]);
     let liquidity = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
 
@@ -143,6 +142,7 @@ describe("Auditor", function () {
       owner.address,
       closeToMaxRepay,
       exafinETH.address,
-      nextPoolID);
+      nextPoolID
+    );
   });
 });

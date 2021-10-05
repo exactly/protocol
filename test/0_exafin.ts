@@ -116,7 +116,7 @@ describe("Exafin", function () {
     let unitsToSupply = parseUnits("1");
 
     let rateSupplyToApply =
-      await exafinMaria.rateForSupply(unitsToSupply, exaTime.nextPoolID());
+      await exafinMaria.getRateForSupply(unitsToSupply, exaTime.nextPoolID());
 
     // We verify that the state of the pool is what we suppose it is
     // expect(poolStateAfterSupply[1]).to.be.equal(unitsToSupply);
@@ -158,7 +158,7 @@ describe("Exafin", function () {
     await exafinMaria.supply(mariaUser.address, unitsToSupply, exaTime.nextPoolID());
 
     let rateBorrowToApply =
-      await exafinMaria.rateToBorrow(unitsToBorrow,  exaTime.nextPoolID());
+      await exafinMaria.getRateToBorrow(unitsToBorrow,  exaTime.nextPoolID());
 
     // expect(poolStateAfterBorrow[1]).to.be.equal(unitsToSupply);
     // expect(poolStateAfterBorrow[0]).to.be.equal(unitsToBorrow);

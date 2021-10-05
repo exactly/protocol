@@ -19,6 +19,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
     event MarketEntered(IExafin exafin, address account);
     event ActionPaused(address exafin, string action, bool paused);
+    event OracleChanged(address newOracle);
 
     mapping(address => Market) public markets;
     mapping(address => BaseMarket) public listedMarkets;
@@ -332,6 +333,14 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         return uint(Error.NO_ERROR);
     }
 
+    /**
+        @dev Function to calculate the amount of assets to be seized
+             - when a position is undercollaterized it should be repaid and this functions calculates the 
+               amount of collateral to be seized
+        @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
+        @param exafinBorrowed market from where the debt is pending
+        @param actualRepayAmount repay amount in the borrowed asset
+     */
     function liquidateCalculateSeizeAmount(
         address exafinBorrowed,
         address exafinCollateral,
@@ -346,12 +355,21 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         }
 
         uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e6);
-        uint256 seizeTokens = priceCollateral.div_(amountInUSD);
+        uint256 seizeTokens = amountInUSD.div_(priceCollateral, 1e6);
 
         return (uint(Error.NO_ERROR), seizeTokens);
     }
 
-
+    /**
+        @dev Function to allow/reject liquidation of assets. This function can be called 
+             externally, but only will have effect when called from an exafin. 
+        @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
+        @param exafinBorrowed market from where the debt is pending
+        @param liquidator address that is liquidating the assets
+        @param borrower address which the assets are being liquidated
+        @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
+        @param maturityDate maturity where the position has a shortfall in liquidity
+     */
     function liquidateAllowed(
         address exafinBorrowed,
         address exafinCollateral,
@@ -384,16 +402,20 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         return uint(Error.NO_ERROR);
     }
 
+    /**
+        @dev Function to allow/reject seizing of assets. This function can be called 
+             externally, but only will have effect when called from an exafin. 
+        @param exafinCollateral market where the assets will be seized (should be msg.sender on Exafin.sol)
+        @param exafinBorrowed market from where the debt will be paid
+        @param liquidator address to validate where the seized assets will be received
+        @param borrower address to validate where the assets will be removed
+     */
     function seizeAllowed(
         address exafinCollateral,
         address exafinBorrowed,
         address liquidator,
-        address borrower,
-        uint seizeTokens
+        address borrower
     ) override external view returns (uint) {
-
-        // Shh - currently unused
-        seizeTokens;
 
         require(borrower != liquidator, "Liquidator shouldn't be borrower");
 
@@ -475,5 +497,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
      */
     function setOracle(address _priceOracleAddress) public onlyRole(TEAM_ROLE) {
         oracle = Oracle(_priceOracleAddress);
+        emit OracleChanged(_priceOracleAddress);
     }
 }

@@ -55,8 +55,7 @@ interface IAuditor {
         address exafinCollateral,
         address exafinBorrowed,
         address liquidator,
-        address borrower,
-        uint256 seizeTokens
+        address borrower
     ) external view returns (uint256);
 
 }
