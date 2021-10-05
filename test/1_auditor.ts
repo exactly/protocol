@@ -105,17 +105,18 @@ describe("Auditor", function () {
 
     // we make ETH count as collateral
     await auditor.enterMarkets([exafinETH.address]);
-    let liquidity = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
+    // this works because 1USD (liquidity) = 1DAI (asset to borrow)
+    let amountToBorrowDAI = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
 
     // user borrows all liquidity
-    await exafinDAI.borrow(liquidity, nextPoolID);
+    await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
 
     // ETH price goes to 1/2 of its original value
     await exactlyEnv.setOraclePrice("ETH", "1500");
 
     // We expect liquidity to be equal to zero
-    let liquidityAfter = (await auditor.getAccountLiquidity(owner.address, nextPoolID));
-    expect(liquidityAfter[0]).to.be.equal(0);
+    let liquidityAfterOracleChange = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
+    expect(liquidityAfterOracleChange).to.be.equal(0);
 
     // We try to get all the ETH we can
     // We expect trying to repay zero to fail
@@ -125,15 +126,15 @@ describe("Auditor", function () {
 
     // We expect self liquidation to fail
     await expect(
-      exafinDAI.liquidate(owner.address, liquidityAfter[1], exafinETH.address, nextPoolID)
+      exafinDAI.liquidate(owner.address, amountToBorrowDAI, exafinETH.address, nextPoolID)
     ).to.be.revertedWith("Liquidator shouldn't be borrower");
 
-    // We expect liquidation to fail because trying to liquidate too much
+    // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
     await expect(
-      exafinDAI.connect(user).liquidate(owner.address, liquidityAfter[1], exafinETH.address, nextPoolID)
+      exafinDAI.connect(user).liquidate(owner.address, amountToBorrowDAI.div(2) + 100, exafinETH.address, nextPoolID)
     ).to.be.revertedWith("Too Much Repay");
 
-    let closeToMaxRepay = liquidityAfter[1]
+    let closeToMaxRepay = amountToBorrowDAI
         .mul(closeFactor)
         .div(parseUnits("1"));
 
