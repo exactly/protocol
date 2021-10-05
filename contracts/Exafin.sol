@@ -102,22 +102,6 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         interestRateModel = IInterestRateModel(_interestRateModelAddress);
     }
 
-    function mint(uint256 amount) public {
-        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
-        uint256 balance = balances[msg.sender];
-        balances[msg.sender] = balance + amount;
-        totalSupply = totalSupply + amount;
-        // TODO: Emit
-    }
-
-    function burn(uint256 amount) public {
-        uint256 balance = balances[msg.sender];
-        balances[msg.sender] = balance - amount;
-        totalSupply = totalSupply - amount;
-        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
-        // TODO: Emit
-    }
-
     /**
         @dev Get current rate to borrow a certain amount in a certain maturity
              in the current state of the pool and the pot
