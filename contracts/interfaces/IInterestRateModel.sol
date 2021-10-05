@@ -5,14 +5,14 @@ import "../utils/Poollib.sol";
 
 interface IInterestRateModel {
 
-    function rateToBorrow(
+    function getRateToBorrow(
         uint256 amount,
         uint256 maturityDate,
         Poollib.Pool memory poolMaturity,
         Poollib.Pool memory poolPot
     ) external view returns (uint256);
 
-    function rateForSupply(
+    function getRateForSupply(
         uint256 amount,
         uint256 maturityDate,
         Poollib.Pool memory poolMaturity,

@@ -118,16 +118,28 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         // TODO: Emit
     }
 
-    function rateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
+    /**
+        @dev Get current rate to borrow a certain amount in a certain maturity
+             in the current state of the pool and the pot
+        @param amount amount to borrow from a certain maturity date
+        @param maturityDate maturity date for calculating rates
+     */
+    function getRateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         Poollib.Pool memory poolMaturity = pools[maturityDate];
-        return interestRateModel.rateToBorrow(amount, maturityDate, poolMaturity, poolMaturity);
+        return interestRateModel.getRateToBorrow(amount, maturityDate, poolMaturity, poolMaturity);
     }
 
-    function rateForSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
+    /**
+        @dev Get current rate for supplying a certain amount in a certain maturity
+             in the current state of the pool and the pot
+        @param amount amount to supply to a certain maturity date
+        @param maturityDate maturity date for calculating rates
+     */
+    function getRateForSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         Poollib.Pool memory poolMaturity = pools[maturityDate];
-        return interestRateModel.rateForSupply(amount, maturityDate, poolMaturity, poolMaturity);
+        return interestRateModel.getRateForSupply(amount, maturityDate, poolMaturity, poolMaturity);
     }
 
     /**
@@ -143,7 +155,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         Poollib.Pool memory pool = pools[maturityDate];
 
-        uint256 commissionRate = interestRateModel.rateToBorrow(
+        uint256 commissionRate = interestRateModel.getRateToBorrow(
             amount,
             maturityDate,
             pool,
@@ -189,7 +201,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         Poollib.Pool memory pool = pools[maturityDate];
 
-        uint256 commissionRate = interestRateModel.rateForSupply(
+        uint256 commissionRate = interestRateModel.getRateForSupply(
             amount,
             maturityDate,
             pool,

@@ -5,15 +5,16 @@ import "./IAuditor.sol";
 import "../utils/Poollib.sol";
 
 interface IExafin {
-    function rateForSupply(uint256 amount, uint256 maturityDate)
-        external
-        view
-        returns (uint256);
 
-    function rateToBorrow(uint256 amount, uint256 maturityDate)
-        external
-        view
-        returns (uint256);
+    function getRateForSupply(
+        uint256 amount,
+        uint256 maturityDate
+    ) external view returns (uint256);
+
+    function getRateToBorrow(
+        uint256 amount,
+        uint256 maturityDate
+    ) external view returns (uint256);
 
     function borrow(
         uint256 amount,

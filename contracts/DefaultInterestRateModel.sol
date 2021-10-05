@@ -2,56 +2,90 @@
 pragma solidity ^0.8.0;
 
 import "./interfaces/IInterestRateModel.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./utils/TSUtils.sol";
 import "./utils/Poollib.sol";
 
-contract DefaultInterestRateModel is IInterestRateModel {
+contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     using Poollib for Poollib.Pool;
 
+    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
+
+    // Parameters to the system, expressed with 1e18 decimals
     uint256 public marginRate;
     uint256 public slopeRate;
 
     constructor(uint256 _marginRate, uint256 _slopeRate) {
         marginRate = _marginRate;
         slopeRate = _slopeRate;
+        _setupRole(TEAM_ROLE, msg.sender);
     }
 
-    function rateToBorrow(
+    /**
+        @dev Function to update this model's parameters (TEAM_ONLY)
+        @param _marginRate spread between borrowing and lending
+        @param _slopeRate slope to alter the utilization rate
+     */
+    function setParameters(uint256 _marginRate, uint256 _slopeRate) external onlyRole(TEAM_ROLE) {
+        marginRate = _marginRate;
+        slopeRate = _slopeRate;
+    }
+
+    /**
+        @dev Get current rate for borrow a certain amount in a certain maturity
+             with supply/demand values in the maturity pool and supply demand values
+             in the pot
+        @param amount amount to borrow from a certain maturity date
+        @param maturityDate maturity date for calculating days left to maturity
+        @param maturityPool supply/demand values for the maturity pool
+        @param potPool supply/demand values for the pot
+     */
+    function getRateToBorrow(
         uint256 amount,
         uint256 maturityDate,
-        Poollib.Pool memory poolMaturity,
-        Poollib.Pool memory poolPot
+        Poollib.Pool memory maturityPool,
+        Poollib.Pool memory potPool
     ) override public view returns (uint256) {
+
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         require(block.timestamp < maturityDate, "Pool Matured");
 
-        poolMaturity.borrowed += amount;
+        maturityPool.borrowed += amount;
 
         uint256 daysDifference = (maturityDate -
             TSUtils.trimmedDay(block.timestamp)) / 1 days;
         uint256 yearlyRate = marginRate +
-            ((slopeRate * poolMaturity.borrowed) / poolMaturity.supplied);
+            ((slopeRate * maturityPool.borrowed) / maturityPool.supplied);
 
         return ((yearlyRate * daysDifference) / 365);
 
     }
 
-    function rateForSupply(
+    /**
+        @dev Get current rate for supplying a certain amount in a certain maturity
+             with supply/demand values in the maturity pool and supply demand values
+             in the pot
+        @param amount amount to supply to a certain maturity date
+        @param maturityDate maturity date for calculating days left to maturity
+        @param maturityPool supply/demand values for the maturity pool
+        @param potPool supply/demand values for the pot
+     */
+    function getRateForSupply(
         uint256 amount,
         uint256 maturityDate,
-        Poollib.Pool memory poolMaturity,
-        Poollib.Pool memory poolPot
+        Poollib.Pool memory maturityPool,
+        Poollib.Pool memory potPool
     ) override public view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         require(block.timestamp < maturityDate, "Pool Matured");
         require(amount != 0, "Can't supply zero");
 
-        poolMaturity.supplied += amount;
+        maturityPool.supplied += amount;
 
         uint256 daysDifference = (maturityDate -
             TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
-        uint256 yearlyRate = ((slopeRate * poolMaturity.borrowed) / poolMaturity.supplied);
+        uint256 yearlyRate = ((slopeRate * maturityPool.borrowed) / maturityPool.supplied);
 
         return ((yearlyRate * daysDifference) / 365);
     }
