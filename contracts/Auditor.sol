@@ -22,7 +22,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     event OracleChanged(address newOracle);
 
     mapping(address => Market) public markets;
-    mapping(address => BaseMarket) public listedMarkets;
     mapping(address => bool) public borrowPaused;
     mapping(address => uint256) public borrowCaps;
     mapping(address => IExafin[]) public accountAssets;
@@ -32,16 +31,11 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
     uint256 public closeFactor = 5e17;
 
-    struct BaseMarket {
+    struct Market {
         string symbol;
         string name;
         bool isListed;
         uint256 collateralFactor;
-        bool exists;
-    }
-
-    struct Market {
-        BaseMarket baseMarket;
         mapping(address => bool) accountMembership;
     }
 
@@ -96,7 +90,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     {
         Market storage marketToJoin = markets[address(exafin)];
 
-        if (!marketToJoin.baseMarket.isListed) {
+        if (!marketToJoin.isListed) {
             return Error.MARKET_NOT_LISTED;
         }
 
@@ -162,9 +156,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
                 maturityDate
             );
 
-            vars.collateralFactor = markets[address(asset)]
-                .baseMarket
-                .collateralFactor;
+            vars.collateralFactor = markets[address(asset)].collateralFactor;
 
             // Get the normalized price of the asset (6 decimals)
             vars.oraclePrice = oracle.price(asset.tokenName());
@@ -213,7 +205,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         supplier;
         supplyAmount;
 
-        if (!markets[exafinAddress].baseMarket.isListed) {
+        if (!markets[exafinAddress].isListed) {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
@@ -235,7 +227,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         require(block.timestamp < maturityDate, "Pool Matured");
 
-        if (!markets[exafinAddress].baseMarket.isListed) {
+        if (!markets[exafinAddress].isListed) {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
@@ -287,7 +279,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         uint256 redeemTokens,
         uint256 maturityDate
     ) external view override returns (uint256) {
-        if (!markets[exafinAddress].baseMarket.isListed) {
+        if (!markets[exafinAddress].isListed) {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
@@ -323,7 +315,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         borrower;
         repayAmount;
 
-        if (!markets[exafinAddress].baseMarket.isListed) {
+        if (!markets[exafinAddress].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
 
@@ -382,7 +374,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         require(repayAmount > 0, "Repay amount shouldn't be zero");
         require(borrower != liquidator, "Liquidator shouldn't be borrower");
 
-        if (!markets[exafinBorrowed].baseMarket.isListed || !markets[exafinCollateral].baseMarket.isListed) {
+        if (!markets[exafinBorrowed].isListed || !markets[exafinCollateral].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
 
@@ -419,7 +411,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         require(borrower != liquidator, "Liquidator shouldn't be borrower");
 
-        if (!markets[exafinCollateral].baseMarket.isListed || !markets[exafinBorrowed].baseMarket.isListed) {
+        if (!markets[exafinCollateral].isListed || !markets[exafinBorrowed].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
 
@@ -442,36 +434,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         string memory name
     ) public onlyRole(TEAM_ROLE) {
         Market storage market = markets[exafin];
-        market.baseMarket.isListed = true;
-        market.baseMarket.exists = true;
-        market.baseMarket.collateralFactor = collateralFactor;
-        market.baseMarket.symbol = symbol;
-        market.baseMarket.name = name;
-
-        listedMarkets[exafin] = market.baseMarket;
+        market.isListed = true;
+        market.collateralFactor = collateralFactor;
+        market.symbol = symbol;
+        market.name = name;
 
         marketCount += 1;
         marketsAddress.push(exafin);
-    }
-
-    /**
-        @dev Add market to listedMarkets and change boolean to true
-        @param exafin address to add to the protocol
-     */
-    function listMarket(address exafin) public onlyRole(TEAM_ROLE) {
-        require(markets[exafin].baseMarket.exists, "Address is not a market");
-        markets[exafin].baseMarket.isListed = true;
-        listedMarkets[exafin] = markets[exafin].baseMarket;
-    }
-
-    /**
-        @dev Delete market to listedMarkets and change boolean to false
-        @param exafin address to add to the protocol
-     */
-    function unlistMarket(address exafin) public onlyRole(TEAM_ROLE) {
-        require(markets[exafin].baseMarket.exists, "Address is not a market");
-        markets[exafin].baseMarket.isListed = false;
-        delete listedMarkets[exafin];
     }
 
     /**
@@ -484,7 +453,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         onlyRole(TEAM_ROLE)
         returns (bool)
     {
-        require(markets[exafin].baseMarket.isListed, "not listed");
+        require(markets[exafin].isListed, "not listed");
 
         borrowPaused[address(exafin)] = paused;
         emit ActionPaused(exafin, "Borrow", paused);
