@@ -120,10 +120,10 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         @param amount amount to supply to a certain maturity date
         @param maturityDate maturity date for calculating rates
      */
-    function getRateForSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
+    function getRateToSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         PoolLib.Pool memory poolMaturity = pools[maturityDate];
-        return interestRateModel.getRateForSupply(amount, maturityDate, poolMaturity, poolMaturity);
+        return interestRateModel.getRateToSupply(amount, maturityDate, poolMaturity, poolMaturity);
     }
 
     /**
@@ -185,7 +185,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
-        uint256 commissionRate = interestRateModel.getRateForSupply(
+        uint256 commissionRate = interestRateModel.getRateToSupply(
             amount,
             maturityDate,
             pool,

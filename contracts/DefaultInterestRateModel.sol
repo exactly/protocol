@@ -70,7 +70,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         @param maturityPool supply/demand values for the maturity pool
         @param potPool supply/demand values for the pot
      */
-    function getRateForSupply(
+    function getRateToSupply(
         uint256 amount,
         uint256 maturityDate,
         PoolLib.Pool memory maturityPool,

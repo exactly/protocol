@@ -116,7 +116,7 @@ describe("Exafin", function () {
     let unitsToSupply = parseUnits("1");
 
     let rateSupplyToApply =
-      await exafinMaria.getRateForSupply(unitsToSupply, exaTime.nextPoolID());
+      await exafinMaria.getRateToSupply(unitsToSupply, exaTime.nextPoolID());
 
     // We verify that the state of the pool is what we suppose it is
     // expect(poolStateAfterSupply[1]).to.be.equal(unitsToSupply);
