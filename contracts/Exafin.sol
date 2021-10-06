@@ -11,7 +11,7 @@ import "./interfaces/IAuditor.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
-import "./utils/Poollib.sol";
+import "./utils/PoolLib.sol";
 import {Error} from "./utils/Errors.sol";
 import "hardhat/console.sol";
 
@@ -19,7 +19,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
     using SafeCast for uint256;
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
-    using Poollib for Poollib.Pool;
+    using PoolLib for PoolLib.Pool;
 
     event Borrowed(
         address indexed to,
@@ -72,7 +72,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
-    mapping(uint256 => Poollib.Pool) public pools;
+    mapping(uint256 => PoolLib.Pool) public pools;
     mapping(address => uint256[]) public addressPools;
 
     uint256 private constant RATE_UNIT = 1e18;
@@ -110,7 +110,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
      */
     function getRateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
-        Poollib.Pool memory poolMaturity = pools[maturityDate];
+        PoolLib.Pool memory poolMaturity = pools[maturityDate];
         return interestRateModel.getRateToBorrow(amount, maturityDate, poolMaturity, poolMaturity);
     }
 
@@ -122,7 +122,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
      */
     function getRateForSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
-        Poollib.Pool memory poolMaturity = pools[maturityDate];
+        PoolLib.Pool memory poolMaturity = pools[maturityDate];
         return interestRateModel.getRateForSupply(amount, maturityDate, poolMaturity, poolMaturity);
     }
 
@@ -137,7 +137,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
     ) override public nonReentrant {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
 
-        Poollib.Pool memory pool = pools[maturityDate];
+        PoolLib.Pool memory pool = pools[maturityDate];
 
         uint256 commissionRate = interestRateModel.getRateToBorrow(
             amount,
@@ -183,7 +183,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
 
-        Poollib.Pool memory pool = pools[maturityDate];
+        PoolLib.Pool memory pool = pools[maturityDate];
 
         uint256 commissionRate = interestRateModel.getRateForSupply(
             amount,
@@ -327,7 +327,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
 
         // That repayment diminishes debt in the pool
-        Poollib.Pool memory pool = pools[maturityDate];
+        PoolLib.Pool memory pool = pools[maturityDate];
         pool.borrowed -= repayAmount;
         pools[maturityDate] = pool;
 
@@ -458,7 +458,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         suppliedAmounts[maturityDate][borrower] -= seizeAmount;
 
         // That seize amount diminishes liquidity in the pool
-        Poollib.Pool memory pool = pools[maturityDate];
+        PoolLib.Pool memory pool = pools[maturityDate];
         pool.supplied -= seizeAmount;
         pools[maturityDate] = pool;
 

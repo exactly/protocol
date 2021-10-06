@@ -4,10 +4,10 @@ pragma solidity ^0.8.0;
 import "./interfaces/IInterestRateModel.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./utils/TSUtils.sol";
-import "./utils/Poollib.sol";
+import "./utils/PoolLib.sol";
 
 contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
-    using Poollib for Poollib.Pool;
+    using PoolLib for PoolLib.Pool;
 
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
@@ -43,8 +43,8 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     function getRateToBorrow(
         uint256 amount,
         uint256 maturityDate,
-        Poollib.Pool memory maturityPool,
-        Poollib.Pool memory potPool
+        PoolLib.Pool memory maturityPool,
+        PoolLib.Pool memory potPool
     ) override public view returns (uint256) {
 
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
@@ -73,8 +73,8 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     function getRateForSupply(
         uint256 amount,
         uint256 maturityDate,
-        Poollib.Pool memory maturityPool,
-        Poollib.Pool memory potPool
+        PoolLib.Pool memory maturityPool,
+        PoolLib.Pool memory potPool
     ) override public view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         require(block.timestamp < maturityDate, "Pool Matured");

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./IAuditor.sol";
-import "../utils/Poollib.sol";
+import "../utils/PoolLib.sol";
 
 interface IExafin {
 

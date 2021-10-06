@@ -5,7 +5,7 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 
-library Poollib {
+library PoolLib {
 
     struct Pool {
         uint256 borrowed;
