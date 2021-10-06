@@ -45,7 +45,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         uint256 maturityDate,
         PoolLib.Pool memory maturityPool,
         PoolLib.Pool memory potPool
-    ) override public view returns (uint256) {
+    ) override external view returns (uint256) {
 
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         require(block.timestamp < maturityDate, "Pool Matured");
@@ -75,7 +75,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         uint256 maturityDate,
         PoolLib.Pool memory maturityPool,
         PoolLib.Pool memory potPool
-    ) override public view returns (uint256) {
+    ) override external view returns (uint256) {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         require(block.timestamp < maturityDate, "Pool Matured");
         require(amount != 0, "Can't supply zero");
