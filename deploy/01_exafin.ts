@@ -21,6 +21,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true
   });
 
+  const interestRateModel = await hre.deployments.deploy("DefaultInterestRateModel", {
+    from: deployer,
+    args: [parseUnits("0.02"), parseUnits("0.07")],
+    log: true
+  });
+
   async function impersonate(address: string) {
     await hre.network.provider.request({
       method: "hardhat_impersonateAccount",
@@ -44,7 +50,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     const exafin = await hre.deployments.deploy("Exafin", {
       from: deployer,
-      args: [address, oracleName, auditor.address],
+      args: [address, oracleName, auditor.address, interestRateModel.address],
       log: true
     });
 

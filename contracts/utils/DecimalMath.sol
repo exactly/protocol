@@ -9,11 +9,20 @@ library DecimalMath {
 
     uint private constant NUMBER_SCALE = 1e18;
 
-    function mul_(uint a, uint b) internal pure returns (uint) {
+    function mul_(uint256 a, uint256 b) internal pure returns (uint256) {
         return a * b / NUMBER_SCALE;
     }
 
-    function mul_(uint a, uint b, uint scale) internal pure returns (uint) {
+    function mul_(uint256 a, uint256 b, uint256 scale) internal pure returns (uint256) {
         return a * b / scale;
     }
+
+    function div_(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a * NUMBER_SCALE / b;
+    }
+
+    function div_(uint256 a, uint256 b, uint256 scale) internal pure returns (uint256) {
+        return a * scale / b;
+    }
+
 }

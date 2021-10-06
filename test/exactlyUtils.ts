@@ -64,6 +64,7 @@ export function parseSupplyEvent(tx: ContractTransaction) {
 export class ExactlyEnv {
   oracle: Contract;
   auditor: Contract;
+  interestRateModel: Contract;
   exafinContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   baseRate: BigNumber;
@@ -73,6 +74,7 @@ export class ExactlyEnv {
   constructor(
     _oracle: Contract,
     _auditor: Contract,
+    _interestRateModel: Contract,
     _exafinContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>
   ) {
@@ -80,6 +82,7 @@ export class ExactlyEnv {
     this.auditor = _auditor;
     this.exafinContracts = _exafinContracts;
     this.underlyingContracts = _underlyingContracts;
+    this.interestRateModel = _interestRateModel;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
@@ -93,6 +96,10 @@ export class ExactlyEnv {
     return this.underlyingContracts.get(key)!;
   }
 
+  public async setOraclePrice(tokenName: string, valueString: string) {
+    await this.oracle.setPrice(tokenName, parseUnits(valueString, 6));
+  }
+
   static async create(
     tokensUSDPrice: Map<string, BigNumber>,
     tokensCollateralRate: Map<string, BigNumber>
@@ -103,6 +110,13 @@ export class ExactlyEnv {
     const SomeOracle = await ethers.getContractFactory("SomeOracle");
     let oracle = await SomeOracle.deploy();
     await oracle.deployed();
+
+    const DefaultInterestRateModel = await ethers.getContractFactory("DefaultInterestRateModel");
+    let interestRateModel = await DefaultInterestRateModel.deploy(
+      parseUnits("0.01"),
+      parseUnits("0.07")
+    );
+    await interestRateModel.deployed();
 
     const Auditor = await ethers.getContractFactory("Auditor");
     let auditor = await Auditor.deploy(oracle.address);
@@ -124,7 +138,8 @@ export class ExactlyEnv {
         const exafin = await Exafin.deploy(
           underlyingToken.address,
           tokenName,
-          auditor.address
+          auditor.address,
+          interestRateModel.address
         );
         await exafin.deployed();
         await exafin.transferOwnership(auditor.address);
@@ -147,7 +162,7 @@ export class ExactlyEnv {
 
     return new Promise<ExactlyEnv>((resolve) => {
       resolve(
-        new ExactlyEnv(oracle, auditor, exafinContracts, underlyingContracts)
+        new ExactlyEnv(oracle, auditor, interestRateModel, exafinContracts, underlyingContracts)
       );
     });
   }

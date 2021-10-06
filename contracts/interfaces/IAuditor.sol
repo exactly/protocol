@@ -6,7 +6,7 @@ interface IAuditor {
     function getAccountLiquidity(
         address account,
         uint256 maturityDate
-    ) external view returns (uint256, uint256, uint256);
+    ) external view returns (uint256, uint256);
 
     function supplyAllowed(
         address exafinAddress,
@@ -35,5 +35,27 @@ interface IAuditor {
         uint256 repayAmount,
         uint256 maturityDate
     ) external returns (uint256);
+
+    function liquidateAllowed(
+        address exafinBorrowed,
+        address exafinCollateral,
+        address liquidator,
+        address borrower,
+        uint256 repayAmount, 
+        uint256 maturityDate
+    ) external view returns (uint256);
+
+    function liquidateCalculateSeizeAmount(
+        address exafinBorrowed,
+        address exafinCollateral,
+        uint256 actualRepayAmount
+    ) external view returns (uint, uint);
+
+    function seizeAllowed(
+        address exafinCollateral,
+        address exafinBorrowed,
+        address liquidator,
+        address borrower
+    ) external view returns (uint256);
 
 }

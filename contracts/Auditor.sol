@@ -19,9 +19,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
     event MarketEntered(IExafin exafin, address account);
     event ActionPaused(address exafin, string action, bool paused);
+    event OracleChanged(address newOracle);
 
     mapping(address => Market) public markets;
-    mapping(address => BaseMarket) public listedMarkets;
     mapping(address => bool) public borrowPaused;
     mapping(address => uint256) public borrowCaps;
     mapping(address => IExafin[]) public accountAssets;
@@ -31,16 +31,11 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
     uint256 public closeFactor = 5e17;
 
-    struct BaseMarket {
+    struct Market {
         string symbol;
         string name;
         bool isListed;
         uint256 collateralFactor;
-        bool exists;
-    }
-
-    struct Market {
-        BaseMarket baseMarket;
         mapping(address => bool) accountMembership;
     }
 
@@ -95,7 +90,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     {
         Market storage marketToJoin = markets[address(exafin)];
 
-        if (!marketToJoin.baseMarket.isListed) {
+        if (!marketToJoin.isListed) {
             return Error.MARKET_NOT_LISTED;
         }
 
@@ -122,17 +117,10 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         override
         returns (
             uint256,
-            uint256,
             uint256
         )
     {
-        (
-            Error err,
-            uint256 liquidity,
-            uint256 shortfall
-        ) = _accountLiquidity(account, maturityDate, address(0), 0, 0);
-
-        return (uint256(err), liquidity, shortfall);
+        return _accountLiquidity(account, maturityDate, address(0), 0, 0);
     }
 
     /**
@@ -150,7 +138,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         internal
         view
         returns (
-            Error,
             uint256,
             uint256
         )
@@ -169,9 +156,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
                 maturityDate
             );
 
-            vars.collateralFactor = markets[address(asset)]
-                .baseMarket
-                .collateralFactor;
+            vars.collateralFactor = markets[address(asset)].collateralFactor;
 
             // Get the normalized price of the asset (6 decimals)
             vars.oraclePrice = oracle.price(asset.tokenName());
@@ -205,9 +190,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         // These are safe, as the underflow condition is checked first
         if (vars.sumCollateral > vars.sumDebt) {
-            return (Error.NO_ERROR, vars.sumCollateral - vars.sumDebt, 0);
+            return (vars.sumCollateral - vars.sumDebt, 0);
         } else {
-            return (Error.NO_ERROR, 0, vars.sumDebt - vars.sumCollateral);
+            return (0, vars.sumDebt - vars.sumCollateral);
         }
     }
 
@@ -220,7 +205,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         supplier;
         supplyAmount;
 
-        if (!markets[exafinAddress].baseMarket.isListed) {
+        if (!markets[exafinAddress].isListed) {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
@@ -242,13 +227,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         require(block.timestamp < maturityDate, "Pool Matured");
 
-        if (!markets[exafinAddress].baseMarket.isListed) {
+        if (!markets[exafinAddress].isListed) {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
         if (!markets[exafinAddress].accountMembership[borrower]) {
-            // only cTokens may call borrowAllowed if borrower not in market
-            require(msg.sender == exafinAddress, "sender must be cToken");
+            // only exafins may call borrowAllowed if borrower not in market
+            require(msg.sender == exafinAddress, "sender must be exafin");
 
             // attempt to add borrower to the market
             Error errAdd = _addToMarket(IExafin(msg.sender), borrower);
@@ -274,16 +259,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             require(nextTotalBorrows < borrowCap, "market borrow cap reached");
         }
 
-        (Error err, , uint256 shortfall) = _accountLiquidity(
+        (, uint256 shortfall) = _accountLiquidity(
             borrower,
             maturityDate,
             exafinAddress,
             0,
             borrowAmount
         );
-        if (err != Error.NO_ERROR) {
-            return uint256(err);
-        }
         if (shortfall > 0) {
             return uint256(Error.INSUFFICIENT_LIQUIDITY);
         }
@@ -297,7 +279,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         uint256 redeemTokens,
         uint256 maturityDate
     ) external view override returns (uint256) {
-        if (!markets[exafinAddress].baseMarket.isListed) {
+        if (!markets[exafinAddress].isListed) {
             return uint256(Error.MARKET_NOT_LISTED);
         }
 
@@ -310,16 +292,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         }
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (Error err, , uint256 shortfall) = _accountLiquidity(
+        (, uint256 shortfall) = _accountLiquidity(
             redeemer,
             maturityDate,
             exafinAddress,
             redeemTokens,
             0
         );
-        if (err != Error.NO_ERROR) {
-            return uint256(err);
-        }
         if (shortfall > 0) {
             return uint256(Error.INSUFFICIENT_LIQUIDITY);
         }
@@ -331,16 +310,114 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         address exafinAddress,
         address borrower,
         uint256 repayAmount,
-        uint256 maturityDate) override external view returns (uint) {
+        uint256 maturityDate
+    ) override external view returns (uint) {
         borrower;
         repayAmount;
 
-        if (!markets[exafinAddress].baseMarket.isListed) {
+        if (!markets[exafinAddress].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
 
         require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
         require(block.timestamp > maturityDate, "Pool Not Mature");
+
+        return uint(Error.NO_ERROR);
+    }
+
+    /**
+        @dev Function to calculate the amount of assets to be seized
+             - when a position is undercollaterized it should be repaid and this functions calculates the 
+               amount of collateral to be seized
+        @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
+        @param exafinBorrowed market from where the debt is pending
+        @param actualRepayAmount repay amount in the borrowed asset
+     */
+    function liquidateCalculateSeizeAmount(
+        address exafinBorrowed,
+        address exafinCollateral,
+        uint256 actualRepayAmount
+    ) override external view returns (uint, uint) {
+
+        /* Read oracle prices for borrowed and collateral markets */
+        uint256 priceBorrowed = oracle.price(IExafin(exafinBorrowed).tokenName());
+        uint256 priceCollateral = oracle.price(IExafin(exafinCollateral).tokenName());
+        if (priceBorrowed == 0 || priceCollateral == 0) {
+            return (uint(Error.PRICE_ERROR), 0);
+        }
+
+        uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e6);
+        uint256 seizeTokens = amountInUSD.div_(priceCollateral, 1e6);
+
+        return (uint(Error.NO_ERROR), seizeTokens);
+    }
+
+    /**
+        @dev Function to allow/reject liquidation of assets. This function can be called 
+             externally, but only will have effect when called from an exafin. 
+        @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
+        @param exafinBorrowed market from where the debt is pending
+        @param liquidator address that is liquidating the assets
+        @param borrower address which the assets are being liquidated
+        @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
+        @param maturityDate maturity where the position has a shortfall in liquidity
+     */
+    function liquidateAllowed(
+        address exafinBorrowed,
+        address exafinCollateral,
+        address liquidator,
+        address borrower,
+        uint256 repayAmount,
+        uint256 maturityDate
+    ) override external view returns (uint) {
+
+        require(repayAmount > 0, "Repay amount shouldn't be zero");
+        require(borrower != liquidator, "Liquidator shouldn't be borrower");
+
+        if (!markets[exafinBorrowed].isListed || !markets[exafinCollateral].isListed) {
+            return uint(Error.MARKET_NOT_LISTED);
+        }
+
+        if (IExafin(exafinBorrowed).getAuditor() != IExafin(exafinCollateral).getAuditor()) {
+            return uint(Error.AUDITOR_MISMATCH);
+        }
+
+        /* The borrower must have shortfall in order to be liquidatable */
+        (, uint256 shortfall) =  _accountLiquidity(borrower, maturityDate, address(0), 0, 0);
+        require(shortfall > 0, "Unsufficient Shortfall");
+
+        /* The liquidator may not repay more than what is allowed by the closeFactor */
+        (,uint borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
+        uint maxClose = closeFactor.mul_(borrowBalance);
+        require(repayAmount < maxClose, "Too Much Repay");
+
+        return uint(Error.NO_ERROR);
+    }
+
+    /**
+        @dev Function to allow/reject seizing of assets. This function can be called 
+             externally, but only will have effect when called from an exafin. 
+        @param exafinCollateral market where the assets will be seized (should be msg.sender on Exafin.sol)
+        @param exafinBorrowed market from where the debt will be paid
+        @param liquidator address to validate where the seized assets will be received
+        @param borrower address to validate where the assets will be removed
+     */
+    function seizeAllowed(
+        address exafinCollateral,
+        address exafinBorrowed,
+        address liquidator,
+        address borrower
+    ) override external view returns (uint) {
+
+        require(borrower != liquidator, "Liquidator shouldn't be borrower");
+
+        if (!markets[exafinCollateral].isListed || !markets[exafinBorrowed].isListed) {
+            return uint(Error.MARKET_NOT_LISTED);
+        }
+
+        if (IExafin(exafinCollateral).getAuditor() != IExafin(exafinBorrowed).getAuditor()) {
+            return uint(Error.AUDITOR_MISMATCH);
+        }
 
         return uint(Error.NO_ERROR);
     }
@@ -357,98 +434,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         string memory name
     ) public onlyRole(TEAM_ROLE) {
         Market storage market = markets[exafin];
-        market.baseMarket.isListed = true;
-        market.baseMarket.exists = true;
-        market.baseMarket.collateralFactor = collateralFactor;
-        market.baseMarket.symbol = symbol;
-        market.baseMarket.name = name;
-
-        listedMarkets[exafin] = market.baseMarket;
+        market.isListed = true;
+        market.collateralFactor = collateralFactor;
+        market.symbol = symbol;
+        market.name = name;
 
         marketCount += 1;
         marketsAddress.push(exafin);
-    }
-
-    /**
-        @dev List all markets, listed or not
-     */
-    function getMarkets()
-        public
-        view
-        returns (
-            address[] memory,
-            string[] memory,
-            bool[] memory,
-            uint256[] memory,
-            string[] memory
-        )
-    {
-        bool[] memory marketsListed = new bool[](marketCount);
-        string[] memory marketsSymbol = new string[](marketCount);
-        string[] memory marketsName = new string[](marketCount);
-        uint256[] memory marketsCollateralFactor = new uint256[](marketCount);
-
-        for (uint256 i = 0; i < marketCount; i++) {
-            Market storage market = markets[marketsAddress[i]];
-            marketsListed[i] = market.baseMarket.isListed;
-            marketsSymbol[i] = market.baseMarket.symbol;
-            marketsName[i] = market.baseMarket.name;
-            marketsCollateralFactor[i] = market.baseMarket.collateralFactor;
-        }
-
-        return (
-            marketsAddress,
-            marketsSymbol,
-            marketsListed,
-            marketsCollateralFactor,
-            marketsName
-        );
-    }
-
-    /**
-        @dev Get market data filtered by address
-        @param contractAddress address to get market data
-     */
-    function getMarketByAddress(address contractAddress)
-        public
-        view
-        returns (
-            address,
-            string memory,
-            bool,
-            uint256,
-            string memory
-        )
-    {
-        Market storage market = markets[contractAddress];
-
-        return (
-            contractAddress,
-            market.baseMarket.symbol,
-            market.baseMarket.isListed,
-            market.baseMarket.collateralFactor,
-            market.baseMarket.name
-        );
-    }
-
-    /**
-        @dev Add market to listedMarkets and change boolean to true
-        @param exafin address to add to the protocol
-     */
-    function listMarket(address exafin) public onlyRole(TEAM_ROLE) {
-        require(markets[exafin].baseMarket.exists, "Address is not a market");
-        markets[exafin].baseMarket.isListed = true;
-        listedMarkets[exafin] = markets[exafin].baseMarket;
-    }
-
-    /**
-        @dev Delete market to listedMarkets and change boolean to false
-        @param exafin address to add to the protocol
-     */
-    function unlistMarket(address exafin) public onlyRole(TEAM_ROLE) {
-        require(markets[exafin].baseMarket.exists, "Address is not a market");
-        markets[exafin].baseMarket.isListed = false;
-        delete listedMarkets[exafin];
     }
 
     /**
@@ -461,7 +453,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         onlyRole(TEAM_ROLE)
         returns (bool)
     {
-        require(markets[exafin].baseMarket.isListed, "not listed");
+        require(markets[exafin].isListed, "not listed");
 
         borrowPaused[address(exafin)] = paused;
         emit ActionPaused(exafin, "Borrow", paused);
@@ -474,5 +466,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
      */
     function setOracle(address _priceOracleAddress) public onlyRole(TEAM_ROLE) {
         oracle = Oracle(_priceOracleAddress);
+        emit OracleChanged(_priceOracleAddress);
     }
 }

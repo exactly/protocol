@@ -3,24 +3,19 @@ pragma solidity ^0.8.0;
 
 import "./IAuditor.sol";
 
-struct Pool {
-    uint256 borrowed;
-    uint256 supplied;
-}
-
 interface IExafin {
-    function rateForSupply(uint256 amount, uint256 maturityDate)
-        external
-        view
-        returns (uint256, Pool memory);
 
-    function rateToBorrow(uint256 amount, uint256 maturityDate)
-        external
-        view
-        returns (uint256, Pool memory);
+    function getRateToSupply(
+        uint256 amount,
+        uint256 maturityDate
+    ) external view returns (uint256);
+
+    function getRateToBorrow(
+        uint256 amount,
+        uint256 maturityDate
+    ) external view returns (uint256);
 
     function borrow(
-        address to,
         uint256 amount,
         uint256 maturityDate
     ) external;
@@ -42,6 +37,20 @@ interface IExafin {
         uint256 repayAmount,
         uint256 maturityDate
     ) external;
+
+    function seize(
+        address liquidator,
+        address borrower,
+        uint256 seizeTokens,
+        uint256 maturityDate
+    ) external returns (uint);
+
+    function liquidate(
+        address borrower,
+        uint256 repayAmount,
+        IExafin exafinCollateral,
+        uint256 maturityDate
+    ) external returns (uint, uint);
     
     function tokenName() external view returns (string calldata);
 
