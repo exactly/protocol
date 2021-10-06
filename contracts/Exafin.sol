@@ -11,7 +11,6 @@ import "./interfaces/IAuditor.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
-import "./utils/PoolLib.sol";
 import {Error} from "./utils/Errors.sol";
 import "hardhat/console.sol";
 

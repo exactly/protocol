@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "./interfaces/IInterestRateModel.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./utils/TSUtils.sol";
-import "./utils/PoolLib.sol";
 
 contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.Pool;
