@@ -2,12 +2,14 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ExactlyEnv, ExaTime, parseSupplyEvent } from "./exactlyUtils";
+import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Auditor", function () {
   let auditor: Contract;
   let exactlyEnv: ExactlyEnv;
+  let notAnExafinAddress: string;
+  let nextPoolID: number;
 
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
@@ -30,15 +32,69 @@ describe("Auditor", function () {
 
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
     auditor = exactlyEnv.auditor;
+    notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
+    nextPoolID = (new ExaTime()).nextPoolID();
 
     // From Owner to User
     await exactlyEnv.getUnderlying("DAI").transfer(user.address, parseUnits("10000"));
   });
 
+  it("We try to enter an unlisted market and fail", async () => {
+    expect(
+      (await auditor.callStatic.enterMarkets([notAnExafinAddress]))[0]
+    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+  });
+
+  it("We enter market twice without failing", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await auditor.enterMarkets([exafinDAI.address]);
+    expect(
+      (await auditor.callStatic.enterMarkets([exafinDAI.address]))[0]
+    ).to.be.equal(ProtocolError.NO_ERROR);
+  });
+
+  it("RedeemAllowed should fail for an unlisted market", async () => {
+    expect(
+      await auditor.callStatic.redeemAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+  });
+
+  it("RepayAllowed should fail for an unlisted market", async () => {
+    expect(
+      await auditor.callStatic.repayAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+  });
+
+  it("LiquidateAllowed should fail for unlisted markets", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    expect(
+      await auditor.callStatic.liquidateAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
+    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+    expect(
+      await auditor.callStatic.liquidateAllowed(exafinDAI.address, notAnExafinAddress, owner.address, user.address, 100, nextPoolID)
+    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+    await expect(
+      auditor.callStatic.liquidateAllowed(exafinDAI.address, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
+    ).to.be.reverted; // not enough shortfall // Any failure except MARKET_NOT_LISTED
+  });
+
+  it("PauseBorrow should fail for an unlisted market", async () => {
+    await expect(
+      auditor.callStatic.pauseBorrow(notAnExafinAddress, true)
+    ).to.be.revertedWith("not listed");
+  });
+
+  it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await exactlyEnv.setOraclePrice("DAI", "0");
+    expect(
+      (await auditor.callStatic.liquidateCalculateSeizeAmount(exafinDAI.address, exafinDAI.address, 100))[0]
+    ).to.be.equal(ProtocolError.PRICE_ERROR);
+  });
+
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     const dai = exactlyEnv.getUnderlying("DAI");
-    const nextPoolID = (new ExaTime()).nextPoolID();
 
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100", 18);
@@ -84,7 +140,6 @@ describe("Auditor", function () {
   });
 
   it("Uncollaterized position can be liquidated", async () => {
-    const nextPoolID = (new ExaTime()).nextPoolID();
     const exafinETH = exactlyEnv.getExafin("ETH");
     const eth = exactlyEnv.getUnderlying("ETH");
     const exafinDAI = exactlyEnv.getExafin("DAI");
