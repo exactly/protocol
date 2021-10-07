@@ -15,16 +15,26 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   let priceOracleAddress =
     config.token_addresses[hre.network.name].price_oracle;
 
+  const tsUtils = await hre.deployments.deploy("TSUtils", {
+      from: deployer,
+  });
+
   const auditor = await hre.deployments.deploy("Auditor", {
     from: deployer,
     args: [priceOracleAddress],
-    log: true
+    log: true,
+    libraries: {
+      TSUtils: tsUtils.address
+    }
   });
 
   const interestRateModel = await hre.deployments.deploy("DefaultInterestRateModel", {
     from: deployer,
     args: [parseUnits("0.02"), parseUnits("0.07")],
-    log: true
+    log: true,
+    libraries: {
+      TSUtils: tsUtils.address
+    }
   });
 
   async function impersonate(address: string) {
@@ -51,7 +61,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const exafin = await hre.deployments.deploy("Exafin", {
       from: deployer,
       args: [address, oracleName, auditor.address, interestRateModel.address],
-      log: true
+      log: true,
+      libraries: {
+        TSUtils: tsUtils.address
+      }
     });
 
     // We transfer ownership of Exafin to Auditor 
