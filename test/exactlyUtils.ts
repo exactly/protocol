@@ -61,7 +61,18 @@ export function parseSupplyEvent(tx: ContractTransaction) {
   });
 }
 
+export enum ProtocolError {
+  NO_ERROR,
+  MARKET_NOT_LISTED,
+  SNAPSHOT_ERROR,
+  PRICE_ERROR,
+  INSUFFICIENT_LIQUIDITY,
+  AUDITOR_MISMATCH,
+  TOO_MUCH_REPAY
+}
+
 export class ExactlyEnv {
+
   oracle: Contract;
   auditor: Contract;
   interestRateModel: Contract;
