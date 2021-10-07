@@ -30,6 +30,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     address[] public marketsAddress;
 
     uint256 public closeFactor = 5e17;
+    uint8 public maxFuturePools = 12; // 6 months
+
+    Oracle private oracle;
 
     struct Market {
         string symbol;
@@ -47,8 +50,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         uint256 sumCollateral;
         uint256 sumDebt;
     }
-
-    Oracle private oracle;
 
     constructor(address _priceOracleAddress) {
         oracle = Oracle(_priceOracleAddress);
@@ -467,5 +468,12 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     function setOracle(address _priceOracleAddress) public onlyRole(TEAM_ROLE) {
         oracle = Oracle(_priceOracleAddress);
         emit OracleChanged(_priceOracleAddress);
+    }
+
+    /**
+        @dev Function to retrieve valid future pools
+     */
+    function getFuturePools() override external view returns (uint256[] memory) {
+        return TSUtils.futurePools(block.timestamp, maxFuturePools);
     }
 }

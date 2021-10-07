@@ -58,4 +58,6 @@ interface IAuditor {
         address borrower
     ) external view returns (uint256);
 
+    function getFuturePools() external view returns (uint256[] memory);
+
 }

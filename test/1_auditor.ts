@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
+import { BigNumber } from "@ethersproject/bignumber";
 import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -90,6 +91,15 @@ describe("Auditor", function () {
     expect(
       (await auditor.callStatic.liquidateCalculateSeizeAmount(exafinDAI.address, exafinDAI.address, 100))[0]
     ).to.be.equal(ProtocolError.PRICE_ERROR);
+  });
+
+  it("Future pools should match JS generated ones", async () => {
+    let exaTime = new ExaTime();
+    let poolsInContract = (await auditor.callStatic.getFuturePools())
+    let poolsInJS = exaTime.futurePools(12).map(item => BigNumber.from(item))
+    for (let i = 0; i < 12; i++) {
+      expect(poolsInContract[i]).to.be.equal(poolsInJS[i]);
+    }
   });
 
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {

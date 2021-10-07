@@ -118,18 +118,30 @@ export class ExactlyEnv {
     let exafinContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
 
+    const TSUtilsLib = await ethers.getContractFactory("TSUtils");
+    let tsUtils = await TSUtilsLib.deploy();
+    await tsUtils.deployed();
+
     const SomeOracle = await ethers.getContractFactory("SomeOracle");
     let oracle = await SomeOracle.deploy();
     await oracle.deployed();
 
-    const DefaultInterestRateModel = await ethers.getContractFactory("DefaultInterestRateModel");
+    const DefaultInterestRateModel = await ethers.getContractFactory("DefaultInterestRateModel", {
+      libraries: {
+        TSUtils: tsUtils.address
+      }
+    });
     let interestRateModel = await DefaultInterestRateModel.deploy(
       parseUnits("0.01"),
       parseUnits("0.07")
     );
     await interestRateModel.deployed();
 
-    const Auditor = await ethers.getContractFactory("Auditor");
+    const Auditor = await ethers.getContractFactory("Auditor", {
+      libraries: {
+        TSUtils: tsUtils.address
+      }
+    });
     let auditor = await Auditor.deploy(oracle.address);
     await auditor.deployed();
 
@@ -145,7 +157,11 @@ export class ExactlyEnv {
         );
         await underlyingToken.deployed();
 
-        const Exafin = await ethers.getContractFactory("Exafin");
+        const Exafin = await ethers.getContractFactory("Exafin", {
+          libraries: {
+            TSUtils: tsUtils.address
+          }
+        });
         const exafin = await Exafin.deploy(
           underlyingToken.address,
           tokenName,
@@ -213,5 +229,15 @@ export class ExaTime {
 
   public daysDiffWith(anotherTimestamp: number): number {
     return (anotherTimestamp - this.trimmedDay()) / this.oneDay;
+  }
+
+  public futurePools(maxPools: number): number[] {
+    let nextPoolID = this.nextPoolID();
+    var allPools: number[] = [];
+    for (let i = 0; i < maxPools; i++) {
+      allPools.push(nextPoolID);
+      nextPoolID += this.twoWeeks;
+    }
+    return allPools;
   }
 }
