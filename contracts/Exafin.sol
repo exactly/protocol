@@ -138,13 +138,6 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
-        uint256 commissionRate = interestRateModel.getRateToBorrow(
-            amount,
-            maturityDate,
-            pool,
-            pool // TO BE REPLACED BY POT
-        );
-
         uint256 errorCode = auditor.borrowAllowed(
             address(this),
             msg.sender,
@@ -155,6 +148,13 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         require(
             errorCode == uint256(Error.NO_ERROR),
             "Auditor not allowing borrow"
+        );
+
+        uint256 commissionRate = interestRateModel.getRateToBorrow(
+            amount,
+            maturityDate,
+            pool,
+            pool // TO BE REPLACED BY POT
         );
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
@@ -184,13 +184,6 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
-        uint256 commissionRate = interestRateModel.getRateToSupply(
-            amount,
-            maturityDate,
-            pool,
-            pool // TO BE REPLACED BY POT
-        );
-
         uint256 errorCode = auditor.supplyAllowed(
             address(this),
             from,
@@ -201,6 +194,13 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         require(
             errorCode == uint256(Error.NO_ERROR),
             "Auditor not allowing borrow"
+        );
+
+        uint256 commissionRate = interestRateModel.getRateToSupply(
+            amount,
+            maturityDate,
+            pool,
+            pool // TO BE REPLACED BY POT
         );
 
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
