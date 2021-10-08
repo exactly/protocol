@@ -1,11 +1,36 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "hardhat/console.sol";
 
 library TSUtils {
+
+    enum State {
+        INVALID,
+        MATURED,
+        VALID,
+        NOT_READY
+    }
+
     function trimmedDay(uint256 timestamp) public pure returns (uint256) {
         return timestamp - (timestamp % 86400);
+    }
+
+    function getPoolState(uint256 currentTimestamp, uint256 timestamp, uint8 maxPools) public pure returns (State) {
+        if (timestamp % 14 days != 0) {
+            return State.INVALID;
+        }
+
+        if (timestamp < currentTimestamp) {
+            return State.MATURED;
+        }
+
+        uint256 seventyTwoWeeks = 14 days * maxPools;
+        if (timestamp > currentTimestamp - (currentTimestamp % 14 days) + seventyTwoWeeks) {
+            return State.NOT_READY;
+        }
+
+        return State.VALID;
     }
 
     function isPoolID(uint256 timestamp) public pure returns (bool) {

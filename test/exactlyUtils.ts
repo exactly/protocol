@@ -61,14 +61,35 @@ export function parseSupplyEvent(tx: ContractTransaction) {
   });
 }
 
+export function errorUnmatchedPool(state: PoolState, requiredState: PoolState): string {
+  return "UnmatchedPoolState("+ state + ", " + requiredState + ")";
+}
+
+export function errorGeneric(errorCode: ProtocolError): string {
+  return "GenericError("+ errorCode + ")";
+}
+
+export enum PoolState {
+  INVALID,
+  MATURED,
+  VALID,
+  NOT_READY
+}
+
 export enum ProtocolError {
   NO_ERROR,
   MARKET_NOT_LISTED,
   SNAPSHOT_ERROR,
   PRICE_ERROR,
   INSUFFICIENT_LIQUIDITY,
+  UNSUFFICIENT_SHORTFALL,
   AUDITOR_MISMATCH,
-  TOO_MUCH_REPAY
+  TOO_MUCH_REPAY,
+  REPAY_ZERO,
+  TOKENS_MORE_THAN_BALANCE,
+  INVALID_POOL_STATE,
+  INVALID_POOL_ID,
+  LIQUIDATOR_NOT_BORROWER
 }
 
 export class ExactlyEnv {

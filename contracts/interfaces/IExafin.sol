@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "./IAuditor.sol";
 
@@ -43,14 +43,14 @@ interface IExafin {
         address borrower,
         uint256 seizeTokens,
         uint256 maturityDate
-    ) external returns (uint);
+    ) external;
 
     function liquidate(
         address borrower,
         uint256 repayAmount,
         IExafin exafinCollateral,
         uint256 maturityDate
-    ) external returns (uint, uint);
+    ) external returns (uint);
     
     function tokenName() external view returns (string calldata);
 
