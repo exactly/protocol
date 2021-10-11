@@ -13,7 +13,7 @@ library TSUtils {
     }
 
     function trimmedDay(uint256 timestamp) public pure returns (uint256) {
-        return timestamp - (timestamp % 86400);
+        return timestamp - (timestamp % 1 days);
     }
 
     function getPoolState(uint256 currentTimestamp, uint256 timestamp, uint8 maxPools) public pure returns (State) {
