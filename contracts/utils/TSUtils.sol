@@ -25,8 +25,8 @@ library TSUtils {
             return State.MATURED;
         }
 
-        uint256 seventyTwoWeeks = 14 days * maxPools;
-        if (timestamp > currentTimestamp - (currentTimestamp % 14 days) + seventyTwoWeeks) {
+        uint256 totalSecondsForEnabledPools = 14 days * maxPools;
+        if (timestamp > currentTimestamp - (currentTimestamp % 14 days) + totalSecondsForEnabledPools) {
             return State.NOT_READY;
         }
 
