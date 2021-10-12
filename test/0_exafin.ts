@@ -2,10 +2,12 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract, BigNumber } from "ethers";
 import {
+  errorUnmatchedPool,
   ExactlyEnv,
   ExaTime,
   parseBorrowEvent,
   parseSupplyEvent,
+  PoolState,
 } from "./exactlyUtils";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -82,7 +84,7 @@ describe("Exafin", function () {
         underlyingAmount,
         exaTime.pastPoolID()
       )
-    ).to.be.revertedWith("Pool Matured");
+    ).to.be.revertedWith(errorUnmatchedPool(PoolState.MATURED, PoolState.VALID));
   });
 
   it("it allows you to borrow money", async () => {
@@ -160,9 +162,6 @@ describe("Exafin", function () {
     let rateBorrowToApply =
       await exafinMaria.getRateToBorrow(unitsToBorrow,  exaTime.nextPoolID());
 
-    // expect(poolStateAfterBorrow[1]).to.be.equal(unitsToSupply);
-    // expect(poolStateAfterBorrow[0]).to.be.equal(unitsToBorrow);
-
     let tx = await exafinMaria.borrow(unitsToBorrow, exaTime.nextPoolID());
     expect(tx).to.emit(exafinMaria, "Borrowed");
     let borrowEvent = await parseBorrowEvent(tx);
@@ -212,7 +211,7 @@ describe("Exafin", function () {
         supplyEvent.amount.add(supplyEvent.commission),
         exaTime.nextPoolID()
       )
-    ).to.be.revertedWith("Pool Not Mature");
+    ).to.be.revertedWith(errorUnmatchedPool(PoolState.VALID, PoolState.MATURED));
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -261,7 +260,7 @@ describe("Exafin", function () {
         borrowEvent.amount.add(borrowEvent.commission),
         exaTime.nextPoolID()
       )
-    ).to.be.revertedWith("Pool Not Mature");
+    ).to.be.revertedWith(errorUnmatchedPool(PoolState.VALID, PoolState.MATURED));
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [

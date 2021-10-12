@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 interface IAuditor {
 
@@ -13,28 +13,28 @@ interface IAuditor {
         address borrower,
         uint256 borrowAmount,
         uint256 maturityDate
-    ) external returns (uint256);
+    ) external;
 
     function borrowAllowed(
         address exafinAddress,
         address borrower,
         uint256 borrowAmount,
         uint256 maturityDate
-    ) external returns (uint256);
+    ) external;
 
     function redeemAllowed(
         address exafinAddress,
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
-    ) external view returns (uint256);
+    ) external;
 
     function repayAllowed(
         address exafinAddress,
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
-    ) external returns (uint256);
+    ) external;
 
     function liquidateAllowed(
         address exafinBorrowed,
@@ -43,19 +43,21 @@ interface IAuditor {
         address borrower,
         uint256 repayAmount, 
         uint256 maturityDate
-    ) external view returns (uint256);
-
-    function liquidateCalculateSeizeAmount(
-        address exafinBorrowed,
-        address exafinCollateral,
-        uint256 actualRepayAmount
-    ) external view returns (uint, uint);
+    ) external view;
 
     function seizeAllowed(
         address exafinCollateral,
         address exafinBorrowed,
         address liquidator,
         address borrower
-    ) external view returns (uint256);
+    ) external view;
+
+    function liquidateCalculateSeizeAmount(
+        address exafinBorrowed,
+        address exafinCollateral,
+        uint256 actualRepayAmount
+    ) external view returns (uint);
+
+    function getFuturePools() external view returns (uint256[] memory);
 
 }

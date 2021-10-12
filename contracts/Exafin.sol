@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -11,7 +11,7 @@ import "./interfaces/IAuditor.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
-import {Error} from "./utils/Errors.sol";
+import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
 contract Exafin is Ownable, IExafin, ReentrancyGuard {
@@ -138,23 +138,19 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
-        uint256 commissionRate = interestRateModel.getRateToBorrow(
-            amount,
-            maturityDate,
-            pool,
-            pool // TO BE REPLACED BY POT
-        );
-
-        uint256 errorCode = auditor.borrowAllowed(
+        // reverts on failure
+        auditor.borrowAllowed(
             address(this),
             msg.sender,
             amount,
             maturityDate
         );
 
-        require(
-            errorCode == uint256(Error.NO_ERROR),
-            "Auditor not allowing borrow"
+        uint256 commissionRate = interestRateModel.getRateToBorrow(
+            amount,
+            maturityDate,
+            pool,
+            pool // TO BE REPLACED BY POT
         );
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
@@ -184,23 +180,19 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
-        uint256 commissionRate = interestRateModel.getRateToSupply(
-            amount,
-            maturityDate,
-            pool,
-            pool // TO BE REPLACED BY POT
-        );
-
-        uint256 errorCode = auditor.supplyAllowed(
+        // reverts on failure
+        auditor.supplyAllowed(
             address(this),
             from,
             amount,
             maturityDate
         );
 
-        require(
-            errorCode == uint256(Error.NO_ERROR),
-            "Auditor not allowing borrow"
+        uint256 commissionRate = interestRateModel.getRateToSupply(
+            amount,
+            maturityDate,
+            pool,
+            pool // TO BE REPLACED BY POT
         );
 
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
@@ -228,13 +220,13 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
     ) external override nonReentrant {
         require(redeemAmount != 0, "Redeem can't be zero");
 
-        uint256 allowedError = auditor.redeemAllowed(
+        // reverts on failure
+        auditor.redeemAllowed(
             address(this),
             redeemer,
             redeemAmount,
             maturityDate
         );
-        require(allowedError == uint256(Error.NO_ERROR), "cant redeem");
 
         suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
 
@@ -282,13 +274,13 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
     ) internal {
         require(repayAmount != 0, "You can't repay zero");
 
-        uint256 allowed = auditor.repayAllowed(
+        // reverts on failure
+        auditor.repayAllowed(
             address(this),
             borrower,
             repayAmount,
             maturityDate
         );
-        require(allowed == uint256(Error.NO_ERROR), "Not allowed");
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
@@ -347,7 +339,7 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         uint256 repayAmount,
         IExafin exafinCollateral,
         uint256 maturityDate
-    ) override external nonReentrant returns (uint, uint) {
+    ) override external nonReentrant returns (uint) {
         return _liquidate(msg.sender, borrower, repayAmount, exafinCollateral, maturityDate);
     }
 
@@ -366,9 +358,10 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         uint256 repayAmount,
         IExafin exafinCollateral,
         uint256 maturityDate
-    ) internal returns (uint, uint) {
+    ) internal returns (uint256) {
 
-        uint allowed = auditor.liquidateAllowed(
+        // reverts on failure
+        auditor.liquidateAllowed(
             address(this),
             address(exafinCollateral),
             liquidator,
@@ -376,33 +369,31 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
             repayAmount, 
             maturityDate
         );
-        require(allowed == 0, "Auditor Rejected");
 
         _repayLiquidate(liquidator, borrower, repayAmount, maturityDate);
 
-        (uint amountSeizeError, uint seizeTokens) = auditor.liquidateCalculateSeizeAmount(address(this), address(exafinCollateral), repayAmount);
-        require(amountSeizeError == uint(Error.NO_ERROR), "Error calculating Seize");
+        // reverts on failure
+        uint seizeTokens = auditor.liquidateCalculateSeizeAmount(address(this), address(exafinCollateral), repayAmount);
 
         /* Revert if borrower collateral token balance < seizeTokens */
         (uint256 balance,) = exafinCollateral.getAccountSnapshot(borrower, maturityDate);
-        require(balance >= seizeTokens, "Tokens to seize are more than balance");
+        if (balance < seizeTokens) {
+            revert GenericError(ErrorCode.TOKENS_MORE_THAN_BALANCE);
+        }
 
         // If this is also the collateral
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
-        uint seizeError;
+        // both revert on failure
         if (address(exafinCollateral) == address(this)) {
-            seizeError = _seize(address(this), liquidator, borrower, seizeTokens, maturityDate);
+            _seize(address(this), liquidator, borrower, seizeTokens, maturityDate);
         } else {
-            seizeError = exafinCollateral.seize(liquidator, borrower, seizeTokens, maturityDate);
+            exafinCollateral.seize(liquidator, borrower, seizeTokens, maturityDate);
         }
-
-        /* Revert if seize tokens fails (since we cannot be sure of side effects) */
-        require(seizeError == uint(Error.NO_ERROR), "token seizure failed");
 
         /* We emit a LiquidateBorrow event */
         emit LiquidateBorrow(liquidator, borrower, repayAmount, address(exafinCollateral), seizeTokens, maturityDate);
 
-        return (uint(Error.NO_ERROR), repayAmount);
+        return repayAmount;
     }
 
     /**
@@ -420,8 +411,8 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         address borrower,
         uint256 seizeAmount,
         uint256 maturityDate
-    ) override external nonReentrant returns (uint) {
-        return _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
+    ) override external nonReentrant {
+        _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
     }
 
     /**
@@ -441,15 +432,15 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         address borrower,
         uint256 seizeAmount,
         uint256 maturityDate
-    ) internal returns (uint) {
+    ) internal {
 
-        uint allowed = auditor.seizeAllowed(
+        // reverts on failure
+        auditor.seizeAllowed(
             address(this),
             seizerExafin,
             liquidator,
             borrower
         );
-        require(allowed == 0, "Seize Allowed Failed");
 
         uint256 protocolAmount = seizeAmount.mul_(PROTOCOL_SEIZE_SHARE);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
@@ -465,8 +456,6 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
 
         emit Seized(liquidator, borrower, seizeAmount, maturityDate);
         emit ReservesAdded(address(this), protocolAmount);
-
-        return uint(Error.NO_ERROR);
     }
 
     /**

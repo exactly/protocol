@@ -2,7 +2,8 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent } from "./exactlyUtils";
+import { BigNumber } from "@ethersproject/bignumber";
+import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Auditor", function () {
@@ -40,56 +41,65 @@ describe("Auditor", function () {
   });
 
   it("We try to enter an unlisted market and fail", async () => {
-    expect(
-      (await auditor.callStatic.enterMarkets([notAnExafinAddress]))[0]
-    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+    await expect(
+      auditor.callStatic.enterMarkets([notAnExafinAddress])
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("We enter market twice without failing", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await auditor.enterMarkets([exafinDAI.address]);
-    expect(
-      (await auditor.callStatic.enterMarkets([exafinDAI.address]))[0]
-    ).to.be.equal(ProtocolError.NO_ERROR);
+    await expect(
+      auditor.callStatic.enterMarkets([exafinDAI.address])
+    ).to.not.be.reverted;
   });
 
   it("RedeemAllowed should fail for an unlisted market", async () => {
-    expect(
-      await auditor.callStatic.redeemAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
-    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+    await expect(
+      auditor.callStatic.redeemAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("RepayAllowed should fail for an unlisted market", async () => {
-    expect(
-      await auditor.callStatic.repayAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
-    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+    await expect(
+       auditor.callStatic.repayAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("LiquidateAllowed should fail for unlisted markets", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
-    expect(
-      await auditor.callStatic.liquidateAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
-    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
-    expect(
-      await auditor.callStatic.liquidateAllowed(exafinDAI.address, notAnExafinAddress, owner.address, user.address, 100, nextPoolID)
-    ).to.be.equal(ProtocolError.MARKET_NOT_LISTED);
+    await expect(
+      auditor.callStatic.liquidateAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+    await expect(
+      auditor.callStatic.liquidateAllowed(exafinDAI.address, notAnExafinAddress, owner.address, user.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     await expect(
       auditor.callStatic.liquidateAllowed(exafinDAI.address, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
-    ).to.be.reverted; // not enough shortfall // Any failure except MARKET_NOT_LISTED
+    ).to.be.revertedWith(errorGeneric(ProtocolError.UNSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
   });
 
   it("PauseBorrow should fail for an unlisted market", async () => {
     await expect(
       auditor.callStatic.pauseBorrow(notAnExafinAddress, true)
-    ).to.be.revertedWith("not listed");
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await exactlyEnv.setOraclePrice("DAI", "0");
-    expect(
-      (await auditor.callStatic.liquidateCalculateSeizeAmount(exafinDAI.address, exafinDAI.address, 100))[0]
-    ).to.be.equal(ProtocolError.PRICE_ERROR);
+    await expect(
+      auditor.callStatic.liquidateCalculateSeizeAmount(exafinDAI.address, exafinDAI.address, 100)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+  });
+
+  it("Future pools should match JS generated ones", async () => {
+    let exaTime = new ExaTime();
+    let poolsInContract = (await auditor.callStatic.getFuturePools())
+    let poolsInJS = exaTime.futurePools(12).map(item => BigNumber.from(item))
+    for (let i = 0; i < 12; i++) {
+      expect(poolsInContract[i]).to.be.equal(poolsInJS[i]);
+    }
   });
 
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
@@ -177,17 +187,17 @@ describe("Auditor", function () {
     // We expect trying to repay zero to fail
     await expect(
       exafinDAI.liquidate(owner.address, 0, exafinETH.address, nextPoolID)
-    ).to.be.revertedWith("Repay amount shouldn't be zero");
+    ).to.be.revertedWith(errorGeneric(ProtocolError.REPAY_ZERO));
 
     // We expect self liquidation to fail
     await expect(
       exafinDAI.liquidate(owner.address, amountToBorrowDAI, exafinETH.address, nextPoolID)
-    ).to.be.revertedWith("Liquidator shouldn't be borrower");
+    ).to.be.revertedWith(errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER));
 
     // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
     await expect(
       exafinDAI.connect(user).liquidate(owner.address, amountToBorrowDAI.div(2) + 100, exafinETH.address, nextPoolID)
-    ).to.be.revertedWith("Too Much Repay");
+    ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_REPAY));
 
     let closeToMaxRepay = amountToBorrowDAI
         .mul(closeFactor)

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "./interfaces/IInterestRateModel.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./utils/TSUtils.sol";
+import "./utils/Errors.sol";
 
 contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.Pool;
@@ -46,8 +47,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         PoolLib.Pool memory potPool
     ) override external view returns (uint256) {
 
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
-        require(block.timestamp < maturityDate, "Pool Matured");
+        if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
 
         maturityPool.borrowed += amount;
 
@@ -75,9 +75,8 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         PoolLib.Pool memory maturityPool,
         PoolLib.Pool memory potPool
     ) override external view returns (uint256) {
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
-        require(block.timestamp < maturityDate, "Pool Matured");
-        require(amount != 0, "Can't supply zero");
+
+        if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
 
         maturityPool.supplied += amount;
 
