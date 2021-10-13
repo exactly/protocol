@@ -21,6 +21,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     event MarketEntered(IExafin exafin, address account);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
+    event NewBorrowCap(IExafin indexed exafin, uint newBorrowCap);
 
     mapping(address => Market) public markets;
     mapping(address => bool) public borrowPaused;
@@ -153,7 +154,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
             // Get the normalized price of the asset (6 decimals)
             vars.oraclePrice = oracle.price(asset.tokenName());
-            require(vars.oraclePrice != 0, "Price Oracle error");
+            if (vars.oraclePrice == 0) revert GenericError(ErrorCode.PRICE_ERROR);
 
             // We sum all the collateral prices
             vars.sumCollateral += vars.balance.mul_(vars.collateralFactor).mul_(
@@ -222,8 +223,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         uint256 borrowAmount,
         uint256 maturityDate
     ) external override {
-        // Pausing is a very serious situation - we revert to sound the alarms
-        require(!borrowPaused[exafinAddress], "borrow is paused");
+
+        if (borrowPaused[exafinAddress]) revert GenericError(ErrorCode.BORROW_PAUSED);
 
         _requirePoolState(maturityDate, TSUtils.State.VALID); 
 
@@ -233,7 +234,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         if (!markets[exafinAddress].accountMembership[borrower]) {
             // only exafins may call borrowAllowed if borrower not in market
-            require(msg.sender == exafinAddress, "sender must be exafin");
+            if (msg.sender != exafinAddress) revert GenericError(ErrorCode.NOT_AN_EXAFIN_SENDER);
 
             // attempt to add borrower to the market // reverts if error
             _addToMarket(IExafin(msg.sender), borrower);
@@ -253,7 +254,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
                 maturityDate
             );
             uint256 nextTotalBorrows = totalBorrows + borrowAmount;
-            require(nextTotalBorrows < borrowCap, "market borrow cap reached");
+            if (nextTotalBorrows >= borrowCap) revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
         }
 
         (, uint256 shortfall) = _accountLiquidity(
@@ -400,7 +401,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         address borrower
     ) override external view {
 
-        require(borrower != liquidator, "Liquidator shouldn't be borrower");
+        if (borrower == liquidator) revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
 
         if (!markets[exafinCollateral].isListed || !markets[exafinBorrowed].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
@@ -430,6 +431,26 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         marketCount += 1;
         marketsAddress.push(exafin);
+    }
+
+    /**
+        @notice Set the given borrow caps for the given exafin markets. Borrowing that brings total borrows to or above borrow cap will revert.
+        @param exafins The addresses of the markets (tokens) to change the borrow caps for
+        @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
+      */
+    function setMarketBorrowCaps(
+        IExafin[] calldata exafins,
+        uint256[] calldata newBorrowCaps
+    ) external onlyRole(TEAM_ROLE) {
+        uint numMarkets = exafins.length;
+        uint numBorrowCaps = newBorrowCaps.length;
+
+        if (numMarkets == 0 || numMarkets != numBorrowCaps) revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
+
+        for(uint i = 0; i < numMarkets; i++) {
+            borrowCaps[address(exafins[i])] = newBorrowCaps[i];
+            emit NewBorrowCap(exafins[i], newBorrowCaps[i]);
+        }
     }
 
     /**

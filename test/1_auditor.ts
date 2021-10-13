@@ -42,7 +42,7 @@ describe("Auditor", function () {
 
   it("We try to enter an unlisted market and fail", async () => {
     await expect(
-      auditor.callStatic.enterMarkets([notAnExafinAddress])
+      auditor.enterMarkets([notAnExafinAddress])
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
@@ -50,46 +50,117 @@ describe("Auditor", function () {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await auditor.enterMarkets([exafinDAI.address]);
     await expect(
-      auditor.callStatic.enterMarkets([exafinDAI.address])
+      auditor.enterMarkets([exafinDAI.address])
     ).to.not.be.reverted;
   });
 
   it("RedeemAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.callStatic.redeemAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+      auditor.redeemAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("RepayAllowed should fail for an unlisted market", async () => {
     await expect(
-       auditor.callStatic.repayAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+      auditor.repayAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("SeizeAllowed should fail when liquidator is borrower", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.seizeAllowed(exafinDAI.address, exafinDAI.address, owner.address, owner.address)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER));
   });
 
   it("LiquidateAllowed should fail for unlisted markets", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await expect(
-      auditor.callStatic.liquidateAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
+      auditor.liquidateAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     await expect(
-      auditor.callStatic.liquidateAllowed(exafinDAI.address, notAnExafinAddress, owner.address, user.address, 100, nextPoolID)
+      auditor.liquidateAllowed(exafinDAI.address, notAnExafinAddress, owner.address, user.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     await expect(
-      auditor.callStatic.liquidateAllowed(exafinDAI.address, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
+      auditor.liquidateAllowed(exafinDAI.address, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.UNSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
   });
 
   it("PauseBorrow should fail for an unlisted market", async () => {
     await expect(
-      auditor.callStatic.pauseBorrow(notAnExafinAddress, true)
+      auditor.pauseBorrow(notAnExafinAddress, true)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
+
+  it("PauseBorrow should emit event", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.pauseBorrow(exafinDAI.address, true)
+    ).to.emit(auditor, "ActionPaused");
+  });
+
+  it("PauseBorrow should block borrowing on a listed market", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+    await auditor.pauseBorrow(exafinDAI.address, true);
+    
+    // we supply Dai to the protocol
+    const amountDAI = parseUnits("100", 18);
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    // we make it count as collateral (DAI)
+    await auditor.enterMarkets([exafinDAI.address]);
+    await expect(
+      // user borrows half of it's collateral
+      exafinDAI.borrow(amountDAI.div(2), nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.BORROW_PAUSED));
+  });
+
+  it("Autoadding a market should only be allowed from an exafin", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+
+    // we supply Dai to the protocol
+    const amountDAI = parseUnits("100", 18);
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    // we make it count as collateral (DAI)
+    await expect(
+      auditor.borrowAllowed(exafinDAI.address, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.NOT_AN_EXAFIN_SENDER));
+  });
+
+  it("SetBorrowCap should emit event", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.setMarketBorrowCaps([exafinDAI.address], [10])
+    ).to.emit(auditor, "NewBorrowCap");
+  });
+
+  it("SetBorrowCap should block borrowing more than the cap on a listed market", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+    await auditor.setMarketBorrowCaps([exafinDAI.address], [10])
+    
+    // we supply Dai to the protocol
+    const amountDAI = parseUnits("100", 18);
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    await expect(
+      // user tries to borrow more than the cap
+      exafinDAI.borrow(20, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_BORROW_CAP_REACHED));
+  });
+
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await exactlyEnv.setOraclePrice("DAI", "0");
     await expect(
-      auditor.callStatic.liquidateCalculateSeizeAmount(exafinDAI.address, exafinDAI.address, 100)
+      auditor.liquidateCalculateSeizeAmount(exafinDAI.address, exafinDAI.address, 100)
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
