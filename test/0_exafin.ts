@@ -121,11 +121,6 @@ describe("Exafin", function () {
 
     let rateSupplyToApply =
       await exafinMaria.getRateToSupply(unitsToSupply, exaTime.nextPoolID());
-
-    // We verify that the state of the pool is what we suppose it is
-    // expect(poolStateAfterSupply[1]).to.be.equal(unitsToSupply);
-    // expect(poolStateAfterSupply[0]).to.be.equal(0);
-
     // We supply the money
     await underlyingTokenUser.approve(exafin.address, unitsToSupply);
     let tx = await exafinMaria.supply(mariaUser.address, unitsToSupply, exaTime.nextPoolID());
