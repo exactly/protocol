@@ -29,6 +29,8 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     function setParameters(uint256 _marginRate, uint256 _slopeRate) external onlyRole(TEAM_ROLE) {
         marginRate = _marginRate;
         slopeRate = _slopeRate;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(TEAM_ROLE, msg.sender);
     }
 
     /**
