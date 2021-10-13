@@ -18,6 +18,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     constructor(uint256 _marginRate, uint256 _slopeRate) {
         marginRate = _marginRate;
         slopeRate = _slopeRate;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(TEAM_ROLE, msg.sender);
     }
 
