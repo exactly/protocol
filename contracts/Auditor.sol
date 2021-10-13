@@ -302,11 +302,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     function repayAllowed(
         address exafinAddress,
         address borrower,
-        uint256 repayAmount,
         uint256 maturityDate
     ) override external view {
         borrower;
-        repayAmount;
 
         if (!markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);

@@ -2,12 +2,14 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract, BigNumber } from "ethers";
 import {
+  errorGeneric,
   errorUnmatchedPool,
   ExactlyEnv,
   ExaTime,
   parseBorrowEvent,
   parseSupplyEvent,
   PoolState,
+  ProtocolError,
 } from "./exactlyUtils";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -136,13 +138,6 @@ describe("Exafin", function () {
       .mul(365)
       .div(daysToExpiration);
 
-    // TODO: make the test for the red rate
-    // Expected "19999999999999985" to be within 20 of 20000000000000000
-    // expect(BigNumber.from(yearlyRateProjected)).to.be.closeTo(
-    //   exactlyEnv.baseRate,
-    //  100
-    // );
-
     // We expect that the actual rate was taken when we submitted the supply transaction
     expect(supplyEvent.commission).to.be.closeTo(
       unitsToSupply.mul(rateSupplyToApply).div(parseUnits("1")),
@@ -257,7 +252,6 @@ describe("Exafin", function () {
     await expect(
       exafinMaria.repay(
         mariaUser.address,
-        borrowEvent.amount.add(borrowEvent.commission),
         exaTime.nextPoolID()
       )
     ).to.be.revertedWith(errorUnmatchedPool(PoolState.VALID, PoolState.MATURED));
@@ -268,19 +262,18 @@ describe("Exafin", function () {
     ]);
     await ethers.provider.send("evm_mine", []);
 
-    // try to pay a little less and fail
+    // try to redeem without paying debt and fail
     await expect(
-      exafinMaria.repay(
+      exafinMaria.redeem(
         mariaUser.address,
-        borrowEvent.amount.sub(10).add(borrowEvent.commission), // -10 to force it not be enough
+        supplyEvent.amount.add(supplyEvent.commission),
         exaTime.nextPoolID()
       )
-    ).to.be.revertedWith("debt must be paid in full");
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
 
     // repay and succeed
     await exafinMaria.repay(
       mariaUser.address,
-      borrowEvent.amount.add(borrowEvent.commission),
       exaTime.nextPoolID()
     );
 
