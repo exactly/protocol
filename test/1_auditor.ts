@@ -155,6 +155,11 @@ describe("Auditor", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_BORROW_CAP_REACHED));
   });
 
+  it("SetOracle should emit event", async () => {
+    await expect(
+      auditor.setOracle(exactlyEnv.oracle.address)
+    ).to.emit(auditor, "OracleChanged");
+  });
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
