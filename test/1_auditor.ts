@@ -62,7 +62,7 @@ describe("Auditor", function () {
 
   it("RepayAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.repayAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+      auditor.repayAllowed(notAnExafinAddress, owner.address, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 

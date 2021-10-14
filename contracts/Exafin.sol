@@ -248,49 +248,44 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         @notice Sender repays borrower's debt for a maturity date
         @dev The pool that the user is trying to repay to should be matured
         @param borrower The address of the account that has the debt
-        @param repayAmount the amount of debt of the underlying token to be paid
         @param maturityDate The matured date where the debt is located
      */
     function repay(
         address borrower,
-        uint256 repayAmount,
         uint256 maturityDate
     ) override external nonReentrant {
-        _repay(msg.sender, borrower, repayAmount, maturityDate);
+        _repay(msg.sender, borrower, maturityDate);
     }
 
     /**
         @notice Payer repays borrower's debt for a maturity date
         @dev The pool that the user is trying to repay to should be matured.
+             The difference with `_repayLiquidate` is that this one doesn't alter
+             The pool and it's use for cancelling the debt
         @param borrower The address of the account that has the debt
-        @param repayAmount the amount of debt of the underlying token to be paid
         @param maturityDate The matured date where the debt is located
      */
     function _repay(
         address payer,
         address borrower,
-        uint256 repayAmount,
         uint256 maturityDate
     ) internal {
-        require(repayAmount != 0, "You can't repay zero");
 
         // reverts on failure
         auditor.repayAllowed(
             address(this),
             borrower,
-            repayAmount,
             maturityDate
         );
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
-        require(amountBorrowed == repayAmount, "debt must be paid in full");
 
-        trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
+        trustedUnderlying.safeTransferFrom(payer, address(this), amountBorrowed);
 
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit Repaid(payer, borrower, repayAmount, maturityDate);
+        emit Repaid(payer, borrower, amountBorrowed, maturityDate);
     }
 
     /**

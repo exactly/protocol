@@ -32,7 +32,6 @@ interface IAuditor {
     function repayAllowed(
         address exafinAddress,
         address borrower,
-        uint256 repayAmount,
         uint256 maturityDate
     ) external;
 

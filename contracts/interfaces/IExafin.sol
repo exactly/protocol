@@ -34,7 +34,6 @@ interface IExafin {
 
     function repay(
         address borrower,
-        uint256 repayAmount,
         uint256 maturityDate
     ) external;
 
