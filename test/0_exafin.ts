@@ -92,12 +92,13 @@ describe("Exafin", function () {
   it("it doesn't allow you to give money to a pool that hasn't been enabled yet", async () => {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(exafin.address, underlyingAmount);
+    const notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 14 // two weeks after the last pool
 
     await expect(
       exafin.supply(
         owner.address,
         underlyingAmount,
-        exaTime.futurePools(12).pop()! + 86400 * 14 // two weeks after the last pool
+        notYetEnabledPoolID
       )
     ).to.be.revertedWith(errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID));
   });
