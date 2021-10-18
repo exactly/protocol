@@ -485,4 +485,12 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     function getFuturePools() override external view returns (uint256[] memory) {
         return TSUtils.futurePools(block.timestamp, maxFuturePools);
     }
+
+    /**
+        @dev Function to retrieve all markets
+     */
+    function getMarketAddresses() override external view returns (address[] memory) {
+        return marketsAddress;
+    }
+
 }
