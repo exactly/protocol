@@ -79,6 +79,7 @@ export enum PoolState {
 export enum ProtocolError {
   NO_ERROR,
   MARKET_NOT_LISTED,
+  MARKET_ALREADY_LISTED,
   SNAPSHOT_ERROR,
   PRICE_ERROR,
   INSUFFICIENT_LIQUIDITY,
@@ -101,6 +102,7 @@ export class ExactlyEnv {
   oracle: Contract;
   auditor: Contract;
   interestRateModel: Contract;
+  tsUtils: Contract;
   exafinContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   baseRate: BigNumber;
@@ -111,6 +113,7 @@ export class ExactlyEnv {
     _oracle: Contract,
     _auditor: Contract,
     _interestRateModel: Contract,
+    _tsUtils: Contract,
     _exafinContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>
   ) {
@@ -119,6 +122,7 @@ export class ExactlyEnv {
     this.exafinContracts = _exafinContracts;
     this.underlyingContracts = _underlyingContracts;
     this.interestRateModel = _interestRateModel;
+    this.tsUtils = _tsUtils;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
@@ -194,7 +198,6 @@ export class ExactlyEnv {
           interestRateModel.address
         );
         await exafin.deployed();
-        await exafin.transferOwnership(auditor.address);
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, tokensUSDPrice.get(tokenName));
@@ -214,7 +217,7 @@ export class ExactlyEnv {
 
     return new Promise<ExactlyEnv>((resolve) => {
       resolve(
-        new ExactlyEnv(oracle, auditor, interestRateModel, exafinContracts, underlyingContracts)
+        new ExactlyEnv(oracle, auditor, interestRateModel, tsUtils, exafinContracts, underlyingContracts)
       );
     });
   }
