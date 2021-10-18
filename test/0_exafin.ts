@@ -76,7 +76,7 @@ describe("Exafin", function () {
     );
   });
 
-  it("it doesn't allow you to give money to a pool that expired", async () => {
+  it("it doesn't allow you to give money to a pool that matured", async () => {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(exafin.address, underlyingAmount);
 
@@ -87,6 +87,33 @@ describe("Exafin", function () {
         exaTime.pastPoolID()
       )
     ).to.be.revertedWith(errorUnmatchedPool(PoolState.MATURED, PoolState.VALID));
+  });
+
+  it("it doesn't allow you to give money to a pool that hasn't been enabled yet", async () => {
+    const underlyingAmount = parseUnits("100");
+    await underlyingToken.approve(exafin.address, underlyingAmount);
+    const notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 14 // two weeks after the last pool
+
+    await expect(
+      exafin.supply(
+        owner.address,
+        underlyingAmount,
+        notYetEnabledPoolID
+      )
+    ).to.be.revertedWith(errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID));
+  });
+
+  it("it doesn't allow you to give money to a pool that is invalid", async () => {
+    const underlyingAmount = parseUnits("100");
+    await underlyingToken.approve(exafin.address, underlyingAmount);
+    const invalidPoolID = exaTime.pastPoolID() + 666;
+    await expect(
+      exafin.supply(
+        owner.address,
+        underlyingAmount,
+        invalidPoolID
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
   it("it allows you to borrow money", async () => {
@@ -100,6 +127,55 @@ describe("Exafin", function () {
     expect(
       await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
     ).to.emit(exafinMaria, "Borrowed");
+  });
+
+  it("it doesn't allow you to borrow money from a pool that matured", async () => {
+    let exafinMaria = exafin.connect(mariaUser);
+    let auditorUser = auditor.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
+    await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
+    await auditorUser.enterMarkets([exafinMaria.address]);
+    await expect(
+      exafinMaria.borrow(parseUnits("0.8"), exaTime.pastPoolID())
+    ).to.be.revertedWith(errorUnmatchedPool(PoolState.MATURED, PoolState.VALID));
+  });
+
+  it("it doesn't allow you to borrow money from a pool that hasn't been enabled yet", async () => {
+    let exafinMaria = exafin.connect(mariaUser);
+    let auditorUser = auditor.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+    let notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 14 // two weeks after the last pool
+    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
+    await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
+    await auditorUser.enterMarkets([exafinMaria.address]);
+    await expect(
+      exafinMaria.borrow(parseUnits("0.8"), notYetEnabledPoolID)
+    ).to.be.revertedWith(errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID));
+  });
+
+  it("it doesn't allow you to borrow money from a pool that is invalid", async () => {
+    let exafinMaria = exafin.connect(mariaUser);
+    let auditorUser = auditor.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const invalidPoolID = exaTime.pastPoolID() + 666;
+
+    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
+    await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
+    await auditorUser.enterMarkets([exafinMaria.address]);
+    await expect(
+      exafinMaria.borrow(parseUnits("0.8"), invalidPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+  });
+
+  it("Check if requirePoolState returns INVALID", async () => {
+    let auditorUser = auditor.connect(mariaUser);
+    const invalidPoolID = exaTime.pastPoolID() + 666;
+
+    await expect(
+      auditorUser.requirePoolState(invalidPoolID, PoolState.VALID)
+    ).to.be.revertedWith(errorUnmatchedPool(PoolState.INVALID, PoolState.VALID));
   });
 
   it("it doesnt allow mariaUser to borrow money because not collateralized enough", async () => {
