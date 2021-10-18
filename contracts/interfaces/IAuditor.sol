@@ -58,5 +58,6 @@ interface IAuditor {
     ) external view returns (uint);
 
     function getFuturePools() external view returns (uint256[] memory);
+    function getMarketAddresses() external view returns (address[] memory);
 
 }
