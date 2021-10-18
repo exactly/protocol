@@ -2,6 +2,7 @@ import { parseUnits } from "@ethersproject/units";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import fs from "fs";
+import assert from 'assert';
 import YAML from "yaml";
 import { ethers } from "hardhat";
 
@@ -10,6 +11,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const config = YAML.parse(file);
 
   const [deployer] = await hre.getUnnamedAccounts();
+
+  if (hre.network.name === 'hardhat'){
+    assert(process.env.FORKING === 'true', 'deploying the ecosystem on a loner node not supported (yet?)');
+  }
 
   let tokensForNetwork = config.token_addresses[hre.network.name].assets;
   let priceOracleAddress =
