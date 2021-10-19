@@ -11,7 +11,7 @@ import {
   PoolState,
   ProtocolError,
 } from "./exactlyUtils";
-import { formatUnits, parseUnits } from "ethers/lib/utils";
+import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 Error.stackTraceLimit = Infinity;
@@ -71,6 +71,20 @@ describe("Exafin", function () {
     let invalidPoolID = exaTime.nextPoolID() + 3;
     await expect(
       exafin.getTotalBorrows(invalidPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID))
+  });
+
+  it("GetRateToSupply fails on an invalid pool", async () => {
+    let invalidPoolID = exaTime.nextPoolID() + 3;
+    await expect(
+      exafin.getRateToSupply(parseUnits("10"), invalidPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID))
+  });
+
+  it("GetRateToBorrow fails on an invalid pool", async () => {
+    let invalidPoolID = exaTime.nextPoolID() + 3;
+    await expect(
+      exafin.getRateToBorrow(parseUnits("10"), invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID))
   });
 
