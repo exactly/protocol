@@ -9,14 +9,15 @@ interface IInterestRateModel {
         uint256 amount,
         uint256 maturityDate,
         PoolLib.Pool memory poolMaturity,
-        PoolLib.Pool memory poolPot
+        PoolLib.SmartPool memory smartPool,
+        bool newDebt
     ) external view returns (uint256);
 
     function getRateToSupply(
         uint256 amount,
         uint256 maturityDate,
         PoolLib.Pool memory poolMaturity,
-        PoolLib.Pool memory poolPot
+        PoolLib.SmartPool memory smartPool
     ) external view returns (uint256);
  
 }

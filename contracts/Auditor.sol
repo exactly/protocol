@@ -223,7 +223,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         uint256 borrowAmount,
         uint256 maturityDate
     ) external override {
-
         if (borrowPaused[exafinAddress]) revert GenericError(ErrorCode.BORROW_PAUSED);
 
         _requirePoolState(maturityDate, TSUtils.State.VALID); 
@@ -247,15 +246,15 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             revert GenericError(ErrorCode.PRICE_ERROR);
         }
 
-        uint256 borrowCap = borrowCaps[exafinAddress];
+        // uint256 borrowCap = borrowCaps[exafinAddress];
         // Borrow cap of 0 corresponds to unlimited borrowing
-        if (borrowCap != 0) {
-            uint256 totalBorrows = IExafin(exafinAddress).getTotalBorrows(
-                maturityDate
-            );
-            uint256 nextTotalBorrows = totalBorrows + borrowAmount;
-            if (nextTotalBorrows >= borrowCap) revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
-        }
+        // if (borrowCap != 0) {
+        //     uint256 totalBorrows = IExafin(exafinAddress).getTotalBorrows(
+        //         maturityDate
+        //     );
+        //     uint256 nextTotalBorrows = totalBorrows + borrowAmount;
+        //     if (nextTotalBorrows >= borrowCap) revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
+        // }
 
         (, uint256 shortfall) = _accountLiquidity(
             borrower,
@@ -264,6 +263,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             0,
             borrowAmount
         );
+
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }

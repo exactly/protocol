@@ -9,6 +9,11 @@ library PoolLib {
     struct Pool {
         uint256 borrowed;
         uint256 supplied;
+        uint256 debt;
     }
 
+    struct SmartPool {
+        uint256 borrowed;
+        uint256 supplied;
+    }
 }
