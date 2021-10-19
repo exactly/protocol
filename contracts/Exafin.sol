@@ -469,7 +469,9 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         override
         returns (uint256, uint256)
     {
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
         return (suppliedAmounts[maturityDate][who], borrowedAmounts[maturityDate][who]);
     }
 
@@ -483,7 +485,9 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         override
         returns (uint256)
     {
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
         return pools[maturityDate].borrowed;
     }
 
