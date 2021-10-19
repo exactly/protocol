@@ -6,7 +6,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-describe("Auditor", function () {
+describe("Auditor from User Space", function () {
   let auditor: Contract;
   let exactlyEnv: ExactlyEnv;
   let notAnExafinAddress: string;
@@ -153,12 +153,6 @@ describe("Auditor", function () {
       // user tries to borrow more than the cap
       exafinDAI.borrow(20, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_BORROW_CAP_REACHED));
-  });
-
-  it("SetOracle should emit event", async () => {
-    await expect(
-      auditor.setOracle(exactlyEnv.oracle.address)
-    ).to.emit(auditor, "OracleChanged");
   });
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {

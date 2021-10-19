@@ -135,7 +135,9 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         uint256 maturityDate
     ) override public nonReentrant {
 
-        if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
@@ -177,7 +179,9 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         uint256 maturityDate
     ) override public nonReentrant {
 
-        if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
 
         PoolLib.Pool memory pool = pools[maturityDate];
 

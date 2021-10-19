@@ -18,10 +18,11 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
     using DecimalMath for uint256;
 
-    event MarketEntered(IExafin exafin, address account);
+    event MarketListed(address exafin);
+    event MarketEntered(address exafin, address account);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
-    event NewBorrowCap(IExafin indexed exafin, uint newBorrowCap);
+    event NewBorrowCap(address indexed exafin, uint newBorrowCap);
 
     mapping(address => Market) public markets;
     mapping(address => bool) public borrowPaused;
@@ -97,7 +98,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         marketToJoin.accountMembership[borrower] = true;
         accountAssets[borrower].push(exafin);
 
-        emit MarketEntered(exafin, borrower);
+        emit MarketEntered(address(exafin), borrower);
     }
 
     /**
@@ -154,7 +155,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
             // Get the normalized price of the asset (6 decimals)
             vars.oraclePrice = oracle.price(asset.tokenName());
-            if (vars.oraclePrice == 0) revert GenericError(ErrorCode.PRICE_ERROR);
+            if (vars.oraclePrice == 0) {
+                revert GenericError(ErrorCode.PRICE_ERROR);
+            }
 
             // We sum all the collateral prices
             vars.sumCollateral += vars.balance.mul_(vars.collateralFactor).mul_(
@@ -224,7 +227,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         uint256 maturityDate
     ) external override {
 
-        if (borrowPaused[exafinAddress]) revert GenericError(ErrorCode.BORROW_PAUSED);
+        if (borrowPaused[exafinAddress]) {
+            revert GenericError(ErrorCode.BORROW_PAUSED);
+        }
 
         _requirePoolState(maturityDate, TSUtils.State.VALID); 
 
@@ -234,7 +239,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         if (!markets[exafinAddress].accountMembership[borrower]) {
             // only exafins may call borrowAllowed if borrower not in market
-            if (msg.sender != exafinAddress) revert GenericError(ErrorCode.NOT_AN_EXAFIN_SENDER);
+            if (msg.sender != exafinAddress) {
+                revert GenericError(ErrorCode.NOT_AN_EXAFIN_SENDER);
+            }
 
             // attempt to add borrower to the market // reverts if error
             _addToMarket(IExafin(msg.sender), borrower);
@@ -254,7 +261,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
                 maturityDate
             );
             uint256 nextTotalBorrows = totalBorrows + borrowAmount;
-            if (nextTotalBorrows >= borrowCap) revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
+            if (nextTotalBorrows >= borrowCap) {
+                revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
+            }
         }
 
         (, uint256 shortfall) = _accountLiquidity(
@@ -359,8 +368,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         uint256 maturityDate
     ) override external view {
 
-        if (repayAmount == 0) revert GenericError(ErrorCode.REPAY_ZERO);
-        if (borrower == liquidator) revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
+        if (repayAmount == 0) {
+            revert GenericError(ErrorCode.REPAY_ZERO);
+        }
+
+        if (borrower == liquidator) {
+            revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
+        }
 
         if (!markets[exafinBorrowed].isListed || !markets[exafinCollateral].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
@@ -399,7 +413,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         address borrower
     ) override external view {
 
-        if (borrower == liquidator) revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
+        if (borrower == liquidator) {
+            revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
+        }
 
         if (!markets[exafinCollateral].isListed || !markets[exafinBorrowed].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
@@ -422,6 +438,15 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         string memory name
     ) public onlyRole(TEAM_ROLE) {
         Market storage market = markets[exafin];
+
+        if (market.isListed) {
+            revert GenericError(ErrorCode.MARKET_ALREADY_LISTED);
+        }
+
+        if (IExafin(exafin).getAuditor() != this) {
+            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
+        }
+
         market.isListed = true;
         market.collateralFactor = collateralFactor;
         market.symbol = symbol;
@@ -429,6 +454,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
         marketCount += 1;
         marketsAddress.push(exafin);
+
+        emit MarketListed(exafin);
     }
 
     /**
@@ -443,11 +470,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         uint numMarkets = exafins.length;
         uint numBorrowCaps = newBorrowCaps.length;
 
-        if (numMarkets == 0 || numMarkets != numBorrowCaps) revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
+        if (numMarkets == 0 || numMarkets != numBorrowCaps) {
+            revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
+        }
 
         for(uint i = 0; i < numMarkets; i++) {
             borrowCaps[address(exafins[i])] = newBorrowCaps[i];
-            emit NewBorrowCap(exafins[i], newBorrowCaps[i]);
+            emit NewBorrowCap(address(exafins[i]), newBorrowCaps[i]);
         }
     }
 
