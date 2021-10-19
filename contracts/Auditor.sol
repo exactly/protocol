@@ -376,16 +376,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
         }
 
+        // if markets are listed, they have the same auditor
         if (!markets[exafinBorrowed].isListed || !markets[exafinCollateral].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if (IExafin(exafinBorrowed).getAuditor() != IExafin(exafinCollateral).getAuditor()) {
-            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
-        }
-
         /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) =  _accountLiquidity(borrower, maturityDate, address(0), 0, 0);
+        (, uint256 shortfall) = _accountLiquidity(borrower, maturityDate, address(0), 0, 0);
         if (shortfall == 0) {
             revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
         }
