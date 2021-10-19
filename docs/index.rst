@@ -6,6 +6,6 @@ Exactly
     :maxdepth: 2
 
     overview.rst
-    tech-notes.rst
+    actions.rst
     API.rst
 
