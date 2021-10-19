@@ -60,6 +60,20 @@ describe("Exafin", function () {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
+  it("GetAccountSnapshot fails on an invalid pool", async () => {
+    let invalidPoolID = exaTime.nextPoolID() + 3;
+    await expect(
+      exafin.getAccountSnapshot(owner.address, invalidPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID))
+  });
+
+  it("GetTotalBorrows fails on an invalid pool", async () => {
+    let invalidPoolID = exaTime.nextPoolID() + 3;
+    await expect(
+      exafin.getTotalBorrows(invalidPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID))
+  });
+
   it("it allows to give money to a pool", async () => {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(exafin.address, underlyingAmount);
@@ -74,6 +88,10 @@ describe("Exafin", function () {
     expect(await underlyingToken.balanceOf(exafin.address)).to.equal(
       underlyingAmount
     );
+
+    expect(
+      (await exafin.getAccountSnapshot(owner.address, exaTime.nextPoolID()))[0]
+    ).to.be.equal(underlyingAmount)
   });
 
   it("it doesn't allow you to give money to a pool that matured", async () => {
@@ -127,6 +145,10 @@ describe("Exafin", function () {
     expect(
       await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
     ).to.emit(exafinMaria, "Borrowed");
+
+    expect(
+      await exafinMaria.getTotalBorrows(exaTime.nextPoolID())
+    ).to.equal(parseUnits("0.8"));
   });
 
   it("it doesn't allow you to borrow money from a pool that matured", async () => {
