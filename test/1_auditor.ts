@@ -54,6 +54,34 @@ describe("Auditor from User Space", function () {
     ).to.not.be.reverted;
   });
 
+  it("SupplyAllowed should fail for an unlisted market", async () => {
+    await expect(
+      auditor.supplyAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("BorrowAllowed should fail for an unlisted market", async () => {
+    await expect(
+      auditor.borrowAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("BorrowAllowed should fail for when oracle gets weird", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+
+    const amountDAI = parseUnits("100", 18);
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    await auditor.enterMarkets([exafinDAI.address]);
+
+    await exactlyEnv.oracle.setPrice("DAI", 0);
+    await expect(
+      auditor.borrowAllowed(exafinDAI.address, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+  });
+
   it("RedeemAllowed should fail for an unlisted market", async () => {
     await expect(
       auditor.redeemAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
@@ -63,6 +91,13 @@ describe("Auditor from User Space", function () {
   it("RepayAllowed should fail for an unlisted market", async () => {
     await expect(
       auditor.repayAllowed(notAnExafinAddress, owner.address, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("SeizeAllowed should fail for an unlisted market", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.seizeAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 

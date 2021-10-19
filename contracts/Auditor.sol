@@ -417,12 +417,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
         }
 
+        // If markets are listed, they have also the same Auditor
         if (!markets[exafinCollateral].isListed || !markets[exafinBorrowed].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        if (IExafin(exafinCollateral).getAuditor() != IExafin(exafinBorrowed).getAuditor()) {
-            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
         }
     }
 
