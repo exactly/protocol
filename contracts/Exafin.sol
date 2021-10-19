@@ -136,7 +136,7 @@ contract Exafin is IExafin, ReentrancyGuard {
     function borrow(
         uint256 amount,
         uint256 maturityDate
-    ) override public nonReentrant {
+    ) override public nonReentrant returns(uint256) {
         bool newDebt = false;
 
         if(!TSUtils.isPoolID(maturityDate)) {
@@ -156,6 +156,7 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         pool.borrowed = pool.borrowed + amount;
 
+        console.log("PRE SMART POOL", smartPool.borrowed, amount, pool.available);
         if (amount > pool.available) {
             smartPool.borrowed = smartPool.borrowed + amount - pool.available;
             pool.debt = pool.debt + amount - pool.available;
@@ -166,6 +167,8 @@ contract Exafin is IExafin, ReentrancyGuard {
             pool.available = pool.available - amount;    
         }
 
+        console.log("SMART POOL BORROW");
+        console.log(smartPool.borrowed);
         // if (amount > (pool.supplied - pool.debt)) {
         //     smartPool.borrowed = smartPool.borrowed + (amount - pool.supplied - pool.debt);
         //     pool.debt += amount - pool.supplied;
@@ -190,6 +193,9 @@ contract Exafin is IExafin, ReentrancyGuard {
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
         emit Borrowed(msg.sender, amount, commission, maturityDate);
+
+        //Delete this after testing
+        return commissionRate;
     }
 
     /**
@@ -219,17 +225,16 @@ contract Exafin is IExafin, ReentrancyGuard {
             amount,
             maturityDate
         );
-        
 
         if (pool.debt > 0) {
             if (amount > pool.debt) {
                 pool.debt = 0;
                 pool.supplied += amount;
                 pool.available = amount - pool.debt;
-                smartPool.supplied = amount;
+                // smartPool.supplied = amount;
             } else {
                 pool.debt -= amount;
-                smartPool.supplied = amount;
+                // smartPool.supplied = amount;
             }
         } else {
             pool.supplied = pool.supplied + amount;
@@ -237,9 +242,6 @@ contract Exafin is IExafin, ReentrancyGuard {
         }
 
         pools[maturityDate] = pool;
-
-        console.log("Supply");
-        console.log(pool.borrowed, pool.supplied, pool.available, pool.debt);
 
         uint256 commissionRate = interestRateModel.getRateToSupply(
             amount,
@@ -546,7 +548,10 @@ contract Exafin is IExafin, ReentrancyGuard {
     //DELETE THIS AFTER TESTING
     function smartPoolSupply(address from, uint256 amount) public {
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
-        smartPool.supplied += amount;
+        console.log('Antes que nada', smartPool.supplied);
+        smartPool.supplied = smartPool.supplied + amount;
+        console.log('Despues que nada', smartPool.supplied);
+
     }
 
     function currentBalance() public view returns (uint256) {

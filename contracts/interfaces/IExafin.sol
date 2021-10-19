@@ -18,7 +18,7 @@ interface IExafin {
     function borrow(
         uint256 amount,
         uint256 maturityDate
-    ) external;
+    ) external returns (uint256);
 
     function supply(
         address from,
