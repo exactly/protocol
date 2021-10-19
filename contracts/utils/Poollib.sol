@@ -10,6 +10,7 @@ library PoolLib {
         uint256 borrowed;
         uint256 supplied;
         uint256 debt;
+        uint256 available;
     }
 
     struct SmartPool {

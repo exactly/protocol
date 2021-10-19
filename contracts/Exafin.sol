@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -14,8 +12,7 @@ import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract Exafin is Ownable, IExafin, ReentrancyGuard {
-    using SafeCast for uint256;
+contract Exafin is IExafin, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
     using PoolLib for PoolLib.Pool;
@@ -142,7 +139,9 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
     ) override public nonReentrant {
         bool newDebt = false;
 
-        if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
@@ -155,14 +154,26 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
             maturityDate
         );
 
-        pool.borrowed += amount;
-        pools[maturityDate] = pool;
+        pool.borrowed = pool.borrowed + amount;
 
-        if (amount > (pool.supplied - pool.debt)) {
-            smartPool.borrowed = smartPool.borrowed + (amount - pool.supplied - pool.debt);
-            pool.debt += amount - pool.supplied;
+        if (amount > pool.available) {
+            smartPool.borrowed = smartPool.borrowed + amount - pool.available;
+            pool.debt = pool.debt + amount - pool.available;
+            pool.supplied = pool.supplied + amount - pool.available;
+            pool.available = 0;
             newDebt = true;
+        } else {
+            pool.available = pool.available - amount;    
         }
+
+        // if (amount > (pool.supplied - pool.debt)) {
+        //     smartPool.borrowed = smartPool.borrowed + (amount - pool.supplied - pool.debt);
+        //     pool.debt += amount - pool.supplied;
+        //     pool.supplied += amount;
+        //     newDebt = true;
+        // }
+
+        pools[maturityDate] = pool;
 
         uint256 commissionRate = interestRateModel.getRateToBorrow(
             amount,
@@ -193,7 +204,10 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         uint256 amount,
         uint256 maturityDate
     ) override public nonReentrant {
-        if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
+
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
@@ -210,18 +224,22 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         if (pool.debt > 0) {
             if (amount > pool.debt) {
                 pool.debt = 0;
-                pool.supplied += amount - pool.debt;
+                pool.supplied += amount;
+                pool.available = amount - pool.debt;
                 smartPool.supplied = amount;
             } else {
                 pool.debt -= amount;
                 smartPool.supplied = amount;
             }
         } else {
-            pool.supplied += amount;
+            pool.supplied = pool.supplied + amount;
+            pool.available = pool.available + amount;
         }
 
         pools[maturityDate] = pool;
 
+        console.log("Supply");
+        console.log(pool.borrowed, pool.supplied, pool.available, pool.debt);
 
         uint256 commissionRate = interestRateModel.getRateToSupply(
             amount,
@@ -497,7 +515,9 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         override
         returns (uint256, uint256)
     {
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
         return (suppliedAmounts[maturityDate][who], borrowedAmounts[maturityDate][who]);
     }
 
@@ -511,7 +531,9 @@ contract Exafin is Ownable, IExafin, ReentrancyGuard {
         override
         returns (uint256)
     {
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
         return pools[maturityDate].borrowed;
     }
     /**

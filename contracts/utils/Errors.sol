@@ -9,6 +9,7 @@ error UnmatchedPoolState(TSUtils.State state, TSUtils.State requiredState);
 enum ErrorCode {
     NO_ERROR,
     MARKET_NOT_LISTED,
+    MARKET_ALREADY_LISTED,
     SNAPSHOT_ERROR,
     PRICE_ERROR,
     INSUFFICIENT_LIQUIDITY,

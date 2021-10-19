@@ -62,12 +62,12 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         if (maturityPool.borrowed == 0 || maturityPool.supplied == 0) {
             console.log("Pool: Division by zero");
         } else {
-            console.log('Previo maturity', maturityPool.borrowed, maturityPool.supplied);
+            // console.log('Previo maturity', maturityPool.borrowed, maturityPool.supplied);
             yearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
             console.log("1 yearlyRate getRateToBorrow", yearlyRate);
         }
 
-        console.log('Previo smart', smartPool.borrowed, smartPool.supplied);
+        // console.log('Previo smart', smartPool.borrowed, smartPool.supplied, newDebt);
         if (smartPool.borrowed == 0 || smartPool.supplied == 0) {
             console.log("SmartPool: Division by zero");
         } else {
@@ -78,7 +78,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
                 console.log("1.5 yearlyRate getRateToBorrow", yearlyRate);
             }
 
-            if (newDebt && maturityPool.borrowed != 0 && maturityPool.supplied != 0 && smartPool.borrowed.div_(smartPool.supplied) > maturityPool.borrowed.div_(maturityPool.supplied)) {
+            if (newDebt && maturityPool.borrowed != 0 && maturityPool.supplied != 0 && (spSlopeRate * smartPool.borrowed) / smartPool.supplied > (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied) {
                 yearlyRate = (spSlopeRate * smartPool.borrowed) / smartPool.supplied;
                 console.log("2 yearlyRate getRateToBorrow", yearlyRate);
             }
@@ -124,7 +124,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         if (smartPool.borrowed == 0 || smartPool.supplied == 0) {
             console.log("SmartPool: Division by zero");
         } else {
-            // uint256 maturityEq = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+            uint256 maturityEq = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
             uint256 smartEq =  ((spSlopeRate * smartPool.borrowed) / smartPool.supplied) + maturityPool.supplied + amount;
 
             if (maturityPool.borrowed == 0 || maturityPool.supplied == 0) {

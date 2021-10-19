@@ -18,22 +18,24 @@ npm install
 
 ## Add Environment Variables
 
-Create a file in the root of the project and name it `.env`. You will nedd to have the following keys
+Create an `.env`, using the example:
 
-```bash
-MNEMONIC=
-ALKEMY_MAINNET_API_KEY=
-ALKEMY_RINKEBY_API_KEY=
-PUBLIC_ADDRESS=
+```
+cp .env.example .env
 ```
 
-To get a new **mnemonic** you can do it with `npx mnemonics`, take into account that this mnemonic is only for development and testing.
+You will then need to set the following keys there:
+
+* `MNEMONIC`: a valid bip39 mnemonic from which accounts will be generated. To get a new one you can do it with `npx mnemonics`, taking into account that this mnemonic is only for development and testing.
+* `ALCHEMY_RINKEBY_API_KEY`: API key linked to a rinkeby alchemy project, used to directly connect to the network
+* `FORKING`: `true` if you want to work by forking a mainnet node
+* `ALCHEMY_MAINNET_API_KEY`: API key linked to a mainnet alchemy project, used when forking a mainnet node
+* `PUBLIC_ADDRESS`: where tokens will be sent so you can play around when in forking mode
 
 For the Alchemy API keys you can create a free account in: `https://alchemyapi.io` and create both MAINNET and RINKEBY accounts.
 
-The PUBLIC_ADDRESS is used to send you some tokens so you can test the whole project.
-
 ## Run Local Node
+Useful if you want to see the logs explicitly, otherwise hardhat takes care of spinning a node up
 
 ```bash
 npx hardhat node
@@ -45,7 +47,7 @@ npx hardhat node
 npx hardhat test
 ```
 
-## Run Coverate
+## Run Coverage
 
 ```bash
 npx hardhat coverage
@@ -54,6 +56,5 @@ npx hardhat coverage
 ## Deploy
 
 ```bash
-echo "YOUR_PRIVATE_KEY" > .secret
 npx hardhat deploy --network rinkeby
 ```
