@@ -5,6 +5,7 @@ import { Contract } from "ethers";
 import { BigNumber } from "@ethersproject/bignumber";
 import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { parse } from "path";
 
 describe("Auditor Admin", function () {
   let auditor: Contract;
@@ -114,6 +115,40 @@ describe("Auditor Admin", function () {
     await expect(
       auditor.setOracle(exactlyEnv.oracle.address)
     ).to.emit(auditor, "OracleChanged");
+  });
+
+  it("GetMarketAddresses should return all markets", async () => {
+    let addresses = await auditor.getMarketAddresses()
+
+    expect(addresses[0]).to.equal(exactlyEnv.getExafin("DAI").address);
+    expect(addresses[1]).to.equal(exactlyEnv.getExafin("ETH").address);
+  });
+
+  it("SetMarketBorrowCaps should fail from third parties", async () => {
+    let exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.connect(user).setMarketBorrowCaps([exafinDAI.address], [0])
+    ).to.be.revertedWith("AccessControl");
+  });
+
+  it("SetMarketBorrowCaps should fail when wrong arguments", async () => {
+    let exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.setMarketBorrowCaps([exafinDAI.address], [])
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_SET_BORROW_CAP));
+  });
+
+  it("SetMarketBorrowCaps should fail when wrong market", async () => {
+    await expect(
+      auditor.setMarketBorrowCaps([notAnExafinAddress], [parseUnits("1000")])
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("SetMarketBorrowCaps should emit events", async () => {
+    let exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.setMarketBorrowCaps([exafinDAI.address], [parseUnits("1000")])
+    ).to.emit(auditor, "NewBorrowCap");
   });
 
 });
