@@ -321,7 +321,8 @@ describe("Auditor from User Space", function () {
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER));
 
-    // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
+    // We expect liquidation to fail because trying to liquidate
+    // and take over a collateral that the user doesn't have enough
     await dai.connect(user).approve(exafinDAI.address, amountToBorrowDAI.div(2));
     await expect(
       exafinDAI.connect(user).liquidate(
