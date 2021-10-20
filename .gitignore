@@ -2,6 +2,8 @@ mainnet_private_key
 .secret
 build
 .env
+docs/_build
+tags
 
 node_modules
 
