@@ -355,4 +355,22 @@ describe("Auditor from User Space", function () {
       nextPoolID
     );
   });
+
+  it("Auditor reverts if Oracle acts weird", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+
+    // we supply Dai to the protocol
+    const amountDAI = parseUnits("100", 18);
+    await dai.approve(exafinDAI.address, amountDAI);
+    let txDAI = await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    // we make it count as collateral (DAI)
+    await auditor.enterMarkets([exafinDAI.address]);
+
+    await exactlyEnv.oracle.setPrice("DAI", 0);
+    await expect(
+      auditor.getAccountLiquidity(owner.address, nextPoolID)
+    ).to.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+  });
 });
