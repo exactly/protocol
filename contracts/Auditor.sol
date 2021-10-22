@@ -33,7 +33,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     address[] public marketsAddress;
 
     uint256 public closeFactor = 5e17;
-    uint256 public constant WAD = 1e18;
     uint8 public maxFuturePools = 12; // 6 months
 
     IOracle private oracle;

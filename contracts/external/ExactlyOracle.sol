@@ -9,8 +9,8 @@ import "../utils/Errors.sol";
 
 /// @title ExactlyOracle
 /// @notice Proxy smart contract to get the price of an asset from a price source, with Chainlink Feed Registry
-///         smart contract as primary option
-/// - If the returned price by the Chainlink Feed Registry is <= 0, the call is forwarded to a fallbackOracle
+///         smart contract as the primary option
+/// - If the returned price by the Chainlink Feed Registry is <= 0, the call is reverted
 contract ExactlyOracle is IOracle, Ownable {
 
   event BaseCurrencySet(address indexed baseCurrency, uint256 baseCurrencyUnit);
