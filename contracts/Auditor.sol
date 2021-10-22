@@ -254,15 +254,15 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             revert GenericError(ErrorCode.PRICE_ERROR);
         }
 
-        // uint256 borrowCap = borrowCaps[exafinAddress];
+        uint256 borrowCap = borrowCaps[exafinAddress];
         // Borrow cap of 0 corresponds to unlimited borrowing
-        // if (borrowCap != 0) {
-        //     uint256 totalBorrows = IExafin(exafinAddress).getTotalBorrows(
-        //         maturityDate
-        //     );
-        //     uint256 nextTotalBorrows = totalBorrows + borrowAmount;
-        //     if (nextTotalBorrows >= borrowCap) revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
-        // }
+        if (borrowCap != 0) {
+            uint256 totalBorrows = IExafin(exafinAddress).getTotalBorrows(
+                maturityDate
+            );
+            uint256 nextTotalBorrows = totalBorrows + borrowAmount;
+            if (nextTotalBorrows >= borrowCap) revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
+        }
 
         (, uint256 shortfall) = _accountLiquidity(
             borrower,
