@@ -261,7 +261,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
                 maturityDate
             );
             uint256 nextTotalBorrows = totalBorrows + borrowAmount;
-            if (nextTotalBorrows >= borrowCap) revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
+            if (nextTotalBorrows >= borrowCap) {
+                revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
+            }
         }
 
         (, uint256 shortfall) = _accountLiquidity(

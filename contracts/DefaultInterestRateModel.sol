@@ -40,6 +40,14 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         spSlopeRate = _slopeRate;
     }
 
+    function canCalculateSmartPoolUR(PoolLib.SmartPool memory smartPool) pure internal returns (bool) {
+        return smartPool.borrowed != 0 && smartPool.supplied != 0;
+    }
+
+     function canCalculateMaturityPoolUR(PoolLib.Pool memory maturityPool) pure internal returns (bool) {
+        return maturityPool.borrowed != 0 && maturityPool.supplied != 0;
+    }
+    
     /**
         @dev Get current rate for borrow a certain amount in a certain maturity
              with supply/demand values in the maturity pool and supply demand values
@@ -58,23 +66,21 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     ) override external view returns (uint256) {
         if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
         uint256 yearlyRate = 0;
+        bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
+        bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
 
-        console.log(maturityPool.borrowed, maturityPool.supplied);
-        
-        if ((maturityPool.borrowed != 0 && maturityPool.supplied != 0)) {
-            yearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
-            console.log("Maturity yearlyRate getRateToBorrow", yearlyRate);
+        uint256 maturityPoolYearlyRate = 0;
+        uint256 smartPoolYearlyRate = 0;
+
+        if (canCheckSmartPoolUR) {
+            smartPoolYearlyRate = (spSlopeRate * smartPool.borrowed) / smartPool.supplied;
         }
 
-        if (smartPool.borrowed != 0 && smartPool.supplied != 0 && newDebt) {
-            if ((maturityPool.borrowed == 0 || maturityPool.supplied == 0)) {
-                yearlyRate = (spSlopeRate * smartPool.borrowed) / smartPool.supplied;
+        console.log(maturityPool.borrowed, maturityPool.supplied);
 
-                console.log("Smart cause no maturityyearlyRate getRateToBorrow", yearlyRate);
-            }
-
-            if (maturityPool.borrowed != 0 && maturityPool.supplied != 0 && (spSlopeRate * smartPool.borrowed) / smartPool.supplied > (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied) {
-                yearlyRate = (spSlopeRate * smartPool.borrowed) / smartPool.supplied;
+        if (canCheckSmartPoolUR && newDebt) {
+            if (canCheckMaturityPoolUR && smartPoolYearlyRate > maturityPoolYearlyRate) {
+                yearlyRate = smartPoolYearlyRate;
                 console.log("Smart cause highest rate yearlyRate getRateToBorrow", yearlyRate);
             }
         }
