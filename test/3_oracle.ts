@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import { ExactlyEnv } from "./exactlyUtils";
+import { errorGeneric, ExactlyEnv, ProtocolError } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -11,8 +11,10 @@ describe("Oracle", function () {
   let exactlyEnv: ExactlyEnv;
 
   let exactlyOracle: Contract;
+  let chainlinkFeedRegistry: Contract;
+  let underlyingToken: Contract;
 
-  // Oracle price is in 10**6
+  // Oracle price is in 10**8
   let tokensUSDPrice = new Map([
     ["DAI", parseUnits("1", 8)],
     ["ETH", parseUnits("3100", 8)],
@@ -33,9 +35,10 @@ describe("Oracle", function () {
     [owner, mariaUser, johnUser] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
+    underlyingToken = exactlyEnv.getUnderlying("DAI");
     
     const ChainlinkFeedRegistryMock = await ethers.getContractFactory("SomeChainlinkFeedRegistry");
-    let chainlinkFeedRegistry = await ChainlinkFeedRegistryMock.deploy();
+    chainlinkFeedRegistry = await ChainlinkFeedRegistryMock.deploy();
     await chainlinkFeedRegistry.deployed();
 
     let tokenAddresses = new Array();
@@ -61,10 +64,34 @@ describe("Oracle", function () {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
-  it("Get asset price returns valid value", async () => {
+  it("it returns a positive and valid price value", async () => {
     let priceOfEth = await exactlyOracle.getAssetPrice("ETH");
+    let priceOfDai = await exactlyOracle.getAssetPrice("DAI");
 
     expect(priceOfEth).to.be.equal(tokensUSDPrice.get("ETH"));
+    expect(priceOfDai).to.be.equal(tokensUSDPrice.get("DAI"));
+  });
+
+  it("it fails when price value is zero", async () => {
+    await chainlinkFeedRegistry.setPrice(underlyingToken.address, "0x0000000000000000000000000000000000000348", 0);
+
+    await expect(
+      exactlyOracle.getAssetPrice("DAI")
+    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+  });
+
+  it("it fails when price value is lower than zero", async () => {
+    await chainlinkFeedRegistry.setPrice(underlyingToken.address, "0x0000000000000000000000000000000000000348", -10);
+
+    await expect(
+      exactlyOracle.getAssetPrice("DAI")
+    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+  });
+
+  it("it fails when asset symbol is invalid", async () => {
+    await expect(
+      exactlyOracle.getAssetPrice("INVALID")
+    ).to.be.reverted;
   });
 
   afterEach(async () => {

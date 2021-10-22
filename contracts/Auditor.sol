@@ -33,6 +33,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     address[] public marketsAddress;
 
     uint256 public closeFactor = 5e17;
+    uint256 public constant WAD = 1e18;
     uint8 public maxFuturePools = 12; // 6 months
 
     IOracle private oracle;
@@ -162,17 +163,17 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             // We sum all the collateral prices
             vars.sumCollateral += vars.balance.mul_(vars.collateralFactor).mul_(
                 vars.oraclePrice,
-                1e6
+                1e8
             );
 
             // We sum all the debt
-            vars.sumDebt += vars.borrowBalance.mul_(vars.oraclePrice, 1e6);
+            vars.sumDebt += vars.borrowBalance.mul_(vars.oraclePrice, 1e8);
 
             // Simulate the effects of borrowing from/lending to a pool
             if (asset == IExafin(exafinToSimulate)) {
                 // Calculate the effects of borrowing exafins
                 if (borrowAmount != 0) {
-                    vars.sumDebt += borrowAmount.mul_(vars.oraclePrice, 1e6);
+                    vars.sumDebt += borrowAmount.mul_(vars.oraclePrice, 1e8);
                 }
 
                 // Calculate the effects of redeeming exafins
@@ -180,7 +181,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
                 if (redeemAmount != 0) {
                     vars.sumDebt += redeemAmount
                         .mul_(vars.collateralFactor)
-                        .mul_(vars.oraclePrice, 1e6);
+                        .mul_(vars.oraclePrice, 1e8);
                 }
             }
         }
@@ -343,8 +344,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             revert GenericError(ErrorCode.PRICE_ERROR);
         }
 
-        uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e6);
-        uint256 seizeTokens = amountInUSD.div_(priceCollateral, 1e6);
+        uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e8);
+        uint256 seizeTokens = amountInUSD.div_(priceCollateral, 1e8);
 
         return seizeTokens;
     }

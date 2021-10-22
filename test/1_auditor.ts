@@ -244,19 +244,19 @@ describe("Auditor from User Space", function () {
       .mul(tokensCollateralRate.get("DAI")!)
       .div(parseUnits("1", 18))
       .mul(tokensUSDPrice.get("DAI")!)
-      .div(parseUnits("1", 6));
+      .div(parseUnits("1", 8));
 
     let collaterETH = amountETH
       .add(borrowETHEvent.commission)
       .mul(tokensCollateralRate.get("ETH")!)
       .div(parseUnits("1", 18))
       .mul(tokensUSDPrice.get("ETH")!)
-      .div(parseUnits("1", 6));
+      .div(parseUnits("1", 8));
 
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
   });
 
-  it.only("Uncollaterized position can be liquidated", async () => {
+  it("Uncollaterized position can be liquidated", async () => {
     const exafinETH = exactlyEnv.getExafin("ETH");
     const eth = exactlyEnv.getUnderlying("ETH");
     const exafinDAI = exactlyEnv.getExafin("DAI");
@@ -264,8 +264,7 @@ describe("Auditor from User Space", function () {
     const exafinWBTC = exactlyEnv.getExafin("WBTC");
     const wbtc = exactlyEnv.getUnderlying("WBTC");
 
-
-    // we supply Eth to the protocol
+    // we supply ETH to the protocol
     const amountETH = parseUnits("1", 18);
     await eth.approve(exafinETH.address, amountETH);
     await exafinETH.supply(owner.address, amountETH, nextPoolID);
