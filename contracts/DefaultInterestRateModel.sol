@@ -60,26 +60,20 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         uint256 yearlyRate = 0;
 
         console.log(maturityPool.borrowed, maturityPool.supplied);
-        if ((maturityPool.borrowed == 0 || maturityPool.supplied == 0)) {
-            console.log("Pool: Division by zero");
-        } else {
-            // console.log('Previo maturity', maturityPool.borrowed, maturityPool.supplied);
+        
+        if ((maturityPool.borrowed != 0 && maturityPool.supplied != 0)) {
             yearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
             console.log("Maturity yearlyRate getRateToBorrow", yearlyRate);
         }
 
-        // console.log('Previo smart', smartPool.borrowed, smartPool.supplied, newDebt);
-        if (smartPool.borrowed == 0 || smartPool.supplied == 0) {
-            console.log("SmartPool: Division by zero");
-        } else {
-            if (newDebt && (maturityPool.borrowed == 0 || maturityPool.supplied == 0)) {
-                // console.log('Smart pool balances before smart pool yearly rate', smartPool.borrowed, smartPool.supplied);
+        if (smartPool.borrowed != 0 && smartPool.supplied != 0 && newDebt) {
+            if ((maturityPool.borrowed == 0 || maturityPool.supplied == 0)) {
                 yearlyRate = (spSlopeRate * smartPool.borrowed) / smartPool.supplied;
 
                 console.log("Smart cause no maturityyearlyRate getRateToBorrow", yearlyRate);
             }
 
-            if (newDebt && maturityPool.borrowed != 0 && maturityPool.supplied != 0 && (spSlopeRate * smartPool.borrowed) / smartPool.supplied > (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied) {
+            if (maturityPool.borrowed != 0 && maturityPool.supplied != 0 && (spSlopeRate * smartPool.borrowed) / smartPool.supplied > (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied) {
                 yearlyRate = (spSlopeRate * smartPool.borrowed) / smartPool.supplied;
                 console.log("Smart cause highest rate yearlyRate getRateToBorrow", yearlyRate);
             }
@@ -88,13 +82,10 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         console.log("Final yearlyRate getRateToBorrow", yearlyRate);
         maturityPool.borrowed += amount;
 
-
         uint256 daysDifference = (maturityDate -
             TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
-        return yearlyRate;
-        // return ((yearlyRate * daysDifference) / 365);
-
+        return ((yearlyRate * daysDifference) / 365);
     }
 
     /**
@@ -116,16 +107,12 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
 
         uint256 yearlyRate = 0;
 
-        if (maturityPool.borrowed == 0 || maturityPool.supplied == 0 || maturityPool.supplied - maturityPool.borrowed == 0) {
-            console.log("Pool: Division by zero");
-        } else {
+        if (maturityPool.borrowed != 0 && maturityPool.supplied != 0 && maturityPool.supplied - maturityPool.borrowed != 0) {
             yearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
             console.log("Maturity yearlyRate getRateToSupply", yearlyRate);
         }
 
-        if (smartPool.borrowed == 0 || smartPool.supplied == 0) {
-            console.log("SmartPool: Division by zero");
-        } else {
+        if (smartPool.borrowed != 0 && smartPool.supplied != 0) {
             // uint256 maturityEq = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
             uint256 smartEq =  ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
             
@@ -143,11 +130,6 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         uint256 daysDifference = (maturityDate -
             TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
-        // uint256 yearlyRate = (slopeRate * utilizationRate);
-
-        return yearlyRate;
-
-
-        //return ((yearlyRate * daysDifference) / 365);
+        return ((yearlyRate * daysDifference) / 365);
     }
 }
