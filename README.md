@@ -58,3 +58,12 @@ npx hardhat coverage
 ```bash
 npx hardhat deploy --network rinkeby
 ```
+
+## Docs
+
+you can view them by:
+- installing the dependencies with `pip3 install -r requirements.txt`
+- calling sphinx: `make singlehtml`
+- opening it in `yourbrowser _build/singlehtml/index.html`
+
+Or by using [the hosted version](https://static.capu.tech/other/exactly-rtd/)

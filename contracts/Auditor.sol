@@ -376,16 +376,13 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
         }
 
+        // if markets are listed, they have the same auditor
         if (!markets[exafinBorrowed].isListed || !markets[exafinCollateral].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if (IExafin(exafinBorrowed).getAuditor() != IExafin(exafinCollateral).getAuditor()) {
-            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
-        }
-
         /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) =  _accountLiquidity(borrower, maturityDate, address(0), 0, 0);
+        (, uint256 shortfall) = _accountLiquidity(borrower, maturityDate, address(0), 0, 0);
         if (shortfall == 0) {
             revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
         }
@@ -417,12 +414,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
         }
 
+        // If markets are listed, they have also the same Auditor
         if (!markets[exafinCollateral].isListed || !markets[exafinBorrowed].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        if (IExafin(exafinCollateral).getAuditor() != IExafin(exafinBorrowed).getAuditor()) {
-            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
         }
     }
 
@@ -464,7 +458,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
       */
     function setMarketBorrowCaps(
-        IExafin[] calldata exafins,
+        address[] calldata exafins,
         uint256[] calldata newBorrowCaps
     ) external onlyRole(TEAM_ROLE) {
         uint numMarkets = exafins.length;
@@ -475,8 +469,12 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         }
 
         for(uint i = 0; i < numMarkets; i++) {
-            borrowCaps[address(exafins[i])] = newBorrowCaps[i];
-            emit NewBorrowCap(address(exafins[i]), newBorrowCaps[i]);
+            if (!markets[exafins[i]].isListed) {
+                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+            }
+
+            borrowCaps[exafins[i]] = newBorrowCaps[i];
+            emit NewBorrowCap(exafins[i], newBorrowCaps[i]);
         }
     }
 

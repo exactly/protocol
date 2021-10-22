@@ -18,12 +18,14 @@ describe("Auditor from User Space", function () {
   let tokensCollateralRate = new Map([
     ["DAI", parseUnits("0.8", 18)],
     ["ETH", parseUnits("0.7", 18)],
+    ["WBTC", parseUnits("0.6", 18)]
   ]);
 
   // Oracle price is in 10**8
   let tokensUSDPrice = new Map([
     ["DAI", parseUnits("1", 8)],
     ["ETH", parseUnits("3000", 8)],
+    ["WBTC", parseUnits("63000", 8)]
   ]);
 
   let closeFactor = parseUnits("0.4");
@@ -37,7 +39,7 @@ describe("Auditor from User Space", function () {
     nextPoolID = (new ExaTime()).nextPoolID();
 
     // From Owner to User
-    await exactlyEnv.getUnderlying("DAI").transfer(user.address, parseUnits("10000"));
+    await exactlyEnv.getUnderlying("DAI").transfer(user.address, parseUnits("100000"));
   });
 
   it("We try to enter an unlisted market and fail", async () => {
@@ -54,6 +56,34 @@ describe("Auditor from User Space", function () {
     ).to.not.be.reverted;
   });
 
+  it("SupplyAllowed should fail for an unlisted market", async () => {
+    await expect(
+      auditor.supplyAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("BorrowAllowed should fail for an unlisted market", async () => {
+    await expect(
+      auditor.borrowAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("BorrowAllowed should fail for when oracle gets weird", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+
+    const amountDAI = parseUnits("100", 18);
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    await auditor.enterMarkets([exafinDAI.address]);
+
+    await exactlyEnv.oracle.setPrice("DAI", 0);
+    await expect(
+      auditor.borrowAllowed(exafinDAI.address, owner.address, 100, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+  });
+
   it("RedeemAllowed should fail for an unlisted market", async () => {
     await expect(
       auditor.redeemAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
@@ -63,6 +93,13 @@ describe("Auditor from User Space", function () {
   it("RepayAllowed should fail for an unlisted market", async () => {
     await expect(
       auditor.repayAllowed(notAnExafinAddress, owner.address, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("SeizeAllowed should fail for an unlisted market", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.seizeAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
@@ -224,30 +261,40 @@ describe("Auditor from User Space", function () {
     const eth = exactlyEnv.getUnderlying("ETH");
     const exafinDAI = exactlyEnv.getExafin("DAI");
     const dai = exactlyEnv.getUnderlying("DAI");
+    const exafinWBTC = exactlyEnv.getExafin("WBTC");
+    const wbtc = exactlyEnv.getUnderlying("WBTC");
+
 
     // we supply Eth to the protocol
     const amountETH = parseUnits("1", 18);
     await eth.approve(exafinETH.address, amountETH);
     await exafinETH.supply(owner.address, amountETH, nextPoolID);
     
+    // we supply WBTC to the protocol
+    const amountWBTC = parseUnits("1", 18);
+    await wbtc.approve(exafinWBTC.address, amountWBTC);
+    await exafinWBTC.supply(owner.address, amountWBTC, nextPoolID);
+
     expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH);
+    expect(await wbtc.balanceOf(exafinWBTC.address)).to.equal(amountWBTC);
 
     // we supply DAI to the protocol to have money in the pool
-    const amountDAI = parseUnits("5000", 18);
+    const amountDAI = parseUnits("65000", 18);
     await dai.connect(user).approve(exafinDAI.address, amountDAI);
     await exafinDAI.connect(user).supply(user.address, amountDAI, nextPoolID);
     expect(await dai.connect(user).balanceOf(exafinDAI.address)).to.equal(amountDAI);
 
-    // we make ETH count as collateral
-    await auditor.enterMarkets([exafinETH.address]);
+    // we make ETH & WBTC count as collateral
+    await auditor.enterMarkets([exafinETH.address, exafinWBTC.address]);
     // this works because 1USD (liquidity) = 1DAI (asset to borrow)
-    let amountToBorrowDAI = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
+    let liquidityInUSD = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
+    let amountToBorrowDAI = liquidityInUSD;
 
     // user borrows all liquidity
     await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
 
-    // ETH price goes to 1/2 of its original value
-    await exactlyEnv.setOracleMockPrice("ETH", "1500");
+    // WBTC price goes to 1/2 of its original value
+    await exactlyEnv.setOracleMockPrice("WBTC", "32500");
 
     // We expect liquidity to be equal to zero
     let liquidityAfterOracleChange = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
@@ -256,17 +303,44 @@ describe("Auditor from User Space", function () {
     // We try to get all the ETH we can
     // We expect trying to repay zero to fail
     await expect(
-      exafinDAI.liquidate(owner.address, 0, exafinETH.address, nextPoolID)
+      exafinDAI.liquidate(
+        owner.address,
+        0,
+        exafinETH.address,
+        nextPoolID
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.REPAY_ZERO));
 
     // We expect self liquidation to fail
     await expect(
-      exafinDAI.liquidate(owner.address, amountToBorrowDAI, exafinETH.address, nextPoolID)
+      exafinDAI.liquidate(
+        owner.address,
+        amountToBorrowDAI,
+        exafinETH.address,
+        nextPoolID
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER));
+
+    // We expect liquidation to fail because trying to liquidate
+    // and take over a collateral that the user doesn't have enough
+    await dai.connect(user).approve(exafinDAI.address, amountToBorrowDAI.div(2));
+    await expect(
+      exafinDAI.connect(user).liquidate(
+        owner.address,
+        amountToBorrowDAI.div(2),
+        exafinETH.address,
+        nextPoolID
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.TOKENS_MORE_THAN_BALANCE));
 
     // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
     await expect(
-      exafinDAI.connect(user).liquidate(owner.address, amountToBorrowDAI.div(2) + 100, exafinETH.address, nextPoolID)
+      exafinDAI.connect(user).liquidate(
+        owner.address,
+        amountToBorrowDAI.div(2) + 100,
+        exafinWBTC.address,
+        nextPoolID
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_REPAY));
 
     let closeToMaxRepay = amountToBorrowDAI
@@ -277,8 +351,26 @@ describe("Auditor from User Space", function () {
     await exafinDAI.connect(user).liquidate(
       owner.address,
       closeToMaxRepay,
-      exafinETH.address,
+      exafinWBTC.address,
       nextPoolID
     );
+  });
+
+  it("Auditor reverts if Oracle acts weird", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+
+    // we supply Dai to the protocol
+    const amountDAI = parseUnits("100", 18);
+    await dai.approve(exafinDAI.address, amountDAI);
+    let txDAI = await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    // we make it count as collateral (DAI)
+    await auditor.enterMarkets([exafinDAI.address]);
+
+    await exactlyEnv.oracle.setPrice("DAI", 0);
+    await expect(
+      auditor.getAccountLiquidity(owner.address, nextPoolID)
+    ).to.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 });
