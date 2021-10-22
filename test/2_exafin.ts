@@ -28,10 +28,10 @@ describe("Exafin", function () {
     ["ETH", parseUnits("0.7", 18)],
   ]);
 
-  // Oracle price is in 10**6
+  // Oracle price is in 10**8
   let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 6)],
-    ["ETH", parseUnits("3100", 6)],
+    ["DAI", parseUnits("1", 8)],
+    ["ETH", parseUnits("3100", 8)],
   ]);
 
   let mariaUser: SignerWithAddress;

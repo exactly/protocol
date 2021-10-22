@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "./interfaces/IExafin.sol";
 import "./interfaces/IAuditor.sol";
-import "./interfaces/Oracle.sol";
+import "./interfaces/IOracle.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
@@ -35,7 +35,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     uint256 public closeFactor = 5e17;
     uint8 public maxFuturePools = 12; // 6 months
 
-    Oracle private oracle;
+    IOracle private oracle;
 
     struct Market {
         string symbol;
@@ -55,7 +55,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     }
 
     constructor(address _priceOracleAddress) {
-        oracle = Oracle(_priceOracleAddress);
+        oracle = IOracle(_priceOracleAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(TEAM_ROLE, msg.sender);
     }
@@ -153,8 +153,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
 
             vars.collateralFactor = markets[address(asset)].collateralFactor;
 
-            // Get the normalized price of the asset (6 decimals)
-            vars.oraclePrice = oracle.price(asset.tokenName());
+            // Get the normalized price of the asset (8 decimals)
+            vars.oraclePrice = oracle.getAssetPrice(asset.tokenName());
             if (vars.oraclePrice == 0) {
                 revert GenericError(ErrorCode.PRICE_ERROR);
             }
@@ -250,7 +250,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
             assert(markets[exafinAddress].accountMembership[borrower]);
         }
 
-        if (oracle.price(IExafin(exafinAddress).tokenName()) == 0) {
+        if (oracle.getAssetPrice(IExafin(exafinAddress).tokenName()) == 0) {
             revert GenericError(ErrorCode.PRICE_ERROR);
         }
 
@@ -337,8 +337,8 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     ) override external view returns (uint) {
 
         /* Read oracle prices for borrowed and collateral markets */
-        uint256 priceBorrowed = oracle.price(IExafin(exafinBorrowed).tokenName());
-        uint256 priceCollateral = oracle.price(IExafin(exafinCollateral).tokenName());
+        uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).tokenName());
+        uint256 priceCollateral = oracle.getAssetPrice(IExafin(exafinCollateral).tokenName());
         if (priceBorrowed == 0 || priceCollateral == 0) {
             revert GenericError(ErrorCode.PRICE_ERROR);
         }
@@ -504,7 +504,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         @param _priceOracleAddress address of the new oracle
      */
     function setOracle(address _priceOracleAddress) public onlyRole(TEAM_ROLE) {
-        oracle = Oracle(_priceOracleAddress);
+        oracle = IOracle(_priceOracleAddress);
         emit OracleChanged(_priceOracleAddress);
     }
 

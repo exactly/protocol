@@ -136,8 +136,12 @@ export class ExactlyEnv {
     return this.underlyingContracts.get(key)!;
   }
 
-  public async setOraclePrice(tokenName: string, valueString: string) {
-    await this.oracle.setPrice(tokenName, parseUnits(valueString, 6));
+  public async setOracle(oracleAddress: string) {
+    await this.auditor.setOracle(oracleAddress);
+  }
+  
+  public async setOracleMockPrice(assetSymbol: string, valueString: string) {
+    await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 8));
   }
 
   static async create(

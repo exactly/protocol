@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/Oracle.sol";
+import "../interfaces/IOracle.sol";
 
-contract SomeOracle is Oracle, Ownable {
-    mapping(string => uint) public prices;
+contract SomeOracle is IOracle {
+
+  mapping(string => uint) public prices;
     
-    function price(string memory symbol) override public view returns (uint) {
-        return prices[symbol];
-    }
+  function getAssetPrice(string memory symbol) override public view returns (uint) {
+      return prices[symbol];
+  }
 
-    function setPrice(string memory symbol, uint value) public onlyOwner {
-        prices[symbol] = value;
-    }
+  function setPrice(string memory symbol, uint value) public {
+      prices[symbol] = value;
+  }
+
 }

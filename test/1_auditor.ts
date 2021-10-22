@@ -20,10 +20,10 @@ describe("Auditor from User Space", function () {
     ["ETH", parseUnits("0.7", 18)],
   ]);
 
-  // Oracle price is in 10**6
+  // Oracle price is in 10**8
   let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 6)],
-    ["ETH", parseUnits("3000", 6)],
+    ["DAI", parseUnits("1", 8)],
+    ["ETH", parseUnits("3000", 8)],
   ]);
 
   let closeFactor = parseUnits("0.4");
@@ -157,7 +157,7 @@ describe("Auditor from User Space", function () {
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
-    await exactlyEnv.setOraclePrice("DAI", "0");
+    await exactlyEnv.setOracleMockPrice("DAI", "0");
     await expect(
       auditor.liquidateCalculateSeizeAmount(exafinDAI.address, exafinDAI.address, 100)
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
@@ -219,7 +219,7 @@ describe("Auditor from User Space", function () {
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
   });
 
-  it("Uncollaterized position can be liquidated", async () => {
+  it.only("Uncollaterized position can be liquidated", async () => {
     const exafinETH = exactlyEnv.getExafin("ETH");
     const eth = exactlyEnv.getUnderlying("ETH");
     const exafinDAI = exactlyEnv.getExafin("DAI");
@@ -247,7 +247,7 @@ describe("Auditor from User Space", function () {
     await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
 
     // ETH price goes to 1/2 of its original value
-    await exactlyEnv.setOraclePrice("ETH", "1500");
+    await exactlyEnv.setOracleMockPrice("ETH", "1500");
 
     // We expect liquidity to be equal to zero
     let liquidityAfterOracleChange = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
