@@ -8,4 +8,5 @@ Exactly
     overview.rst
     actions.rst
     API.rst
+    ad-hoc-research.rst
 
