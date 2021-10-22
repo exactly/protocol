@@ -169,12 +169,6 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         console.log("SMART POOL BORROW");
         console.log(smartPool.borrowed);
-        // if (amount > (pool.supplied - pool.debt)) {
-        //     smartPool.borrowed = smartPool.borrowed + (amount - pool.supplied - pool.debt);
-        //     pool.debt += amount - pool.supplied;
-        //     pool.supplied += amount;
-        //     newDebt = true;
-        // }
 
         pools[maturityDate] = pool;
 
