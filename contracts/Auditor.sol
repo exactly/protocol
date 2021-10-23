@@ -29,7 +29,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     mapping(address => uint256) public borrowCaps;
     mapping(address => IExafin[]) public accountAssets;
 
-    uint256 private marketCount = 0;
     address[] public marketsAddress;
 
     uint256 public closeFactor = 5e17;
@@ -446,7 +445,6 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         market.symbol = symbol;
         market.name = name;
 
-        marketCount += 1;
         marketsAddress.push(exafin);
 
         emit MarketListed(exafin);
