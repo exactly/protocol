@@ -25,7 +25,7 @@ contract ExactlyOracle is IOracle, Ownable {
   /// @param _chainlinkFeedRegistry The address of the Chainlink Feed Registry implementation
   /// @param _symbols The symbols of the assets
   /// @param _sources The address of the source of each asset
-  /// @param _baseCurrency the base currency used for the price quotes. If USD is used, base currency is 0x0
+  /// @param _baseCurrency the base currency used for the price quotes
   /// @param _baseCurrencyUnit the unit of the base currency
   constructor(address _chainlinkFeedRegistry, string[] memory _symbols, address[] memory _sources, address _baseCurrency, uint256 _baseCurrencyUnit) {
     _setAssetsSources(_symbols, _sources);
@@ -35,7 +35,7 @@ contract ExactlyOracle is IOracle, Ownable {
     emit BaseCurrencySet(_baseCurrency, _baseCurrencyUnit);
   }
 
-  /// @notice External function called by the Aave governance to set or replace sources of assets
+  /// @notice External function called by the Exactly governance to set or replace sources of assets
   /// @param symbols The symbols of the assets
   /// @param sources The address of the source of each asset
   function setAssetSources(string[] calldata symbols, address[] calldata sources)
@@ -49,7 +49,10 @@ contract ExactlyOracle is IOracle, Ownable {
   /// @param symbols The symbols of the assets
   /// @param sources The address of the source of each asset
   function _setAssetsSources(string[] memory symbols, address[] memory sources) internal {
-    require(symbols.length == sources.length, "INCONSISTENT_PARAMS_LENGTH");
+    if (symbols.length != sources.length) {
+      revert GenericError(ErrorCode.INCONSISTENT_PARAMS_LENGTH);
+    }
+    
     for (uint256 i = 0; i < symbols.length; i++) {
       assetsSources[symbols[i]] = sources[i];
       emit SymbolSourceUpdated(symbols[i], sources[i]);

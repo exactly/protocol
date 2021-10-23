@@ -94,7 +94,8 @@ export enum ProtocolError {
   BORROW_PAUSED,
   NOT_AN_EXAFIN_SENDER,
   INVALID_SET_BORROW_CAP,
-  MARKET_BORROW_CAP_REACHED
+  MARKET_BORROW_CAP_REACHED,
+  INCONSISTENT_PARAMS_LENGTH
 }
 
 export class ExactlyEnv {
@@ -108,6 +109,7 @@ export class ExactlyEnv {
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
+  usdAddress: string;
 
   constructor(
     _oracle: Contract,
@@ -126,6 +128,7 @@ export class ExactlyEnv {
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
+    this.usdAddress = "0x0000000000000000000000000000000000000348";
   }
 
   public getExafin(key: string): Contract {
