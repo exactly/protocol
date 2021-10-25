@@ -3,6 +3,7 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { errorGeneric, ExactlyEnv, ProtocolError } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 Error.stackTraceLimit = Infinity;
 
@@ -12,6 +13,8 @@ describe("Oracle", function () {
   let exactlyOracle: Contract;
   let chainlinkFeedRegistry: Contract;
   let underlyingToken: Contract;
+
+  let user: SignerWithAddress;
 
   // Oracle price is in 10**8
   let tokensUSDPrice = new Map([
@@ -27,7 +30,7 @@ describe("Oracle", function () {
   let snapshot: any;
 
   beforeEach(async () => {
-
+    [, user] = await ethers.getSigners();
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     
@@ -48,7 +51,7 @@ describe("Oracle", function () {
     );
 
     const ExactlyOracle = await ethers.getContractFactory("ExactlyOracle");
-    exactlyOracle = await ExactlyOracle.deploy(chainlinkFeedRegistry.address, tokenNames, tokenAddresses, exactlyEnv.usdAddress, 1);
+    exactlyOracle = await ExactlyOracle.deploy(chainlinkFeedRegistry.address, tokenNames, tokenAddresses, exactlyEnv.usdAddress);
     await exactlyOracle.deployed();
     await exactlyOracle.setAssetSources(tokenNames, tokenAddresses);
     await exactlyEnv.setOracle(exactlyOracle.address);
@@ -130,6 +133,12 @@ describe("Oracle", function () {
     await expect(
       exactlyOracle.setAssetSources(["ETH", "BTC"], ["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"])
       ).to.be.revertedWith(errorGeneric(ProtocolError.INCONSISTENT_PARAMS_LENGTH));
+  });
+
+  it("SetAssetSources should fail when called from third parties", async () => {
+    await expect(
+      exactlyOracle.connect(user).setAssetSources([], [])
+      ).to.be.revertedWith("AccessControl");
   });
 
   it("GetSourceOfAssetBySymbol should get the source of an asset by its symbol", async () => {

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "./interfaces/IExafin.sol";
@@ -12,7 +11,7 @@ import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract Auditor is Ownable, IAuditor, AccessControl {
+contract Auditor is IAuditor, AccessControl {
 
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 

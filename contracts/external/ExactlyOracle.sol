@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "../interfaces/IOracle.sol";
 import "../interfaces/IChainlinkFeedRegistry.sol";
@@ -11,28 +11,30 @@ import "../utils/Errors.sol";
 /// @notice Proxy smart contract to get the price of an asset from a price source, with Chainlink Feed Registry
 ///         smart contract as the primary option
 /// - If the returned price by the Chainlink Feed Registry is <= 0, the call is reverted
-contract ExactlyOracle is IOracle, Ownable {
+contract ExactlyOracle is IOracle, AccessControl {
 
-  event BaseCurrencySet(address indexed baseCurrency, uint256 baseCurrencyUnit);
+  bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
+
+  event BaseCurrencySet(address indexed baseCurrency);
   event SymbolSourceUpdated(string indexed symbol, address indexed source);
 
   mapping(string => address) private assetsSources;
   IChainlinkFeedRegistry public chainlinkFeedRegistry;
   address public immutable baseCurrency;
-  uint256 public immutable baseCurrencyUnit;
 
   /// @notice Constructor
   /// @param _chainlinkFeedRegistry The address of the Chainlink Feed Registry implementation
   /// @param _symbols The symbols of the assets
   /// @param _sources The address of the source of each asset
-  /// @param _baseCurrency the base currency used for the price quotes
-  /// @param _baseCurrencyUnit the unit of the base currency
-  constructor(address _chainlinkFeedRegistry, string[] memory _symbols, address[] memory _sources, address _baseCurrency, uint256 _baseCurrencyUnit) {
+  /// @param _baseCurrency The base currency used for the price quotes
+  constructor(address _chainlinkFeedRegistry, string[] memory _symbols, address[] memory _sources, address _baseCurrency) {
+    _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _setupRole(TEAM_ROLE, msg.sender);
     _setAssetsSources(_symbols, _sources);
+
     chainlinkFeedRegistry = IChainlinkFeedRegistry(_chainlinkFeedRegistry);
     baseCurrency = _baseCurrency;
-    baseCurrencyUnit = _baseCurrencyUnit;
-    emit BaseCurrencySet(_baseCurrency, _baseCurrencyUnit);
+    emit BaseCurrencySet(_baseCurrency);
   }
 
   /// @notice External function called by the Exactly governance to set or replace sources of assets
@@ -40,14 +42,14 @@ contract ExactlyOracle is IOracle, Ownable {
   /// @param sources The address of the source of each asset
   function setAssetSources(string[] calldata symbols, address[] calldata sources)
     external
-    onlyOwner
+    onlyRole(TEAM_ROLE)
   {
     _setAssetsSources(symbols, sources);
   }
 
   /// @notice Internal function to set the sources for each asset
   /// @param symbols The symbols of the assets
-  /// @param sources The address of the source of each asset
+  /// @param sources The addresses of the sources of each asset
   function _setAssetsSources(string[] memory symbols, address[] memory sources) internal {
     if (symbols.length != sources.length) {
       revert GenericError(ErrorCode.INCONSISTENT_PARAMS_LENGTH);
