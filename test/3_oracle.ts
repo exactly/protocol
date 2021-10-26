@@ -111,13 +111,13 @@ describe("ExactlyOracle", function () {
   it("GetAssetPrice should fail when asset symbol is invalid", async () => {
     await expect(
       exactlyOracle.getAssetPrice("INVALID")
-    ).to.be.reverted;
+    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
   it("GetAssetPrices should fail if an asset symbol is invalid", async () => {
     await expect(
       exactlyOracle.getAssetsPrices(["ETH", "INVALID"])
-    ).to.be.reverted;
+    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
   it("SetAssetSources should set the address source of an asset", async () => {
