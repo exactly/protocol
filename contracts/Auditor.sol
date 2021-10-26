@@ -14,27 +14,15 @@ import "hardhat/console.sol";
 
 contract Auditor is Ownable, IAuditor, AccessControl {
 
-    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
-
     using DecimalMath for uint256;
+
+    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     event MarketListed(address exafin);
     event MarketEntered(address exafin, address account);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
     event NewBorrowCap(address indexed exafin, uint newBorrowCap);
-
-    mapping(address => Market) public markets;
-    mapping(address => bool) public borrowPaused;
-    mapping(address => uint256) public borrowCaps;
-    mapping(address => IExafin[]) public accountAssets;
-
-    address[] public marketsAddress;
-
-    uint256 public closeFactor = 5e17;
-    uint8 public maxFuturePools = 12; // 6 months
-
-    Oracle private oracle;
 
     struct Market {
         string symbol;
@@ -44,6 +32,31 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         mapping(address => bool) accountMembership;
     }
 
+    // Protocol Management
+    mapping(address => Market) public markets;
+    mapping(address => bool) public borrowPaused;
+    mapping(address => uint256) public borrowCaps;
+    mapping(address => IExafin[]) public accountAssets;
+    uint256 public closeFactor = 5e17;
+    uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
+    address[] public marketsAddress;
+
+    // Rewards Management
+    struct ExaMarketState {
+        uint224 index;
+        uint32 block;
+    }
+    uint public exaRate;
+    mapping(address => uint) public exaSpeeds;
+    mapping(address => ExaMarketState) public exaSupplyState;
+    mapping(address => ExaMarketState) public exaBorrowState;
+    mapping(address => mapping(address => uint)) public exaSupplierIndex;
+    mapping(address => mapping(address => uint)) public exaBorrowerIndex;
+    mapping(address => uint) public exaAccrued;
+
+    Oracle private oracle;
+
+    // Struct to avoid stack too deep
     struct AccountLiquidity {
         uint256 balance;
         uint256 borrowBalance;
