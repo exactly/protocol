@@ -65,7 +65,7 @@ let config: HardhatUserConfig = {
     hardhat: process.env.FORKING === 'true' ? forkingHardhatConfig : standaloneHardhatConfig,
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY_API_KEY}`,
-      gasPrice: 5000000000,
+      gasPrice: 100000000000,
       accounts: {
         mnemonic: process.env.MNEMONIC
       }
