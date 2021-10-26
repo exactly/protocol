@@ -459,7 +459,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
       */
     function setMarketBorrowCaps(
-        IExafin[] calldata exafins,
+        address[] calldata exafins,
         uint256[] calldata newBorrowCaps
     ) external onlyRole(TEAM_ROLE) {
         uint numMarkets = exafins.length;
@@ -470,8 +470,12 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         }
 
         for(uint i = 0; i < numMarkets; i++) {
-            borrowCaps[address(exafins[i])] = newBorrowCaps[i];
-            emit NewBorrowCap(address(exafins[i]), newBorrowCaps[i]);
+            if (!markets[exafins[i]].isListed) {
+                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+            }
+
+            borrowCaps[exafins[i]] = newBorrowCaps[i];
+            emit NewBorrowCap(exafins[i], newBorrowCaps[i]);
         }
     }
 

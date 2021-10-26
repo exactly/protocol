@@ -111,7 +111,10 @@ contract Exafin is IExafin, ReentrancyGuard {
         @param maturityDate maturity date for calculating rates
      */
     function getRateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
+
         PoolLib.Pool memory poolMaturity = pools[maturityDate];
         return interestRateModel.getRateToBorrow(amount, maturityDate, poolMaturity, smartPool, false);
     }
@@ -123,7 +126,10 @@ contract Exafin is IExafin, ReentrancyGuard {
         @param maturityDate maturity date for calculating rates
      */
     function getRateToSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
-        require(TSUtils.isPoolID(maturityDate) == true, "Not a pool ID");
+        if(!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
+
         PoolLib.Pool memory poolMaturity = pools[maturityDate];
         return interestRateModel.getRateToSupply(amount, maturityDate, poolMaturity, smartPool);
     }
