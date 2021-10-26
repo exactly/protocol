@@ -65,33 +65,45 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         bool newDebt
     ) override external view returns (uint256) {
         if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
-        uint256 yearlyRate = 0;
+        
         bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
         bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
 
+        uint256 daysDifference = (maturityDate -
+            TSUtils.trimmedDay(block.timestamp)) / 1 days;
+
+        uint256 yearlyRate = 0;
         uint256 maturityPoolYearlyRate = 0;
         uint256 smartPoolYearlyRate = 0;
+
+        if (!canCheckSmartPoolUR && !canCheckMaturityPoolUR) {
+            console.log('Final return', 0);
+            return 0;
+        }
 
         if (canCheckSmartPoolUR) {
             smartPoolYearlyRate = (spSlopeRate * smartPool.borrowed) / smartPool.supplied;
         }
 
-        console.log(maturityPool.borrowed, maturityPool.supplied);
-
-        if (canCheckSmartPoolUR && newDebt) {
-            if (canCheckMaturityPoolUR && smartPoolYearlyRate > maturityPoolYearlyRate) {
-                yearlyRate = smartPoolYearlyRate;
-                console.log("Smart cause highest rate yearlyRate getRateToBorrow", yearlyRate);
-            }
+        if (canCheckMaturityPoolUR) {
+            maturityPoolYearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
         }
 
-        console.log("Final yearlyRate getRateToBorrow", yearlyRate);
-        maturityPool.borrowed += amount;
+        if (!newDebt) {
+            yearlyRate = maturityPoolYearlyRate;
+            console.log('Final return', yearlyRate);
 
-        uint256 daysDifference = (maturityDate -
-            TSUtils.trimmedDay(block.timestamp)) / 1 days;
+            return ((yearlyRate * daysDifference) / 365);
+        }
 
-        return ((yearlyRate * daysDifference) / 365);
+        //This conditionals are just for testing, will delete later.
+        if (smartPoolYearlyRate > maturityPoolYearlyRate) {
+            console.log('Final return', smartPoolYearlyRate);
+        } else {
+            console.log('Final return', maturityPoolYearlyRate);
+        }
+
+        return smartPoolYearlyRate > maturityPoolYearlyRate ? ((smartPoolYearlyRate * daysDifference) / 365) : ((maturityPoolYearlyRate * daysDifference) / 365);
     }
 
     /**
@@ -112,25 +124,34 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
 
         uint256 yearlyRate = 0;
+        uint256 maturityPoolYearlyRate = 0;
+        uint256 smartPoolYearlyRate = 0;
 
-        if (maturityPool.borrowed != 0 && maturityPool.supplied != 0 && maturityPool.supplied - maturityPool.borrowed != 0) {
-            yearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
-            console.log("Maturity yearlyRate getRateToSupply", yearlyRate);
+        bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
+        bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
+        
+
+        if (canCheckSmartPoolUR) {
+            smartPoolYearlyRate = ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
         }
 
-        if (smartPool.borrowed != 0 && smartPool.supplied != 0) {
-            // uint256 maturityEq = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
-            uint256 smartEq =  ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
-            
-            console.log("UR Smart Pool", smartPool.borrowed.div_(smartPool.supplied + amount));
-
-            if (maturityPool.borrowed == 0 || maturityPool.supplied == 0 || maturityPool.supplied - maturityPool.borrowed == 0) {
-                yearlyRate = smartEq;
-                console.log("Smart yearlyRate getRateToSupply", yearlyRate);
-            }
+        if (canCheckMaturityPoolUR) {
+            maturityPoolYearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
         }
 
-        maturityPool.supplied += amount;
+        if (!canCheckMaturityPoolUR && !canCheckSmartPoolUR) {
+            console.log('Final return getRateToSupply', 0);
+
+            return 0;
+        }
+
+        if (canCheckMaturityPoolUR && maturityPool.supplied - maturityPool.borrowed != 0) {
+            yearlyRate = maturityPoolYearlyRate;
+        }
+
+        if (canCheckSmartPoolUR && !canCheckMaturityPoolUR || maturityPool.supplied - maturityPool.borrowed == 0) {
+            yearlyRate = smartPoolYearlyRate;
+        }
 
         console.log("Final yearlyRate getRateToSupply", yearlyRate);
         uint256 daysDifference = (maturityDate -

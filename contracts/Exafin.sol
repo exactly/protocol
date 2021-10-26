@@ -227,6 +227,7 @@ contract Exafin is IExafin, ReentrancyGuard {
                 pool.available = amount - pool.debt;
             } else {
                 pool.debt -= amount;
+                pool.supplied += amount;
             }
         } else {
             pool.supplied = pool.supplied + amount;
