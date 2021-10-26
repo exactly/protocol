@@ -9,7 +9,6 @@ import "./utils/DecimalMath.sol";
 
 import "hardhat/console.sol";
 
-
 contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.Pool;
 
@@ -21,10 +20,14 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     uint256 public spSlopeRate;
     using DecimalMath for uint256;
 
-    constructor(uint256 _marginRate, uint256 _slopeRate) {
+    constructor(
+        uint256 _marginRate,
+        uint256 _mpSlopeRate,
+        uint256 _spSlopeRate
+    ) {
         marginRate = _marginRate;
-        mpSlopeRate = _slopeRate;
-        spSlopeRate = _slopeRate;
+        mpSlopeRate = _mpSlopeRate;
+        spSlopeRate = _spSlopeRate;
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(TEAM_ROLE, msg.sender);
     }
@@ -32,22 +35,27 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     /**
         @dev Function to update this model's parameters (TEAM_ONLY)
         @param _marginRate spread between borrowing and lending
-        @param _slopeRate slope to alter the utilization rate
+        @param _mpSlopeRate slope to alter the utilization rate
+        @param _spSlopeRate slope to alter the utilization rate
      */
-    function setParameters(uint256 _marginRate, uint256 _slopeRate) external onlyRole(TEAM_ROLE) {
+    function setParameters(
+        uint256 _marginRate,
+        uint256 _mpSlopeRate,
+        uint256 _spSlopeRate
+    ) external onlyRole(TEAM_ROLE) {
         marginRate = _marginRate;
-        mpSlopeRate = _slopeRate;
-        spSlopeRate = _slopeRate;
+        mpSlopeRate = _mpSlopeRate;
+        spSlopeRate = _spSlopeRate;
     }
 
-    function canCalculateSmartPoolUR(PoolLib.SmartPool memory smartPool) pure internal returns (bool) {
+    function canCalculateSmartPoolUR(PoolLib.SmartPool memory smartPool) internal pure returns (bool) {
         return smartPool.borrowed != 0 && smartPool.supplied != 0;
     }
 
-     function canCalculateMaturityPoolUR(PoolLib.Pool memory maturityPool) pure internal returns (bool) {
+    function canCalculateMaturityPoolUR(PoolLib.Pool memory maturityPool) internal pure returns (bool) {
         return maturityPool.borrowed != 0 && maturityPool.supplied != 0;
     }
-    
+
     /**
         @dev Get current rate for borrow a certain amount in a certain maturity
              with supply/demand values in the maturity pool and supply demand values
@@ -63,21 +71,20 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         PoolLib.Pool memory maturityPool,
         PoolLib.SmartPool memory smartPool,
         bool newDebt
-    ) override external view returns (uint256) {
-        if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
-        
+    ) external view override returns (uint256) {
+        if (!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
+
         bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
         bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
 
-        uint256 daysDifference = (maturityDate -
-            TSUtils.trimmedDay(block.timestamp)) / 1 days;
+        uint256 daysDifference = (maturityDate - TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
         uint256 yearlyRate = 0;
         uint256 maturityPoolYearlyRate = 0;
         uint256 smartPoolYearlyRate = 0;
 
         if (!canCheckSmartPoolUR && !canCheckMaturityPoolUR) {
-            console.log('Final return', 0);
+            console.log("Final return", 0);
             return 0;
         }
 
@@ -91,19 +98,22 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
 
         if (!newDebt) {
             yearlyRate = maturityPoolYearlyRate;
-            console.log('Final return', yearlyRate);
+            console.log("Final return", yearlyRate);
 
             return ((yearlyRate * daysDifference) / 365);
         }
 
         //This conditionals are just for testing, will delete later.
         if (smartPoolYearlyRate > maturityPoolYearlyRate) {
-            console.log('Final return', smartPoolYearlyRate);
+            console.log("Final return", smartPoolYearlyRate);
         } else {
-            console.log('Final return', maturityPoolYearlyRate);
+            console.log("Final return", maturityPoolYearlyRate);
         }
 
-        return smartPoolYearlyRate > maturityPoolYearlyRate ? ((smartPoolYearlyRate * daysDifference) / 365) : ((maturityPoolYearlyRate * daysDifference) / 365);
+        return
+            smartPoolYearlyRate > maturityPoolYearlyRate
+                ? ((smartPoolYearlyRate * daysDifference) / 365)
+                : ((maturityPoolYearlyRate * daysDifference) / 365);
     }
 
     /**
@@ -120,8 +130,8 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         uint256 maturityDate,
         PoolLib.Pool memory maturityPool,
         PoolLib.SmartPool memory smartPool
-    ) override external view returns (uint256) {
-        if(!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
+    ) external view override returns (uint256) {
+        if (!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
 
         uint256 yearlyRate = 0;
         uint256 maturityPoolYearlyRate = 0;
@@ -129,7 +139,6 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
 
         bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
         bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
-        
 
         if (canCheckSmartPoolUR) {
             smartPoolYearlyRate = ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
@@ -140,7 +149,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         }
 
         if (!canCheckMaturityPoolUR && !canCheckSmartPoolUR) {
-            console.log('Final return getRateToSupply', 0);
+            console.log("Final return getRateToSupply", 0);
 
             return 0;
         }
@@ -149,13 +158,12 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             yearlyRate = maturityPoolYearlyRate;
         }
 
-        if (canCheckSmartPoolUR && !canCheckMaturityPoolUR || maturityPool.supplied - maturityPool.borrowed == 0) {
+        if ((canCheckSmartPoolUR && !canCheckMaturityPoolUR) || maturityPool.supplied - maturityPool.borrowed == 0) {
             yearlyRate = smartPoolYearlyRate;
         }
 
         console.log("Final yearlyRate getRateToSupply", yearlyRate);
-        uint256 daysDifference = (maturityDate -
-            TSUtils.trimmedDay(block.timestamp)) / 1 days;
+        uint256 daysDifference = (maturityDate - TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
         return ((yearlyRate * daysDifference) / 365);
     }

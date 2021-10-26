@@ -2,7 +2,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { BigNumber } from "@ethersproject/bignumber";
 import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
