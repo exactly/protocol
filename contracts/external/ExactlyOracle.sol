@@ -15,7 +15,6 @@ contract ExactlyOracle is IOracle, AccessControl {
 
   bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
-  event BaseCurrencySet(address indexed baseCurrency);
   event SymbolSourceUpdated(string indexed symbol, address indexed source);
 
   mapping(string => address) private assetsSources;
@@ -34,7 +33,6 @@ contract ExactlyOracle is IOracle, AccessControl {
 
     chainlinkFeedRegistry = IChainlinkFeedRegistry(_chainlinkFeedRegistry);
     baseCurrency = _baseCurrency;
-    emit BaseCurrencySet(_baseCurrency);
   }
 
   /// @notice External function called by the Exactly governance to set or replace sources of assets

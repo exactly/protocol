@@ -7,7 +7,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 Error.stackTraceLimit = Infinity;
 
-describe("Oracle", function () {
+describe("ExactlyOracle", function () {
   let exactlyEnv: ExactlyEnv;
 
   let exactlyOracle: Contract;
@@ -132,13 +132,13 @@ describe("Oracle", function () {
   it("SetAssetSources should fail when called with different length for asset symbols and addresses", async () => {
     await expect(
       exactlyOracle.setAssetSources(["ETH", "BTC"], ["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"])
-      ).to.be.revertedWith(errorGeneric(ProtocolError.INCONSISTENT_PARAMS_LENGTH));
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INCONSISTENT_PARAMS_LENGTH));
   });
 
   it("SetAssetSources should fail when called from third parties", async () => {
     await expect(
       exactlyOracle.connect(user).setAssetSources([], [])
-      ).to.be.revertedWith("AccessControl");
+    ).to.be.revertedWith("AccessControl");
   });
 
   it("GetSourceOfAssetBySymbol should get the source of an asset by its symbol", async () => {

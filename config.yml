@@ -1,10 +1,12 @@
 token_addresses:
   hardhat:
-    price_oracle: "0x6d2299c48a8dd07a872fdd0f8233924872ad1071"
+    chainlink_feed_registry: "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf"
+    usd_address: "0x0000000000000000000000000000000000000348"
     assets:
       DAI:
         name: "Dai"
         address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+        oracle_address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
         whale: "0x2c8fbb630289363ac80705a1a61273f76fd5a161"
         collateralRate: "0.8"
         oracleName: "DAI"
@@ -12,6 +14,7 @@ token_addresses:
       USDC:
         name: "USD Coin"
         address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        oracle_address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
         whale: "0x47ac0fb4f2d84898e4d9e7b4dab3c24507a6d503"
         collateralRate: "0.8"
         oracleName: "USDC"
@@ -19,6 +22,7 @@ token_addresses:
       USDT:
         name: "Tether"
         address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        oracle_address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
         whale: "0x5754284f345afc66a98fbb0a0afe71e0f007b949"
         collateralRate: "0.8"
         oracleName: "USDT"
@@ -26,22 +30,44 @@ token_addresses:
       WETH:
         name: "Wrapped ETH"
         address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        oracle_address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
         whale: "0xa5d07e978398eb1715056d3ca5cb31035c02fdad"
         collateralRate: "0.8"
         oracleName: "ETH"
         decimals: 18
   rinkeby:
-    price_oracle: "0x6d2299c48a8dd07a872fdd0f8233924872ad1071"
+    chainlink_feed_registry: "0xAa7F6f7f507457a1EE157fE97F6c7DB2BEec5cD0"
+    usd_address: "0x0000000000000000000000000000000000000348"
     assets:
       DAI:
         name: "Dai"
         address: "0x95b58a6bff3d14b7db2f5cb5f0ad413dc2940658"
+        oracle_address: "0x95b58a6bff3d14b7db2f5cb5f0ad413dc2940658"
         collateralRate: "0.8"
         oracleName: "DAI"
         decimals: 18
       WETH:
         name: "Wrapped ETH"
         address: "0xc778417e063141139fce010982780140aa0cd5ab"
+        oracle_address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
         collateralRate: "0.8"
         oracleName: "ETH"
         decimals: 18
+  kovan:
+      chainlink_feed_registry: "0xAa7F6f7f507457a1EE157fE97F6c7DB2BEec5cD0"
+      usd_address: "0x0000000000000000000000000000000000000348"
+      assets:
+        DAI:
+          name: "Dai"
+          address: "0x95b58a6bff3d14b7db2f5cb5f0ad413dc2940658"
+          oracle_address: "0x95b58a6bff3d14b7db2f5cb5f0ad413dc2940658"
+          collateralRate: "0.8"
+          oracleName: "DAI"
+          decimals: 18
+        WETH:
+          name: "Wrapped ETH"
+          address: "0xc778417e063141139fce010982780140aa0cd5ab"
+          oracle_address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+          collateralRate: "0.8"
+          oracleName: "ETH"
+          decimals: 18

@@ -9,7 +9,6 @@ import { ethers } from "hardhat";
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const file = fs.readFileSync("./config.yml", "utf8");
   const config = YAML.parse(file);
-
   const [deployer] = await hre.getUnnamedAccounts();
 
   if (hre.network.name === 'hardhat'){
@@ -17,16 +16,25 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   let tokensForNetwork = config.token_addresses[hre.network.name].assets;
-  let priceOracleAddress =
-    config.token_addresses[hre.network.name].price_oracle;
+  let chainlinkFeedRegistryAddress = config.token_addresses[hre.network.name].chainlink_feed_registry;
 
   const tsUtils = await hre.deployments.deploy("TSUtils", {
       from: deployer,
   });
 
+  const {tokenAddresses, tokenSymbols} = await getTokenParameters(tokensForNetwork);
+  const exactlyOracle = await hre.deployments.deploy("ExactlyOracle", {
+    from: deployer,
+    args: [chainlinkFeedRegistryAddress, tokenSymbols, tokenAddresses, config.token_addresses[hre.network.name].usd_address],
+    log: true,
+    libraries: {
+      TSUtils: tsUtils.address
+    }
+  });
+
   const auditor = await hre.deployments.deploy("Auditor", {
     from: deployer,
-    args: [priceOracleAddress],
+    args: [exactlyOracle.address],
     log: true,
     libraries: {
       TSUtils: tsUtils.address
@@ -72,14 +80,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       }
     });
 
-    // We transfer ownership of Exafin to Auditor 
-    await hre.deployments.execute(
-      "Exafin",
-      { from: deployer },
-      "transferOwnership",
-      auditor.address
-    );
-
     // We enable this ExaFin Market on Auditor 
     await hre.deployments.execute(
       "Auditor",
@@ -114,6 +114,19 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
   }
 };
+
+async function getTokenParameters(tokensForNetwork: any) {
+  let tokenAddresses = new Array();
+  let tokenSymbols = new Array();
+  for (const symbol of Object.keys(tokensForNetwork)) {
+    const { oracleName, oracle_address } = tokensForNetwork[symbol];
+
+    tokenSymbols.push(oracleName);
+    tokenAddresses.push(oracle_address);
+  }
+
+  return {tokenAddresses, tokenSymbols};
+}
 
 func.skip = (hre: HardhatRuntimeEnvironment) =>
   Promise.resolve(hre.network.name === "mainnet");
