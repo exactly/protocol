@@ -27,8 +27,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const {tokenAddresses, tokenSymbols} = await getTokenParameters(tokensForNetwork);
     exactlyOracle = await hre.deployments.deploy("ExactlyOracle", {
       from: deployer,
-      args: [config.tokenAddresses[hre.network.name].chainlinkFeedRegistry, 
-        tokenSymbols, tokenAddresses, config.tokenAddresses[hre.network.name].usdAddress],
+      args: [
+        config.tokenAddresses[hre.network.name].chainlinkFeedRegistry,
+        tokenSymbols,
+        tokenAddresses,
+        config.tokenAddresses[hre.network.name].usdAddress
+      ],
       log: true,
       libraries: {
         TSUtils: tsUtils.address
