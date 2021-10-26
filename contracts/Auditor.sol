@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import "./interfaces/IExafin.sol";
 import "./interfaces/IAuditor.sol";
@@ -15,6 +16,7 @@ import "hardhat/console.sol";
 contract Auditor is Ownable, IAuditor, AccessControl {
 
     using DecimalMath for uint256;
+    using SafeCast for uint256;
 
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
@@ -23,6 +25,11 @@ contract Auditor is Ownable, IAuditor, AccessControl {
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
     event NewBorrowCap(address indexed exafin, uint newBorrowCap);
+    event DistributedSupplierExa(address indexed exafin,
+        address indexed supplier,
+        uint supplierDelta,
+        uint exaSupplyIndex
+    );
 
     struct Market {
         string symbol;
@@ -210,15 +217,17 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         address supplier,
         uint256 supplyAmount,
         uint256 maturityDate
-    ) external view override {
-        supplier;
+    ) override external {
         supplyAmount;
 
         if (!markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        _requirePoolState(maturityDate, TSUtils.State.VALID); 
+        _requirePoolState(maturityDate, TSUtils.State.VALID);
+
+        _updateExaSupplyIndex(exafinAddress);
+        _distributeSupplierExa(exafinAddress, supplier);
     }
 
     function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external view {
@@ -295,7 +304,7 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
-    ) external view override {
+    ) override external {
         if (!markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -318,6 +327,9 @@ contract Auditor is Ownable, IAuditor, AccessControl {
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
+
+        _updateExaSupplyIndex(exafinAddress);
+        _distributeSupplierExa(exafinAddress, redeemer);
     }
 
     function repayAllowed(
@@ -529,6 +541,48 @@ contract Auditor is Ownable, IAuditor, AccessControl {
      */
     function getMarketAddresses() override external view returns (address[] memory) {
         return marketsAddress;
+    }
+
+    /**
+     * @notice Accrue EXA to the market by updating the supply index
+     * @param exafinAddress The market whose supply index to update
+     */
+    function _updateExaSupplyIndex(address exafinAddress) internal {
+        ExaMarketState storage supplyState = exaSupplyState[exafinAddress];
+        uint supplySpeed = exaSpeeds[exafinAddress];
+        uint blockNumber = block.number;
+        uint deltaBlocks = blockNumber - uint(supplyState.block);
+        if (deltaBlocks > 0 && supplySpeed > 0) {
+            uint256 supplyTokens = IExafin(exafinAddress).totalDeposits();
+            uint256 exaAccruedDelta = deltaBlocks.mul_(supplySpeed);
+            uint256 ratio = supplyTokens > 0 ? exaAccruedDelta.div_(supplyTokens) : 0;
+            uint256 index = supplyState.index + ratio;
+            exaSupplyState[exafinAddress] = ExaMarketState({
+                index: index.toUint224(),
+                block: blockNumber.toUint32()
+            });
+        } else if (deltaBlocks > 0) {
+            supplyState.block = blockNumber.toUint32();
+        }
+    }
+
+    /**
+     * @notice Calculate COMP accrued by a supplier and possibly transfer it to them
+     * @param exafinAddress The market in which the supplier is interacting
+     * @param supplier The address of the supplier to distribute COMP to
+     */
+    function _distributeSupplierExa(address exafinAddress, address supplier) internal {
+        ExaMarketState storage supplyState = exaSupplyState[exafinAddress];
+        uint256 supplyIndex = supplyState.index;
+        uint256 supplierIndex = exaSupplierIndex[exafinAddress][supplier];
+        exaSupplierIndex[exafinAddress][supplier] = supplyIndex;
+
+        uint256 deltaIndex = supplyIndex - supplierIndex;
+        uint supplierTokens = IExafin(exafinAddress).suppliesOf(supplier);
+        uint supplierDelta = supplierTokens.mul_(deltaIndex);
+        uint supplierAccrued = exaAccrued[supplier] + supplierDelta;
+        exaAccrued[supplier] = supplierAccrued;
+        emit DistributedSupplierExa(exafinAddress, supplier, supplierDelta, supplierIndex);
     }
 
 }

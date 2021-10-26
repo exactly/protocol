@@ -71,7 +71,6 @@ contract Exafin is IExafin, ReentrancyGuard {
     mapping(uint256 => PoolLib.Pool) public pools;
     mapping(address => uint256[]) public addressPools;
 
-    uint256 private constant RATE_UNIT = 1e18;
     uint256 private constant PROTOCOL_SEIZE_SHARE = 2.8e16; //2.8%
 
     IERC20 private trustedUnderlying;
@@ -80,9 +79,17 @@ contract Exafin is IExafin, ReentrancyGuard {
     IAuditor public auditor;
     IInterestRateModel public interestRateModel;
 
-    // POC for eternal pool
+    // Smart Pool Values
     uint256 public totalSupply;
     mapping(address => uint256) public balances;
+
+    // Total deposits in all maturities
+    uint256 override public totalDeposits;
+    mapping(address => uint256) public totalDepositsUser;
+
+    // Total borrows in all maturities
+    uint256 override public totalBorrows;
+    mapping(address => uint256) public totalBorrowsUser;
 
     constructor(
         address _tokenAddress,
@@ -159,10 +166,13 @@ contract Exafin is IExafin, ReentrancyGuard {
             pool // TO BE REPLACED BY POT
         );
 
-        uint256 commission = (amount * commissionRate) / RATE_UNIT;
-        borrowedAmounts[maturityDate][msg.sender] += amount + commission;
-        pool.borrowed += amount;
+        uint256 commission = amount.mul_(commissionRate);
+        uint256 totalBorrow = amount + commission;
+        borrowedAmounts[maturityDate][msg.sender] += totalBorrow;
+        pool.borrowed += totalBorrow;
         pools[maturityDate] = pool;
+
+        totalBorrows += totalBorrow;
 
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
@@ -203,10 +213,13 @@ contract Exafin is IExafin, ReentrancyGuard {
             pool // TO BE REPLACED BY POT
         );
 
-        uint256 commission = ((amount * commissionRate) / RATE_UNIT);
-        suppliedAmounts[maturityDate][from] += amount + commission;
-        pool.supplied += amount;
+        uint256 commission = amount.mul_(commissionRate);
+        uint256 totalAmount = amount + commission;
+        suppliedAmounts[maturityDate][from] += totalAmount;
+        pool.supplied += totalAmount;
         pools[maturityDate] = pool;
+
+        totalDeposits += totalAmount;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
@@ -237,6 +250,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         );
 
         suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
+        totalDeposits -= redeemAmount;
 
         require(
             trustedUnderlying.balanceOf(address(this)) > redeemAmount,
@@ -262,23 +276,6 @@ contract Exafin is IExafin, ReentrancyGuard {
         address borrower,
         uint256 maturityDate
     ) override external nonReentrant {
-        _repay(msg.sender, borrower, maturityDate);
-    }
-
-    /**
-        @notice Payer repays borrower's debt for a maturity date
-        @dev The pool that the user is trying to repay to should be matured.
-             The difference with `_repayLiquidate` is that this one doesn't alter
-             The pool and it's use for cancelling the debt
-        @param borrower The address of the account that has the debt
-        @param maturityDate The matured date where the debt is located
-     */
-    function _repay(
-        address payer,
-        address borrower,
-        uint256 maturityDate
-    ) internal {
-
         // reverts on failure
         auditor.repayAllowed(
             address(this),
@@ -289,11 +286,12 @@ contract Exafin is IExafin, ReentrancyGuard {
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
 
-        trustedUnderlying.safeTransferFrom(payer, address(this), amountBorrowed);
+        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amountBorrowed);
+        totalBorrows -= amountBorrowed;
 
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit Repaid(payer, borrower, amountBorrowed, maturityDate);
+        emit Repaid(msg.sender, borrower, amountBorrowed, maturityDate);
     }
 
     /**
@@ -314,16 +312,17 @@ contract Exafin is IExafin, ReentrancyGuard {
     ) internal {
         require(repayAmount != 0, "You can't repay zero");
 
-        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
-
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
+        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
         borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
 
         // That repayment diminishes debt in the pool
         PoolLib.Pool memory pool = pools[maturityDate];
         pool.borrowed -= repayAmount;
         pools[maturityDate] = pool;
+
+        totalBorrows -= repayAmount;
 
         emit Repaid(payer, borrower, repayAmount, maturityDate);
     }
@@ -500,4 +499,14 @@ contract Exafin is IExafin, ReentrancyGuard {
     function getAuditor() public view override returns (IAuditor) {
         return IAuditor(auditor);
     }
+
+    /**
+        @dev Retrieves all the supplies (Smart + all maturities) in this Exafin
+             for a user -- This is NOT for ERC20 of the smart pool
+     */
+    function suppliesOf(address who) public view override returns (uint256) {
+        return balances[who] + totalDepositsUser[who];
+    }
+
+
 }

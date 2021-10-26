@@ -156,13 +156,12 @@ describe("Exafin", function () {
     await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
     await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets([exafinMaria.address]);
-    expect(
-      await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
-    ).to.emit(exafinMaria, "Borrowed");
-
+    let tx = await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
+    expect(tx).to.emit(exafinMaria, "Borrowed");
+    let event = await parseBorrowEvent(tx);
     expect(
       await exafinMaria.getTotalBorrows(exaTime.nextPoolID())
-    ).to.equal(parseUnits("0.8"));
+    ).to.equal(parseUnits("0.8").add(event.commission));
   });
 
   it("it doesn't allow you to borrow money from a pool that matured", async () => {
