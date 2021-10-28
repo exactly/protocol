@@ -21,11 +21,11 @@ describe("Auditor from User Space", function () {
     ["WBTC", parseUnits("0.6", 18)]
   ]);
 
-  // Oracle price is in 10**8
+  // Mocked Oracle prices are returned in 10**18
   let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 8)],
-    ["ETH", parseUnits("3000", 8)],
-    ["WBTC", parseUnits("63000", 8)]
+    ["DAI", parseUnits("1", 18)],
+    ["ETH", parseUnits("3000", 18)],
+    ["WBTC", parseUnits("63000", 18)]
   ]);
 
   let closeFactor = parseUnits("0.4");
@@ -244,14 +244,14 @@ describe("Auditor from User Space", function () {
       .mul(tokensCollateralRate.get("DAI")!)
       .div(parseUnits("1", 18))
       .mul(tokensUSDPrice.get("DAI")!)
-      .div(parseUnits("1", 8));
+      .div(parseUnits("1", 18));
 
     let collaterETH = amountETH
       .add(borrowETHEvent.commission)
       .mul(tokensCollateralRate.get("ETH")!)
       .div(parseUnits("1", 18))
       .mul(tokensUSDPrice.get("ETH")!)
-      .div(parseUnits("1", 8));
+      .div(parseUnits("1", 18));
 
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
   });

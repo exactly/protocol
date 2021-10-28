@@ -22,7 +22,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   
   let exactlyOracle;
   if (hre.network.name === "rinkeby") {
-    exactlyOracle = (await ethers.getContractFactory("SomeOracle")).attach(config.tokenAddresses[hre.network.name].mockExactlyOracle);
+    exactlyOracle = (await ethers.getContractFactory("MockedOracle")).attach(config.tokenAddresses[hre.network.name].mockedExactlyOracle);
   } else {
     const {tokenAddresses, tokenSymbols} = await getTokenParameters(tokensForNetwork);
     exactlyOracle = await hre.deployments.deploy("ExactlyOracle", {

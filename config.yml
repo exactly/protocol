@@ -36,7 +36,7 @@ tokenAddresses:
         oracleName: "ETH"
         decimals: 18
   rinkeby:
-    mockExactlyOracle: "0x05cCA0e6b4C53eC73B28313745641940E5634842"
+    mockedExactlyOracle: "0x05cCA0e6b4C53eC73B28313745641940E5634842"
     assets:
       DAI:
         name: "Dai"

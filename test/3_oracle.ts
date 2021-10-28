@@ -5,8 +5,6 @@ import { errorGeneric, ExactlyEnv, ProtocolError } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-Error.stackTraceLimit = Infinity;
-
 describe("ExactlyOracle", function () {
   let exactlyEnv: ExactlyEnv;
 
@@ -16,7 +14,7 @@ describe("ExactlyOracle", function () {
 
   let user: SignerWithAddress;
 
-  // Oracle price is in 10**8
+  // Mocked Feed Registry prices are returned in 10**8
   let tokensUSDPrice = new Map([
     ["DAI", parseUnits("1", 8)],
     ["ETH", parseUnits("3100", 8)],
@@ -33,8 +31,7 @@ describe("ExactlyOracle", function () {
     [, user] = await ethers.getSigners();
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
     underlyingToken = exactlyEnv.getUnderlying("DAI");
-    
-    const ChainlinkFeedRegistryMock = await ethers.getContractFactory("SomeChainlinkFeedRegistry");
+    const ChainlinkFeedRegistryMock = await ethers.getContractFactory("MockedChainlinkFeedRegistry");
     chainlinkFeedRegistry = await ChainlinkFeedRegistryMock.deploy();
     await chainlinkFeedRegistry.deployed();
 
@@ -65,15 +62,9 @@ describe("ExactlyOracle", function () {
     let priceOfEth = await exactlyOracle.getAssetPrice("ETH");
     let priceOfDai = await exactlyOracle.getAssetPrice("DAI");
 
-    expect(priceOfEth).to.be.equal(tokensUSDPrice.get("ETH"));
-    expect(priceOfDai).to.be.equal(tokensUSDPrice.get("DAI"));
-  });
-
-  it("GetAssetsPrices returns positive and valid price values", async () => {
-    let prices = await exactlyOracle.getAssetsPrices(["ETH", "DAI"]);
-
-    expect(prices[0]).to.be.equal(tokensUSDPrice.get("ETH"));
-    expect(prices[1]).to.be.equal(tokensUSDPrice.get("DAI"));
+    // The price returned by the oracle is previously scaled to an 18-digit decimal
+    expect(priceOfEth).to.be.equal(tokensUSDPrice.get("ETH")!.mul(1e10));
+    expect(priceOfDai).to.be.equal(tokensUSDPrice.get("DAI")!.mul(1e10));
   });
 
   it("GetAssetPrice should fail when price value is zero", async () => {
@@ -84,13 +75,6 @@ describe("ExactlyOracle", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
-  it("GetAssetPrices should fail if a price value is zero", async () => {
-    await chainlinkFeedRegistry.setPrice(underlyingToken.address, exactlyEnv.usdAddress, 0);
-
-    await expect(
-      exactlyOracle.getAssetsPrices(["ETH", "DAI"])
-    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
-  });
 
   it("GetAssetPrice should fail when price value is lower than zero", async () => {
     await chainlinkFeedRegistry.setPrice(underlyingToken.address, exactlyEnv.usdAddress, -10);
@@ -100,23 +84,9 @@ describe("ExactlyOracle", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
-  it("GetAssetPrices should fail if a price value is lower than zero", async () => {
-    await chainlinkFeedRegistry.setPrice(underlyingToken.address, exactlyEnv.usdAddress, -10);
-
-    await expect(
-      exactlyOracle.getAssetsPrices(["ETH", "DAI"])
-    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
-  });
-
   it("GetAssetPrice should fail when asset symbol is invalid", async () => {
     await expect(
       exactlyOracle.getAssetPrice("INVALID")
-    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
-  });
-
-  it("GetAssetPrices should fail if an asset symbol is invalid", async () => {
-    await expect(
-      exactlyOracle.getAssetsPrices(["ETH", "INVALID"])
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
@@ -139,12 +109,6 @@ describe("ExactlyOracle", function () {
     await expect(
       exactlyOracle.connect(user).setAssetSources([], [])
     ).to.be.revertedWith("AccessControl");
-  });
-
-  it("GetSourceOfAssetBySymbol should get the source of an asset by its symbol", async () => {
-    let sourceOfAsset = await exactlyOracle.getSourceOfAssetBySymbol("DAI");
-
-    expect(sourceOfAsset).to.be.equal(underlyingToken.address);
   });
 
   afterEach(async () => {

@@ -3,7 +3,7 @@ pragma solidity ^0.8.4;
 
 import "../interfaces/IChainlinkFeedRegistry.sol";
 
-contract SomeChainlinkFeedRegistry is IChainlinkFeedRegistry {
+contract MockedChainlinkFeedRegistry is IChainlinkFeedRegistry {
     mapping(address => mapping(address => int256)) public assetsPricesByCurrency;
     
     function latestRoundData(address base, address quote) override external view returns (

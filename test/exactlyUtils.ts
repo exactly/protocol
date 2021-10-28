@@ -144,7 +144,7 @@ export class ExactlyEnv {
   }
   
   public async setOracleMockPrice(assetSymbol: string, valueString: string) {
-    await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 8));
+    await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 18));
   }
 
   static async create(
@@ -158,8 +158,8 @@ export class ExactlyEnv {
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
 
-    const SomeOracle = await ethers.getContractFactory("SomeOracle");
-    let oracle = await SomeOracle.deploy();
+    const MockedOracle = await ethers.getContractFactory("MockedOracle");
+    let oracle = await MockedOracle.deploy();
     await oracle.deployed();
 
     const DefaultInterestRateModel = await ethers.getContractFactory("DefaultInterestRateModel", {
@@ -185,8 +185,8 @@ export class ExactlyEnv {
     await Promise.all(
       Array.from(tokensCollateralRate.keys()).map(async (tokenName) => {
         const totalSupply = ethers.utils.parseUnits("100000000000", 18);
-        const SomeToken = await ethers.getContractFactory("SomeToken");
-        const underlyingToken = await SomeToken.deploy(
+        const MockedToken = await ethers.getContractFactory("MockedToken");
+        const underlyingToken = await MockedToken.deploy(
           "Fake " + tokenName,
           "F" + tokenName,
           totalSupply.toString()

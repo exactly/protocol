@@ -152,26 +152,23 @@ contract Auditor is IAuditor, AccessControl {
 
             vars.collateralFactor = markets[address(asset)].collateralFactor;
 
-            // Get the normalized price of the asset (8 decimals)
+            // Get the normalized price of the asset (18 decimals)
             vars.oraclePrice = oracle.getAssetPrice(asset.tokenName());
-            if (vars.oraclePrice == 0) {
-                revert GenericError(ErrorCode.PRICE_ERROR);
-            }
 
             // We sum all the collateral prices
             vars.sumCollateral += vars.balance.mul_(vars.collateralFactor).mul_(
                 vars.oraclePrice,
-                1e8
+                1e18
             );
 
             // We sum all the debt
-            vars.sumDebt += vars.borrowBalance.mul_(vars.oraclePrice, 1e8);
+            vars.sumDebt += vars.borrowBalance.mul_(vars.oraclePrice, 1e18);
 
             // Simulate the effects of borrowing from/lending to a pool
             if (asset == IExafin(exafinToSimulate)) {
                 // Calculate the effects of borrowing exafins
                 if (borrowAmount != 0) {
-                    vars.sumDebt += borrowAmount.mul_(vars.oraclePrice, 1e8);
+                    vars.sumDebt += borrowAmount.mul_(vars.oraclePrice, 1e18);
                 }
 
                 // Calculate the effects of redeeming exafins
@@ -179,7 +176,7 @@ contract Auditor is IAuditor, AccessControl {
                 if (redeemAmount != 0) {
                     vars.sumDebt += redeemAmount
                         .mul_(vars.collateralFactor)
-                        .mul_(vars.oraclePrice, 1e8);
+                        .mul_(vars.oraclePrice, 1e18);
                 }
             }
         }
@@ -249,9 +246,8 @@ contract Auditor is IAuditor, AccessControl {
             assert(markets[exafinAddress].accountMembership[borrower]);
         }
 
-        if (oracle.getAssetPrice(IExafin(exafinAddress).tokenName()) == 0) {
-            revert GenericError(ErrorCode.PRICE_ERROR);
-        }
+        // We check that the asset price is valid
+        oracle.getAssetPrice(IExafin(exafinAddress).tokenName());
 
         uint256 borrowCap = borrowCaps[exafinAddress];
         // Borrow cap of 0 corresponds to unlimited borrowing
@@ -338,12 +334,9 @@ contract Auditor is IAuditor, AccessControl {
         /* Read oracle prices for borrowed and collateral markets */
         uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).tokenName());
         uint256 priceCollateral = oracle.getAssetPrice(IExafin(exafinCollateral).tokenName());
-        if (priceBorrowed == 0 || priceCollateral == 0) {
-            revert GenericError(ErrorCode.PRICE_ERROR);
-        }
 
-        uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e8);
-        uint256 seizeTokens = amountInUSD.div_(priceCollateral, 1e8);
+        uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e18);
+        uint256 seizeTokens = amountInUSD.div_(priceCollateral, 1e18);
 
         return seizeTokens;
     }
