@@ -103,6 +103,7 @@ export class ExactlyEnv {
   auditor: Contract;
   interestRateModel: Contract;
   tsUtils: Contract;
+  exaLib: Contract;
   exafinContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   baseRate: BigNumber;
@@ -114,6 +115,7 @@ export class ExactlyEnv {
     _auditor: Contract,
     _interestRateModel: Contract,
     _tsUtils: Contract,
+    _exaLib: Contract,
     _exafinContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>
   ) {
@@ -123,6 +125,7 @@ export class ExactlyEnv {
     this.underlyingContracts = _underlyingContracts;
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
+    this.exaLib = _exaLib;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
@@ -151,6 +154,10 @@ export class ExactlyEnv {
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
 
+    const ExaLib = await ethers.getContractFactory("ExaLib");
+    let exaLib = await ExaLib.deploy();
+    await exaLib.deployed();
+
     const SomeOracle = await ethers.getContractFactory("SomeOracle");
     let oracle = await SomeOracle.deploy();
     await oracle.deployed();
@@ -168,7 +175,8 @@ export class ExactlyEnv {
 
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
-        TSUtils: tsUtils.address
+        TSUtils: tsUtils.address,
+        ExaLib: exaLib.address
       }
     });
     let auditor = await Auditor.deploy(oracle.address);
@@ -217,7 +225,15 @@ export class ExactlyEnv {
 
     return new Promise<ExactlyEnv>((resolve) => {
       resolve(
-        new ExactlyEnv(oracle, auditor, interestRateModel, tsUtils, exafinContracts, underlyingContracts)
+        new ExactlyEnv(
+          oracle,
+          auditor,
+          interestRateModel,
+          tsUtils,
+          exaLib,
+          exafinContracts,
+          underlyingContracts
+        )
       );
     });
   }

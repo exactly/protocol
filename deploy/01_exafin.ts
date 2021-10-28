@@ -24,12 +24,17 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       from: deployer,
   });
 
+  const exaLib = await hre.deployments.deploy("ExaLib", {
+    from: deployer,
+  });
+
   const auditor = await hre.deployments.deploy("Auditor", {
     from: deployer,
     args: [priceOracleAddress],
     log: true,
     libraries: {
-      TSUtils: tsUtils.address
+      TSUtils: tsUtils.address,
+      ExaLibL: exaLib.address
     }
   });
 

@@ -220,6 +220,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         pools[maturityDate] = pool;
 
         totalDeposits += totalAmount;
+        totalDepositsUser[from] += totalAmount;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
 

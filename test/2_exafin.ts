@@ -37,7 +37,7 @@ describe("Exafin", function () {
   let mariaUser: SignerWithAddress;
   let johnUser: SignerWithAddress;
   let owner: SignerWithAddress;
-  let exaTime: ExaTime;
+  let exaTime: ExaTime = new ExaTime();
 
   let snapshot: any;
 
@@ -51,9 +51,7 @@ describe("Exafin", function () {
     auditor = exactlyEnv.auditor;
 
     // From Owner to User
-    underlyingToken.transfer(mariaUser.address, parseUnits("10"));
-
-    exaTime = new ExaTime();
+    await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
 
     // This can be optimized (so we only do it once per file, not per test)
     // This helps with tests that use evm_setNextBlockTimestamp
@@ -105,7 +103,7 @@ describe("Exafin", function () {
 
     expect(
       (await exafin.getAccountSnapshot(owner.address, exaTime.nextPoolID()))[0]
-    ).to.be.equal(underlyingAmount)
+    ).to.be.equal(underlyingAmount);
   });
 
   it("it doesn't allow you to give money to a pool that matured", async () => {

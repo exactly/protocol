@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric } from "./exactlyUtils";
+import { ProtocolError, ExactlyEnv, ExaTime, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Auditor Admin", function () {
@@ -55,7 +55,8 @@ describe("Auditor Admin", function () {
 
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
-        TSUtils: exactlyEnv.tsUtils.address
+        TSUtils: exactlyEnv.tsUtils.address,
+        ExaLib: exactlyEnv.exaLib.address
       }
     });
     let newAuditor = await Auditor.deploy(exactlyEnv.oracle.address);
@@ -147,6 +148,13 @@ describe("Auditor Admin", function () {
     await expect(
       auditor.setMarketBorrowCaps([exafinDAI.address], [parseUnits("1000")])
     ).to.emit(auditor, "NewBorrowCap");
+  });
+
+  it("SetExaSpeed should emit events", async () => {
+    let exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.setExaSpeed(exafinDAI.address, parseUnits("3000"))
+    ).to.emit(auditor, "ExaSpeedUpdated");
   });
 
 });

@@ -363,7 +363,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100", 18);
     await dai.approve(exafinDAI.address, amountDAI);
-    let txDAI = await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([exafinDAI.address]);
