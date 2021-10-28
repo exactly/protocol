@@ -56,137 +56,99 @@ describe("DefaultInterestRateModel", () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
-  it("First", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
-    let exafin2Maria = exafin2.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let ethUser = eth.connect(mariaUser);
+  it("Supply 1, borrow 2, borrow 2", async () => {
+    const pool = {
+      borrowed: 4,
+      supplied: 4,
+      debt: 3,
+      available: 0,
+    };
 
-    const approvedAmount = parseUnits("1000000");
-    const supplyAmount = parseUnits("1");
-    const borrowAmount = parseUnits("2");
+    const smartPool = {
+      borrowed: 3,
+      supplied: 100000,
+    };
 
-    await underlyingTokenUser.approve(exafin.address, approvedAmount);
-    await ethUser.approve(exafin2.address, parseEther("10"));
-
-    await exafinMaria.supply(mariaUser.address, supplyAmount, exaTime.nextPoolID());
-
-    await exafin2Maria.supply(mariaUser.address, parseEther("1"), exaTime.nextPoolID());
-
-    await exafinMaria.smartPoolSupply(mariaUser.address, parseUnits("100000"));
-    await auditorUser.enterMarkets([exafin.address, exafin2.address]);
-
-    await expect(auditor.borrowAllowed(exafin.address, mariaUser.address, borrowAmount, exaTime.nextPoolID())).to.not.be
-      .reverted;
-
-    console.log("Vault pre transaccion: ", await formatUnits(await exafin.currentBalance()));
-
-    await exafinMaria.borrow(borrowAmount, exaTime.nextPoolID());
-
-    console.log("Vault post transaccion: ", await formatUnits(await exafin.currentBalance()));
-
-    await exafinMaria.borrow(borrowAmount, exaTime.nextPoolID());
-
-    console.log("Vault post second transaccion: ", await formatUnits(await exafin.currentBalance()));
+    console.log(
+      formatUnits(await interestRateModel.getRateToBorrow(1, exaTime.futurePools(6)[1], pool, smartPool, true))
+    );
   });
 
-  it("Second", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
-    let exafin2Maria = exafin2.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let ethUser = eth.connect(mariaUser);
+  it("Borrow 10000, supply 10000", async () => {
+    const pool = {
+      borrowed: 10000,
+      supplied: 10000,
+      debt: 0,
+      available: 0,
+    };
 
-    const approvedAmount = parseUnits("1000000");
-    const supplyAmount = parseUnits("10000");
-    const borrowAmount = parseUnits("10000");
+    const smartPool = {
+      borrowed: 10000,
+      supplied: 110000,
+    };
 
-    await underlyingTokenUser.approve(exafin.address, approvedAmount);
-    await ethUser.approve(exafin2.address, parseEther("10"));
-
-    // await exafinMaria.supply(
-    //   mariaUser.address,
-    //   supplyAmount,
-    //   exaTime.nextPoolID()
-    // );
-
-    await exafin2Maria.supply(mariaUser.address, parseEther("10"), exaTime.nextPoolID());
-
-    await exafinMaria.smartPoolSupply(mariaUser.address, parseUnits("100000"));
-    await auditorUser.enterMarkets([exafin.address, exafin2.address]);
-
-    await expect(auditor.borrowAllowed(exafin.address, mariaUser.address, borrowAmount, exaTime.nextPoolID())).to.not.be
-      .reverted;
-
-    console.log("Vault pre transaccion: ", await formatUnits(await exafin.currentBalance()));
-
-    await exafinMaria.borrow(borrowAmount, exaTime.nextPoolID());
-
-    console.log("Vault post transaccion: ", await formatUnits(await exafin.currentBalance()));
-    await exafinMaria.supply(mariaUser.address, supplyAmount, exaTime.nextPoolID());
-    console.log("Vault post second transaccion: ", await formatUnits(await exafin.currentBalance()));
+    console.log(formatUnits(await interestRateModel.getRateToBorrow(1, exaTime.nextPoolID(), pool, smartPool, true)));
   });
 
-  it("Third", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
-    let exafin2Maria = exafin2.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let ethUser = eth.connect(mariaUser);
+  // it("Third", async () => {
+  //   let exafinMaria = exafin.connect(mariaUser);
+  //   let exafin2Maria = exafin2.connect(mariaUser);
+  //   let auditorUser = auditor.connect(mariaUser);
+  //   let underlyingTokenUser = underlyingToken.connect(mariaUser);
+  //   let ethUser = eth.connect(mariaUser);
 
-    const approvedAmount = parseUnits("1000000");
-    const supplyAmount = parseUnits("10000");
-    const borrowAmount = parseUnits("10000");
+  //   const approvedAmount = parseUnits("1000000");
+  //   const supplyAmount = parseUnits("10000");
+  //   const borrowAmount = parseUnits("10000");
 
-    await underlyingTokenUser.approve(exafin.address, approvedAmount);
-    await ethUser.approve(exafin2.address, parseEther("10"));
+  //   await underlyingTokenUser.approve(exafin.address, approvedAmount);
+  //   await ethUser.approve(exafin2.address, parseEther("10"));
 
-    await exafin2Maria.supply(mariaUser.address, parseEther("10"), exaTime.nextPoolID());
+  //   await exafin2Maria.supply(mariaUser.address, parseEther("10"), exaTime.nextPoolID());
 
-    await exafinMaria.smartPoolSupply(mariaUser.address, parseUnits("100000"));
-    await auditorUser.enterMarkets([exafin.address, exafin2.address]);
+  //   await exafinMaria.smartPoolSupply(mariaUser.address, parseUnits("100000"));
+  //   await auditorUser.enterMarkets([exafin.address, exafin2.address]);
 
-    await expect(auditor.borrowAllowed(exafin.address, mariaUser.address, borrowAmount, exaTime.nextPoolID())).to.not.be
-      .reverted;
+  //   await expect(auditor.borrowAllowed(exafin.address, mariaUser.address, borrowAmount, exaTime.nextPoolID())).to.not.be
+  //     .reverted;
 
-    console.log("Vault pre transaccion: ", await formatUnits(await exafin.currentBalance()));
+  //   console.log("Vault pre transaccion: ", await formatUnits(await exafin.currentBalance()));
 
-    await exafinMaria.borrow(borrowAmount, exaTime.nextPoolID());
+  //   await exafinMaria.borrow(borrowAmount, exaTime.nextPoolID());
 
-    console.log("Vault post transaccion: ", await formatUnits(await exafin.currentBalance()));
-    // await exafinMaria.supply(
-    //   mariaUser.address,
-    //   supplyAmount,
-    //   exaTime.nextPoolID()
-    // );
-    console.log("Vault post second transaccion: ", await formatUnits(await exafin.currentBalance()));
-  });
+  //   console.log("Vault post transaccion: ", await formatUnits(await exafin.currentBalance()));
+  //   // await exafinMaria.supply(
+  //   //   mariaUser.address,
+  //   //   supplyAmount,
+  //   //   exaTime.nextPoolID()
+  //   // );
+  //   console.log("Vault post second transaccion: ", await formatUnits(await exafin.currentBalance()));
+  // });
 
-  it("Fourth", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
-    let exafin2Maria = exafin2.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let ethUser = eth.connect(mariaUser);
+  // it("Fourth", async () => {
+  //   let exafinMaria = exafin.connect(mariaUser);
+  //   let exafin2Maria = exafin2.connect(mariaUser);
+  //   let auditorUser = auditor.connect(mariaUser);
+  //   let underlyingTokenUser = underlyingToken.connect(mariaUser);
+  //   let ethUser = eth.connect(mariaUser);
 
-    const approvedAmount = parseUnits("1000000");
-    const supplyAmount = parseUnits("10000");
-    const borrowAmount = parseUnits("10000");
+  //   const approvedAmount = parseUnits("1000000");
+  //   const supplyAmount = parseUnits("10000");
+  //   const borrowAmount = parseUnits("10000");
 
-    await underlyingTokenUser.approve(exafin.address, approvedAmount);
-    await ethUser.approve(exafin2.address, parseEther("10"));
+  //   await underlyingTokenUser.approve(exafin.address, approvedAmount);
+  //   await ethUser.approve(exafin2.address, parseEther("10"));
 
-    await exafin2Maria.supply(mariaUser.address, parseEther("10"), exaTime.nextPoolID());
+  //   await exafin2Maria.supply(mariaUser.address, parseEther("10"), exaTime.nextPoolID());
 
-    // await exafinMaria.smartPoolSupply(mariaUser.address, parseUnits("100000"));
-    await auditorUser.enterMarkets([exafin.address, exafin2.address]);
+  //   // await exafinMaria.smartPoolSupply(mariaUser.address, parseUnits("100000"));
+  //   await auditorUser.enterMarkets([exafin.address, exafin2.address]);
 
-    await expect(auditor.borrowAllowed(exafin.address, mariaUser.address, borrowAmount, exaTime.nextPoolID())).to.not.be
-      .reverted;
+  //   await expect(auditor.borrowAllowed(exafin.address, mariaUser.address, borrowAmount, exaTime.nextPoolID())).to.not.be
+  //     .reverted;
 
-    console.log("Vault pre transaccion: ", await formatUnits(await exafin.currentBalance()));
+  //   console.log("Vault pre transaccion: ", await formatUnits(await exafin.currentBalance()));
 
-    await expect(exafinMaria.borrow(borrowAmount, exaTime.nextPoolID())).to.be.reverted;
-  });
+  //   await expect(exafinMaria.borrow(borrowAmount, exaTime.nextPoolID())).to.be.reverted;
+  // });
 });

@@ -1,10 +1,5 @@
 import { ethers } from "hardhat";
-import {
-  Contract,
-  BigNumber,
-  ContractTransaction,
-  ContractReceipt,
-} from "ethers";
+import { Contract, BigNumber, ContractTransaction, ContractReceipt } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 
 export interface BorrowEventInterface {
@@ -62,18 +57,18 @@ export function parseSupplyEvent(tx: ContractTransaction) {
 }
 
 export function errorUnmatchedPool(state: PoolState, requiredState: PoolState): string {
-  return "UnmatchedPoolState("+ state + ", " + requiredState + ")";
+  return "UnmatchedPoolState(" + state + ", " + requiredState + ")";
 }
 
 export function errorGeneric(errorCode: ProtocolError): string {
-  return "GenericError("+ errorCode + ")";
+  return "GenericError(" + errorCode + ")";
 }
 
 export enum PoolState {
   INVALID,
   MATURED,
   VALID,
-  NOT_READY
+  NOT_READY,
 }
 
 export enum ProtocolError {
@@ -94,11 +89,10 @@ export enum ProtocolError {
   BORROW_PAUSED,
   NOT_AN_EXAFIN_SENDER,
   INVALID_SET_BORROW_CAP,
-  MARKET_BORROW_CAP_REACHED
+  MARKET_BORROW_CAP_REACHED,
 }
 
 export class ExactlyEnv {
-
   oracle: Contract;
   auditor: Contract;
   interestRateModel: Contract;
@@ -157,39 +151,36 @@ export class ExactlyEnv {
 
     const DefaultInterestRateModel = await ethers.getContractFactory("DefaultInterestRateModel", {
       libraries: {
-        TSUtils: tsUtils.address
-      }
+        TSUtils: tsUtils.address,
+      },
     });
     let interestRateModel = await DefaultInterestRateModel.deploy(
       parseUnits("0.01"),
+      parseUnits("0.07"),
       parseUnits("0.07")
     );
     await interestRateModel.deployed();
 
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
-        TSUtils: tsUtils.address
-      }
+        TSUtils: tsUtils.address,
+      },
     });
     let auditor = await Auditor.deploy(oracle.address);
     await auditor.deployed();
 
-    // We have to enable all the Exafins in the auditor 
+    // We have to enable all the Exafins in the auditor
     await Promise.all(
       Array.from(tokensCollateralRate.keys()).map(async (tokenName) => {
         const totalSupply = ethers.utils.parseUnits("100000000000", 18);
         const SomeToken = await ethers.getContractFactory("SomeToken");
-        const underlyingToken = await SomeToken.deploy(
-          "Fake " + tokenName,
-          "F" + tokenName,
-          totalSupply.toString()
-        );
+        const underlyingToken = await SomeToken.deploy("Fake " + tokenName, "F" + tokenName, totalSupply.toString());
         await underlyingToken.deployed();
 
         const Exafin = await ethers.getContractFactory("Exafin", {
           libraries: {
-            TSUtils: tsUtils.address
-          }
+            TSUtils: tsUtils.address,
+          },
         });
         const exafin = await Exafin.deploy(
           underlyingToken.address,
@@ -202,12 +193,7 @@ export class ExactlyEnv {
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, tokensUSDPrice.get(tokenName));
         // Enable Market for Exafin-TOKEN by setting the collateral rates
-        await auditor.enableMarket(
-          exafin.address,
-          tokensCollateralRate.get(tokenName),
-          tokenName,
-          tokenName
-        );
+        await auditor.enableMarket(exafin.address, tokensCollateralRate.get(tokenName), tokenName, tokenName);
 
         // Handy maps with all the exafins and underlying tokens
         exafinContracts.set(tokenName, exafin);
@@ -216,9 +202,7 @@ export class ExactlyEnv {
     );
 
     return new Promise<ExactlyEnv>((resolve) => {
-      resolve(
-        new ExactlyEnv(oracle, auditor, interestRateModel, tsUtils, exafinContracts, underlyingContracts)
-      );
+      resolve(new ExactlyEnv(oracle, auditor, interestRateModel, tsUtils, exafinContracts, underlyingContracts));
     });
   }
 }
@@ -234,25 +218,19 @@ export class ExaTime {
   }
 
   public nextPoolID(): number {
-    return (
-      this.timestamp - (this.timestamp % this.twoWeeks) + this.twoWeeks
-    );
+    return this.timestamp - (this.timestamp % this.twoWeeks) + this.twoWeeks;
   }
 
   public isPoolID(): boolean {
-    return (
-      (this.timestamp % this.twoWeeks) == 0
-    );
+    return this.timestamp % this.twoWeeks == 0;
   }
 
   public pastPoolID(): number {
-    return (
-      this.timestamp - (this.timestamp % this.twoWeeks) - this.twoWeeks
-    );
+    return this.timestamp - (this.timestamp % this.twoWeeks) - this.twoWeeks;
   }
 
   public trimmedDay(): number {
-    return (this.timestamp - (this.timestamp % this.oneDay));
+    return this.timestamp - (this.timestamp % this.oneDay);
   }
 
   public daysDiffWith(anotherTimestamp: number): number {

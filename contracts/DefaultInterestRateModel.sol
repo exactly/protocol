@@ -84,7 +84,6 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         uint256 smartPoolYearlyRate = 0;
 
         if (!canCheckSmartPoolUR && !canCheckMaturityPoolUR) {
-            console.log("Final return", 0);
             return 0;
         }
 
@@ -98,16 +97,15 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
 
         if (!newDebt) {
             yearlyRate = maturityPoolYearlyRate;
-            console.log("Final return", yearlyRate);
 
             return ((yearlyRate * daysDifference) / 365);
         }
 
         //This conditionals are just for testing, will delete later.
         if (smartPoolYearlyRate > maturityPoolYearlyRate) {
-            console.log("Final return", smartPoolYearlyRate);
+            console.log("3 Final return", smartPoolYearlyRate);
         } else {
-            console.log("Final return", maturityPoolYearlyRate);
+            console.log("4 Final return", maturityPoolYearlyRate);
         }
 
         return
@@ -149,8 +147,6 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         }
 
         if (!canCheckMaturityPoolUR && !canCheckSmartPoolUR) {
-            console.log("Final return getRateToSupply", 0);
-
             return 0;
         }
 
@@ -162,7 +158,6 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             yearlyRate = smartPoolYearlyRate;
         }
 
-        console.log("Final yearlyRate getRateToSupply", yearlyRate);
         uint256 daysDifference = (maturityDate - TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
         return ((yearlyRate * daysDifference) / 365);
