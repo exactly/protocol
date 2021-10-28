@@ -17,6 +17,13 @@ library ExaLib {
         uint supplierDelta,
         uint exaSupplyIndex
     );
+    event DistributedBorrowerExa(
+        address indexed exafin,
+        address indexed borrower,
+        uint borrowerDelta,
+        uint exaSupplyIndex
+    );
+
 
     // Double precision
     uint224 public constant EXA_INITIAL_INDEX = 1e36; 
@@ -118,6 +125,7 @@ library ExaLib {
 
     /**
      * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @param exafinState RewardsState storage in Auditor
      * @param exafinAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
@@ -146,7 +154,36 @@ library ExaLib {
     }
 
     /**
+     * @notice Calculate EXA accrued by a borrower
+     * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
+     * @param exafinAddress The market address in which the borrower is interacting
+     * @param borrower The address of the borrower to distribute EXA to
+     */
+    function distributeBorrowerExa(
+        RewardsState storage exafinState, 
+        address exafinAddress,
+        address borrower
+    ) external {
+        ExaState storage exaState = exafinState.exaState[exafinAddress];
+        MarketRewardsState storage borrowState = exaState.exaBorrowState;
+
+        Double memory borrowIndex = Double({value: borrowState.index});
+        Double memory borrowerIndex = Double({value: exaState.exaBorrowerIndex[borrower]});
+        exaState.exaBorrowerIndex[borrower] = borrowIndex.value;
+
+        if (borrowerIndex.value > 0) {
+            Double memory deltaIndex = borrowIndex.sub_(borrowerIndex);
+            uint borrowerAmount = IExafin(exafinAddress).borrowsOf(borrower);
+            uint borrowerDelta = borrowerAmount.mul_(deltaIndex);
+            uint borrowerAccrued = exafinState.exaAccruedUser[borrower] + borrowerDelta;
+            exafinState.exaAccruedUser[borrower] = borrowerAccrued;
+            emit DistributedBorrowerExa(exafinAddress, borrower, borrowerDelta, borrowIndex.value);
+        }
+    }
+
+    /**
      * @notice Set EXA speed for a single market
+     * @param exafinState RewardsState storage in Auditor
      * @param exafinAddress The market whose EXA speed to update
      * @param exaSpeed New EXA speed for market
      */

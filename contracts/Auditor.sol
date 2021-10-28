@@ -284,6 +284,9 @@ contract Auditor is IAuditor, AccessControl {
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
+
+        rewardsState.updateExaBorrowIndex(exafinAddress);
+        rewardsState.distributeBorrowerExa(exafinAddress, borrower);
     }
 
     function redeemAllowed(
@@ -323,14 +326,16 @@ contract Auditor is IAuditor, AccessControl {
         address exafinAddress,
         address borrower,
         uint256 maturityDate
-    ) override external view {
-        borrower;
+    ) override external {
 
         if (!markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         _requirePoolState(maturityDate, TSUtils.State.MATURED);
+
+        rewardsState.updateExaBorrowIndex(exafinAddress);
+        rewardsState.distributeBorrowerExa(exafinAddress, borrower);
     }
 
     /**
