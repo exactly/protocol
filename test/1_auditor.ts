@@ -15,17 +15,10 @@ describe("Auditor from User Space", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
 
-  let tokensCollateralRate = new Map([
-    ["DAI", parseUnits("0.8", 18)],
-    ["ETH", parseUnits("0.7", 18)],
-    ["WBTC", parseUnits("0.6", 18)]
-  ]);
-
-  // Mocked Oracle prices are returned in 10**18
-  let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 18)],
-    ["ETH", parseUnits("3000", 18)],
-    ["WBTC", parseUnits("63000", 18)]
+  let mockedTokens = new Map([
+    ["DAI", {decimals: 18, collateralRate: parseUnits("0.8"), usdPrice: parseUnits("1")}],
+    ["ETH", {decimals: 18, collateralRate: parseUnits("0.7"), usdPrice: parseUnits("3000")}],
+    ["WBTC",{decimals: 18, collateralRate:parseUnits("0.6"), usdPrice: parseUnits("63000")}]
   ]);
 
   let closeFactor = parseUnits("0.4");
@@ -33,7 +26,7 @@ describe("Auditor from User Space", function () {
   beforeEach(async () => {
     [owner, user] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
+    exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
     notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
     nextPoolID = (new ExaTime()).nextPoolID();
@@ -241,16 +234,16 @@ describe("Auditor from User Space", function () {
     let liquidity = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
     let collaterDAI = amountDAI
       .add(borrowDAIEvent.commission)
-      .mul(tokensCollateralRate.get("DAI")!)
+      .mul(mockedTokens.get("DAI")!.collateralRate)
       .div(parseUnits("1", 18))
-      .mul(tokensUSDPrice.get("DAI")!)
+      .mul(mockedTokens.get("DAI")!.usdPrice)
       .div(parseUnits("1", 18));
 
     let collaterETH = amountETH
       .add(borrowETHEvent.commission)
-      .mul(tokensCollateralRate.get("ETH")!)
+      .mul(mockedTokens.get("ETH")!.collateralRate)
       .div(parseUnits("1", 18))
-      .mul(tokensUSDPrice.get("ETH")!)
+      .mul(mockedTokens.get("ETH")!.usdPrice)
       .div(parseUnits("1", 18));
 
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));

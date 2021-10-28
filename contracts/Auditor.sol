@@ -41,6 +41,7 @@ contract Auditor is IAuditor, AccessControl {
         string name;
         bool isListed;
         uint256 collateralFactor;
+        uint8 decimals;
         mapping(address => bool) accountMembership;
     }
 
@@ -421,7 +422,8 @@ contract Auditor is IAuditor, AccessControl {
         address exafin,
         uint256 collateralFactor,
         string memory symbol,
-        string memory name
+        string memory name,
+        uint8 decimals
     ) public onlyRole(TEAM_ROLE) {
         Market storage market = markets[exafin];
 
@@ -437,6 +439,7 @@ contract Auditor is IAuditor, AccessControl {
         market.collateralFactor = collateralFactor;
         market.symbol = symbol;
         market.name = name;
+        market.decimals = decimals;
 
         marketCount += 1;
         marketsAddress.push(exafin);
