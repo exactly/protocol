@@ -72,7 +72,9 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         PoolLib.SmartPool memory smartPool,
         bool newDebt
     ) external view override returns (uint256) {
-        if (!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
+        if (!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
 
         bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
         bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
@@ -129,7 +131,9 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         PoolLib.Pool memory maturityPool,
         PoolLib.SmartPool memory smartPool
     ) external view override returns (uint256) {
-        if (!TSUtils.isPoolID(maturityDate)) revert GenericError(ErrorCode.INVALID_POOL_ID);
+        if (!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
 
         uint256 yearlyRate = 0;
         uint256 maturityPoolYearlyRate = 0;
