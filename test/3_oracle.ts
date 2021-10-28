@@ -25,8 +25,6 @@ describe("ExactlyOracle", function () {
     ["ETH", parseUnits("0.7", 18)],
   ]);
 
-  let snapshot: any;
-
   beforeEach(async () => {
     [, user] = await ethers.getSigners();
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
@@ -52,10 +50,6 @@ describe("ExactlyOracle", function () {
     await exactlyOracle.deployed();
     await exactlyOracle.setAssetSources(tokenNames, tokenAddresses);
     await exactlyEnv.setOracle(exactlyOracle.address);
-
-    // This can be optimized (so we only do it once per file, not per test)
-    // This helps with tests that use evm_setNextBlockTimestamp
-    snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
   it("GetAssetPrice returns a positive and valid price value", async () => {
@@ -109,10 +103,5 @@ describe("ExactlyOracle", function () {
     await expect(
       exactlyOracle.connect(user).setAssetSources([], [])
     ).to.be.revertedWith("AccessControl");
-  });
-
-  afterEach(async () => {
-    await ethers.provider.send("evm_revert", [snapshot]);
-    await ethers.provider.send("evm_mine", []);
   });
 });
