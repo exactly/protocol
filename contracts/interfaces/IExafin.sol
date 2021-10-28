@@ -70,5 +70,6 @@ interface IExafin {
 
     function totalBorrows() external view returns (uint256);
     function totalDeposits() external view returns (uint256);
+    function borrowsOf(address who) external view returns (uint256);
     function suppliesOf(address who) external view returns (uint256);
 }

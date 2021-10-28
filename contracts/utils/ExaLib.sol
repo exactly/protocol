@@ -61,8 +61,6 @@ library ExaLib {
         uint blockNumber = block.number;
         uint deltaBlocks = (blockNumber - uint(supplyState.block));
         if (deltaBlocks > 0 && supplySpeed > 0) {
-            // TODO: This value needs to be reviewed, to validate
-            // what does it mean the "totalDeposits"
             uint256 supplyTokens = IExafin(exafinAddress).totalDeposits();
             uint256 exaAccruedDelta = deltaBlocks.mul_(supplySpeed);
 
@@ -79,9 +77,49 @@ library ExaLib {
     }
 
     /**
-     * @notice Calculate COMP accrued by a supplier and possibly transfer it to them
+     * @notice Accrue EXA to the market by updating the supply index
+     * @param exafinState RewardsState storage in Auditor
+     * @param exafinAddress The market whose supply index to update
+     */
+    function updateExaBorrowIndex(
+        RewardsState storage exafinState, 
+        address exafinAddress
+    ) external {
+        _updateExaBorrowIndex(exafinState, exafinAddress);
+    }
+
+    /**
+     * @notice Accrue EXA to the market by updating the borrow index
+     * @param exafinState RewardsState storage in Auditor,
+     * @param exafinAddress The market whose borrow index to update
+     */
+    function _updateExaBorrowIndex(
+        RewardsState storage exafinState,
+        address exafinAddress
+    ) internal {
+        ExaState storage exaState = exafinState.exaState[exafinAddress];
+        MarketRewardsState storage borrowState = exaState.exaBorrowState;
+        uint borrowSpeed = exaState.exaSpeed;
+        uint blockNumber = block.number;
+        uint deltaBlocks = blockNumber - uint(borrowState.block);
+        if (deltaBlocks > 0 && borrowSpeed > 0) {
+            uint borrowAmount = IExafin(exafinAddress).totalBorrows();
+            uint256 exaAccruedDelta = deltaBlocks.mul_(borrowSpeed);
+            Double memory ratio = borrowAmount > 0 ? exaAccruedDelta.fraction(borrowAmount) : Double({value: 0});
+            Double memory index = Double({value: borrowState.index}).add_(ratio);
+            exaState.exaBorrowState = MarketRewardsState({
+                index: index.value.toUint224(),
+                block: blockNumber.toUint32()
+            });
+        } else if (deltaBlocks > 0) {
+            borrowState.block = blockNumber.toUint32();
+        }
+    }
+
+    /**
+     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
      * @param exafinAddress The market in which the supplier is interacting
-     * @param supplier The address of the supplier to distribute COMP to
+     * @param supplier The address of the supplier to distribute EXA to
      */
     function distributeSupplierExa(
         RewardsState storage exafinState, 
@@ -120,9 +158,8 @@ library ExaLib {
         ExaState storage state = exafinState.exaState[exafinAddress];
         uint currentExaSpeed = state.exaSpeed;
         if (currentExaSpeed != 0) {
-            // uint256 borrowIndex = Exp({mantissa: cToken.borrowIndex()});
             _updateExaSupplyIndex(exafinState, exafinAddress);
-            // updateCompBorrowIndex(address(cToken), borrowIndex);
+            _updateExaBorrowIndex(exafinState, exafinAddress);
         } else if (exaSpeed != 0) {
             if (state.exaSupplyState.index == 0 && state.exaSupplyState.block == 0) {
                 state.exaSupplyState = MarketRewardsState({

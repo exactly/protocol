@@ -85,11 +85,11 @@ contract Exafin is IExafin, ReentrancyGuard {
 
     // Total deposits in all maturities
     uint256 override public totalDeposits;
-    mapping(address => uint256) public totalDepositsUser;
+    mapping(address => uint256) private totalDepositsUser;
 
     // Total borrows in all maturities
     uint256 override public totalBorrows;
-    mapping(address => uint256) public totalBorrowsUser;
+    mapping(address => uint256) private totalBorrowsUser;
 
     constructor(
         address _tokenAddress,
@@ -509,5 +509,11 @@ contract Exafin is IExafin, ReentrancyGuard {
         return balances[who] + totalDepositsUser[who];
     }
 
-
+    /**
+        @dev Retrieves all the borrows in this Exafin
+             for a user -- This is NOT for ERC20 of the smart pool
+     */
+    function borrowsOf(address who) public view override returns (uint256) {
+        return totalBorrowsUser[who];
+    }
 }
