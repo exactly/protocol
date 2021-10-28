@@ -34,7 +34,7 @@ contract Auditor is IAuditor, AccessControl {
     uint256 public closeFactor = 5e17;
     uint8 public maxFuturePools = 12; // 6 months
 
-    IOracle private oracle;
+    IOracle public oracle;
 
     struct Market {
         string symbol;
@@ -144,26 +144,23 @@ contract Auditor is IAuditor, AccessControl {
         IExafin[] memory assets = accountAssets[account];
         for (uint256 i = 0; i < assets.length; i++) {
             IExafin asset = assets[i];
+            Market storage market = markets[address(asset)];
 
             // Read the balances
             (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
                 account,
                 maturityDate
             );
-
             vars.collateralFactor = markets[address(asset)].collateralFactor;
 
             // Get the normalized price of the asset (18 decimals)
             vars.oraclePrice = oracle.getAssetPrice(asset.tokenName());
 
             // We sum all the collateral prices
-            vars.sumCollateral += vars.balance.mul_(vars.collateralFactor).mul_(
-                vars.oraclePrice,
-                1e18
-            );
+            vars.sumCollateral += DecimalMath.getTokenAmountInUSD(vars.balance, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
 
             // We sum all the debt
-            vars.sumDebt += vars.borrowBalance.mul_(vars.oraclePrice, 1e18);
+            vars.sumDebt += DecimalMath.getTokenAmountInUSD(vars.borrowBalance, vars.oraclePrice, market.decimals);
 
             // Simulate the effects of borrowing from/lending to a pool
             if (asset == IExafin(exafinToSimulate)) {
@@ -189,6 +186,7 @@ contract Auditor is IAuditor, AccessControl {
             return (0, vars.sumDebt - vars.sumCollateral);
         }
     }
+
 
     function supplyAllowed(
         address exafinAddress,
@@ -336,8 +334,9 @@ contract Auditor is IAuditor, AccessControl {
         uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).tokenName());
         uint256 priceCollateral = oracle.getAssetPrice(IExafin(exafinCollateral).tokenName());
 
-        uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e18);
-        uint256 seizeTokens = amountInUSD.div_(priceCollateral, 1e18);
+        uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(actualRepayAmount, priceBorrowed, markets[exafinBorrowed].decimals);
+        // 10**18: usd amount decimals
+        uint256 seizeTokens = DecimalMath.getTokenAmountFromUsd(amountInUSD, priceCollateral, markets[exafinCollateral].decimals);
 
         return seizeTokens;
     }
