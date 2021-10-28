@@ -160,7 +160,7 @@ library ExaLib {
      * @param borrower The address of the borrower to distribute EXA to
      */
     function distributeBorrowerExa(
-        RewardsState storage exafinState, 
+        RewardsState storage exafinState,
         address exafinAddress,
         address borrower
     ) external {
