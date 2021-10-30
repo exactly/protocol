@@ -5,6 +5,15 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IExafin.sol";
 import "../utils/DecimalMath.sol";
+import "../ExaToken.sol";
+
+struct Market {
+    string symbol;
+    string name;
+    bool isListed;
+    uint256 collateralFactor;
+    mapping(address => bool) accountMembership;
+}
 
 library ExaLib {
     using DecimalMath for uint256;
@@ -26,7 +35,7 @@ library ExaLib {
 
 
     // Double precision
-    uint224 public constant EXA_INITIAL_INDEX = 1e36; 
+    uint224 public constant EXA_INITIAL_INDEX = 1e36;
 
     struct MarketRewardsState {
         uint224 index;
@@ -124,16 +133,16 @@ library ExaLib {
     }
 
     /**
-     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @notice INTERNAL Calculate EXA accrued by a supplier and possibly transfer it to them
      * @param exafinState RewardsState storage in Auditor
      * @param exafinAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function distributeSupplierExa(
+    function _distributeSupplierExa(
         RewardsState storage exafinState, 
         address exafinAddress,
         address supplier
-    ) external {
+    ) internal {
         ExaState storage exaState = exafinState.exaState[exafinAddress];
         MarketRewardsState storage supplyState = exaState.exaSupplyState;
         Double memory supplyIndex = Double({value: supplyState.index});
@@ -154,6 +163,20 @@ library ExaLib {
     }
 
     /**
+     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @param exafinState RewardsState storage in Auditor
+     * @param exafinAddress The market in which the supplier is interacting
+     * @param supplier The address of the supplier to distribute EXA to
+     */
+    function distributeSupplierExa(
+        RewardsState storage exafinState, 
+        address exafinAddress,
+        address supplier
+    ) external {
+        _distributeSupplierExa(exafinState, exafinAddress, supplier);
+    }
+
+    /**
      * @notice Calculate EXA accrued by a borrower
      * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
      * @param exafinAddress The market address in which the borrower is interacting
@@ -164,6 +187,20 @@ library ExaLib {
         address exafinAddress,
         address borrower
     ) external {
+        _distributeBorrowerExa(exafinState, exafinAddress, borrower);
+    }
+
+    /**
+     * @notice Calculate EXA accrued by a borrower
+     * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
+     * @param exafinAddress The market address in which the borrower is interacting
+     * @param borrower The address of the borrower to distribute EXA to
+     */
+    function _distributeBorrowerExa(
+        RewardsState storage exafinState,
+        address exafinAddress,
+        address borrower
+    ) internal {
         ExaState storage exaState = exafinState.exaState[exafinAddress];
         MarketRewardsState storage borrowState = exaState.exaBorrowState;
 
@@ -179,6 +216,61 @@ library ExaLib {
             exafinState.exaAccruedUser[borrower] = borrowerAccrued;
             emit DistributedBorrowerExa(exafinAddress, borrower, borrowerDelta, borrowIndex.value);
         }
+    }
+
+    /**
+     * @notice Claim all EXA accrued by the holders
+     * @param exafinState RewardsState storage in Auditor
+     * @param markets Valid markets in Auditor
+     * @param holders The addresses to claim EXA for
+     * @param exafinAddresses The list of markets to claim EXA in
+     * @param borrowers Whether or not to claim EXA earned by borrowing
+     * @param suppliers Whether or not to claim EXA earned by supplying
+     */
+    function claimExa(
+        RewardsState storage exafinState,
+        mapping(address => Market) storage markets,
+        address[] memory holders,
+        address[] memory exafinAddresses,
+        bool borrowers,
+        bool suppliers
+    ) external {
+
+        for (uint i = 0; i < exafinAddresses.length; i++) {
+            address exafin = exafinAddresses[i];
+            require(markets[exafin].isListed, "market must be listed");
+            if (borrowers == true) {
+                _updateExaBorrowIndex(exafinState, exafin);
+                for (uint j = 0; j < holders.length; j++) {
+                    _distributeBorrowerExa(exafinState, exafin, holders[j]);
+                    exafinState.exaAccruedUser[holders[j]] = _grantExa(holders[j], exafinState.exaAccruedUser[holders[j]]);
+                }
+            }
+            if (suppliers == true) {
+                _updateExaSupplyIndex(exafinState, exafin);
+                for (uint j = 0; j < holders.length; j++) {
+                    _distributeSupplierExa(exafinState, exafin, holders[j]);
+                    exafinState.exaAccruedUser[holders[j]] = _grantExa(holders[j], exafinState.exaAccruedUser[holders[j]]);
+                }
+            }
+        }
+    }
+
+    /**
+     * @notice Transfer EXA to the user
+     * @dev Note: If there is not enough EXA, we do not perform the transfer all.
+     * @param user The address of the user to transfer EXA to
+     * @param amount The amount of EXA to (possibly) transfer
+     * @return The amount of EXA which was NOT transferred to the user
+     */
+    function _grantExa(address user, uint amount) internal returns (uint) {
+        ExaToken exa = ExaToken(getExaAddress());
+        uint exaBalance = exa.balanceOf(address(this));
+        if (amount > 0 && amount <= exaBalance) {
+            exa.transfer(user, amount);
+            return 0;
+        }
+        return amount;
     }
 
     /**
@@ -219,6 +311,10 @@ library ExaLib {
         }
 
         return false;
+    }
+
+    function getExaAddress() internal returns (address) {
+        return 0xc00e94Cb662C3520282E6f5717214004A7f26888;
     }
 
 }

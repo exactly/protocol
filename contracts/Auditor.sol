@@ -28,14 +28,6 @@ contract Auditor is IAuditor, AccessControl {
     event NewBorrowCap(address indexed exafin, uint newBorrowCap);
     event ExaSpeedUpdated(address exafinAddress, uint256 newSpeed);
 
-    struct Market {
-        string symbol;
-        string name;
-        bool isListed;
-        uint256 collateralFactor;
-        mapping(address => bool) accountMembership;
-    }
-
     // Protocol Management
     mapping(address => Market) public markets;
     mapping(address => bool) public borrowPaused;
