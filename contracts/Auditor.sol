@@ -52,16 +52,17 @@ contract Auditor is IAuditor, AccessControl {
         uint256 sumDebt;
     }
 
-    constructor(address _priceOracleAddress) {
+    constructor(address _priceOracleAddress, address _exaToken) {
+        rewardsState.exaToken = _exaToken;
         oracle = Oracle(_priceOracleAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(TEAM_ROLE, msg.sender);
     }
 
     /**
-        @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
-             By performing this action, the wallet's money could be used as collateral
-        @param exafins contracts addresses to enable for `msg.sender`
+     * @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
+     *      By performing this action, the wallet's money could be used as collateral
+     * @param exafins contracts addresses to enable for `msg.sender`
      */
     function enterMarkets(address[] calldata exafins)
         external
@@ -74,11 +75,10 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev
-            Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
-            By performing this action, the wallet's money could be used as collateral
-        @param exafin contracts addresses to enable
-        @param borrower wallet that wants to enter a market
+     * @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
+     *      By performing this action, the wallet's money could be used as collateral
+     * @param exafin contracts addresses to enable
+     * @param borrower wallet that wants to enter a market
      */
     function _addToMarket(IExafin exafin, address borrower)
         internal
@@ -100,9 +100,9 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to get account's liquidity for a certain maturity pool
-        @param account wallet to retrieve liquidity for a certain maturity date
-        @param maturityDate timestamp to calculate maturity's pool
+     * @dev Function to get account's liquidity for a certain maturity pool
+     * @param account wallet to retrieve liquidity for a certain maturity date
+     * @param maturityDate timestamp to calculate maturity's pool
      */
     function getAccountLiquidity(address account, uint256 maturityDate)
         public
@@ -117,9 +117,9 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to get account's liquidity for a certain maturity pool
-        @param account wallet to retrieve liquidity for a certain maturity date
-        @param maturityDate timestamp to calculate maturity's pool
+     * @dev Function to get account's liquidity for a certain maturity pool
+     * @param account wallet to retrieve liquidity for a certain maturity date
+     * @param maturityDate timestamp to calculate maturity's pool
      */
     function _accountLiquidity(
         address account,
@@ -331,12 +331,12 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to calculate the amount of assets to be seized
-             - when a position is undercollaterized it should be repaid and this functions calculates the 
-               amount of collateral to be seized
-        @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
-        @param exafinBorrowed market from where the debt is pending
-        @param actualRepayAmount repay amount in the borrowed asset
+     * @dev Function to calculate the amount of assets to be seized
+     *      - when a position is undercollaterized it should be repaid and this functions calculates the 
+     *        amount of collateral to be seized
+     * @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
+     * @param exafinBorrowed market from where the debt is pending
+     * @param actualRepayAmount repay amount in the borrowed asset
      */
     function liquidateCalculateSeizeAmount(
         address exafinBorrowed,
@@ -358,14 +358,14 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to allow/reject liquidation of assets. This function can be called 
-             externally, but only will have effect when called from an exafin. 
-        @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
-        @param exafinBorrowed market from where the debt is pending
-        @param liquidator address that is liquidating the assets
-        @param borrower address which the assets are being liquidated
-        @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
-        @param maturityDate maturity where the position has a shortfall in liquidity
+     * @dev Function to allow/reject liquidation of assets. This function can be called 
+     *      externally, but only will have effect when called from an exafin. 
+     * @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
+     * @param exafinBorrowed market from where the debt is pending
+     * @param liquidator address that is liquidating the assets
+     * @param borrower address which the assets are being liquidated
+     * @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
+     * @param maturityDate maturity where the position has a shortfall in liquidity
      */
     function liquidateAllowed(
         address exafinBorrowed,
@@ -404,12 +404,12 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to allow/reject seizing of assets. This function can be called 
-             externally, but only will have effect when called from an exafin. 
-        @param exafinCollateral market where the assets will be seized (should be msg.sender on Exafin.sol)
-        @param exafinBorrowed market from where the debt will be paid
-        @param liquidator address to validate where the seized assets will be received
-        @param borrower address to validate where the assets will be removed
+     * @dev Function to allow/reject seizing of assets. This function can be called 
+     *      externally, but only will have effect when called from an exafin. 
+     * @param exafinCollateral market where the assets will be seized (should be msg.sender on Exafin.sol)
+     * @param exafinBorrowed market from where the debt will be paid
+     * @param liquidator address to validate where the seized assets will be received
+     * @param borrower address to validate where the assets will be removed
      */
     function seizeAllowed(
         address exafinCollateral,
@@ -429,9 +429,9 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to enable a certain Exafin market to be used as collateral
-        @param exafin address to add to the protocol
-        @param collateralFactor exafin's collateral factor for the underlying asset
+     * @dev Function to enable a certain Exafin market to be used as collateral
+     * @param exafin address to add to the protocol
+     * @param collateralFactor exafin's collateral factor for the underlying asset
      */
     function enableMarket(
         address exafin,
@@ -460,10 +460,10 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @notice Set the given borrow caps for the given exafin markets. Borrowing that brings total borrows to or above borrow cap will revert.
-        @param exafins The addresses of the markets (tokens) to change the borrow caps for
-        @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
-      */
+     * @notice Set the given borrow caps for the given exafin markets. Borrowing that brings total borrows to or above borrow cap will revert.
+     * @param exafins The addresses of the markets (tokens) to change the borrow caps for
+     * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
+     */
     function setMarketBorrowCaps(
         address[] calldata exafins,
         uint256[] calldata newBorrowCaps
@@ -486,9 +486,9 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to pause/unpause borrowing on a certain market
-        @param exafin address to pause
-        @param paused true/false
+     * @dev Function to pause/unpause borrowing on a certain market
+     * @param exafin address to pause
+     * @param paused true/false
      */
     function pauseBorrow(address exafin, bool paused)
         public
@@ -505,8 +505,8 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to set Oracle's to be used
-        @param _priceOracleAddress address of the new oracle
+     * @dev Function to set Oracle's to be used
+     * @param _priceOracleAddress address of the new oracle
      */
     function setOracle(address _priceOracleAddress) public onlyRole(TEAM_ROLE) {
         oracle = Oracle(_priceOracleAddress);
@@ -530,17 +530,28 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-        @dev Function to retrieve valid future pools
+     * @dev Function to retrieve valid future pools
      */
     function getFuturePools() override external view returns (uint256[] memory) {
         return TSUtils.futurePools(block.timestamp, maxFuturePools);
     }
 
     /**
-        @dev Function to retrieve all markets
+     * @dev Function to retrieve all markets
      */
     function getMarketAddresses() override external view returns (address[] memory) {
         return marketsAddress;
+    }
+
+    /**
+     * @dev Function to retrieve supply state for rewards
+     */
+    function getSupplyState(address exafinAddress) external view returns (MarketRewardsState memory) {
+        if(markets[exafinAddress].isListed == false) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        return rewardsState.exaState[exafinAddress].exaSupplyState;
     }
 
 }

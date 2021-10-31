@@ -28,13 +28,17 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     from: deployer,
   });
 
+  const exaToken = await hre.deployments.deploy("ExaToken", {
+    from: deployer,
+  });
+
   const auditor = await hre.deployments.deploy("Auditor", {
     from: deployer,
-    args: [priceOracleAddress],
+    args: [priceOracleAddress, exaToken.address],
     log: true,
     libraries: {
       TSUtils: tsUtils.address,
-      ExaLibL: exaLib.address
+      ExaLib: exaLib.address
     }
   });
 

@@ -8,7 +8,6 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 describe("Auditor Admin", function () {
   let auditor: Contract;
   let exactlyEnv: ExactlyEnv;
-  let notAnExafinAddress: string;
   let nextPoolID: number;
 
   let owner: SignerWithAddress;
@@ -32,7 +31,6 @@ describe("Auditor Admin", function () {
 
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
     auditor = exactlyEnv.auditor;
-    notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
     nextPoolID = (new ExaTime()).nextPoolID();
 
     // From Owner to User
@@ -59,7 +57,10 @@ describe("Auditor Admin", function () {
         ExaLib: exactlyEnv.exaLib.address
       }
     });
-    let newAuditor = await Auditor.deploy(exactlyEnv.oracle.address);
+    let newAuditor = await Auditor.deploy(
+      exactlyEnv.oracle.address,
+      exactlyEnv.exaToken.address
+    );
     await newAuditor.deployed();
 
     const Exafin = await ethers.getContractFactory("Exafin", {
@@ -139,7 +140,7 @@ describe("Auditor Admin", function () {
 
   it("SetMarketBorrowCaps should fail when wrong market", async () => {
     await expect(
-      auditor.setMarketBorrowCaps([notAnExafinAddress], [parseUnits("1000")])
+      auditor.setMarketBorrowCaps([exactlyEnv.notAnExafinAddress], [parseUnits("1000")])
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 

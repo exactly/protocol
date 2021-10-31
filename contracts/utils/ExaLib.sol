@@ -15,6 +15,11 @@ struct Market {
     mapping(address => bool) accountMembership;
 }
 
+struct MarketRewardsState {
+    uint224 index;
+    uint32 block;
+}
+
 library ExaLib {
     using DecimalMath for uint256;
     using DecimalMath for Double;
@@ -37,11 +42,6 @@ library ExaLib {
     // Double precision
     uint224 public constant EXA_INITIAL_INDEX = 1e36;
 
-    struct MarketRewardsState {
-        uint224 index;
-        uint32 block;
-    }
-
     struct ExaState {
         uint256 exaSpeed;
         MarketRewardsState exaSupplyState;
@@ -52,6 +52,7 @@ library ExaLib {
 
     struct RewardsState {
         uint256 exaRate;
+        address exaToken;
         mapping(address => ExaLib.ExaState) exaState;
         mapping(address => uint) exaAccruedUser;
     }
@@ -243,14 +244,14 @@ library ExaLib {
                 _updateExaBorrowIndex(exafinState, exafin);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeBorrowerExa(exafinState, exafin, holders[j]);
-                    exafinState.exaAccruedUser[holders[j]] = _grantExa(holders[j], exafinState.exaAccruedUser[holders[j]]);
+                    exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
                 }
             }
             if (suppliers == true) {
                 _updateExaSupplyIndex(exafinState, exafin);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeSupplierExa(exafinState, exafin, holders[j]);
-                    exafinState.exaAccruedUser[holders[j]] = _grantExa(holders[j], exafinState.exaAccruedUser[holders[j]]);
+                    exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
                 }
             }
         }
@@ -258,13 +259,32 @@ library ExaLib {
 
     /**
      * @notice Transfer EXA to the user
-     * @dev Note: If there is not enough EXA, we do not perform the transfer all.
+     * @param exafinState RewardsState storage in Auditor
      * @param user The address of the user to transfer EXA to
      * @param amount The amount of EXA to (possibly) transfer
      * @return The amount of EXA which was NOT transferred to the user
      */
-    function _grantExa(address user, uint amount) internal returns (uint) {
-        ExaToken exa = ExaToken(getExaAddress());
+    function grantExa(
+        RewardsState storage exafinState,
+        address user,
+        uint amount
+    ) external returns (uint) {
+        return _grantExa(exafinState, user, amount);
+    }
+
+    /**
+     * @notice Transfer EXA to the user
+     * @param exafinState RewardsState storage in Auditor
+     * @param user The address of the user to transfer EXA to
+     * @param amount The amount of EXA to (possibly) transfer
+     * @return The amount of EXA which was NOT transferred to the user
+     */
+    function _grantExa(
+        RewardsState storage exafinState,
+        address user,
+        uint amount
+    ) internal returns (uint) {
+        ExaToken exa = ExaToken(exafinState.exaToken);
         uint exaBalance = exa.balanceOf(address(this));
         if (amount > 0 && amount <= exaBalance) {
             exa.transfer(user, amount);
@@ -311,10 +331,6 @@ library ExaLib {
         }
 
         return false;
-    }
-
-    function getExaAddress() internal returns (address) {
-        return 0xc00e94Cb662C3520282E6f5717214004A7f26888;
     }
 
 }

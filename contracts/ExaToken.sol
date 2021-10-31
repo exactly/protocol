@@ -12,7 +12,7 @@ contract ExaToken is ERC20, ERC20Snapshot, AccessControl, ERC20Permit {
     constructor() ERC20("ExaToken", "EXA") ERC20Permit("ExaToken") {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(TEAM_ROLE, msg.sender);
-        _mint(msg.sender, 10000000 * 10 ** decimals());
+        _mint(msg.sender, 1000000000 * 10 ** decimals());
     }
 
     function snapshot() public onlyRole(TEAM_ROLE) {

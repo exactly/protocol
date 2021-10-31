@@ -9,7 +9,6 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 describe("Auditor from User Space", function () {
   let auditor: Contract;
   let exactlyEnv: ExactlyEnv;
-  let notAnExafinAddress: string;
   let nextPoolID: number;
 
   let owner: SignerWithAddress;
@@ -35,7 +34,6 @@ describe("Auditor from User Space", function () {
 
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
     auditor = exactlyEnv.auditor;
-    notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
     nextPoolID = (new ExaTime()).nextPoolID();
 
     // From Owner to User
@@ -44,7 +42,7 @@ describe("Auditor from User Space", function () {
 
   it("We try to enter an unlisted market and fail", async () => {
     await expect(
-      auditor.enterMarkets([notAnExafinAddress])
+      auditor.enterMarkets([exactlyEnv.notAnExafinAddress])
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
@@ -58,13 +56,13 @@ describe("Auditor from User Space", function () {
 
   it("SupplyAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.supplyAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+      auditor.supplyAllowed(exactlyEnv.notAnExafinAddress, owner.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("BorrowAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.borrowAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+      auditor.borrowAllowed(exactlyEnv.notAnExafinAddress, owner.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
@@ -86,20 +84,20 @@ describe("Auditor from User Space", function () {
 
   it("RedeemAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.redeemAllowed(notAnExafinAddress, owner.address, 100, nextPoolID)
+      auditor.redeemAllowed(exactlyEnv.notAnExafinAddress, owner.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("RepayAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.repayAllowed(notAnExafinAddress, owner.address, nextPoolID)
+      auditor.repayAllowed(exactlyEnv.notAnExafinAddress, owner.address, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("SeizeAllowed should fail for an unlisted market", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await expect(
-      auditor.seizeAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address)
+      auditor.seizeAllowed(exactlyEnv.notAnExafinAddress, exafinDAI.address, owner.address, user.address)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
@@ -113,10 +111,10 @@ describe("Auditor from User Space", function () {
   it("LiquidateAllowed should fail for unlisted markets", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await expect(
-      auditor.liquidateAllowed(notAnExafinAddress, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
+      auditor.liquidateAllowed(exactlyEnv.notAnExafinAddress, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     await expect(
-      auditor.liquidateAllowed(exafinDAI.address, notAnExafinAddress, owner.address, user.address, 100, nextPoolID)
+      auditor.liquidateAllowed(exafinDAI.address, exactlyEnv.notAnExafinAddress, owner.address, user.address, 100, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     await expect(
       auditor.liquidateAllowed(exafinDAI.address, exafinDAI.address, owner.address, user.address, 100, nextPoolID)
@@ -125,7 +123,7 @@ describe("Auditor from User Space", function () {
 
   it("PauseBorrow should fail for an unlisted market", async () => {
     await expect(
-      auditor.pauseBorrow(notAnExafinAddress, true)
+      auditor.pauseBorrow(exactlyEnv.notAnExafinAddress, true)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 

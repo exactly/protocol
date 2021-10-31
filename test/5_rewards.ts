@@ -1,22 +1,18 @@
-import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract, BigNumber } from "ethers";
+import { expect } from "chai";
+import { Contract } from "ethers";
 import {
   errorGeneric,
-  errorUnmatchedPool,
   ExactlyEnv,
   ExaTime,
-  parseBorrowEvent,
-  parseSupplyEvent,
-  PoolState,
   ProtocolError,
 } from "./exactlyUtils";
-import { parseUnits } from "ethers/lib/utils";
+import { parseUnits, formatUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 Error.stackTraceLimit = Infinity;
 
-describe("Exafin", function () {
+describe("ExaToken", function() {
   let exactlyEnv: ExactlyEnv;
 
   let underlyingToken: Contract;
@@ -52,26 +48,50 @@ describe("Exafin", function () {
 
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
-
-    // 1 EXA per block as rewards
-    await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"))
-
-    // This can be optimized (so we only do it once per file, not per test)
-    // This helps with tests that use evm_setNextBlockTimestamp
-    snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
-  it("We get rewards for supply", async () => {
-    const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(exafin.address, underlyingAmount);
-    await exafin.supply(owner.address, underlyingAmount, exaTime.nextPoolID());
-    await underlyingToken.approve(exafin.address, underlyingAmount);
-    await exafin.supply(owner.address, underlyingAmount, exaTime.nextPoolID());
-  });
+  describe("setExaSpeed", function() {
+    it("should update rewards in the supply market", async () => {
+      // 1 EXA per block as rewards
+      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"));
+      const [, initialBlock] = await auditor.getSupplyState(exactlyEnv.getExafin("DAI").address);
 
+      // 2 EXA per block as rewards
+      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("2"));
 
-  afterEach(async () => {
-    await ethers.provider.send("evm_revert", [snapshot]);
-    await ethers.provider.send("evm_mine", []);
-  });
+      // ... but updated on the initial speed
+      const [index, block] = await auditor.getSupplyState(exactlyEnv.getExafin("DAI").address);
+      expect(index).to.equal(parseUnits("1", 36));
+      expect(block - initialBlock).to.equal(1);
+    });
+
+    it("should NOT update rewards in the supply market after being set to 0", async () => {
+      // 1 EXA per block as rewards
+      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"));
+      const [, initialBlock] = await auditor.getSupplyState(exactlyEnv.getExafin("DAI").address);
+
+      // 0 EXA per block as rewards
+      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("0"));
+      // 2 EXA per block as rewards but no effect
+      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("2"));
+
+      // ... but updated on the initial speed
+      const [index, block] = await auditor.getSupplyState(exactlyEnv.getExafin("DAI").address);
+      expect(index).to.equal(parseUnits("1", 36));
+      expect(block - initialBlock).to.equal(1);
+    });
+
+    it("should revert if non admin access", async () => {
+      await expect(
+        auditor.connect(mariaUser).setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"))
+      ).to.be.revertedWith("AccessControl");
+    });
+
+    it("should revert if an invalid exafin address", async () => {
+      await expect(
+        auditor.setExaSpeed(exactlyEnv.notAnExafinAddress, parseUnits("1"))
+      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+    });
+
+  })
 });

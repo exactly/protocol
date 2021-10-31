@@ -104,11 +104,13 @@ export class ExactlyEnv {
   interestRateModel: Contract;
   tsUtils: Contract;
   exaLib: Contract;
+  exaToken: Contract;
   exafinContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
+  notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
 
   constructor(
     _oracle: Contract,
@@ -116,6 +118,7 @@ export class ExactlyEnv {
     _interestRateModel: Contract,
     _tsUtils: Contract,
     _exaLib: Contract,
+    _exaToken: Contract,
     _exafinContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>
   ) {
@@ -126,6 +129,7 @@ export class ExactlyEnv {
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
     this.exaLib = _exaLib;
+    this.exaToken = _exaToken;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
@@ -158,6 +162,10 @@ export class ExactlyEnv {
     let exaLib = await ExaLib.deploy();
     await exaLib.deployed();
 
+    const ExaToken = await ethers.getContractFactory("ExaToken");
+    let exaToken = await ExaToken.deploy();
+    await exaToken.deployed();
+
     const SomeOracle = await ethers.getContractFactory("SomeOracle");
     let oracle = await SomeOracle.deploy();
     await oracle.deployed();
@@ -179,7 +187,10 @@ export class ExactlyEnv {
         ExaLib: exaLib.address
       }
     });
-    let auditor = await Auditor.deploy(oracle.address);
+    let auditor = await Auditor.deploy(
+      oracle.address,
+      exaToken.address
+    );
     await auditor.deployed();
 
     // We have to enable all the Exafins in the auditor 
@@ -231,6 +242,7 @@ export class ExactlyEnv {
           interestRateModel,
           tsUtils,
           exaLib,
+          exaToken,
           exafinContracts,
           underlyingContracts
         )
