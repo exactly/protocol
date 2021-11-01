@@ -65,7 +65,6 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 addAmount
     );
 
-
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
     mapping(uint256 => PoolLib.Pool) public pools;
@@ -106,10 +105,10 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Get current rate to borrow a certain amount in a certain maturity
-             in the current state of the pool and the pot
-        @param amount amount to borrow from a certain maturity date
-        @param maturityDate maturity date for calculating rates
+     * @dev Get current rate to borrow a certain amount in a certain maturity
+     *      in the current state of the pool and the pot
+     * @param amount amount to borrow from a certain maturity date
+     * @param maturityDate maturity date for calculating rates
      */
     function getRateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
         if(!TSUtils.isPoolID(maturityDate)) {
@@ -121,10 +120,10 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Get current rate for supplying a certain amount in a certain maturity
-             in the current state of the pool and the pot
-        @param amount amount to supply to a certain maturity date
-        @param maturityDate maturity date for calculating rates
+     * @dev Get current rate for supplying a certain amount in a certain maturity
+     *      in the current state of the pool and the pot
+     * @param amount amount to supply to a certain maturity date
+     * @param maturityDate maturity date for calculating rates
      */
     function getRateToSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
         if(!TSUtils.isPoolID(maturityDate)) {
@@ -136,9 +135,9 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Lends to a wallet for a certain maturity date/pool
-        @param amount amount to send to the specified wallet
-        @param maturityDate maturity date for repayment
+     * @dev Lends to a wallet for a certain maturity date/pool
+     * @param amount amount to send to the specified wallet
+     * @param maturityDate maturity date for repayment
      */
     function borrow(
         uint256 amount,
@@ -180,11 +179,11 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Supplies a certain amount to the protocol for 
-             a certain maturity date/pool
-        @param from wallet to receive amount from
-        @param amount amount to receive from the specified wallet
-        @param maturityDate maturity date / pool ID
+     * @dev Supplies a certain amount to the protocol for 
+     *      a certain maturity date/pool
+     * @param from wallet to receive amount from
+     * @param amount amount to receive from the specified wallet
+     * @param maturityDate maturity date / pool ID
      */
     function supply(
         address from,
@@ -228,12 +227,12 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice User collects a certain amount of underlying asset after having
-                supplied tokens until a certain maturity date
-        @dev The pool that the user is trying to retrieve the money should be matured
-        @param redeemer The address of the account which is redeeming the tokens
-        @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin
-        @param maturityDate the matured date for which we're trying to retrieve the funds
+     * @notice User collects a certain amount of underlying asset after having
+     *         supplied tokens until a certain maturity date
+     * @dev The pool that the user is trying to retrieve the money should be matured
+     * @param redeemer The address of the account which is redeeming the tokens
+     * @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin
+     * @param maturityDate the matured date for which we're trying to retrieve the funds
      */
     function redeem(
         address payable redeemer,
@@ -268,10 +267,10 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Sender repays borrower's debt for a maturity date
-        @dev The pool that the user is trying to repay to should be matured
-        @param borrower The address of the account that has the debt
-        @param maturityDate The matured date where the debt is located
+     * @notice Sender repays borrower's debt for a maturity date
+     * @dev The pool that the user is trying to repay to should be matured
+     * @param borrower The address of the account that has the debt
+     * @param maturityDate The matured date where the debt is located
      */
     function repay(
         address borrower,
@@ -296,14 +295,14 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice This function allows to partially repay a position on liquidation
-        @dev repay function on liquidation, it allows to partially pay debt, and it
-             doesn't check `repayAllowed` on the auditor. It should be called after 
-             liquidateAllowed
-        @param payer The address of the account that will pay the debt
-        @param borrower The address of the account that has the debt
-        @param repayAmount the amount of debt of the pool that should be paid
-        @param maturityDate the maturityDate to access the pool
+     * @notice This function allows to partially repay a position on liquidation
+     * @dev repay function on liquidation, it allows to partially pay debt, and it
+     *      doesn't check `repayAllowed` on the auditor. It should be called after 
+     *      liquidateAllowed
+     * @param payer The address of the account that will pay the debt
+     * @param borrower The address of the account that has the debt
+     * @param repayAmount the amount of debt of the pool that should be paid
+     * @param maturityDate the maturityDate to access the pool
      */
     function _repayLiquidate(
         address payer,
@@ -329,13 +328,13 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Function to liquidate an uncollaterized position
-        @dev Msg.sender liquidates a borrower's position and repays a certain amount of collateral
-             for a maturity date, seizing a part of borrower's collateral
-        @param borrower wallet that has an outstanding debt for a certain maturity date
-        @param repayAmount amount to be repaid by liquidator(msg.sender)
-        @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
-        @param maturityDate maturity date for which the position will be liquidated
+     * @notice Function to liquidate an uncollaterized position
+     * @dev Msg.sender liquidates a borrower's position and repays a certain amount of collateral
+     *      for a maturity date, seizing a part of borrower's collateral
+     * @param borrower wallet that has an outstanding debt for a certain maturity date
+     * @param repayAmount amount to be repaid by liquidator(msg.sender)
+     * @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
+     * @param maturityDate maturity date for which the position will be liquidated
      */
     function liquidate(
         address borrower,
@@ -347,13 +346,13 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Internal Function to liquidate an uncollaterized position
-        @dev Liquidator liquidates a borrower's position and repays a certain amount of collateral
-             for a maturity date, seizing a part of borrower's collateral
-        @param borrower wallet that has an outstanding debt for a certain maturity date
-        @param repayAmount amount to be repaid by liquidator(msg.sender)
-        @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
-        @param maturityDate maturity date for which the position will be liquidated
+     * @notice Internal Function to liquidate an uncollaterized position
+     * @dev Liquidator liquidates a borrower's position and repays a certain amount of collateral
+     *      for a maturity date, seizing a part of borrower's collateral
+     * @param borrower wallet that has an outstanding debt for a certain maturity date
+     * @param repayAmount amount to be repaid by liquidator(msg.sender)
+     * @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
+     * @param maturityDate maturity date for which the position will be liquidated
      */
     function _liquidate(
         address liquidator,
@@ -400,14 +399,14 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Public function to seize a certain amount of tokens
-        @dev Public function for liquidator to seize borrowers tokens in a certain maturity date. 
-             This function will only be called from another Exafins, on `liquidation` calls. 
-             That's why msg.sender needs to be passed to the private function (to be validated as a market)
-        @param liquidator address which will receive the seized tokens
-        @param borrower address from which the tokens will be seized
-        @param seizeAmount amount to be removed from borrower's posession
-        @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
+     * @notice Public function to seize a certain amount of tokens
+     * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date. 
+     *      This function will only be called from another Exafins, on `liquidation` calls. 
+     *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
+     * @param liquidator address which will receive the seized tokens
+     * @param borrower address from which the tokens will be seized
+     * @param seizeAmount amount to be removed from borrower's posession
+     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function seize(
         address liquidator,
@@ -419,15 +418,15 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Private function to seize a certain amount of tokens
-        @dev Private function for liquidator to seize borrowers tokens in a certain maturity date. 
-             This function will only be called from this Exafin, on `liquidation` or through `seize` calls from another Exafins. 
-             That's why msg.sender needs to be passed to the private function (to be validated as a market)
-        @param seizerExafin address which is calling the seize function (see `seize` public function)
-        @param liquidator address which will receive the seized tokens
-        @param borrower address from which the tokens will be seized
-        @param seizeAmount amount to be removed from borrower's posession
-        @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
+     * @notice Private function to seize a certain amount of tokens
+     * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date. 
+     *      This function will only be called from this Exafin, on `liquidation` or through `seize` calls from another Exafins. 
+     *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
+     * @param seizerExafin address which is calling the seize function (see `seize` public function)
+     * @param liquidator address which will receive the seized tokens
+     * @param borrower address from which the tokens will be seized
+     * @param seizeAmount amount to be removed from borrower's posession
+     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function _seize(
         address seizerExafin,
@@ -462,9 +461,9 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Gets current snapshot for a wallet in a certain maturity
-        @param who wallet to return status snapshot in the specified maturity date
-        @param maturityDate maturity date
+     * @dev Gets current snapshot for a wallet in a certain maturity
+     * @param who wallet to return status snapshot in the specified maturity date
+     * @param maturityDate maturity date
      */
     function getAccountSnapshot(address who, uint256 maturityDate)
         public
@@ -479,8 +478,8 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Gets the total amount of borrowed money for a maturityDate
-        @param maturityDate maturity date
+     * @dev Gets the total amount of borrowed money for a maturityDate
+     * @param maturityDate maturity date
      */
     function getTotalBorrows(uint256 maturityDate)
         public
@@ -495,23 +494,23 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Gets the auditor contract interface being used to validate positions
+     * @dev Gets the auditor contract interface being used to validate positions
      */
     function getAuditor() public view override returns (IAuditor) {
         return IAuditor(auditor);
     }
 
     /**
-        @dev Retrieves all the supplies (Smart + all maturities) in this Exafin
-             for a user -- This is NOT for ERC20 of the smart pool
+     * @dev Retrieves all the supplies (Smart + all maturities) in this Exafin
+     *      for a user -- This is NOT for ERC20 of the smart pool
      */
     function suppliesOf(address who) public view override returns (uint256) {
         return balances[who] + totalDepositsUser[who];
     }
 
     /**
-        @dev Retrieves all the borrows in this Exafin
-             for a user -- This is NOT for ERC20 of the smart pool
+     * @dev Retrieves all the borrows in this Exafin
+     *      for a user -- This is NOT for ERC20 of the smart pool
      */
     function borrowsOf(address who) public view override returns (uint256) {
         return totalBorrowsUser[who];
