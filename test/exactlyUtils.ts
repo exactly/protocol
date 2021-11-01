@@ -234,7 +234,7 @@ export class ExaTime {
   timestamp: number;
 
   private oneDay: number = 86400;
-  private twoWeeks: number = 86400 * 14;
+  private INTERVAL: number = 86400 * 7;
 
   constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
     this.timestamp = timestamp;
@@ -242,19 +242,19 @@ export class ExaTime {
 
   public nextPoolID(): number {
     return (
-      this.timestamp - (this.timestamp % this.twoWeeks) + this.twoWeeks
+      this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL
     );
   }
 
   public isPoolID(): boolean {
     return (
-      (this.timestamp % this.twoWeeks) == 0
+      (this.timestamp % this.INTERVAL) == 0
     );
   }
 
   public pastPoolID(): number {
     return (
-      this.timestamp - (this.timestamp % this.twoWeeks) - this.twoWeeks
+      this.timestamp - (this.timestamp % this.INTERVAL) - this.INTERVAL
     );
   }
 
@@ -271,7 +271,7 @@ export class ExaTime {
     var allPools: number[] = [];
     for (let i = 0; i < maxPools; i++) {
       allPools.push(nextPoolID);
-      nextPoolID += this.twoWeeks;
+      nextPoolID += this.INTERVAL;
     }
     return allPools;
   }
