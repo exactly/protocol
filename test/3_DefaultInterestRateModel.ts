@@ -69,9 +69,7 @@ describe("DefaultInterestRateModel", () => {
       supplied: 100000,
     };
 
-    console.log(
-      formatUnits(await interestRateModel.getRateToBorrow(1, exaTime.futurePools(6)[1], pool, smartPool, true))
-    );
+    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.futurePools(6)[1], pool, smartPool, true)));
   });
 
   it("Borrow 10000, supply 10000", async () => {
@@ -87,7 +85,7 @@ describe("DefaultInterestRateModel", () => {
       supplied: 110000,
     };
 
-    console.log(formatUnits(await interestRateModel.getRateToBorrow(1, exaTime.nextPoolID(), pool, smartPool, true)));
+    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
   });
 
   it("Borrow 10000", async () => {
@@ -103,7 +101,7 @@ describe("DefaultInterestRateModel", () => {
       supplied: 100000,
     };
 
-    console.log(formatUnits(await interestRateModel.getRateToBorrow(1, exaTime.nextPoolID(), pool, smartPool, true)));
+    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
   });
 
   it("Borrow 10 with no money in maturity pool nor smart pool", () => {
@@ -119,6 +117,6 @@ describe("DefaultInterestRateModel", () => {
       supplied: 0,
     };
 
-    expect(interestRateModel.getRateToBorrow(1, exaTime.nextPoolID(), pool, smartPool, true)).to.be.reverted;
+    expect(interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)).to.be.reverted;
   });
 });

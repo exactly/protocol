@@ -75,21 +75,6 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Get current rate to borrow a certain amount in a certain maturity
-             in the current state of the pool and the pot
-        @param amount amount to borrow from a certain maturity date
-        @param maturityDate maturity date for calculating rates
-     */
-    function getRateToBorrow(uint256 amount, uint256 maturityDate) public view override returns (uint256) {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        PoolLib.Pool memory poolMaturity = pools[maturityDate];
-        return interestRateModel.getRateToBorrow(amount, maturityDate, poolMaturity, smartPool, false);
-    }
-
-    /**
         @dev Get current rate for supplying a certain amount in a certain maturity
              in the current state of the pool and the pot
         @param amount amount to supply to a certain maturity date
@@ -135,7 +120,7 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         pools[maturityDate] = pool;
 
-        uint256 commissionRate = interestRateModel.getRateToBorrow(amount, maturityDate, pool, smartPool, newDebt);
+        uint256 commissionRate = interestRateModel.getRateToBorrow(maturityDate, pool, smartPool, newDebt);
 
         uint256 commission = (amount * commissionRate) / RATE_UNIT;
         borrowedAmounts[maturityDate][msg.sender] += amount + commission;

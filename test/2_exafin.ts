@@ -79,13 +79,6 @@ describe("Exafin", function () {
     );
   });
 
-  it("GetRateToBorrow fails on an invalid pool", async () => {
-    let invalidPoolID = exaTime.nextPoolID() + 3;
-    await expect(exafin.getRateToBorrow(parseUnits("10"), invalidPoolID)).to.be.revertedWith(
-      errorGeneric(ProtocolError.INVALID_POOL_ID)
-    );
-  });
-
   it("it allows to give money to a pool", async () => {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(exafin.address, underlyingAmount);

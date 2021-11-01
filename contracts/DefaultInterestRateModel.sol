@@ -61,13 +61,11 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         @dev Get current rate for borrow a certain amount in a certain maturity
              with supply/demand values in the maturity pool and supply demand values
              in the pot
-        @param amount amount to borrow from a certain maturity date
         @param maturityDate maturity date for calculating days left to maturity
         @param maturityPool supply/demand values for the maturity pool
         @param smartPool supply/demand values for the smartPool
      */
     function getRateToBorrow(
-        uint256 amount,
         uint256 maturityDate,
         PoolLib.Pool memory maturityPool,
         PoolLib.SmartPool memory smartPool,
