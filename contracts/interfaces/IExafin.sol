@@ -6,7 +6,7 @@ import "./IAuditor.sol";
 interface IExafin {
     function getRateToSupply(uint256 amount, uint256 maturityDate) external view returns (uint256);
 
-    function borrow(uint256 amount, uint256 maturityDate) external returns (uint256);
+    function borrow(uint256 amount, uint256 maturityDate) external;
 
     function supply(
         address from,

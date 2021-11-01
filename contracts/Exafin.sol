@@ -94,7 +94,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         @param amount amount to send to the specified wallet
         @param maturityDate maturity date for repayment
      */
-    function borrow(uint256 amount, uint256 maturityDate) public override nonReentrant returns (uint256) {
+    function borrow(uint256 amount, uint256 maturityDate) public override nonReentrant {
         bool newDebt = false;
 
         if (!TSUtils.isPoolID(maturityDate)) {
@@ -128,9 +128,6 @@ contract Exafin is IExafin, ReentrancyGuard {
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
         emit Borrowed(msg.sender, amount, commission, maturityDate);
-
-        //Delete this after testing
-        return commissionRate;
     }
 
     /**
@@ -434,15 +431,5 @@ contract Exafin is IExafin, ReentrancyGuard {
      */
     function getAuditor() public view override returns (IAuditor) {
         return IAuditor(auditor);
-    }
-
-    //DELETE THIS AFTER TESTING
-    function smartPoolSupply(address from, uint256 amount) public {
-        trustedUnderlying.safeTransferFrom(from, address(this), amount);
-        smartPool.supplied = smartPool.supplied + amount;
-    }
-
-    function currentBalance() public view returns (uint256) {
-        return trustedUnderlying.balanceOf(address(this));
     }
 }
