@@ -166,15 +166,13 @@ contract Auditor is IAuditor, AccessControl {
             if (asset == IExafin(exafinToSimulate)) {
                 // Calculate the effects of borrowing exafins
                 if (borrowAmount != 0) {
-                    vars.sumDebt += borrowAmount.mul_(vars.oraclePrice, 1e18);
+                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(borrowAmount, vars.oraclePrice, market.decimals);
                 }
 
                 // Calculate the effects of redeeming exafins
                 // (having less collateral is the same as having more debt for this calculation)
                 if (redeemAmount != 0) {
-                    vars.sumDebt += redeemAmount
-                        .mul_(vars.collateralFactor)
-                        .mul_(vars.oraclePrice, 1e18);
+                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(redeemAmount, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
                 }
             }
         }
