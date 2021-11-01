@@ -239,7 +239,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
 
         require(
-            trustedUnderlying.balanceOf(address(this)) > redeemAmount,
+            trustedUnderlying.balanceOf(address(this)) >= redeemAmount,
             "Not enough liquidity"
         );
 
