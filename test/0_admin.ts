@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric } from "./exactlyUtils";
+import { ProtocolError, ExactlyEnv, ExaTime, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Auditor Admin", function () {
@@ -11,7 +11,6 @@ describe("Auditor Admin", function () {
   let notAnExafinAddress: string;
   let nextPoolID: number;
 
-  let owner: SignerWithAddress;
   let user: SignerWithAddress;
 
   let tokensCollateralRate = new Map([
@@ -19,16 +18,14 @@ describe("Auditor Admin", function () {
     ["ETH", parseUnits("0.7", 18)],
   ]);
 
-  // Oracle price is in 10**6
+  // Mocked Oracle prices are returned in 10**18
   let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 6)],
-    ["ETH", parseUnits("3000", 6)],
+    ["DAI", parseUnits("1", 18)],
+    ["ETH", parseUnits("3000", 18)],
   ]);
 
-  let closeFactor = parseUnits("0.4");
-
   beforeEach(async () => {
-    [owner, user] = await ethers.getSigners();
+    [, user] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
     auditor = exactlyEnv.auditor;
@@ -39,7 +36,7 @@ describe("Auditor Admin", function () {
     await exactlyEnv.getUnderlying("DAI").transfer(user.address, parseUnits("10000"));
   });
 
-  it("EnableMarket should fail from third parties", async () => {
+  it("EnableMarket should fail when called from third parties", async () => {
     await expect(
       auditor.connect(user).enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI")
     ).to.be.revertedWith("AccessControl");

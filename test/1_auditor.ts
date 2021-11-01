@@ -21,11 +21,11 @@ describe("Auditor from User Space", function () {
     ["WBTC", parseUnits("0.6", 18)]
   ]);
 
-  // Oracle price is in 10**6
+  // Mocked Oracle prices are returned in 10**18
   let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 6)],
-    ["ETH", parseUnits("3000", 6)],
-    ["WBTC", parseUnits("63000", 6)]
+    ["DAI", parseUnits("1", 18)],
+    ["ETH", parseUnits("3000", 18)],
+    ["WBTC", parseUnits("63000", 18)]
   ]);
 
   let closeFactor = parseUnits("0.4");
@@ -194,7 +194,7 @@ describe("Auditor from User Space", function () {
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
-    await exactlyEnv.setOraclePrice("DAI", "0");
+    await exactlyEnv.setOracleMockPrice("DAI", "0");
     await expect(
       auditor.liquidateCalculateSeizeAmount(exafinDAI.address, exafinDAI.address, 100)
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
@@ -244,14 +244,14 @@ describe("Auditor from User Space", function () {
       .mul(tokensCollateralRate.get("DAI")!)
       .div(parseUnits("1", 18))
       .mul(tokensUSDPrice.get("DAI")!)
-      .div(parseUnits("1", 6));
+      .div(parseUnits("1", 18));
 
     let collaterETH = amountETH
       .add(borrowETHEvent.commission)
       .mul(tokensCollateralRate.get("ETH")!)
       .div(parseUnits("1", 18))
       .mul(tokensUSDPrice.get("ETH")!)
-      .div(parseUnits("1", 6));
+      .div(parseUnits("1", 18));
 
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
   });
@@ -264,8 +264,7 @@ describe("Auditor from User Space", function () {
     const exafinWBTC = exactlyEnv.getExafin("WBTC");
     const wbtc = exactlyEnv.getUnderlying("WBTC");
 
-
-    // we supply Eth to the protocol
+    // we supply ETH to the protocol
     const amountETH = parseUnits("1", 18);
     await eth.approve(exafinETH.address, amountETH);
     await exafinETH.supply(owner.address, amountETH, nextPoolID);
@@ -293,8 +292,8 @@ describe("Auditor from User Space", function () {
     // user borrows all liquidity
     await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
 
-    // ETH price goes to 1/2 of its original value
-    await exactlyEnv.setOraclePrice("WBTC", "32500");
+    // WBTC price goes to 1/2 of its original value
+    await exactlyEnv.setOracleMockPrice("WBTC", "32500");
 
     // We expect liquidity to be equal to zero
     let liquidityAfterOracleChange = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
