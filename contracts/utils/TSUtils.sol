@@ -5,6 +5,8 @@ import "hardhat/console.sol";
 
 library TSUtils {
 
+    uint32 public constant INTERVAL = 7 days;
+
     enum State {
         INVALID,
         MATURED,
@@ -17,7 +19,7 @@ library TSUtils {
     }
 
     function getPoolState(uint256 currentTimestamp, uint256 timestamp, uint8 maxPools) public pure returns (State) {
-        if (timestamp % 14 days != 0) {
+        if (timestamp % INTERVAL != 0) {
             return State.INVALID;
         }
 
@@ -25,8 +27,8 @@ library TSUtils {
             return State.MATURED;
         }
 
-        uint256 totalSecondsForEnabledPools = 14 days * maxPools;
-        if (timestamp > currentTimestamp - (currentTimestamp % 14 days) + totalSecondsForEnabledPools) {
+        uint256 totalSecondsForEnabledPools = INTERVAL * maxPools;
+        if (timestamp > currentTimestamp - (currentTimestamp % INTERVAL) + totalSecondsForEnabledPools) {
             return State.NOT_READY;
         }
 
@@ -34,16 +36,17 @@ library TSUtils {
     }
 
     function isPoolID(uint256 timestamp) public pure returns (bool) {
-        return (timestamp % 14 days) == 0;
+        return (timestamp % INTERVAL) == 0;
     }
 
     function futurePools(uint256 startingTimestamp, uint8 maxPools) public pure returns (uint256[] memory) {
         uint256[] memory poolIDs = new uint256[](maxPools);
-        uint256 timestamp = startingTimestamp - (startingTimestamp % 14 days);
+        uint256 timestamp = startingTimestamp - (startingTimestamp % INTERVAL);
         for (uint i=0; i < maxPools; i++) {
-            timestamp += 14 days;
+            timestamp += INTERVAL;
             poolIDs[i] = timestamp;
         }
         return poolIDs;
     }
 }
+
