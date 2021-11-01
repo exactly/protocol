@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./utils/TSUtils.sol";
 import "./utils/Errors.sol";
 import "./utils/DecimalMath.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "hardhat/console.sol";
 
@@ -82,38 +83,21 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         uint256 daysDifference = (maturityDate - TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
         uint256 yearlyRate = 0;
-        uint256 maturityPoolYearlyRate = 0;
-        uint256 smartPoolYearlyRate = 0;
 
         if (!canCheckSmartPoolUR && !canCheckMaturityPoolUR) {
             return 0;
         }
 
-        if (canCheckSmartPoolUR) {
-            smartPoolYearlyRate = (spSlopeRate * smartPool.borrowed) / smartPool.supplied;
-        }
-
-        if (canCheckMaturityPoolUR) {
-            maturityPoolYearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
-        }
-
         if (!newDebt) {
-            yearlyRate = maturityPoolYearlyRate;
-
-            return ((yearlyRate * daysDifference) / 365);
-        }
-
-        //This conditionals are just for testing, will delete later.
-        if (smartPoolYearlyRate > maturityPoolYearlyRate) {
-            console.log("3 Final return", smartPoolYearlyRate);
+            yearlyRate = maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
         } else {
-            console.log("4 Final return", maturityPoolYearlyRate);
+            yearlyRate = Math.max(
+                smartPool.supplied == 0 ? 0 : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
+                maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied
+            );
         }
 
-        return
-            smartPoolYearlyRate > maturityPoolYearlyRate
-                ? ((smartPoolYearlyRate * daysDifference) / 365)
-                : ((maturityPoolYearlyRate * daysDifference) / 365);
+        return ((yearlyRate * daysDifference) / 365);
     }
 
     /**
