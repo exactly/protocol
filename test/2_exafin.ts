@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract, BigNumber } from "ethers";
 import {
+  DefaultEnv,
   errorGeneric,
   errorUnmatchedPool,
   ExactlyEnv,
@@ -17,7 +18,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 Error.stackTraceLimit = Infinity;
 
 describe("Exafin", function () {
-  let exactlyEnv: ExactlyEnv;
+  let exactlyEnv: DefaultEnv;
 
   let underlyingToken: Contract;
   let exafin: Contract;

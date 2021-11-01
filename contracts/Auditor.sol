@@ -205,7 +205,7 @@ contract Auditor is IAuditor, AccessControl {
 
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
-        rewardsState.updateExaSupplyIndex(exafinAddress);
+        rewardsState.updateExaSupplyIndex(block.number, exafinAddress);
         rewardsState.distributeSupplierExa(exafinAddress, supplier);
     }
 
@@ -277,7 +277,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
 
-        rewardsState.updateExaBorrowIndex(exafinAddress);
+        rewardsState.updateExaBorrowIndex(block.number, exafinAddress);
         rewardsState.distributeBorrowerExa(exafinAddress, borrower);
     }
 
@@ -310,7 +310,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
 
-        rewardsState.updateExaSupplyIndex(exafinAddress);
+        rewardsState.updateExaSupplyIndex(block.number, exafinAddress);
         rewardsState.distributeSupplierExa(exafinAddress, redeemer);
     }
 
@@ -326,7 +326,7 @@ contract Auditor is IAuditor, AccessControl {
 
         _requirePoolState(maturityDate, TSUtils.State.MATURED);
 
-        rewardsState.updateExaBorrowIndex(exafinAddress);
+        rewardsState.updateExaBorrowIndex(block.number, exafinAddress);
         rewardsState.distributeBorrowerExa(exafinAddress, borrower);
     }
 
@@ -524,7 +524,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if(rewardsState.setExaSpeed(exafinAddress, exaSpeed) == true) {
+        if(rewardsState.setExaSpeed(block.number, exafinAddress, exaSpeed) == true) {
             emit ExaSpeedUpdated(exafinAddress, exaSpeed);
         }
     }
@@ -552,6 +552,17 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         return rewardsState.exaState[exafinAddress].exaSupplyState;
+    }
+
+    /**
+     * @dev Function to retrieve supply state for rewards
+     */
+    function getBorrowState(address exafinAddress) external view returns (MarketRewardsState memory) {
+        if(markets[exafinAddress].isListed == false) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        return rewardsState.exaState[exafinAddress].exaBorrowState;
     }
 
 }

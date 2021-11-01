@@ -2,21 +2,23 @@ import { ethers } from "hardhat";
 import { expect } from "chai";
 import { Contract } from "ethers";
 import {
+  DefaultEnv,
   errorGeneric,
   ExactlyEnv,
   ExaTime,
+  parseBorrowEvent,
   ProtocolError,
+  RewardsLibEnv,
 } from "./exactlyUtils";
 import { parseUnits, formatUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-Error.stackTraceLimit = Infinity;
-
 describe("ExaToken", function() {
-  let exactlyEnv: ExactlyEnv;
+  let exactlyEnv: DefaultEnv;
+  let rewardsLibEnv: RewardsLibEnv;
 
-  let underlyingToken: Contract;
-  let exafin: Contract;
+  let dai: Contract;
+  let exafinDAI: Contract;
   let auditor: Contract;
 
   let tokensCollateralRate = new Map([
@@ -42,44 +44,17 @@ describe("ExaToken", function() {
 
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
 
-    underlyingToken = exactlyEnv.getUnderlying("DAI");
-    exafin = exactlyEnv.getExafin("DAI");
+    rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
+
+    dai = exactlyEnv.getUnderlying("DAI");
+    exafinDAI = exactlyEnv.getExafin("DAI");
     auditor = exactlyEnv.auditor;
 
     // From Owner to User
-    await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
+    await dai.transfer(mariaUser.address, parseUnits("1000"));
   });
 
-  describe("setExaSpeed", function() {
-    it("should update rewards in the supply market", async () => {
-      // 1 EXA per block as rewards
-      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"));
-      const [, initialBlock] = await auditor.getSupplyState(exactlyEnv.getExafin("DAI").address);
-
-      // 2 EXA per block as rewards
-      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("2"));
-
-      // ... but updated on the initial speed
-      const [index, block] = await auditor.getSupplyState(exactlyEnv.getExafin("DAI").address);
-      expect(index).to.equal(parseUnits("1", 36));
-      expect(block - initialBlock).to.equal(1);
-    });
-
-    it("should NOT update rewards in the supply market after being set to 0", async () => {
-      // 1 EXA per block as rewards
-      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"));
-      const [, initialBlock] = await auditor.getSupplyState(exactlyEnv.getExafin("DAI").address);
-
-      // 0 EXA per block as rewards
-      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("0"));
-      // 2 EXA per block as rewards but no effect
-      await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("2"));
-
-      // ... but updated on the initial speed
-      const [index, block] = await auditor.getSupplyState(exactlyEnv.getExafin("DAI").address);
-      expect(index).to.equal(parseUnits("1", 36));
-      expect(block - initialBlock).to.equal(1);
-    });
+  describe("setExaSpeed Integrated", function() {
 
     it("should revert if non admin access", async () => {
       await expect(
@@ -93,5 +68,72 @@ describe("ExaToken", function() {
       ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     });
 
+    it("should update rewards in the supply market", async () => {
+      let someAuditor = rewardsLibEnv.someAuditor;
+      // 1 EXA per block as rewards
+      await someAuditor.setBlockNumber(0);
+      await someAuditor.setExaSpeed(exafinDAI.address, parseUnits("1"));
+      // 2 EXA per block as rewards
+      await someAuditor.setBlockNumber(1);
+      await someAuditor.setExaSpeed(exafinDAI.address, parseUnits("2"));
+
+      // ... but updated on the initial speed
+      const [index, block] = await someAuditor.getSupplyState(exafinDAI.address);
+      expect(index).to.equal(parseUnits("1", 36));
+      expect(block).to.equal(1);
+    });
+
+    it("should NOT update rewards in the supply market after being set to 0", async () => {
+      let someAuditor = rewardsLibEnv.someAuditor;
+      // 1 EXA per block as rewards
+      await someAuditor.setBlockNumber(0);
+      await someAuditor.setExaSpeed(exafinDAI.address, parseUnits("1"));
+
+      // 0 EXA per block as rewards
+      await someAuditor.setBlockNumber(1);
+      await someAuditor.setExaSpeed(exafinDAI.address, parseUnits("0"));
+      // 2 EXA per block as rewards but no effect
+      await someAuditor.setBlockNumber(2);
+      await someAuditor.setExaSpeed(exafinDAI.address, parseUnits("2"));
+
+      // ... but updated on the initial speed
+      const [index, block] = await someAuditor.getSupplyState(exafinDAI.address);
+      expect(index).to.equal(parseUnits("1", 36));
+      expect(block).to.equal(1);
+    });
+
   })
+
+  describe('updateExaBorrowIndex', () => {
+
+    it('should calculate EXA borrower state index correctly', async () => {
+      let amountBorrowWithCommission = parseUnits("55");
+      let exafin = rewardsLibEnv.exafin;
+      let someAuditor = rewardsLibEnv.someAuditor;
+      let blocksDelta = 2;
+
+      exafin.setTotalBorrows(amountBorrowWithCommission);
+
+      // Call exaSpeed and jump blocksDelta
+      await someAuditor.setBlockNumber(0);
+      await someAuditor.setExaSpeed(exafin.address, parseUnits("0.5"));
+      await someAuditor.setBlockNumber(blocksDelta);
+      await someAuditor.updateExaBorrowIndex(exafin.address);
+      const [newIndex,] = await someAuditor.getBorrowState(exafin.address);
+      /*
+        exaAccrued = deltaBlocks * borrowSpeed
+                    = 2 * 0.5e18 = 1e18
+        newIndex   += 1e36 + (exaAccrued * 1e36 / borrowAmt(w commission))
+                    = 1e36 + (5e18 * 1e36 / 0.5e18) = ~1.019e36
+      */
+      let exaAccruedDelta = parseUnits("0.5").mul(blocksDelta);
+      let ratioDelta = exaAccruedDelta
+        .mul(parseUnits("1", 36))
+        .div(amountBorrowWithCommission)
+
+      let newIndexCalculated = parseUnits("1", 36).add(ratioDelta);
+      expect(newIndex).to.be.equal(newIndexCalculated);
+    });
+
+  });
 });

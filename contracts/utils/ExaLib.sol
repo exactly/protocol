@@ -60,26 +60,29 @@ library ExaLib {
     /**
      * @notice Accrue EXA to the market by updating the supply index
      * @param exafinAddress The market whose supply index to update
+     * @param blockNumber current block number (injected for testing purpuses)
+     * @param exafinAddress The market whose supply index to update
      */
     function updateExaSupplyIndex(
         RewardsState storage exafinState, 
+        uint blockNumber,
         address exafinAddress
     ) external {
-        _updateExaSupplyIndex(exafinState, exafinAddress);
+        _updateExaSupplyIndex(exafinState, blockNumber, exafinAddress);
     }
 
     function _updateExaSupplyIndex(        
-        RewardsState storage exafinState, 
+        RewardsState storage exafinState,
+        uint blockNumber,
         address exafinAddress
     ) internal {
         ExaState storage exaState = exafinState.exaState[exafinAddress];
         MarketRewardsState storage supplyState = exaState.exaSupplyState;
         uint supplySpeed = exaState.exaSpeed;
-        uint blockNumber = block.number;
         uint deltaBlocks = (blockNumber - uint(supplyState.block));
         if (deltaBlocks > 0 && supplySpeed > 0) {
             uint256 supplyTokens = IExafin(exafinAddress).totalDeposits();
-            uint256 exaAccruedDelta = deltaBlocks.mul_(supplySpeed);
+            uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
 
             Double memory ratio = supplyTokens > 0 ? exaAccruedDelta.fraction(supplyTokens) : Double({value: 0});
             Double memory index = Double({value: supplyState.index}).add_(ratio);
@@ -96,34 +99,33 @@ library ExaLib {
     /**
      * @notice Accrue EXA to the market by updating the supply index
      * @param exafinState RewardsState storage in Auditor
+     * @param blockNumber current block number (injected for testing purpuses)
      * @param exafinAddress The market whose supply index to update
      */
     function updateExaBorrowIndex(
         RewardsState storage exafinState, 
+        uint blockNumber,
         address exafinAddress
     ) external {
-        _updateExaBorrowIndex(exafinState, exafinAddress);
+        _updateExaBorrowIndex(exafinState, blockNumber, exafinAddress);
     }
 
-    /**
-     * @notice Accrue EXA to the market by updating the borrow index
-     * @param exafinState RewardsState storage in Auditor,
-     * @param exafinAddress The market whose borrow index to update
-     */
     function _updateExaBorrowIndex(
         RewardsState storage exafinState,
+        uint blockNumber,
         address exafinAddress
     ) internal {
         ExaState storage exaState = exafinState.exaState[exafinAddress];
         MarketRewardsState storage borrowState = exaState.exaBorrowState;
         uint borrowSpeed = exaState.exaSpeed;
-        uint blockNumber = block.number;
         uint deltaBlocks = blockNumber - uint(borrowState.block);
         if (deltaBlocks > 0 && borrowSpeed > 0) {
             uint borrowAmount = IExafin(exafinAddress).totalBorrows();
-            uint256 exaAccruedDelta = deltaBlocks.mul_(borrowSpeed);
+            uint256 exaAccruedDelta = deltaBlocks * borrowSpeed;
+
             Double memory ratio = borrowAmount > 0 ? exaAccruedDelta.fraction(borrowAmount) : Double({value: 0});
             Double memory index = Double({value: borrowState.index}).add_(ratio);
+
             exaState.exaBorrowState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
@@ -222,6 +224,7 @@ library ExaLib {
     /**
      * @notice Claim all EXA accrued by the holders
      * @param exafinState RewardsState storage in Auditor
+     * @param blockNumber current block number (injected for testing purpuses)
      * @param markets Valid markets in Auditor
      * @param holders The addresses to claim EXA for
      * @param exafinAddresses The list of markets to claim EXA in
@@ -230,6 +233,7 @@ library ExaLib {
      */
     function claimExa(
         RewardsState storage exafinState,
+        uint blockNumber,
         mapping(address => Market) storage markets,
         address[] memory holders,
         address[] memory exafinAddresses,
@@ -241,14 +245,14 @@ library ExaLib {
             address exafin = exafinAddresses[i];
             require(markets[exafin].isListed, "market must be listed");
             if (borrowers == true) {
-                _updateExaBorrowIndex(exafinState, exafin);
+                _updateExaBorrowIndex(exafinState, blockNumber, exafin);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeBorrowerExa(exafinState, exafin, holders[j]);
                     exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
                 }
             }
             if (suppliers == true) {
-                _updateExaSupplyIndex(exafinState, exafin);
+                _updateExaSupplyIndex(exafinState, blockNumber, exafin);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeSupplierExa(exafinState, exafin, holders[j]);
                     exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
@@ -296,37 +300,43 @@ library ExaLib {
     /**
      * @notice Set EXA speed for a single market
      * @param exafinState RewardsState storage in Auditor
+     * @param blockNumber current block number (injected for testing purpuses)
      * @param exafinAddress The market whose EXA speed to update
      * @param exaSpeed New EXA speed for market
      */
     function setExaSpeed(
-        RewardsState storage exafinState, 
+        RewardsState storage exafinState,
+        uint blockNumber,
         address exafinAddress,
         uint256 exaSpeed
     ) external returns (bool) {
         ExaState storage state = exafinState.exaState[exafinAddress];
         uint currentExaSpeed = state.exaSpeed;
         if (currentExaSpeed != 0) {
-            _updateExaSupplyIndex(exafinState, exafinAddress);
-            _updateExaBorrowIndex(exafinState, exafinAddress);
+            _updateExaSupplyIndex(exafinState, blockNumber, exafinAddress);
+            _updateExaBorrowIndex(exafinState, blockNumber, exafinAddress);
         } else if (exaSpeed != 0) {
-            if (state.exaSupplyState.index == 0 && state.exaSupplyState.block == 0) {
+            // what happens @ compound.finance if someone doesn't set the exaSpeed
+            // but supply/borrow first? in that case, block number will be updated
+            // hence the market can never be initialized with EXA_INITIAL_INDEX
+            // if (state.exaSupplyState.index == 0 && state.exaSupplyState.block == 0) {
+            if (state.exaSupplyState.index == 0) {
                 state.exaSupplyState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
-                    block: block.number.toUint32()
+                    block: blockNumber.toUint32()
                 });
             }
 
-            if (state.exaBorrowState.index == 0 && state.exaBorrowState.block == 0) {
+            if (state.exaBorrowState.index == 0) {
                 state.exaBorrowState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
-                    block: block.number.toUint32()
+                    block: blockNumber.toUint32()
                 });
             }
         }
 
         if (currentExaSpeed != exaSpeed) {
-            exafinState.exaState[exafinAddress].exaSpeed = exaSpeed;
+            state.exaSpeed = exaSpeed;
             return true;
         }
 

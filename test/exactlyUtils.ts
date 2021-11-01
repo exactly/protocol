@@ -97,7 +97,7 @@ export enum ProtocolError {
   MARKET_BORROW_CAP_REACHED
 }
 
-export class ExactlyEnv {
+export class DefaultEnv {
 
   oracle: Contract;
   auditor: Contract;
@@ -147,10 +147,35 @@ export class ExactlyEnv {
     await this.oracle.setPrice(tokenName, parseUnits(valueString, 6));
   }
 
+}
+
+export class RewardsLibEnv {
+
+  someAuditor: Contract;
+  exaLib: Contract;
+  exaToken: Contract;
+  exafin: Contract;
+
+  constructor(
+    _someAuditor: Contract,
+    _exaLib: Contract,
+    _exaToken: Contract,
+    _exafin: Contract
+  ) {
+    this.someAuditor = _someAuditor;
+    this.exaLib = _exaLib;
+    this.exaToken = _exaToken;
+    this.exafin = _exafin;
+  }
+
+}
+
+export class ExactlyEnv {
+
   static async create(
     tokensUSDPrice: Map<string, BigNumber>,
     tokensCollateralRate: Map<string, BigNumber>
-  ): Promise<ExactlyEnv> {
+  ): Promise<DefaultEnv> {
     let exafinContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
 
@@ -234,9 +259,9 @@ export class ExactlyEnv {
       })
     );
 
-    return new Promise<ExactlyEnv>((resolve) => {
+    return new Promise<DefaultEnv>((resolve) => {
       resolve(
-        new ExactlyEnv(
+        new DefaultEnv(
           oracle,
           auditor,
           interestRateModel,
@@ -248,6 +273,44 @@ export class ExactlyEnv {
         )
       );
     });
+  }
+
+  static async createRewardsEnv(): Promise<RewardsLibEnv> {
+
+    const ExaLib = await ethers.getContractFactory("ExaLib");
+    let exaLib = await ExaLib.deploy();
+    await exaLib.deployed();
+
+    const ExaToken = await ethers.getContractFactory("ExaToken");
+    let exaToken = await ExaToken.deploy();
+    await exaToken.deployed();
+
+    const Exafin = await ethers.getContractFactory("SomeExafin");
+    let exafin = await Exafin.deploy();
+    await exafin.deployed();
+
+
+    const Auditor = await ethers.getContractFactory("SomeAuditor", {
+      libraries: {
+        ExaLib: exaLib.address
+      }
+    });
+    let auditor = await Auditor.deploy(
+      exaToken.address
+    );
+    await auditor.deployed();
+
+    return new Promise<RewardsLibEnv>((resolve) => {
+      resolve(
+        new RewardsLibEnv(
+          auditor,
+          exaLib,
+          exaToken,
+          exafin
+        )
+      );
+    });
+
   }
 }
 

@@ -3,12 +3,12 @@ import { ethers } from "hardhat";
 import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import { BigNumber } from "@ethersproject/bignumber";
-import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric } from "./exactlyUtils";
+import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric, DefaultEnv } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Auditor from User Space", function () {
   let auditor: Contract;
-  let exactlyEnv: ExactlyEnv;
+  let exactlyEnv: DefaultEnv;
   let nextPoolID: number;
 
   let owner: SignerWithAddress;

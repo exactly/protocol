@@ -51,7 +51,7 @@ library DecimalMath {
     }
 
     function fraction(uint a, uint b) internal pure returns (Double memory) {
-        return Double({value: div_(mul_(a, DOUBLE_SCALE), b)});
+        return Double({value: (a * DOUBLE_SCALE / b)});
     }
 
 }
