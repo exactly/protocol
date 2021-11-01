@@ -138,7 +138,6 @@ describe("ExaToken", function() {
     it('should not update index if no blocks passed since last accrual', async () => {
       let someAuditor = rewardsLibEnv.someAuditor;
       let exafin = rewardsLibEnv.exafin;
-      // Update borrows
       await someAuditor.setBlockNumber(0);
       await someAuditor.setExaSpeed(exafin.address, parseUnits("0.5"));
       await exafin.setTotalBorrows(parseUnits("10000"));
@@ -161,6 +160,68 @@ describe("ExaToken", function() {
       await someAuditor.updateExaBorrowIndex(exafin.address);
 
       const [newIndex,block] = await someAuditor.getBorrowState(exafin.address);
+      expect(newIndex).to.equal(parseUnits("1", 36));
+      expect(block).to.equal(100);
+
+    });
+  });
+
+  describe('updateExaSupplyIndex', () => {
+    it('should calculate EXA supplier index correctly', async () => {
+
+      let amountSupplyWithCommission = parseUnits("10");
+      let exafin = rewardsLibEnv.exafin;
+      let someAuditor = rewardsLibEnv.someAuditor;
+      let blocksDelta = 100;
+
+      // Call exaSpeed and jump blocksDelta
+      await someAuditor.setBlockNumber(0);
+      await someAuditor.setExaSpeed(exafin.address, parseUnits("0.5"));
+      await someAuditor.setBlockNumber(blocksDelta);
+      await exafin.setTotalDeposits(amountSupplyWithCommission);
+      await someAuditor.updateExaSupplyIndex(exafin.address);
+      const [newIndex,] = await someAuditor.getSupplyState(exafin.address);
+      /*
+        exaAccrued = deltaBlocks * borrowSpeed
+                    = 100 * 0.5e18 = 50e18
+        newIndex   += 1e36 + (exaAccrued * 1e36 / supplyWithCommission)
+                    = 1e36 + (50-8 * 1e36 / 0.5e18) = ~1.019e36
+      */
+      let exaAccruedDelta = parseUnits("0.5").mul(blocksDelta);
+      let ratioDelta = exaAccruedDelta
+        .mul(parseUnits("1", 36))
+        .div(amountSupplyWithCommission)
+
+      let newIndexCalculated = parseUnits("1", 36).add(ratioDelta);
+      expect(newIndex).to.be.equal(newIndexCalculated);
+
+    });
+
+    it('should not update index if no blocks passed since last accrual', async () => {
+      let someAuditor = rewardsLibEnv.someAuditor;
+      let exafin = rewardsLibEnv.exafin;
+      await someAuditor.setBlockNumber(0);
+      await someAuditor.setExaSpeed(exafin.address, parseUnits("0.5"));
+      await exafin.setTotalDeposits(parseUnits("10000"));
+      await someAuditor.updateExaSupplyIndex(exafin.address);
+
+      const [newIndex,block] = await someAuditor.getSupplyState(exafin.address);
+      expect(newIndex).to.equal(parseUnits("1", 36));
+      expect(block).to.equal(0);
+    });
+
+    it('should not update index if EXA speed is 0', async () => {
+      let someAuditor = rewardsLibEnv.someAuditor;
+      let exafin = rewardsLibEnv.exafin;
+      // Update borrows
+      await someAuditor.setBlockNumber(0);
+      await someAuditor.setExaSpeed(exafin.address, parseUnits("0.5"));
+      await someAuditor.setBlockNumber(100);
+      await someAuditor.setExaSpeed(exafin.address, 0);
+      await exafin.setTotalDeposits(parseUnits("10000"));
+      await someAuditor.updateExaSupplyIndex(exafin.address);
+
+      const [newIndex,block] = await someAuditor.getSupplyState(exafin.address);
       expect(newIndex).to.equal(parseUnits("1", 36));
       expect(block).to.equal(100);
 
