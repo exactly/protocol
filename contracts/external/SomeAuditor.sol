@@ -121,4 +121,15 @@ contract SomeAuditor {
         return rewardsState.exaAccruedUser[who];
     }
 
+    function setExaAccrued(address who, uint256 amount) public {
+        rewardsState.exaAccruedUser[who] = amount;
+    }
+
+    function grantExa(
+        address user,
+        uint amount
+    ) external returns (uint) {
+        return rewardsState.grantExa(user, amount);
+    }
+
 }

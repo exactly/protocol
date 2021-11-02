@@ -253,7 +253,6 @@ describe("ExaToken", function() {
       await exafin.setBorrowsOf(mariaUser.address, parseUnits("5"));
       await someAuditor.setExaBorrowState(exafin.address, parseUnits("6", 36), 10);
       await someAuditor.setExaBorrowerIndex(exafin.address, mariaUser.address, parseUnits("1", 36));
-
       /**
        * this tests that an acct with half the total borrows over that time gets 25e18 EXA
        * borrowerAmount = 5e18
@@ -262,7 +261,6 @@ describe("ExaToken", function() {
        * borrowerAccrued= borrowerAmount * deltaIndex / 1e36
        *                = 5e18 * 5e36 / 1e36 = 25e18
        */
-
       let tx = await someAuditor.distributeBorrowerExa(exafin.address, mariaUser.address);
       let accrued = await someAuditor.getExaAccrued(mariaUser.address);
 
@@ -312,7 +310,6 @@ describe("ExaToken", function() {
       await exaToken.transfer(someAuditor.address, parseUnits("50"));
       await exafin.setSuppliesOf(mariaUser.address, parseUnits("5"));
       await someAuditor.setExaSupplyState(exafin.address, parseUnits("6", 36), 10);
-
       /**
        * 100 delta blocks, 10e18 total supply, 0.5e18 supplySpeed => 6e18 exaSupplyIndex
        * confirming an acct with half the total supply over that time gets 25e18 EXA:
@@ -365,7 +362,6 @@ describe("ExaToken", function() {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e17 * 0.0019e36 / 1e36 = 0.00095e18
        */
-
       await someAuditor.distributeSupplierExa(exafin.address, mariaUser.address);
       let accrued = await someAuditor.getExaAccrued(mariaUser.address);
       let balance = await exaToken.balanceOf(mariaUser.address);
@@ -374,5 +370,31 @@ describe("ExaToken", function() {
     });
 
   });
+
+  describe('grantExa', () => {
+    let someAuditor: Contract;
+    let exafin: Contract;
+    let exaToken: Contract;
+
+    beforeEach(async () => {
+      someAuditor = rewardsLibEnv.someAuditor;
+      exafin = rewardsLibEnv.exafin;
+      exaToken = rewardsLibEnv.exaToken;
+    });
+
+    it('should not transfer EXA if EXA accrued is greater than EXA remaining', async () => {
+      const exaRemaining = 99, mariaUserAccruedPre = 100;
+      let balancePre = await exaToken.balanceOf(mariaUser.address);
+      await exaToken.transfer(someAuditor.address, exaRemaining);
+      await someAuditor.setExaAccrued(mariaUser.address, mariaUserAccruedPre);
+
+      await someAuditor.grantExa(mariaUser.address, mariaUserAccruedPre);
+
+      let balancePost = await exaToken.balanceOf(mariaUser.address);
+      expect(balancePre).to.equal(0);
+      expect(balancePost).to.equal(0);
+    });
+  });
+
 
 });
