@@ -80,7 +80,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
 
         uint256 daysDifference = (maturityDate - TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
-        uint256 yearlyRate = 0;
+        uint256 yearlyRate;
 
         if (!canCheckSmartPoolUR && !canCheckMaturityPoolUR) {
             return 0;
@@ -117,9 +117,9 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        uint256 yearlyRate = 0;
-        uint256 maturityPoolYearlyRate = 0;
-        uint256 smartPoolYearlyRate = 0;
+        uint256 yearlyRate;
+        uint256 maturityPoolYearlyRate;
+        uint256 smartPoolYearlyRate;
 
         bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
         bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
