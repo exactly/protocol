@@ -9,6 +9,19 @@ contract SomeAuditor {
     using DecimalMath for uint256;
     using ExaLib for ExaLib.RewardsState;
 
+    event DistributedSupplierExa(
+        address indexed exafin,
+        address indexed supplier,
+        uint supplierDelta,
+        uint exaSupplyIndex
+    );
+    event DistributedBorrowerExa(
+        address indexed exafin,
+        address indexed borrower,
+        uint borrowerDelta,
+        uint exaSupplyIndex
+    );
+
     uint256 public blockNumber;
 
     // Rewards Management
@@ -34,32 +47,56 @@ contract SomeAuditor {
         );
     }
 
-    /**
-     * @dev Function to retrieve supply state for rewards
-     */
     function getSupplyState(address exafinAddress) public view returns (MarketRewardsState memory) {
         return rewardsState.exaState[exafinAddress].exaSupplyState;
     }
 
-    /**
-     * @dev Function to retrieve supply state for rewards
-     */
     function getBorrowState(address exafinAddress) public view returns (MarketRewardsState memory) {
         return rewardsState.exaState[exafinAddress].exaBorrowState;
     }
 
-    /**
-     * @dev Function to update state re: borrow index
-     */
     function updateExaBorrowIndex(address exafinAddress) external  {
         rewardsState.updateExaBorrowIndex(blockNumber, exafinAddress);
     }
 
-    /**
-     * @dev Function to update state re: supply index
-     */
     function updateExaSupplyIndex(address exafinAddress) external  {
         rewardsState.updateExaSupplyIndex(blockNumber, exafinAddress);
+    }
+
+    function setExaSupplyState(address exafinAddress, uint224 index, uint32 _blockNumber) public {
+        rewardsState.exaState[exafinAddress].exaSupplyState.index = index;
+        rewardsState.exaState[exafinAddress].exaSupplyState.block = _blockNumber;
+    }
+
+    function setExaBorrowState(address exafinAddress, uint224 index, uint32 _blockNumber) public {
+        rewardsState.exaState[exafinAddress].exaBorrowState.index = index;
+        rewardsState.exaState[exafinAddress].exaBorrowState.block = _blockNumber;
+    }
+
+    function setExaBorrowerIndex(address exafinAddress, address borrower, uint index) public {
+        rewardsState.exaState[exafinAddress].exaBorrowerIndex[borrower] = index;
+    }
+
+    function setExaSupplierIndex(address exafinAddress, address supplier, uint index) public {
+        rewardsState.exaState[exafinAddress].exaSupplierIndex[supplier] = index;
+    }
+
+    function distributeBorrowerExa(
+        address exafinAddress,
+        address borrower
+    ) public {
+        rewardsState.distributeBorrowerExa(exafinAddress, borrower);
+    }
+
+    function distributeSupplierExa(
+        address exafinAddress,
+        address supplier
+    ) public {
+        rewardsState.distributeSupplierExa(exafinAddress, supplier);
+    }
+
+    function getExaAccrued(address who) public view returns (uint256) {
+        return rewardsState.exaAccruedUser[who];
     }
 
 }

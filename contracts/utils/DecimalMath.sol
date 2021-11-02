@@ -39,7 +39,7 @@ library DecimalMath {
     }
 
     function mul_(uint a, Double memory b) internal pure returns (uint) {
-        return mul_(a, b.value) / DOUBLE_SCALE;
+        return a * b.value / DOUBLE_SCALE;
     }
 
     function add_(Double memory a, Double memory b) internal pure returns (Double memory) {

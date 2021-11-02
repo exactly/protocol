@@ -27,6 +27,18 @@ contract Auditor is IAuditor, AccessControl {
     event OracleChanged(address newOracle);
     event NewBorrowCap(address indexed exafin, uint newBorrowCap);
     event ExaSpeedUpdated(address exafinAddress, uint256 newSpeed);
+    event DistributedSupplierExa(
+        address indexed exafin,
+        address indexed supplier,
+        uint supplierDelta,
+        uint exaSupplyIndex
+    );
+    event DistributedBorrowerExa(
+        address indexed exafin,
+        address indexed borrower,
+        uint borrowerDelta,
+        uint exaSupplyIndex
+    );
 
     // Protocol Management
     mapping(address => Market) public markets;

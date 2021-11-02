@@ -228,4 +228,82 @@ describe("ExaToken", function() {
     });
 
   });
+
+  describe('distributeBorrowerExa', () => {
+    let someAuditor: Contract;
+    let exafin: Contract;
+    let exaToken: Contract;
+
+    beforeEach(async () => {
+      someAuditor = rewardsLibEnv.someAuditor;
+      exafin = rewardsLibEnv.exafin;
+      exaToken = rewardsLibEnv.exaToken;
+    });
+
+    it('should update borrow index checkpoint but not exaAccrued for first time user', async () => {
+      let borrowIndex = parseUnits("6", 36)
+      await someAuditor.setExaBorrowState(exafin.address, borrowIndex, 10);
+      await someAuditor.setExaBorrowerIndex(exafin.address, owner.address, 0);
+
+      await exafin.setTotalBorrows(parseUnits("10000"));
+      await exafin.setBorrowsOf(owner.address, parseUnits("100"));
+
+      await someAuditor.distributeBorrowerExa(exafin.address, owner.address);
+
+      expect(await someAuditor.getExaAccrued(owner.address)).to.equal(0);
+      const [newIndex,] = await someAuditor.getBorrowState(exafin.address);
+      expect(newIndex).to.equal(borrowIndex);
+    });
+
+    it('should transfer EXA and update borrow index checkpoint correctly for repeat time user', async () => {
+      await exaToken.transfer(auditor.address, parseUnits("50"));
+      await exafin.setBorrowsOf(mariaUser.address, parseUnits("5"));
+      await someAuditor.setExaBorrowState(exafin.address, parseUnits("6", 36), 10);
+      await someAuditor.setExaBorrowerIndex(exafin.address, mariaUser.address, parseUnits("1", 36));
+
+      /**
+       * this tests that an acct with half the total borrows over that time gets 25e18 EXA
+       * borrowerAmount = 5e18
+       * deltaIndex     = marketStoredIndex - userStoredIndex
+       *                = 6e36 - 1e36 = 5e36
+       * borrowerAccrued= borrowerAmount * deltaIndex / 1e36
+       *                = 5e18 * 5e36 / 1e36 = 25e18
+       */
+
+      let tx = await someAuditor.distributeBorrowerExa(exafin.address, mariaUser.address);
+      let accrued = await someAuditor.getExaAccrued(mariaUser.address);
+
+      expect(accrued).to.equal(parseUnits("25"));
+      expect(await exaToken.balanceOf(mariaUser.address)).to.equal(0);
+      expect(tx).to.emit(someAuditor, "DistributedBorrowerExa").withArgs(
+        exafin.address,
+        mariaUser.address,
+        parseUnits("25"),
+        parseUnits("6", 36)
+      );
+    });
+
+    it('should not transfer EXA automatically', async () => {
+      await exaToken.transfer(auditor.address, parseUnits("50"));
+      await exafin.setBorrowsOf(mariaUser.address, parseUnits("0.5"));
+      await someAuditor.setExaBorrowState(exafin.address, parseUnits("1.0019", 36), 10);
+      await someAuditor.setExaBorrowerIndex(exafin.address, mariaUser.address, parseUnits("1", 36));
+      /*
+       * borrowerAmount =  5e17
+       * deltaIndex     = marketStoredIndex - userStoredIndex
+       *                = 1.0019e36 - 1e36 = 0.0019e36
+       * borrowerAccrued= borrowerAmount * deltaIndex / 1e36
+       *                = 5e17 * 0.0019e36 / 1e36 = 0.00095e18
+       * 0.00095e18 < exaClaimThreshold of 0.001e18
+      */
+      let tx = await someAuditor.distributeBorrowerExa(exafin.address, mariaUser.address);
+      let accrued = await someAuditor.getExaAccrued(mariaUser.address);
+
+      expect(accrued).to.equal(parseUnits("0.00095"));
+      expect(await exaToken.balanceOf(mariaUser.address)).to.equal(0);
+    });
+
+  });
+
+
 });
