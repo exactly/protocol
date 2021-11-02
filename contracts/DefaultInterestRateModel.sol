@@ -49,14 +49,6 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         spSlopeRate = _spSlopeRate;
     }
 
-    function canCalculateSmartPoolUR(PoolLib.SmartPool memory smartPool) internal pure returns (bool) {
-        return smartPool.borrowed != 0 && smartPool.supplied != 0;
-    }
-
-    function canCalculateMaturityPoolUR(PoolLib.Pool memory maturityPool) internal pure returns (bool) {
-        return maturityPool.borrowed != 0 && maturityPool.supplied != 0;
-    }
-
     /**
         @dev Get current rate for borrow a certain amount in a certain maturity
              with supply/demand values in the maturity pool and supply demand values
@@ -75,16 +67,8 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
-        bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
-
         uint256 daysDifference = (maturityDate - TSUtils.trimmedDay(block.timestamp)) / 1 days;
-
         uint256 yearlyRate;
-
-        if (!canCheckSmartPoolUR && !canCheckMaturityPoolUR) {
-            return 0;
-        }
 
         if (!newDebt) {
             yearlyRate = maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
@@ -118,29 +102,14 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         }
 
         uint256 yearlyRate;
-        uint256 maturityPoolYearlyRate;
-        uint256 smartPoolYearlyRate;
+        uint256 maturityPoolYearlyRate = maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+        uint256 smartPoolYearlyRate = smartPool.supplied == 0 ? 0 : ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
 
-        bool canCheckSmartPoolUR = canCalculateSmartPoolUR(smartPool);
-        bool canCheckMaturityPoolUR = canCalculateMaturityPoolUR(maturityPool);
-
-        if (canCheckSmartPoolUR) {
-            smartPoolYearlyRate = ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
-        }
-
-        if (canCheckMaturityPoolUR) {
-            maturityPoolYearlyRate = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
-        }
-
-        if (!canCheckMaturityPoolUR && !canCheckSmartPoolUR) {
-            return 0;
-        }
-
-        if (canCheckMaturityPoolUR && maturityPool.supplied - maturityPool.borrowed != 0) {
+        if (maturityPoolYearlyRate != 0 && maturityPool.supplied - maturityPool.borrowed != 0) {
             yearlyRate = maturityPoolYearlyRate;
         }
 
-        if ((canCheckSmartPoolUR && !canCheckMaturityPoolUR) || maturityPool.supplied - maturityPool.borrowed == 0) {
+        if ((smartPoolYearlyRate != 0 && maturityPoolYearlyRate == 0) || maturityPool.supplied - maturityPool.borrowed == 0) {
             yearlyRate = smartPoolYearlyRate;
         }
 
