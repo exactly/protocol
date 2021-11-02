@@ -104,6 +104,36 @@ describe("DefaultInterestRateModel", () => {
     console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
   });
 
+  it("Borrow 10000, borrow 10000 again", async () => {
+    let pool = {
+      borrowed: 10000,
+      supplied: 10000,
+      debt: 10000,
+      available: 0,
+    };
+
+    let smartPool = {
+      borrowed: 10000,
+      supplied: 100000,
+    };
+
+    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
+
+    pool = {
+      borrowed: 20000,
+      supplied: 20000,
+      debt: 20000,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 20000,
+      supplied: 100000,
+    };
+
+    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
+  });
+
   it("Borrow 10 with no money in maturity pool nor smart pool", () => {
     const pool = {
       borrowed: 10,

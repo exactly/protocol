@@ -168,7 +168,7 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         pools[maturityDate] = pool;
 
-        uint256 commissionRate = interestRateModel.getRateToSupply(amount, maturityDate, pool, smartPool);
+        uint256 commissionRate = interestRateModel.getRateToSupply(amount - pool.debt, maturityDate, pool, smartPool);
 
         uint256 commission = ((amount * commissionRate) / RATE_UNIT);
         suppliedAmounts[maturityDate][from] += amount + commission;
