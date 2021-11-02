@@ -35,7 +35,7 @@ library ExaLib {
         address indexed exafin,
         address indexed borrower,
         uint borrowerDelta,
-        uint exaSupplyIndex
+        uint exaBorrowIndex
     );
 
 
@@ -162,7 +162,7 @@ library ExaLib {
         uint supplierDelta = supplierTokens.mul_(deltaIndex);
         uint supplierAccrued = exafinState.exaAccruedUser[supplier] + supplierDelta;
         exafinState.exaAccruedUser[supplier] = supplierAccrued;
-        emit DistributedSupplierExa(exafinAddress, supplier, supplierDelta, supplierIndex.value);
+        emit DistributedSupplierExa(exafinAddress, supplier, supplierDelta, supplyIndex.value);
     }
 
     /**

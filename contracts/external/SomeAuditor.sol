@@ -88,11 +88,33 @@ contract SomeAuditor {
         rewardsState.distributeBorrowerExa(exafinAddress, borrower);
     }
 
+    function distributeAllBorrowerExa(
+        address exafinAddress,
+        address borrower
+    ) public {
+        rewardsState.distributeBorrowerExa(exafinAddress, borrower);
+        rewardsState.exaAccruedUser[borrower] = rewardsState.grantExa(
+            borrower,
+            rewardsState.exaAccruedUser[borrower]
+        );
+    }
+
     function distributeSupplierExa(
         address exafinAddress,
         address supplier
     ) public {
         rewardsState.distributeSupplierExa(exafinAddress, supplier);
+    }
+
+    function distributeAllSupplierExa(
+        address exafinAddress,
+        address supplier
+    ) public {
+        rewardsState.distributeSupplierExa(exafinAddress, supplier);
+        rewardsState.exaAccruedUser[supplier] = rewardsState.grantExa(
+            supplier,
+            rewardsState.exaAccruedUser[supplier]
+        );
     }
 
     function getExaAccrued(address who) public view returns (uint256) {
