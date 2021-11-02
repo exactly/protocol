@@ -6,9 +6,9 @@ import "../utils/Errors.sol";
 
 contract MockedOracle is IOracle {
 
-  mapping(string => uint) public prices;
+  mapping(string => uint256) public prices;
     
-  function getAssetPrice(string memory symbol) override public view returns (uint) {
+  function getAssetPrice(string memory symbol) override public view returns (uint256) {
     if (prices[symbol] > 0) {
       return prices[symbol];
     } else {
@@ -16,7 +16,7 @@ contract MockedOracle is IOracle {
     }
   }
 
-  function setPrice(string memory symbol, uint value) public {
+  function setPrice(string memory symbol, uint256 value) public {
       prices[symbol] = value;
   }
 

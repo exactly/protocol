@@ -21,7 +21,7 @@ contract Auditor is IAuditor, AccessControl {
     event MarketEntered(address exafin, address account);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
-    event NewBorrowCap(address indexed exafin, uint newBorrowCap);
+    event NewBorrowCap(address indexed exafin, uint256 newBorrowCap);
 
     mapping(address => Market) public markets;
     mapping(address => bool) public borrowPaused;
@@ -326,7 +326,7 @@ contract Auditor is IAuditor, AccessControl {
         address exafinBorrowed,
         address exafinCollateral,
         uint256 actualRepayAmount
-    ) override external view returns (uint) {
+    ) override external view returns (uint256) {
 
         /* Read oracle prices for borrowed and collateral markets */
         uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).tokenName());
@@ -378,8 +378,8 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
-        (,uint borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
-        uint maxClose = closeFactor.mul_(borrowBalance);
+        (,uint256 borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
+        uint256 maxClose = closeFactor.mul_(borrowBalance);
         if (repayAmount > maxClose) {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
         }
@@ -453,14 +453,14 @@ contract Auditor is IAuditor, AccessControl {
         address[] calldata exafins,
         uint256[] calldata newBorrowCaps
     ) external onlyRole(TEAM_ROLE) {
-        uint numMarkets = exafins.length;
-        uint numBorrowCaps = newBorrowCaps.length;
+        uint256 numMarkets = exafins.length;
+        uint256 numBorrowCaps = newBorrowCaps.length;
 
         if (numMarkets == 0 || numMarkets != numBorrowCaps) {
             revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
         }
 
-        for(uint i = 0; i < numMarkets; i++) {
+        for(uint256 i = 0; i < numMarkets; i++) {
             if (!markets[exafins[i]].isListed) {
                 revert GenericError(ErrorCode.MARKET_NOT_LISTED);
             }

@@ -7,7 +7,7 @@ import "hardhat/console.sol";
 
 library DecimalMath {
 
-    uint private constant NUMBER_SCALE = 1e18;
+    uint256 private constant NUMBER_SCALE = 1e18;
 
     function mul_(uint256 a, uint256 b) internal pure returns (uint256) {
         return a * b / NUMBER_SCALE;
