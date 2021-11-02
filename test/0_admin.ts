@@ -32,13 +32,13 @@ describe("Auditor Admin", function () {
 
   it("EnableMarket should fail when called from third parties", async () => {
     await expect(
-      auditor.connect(user).enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI", 18)
+      auditor.connect(user).enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI", mockedTokens.get('DAI')!.decimals)
     ).to.be.revertedWith("AccessControl");
   });
 
   it("It reverts when trying to list a market twice", async () => {
     await expect(
-      auditor.enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI", 18)
+      auditor.enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI", mockedTokens.get('DAI')!.decimals)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_ALREADY_LISTED));
   });
 
@@ -66,7 +66,7 @@ describe("Auditor Admin", function () {
     await exafin.deployed();
 
     await expect(
-      auditor.enableMarket(exafin.address, 0, "DAI", "DAI", 18)
+      auditor.enableMarket(exafin.address, 0, "DAI", "DAI", mockedTokens.get('DAI')!.decimals)
     ).to.be.revertedWith(errorGeneric(ProtocolError.AUDITOR_MISMATCH));
   });
 
@@ -90,7 +90,7 @@ describe("Auditor Admin", function () {
     await exafin.deployed();
 
     await expect(
-      auditor.enableMarket(exafin.address, parseUnits("0.5"), "DAI2", "DAI2", 18)
+      auditor.enableMarket(exafin.address, parseUnits("0.5"), "DAI2", "DAI2", mockedTokens.get('DAI')!.decimals)
     ).to.emit(auditor, "MarketListed").withArgs(exafin.address);
   });
 
