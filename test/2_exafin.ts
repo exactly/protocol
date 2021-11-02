@@ -22,8 +22,8 @@ describe("Exafin", function () {
   let auditor: Contract;
 
   const mockedTokens = new Map([
-    ["DAI", {decimals: 18, collateralRate: parseUnits("0.8", 18),usdPrice:  parseUnits("1")}],
-    ["ETH", {decimals: 18, collateralRate: parseUnits("0.7", 18),usdPrice:  parseUnits("3100")}],
+    ["DAI", {decimals: 18, collateralRate: parseUnits("0.8"),usdPrice:  parseUnits("1")}],
+    ["ETH", {decimals: 18, collateralRate: parseUnits("0.7"),usdPrice:  parseUnits("3100")}],
   ]);
 
   let mariaUser: SignerWithAddress;

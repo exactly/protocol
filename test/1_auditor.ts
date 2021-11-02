@@ -18,7 +18,7 @@ describe("Auditor from User Space", function () {
   let mockedTokens = new Map([
     ["DAI", {decimals: 18, collateralRate: parseUnits("0.8"), usdPrice: parseUnits("1")}],
     ["ETH", {decimals: 18, collateralRate: parseUnits("0.7"), usdPrice: parseUnits("3000")}],
-    ["WBTC",{decimals: 18, collateralRate:parseUnits("0.6"), usdPrice: parseUnits("63000")}]
+    ["WBTC",{decimals: 8, collateralRate: parseUnits("0.6"), usdPrice: parseUnits("63000")}]
   ]);
 
   let closeFactor = parseUnits("0.4");
@@ -65,7 +65,7 @@ describe("Auditor from User Space", function () {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     const dai = exactlyEnv.getUnderlying("DAI");
 
-    const amountDAI = parseUnits("100", 18);
+    const amountDAI = parseUnits("100");
     await dai.approve(exafinDAI.address, amountDAI);
     await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 
@@ -135,7 +135,7 @@ describe("Auditor from User Space", function () {
     await auditor.pauseBorrow(exafinDAI.address, true);
     
     // we supply Dai to the protocol
-    const amountDAI = parseUnits("100", 18);
+    const amountDAI = parseUnits("100");
     await dai.approve(exafinDAI.address, amountDAI);
     await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 
@@ -152,7 +152,7 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
 
     // we supply Dai to the protocol
-    const amountDAI = parseUnits("100", 18);
+    const amountDAI = parseUnits("100");
     await dai.approve(exafinDAI.address, amountDAI);
     await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 
@@ -175,7 +175,7 @@ describe("Auditor from User Space", function () {
     await auditor.setMarketBorrowCaps([exafinDAI.address], [10])
     
     // we supply Dai to the protocol
-    const amountDAI = parseUnits("100", 18);
+    const amountDAI = parseUnits("100");
     await dai.approve(exafinDAI.address, amountDAI);
     await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 
@@ -207,7 +207,7 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
 
     // we supply Dai to the protocol
-    const amountDAI = parseUnits("100", 18);
+    const amountDAI = parseUnits("100");
     await dai.approve(exafinDAI.address, amountDAI);
     let txDAI = await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
     let borrowDAIEvent = await parseSupplyEvent(txDAI);
@@ -221,7 +221,7 @@ describe("Auditor from User Space", function () {
     const eth = exactlyEnv.getUnderlying("ETH");
 
     // we supply Eth to the protocol
-    const amountETH = parseUnits("1", 18);
+    const amountETH = parseUnits("1");
     await eth.approve(exafinETH.address, amountETH);
     let txETH = await exafinETH.supply(owner.address, amountETH, nextPoolID);
     let borrowETHEvent = await parseSupplyEvent(txETH);
@@ -235,16 +235,16 @@ describe("Auditor from User Space", function () {
     let collaterDAI = amountDAI
       .add(borrowDAIEvent.commission)
       .mul(mockedTokens.get("DAI")!.collateralRate)
-      .div(parseUnits("1", 18))
+      .div(parseUnits("1"))
       .mul(mockedTokens.get("DAI")!.usdPrice)
-      .div(parseUnits("1", 18));
+      .div(parseUnits("1"));
 
     let collaterETH = amountETH
       .add(borrowETHEvent.commission)
       .mul(mockedTokens.get("ETH")!.collateralRate)
-      .div(parseUnits("1", 18))
+      .div(parseUnits("1"))
       .mul(mockedTokens.get("ETH")!.usdPrice)
-      .div(parseUnits("1", 18));
+      .div(parseUnits("1"));
 
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
   });
@@ -258,12 +258,12 @@ describe("Auditor from User Space", function () {
     const wbtc = exactlyEnv.getUnderlying("WBTC");
 
     // we supply ETH to the protocol
-    const amountETH = parseUnits("1", 18);
+    const amountETH = parseUnits("1");
     await eth.approve(exafinETH.address, amountETH);
     await exafinETH.supply(owner.address, amountETH, nextPoolID);
     
     // we supply WBTC to the protocol
-    const amountWBTC = parseUnits("1", 18);
+    const amountWBTC = parseUnits("1", 8);
     await wbtc.approve(exafinWBTC.address, amountWBTC);
     await exafinWBTC.supply(owner.address, amountWBTC, nextPoolID);
 
@@ -271,7 +271,7 @@ describe("Auditor from User Space", function () {
     expect(await wbtc.balanceOf(exafinWBTC.address)).to.equal(amountWBTC);
 
     // we supply DAI to the protocol to have money in the pool
-    const amountDAI = parseUnits("65000", 18);
+    const amountDAI = parseUnits("65000");
     await dai.connect(user).approve(exafinDAI.address, amountDAI);
     await exafinDAI.connect(user).supply(user.address, amountDAI, nextPoolID);
     expect(await dai.connect(user).balanceOf(exafinDAI.address)).to.equal(amountDAI);
@@ -353,7 +353,7 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
 
     // we supply Dai to the protocol
-    const amountDAI = parseUnits("100", 18);
+    const amountDAI = parseUnits("100");
     await dai.approve(exafinDAI.address, amountDAI);
     let txDAI = await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 

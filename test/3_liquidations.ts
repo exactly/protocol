@@ -50,7 +50,7 @@ describe('Liquidations', function () {
   describe('GIVEN alice supplies USD63k worth of WBTC, USD3k worth of ETH (66k total) AND bob supplies 65kDAI', () => {
     beforeEach(async () => {
       // we supply Eth to the protocol
-      const amountETH = parseUnits('1', 18)
+      const amountETH = parseUnits('1')
       await eth.approve(exafinETH.address, amountETH)
       await exafinETH.supply(alice.address, amountETH, nextPoolID)
 
@@ -60,7 +60,7 @@ describe('Liquidations', function () {
       await exafinWBTC.supply(alice.address, amountWBTC, nextPoolID)
 
       // bob supplies DAI to the protocol to have money in the pool
-      const amountDAI = parseUnits('65000', 18)
+      const amountDAI = parseUnits('65000')
       await dai.connect(bob).approve(exafinDAI.address, amountDAI)
       await exafinDAI.connect(bob).supply(bob.address, amountDAI, nextPoolID)
     })
