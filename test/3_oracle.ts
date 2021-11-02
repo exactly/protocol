@@ -1,12 +1,12 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import { errorGeneric, ExactlyEnv, ProtocolError } from "./exactlyUtils";
+import { errorGeneric, ExactlyEnv, ProtocolError, DefaultEnv } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("ExactlyOracle", function () {
-  let exactlyEnv: ExactlyEnv;
+  let exactlyEnv: DefaultEnv;
 
   let exactlyOracle: Contract;
   let chainlinkFeedRegistry: Contract;

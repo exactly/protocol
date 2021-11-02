@@ -3,7 +3,6 @@ import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import { ProtocolError, ExactlyEnv, ExaTime, errorGeneric, DefaultEnv } from "./exactlyUtils";
-import { ProtocolError, ExactlyEnv, ExaTime, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Auditor Admin", function () {
