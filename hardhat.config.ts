@@ -21,6 +21,7 @@ chai.use(solidity);
 assert(process.env.MNEMONIC, 'include a valid mnemonic in your .env file')
 assert(process.env.FORKING, 'specify wether to fork mainnet or not in your .env file')
 assert(process.env.ALCHEMY_RINKEBY_API_KEY, 'specify an alchemy api key for rinkeby access in your .env file')
+assert(process.env.ALCHEMY_KOVAN_API_KEY, 'specify an alchemy api key for kovan access in your .env file')
 if(process.env.FORKING){
   assert(process.env.ALCHEMY_MAINNET_API_KEY, 'specify an alchemy api key for mainnet forking in your .env file')
 }
@@ -64,6 +65,13 @@ let config: HardhatUserConfig = {
     hardhat: process.env.FORKING === 'true' ? forkingHardhatConfig : standaloneHardhatConfig,
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY_API_KEY}`,
+      gasPrice: 100000000000,
+      accounts: {
+        mnemonic: process.env.MNEMONIC
+      }
+    },
+    kovan: {
+      url: `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN_API_KEY}`,
       gasPrice: 5000000000,
       accounts: {
         mnemonic: process.env.MNEMONIC

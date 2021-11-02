@@ -15,8 +15,6 @@ import {
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-Error.stackTraceLimit = Infinity;
-
 describe("Exafin", function () {
   let exactlyEnv: DefaultEnv;
 
@@ -29,10 +27,10 @@ describe("Exafin", function () {
     ["ETH", parseUnits("0.7", 18)],
   ]);
 
-  // Oracle price is in 10**6
+  // Mocked Oracle prices are returned in 10**18
   let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 6)],
-    ["ETH", parseUnits("3100", 6)],
+    ["DAI", parseUnits("1", 18)],
+    ["ETH", parseUnits("3100", 18)],
   ]);
 
   let mariaUser: SignerWithAddress;

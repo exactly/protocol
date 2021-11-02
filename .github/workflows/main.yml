@@ -33,8 +33,10 @@ jobs:
         env:
           MNEMONIC: ${{ secrets.MNEMONIC }}
           FORKING: false
-          ALCHEMY_RINKEBY_API_KEY: ${{ secrets.ALKEMY_RINKEBY_API_KEY }}
-          ALCHEMY_MAINNET_API_KEY: ${{ secrets.ALKEMY_MAINNET_API_KEY }}
+          ALCHEMY_RINKEBY_API_KEY: ${{ secrets.ALCHEMY_RINKEBY_API_KEY }}
+          ALCHEMY_MAINNET_API_KEY: ${{ secrets.ALCHEMY_MAINNET_API_KEY }}
+          ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
+          
         run: |
           npx hardhat test
           npx hardhat coverage

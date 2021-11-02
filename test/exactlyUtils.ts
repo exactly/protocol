@@ -94,7 +94,8 @@ export enum ProtocolError {
   BORROW_PAUSED,
   NOT_AN_EXAFIN_SENDER,
   INVALID_SET_BORROW_CAP,
-  MARKET_BORROW_CAP_REACHED
+  MARKET_BORROW_CAP_REACHED,
+  INCONSISTENT_PARAMS_LENGTH
 }
 
 export class DefaultEnv {
@@ -111,6 +112,7 @@ export class DefaultEnv {
   marginRate: BigNumber;
   slopeRate: BigNumber;
   notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
+  usdAddress: string;
 
   constructor(
     _oracle: Contract,
@@ -133,6 +135,7 @@ export class DefaultEnv {
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
+    this.usdAddress = "0x0000000000000000000000000000000000000348";
   }
 
   public getExafin(key: string): Contract {
@@ -143,8 +146,12 @@ export class DefaultEnv {
     return this.underlyingContracts.get(key)!;
   }
 
-  public async setOraclePrice(tokenName: string, valueString: string) {
-    await this.oracle.setPrice(tokenName, parseUnits(valueString, 6));
+  public async setOracle(oracleAddress: string) {
+    await this.auditor.setOracle(oracleAddress);
+  }
+  
+  public async setOracleMockPrice(assetSymbol: string, valueString: string) {
+    await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 18));
   }
 
 }
@@ -191,8 +198,8 @@ export class ExactlyEnv {
     let exaToken = await ExaToken.deploy();
     await exaToken.deployed();
 
-    const SomeOracle = await ethers.getContractFactory("SomeOracle");
-    let oracle = await SomeOracle.deploy();
+    const MockedOracle = await ethers.getContractFactory("MockedOracle");
+    let oracle = await MockedOracle.deploy();
     await oracle.deployed();
 
     const DefaultInterestRateModel = await ethers.getContractFactory("DefaultInterestRateModel", {
@@ -222,8 +229,8 @@ export class ExactlyEnv {
     await Promise.all(
       Array.from(tokensCollateralRate.keys()).map(async (tokenName) => {
         const totalSupply = ethers.utils.parseUnits("100000000000", 18);
-        const SomeToken = await ethers.getContractFactory("SomeToken");
-        const underlyingToken = await SomeToken.deploy(
+        const MockedToken = await ethers.getContractFactory("MockedToken");
+        const underlyingToken = await MockedToken.deploy(
           "Fake " + tokenName,
           "F" + tokenName,
           totalSupply.toString()
@@ -318,7 +325,7 @@ export class ExaTime {
   timestamp: number;
 
   private oneDay: number = 86400;
-  private twoWeeks: number = 86400 * 14;
+  private INTERVAL: number = 86400 * 7;
 
   constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
     this.timestamp = timestamp;
@@ -326,19 +333,19 @@ export class ExaTime {
 
   public nextPoolID(): number {
     return (
-      this.timestamp - (this.timestamp % this.twoWeeks) + this.twoWeeks
+      this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL
     );
   }
 
   public isPoolID(): boolean {
     return (
-      (this.timestamp % this.twoWeeks) == 0
+      (this.timestamp % this.INTERVAL) == 0
     );
   }
 
   public pastPoolID(): number {
     return (
-      this.timestamp - (this.timestamp % this.twoWeeks) - this.twoWeeks
+      this.timestamp - (this.timestamp % this.INTERVAL) - this.INTERVAL
     );
   }
 
@@ -355,7 +362,7 @@ export class ExaTime {
     var allPools: number[] = [];
     for (let i = 0; i < maxPools; i++) {
       allPools.push(nextPoolID);
-      nextPoolID += this.twoWeeks;
+      nextPoolID += this.INTERVAL;
     }
     return allPools;
   }
