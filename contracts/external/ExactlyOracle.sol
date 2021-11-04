@@ -22,8 +22,8 @@ contract ExactlyOracle is IOracle, AccessControl {
   IChainlinkFeedRegistry public chainlinkFeedRegistry;
   address public immutable baseCurrency;
 
-  uint constant public TARGET_DIGITS = 18; // Auditor's target precision
-  uint constant public ORACLE_DIGITS = 8; // At date of Exactly launch, Chainlink uses an 8-digit price
+  uint256 constant public TARGET_DIGITS = 18; // Auditor's target precision
+  uint256 constant public ORACLE_DIGITS = 8; // At date of Exactly launch, Chainlink uses an 8-digit price
 
   /**
     @notice Constructor

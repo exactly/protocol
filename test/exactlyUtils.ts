@@ -21,6 +21,7 @@ export interface SuppliedEventInterface {
   maturityDate: BigNumber;
 }
 
+
 export function parseBorrowEvent(tx: ContractTransaction) {
   return new Promise<BorrowEventInterface>(async (resolve, reject) => {
     let receipt: ContractReceipt = await tx.wait();
@@ -99,8 +100,13 @@ export enum ProtocolError {
   REDEEM_CANT_BE_ZERO
 }
 
-export class DefaultEnv {
+export type MockedTokenSpec = {
+  decimals: BigNumber|number;
+  collateralRate: BigNumber;
+  usdPrice: BigNumber;
+}
 
+export class DefaultEnv {
   oracle: Contract;
   auditor: Contract;
   interestRateModel: Contract;
@@ -155,8 +161,6 @@ export class DefaultEnv {
     await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 18));
   }
 
-}
-
 export class RewardsLibEnv {
 
   someAuditor: Contract;
@@ -181,10 +185,7 @@ export class RewardsLibEnv {
 
 export class ExactlyEnv {
 
-  static async create(
-    tokensUSDPrice: Map<string, BigNumber>,
-    tokensCollateralRate: Map<string, BigNumber>
-  ): Promise<DefaultEnv> {
+  static async create(mockedTokens: Map<string, MockedTokenSpec>): Promise<ExactlyEnv> {
     let exafinContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
 
@@ -229,12 +230,14 @@ export class ExactlyEnv {
 
     // We have to enable all the Exafins in the auditor 
     await Promise.all(
-      Array.from(tokensCollateralRate.keys()).map(async (tokenName) => {
-        const totalSupply = ethers.utils.parseUnits("100000000000", 18);
+      Array.from(mockedTokens.keys()).map(async (tokenName) => {
+        const {decimals, collateralRate, usdPrice} = mockedTokens.get(tokenName)!
+        const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
         const MockedToken = await ethers.getContractFactory("MockedToken");
         const underlyingToken = await MockedToken.deploy(
           "Fake " + tokenName,
           "F" + tokenName,
+          decimals,
           totalSupply.toString()
         );
         await underlyingToken.deployed();
@@ -253,13 +256,14 @@ export class ExactlyEnv {
         await exafin.deployed();
 
         // Mock PriceOracle setting dummy price
-        await oracle.setPrice(tokenName, tokensUSDPrice.get(tokenName));
+        await oracle.setPrice(tokenName, usdPrice);
         // Enable Market for Exafin-TOKEN by setting the collateral rates
         await auditor.enableMarket(
           exafin.address,
-          tokensCollateralRate.get(tokenName),
+          collateralRate,
           tokenName,
-          tokenName
+          tokenName,
+          decimals
         );
 
         // Handy maps with all the exafins and underlying tokens

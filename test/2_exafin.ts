@@ -22,15 +22,9 @@ describe("Exafin", function () {
   let exafin: Contract;
   let auditor: Contract;
 
-  let tokensCollateralRate = new Map([
-    ["DAI", parseUnits("0.8", 18)],
-    ["ETH", parseUnits("0.7", 18)],
-  ]);
-
-  // Mocked Oracle prices are returned in 10**18
-  let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 18)],
-    ["ETH", parseUnits("3100", 18)],
+  const mockedTokens = new Map([
+    ["DAI", {decimals: 18, collateralRate: parseUnits("0.8"),usdPrice:  parseUnits("1")}],
+    ["ETH", {decimals: 18, collateralRate: parseUnits("0.7"),usdPrice:  parseUnits("3100")}],
   ]);
 
   let mariaUser: SignerWithAddress;
@@ -43,7 +37,7 @@ describe("Exafin", function () {
   beforeEach(async () => {
     [owner, mariaUser, johnUser] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
+    exactlyEnv = await ExactlyEnv.create(mockedTokens);
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     exafin = exactlyEnv.getExafin("DAI");

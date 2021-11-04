@@ -95,7 +95,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       exafin.address,
       parseUnits(collateralRate, 18),
       symbol,
-      name
+      name,
+      decimals
     );
     console.log("Exafin %s deployed to: %s", symbol, exafin.address);
 

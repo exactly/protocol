@@ -25,7 +25,7 @@ contract Auditor is IAuditor, AccessControl {
     event MarketEntered(address exafin, address account);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
-    event NewBorrowCap(address indexed exafin, uint newBorrowCap);
+    event NewBorrowCap(address indexed exafin, uint256 newBorrowCap);
     event ExaSpeedUpdated(address exafinAddress, uint256 newSpeed);
     event DistributedSupplierExa(
         address indexed exafin,
@@ -52,7 +52,7 @@ contract Auditor is IAuditor, AccessControl {
     // Rewards Management
     ExaLib.RewardsState public rewardsState;
 
-    IOracle private oracle;
+    IOracle public oracle;
 
     // Struct to avoid stack too deep
     struct AccountLiquidity {
@@ -154,40 +154,35 @@ contract Auditor is IAuditor, AccessControl {
         IExafin[] memory assets = accountAssets[account];
         for (uint256 i = 0; i < assets.length; i++) {
             IExafin asset = assets[i];
+            Market storage market = markets[address(asset)];
 
             // Read the balances
             (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
                 account,
                 maturityDate
             );
-
             vars.collateralFactor = markets[address(asset)].collateralFactor;
 
             // Get the normalized price of the asset (18 decimals)
             vars.oraclePrice = oracle.getAssetPrice(asset.tokenName());
 
             // We sum all the collateral prices
-            vars.sumCollateral += vars.balance.mul_(vars.collateralFactor).mul_(
-                vars.oraclePrice,
-                1e18
-            );
+            vars.sumCollateral += DecimalMath.getTokenAmountInUSD(vars.balance, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
 
             // We sum all the debt
-            vars.sumDebt += vars.borrowBalance.mul_(vars.oraclePrice, 1e18);
+            vars.sumDebt += DecimalMath.getTokenAmountInUSD(vars.borrowBalance, vars.oraclePrice, market.decimals);
 
             // Simulate the effects of borrowing from/lending to a pool
             if (asset == IExafin(exafinToSimulate)) {
                 // Calculate the effects of borrowing exafins
                 if (borrowAmount != 0) {
-                    vars.sumDebt += borrowAmount.mul_(vars.oraclePrice, 1e18);
+                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(borrowAmount, vars.oraclePrice, market.decimals);
                 }
 
                 // Calculate the effects of redeeming exafins
                 // (having less collateral is the same as having more debt for this calculation)
                 if (redeemAmount != 0) {
-                    vars.sumDebt += redeemAmount
-                        .mul_(vars.collateralFactor)
-                        .mul_(vars.oraclePrice, 1e18);
+                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(redeemAmount, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
                 }
             }
         }
@@ -199,6 +194,7 @@ contract Auditor is IAuditor, AccessControl {
             return (0, vars.sumDebt - vars.sumCollateral);
         }
     }
+
 
     function supplyAllowed(
         address exafinAddress,
@@ -350,14 +346,15 @@ contract Auditor is IAuditor, AccessControl {
         address exafinBorrowed,
         address exafinCollateral,
         uint256 actualRepayAmount
-    ) override external view returns (uint) {
+    ) override external view returns (uint256) {
 
         /* Read oracle prices for borrowed and collateral markets */
         uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).tokenName());
         uint256 priceCollateral = oracle.getAssetPrice(IExafin(exafinCollateral).tokenName());
 
-        uint256 amountInUSD = actualRepayAmount.mul_(priceBorrowed, 1e18);
-        uint256 seizeTokens = amountInUSD.div_(priceCollateral, 1e18);
+        uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(actualRepayAmount, priceBorrowed, markets[exafinBorrowed].decimals);
+        // 10**18: usd amount decimals
+        uint256 seizeTokens = DecimalMath.getTokenAmountFromUsd(amountInUSD, priceCollateral, markets[exafinCollateral].decimals);
 
         return seizeTokens;
     }
@@ -401,8 +398,8 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
-        (,uint borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
-        uint maxClose = closeFactor.mul_(borrowBalance);
+        (,uint256 borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
+        uint256 maxClose = closeFactor.mul_(borrowBalance);
         if (repayAmount > maxClose) {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
         }
@@ -442,7 +439,8 @@ contract Auditor is IAuditor, AccessControl {
         address exafin,
         uint256 collateralFactor,
         string memory symbol,
-        string memory name
+        string memory name,
+        uint8 decimals
     ) public onlyRole(TEAM_ROLE) {
         Market storage market = markets[exafin];
 
@@ -458,6 +456,7 @@ contract Auditor is IAuditor, AccessControl {
         market.collateralFactor = collateralFactor;
         market.symbol = symbol;
         market.name = name;
+        market.decimals = decimals;
 
         marketsAddresses.push(exafin);
 
@@ -473,14 +472,14 @@ contract Auditor is IAuditor, AccessControl {
         address[] calldata exafins,
         uint256[] calldata newBorrowCaps
     ) external onlyRole(TEAM_ROLE) {
-        uint numMarkets = exafins.length;
-        uint numBorrowCaps = newBorrowCaps.length;
+        uint256 numMarkets = exafins.length;
+        uint256 numBorrowCaps = newBorrowCaps.length;
 
         if (numMarkets == 0 || numMarkets != numBorrowCaps) {
             revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
         }
 
-        for(uint i = 0; i < numMarkets; i++) {
+        for(uint256 i = 0; i < numMarkets; i++) {
             if (!markets[exafins[i]].isListed) {
                 revert GenericError(ErrorCode.MARKET_NOT_LISTED);
             }
