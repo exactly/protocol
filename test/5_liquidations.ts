@@ -29,6 +29,11 @@ describe('Liquidations', function () {
   let amountToBorrowDAI: BigNumber
   let owedDAI: BigNumber
 
+  let snapshot: any
+  before(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  })
+
   beforeEach(async () => {
     ;[alice, bob] = await ethers.getSigners()
 
@@ -142,5 +147,10 @@ describe('Liquidations', function () {
         })
       })
     })
+  })
+
+  after(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
   })
 })

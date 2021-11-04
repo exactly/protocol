@@ -26,6 +26,11 @@ describe('Liquidity computations', function () {
     ['WBTC', { decimals: 8, collateralRate: parseUnits('0.6', 18), usdPrice: parseUnits('60000', 6) }],
   ])
 
+  let snapshot: any
+  before(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  })
+
   beforeEach(async () => {
     // the owner deploys the contracts
     // bob the borrower
@@ -112,5 +117,10 @@ describe('Liquidity computations', function () {
         })
       })
     })
+  })
+
+  after(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
   })
 })

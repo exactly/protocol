@@ -23,6 +23,11 @@ describe("Auditor from User Space", function () {
 
   let closeFactor = parseUnits("0.4");
 
+  let snapshot: any
+  before(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  })
+
   beforeEach(async () => {
     [owner, user] = await ethers.getSigners();
 
@@ -365,4 +370,9 @@ describe("Auditor from User Space", function () {
       auditor.getAccountLiquidity(owner.address, nextPoolID)
     ).to.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
+
+  after(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
+  })
 });

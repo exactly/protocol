@@ -24,6 +24,11 @@ describe("ExactlyOracle", function () {
     ["ETH", { usdPrice: parseUnits("3100", 8)}],
   ]);
 
+  let snapshot: any
+  before(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  })
+
   beforeEach(async () => {
     [, user] = await ethers.getSigners();
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
@@ -104,4 +109,9 @@ describe("ExactlyOracle", function () {
       exactlyOracle.connect(user).setAssetSources([], [])
     ).to.be.revertedWith("AccessControl");
   });
+
+  after(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
+  })
 });

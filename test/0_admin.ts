@@ -18,6 +18,11 @@ describe("Auditor Admin", function () {
     ["ETH", {decimals: 18, collateralRate: parseUnits("0.7"), usdPrice: parseUnits("3000")}],
   ]);
 
+  let snapshot: any
+  before(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  })
+
   beforeEach(async () => {
     [, user] = await ethers.getSigners();
 
@@ -140,4 +145,8 @@ describe("Auditor Admin", function () {
     ).to.emit(auditor, "NewBorrowCap");
   });
 
+  after(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
+  })
 });
