@@ -49,7 +49,7 @@ interface IExafin {
         uint256 repayAmount,
         IExafin exafinCollateral,
         uint256 maturityDate
-    ) external returns (uint);
+    ) external returns (uint256);
     
     function tokenName() external view returns (string calldata);
 

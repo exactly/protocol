@@ -42,7 +42,7 @@ library TSUtils {
     function futurePools(uint256 startingTimestamp, uint8 maxPools) public pure returns (uint256[] memory) {
         uint256[] memory poolIDs = new uint256[](maxPools);
         uint256 timestamp = startingTimestamp - (startingTimestamp % INTERVAL);
-        for (uint i=0; i < maxPools; i++) {
+        for (uint256 i=0; i < maxPools; i++) {
             timestamp += INTERVAL;
             poolIDs[i] = timestamp;
         }

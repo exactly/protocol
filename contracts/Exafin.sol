@@ -239,7 +239,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
 
         require(
-            trustedUnderlying.balanceOf(address(this)) > redeemAmount,
+            trustedUnderlying.balanceOf(address(this)) >= redeemAmount,
             "Not enough liquidity"
         );
 
@@ -342,7 +342,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 repayAmount,
         IExafin exafinCollateral,
         uint256 maturityDate
-    ) override external nonReentrant returns (uint) {
+    ) override external nonReentrant returns (uint256) {
         return _liquidate(msg.sender, borrower, repayAmount, exafinCollateral, maturityDate);
     }
 
@@ -376,7 +376,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         _repayLiquidate(liquidator, borrower, repayAmount, maturityDate);
 
         // reverts on failure
-        uint seizeTokens = auditor.liquidateCalculateSeizeAmount(address(this), address(exafinCollateral), repayAmount);
+        uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(address(this), address(exafinCollateral), repayAmount);
 
         /* Revert if borrower collateral token balance < seizeTokens */
         (uint256 balance,) = exafinCollateral.getAccountSnapshot(borrower, maturityDate);

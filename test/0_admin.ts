@@ -13,21 +13,20 @@ describe("Auditor Admin", function () {
 
   let user: SignerWithAddress;
 
-  let tokensCollateralRate = new Map([
-    ["DAI", parseUnits("0.8", 18)],
-    ["ETH", parseUnits("0.7", 18)],
+  let mockedTokens = new Map([
+    ["DAI", {decimals: 18, collateralRate: parseUnits("0.8"), usdPrice: parseUnits("1")}],
+    ["ETH", {decimals: 18, collateralRate: parseUnits("0.7"), usdPrice: parseUnits("3000")}],
   ]);
 
-  // Mocked Oracle prices are returned in 10**18
-  let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 18)],
-    ["ETH", parseUnits("3000", 18)],
-  ]);
+  let snapshot: any
+  before(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  })
 
   beforeEach(async () => {
     [, user] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
+    exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
     notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
     nextPoolID = (new ExaTime()).nextPoolID();
@@ -38,13 +37,13 @@ describe("Auditor Admin", function () {
 
   it("EnableMarket should fail when called from third parties", async () => {
     await expect(
-      auditor.connect(user).enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI")
+      auditor.connect(user).enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI", mockedTokens.get('DAI')!.decimals)
     ).to.be.revertedWith("AccessControl");
   });
 
   it("It reverts when trying to list a market twice", async () => {
     await expect(
-      auditor.enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI")
+      auditor.enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI", mockedTokens.get('DAI')!.decimals)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_ALREADY_LISTED));
   });
 
@@ -72,7 +71,7 @@ describe("Auditor Admin", function () {
     await exafin.deployed();
 
     await expect(
-      auditor.enableMarket(exafin.address, 0, "DAI", "DAI")
+      auditor.enableMarket(exafin.address, 0, "DAI", "DAI", mockedTokens.get('DAI')!.decimals)
     ).to.be.revertedWith(errorGeneric(ProtocolError.AUDITOR_MISMATCH));
   });
 
@@ -96,7 +95,7 @@ describe("Auditor Admin", function () {
     await exafin.deployed();
 
     await expect(
-      auditor.enableMarket(exafin.address, parseUnits("0.5"), "DAI2", "DAI2")
+      auditor.enableMarket(exafin.address, parseUnits("0.5"), "DAI2", "DAI2", mockedTokens.get('DAI')!.decimals)
     ).to.emit(auditor, "MarketListed").withArgs(exafin.address);
   });
 
@@ -146,4 +145,8 @@ describe("Auditor Admin", function () {
     ).to.emit(auditor, "NewBorrowCap");
   });
 
+  after(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
+  })
 });

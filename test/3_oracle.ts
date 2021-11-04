@@ -14,20 +14,24 @@ describe("ExactlyOracle", function () {
 
   let user: SignerWithAddress;
 
-  // Mocked Feed Registry prices are returned in 10**8
-  let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 8)],
-    ["ETH", parseUnits("3100", 8)],
+  // Set the MockedOracle prices to zero
+  let mockedTokens = new Map([
+    ["DAI", {decimals: 18, collateralRate: parseUnits("0.8"), usdPrice: parseUnits("0")}],
+    ["ETH", {decimals: 18, collateralRate: parseUnits("0.7"), usdPrice: parseUnits("0")}],
+  ]);
+  let chainlinkPrices = new Map([
+    ["DAI", { usdPrice: parseUnits("1", 8)}],
+    ["ETH", { usdPrice: parseUnits("3100", 8)}],
   ]);
 
-  let tokensCollateralRate = new Map([
-    ["DAI", parseUnits("0.8", 18)],
-    ["ETH", parseUnits("0.7", 18)],
-  ]);
+  let snapshot: any
+  before(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  })
 
   beforeEach(async () => {
     [, user] = await ethers.getSigners();
-    exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
+    exactlyEnv = await ExactlyEnv.create(mockedTokens);
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     const ChainlinkFeedRegistryMock = await ethers.getContractFactory("MockedChainlinkFeedRegistry");
     chainlinkFeedRegistry = await ChainlinkFeedRegistryMock.deploy();
@@ -36,12 +40,13 @@ describe("ExactlyOracle", function () {
     let tokenAddresses = new Array();
     let tokenNames = new Array();
     await Promise.all(
-      Array.from(tokensCollateralRate.keys()).map(async (tokenName) => {
+      Array.from(chainlinkPrices.keys()).map(async (tokenName) => {
         const token = exactlyEnv.getUnderlying(tokenName);
+        const {usdPrice} = chainlinkPrices.get(tokenName)!
         tokenAddresses.push(token.address);
         tokenNames.push(tokenName);
 
-        await chainlinkFeedRegistry.setPrice(token.address, exactlyEnv.usdAddress, tokensUSDPrice.get(tokenName));
+        await chainlinkFeedRegistry.setPrice(token.address, exactlyEnv.usdAddress, usdPrice);
       })
     );
 
@@ -57,8 +62,8 @@ describe("ExactlyOracle", function () {
     let priceOfDai = await exactlyOracle.getAssetPrice("DAI");
 
     // The price returned by the oracle is previously scaled to an 18-digit decimal
-    expect(priceOfEth).to.be.equal(tokensUSDPrice.get("ETH")!.mul(1e10));
-    expect(priceOfDai).to.be.equal(tokensUSDPrice.get("DAI")!.mul(1e10));
+    expect(priceOfEth).to.be.equal(chainlinkPrices.get("ETH")!.usdPrice.mul(1e10));
+    expect(priceOfDai).to.be.equal(chainlinkPrices.get("DAI")!.usdPrice.mul(1e10));
   });
 
   it("GetAssetPrice should fail when price value is zero", async () => {
@@ -104,4 +109,9 @@ describe("ExactlyOracle", function () {
       exactlyOracle.connect(user).setAssetSources([], [])
     ).to.be.revertedWith("AccessControl");
   });
+
+  after(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
+  })
 });
