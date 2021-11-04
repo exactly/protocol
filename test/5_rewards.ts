@@ -29,6 +29,7 @@ describe("ExaToken", function() {
   ]);
 
   let mariaUser: SignerWithAddress;
+  let bobUser: SignerWithAddress;
   let owner: SignerWithAddress;
 
   beforeEach(async () => {
@@ -42,7 +43,7 @@ describe("ExaToken", function() {
     let auditor: Contract;
 
     beforeEach(async () => {
-      [owner, mariaUser] = await ethers.getSigners();
+      [owner, mariaUser, bobUser] = await ethers.getSigners();
 
       dai = exactlyEnv.getUnderlying("DAI");
       exafinDAI = exactlyEnv.getExafin("DAI");
@@ -373,12 +374,10 @@ describe("ExaToken", function() {
 
   describe('grantExa', () => {
     let someAuditor: Contract;
-    let exafin: Contract;
     let exaToken: Contract;
 
     beforeEach(async () => {
       someAuditor = rewardsLibEnv.someAuditor;
-      exafin = rewardsLibEnv.exafin;
       exaToken = rewardsLibEnv.exaToken;
     });
 
@@ -396,5 +395,54 @@ describe("ExaToken", function() {
     });
   });
 
+  describe('claimExa', () => {
+    let someAuditor: Contract;
+    let auditor: Contract;
+    let exafin: Contract;
+    let exaToken: Contract;
+
+    beforeEach(async () => {
+      exafin = rewardsLibEnv.exafin;
+      auditor = exactlyEnv.auditor;
+      someAuditor = rewardsLibEnv.someAuditor;
+      exaToken = rewardsLibEnv.exaToken;
+    });
+
+    it('should revert when a market is not listed', async () => {
+      await expect(
+        auditor.claimExa(mariaUser.address, [exactlyEnv.notAnExafinAddress])
+      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+    });
+
+    it('should accrue EXA and then transfer EXA accrued', async () => {
+      const exaRemaining = parseUnits("1000000");
+      const mintAmount = parseUnits("12");
+      const deltaBlocks = 10;
+      const exaSpeed = parseUnits("1");
+      await exaToken.transfer(someAuditor.address, exaRemaining);
+
+      await someAuditor.setBlockNumber(parseUnits("2", 7));
+      await someAuditor.setExaSpeed(exafin.address, parseUnits("0.5"));
+      await someAuditor.refreshIndexes(exafin.address);
+      await someAuditor.setExaSpeed(exafin.address, exaSpeed);
+
+      const bobAccruedPre = await someAuditor.getExaAccrued(exafin.address);
+      const bobBalancePre = await exaToken.balanceOf(bobUser.address);
+
+      await exafin.setTotalDeposits(mintAmount);
+      await exafin.setSuppliesOf(bobUser.address, mintAmount);
+      await someAuditor.setBlockNumber(parseUnits("2", 7).add(10));
+
+      await someAuditor.claimExaAll(bobUser.address);
+      const bobAccruedPost = await someAuditor.getExaAccrued(bobUser.address);
+      const bobBalancePost = await exaToken.balanceOf(bobUser.address);
+
+      expect(bobAccruedPre).to.equal(0);
+      expect(bobAccruedPost).to.equal(0);
+      expect(bobBalancePre).to.equal(0);
+      expect(bobBalancePost).to.equal(exaSpeed.mul(deltaBlocks).sub(1));
+    });
+
+  });
 
 });

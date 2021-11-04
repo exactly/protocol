@@ -172,6 +172,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         pools[maturityDate] = pool;
 
         totalBorrows += totalBorrow;
+        totalBorrowsUser[msg.sender] += totalBorrow;
 
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
@@ -190,7 +191,6 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 amount,
         uint256 maturityDate
     ) override public nonReentrant {
-
         if(!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
@@ -239,7 +239,9 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 redeemAmount,
         uint256 maturityDate
     ) external override nonReentrant {
-        require(redeemAmount != 0, "Redeem can't be zero");
+        if(redeemAmount == 0) {
+            revert GenericError(ErrorCode.REDEEM_CANT_BE_ZERO);
+        }
 
         // reverts on failure
         auditor.redeemAllowed(
@@ -251,6 +253,7 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
         totalDeposits -= redeemAmount;
+        totalDepositsUser[redeemer] -= redeemAmount;
 
         require(
             trustedUnderlying.balanceOf(address(this)) > redeemAmount,
@@ -288,6 +291,7 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         trustedUnderlying.safeTransferFrom(msg.sender, address(this), amountBorrowed);
         totalBorrows -= amountBorrowed;
+        totalBorrowsUser[borrower] -= amountBorrowed;
 
         delete borrowedAmounts[maturityDate][borrower];
 
@@ -323,6 +327,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         pools[maturityDate] = pool;
 
         totalBorrows -= repayAmount;
+        totalBorrowsUser[borrower] -= repayAmount;
 
         emit Repaid(payer, borrower, repayAmount, maturityDate);
     }
@@ -453,6 +458,9 @@ contract Exafin is IExafin, ReentrancyGuard {
         PoolLib.Pool memory pool = pools[maturityDate];
         pool.supplied -= seizeAmount;
         pools[maturityDate] = pool;
+
+        totalDeposits -= seizeAmount;
+        totalDepositsUser[borrower] -= seizeAmount;
 
         trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
 

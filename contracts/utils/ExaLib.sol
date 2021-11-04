@@ -5,6 +5,7 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IExafin.sol";
 import "../utils/DecimalMath.sol";
+import "../utils/Errors.sol";
 import "../ExaToken.sol";
 
 struct Market {
@@ -51,7 +52,6 @@ library ExaLib {
     }
 
     struct RewardsState {
-        uint256 exaRate;
         address exaToken;
         mapping(address => ExaLib.ExaState) exaState;
         mapping(address => uint) exaAccruedUser;
@@ -83,10 +83,8 @@ library ExaLib {
         if (deltaBlocks > 0 && supplySpeed > 0) {
             uint256 supplyTokens = IExafin(exafinAddress).totalDeposits();
             uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
-
             Double memory ratio = supplyTokens > 0 ? exaAccruedDelta.fraction(supplyTokens) : Double({value: 0});
             Double memory index = Double({value: supplyState.index}).add_(ratio);
-            
             exaState.exaSupplyState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
@@ -243,7 +241,12 @@ library ExaLib {
 
         for (uint i = 0; i < exafinAddresses.length; i++) {
             address exafin = exafinAddresses[i];
-            require(markets[exafin].isListed, "market must be listed");
+            Market storage market = markets[exafin];
+
+            if (!market.isListed) {
+                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+            }
+
             if (borrowers == true) {
                 _updateExaBorrowIndex(exafinState, blockNumber, exafin);
                 for (uint j = 0; j < holders.length; j++) {

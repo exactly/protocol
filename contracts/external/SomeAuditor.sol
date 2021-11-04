@@ -23,9 +23,11 @@ contract SomeAuditor {
     );
 
     uint256 public blockNumber;
+    address[] public marketAddresses;
 
     // Rewards Management
     ExaLib.RewardsState public rewardsState;
+    mapping(address => Market) public markets;
 
     constructor(address _exaToken) {
         rewardsState.exaToken = _exaToken;
@@ -55,12 +57,17 @@ contract SomeAuditor {
         return rewardsState.exaState[exafinAddress].exaBorrowState;
     }
 
-    function updateExaBorrowIndex(address exafinAddress) external  {
+    function updateExaBorrowIndex(address exafinAddress) public {
         rewardsState.updateExaBorrowIndex(blockNumber, exafinAddress);
     }
 
-    function updateExaSupplyIndex(address exafinAddress) external  {
+    function updateExaSupplyIndex(address exafinAddress) public {
         rewardsState.updateExaSupplyIndex(blockNumber, exafinAddress);
+    }
+
+    function refreshIndexes(address exafinAddress) external {
+        updateExaSupplyIndex(exafinAddress);
+        updateExaBorrowIndex(exafinAddress);
     }
 
     function setExaSupplyState(address exafinAddress, uint224 index, uint32 _blockNumber) public {
@@ -130,6 +137,25 @@ contract SomeAuditor {
         uint amount
     ) external returns (uint) {
         return rewardsState.grantExa(user, amount);
+    }
+
+    function claimExaAll(address holder) public {
+        return claimExa(holder, marketAddresses);
+    }
+
+    function claimExa(address holder, address[] memory exafins) public {
+        address[] memory holders = new address[](1);
+        holders[0] = holder;
+        rewardsState.claimExa(blockNumber, markets, holders, exafins, true, true);
+    }
+
+    function enableMarket(
+        address exafin
+    ) public {
+        Market storage market = markets[exafin];
+        market.isListed = true;
+
+        marketAddresses.push(exafin);
     }
 
 }

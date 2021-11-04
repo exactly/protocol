@@ -47,7 +47,7 @@ contract Auditor is IAuditor, AccessControl {
     mapping(address => IExafin[]) public accountAssets;
     uint256 public closeFactor = 5e17;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
-    address[] public marketsAddress;
+    address[] public marketsAddresses;
 
     // Rewards Management
     ExaLib.RewardsState public rewardsState;
@@ -459,7 +459,7 @@ contract Auditor is IAuditor, AccessControl {
         market.symbol = symbol;
         market.name = name;
 
-        marketsAddress.push(exafin);
+        marketsAddresses.push(exafin);
 
         emit MarketListed(exafin);
     }
@@ -545,7 +545,7 @@ contract Auditor is IAuditor, AccessControl {
      * @dev Function to retrieve all markets
      */
     function getMarketAddresses() override external view returns (address[] memory) {
-        return marketsAddress;
+        return marketsAddresses;
     }
 
     /**
@@ -568,6 +568,25 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         return rewardsState.exaState[exafinAddress].exaBorrowState;
+    }
+
+    /**
+     * @notice Claim all the EXA accrued by holder in all markets
+     * @param holder The address to claim EXA for
+     */
+    function claimExaAll(address holder) public {
+        return claimExa(holder, marketsAddresses);
+    }
+
+    /**
+     * @notice Claim all the EXA accrued by holder in the specified markets
+     * @param holder The address to claim EXA for
+     * @param exafins The list of markets to claim EXA in
+     */
+    function claimExa(address holder, address[] memory exafins) public {
+        address[] memory holders = new address[](1);
+        holders[0] = holder;
+        rewardsState.claimExa(block.number, markets, holders, exafins, true, true);
     }
 
 }

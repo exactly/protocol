@@ -95,7 +95,8 @@ export enum ProtocolError {
   NOT_AN_EXAFIN_SENDER,
   INVALID_SET_BORROW_CAP,
   MARKET_BORROW_CAP_REACHED,
-  INCONSISTENT_PARAMS_LENGTH
+  INCONSISTENT_PARAMS_LENGTH,
+  REDEEM_CANT_BE_ZERO
 }
 
 export class DefaultEnv {
@@ -162,6 +163,7 @@ export class RewardsLibEnv {
   exaLib: Contract;
   exaToken: Contract;
   exafin: Contract;
+  notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
 
   constructor(
     _someAuditor: Contract,
@@ -296,7 +298,6 @@ export class ExactlyEnv {
     let exafin = await Exafin.deploy();
     await exafin.deployed();
 
-
     const Auditor = await ethers.getContractFactory("SomeAuditor", {
       libraries: {
         ExaLib: exaLib.address
@@ -306,6 +307,7 @@ export class ExactlyEnv {
       exaToken.address
     );
     await auditor.deployed();
+    await auditor.enableMarket(exafin.address);
 
     return new Promise<RewardsLibEnv>((resolve) => {
       resolve(
