@@ -2,12 +2,12 @@ import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { parseUnits } from '@ethersproject/units'
 import { Contract } from 'ethers'
-import { ProtocolError, ExactlyEnv, ExaTime, errorGeneric } from './exactlyUtils'
+import { ProtocolError, ExactlyEnv, ExaTime, errorGeneric, DefaultEnv } from './exactlyUtils'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
 describe('Liquidity computations', function () {
   let auditor: Contract
-  let exactlyEnv: ExactlyEnv
+  let exactlyEnv: DefaultEnv 
   let nextPoolID: number
 
   let bob: SignerWithAddress

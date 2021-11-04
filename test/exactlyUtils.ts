@@ -160,6 +160,7 @@ export class DefaultEnv {
   public async setOracleMockPrice(assetSymbol: string, valueString: string) {
     await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 18));
   }
+}
 
 export class RewardsLibEnv {
 
@@ -185,7 +186,7 @@ export class RewardsLibEnv {
 
 export class ExactlyEnv {
 
-  static async create(mockedTokens: Map<string, MockedTokenSpec>): Promise<ExactlyEnv> {
+  static async create(mockedTokens: Map<string, MockedTokenSpec>): Promise<DefaultEnv> {
     let exafinContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
 

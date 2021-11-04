@@ -17,15 +17,10 @@ describe("ExaToken", function() {
   let exactlyEnv: DefaultEnv;
   let rewardsLibEnv: RewardsLibEnv;
 
-  let tokensCollateralRate = new Map([
-    ["DAI", parseUnits("0.8", 18)],
-    ["ETH", parseUnits("0.7", 18)],
-  ]);
-
-  // Oracle price is in 10**6
-  let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 6)],
-    ["ETH", parseUnits("3100", 6)],
+  let mockedTokens = new Map([
+    ['DAI', { decimals: 18, collateralRate: parseUnits('0.8'), usdPrice: parseUnits('1') }],
+    ['ETH', { decimals: 18, collateralRate: parseUnits('0.7'), usdPrice: parseUnits('3000') }],
+    ['WBTC', { decimals: 8, collateralRate: parseUnits('0.6'), usdPrice: parseUnits('63000') }],
   ]);
 
   let mariaUser: SignerWithAddress;
@@ -33,7 +28,7 @@ describe("ExaToken", function() {
   let owner: SignerWithAddress;
 
   beforeEach(async () => {
-    exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
+    exactlyEnv = await ExactlyEnv.create(mockedTokens);
     rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
   }); 
 

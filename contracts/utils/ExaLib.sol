@@ -13,6 +13,7 @@ struct Market {
     string name;
     bool isListed;
     uint256 collateralFactor;
+    uint8 decimals;
     mapping(address => bool) accountMembership;
 }
 
