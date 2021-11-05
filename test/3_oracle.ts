@@ -74,6 +74,7 @@ describe("ExactlyOracle", function () {
         );
       })
     );
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(Date.now());
 
     const ExactlyOracle = await ethers.getContractFactory("ExactlyOracle");
     exactlyOracle = await ExactlyOracle.deploy(
@@ -98,6 +99,66 @@ describe("ExactlyOracle", function () {
     expect(priceOfDai).to.be.equal(
       chainlinkPrices.get("DAI")!.usdPrice.mul(1e10)
     );
+  });
+
+  it("GetAssetPrice does not fail when updatedAt time is equal to maxDelayTime", async () => {
+    let currentTime = Date.now();
+    let maxDelayTime = await exactlyOracle.maxDelayTime();
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime));
+
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      currentTime
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(
+      exactlyOracle.getAssetPrice("DAI")
+    ).to.not.be.reverted;
+  });
+
+  it("GetAssetPrice does not fail when updatedAt time is above maxDelayTime (price updated)", async () => {
+    let currentTime = Date.now();
+    let maxDelayTime = await exactlyOracle.maxDelayTime();
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime - 1));
+
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      currentTime
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(
+      exactlyOracle.getAssetPrice("DAI")
+    ).to.not.be.reverted;
+  });
+
+  it("GetAssetPrice does not fail when updatedAt time is equal to maxDelayTime (price updated)", async () => {
+    let currentTime = Date.now();
+    let maxDelayTime = await exactlyOracle.maxDelayTime();
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime));
+
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      currentTime
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(
+      exactlyOracle.getAssetPrice("DAI")
+    ).to.not.be.reverted;
+  });
+
+  it("GetAssetPrice should fail when updatedAt time is below maxDelayTime (price outdated)", async () => {
+    let currentTime = Date.now();
+    let maxDelayTime = await exactlyOracle.maxDelayTime();
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime + 1));
+
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      currentTime
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(
+      exactlyOracle.getAssetPrice("DAI")
+    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
   it("GetAssetPrice should fail when price value is zero", async () => {
@@ -133,12 +194,11 @@ describe("ExactlyOracle", function () {
   it("SetAssetSources should set the address source of an asset", async () => {
     let linkSymbol = "LINK";
     let linkAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA";
-    await exactlyOracle.setAssetSources([linkSymbol], [linkAddress]);
-    await chainlinkFeedRegistry.setPrice(
-      linkAddress,
-      exactlyEnv.usdAddress,
-      10
-    );
+
+    await expect(
+      await exactlyOracle.setAssetSources([linkSymbol], [linkAddress])
+    ).to.emit(exactlyOracle, "SymbolSourceUpdated").withArgs(linkSymbol, linkAddress);
+    await chainlinkFeedRegistry.setPrice(linkAddress, exactlyEnv.usdAddress, 10);
     await expect(exactlyOracle.getAssetPrice(linkSymbol)).to.not.be.reverted;
   });
 

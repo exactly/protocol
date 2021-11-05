@@ -17,13 +17,16 @@ contract ExactlyOracle is IOracle, AccessControl {
   bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
   event SymbolSourceUpdated(string indexed symbol, address indexed source);
+  event MaxDelayTimeUpdated(uint256 maxDelayTime);
 
   mapping(string => address) public assetsSources;
   IChainlinkFeedRegistry public chainlinkFeedRegistry;
   address public immutable baseCurrency;
+  uint256 public maxDelayTime;
 
   uint256 constant public TARGET_DIGITS = 18; // Auditor's target precision
   uint256 constant public ORACLE_DIGITS = 8; // At date of Exactly launch, Chainlink uses an 8-digit price
+  uint256 constant public MAX_DELAY_TIME = 1 hours; // The max delay time for Chainlink prices to be considered as updated
 
   /**
     @notice Constructor
@@ -46,8 +49,8 @@ contract ExactlyOracle is IOracle, AccessControl {
     @param symbol The symbol of the asset
   */
   function getAssetPrice(string memory symbol) public view override returns (uint256) {
-    (,int256 price,,,) = chainlinkFeedRegistry.latestRoundData(assetsSources[symbol], baseCurrency);
-    if (price > 0) {
+    (,int256 price,,uint256 updatedAt,) = chainlinkFeedRegistry.latestRoundData(assetsSources[symbol], baseCurrency);
+    if (price > 0 && updatedAt >= block.timestamp - maxDelayTime) {
       return _scaleOraclePriceByDigits(uint256(price));
     } else {
       revert GenericError(ErrorCode.PRICE_ERROR);
@@ -63,7 +66,7 @@ contract ExactlyOracle is IOracle, AccessControl {
   }
 
   /**
-    @notice External function called by the Exactly governance to set or replace sources of assets
+    @notice Set or replace the sources of assets
     @param symbols The symbols of the assets
     @param sources The address of the source of each asset
   */

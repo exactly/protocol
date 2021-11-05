@@ -15,5 +15,7 @@ Contracts' API
     :members: enterMarkets, getAccountLiquidity, liquidateCalculateSeizeAmount, liquidateAllowed, seizeAllowed, enableMarket, pauseBorrow, _accountLiquidity
 
 .. autosolcontract:: ExactlyOracle
-    :members: constructor, setAssetSources, _setAssetsSources, getAssetPrice
+    :members: constructor, getAssetPrice, setAssetSources, _setAssetsSources
 
+.. autosolinterface:: IChainlinkFeedRegistry
+    :members: latestRoundData
