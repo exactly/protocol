@@ -103,7 +103,7 @@ describe("ExactlyOracle", function () {
 
   it("GetAssetPrice does not fail when updatedAt time is equal to maxDelayTime", async () => {
     let currentTime = Date.now();
-    let maxDelayTime = await exactlyOracle.maxDelayTime();
+    let maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
     await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime));
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -118,7 +118,7 @@ describe("ExactlyOracle", function () {
 
   it("GetAssetPrice does not fail when updatedAt time is above maxDelayTime (price updated)", async () => {
     let currentTime = Date.now();
-    let maxDelayTime = await exactlyOracle.maxDelayTime();
+    let maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
     await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime - 1));
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -133,7 +133,7 @@ describe("ExactlyOracle", function () {
 
   it("GetAssetPrice does not fail when updatedAt time is equal to maxDelayTime (price updated)", async () => {
     let currentTime = Date.now();
-    let maxDelayTime = await exactlyOracle.maxDelayTime();
+    let maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
     await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime));
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -148,7 +148,7 @@ describe("ExactlyOracle", function () {
 
   it("GetAssetPrice should fail when updatedAt time is below maxDelayTime (price outdated)", async () => {
     let currentTime = Date.now();
-    let maxDelayTime = await exactlyOracle.maxDelayTime();
+    let maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
     await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime + 1));
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [

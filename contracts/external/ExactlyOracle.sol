@@ -17,12 +17,10 @@ contract ExactlyOracle is IOracle, AccessControl {
   bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
   event SymbolSourceUpdated(string indexed symbol, address indexed source);
-  event MaxDelayTimeUpdated(uint256 maxDelayTime);
 
   mapping(string => address) public assetsSources;
   IChainlinkFeedRegistry public chainlinkFeedRegistry;
   address public immutable baseCurrency;
-  uint256 public maxDelayTime;
 
   uint256 constant public TARGET_DIGITS = 18; // Auditor's target precision
   uint256 constant public ORACLE_DIGITS = 8; // At date of Exactly launch, Chainlink uses an 8-digit price
@@ -50,7 +48,7 @@ contract ExactlyOracle is IOracle, AccessControl {
   */
   function getAssetPrice(string memory symbol) public view override returns (uint256) {
     (,int256 price,,uint256 updatedAt,) = chainlinkFeedRegistry.latestRoundData(assetsSources[symbol], baseCurrency);
-    if (price > 0 && updatedAt >= block.timestamp - maxDelayTime) {
+    if (price > 0 && updatedAt >= block.timestamp - MAX_DELAY_TIME) {
       return _scaleOraclePriceByDigits(uint256(price));
     } else {
       revert GenericError(ErrorCode.PRICE_ERROR);
