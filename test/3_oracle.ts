@@ -18,6 +18,7 @@ describe("ExactlyOracle", function () {
   let underlyingToken: Contract;
 
   let user: SignerWithAddress;
+  let snapshot: any;
 
   // Set the MockedOracle prices to zero
   let mockedTokens = new Map([
@@ -43,10 +44,10 @@ describe("ExactlyOracle", function () {
     ["ETH", { usdPrice: parseUnits("3100", 8) }],
   ]);
 
-  let snapshot: any;
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
+  const MOCKED_DATE = Math.floor(Date.now() / 1000) + 3600; // we add a day so it's not the same timestamp of previous blocks
 
   beforeEach(async () => {
     [, user] = await ethers.getSigners();
@@ -74,7 +75,7 @@ describe("ExactlyOracle", function () {
         );
       })
     );
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(Date.now());
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(Math.floor(Date.now() / 1000));
 
     const ExactlyOracle = await ethers.getContractFactory("ExactlyOracle");
     exactlyOracle = await ExactlyOracle.deploy(
@@ -86,6 +87,9 @@ describe("ExactlyOracle", function () {
     await exactlyOracle.deployed();
     await exactlyOracle.setAssetSources(tokenNames, tokenAddresses);
     await exactlyEnv.setOracle(exactlyOracle.address);
+
+    // This helps with tests that use evm_setNextBlockTimestamp
+    snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
   it("GetAssetPrice returns a positive and valid price value", async () => {
@@ -102,12 +106,11 @@ describe("ExactlyOracle", function () {
   });
 
   it("GetAssetPrice does not fail when updatedAt time is equal to maxDelayTime", async () => {
-    let currentTime = Date.now();
     let maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime));
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(MOCKED_DATE - (maxDelayTime));
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      currentTime
+      MOCKED_DATE
     ]);
     await ethers.provider.send("evm_mine", []);
 
@@ -117,12 +120,11 @@ describe("ExactlyOracle", function () {
   });
 
   it("GetAssetPrice does not fail when updatedAt time is above maxDelayTime (price updated)", async () => {
-    let currentTime = Date.now();
     let maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime - 1));
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(MOCKED_DATE - (maxDelayTime - 1));
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      currentTime
+      MOCKED_DATE
     ]);
     await ethers.provider.send("evm_mine", []);
 
@@ -132,12 +134,11 @@ describe("ExactlyOracle", function () {
   });
 
   it("GetAssetPrice does not fail when updatedAt time is equal to maxDelayTime (price updated)", async () => {
-    let currentTime = Date.now();
     let maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime));
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(MOCKED_DATE - (maxDelayTime));
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      currentTime
+      MOCKED_DATE
     ]);
     await ethers.provider.send("evm_mine", []);
 
@@ -147,12 +148,11 @@ describe("ExactlyOracle", function () {
   });
 
   it("GetAssetPrice should fail when updatedAt time is below maxDelayTime (price outdated)", async () => {
-    let currentTime = Date.now();
     let maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(currentTime - (maxDelayTime + 1));
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(MOCKED_DATE - (maxDelayTime + 1));
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      currentTime
+      MOCKED_DATE
     ]);
     await ethers.provider.send("evm_mine", []);
 
