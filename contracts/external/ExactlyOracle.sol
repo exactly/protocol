@@ -22,8 +22,8 @@ contract ExactlyOracle is IOracle, AccessControl {
   IChainlinkFeedRegistry public chainlinkFeedRegistry;
   address public immutable baseCurrency;
 
-  uint256 constant public TARGET_DIGITS = 18; // Auditor's target precision
-  uint256 constant public ORACLE_DIGITS = 8; // At date of Exactly launch, Chainlink uses an 8-digit price
+  uint256 constant public TARGET_DECIMALS = 18; // Auditor's target precision
+  uint256 constant public ORACLE_DECIMALS = 8; // At date of Exactly launch, Chainlink uses an 8-digit price
   uint256 constant public MAX_DELAY_TIME = 1 hours; // The max delay time for Chainlink prices to be considered as updated
 
   /**
@@ -60,7 +60,7 @@ contract ExactlyOracle is IOracle, AccessControl {
     @param price The price to be scaled
   */
   function _scaleOraclePriceByDigits(uint256 price) internal pure returns (uint256) {
-    return price * 10 ** (TARGET_DIGITS - ORACLE_DIGITS);
+    return price * 10 ** (TARGET_DECIMALS - ORACLE_DECIMALS);
   }
 
   /**
