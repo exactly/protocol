@@ -573,7 +573,7 @@ contract Auditor is IAuditor, AccessControl {
      * @notice Claim all the EXA accrued by holder in all markets
      * @param holder The address to claim EXA for
      */
-    function claimExaAll(address holder) public {
+    function claimExaAll(address holder) external {
         claimExa(holder, marketsAddresses);
     }
 
