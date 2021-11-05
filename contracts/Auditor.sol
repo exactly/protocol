@@ -574,7 +574,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param holder The address to claim EXA for
      */
     function claimExaAll(address holder) public {
-        return claimExa(holder, marketsAddresses);
+        claimExa(holder, marketsAddresses);
     }
 
     /**
