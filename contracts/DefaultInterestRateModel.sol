@@ -56,6 +56,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         @param maturityDate maturity date for calculating days left to maturity
         @param maturityPool supply/demand values for the maturity pool
         @param smartPool supply/demand values for the smartPool
+        @param  newDebt checks if the maturity pool borrows money from the smart pool in this borrow
      */
     function getRateToBorrow(
         uint256 maturityDate,
@@ -103,14 +104,21 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         }
 
         uint256 yearlyRate;
-        uint256 maturityPoolYearlyRate = maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
-        uint256 smartPoolYearlyRate = smartPool.supplied == 0 ? 0 : ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
+        uint256 maturityPoolYearlyRate = maturityPool.supplied == 0
+            ? 0
+            : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+        uint256 smartPoolYearlyRate = smartPool.supplied == 0
+            ? 0
+            : ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
 
         if (maturityPoolYearlyRate != 0 && maturityPool.supplied - maturityPool.borrowed != 0) {
             yearlyRate = maturityPoolYearlyRate;
         }
 
-        if ((smartPoolYearlyRate != 0 && maturityPoolYearlyRate == 0) || maturityPool.supplied - maturityPool.borrowed == 0) {
+        if (
+            (smartPoolYearlyRate != 0 && maturityPoolYearlyRate == 0) ||
+            maturityPool.supplied - maturityPool.borrowed == 0
+        ) {
             yearlyRate = smartPoolYearlyRate;
         }
 

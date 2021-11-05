@@ -72,13 +72,6 @@ describe("Exafin", function () {
     await expect(exafin.getTotalBorrows(invalidPoolID)).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
-  it("GetRateToSupply fails on an invalid pool", async () => {
-    let invalidPoolID = exaTime.nextPoolID() + 3;
-    await expect(exafin.getRateToSupply(parseUnits("10"), invalidPoolID)).to.be.revertedWith(
-      errorGeneric(ProtocolError.INVALID_POOL_ID)
-    );
-  });
-
   it("it allows to give money to a pool", async () => {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(exafin.address, underlyingAmount);
@@ -194,26 +187,6 @@ describe("Exafin", function () {
     await exafinMaria.supply(mariaUser.address, parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets([exafinMaria.address]);
     await expect(exafinMaria.borrow(parseUnits("0.9"), exaTime.nextPoolID())).to.be.reverted;
-  });
-
-  it("Calculates the right rate to supply", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let unitsToSupply = parseUnits("1");
-
-    let rateSupplyToApply = await exafinMaria.getRateToSupply(unitsToSupply, exaTime.nextPoolID());
-    // We supply the money
-    await underlyingTokenUser.approve(exafin.address, unitsToSupply);
-    let tx = await exafinMaria.supply(mariaUser.address, unitsToSupply, exaTime.nextPoolID());
-    let supplyEvent = await parseSupplyEvent(tx);
-
-    // It should be the base rate since there are no other deposits
-    let nextExpirationDate = exaTime.nextPoolID();
-    let daysToExpiration = exaTime.daysDiffWith(nextExpirationDate);
-    let yearlyRateProjected = BigNumber.from(rateSupplyToApply).mul(365).div(daysToExpiration);
-
-    // We expect that the actual rate was taken when we submitted the supply transaction
-    expect(supplyEvent.commission).to.be.closeTo(unitsToSupply.mul(rateSupplyToApply).div(parseUnits("1")), 20);
   });
 
   it("it allows the mariaUser to withdraw money only after maturity", async () => {

@@ -75,21 +75,6 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Get current rate for supplying a certain amount in a certain maturity
-             in the current state of the pool and the pot
-        @param amount amount to supply to a certain maturity date
-        @param maturityDate maturity date for calculating rates
-     */
-    function getRateToSupply(uint256 amount, uint256 maturityDate) public view override returns (uint256) {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        PoolLib.Pool memory poolMaturity = pools[maturityDate];
-        return interestRateModel.getRateToSupply(amount, maturityDate, poolMaturity, smartPool);
-    }
-
-    /**
         @dev Lends to a wallet for a certain maturity date/pool
         @param amount amount to send to the specified wallet
         @param maturityDate maturity date for repayment

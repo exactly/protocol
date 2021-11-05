@@ -69,6 +69,8 @@ describe("DefaultInterestRateModel", () => {
       supplied: 100000,
     };
 
+    expect(formatUnits(await interestRateModel.getRateToBorrow(exaTime.futurePools(6)[1], pool, smartPool, true)));
+    // 0.002684931506849315
     console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.futurePools(6)[1], pool, smartPool, true)));
   });
 
