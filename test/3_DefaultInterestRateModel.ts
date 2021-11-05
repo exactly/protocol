@@ -33,8 +33,32 @@ describe("DefaultInterestRateModel", () => {
   let exaTime: ExaTime;
 
   let snapshot: any;
+  let futurePool: number;
+
+  let pool = {
+    borrowed: 0,
+    supplied: 0,
+    debt: 0,
+    available: 0,
+  };
+
+  let smartPool = {
+    borrowed: 0,
+    supplied: 0,
+  };
 
   beforeEach(async () => {
+    pool = {
+      borrowed: 0,
+      supplied: 0,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 0,
+      supplied: 0,
+    };
     [owner, mariaUser, johnUser] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
@@ -51,75 +75,92 @@ describe("DefaultInterestRateModel", () => {
     eth.transfer(mariaUser.address, parseEther("100"));
     exaTime = new ExaTime();
 
+    futurePool = exaTime.futurePools(2)[1];
+
     // This can be optimized (so we only do it once per file, not per test)
     // This helps with tests that use evm_setNextBlockTimestamp
     snapshot = await ethers.provider.send("evm_snapshot", []);
+
+    //This sets the EVM timestamp to a specific so we have real unit testing
+    await ethers.provider.send("evm_setNextBlockTimestamp", [exaTime.nextPoolID()]);
+    await ethers.provider.send("evm_mine", []);
   });
 
-  it("Supply 1, borrow 2, borrow 2", async () => {
-    const pool = {
+  afterEach(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
+  });
+
+  it("With well funded Smart pool, supply 1 to Maturity Pool, borrow 2 from maturity pool, borrow 2 from maturity pool. Should get Maturity pool rate", async () => {
+    pool = {
       borrowed: 4,
       supplied: 4,
       debt: 3,
       available: 0,
     };
 
-    const smartPool = {
+    smartPool = {
       borrowed: 3,
       supplied: 100000,
     };
 
-    expect(formatUnits(await interestRateModel.getRateToBorrow(exaTime.futurePools(6)[1], pool, smartPool, true)));
-    // 0.002684931506849315
-    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.futurePools(6)[1], pool, smartPool, true)));
+    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, pool, smartPool, true))).to.be.equal(
+      "0.001342465753424657"
+    );
   });
 
-  it("Borrow 10000, supply 10000", async () => {
-    const pool = {
+  it("With well funded Smart pool, supply 10000 to Maturity Pool, borrow 10000 from maturity pool. Should get Maturity pool rate", async () => {
+    pool = {
       borrowed: 10000,
       supplied: 10000,
       debt: 0,
       available: 0,
     };
 
-    const smartPool = {
+    smartPool = {
       borrowed: 10000,
       supplied: 110000,
     };
 
-    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
+    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, pool, smartPool, true))).to.be.equal(
+      "0.001342465753424657"
+    );
   });
 
-  it("Borrow 10000", async () => {
-    const pool = {
+  it("With well funded Smart pool, borrow 10000 from maturity pool. Should get Maturity pool rate", async () => {
+    pool = {
       borrowed: 10000,
       supplied: 10000,
       debt: 10000,
       available: 0,
     };
 
-    const smartPool = {
+    smartPool = {
       borrowed: 10000,
       supplied: 100000,
     };
 
-    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
+    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, pool, smartPool, true))).to.be.equal(
+      "0.001342465753424657"
+    );
   });
 
-  it("Borrow 10000, borrow 10000 again", async () => {
-    let pool = {
+  it("With well funded Smart pool, borrow 10000 from maturity pool, after that borrow 10000 again. Should get Maturity pool rate in both cases", async () => {
+    pool = {
       borrowed: 10000,
       supplied: 10000,
       debt: 10000,
       available: 0,
     };
 
-    let smartPool = {
+    smartPool = {
       borrowed: 10000,
       supplied: 100000,
     };
 
-    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
+    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, pool, smartPool, true))).to.be.equal(
+      "0.001342465753424657"
+    );
 
     pool = {
       borrowed: 20000,
@@ -133,22 +174,60 @@ describe("DefaultInterestRateModel", () => {
       supplied: 100000,
     };
 
-    console.log(formatUnits(await interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)));
+    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, pool, smartPool, true))).to.be.equal(
+      "0.001342465753424657"
+    );
   });
 
-  it("Borrow 10 with no money in maturity pool nor smart pool", () => {
-    const pool = {
+  it("Borrow less than supplied in maturity pool", async () => {
+    pool = {
+      borrowed: 20,
+      supplied: 10000,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 0,
+      supplied: 10000,
+    };
+
+    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, pool, smartPool, true))).to.be.equal(
+      "0.000002684931506849"
+    );
+  });
+
+  it("Borrow less than supplied in maturity pool, then supply some more tokens", async () => {
+    pool = {
+      borrowed: 10,
+      supplied: 10010,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 0,
+      supplied: 10000,
+    };
+
+    expect(formatUnits(await interestRateModel.getRateToSupply(10, futurePool, pool, smartPool))).to.be.equal(
+      "0.000001341124628795"
+    );
+  });
+
+  it("Borrow 10 from maturity pool with no money in maturity pool nor smart pool", async () => {
+    pool = {
       borrowed: 10,
       supplied: 0,
       debt: 0,
       available: 0,
     };
 
-    const smartPool = {
+    smartPool = {
       borrowed: 0,
       supplied: 0,
     };
 
-    expect(interestRateModel.getRateToBorrow(exaTime.nextPoolID(), pool, smartPool, true)).to.be.reverted;
+    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, pool, smartPool, true))).to.be.equal("0.0");
   });
 });

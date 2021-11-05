@@ -80,7 +80,6 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             );
         }
 
-        console.log(yearlyRate, daysDifference);
         return ((yearlyRate * daysDifference) / 365);
     }
 
