@@ -17,7 +17,7 @@ interface IChainlinkFeedRegistry {
     @return answer is the answer for the given round
     @return startedAt is the timestamp when the round was started. Not currently in use
             (Only some AggregatorV3Interface implementations return meaningful values)
-    @return updatedAt is the timestamp when the round last was updated. Not currently in use
+    @return updatedAt is the timestamp when the round last was updated.
             (i.e. answer was last computed)
     @return answeredInRound is the round ID of the round in which the answer
             was computed. Not currently in use
