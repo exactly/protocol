@@ -12,31 +12,38 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const [deployer] = await hre.getUnnamedAccounts();
   const tokensForNetwork = config.tokenAddresses[hre.network.name].assets;
 
-  if (hre.network.name === "hardhat"){
-    assert(process.env.FORKING === "true", "deploying the ecosystem on a loner node not supported (yet?)");
+  if (hre.network.name === "hardhat") {
+    assert(
+      process.env.FORKING === "true",
+      "deploying the ecosystem on a loner node not supported (yet?)"
+    );
   }
 
   const tsUtils = await hre.deployments.deploy("TSUtils", {
-      from: deployer,
+    from: deployer,
   });
-  
+
   let exactlyOracle;
   if (hre.network.name === "rinkeby") {
-    exactlyOracle = (await ethers.getContractFactory("MockedOracle")).attach(config.tokenAddresses[hre.network.name].mockedExactlyOracle);
+    exactlyOracle = (await ethers.getContractFactory("MockedOracle")).attach(
+      config.tokenAddresses[hre.network.name].mockedExactlyOracle
+    );
   } else {
-    const {tokenAddresses, tokenSymbols} = await getTokenParameters(tokensForNetwork);
+    const { tokenAddresses, tokenSymbols } = await getTokenParameters(
+      tokensForNetwork
+    );
     exactlyOracle = await hre.deployments.deploy("ExactlyOracle", {
       from: deployer,
       args: [
         config.tokenAddresses[hre.network.name].chainlinkFeedRegistry,
         tokenSymbols,
         tokenAddresses,
-        config.tokenAddresses[hre.network.name].usdAddress
+        config.tokenAddresses[hre.network.name].usdAddress,
       ],
       log: true,
       libraries: {
-        TSUtils: tsUtils.address
-      }
+        TSUtils: tsUtils.address,
+      },
     });
   }
 
@@ -54,40 +61,38 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
     libraries: {
       TSUtils: tsUtils.address,
-      ExaLib: exaLib.address
-    }
+      ExaLib: exaLib.address,
+    },
   });
 
-  const interestRateModel = await hre.deployments.deploy("DefaultInterestRateModel", {
-    from: deployer,
-    args: [parseUnits("0.02"), parseUnits("0.07")],
-    log: true,
-    libraries: {
-      TSUtils: tsUtils.address
+  const interestRateModel = await hre.deployments.deploy(
+    "DefaultInterestRateModel",
+    {
+      from: deployer,
+      args: [parseUnits("0.02"), parseUnits("0.07")],
+      log: true,
+      libraries: {
+        TSUtils: tsUtils.address,
+      },
     }
-  });
+  );
 
   for (const symbol of Object.keys(tokensForNetwork)) {
     const { name, address, whale, collateralRate, oracleName, decimals } =
       tokensForNetwork[symbol];
     console.log("------");
-    console.log(
-      "Exafin for %s will use: %s",
-      symbol,
-      address,
-      auditor.address
-    );
+    console.log("Exafin for %s will use: %s", symbol, address, auditor.address);
 
     const exafin = await hre.deployments.deploy("Exafin", {
       from: deployer,
       args: [address, oracleName, auditor.address, interestRateModel.address],
       log: true,
       libraries: {
-        TSUtils: tsUtils.address
-      }
+        TSUtils: tsUtils.address,
+      },
     });
 
-    // We enable this ExaFin Market on Auditor 
+    // We enable this ExaFin Market on Auditor
     await hre.deployments.execute(
       "Auditor",
       { from: deployer },
@@ -123,10 +128,15 @@ async function getTokenParameters(tokensForNetwork: any) {
     tokenAddresses.push(oracleAddress);
   }
 
-  return {tokenAddresses, tokenSymbols};
+  return { tokenAddresses, tokenSymbols };
 }
 
-async function sendTokens(hardhatRuntimeEnvironment: any, tokenAddress: string, whale: string, decimals: any) {
+async function sendTokens(
+  hardhatRuntimeEnvironment: any,
+  tokenAddress: string,
+  whale: string,
+  decimals: any
+) {
   let contract = await ethers.getContractAt("IERC20", tokenAddress);
 
   const whaleSigner = await impersonate(hardhatRuntimeEnvironment, whale);
@@ -141,7 +151,7 @@ async function sendTokens(hardhatRuntimeEnvironment: any, tokenAddress: string, 
 async function impersonate(hardhatRuntimeEnvironment: any, address: string) {
   await hardhatRuntimeEnvironment.network.provider.request({
     method: "hardhat_impersonateAccount",
-    params: [address]
+    params: [address],
   });
 
   const signer = ethers.provider.getSigner(address);

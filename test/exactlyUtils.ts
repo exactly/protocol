@@ -21,8 +21,8 @@ export interface SuppliedEventInterface {
   maturityDate: BigNumber;
 }
 
-
 export function parseBorrowEvent(tx: ContractTransaction) {
+  // eslint-disable-next-line no-async-promise-executor
   return new Promise<BorrowEventInterface>(async (resolve, reject) => {
     let receipt: ContractReceipt = await tx.wait();
     let args = receipt.events?.filter((x) => {
@@ -43,6 +43,7 @@ export function parseBorrowEvent(tx: ContractTransaction) {
 }
 
 export function parseSupplyEvent(tx: ContractTransaction) {
+  // eslint-disable-next-line no-async-promise-executor
   return new Promise<SuppliedEventInterface>(async (resolve, reject) => {
     let receipt: ContractReceipt = await tx.wait();
     let args = receipt.events?.filter((x) => {
@@ -62,19 +63,22 @@ export function parseSupplyEvent(tx: ContractTransaction) {
   });
 }
 
-export function errorUnmatchedPool(state: PoolState, requiredState: PoolState): string {
-  return "UnmatchedPoolState("+ state + ", " + requiredState + ")";
+export function errorUnmatchedPool(
+  state: PoolState,
+  requiredState: PoolState
+): string {
+  return "UnmatchedPoolState(" + state + ", " + requiredState + ")";
 }
 
 export function errorGeneric(errorCode: ProtocolError): string {
-  return "GenericError("+ errorCode + ")";
+  return "GenericError(" + errorCode + ")";
 }
 
 export enum PoolState {
   INVALID,
   MATURED,
   VALID,
-  NOT_READY
+  NOT_READY,
 }
 
 export enum ProtocolError {
@@ -97,14 +101,14 @@ export enum ProtocolError {
   INVALID_SET_BORROW_CAP,
   MARKET_BORROW_CAP_REACHED,
   INCONSISTENT_PARAMS_LENGTH,
-  REDEEM_CANT_BE_ZERO
+  REDEEM_CANT_BE_ZERO,
 }
 
 export type MockedTokenSpec = {
-  decimals: BigNumber|number;
+  decimals: BigNumber | number;
   collateralRate: BigNumber;
   usdPrice: BigNumber;
-}
+};
 
 export class DefaultEnv {
   oracle: Contract;
@@ -156,14 +160,13 @@ export class DefaultEnv {
   public async setOracle(oracleAddress: string) {
     await this.auditor.setOracle(oracleAddress);
   }
-  
+
   public async setOracleMockPrice(assetSymbol: string, valueString: string) {
     await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 18));
   }
 }
 
 export class RewardsLibEnv {
-
   someAuditor: Contract;
   exaLib: Contract;
   exaToken: Contract;
@@ -181,12 +184,12 @@ export class RewardsLibEnv {
     this.exaToken = _exaToken;
     this.exafin = _exafin;
   }
-
 }
 
 export class ExactlyEnv {
-
-  static async create(mockedTokens: Map<string, MockedTokenSpec>): Promise<DefaultEnv> {
+  static async create(
+    mockedTokens: Map<string, MockedTokenSpec>
+  ): Promise<DefaultEnv> {
     let exafinContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
 
@@ -206,11 +209,14 @@ export class ExactlyEnv {
     let oracle = await MockedOracle.deploy();
     await oracle.deployed();
 
-    const DefaultInterestRateModel = await ethers.getContractFactory("DefaultInterestRateModel", {
-      libraries: {
-        TSUtils: tsUtils.address
+    const DefaultInterestRateModel = await ethers.getContractFactory(
+      "DefaultInterestRateModel",
+      {
+        libraries: {
+          TSUtils: tsUtils.address,
+        },
       }
-    });
+    );
     let interestRateModel = await DefaultInterestRateModel.deploy(
       parseUnits("0.01"),
       parseUnits("0.07")
@@ -220,19 +226,17 @@ export class ExactlyEnv {
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
         TSUtils: tsUtils.address,
-        ExaLib: exaLib.address
-      }
+        ExaLib: exaLib.address,
+      },
     });
-    let auditor = await Auditor.deploy(
-      oracle.address,
-      exaToken.address
-    );
+    let auditor = await Auditor.deploy(oracle.address, exaToken.address);
     await auditor.deployed();
 
-    // We have to enable all the Exafins in the auditor 
+    // We have to enable all the Exafins in the auditor
     await Promise.all(
       Array.from(mockedTokens.keys()).map(async (tokenName) => {
-        const {decimals, collateralRate, usdPrice} = mockedTokens.get(tokenName)!
+        const { decimals, collateralRate, usdPrice } =
+          mockedTokens.get(tokenName)!;
         const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
         const MockedToken = await ethers.getContractFactory("MockedToken");
         const underlyingToken = await MockedToken.deploy(
@@ -245,8 +249,8 @@ export class ExactlyEnv {
 
         const Exafin = await ethers.getContractFactory("Exafin", {
           libraries: {
-            TSUtils: tsUtils.address
-          }
+            TSUtils: tsUtils.address,
+          },
         });
         const exafin = await Exafin.deploy(
           underlyingToken.address,
@@ -290,7 +294,6 @@ export class ExactlyEnv {
   }
 
   static async createRewardsEnv(): Promise<RewardsLibEnv> {
-
     const ExaLib = await ethers.getContractFactory("ExaLib");
     let exaLib = await ExaLib.deploy();
     await exaLib.deployed();
@@ -305,26 +308,16 @@ export class ExactlyEnv {
 
     const Auditor = await ethers.getContractFactory("SomeAuditor", {
       libraries: {
-        ExaLib: exaLib.address
-      }
+        ExaLib: exaLib.address,
+      },
     });
-    let auditor = await Auditor.deploy(
-      exaToken.address
-    );
+    let auditor = await Auditor.deploy(exaToken.address);
     await auditor.deployed();
     await auditor.enableMarket(exafin.address);
 
     return new Promise<RewardsLibEnv>((resolve) => {
-      resolve(
-        new RewardsLibEnv(
-          auditor,
-          exaLib,
-          exaToken,
-          exafin
-        )
-      );
+      resolve(new RewardsLibEnv(auditor, exaLib, exaToken, exafin));
     });
-
   }
 }
 
@@ -339,25 +332,19 @@ export class ExaTime {
   }
 
   public nextPoolID(): number {
-    return (
-      this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL
-    );
+    return this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL;
   }
 
   public isPoolID(): boolean {
-    return (
-      (this.timestamp % this.INTERVAL) == 0
-    );
+    return this.timestamp % this.INTERVAL == 0;
   }
 
   public pastPoolID(): number {
-    return (
-      this.timestamp - (this.timestamp % this.INTERVAL) - this.INTERVAL
-    );
+    return this.timestamp - (this.timestamp % this.INTERVAL) - this.INTERVAL;
   }
 
   public trimmedDay(): number {
-    return (this.timestamp - (this.timestamp % this.oneDay));
+    return this.timestamp - (this.timestamp % this.oneDay);
   }
 
   public daysDiffWith(anotherTimestamp: number): number {
