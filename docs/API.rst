@@ -16,3 +16,6 @@ Contracts' API
 
 .. autosolcontract:: ExactlyOracle
     :members: constructor, setAssetSources, _setAssetsSources, getAssetPrice
+
+.. autosollibrary:: ExaLib
+    :members: updateExaSupplyIndex, updateExaBorrowIndex, distributeSupplierExa, distributeBorrowerExa, claimExa, grantExa, setExaSpeed
