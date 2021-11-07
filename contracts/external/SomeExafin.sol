@@ -4,18 +4,11 @@ pragma solidity ^0.8.4;
 import "../utils/DecimalMath.sol";
 import "../utils/ExaLib.sol";
 
-interface ISomeExafin {
-    function totalBorrows() external view returns (uint256);
-    function totalDeposits() external view returns (uint256);
-    function borrowsOf(address who) external view returns (uint256);
-    function suppliesOf(address who) external view returns (uint256);
-}
-
-contract SomeExafin is ISomeExafin {
-    uint256 override public totalBorrows;
-    uint256 override public totalDeposits;
-    mapping(address => uint256) override public borrowsOf;
-    mapping(address => uint256) override public suppliesOf;
+contract SomeExafin {
+    uint256 public totalBorrows;
+    uint256 public totalDeposits;
+    mapping(address => uint256) public borrowsOf;
+    mapping(address => uint256) public suppliesOf;
 
     function setTotalBorrows(uint _totalBorrows) public {
         totalBorrows = _totalBorrows;
