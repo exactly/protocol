@@ -548,28 +548,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Function to retrieve supply state for rewards
-     */
-    function getSupplyState(address exafinAddress) external view returns (MarketRewardsState memory) {
-        if(markets[exafinAddress].isListed == false) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        return rewardsState.exaState[exafinAddress].exaSupplyState;
-    }
-
-    /**
-     * @dev Function to retrieve supply state for rewards
-     */
-    function getBorrowState(address exafinAddress) external view returns (MarketRewardsState memory) {
-        if(markets[exafinAddress].isListed == false) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        return rewardsState.exaState[exafinAddress].exaBorrowState;
-    }
-
-    /**
      * @notice Claim all the EXA accrued by holder in all markets
      * @param holder The address to claim EXA for
      */
