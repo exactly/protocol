@@ -21,10 +21,9 @@ export interface SuppliedEventInterface {
   maturityDate: BigNumber;
 }
 
-export function parseBorrowEvent(tx: ContractTransaction) {
-  // eslint-disable-next-line no-async-promise-executor
-  return new Promise<BorrowEventInterface>(async (resolve, reject) => {
-    let receipt: ContractReceipt = await tx.wait();
+export async function parseBorrowEvent(tx: ContractTransaction) {
+  let receipt: ContractReceipt = await tx.wait();
+  return new Promise<BorrowEventInterface>((resolve, reject) => {
     let args = receipt.events?.filter((x) => {
       return x.event == "Borrowed";
     })[0]["args"];
@@ -42,10 +41,9 @@ export function parseBorrowEvent(tx: ContractTransaction) {
   });
 }
 
-export function parseSupplyEvent(tx: ContractTransaction) {
-  // eslint-disable-next-line no-async-promise-executor
-  return new Promise<SuppliedEventInterface>(async (resolve, reject) => {
-    let receipt: ContractReceipt = await tx.wait();
+export async function parseSupplyEvent(tx: ContractTransaction) {
+  let receipt: ContractReceipt = await tx.wait();
+  return new Promise<SuppliedEventInterface>((resolve, reject) => {
     let args = receipt.events?.filter((x) => {
       return x.event == "Supplied";
     })[0]["args"];
