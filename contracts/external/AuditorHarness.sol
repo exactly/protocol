@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "../utils/DecimalMath.sol";
 import "../utils/ExaLib.sol";
 
-contract SomeAuditor {
+contract AuditorHarness {
 
     using DecimalMath for uint256;
     using ExaLib for ExaLib.RewardsState;

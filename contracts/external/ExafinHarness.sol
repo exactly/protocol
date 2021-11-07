@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "../utils/DecimalMath.sol";
 import "../utils/ExaLib.sol";
 
-contract SomeExafin {
+contract ExafinHarness {
     uint256 public totalBorrows;
     uint256 public totalDeposits;
     mapping(address => uint256) public borrowsOf;

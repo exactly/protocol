@@ -165,22 +165,22 @@ export class DefaultEnv {
 }
 
 export class RewardsLibEnv {
-  someAuditor: Contract;
+  auditorHarness: Contract;
   exaLib: Contract;
   exaToken: Contract;
-  exafin: Contract;
+  exafinHarness: Contract;
   notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
 
   constructor(
-    _someAuditor: Contract,
+    _auditorHarness: Contract,
     _exaLib: Contract,
     _exaToken: Contract,
-    _exafin: Contract
+    _exafinHarness: Contract
   ) {
-    this.someAuditor = _someAuditor;
+    this.auditorHarness = _auditorHarness;
     this.exaLib = _exaLib;
     this.exaToken = _exaToken;
-    this.exafin = _exafin;
+    this.exafinHarness = _exafinHarness;
   }
 }
 
@@ -300,21 +300,23 @@ export class ExactlyEnv {
     let exaToken = await ExaToken.deploy();
     await exaToken.deployed();
 
-    const Exafin = await ethers.getContractFactory("SomeExafin");
-    let exafin = await Exafin.deploy();
-    await exafin.deployed();
+    const ExafinHarness = await ethers.getContractFactory("ExafinHarness");
+    let exafinHarness = await ExafinHarness.deploy();
+    await exafinHarness.deployed();
 
-    const Auditor = await ethers.getContractFactory("SomeAuditor", {
+    const AuditorHarness = await ethers.getContractFactory("AuditorHarness", {
       libraries: {
         ExaLib: exaLib.address,
       },
     });
-    let auditor = await Auditor.deploy(exaToken.address);
-    await auditor.deployed();
-    await auditor.enableMarket(exafin.address);
+    let auditorHarness = await AuditorHarness.deploy(exaToken.address);
+    await auditorHarness.deployed();
+    await auditorHarness.enableMarket(exafinHarness.address);
 
     return new Promise<RewardsLibEnv>((resolve) => {
-      resolve(new RewardsLibEnv(auditor, exaLib, exaToken, exafin));
+      resolve(
+        new RewardsLibEnv(auditorHarness, exaLib, exaToken, exafinHarness)
+      );
     });
   }
 }
