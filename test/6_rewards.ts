@@ -51,72 +51,34 @@ describe("ExaToken", () => {
     rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
   });
 
-  describe("setExaSpeed Integrated", () => {
+  describe("Rewards", () => {
     let dai: Contract;
-    let exafinDAI: Contract;
     let auditor: Contract;
 
     beforeEach(async () => {
       [owner, mariaUser, bobUser] = await ethers.getSigners();
 
       dai = exactlyEnv.getUnderlying("DAI");
-      exafinDAI = exactlyEnv.getExafin("DAI");
       auditor = exactlyEnv.auditor;
 
       // From Owner to User
       await dai.transfer(mariaUser.address, parseUnits("1000"));
     });
 
-    it("should revert if non admin access", async () => {
-      await expect(
-        auditor
-          .connect(mariaUser)
-          .setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"))
-      ).to.be.revertedWith("AccessControl");
-    });
+    describe("setExaSpeed", () => {
+      it("should revert if non admin access", async () => {
+        await expect(
+          auditor
+            .connect(mariaUser)
+            .setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"))
+        ).to.be.revertedWith("AccessControl");
+      });
 
-    it("should revert if an invalid exafin address", async () => {
-      await expect(
-        auditor.setExaSpeed(exactlyEnv.notAnExafinAddress, parseUnits("1"))
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-    });
-
-    it("should update rewards in the supply market", async () => {
-      let auditorHarness = rewardsLibEnv.auditorHarness;
-      // 1 EXA per block as rewards
-      await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(exafinDAI.address, parseUnits("1"));
-      // 2 EXA per block as rewards
-      await auditorHarness.setBlockNumber(1);
-      await auditorHarness.setExaSpeed(exafinDAI.address, parseUnits("2"));
-
-      // ... but updated on the initial speed
-      const [index, block] = await auditorHarness.getSupplyState(
-        exafinDAI.address
-      );
-      expect(index).to.equal(parseUnits("1", 36));
-      expect(block).to.equal(1);
-    });
-
-    it("should NOT update rewards in the supply market after being set to 0", async () => {
-      let auditorHarness = rewardsLibEnv.auditorHarness;
-      // 1 EXA per block as rewards
-      await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(exafinDAI.address, parseUnits("1"));
-
-      // 0 EXA per block as rewards
-      await auditorHarness.setBlockNumber(1);
-      await auditorHarness.setExaSpeed(exafinDAI.address, parseUnits("0"));
-      // 2 EXA per block as rewards but no effect
-      await auditorHarness.setBlockNumber(2);
-      await auditorHarness.setExaSpeed(exafinDAI.address, parseUnits("2"));
-
-      // ... but updated on the initial speed
-      const [index, block] = await auditorHarness.getSupplyState(
-        exafinDAI.address
-      );
-      expect(index).to.equal(parseUnits("1", 36));
-      expect(block).to.equal(1);
+      it("should revert if an invalid exafin address", async () => {
+        await expect(
+          auditor.setExaSpeed(exactlyEnv.notAnExafinAddress, parseUnits("1"))
+        ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      });
     });
   });
 
