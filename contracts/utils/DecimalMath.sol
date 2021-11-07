@@ -25,7 +25,7 @@ library DecimalMath {
     function div_(uint256 a, uint256 b, uint256 scale) internal pure returns (uint256) {
         return a * scale / b;
     }
-    
+
     function div_(uint256 a, uint256 b) internal pure returns (uint256) {
         return a * NUMBER_SCALE / b;
     }

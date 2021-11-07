@@ -65,14 +65,14 @@ library ExaLib {
      * @param exafinAddress The market whose supply index to update
      */
     function updateExaSupplyIndex(
-        RewardsState storage exafinState, 
+        RewardsState storage exafinState,
         uint blockNumber,
         address exafinAddress
     ) external {
         _updateExaSupplyIndex(exafinState, blockNumber, exafinAddress);
     }
 
-    function _updateExaSupplyIndex(        
+    function _updateExaSupplyIndex(
         RewardsState storage exafinState,
         uint blockNumber,
         address exafinAddress
@@ -102,7 +102,7 @@ library ExaLib {
      * @param exafinAddress The market whose supply index to update
      */
     function updateExaBorrowIndex(
-        RewardsState storage exafinState, 
+        RewardsState storage exafinState,
         uint blockNumber,
         address exafinAddress
     ) external {
@@ -141,7 +141,7 @@ library ExaLib {
      * @param supplier The address of the supplier to distribute EXA to
      */
     function _distributeSupplierExa(
-        RewardsState storage exafinState, 
+        RewardsState storage exafinState,
         address exafinAddress,
         address supplier
     ) internal {
