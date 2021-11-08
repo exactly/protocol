@@ -139,9 +139,9 @@ contract Exafin is IExafin, ReentrancyGuard {
         if (pool.debt > 0) {
             if (amount >= pool.debt) {
                 pool.debt = 0;
-                pool.supplied = pool.supplied + (amount - pool.debt);
-                smartPool.supplied = smartPool.supplied + pool.debt;
-                pool.available = amount - pool.debt;
+                pool.supplied = pool.supplied + amount;
+                smartPool.supplied = smartPool.supplied;
+                pool.available = amount;
             } else {
                 pool.debt = pool.debt - amount;
                 smartPool.supplied = smartPool.supplied + amount;
