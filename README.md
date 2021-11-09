@@ -35,13 +35,6 @@ You will then need to set the following keys there:
 
 For the Alchemy API keys you can create a free account in: `https://alchemyapi.io` and create both MAINNET and RINKEBY accounts.
 
-## Run Local Node
-Useful if you want to see the logs explicitly, otherwise hardhat takes care of spinning a node up
-
-```bash
-npx hardhat node
-```
-
 ## Run Tests
 
 ```bash
@@ -66,5 +59,3 @@ you can view them by:
 - installing the dependencies with `pip3 install -r requirements.txt`
 - calling sphinx: `make singlehtml`
 - opening it in `yourbrowser _build/singlehtml/index.html`
-
-Or by using [the hosted version](https://static.capu.tech/other/exactly-rtd/)
