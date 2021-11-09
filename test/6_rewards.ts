@@ -571,6 +571,23 @@ describe("ExaToken", () => {
       expect(balancePre).to.equal(0);
       expect(balancePost).to.equal(0);
     });
+
+    it("should transfer EXA if EXA accrued is greater than EXA remaining", async () => {
+      const exaRemaining = 100;
+      const mariaUserAccruedPre = 100;
+      let balancePre = await exaToken.balanceOf(mariaUser.address);
+      await exaToken.transfer(auditorHarness.address, exaRemaining);
+      await auditorHarness.setExaAccrued(
+        mariaUser.address,
+        mariaUserAccruedPre
+      );
+
+      await auditorHarness.grantExa(mariaUser.address, mariaUserAccruedPre);
+
+      let balancePost = await exaToken.balanceOf(mariaUser.address);
+      expect(balancePre).to.equal(0);
+      expect(balancePost).to.equal(exaRemaining);
+    });
   });
 
   describe("claimExa", () => {
