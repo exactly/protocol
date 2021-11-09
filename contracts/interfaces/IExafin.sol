@@ -34,11 +34,17 @@ interface IExafin {
         uint256 maturityDate
     ) external returns (uint256);
 
-    function tokenName() external view returns (string calldata);
+    function underlyingTokenName() external view returns (string calldata);
 
-    function getAccountSnapshot(address who, uint256 timestamp) external view returns (uint256, uint256);
+    function getAccountSnapshot(address who, uint256 timestamp)
+        external
+        view
+        returns (uint256, uint256);
 
-    function getTotalBorrows(uint256 maturityDate) external view returns (uint256);
+    function getTotalBorrows(uint256 maturityDate)
+        external
+        view
+        returns (uint256);
 
     function getAuditor() external view returns (IAuditor);
 
