@@ -15,10 +15,6 @@ contract ExaToken is ERC20, ERC20Snapshot, AccessControl, ERC20Permit {
         _mint(msg.sender, 1000000000 * 10 ** decimals());
     }
 
-    function snapshot() public onlyRole(TEAM_ROLE) {
-        _snapshot();
-    }
-
     function _beforeTokenTransfer(address from, address to, uint256 amount)
         internal
         override(ERC20, ERC20Snapshot)
