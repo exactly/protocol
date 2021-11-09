@@ -85,6 +85,29 @@ describe("ExaToken", () => {
           auditor.setExaSpeed(exactlyEnv.notAnExafinAddress, parseUnits("1"))
         ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
       });
+
+      it("should emit ExaSpeedUpdated if speed changes", async () => {
+        await expect(
+          auditor.setExaSpeed(
+            exactlyEnv.getExafin("DAI").address,
+            parseUnits("1")
+          )
+        ).to.emit(auditor, "ExaSpeedUpdated");
+      });
+
+      it("should NOT emit ExaSpeedUpdated if speed doesn't change", async () => {
+        await auditor.setExaSpeed(
+          exactlyEnv.getExafin("DAI").address,
+          parseUnits("1")
+        );
+
+        await expect(
+          auditor.setExaSpeed(
+            exactlyEnv.getExafin("DAI").address,
+            parseUnits("1")
+          )
+        ).to.not.emit(auditor, "ExaSpeedUpdated");
+      });
     });
 
     describe("Exafin-Auditor-ExaLib integration", () => {
