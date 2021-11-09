@@ -2,7 +2,13 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { BigNumber, Contract } from "ethers";
-import { ProtocolError, ExactlyEnv, ExaTime, errorGeneric, DefaultEnv } from "./exactlyUtils";
+import {
+  ProtocolError,
+  ExactlyEnv,
+  ExaTime,
+  errorGeneric,
+  DefaultEnv,
+} from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Liquidations", function () {
@@ -100,7 +106,10 @@ describe("Liquidations", function () {
 
         // alice borrows all liquidity
         await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
-        [, owedDAI] = await exafinDAI.getAccountSnapshot(alice.address, nextPoolID);
+        [, owedDAI] = await exafinDAI.getAccountSnapshot(
+          alice.address,
+          nextPoolID
+        );
       });
       describe("AND GIVEN ETH price halves (Alices collateral goes from 66k to 38.5k), collaterallization: 0.96", () => {
         beforeEach(async () => {
@@ -109,60 +118,108 @@ describe("Liquidations", function () {
 
         it("THEN alices liquidity is zero", async () => {
           // We expect liquidity to be equal to zero
-          let liquidityAfterOracleChange = (await auditor.getAccountLiquidity(alice.address, nextPoolID))[0];
+          let liquidityAfterOracleChange = (
+            await auditor.getAccountLiquidity(alice.address, nextPoolID)
+          )[0];
           expect(liquidityAfterOracleChange).to.be.equal(0);
         });
         it("AND alice has a liquidity shortfall", async () => {
-          let shortfall = (await auditor.getAccountLiquidity(alice.address, nextPoolID))[1];
+          let shortfall = (
+            await auditor.getAccountLiquidity(alice.address, nextPoolID)
+          )[1];
           expect(shortfall).to.be.gt(0);
         });
         it("AND trying to repay an amount of zero fails", async () => {
           // We try to get all the ETH we can
           // We expect trying to repay zero to fail
-          await expect(exafinDAI.liquidate(alice.address, 0, exafinETH.address, nextPoolID)).to.be.revertedWith(
-            errorGeneric(ProtocolError.REPAY_ZERO)
-          );
+          await expect(
+            exafinDAI.liquidate(alice.address, 0, exafinETH.address, nextPoolID)
+          ).to.be.revertedWith(errorGeneric(ProtocolError.REPAY_ZERO));
         });
         it("AND the position cant be liquidated by the borrower", async () => {
           // We expect self liquidation to fail
-          await expect(exafinDAI.liquidate(alice.address, owedDAI, exafinETH.address, nextPoolID)).to.be.revertedWith(
+          await expect(
+            exafinDAI.liquidate(
+              alice.address,
+              owedDAI,
+              exafinETH.address,
+              nextPoolID
+            )
+          ).to.be.revertedWith(
             errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER)
           );
         });
 
         describe("GIVEN an insufficient allowance on the liquidator", () => {
           beforeEach(async () => {
-            await dai.connect(bob).approve(exafinDAI.address, owedDAI.div(2).sub(100000));
+            await dai
+              .connect(bob)
+              .approve(exafinDAI.address, owedDAI.div(2).sub(100000));
           });
           it("WHEN trying to liquidate, THEN it reverts with a ERC20 transfer error", async () => {
             // We expect liquidation to fail because trying to liquidate
             // and take over a collateral that bob doesn't have enough
             await expect(
-              exafinDAI.connect(bob).liquidate(alice.address, owedDAI.div(2).sub(100), exafinETH.address, nextPoolID)
+              exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  owedDAI.div(2).sub(100),
+                  exafinETH.address,
+                  nextPoolID
+                )
             ).to.be.revertedWith("ERC20");
           });
         });
 
         describe("GIVEN a sufficient allowance on the liquidator", () => {
           beforeEach(async () => {
-            await dai.connect(bob).approve(exafinDAI.address, owedDAI.mul(1000));
+            await dai
+              .connect(bob)
+              .approve(exafinDAI.address, owedDAI.mul(1000));
           });
           it("WHEN trying to liquidate 39900 DAI for ETH (of which there is only 3000usd), THEN it reverts with a TOKENS_MORE_THAN_BALANCE error", async () => {
             // We expect liquidation to fail because trying to liquidate
             // and take over a collateral that bob doesn't have enough
             await expect(
-              exafinDAI.connect(bob).liquidate(alice.address, owedDAI.div(2).sub(100), exafinETH.address, nextPoolID)
-            ).to.be.revertedWith(errorGeneric(ProtocolError.TOKENS_MORE_THAN_BALANCE));
+              exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  owedDAI.div(2).sub(100),
+                  exafinETH.address,
+                  nextPoolID
+                )
+            ).to.be.revertedWith(
+              errorGeneric(ProtocolError.TOKENS_MORE_THAN_BALANCE)
+            );
           });
           it("WHEN liquidating slightly more than the close factor(0.5), THEN it reverts", async () => {
             // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
             await expect(
-              exafinDAI.connect(bob).liquidate(alice.address, owedDAI.div(2).add(1000), exafinWBTC.address, nextPoolID)
+              exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  owedDAI.div(2).add(1000),
+                  exafinWBTC.address,
+                  nextPoolID
+                )
             ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_REPAY));
           });
           it("AND WHEN liquidating slightly more than the close factor, THEN it succeeds", async () => {
-            let closeToMaxRepay = owedDAI.mul(parseUnits("0.3")).div(parseUnits("1")).sub(100000);
-            await exafinDAI.connect(bob).liquidate(alice.address, closeToMaxRepay, exafinWBTC.address, nextPoolID);
+            let closeToMaxRepay = owedDAI
+              .mul(parseUnits("0.3"))
+              .div(parseUnits("1"))
+              .sub(100000);
+            await exafinDAI
+              .connect(bob)
+              .liquidate(
+                alice.address,
+                closeToMaxRepay,
+                exafinWBTC.address,
+                nextPoolID
+              );
           });
         });
       });

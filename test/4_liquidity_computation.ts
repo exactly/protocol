@@ -2,7 +2,13 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ProtocolError, ExactlyEnv, ExaTime, errorGeneric, DefaultEnv } from "./exactlyUtils";
+import {
+  ProtocolError,
+  ExactlyEnv,
+  ExaTime,
+  errorGeneric,
+  DefaultEnv,
+} from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Liquidity computations", function () {
@@ -91,7 +97,9 @@ describe("Liquidity computations", function () {
     describe("AND GIVEN Bob provides 60kdai (18 decimals) as collateral", () => {
       beforeEach(async () => {
         await dai.connect(bob).approve(exafinDAI.address, parseUnits("60000"));
-        await exafinDAI.connect(bob).supply(bob.address, parseUnits("60000"), nextPoolID);
+        await exafinDAI
+          .connect(bob)
+          .supply(bob.address, parseUnits("60000"), nextPoolID);
       });
       // Here I'm trying to make sure we use the borrowed token's decimals
       // properly to compute liquidity
@@ -102,7 +110,9 @@ describe("Liquidity computations", function () {
       // one
       it("WHEN he tries to take a 1btc (8 decimals) loan (100% collateralization), THEN it reverts", async () => {
         // We expect liquidity to be equal to zero
-        await expect(exafinWBTC.connect(bob).borrow(parseUnits("1", 8), nextPoolID)).to.be.revertedWith(
+        await expect(
+          exafinWBTC.connect(bob).borrow(parseUnits("1", 8), nextPoolID)
+        ).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
         );
       });
@@ -111,18 +121,28 @@ describe("Liquidity computations", function () {
     describe("AND GIVEN Bob provides 20kdai (18 decimals) and 40kusdc (6 decimals) as collateral", () => {
       beforeEach(async () => {
         await dai.connect(bob).approve(exafinDAI.address, parseUnits("20000"));
-        await exafinDAI.connect(bob).supply(bob.address, parseUnits("20000"), nextPoolID);
-        await usdc.connect(bob).approve(exafinUSDC.address, parseUnits("40000", 6));
-        await exafinUSDC.connect(bob).supply(bob.address, parseUnits("40000", 6), nextPoolID);
+        await exafinDAI
+          .connect(bob)
+          .supply(bob.address, parseUnits("20000"), nextPoolID);
+        await usdc
+          .connect(bob)
+          .approve(exafinUSDC.address, parseUnits("40000", 6));
+        await exafinUSDC
+          .connect(bob)
+          .supply(bob.address, parseUnits("40000", 6), nextPoolID);
       });
       describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
         beforeEach(async () => {
-          await exafinWBTC.connect(bob).borrow(parseUnits("0.5", 8), nextPoolID);
+          await exafinWBTC
+            .connect(bob)
+            .borrow(parseUnits("0.5", 8), nextPoolID);
         });
         describe("AND GIVEN the pool matures", () => {
           beforeEach(async () => {
             // Move in time to maturity
-            await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
+            await ethers.provider.send("evm_setNextBlockTimestamp", [
+              nextPoolID,
+            ]);
             await ethers.provider.send("evm_mine", []);
           });
           // this is similar to the previous test case, but instead of
@@ -132,8 +152,12 @@ describe("Liquidity computations", function () {
           it("WHEN he tries to redeem the usdc (8 decimals) collateral, THEN it reverts ()", async () => {
             // We expect liquidity to be equal to zero
             await expect(
-              exafinUSDC.connect(bob).redeem(bob.address, parseUnits("40000", 6), nextPoolID)
-            ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+              exafinUSDC
+                .connect(bob)
+                .redeem(bob.address, parseUnits("40000", 6), nextPoolID)
+            ).to.be.revertedWith(
+              errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+            );
           });
         });
       });

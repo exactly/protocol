@@ -1,7 +1,12 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import { errorGeneric, ExactlyEnv, ProtocolError, DefaultEnv } from "./exactlyUtils";
+import {
+  errorGeneric,
+  ExactlyEnv,
+  ProtocolError,
+  DefaultEnv,
+} from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -47,7 +52,9 @@ describe("ExactlyOracle", function () {
     [, user] = await ethers.getSigners();
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     underlyingToken = exactlyEnv.getUnderlying("DAI");
-    const ChainlinkFeedRegistryMock = await ethers.getContractFactory("MockedChainlinkFeedRegistry");
+    const ChainlinkFeedRegistryMock = await ethers.getContractFactory(
+      "MockedChainlinkFeedRegistry"
+    );
     chainlinkFeedRegistry = await ChainlinkFeedRegistryMock.deploy();
     await chainlinkFeedRegistry.deployed();
 
@@ -60,7 +67,11 @@ describe("ExactlyOracle", function () {
         tokenAddresses.push(token.address);
         tokenNames.push(tokenName);
 
-        await chainlinkFeedRegistry.setPrice(token.address, exactlyEnv.usdAddress, usdPrice);
+        await chainlinkFeedRegistry.setPrice(
+          token.address,
+          exactlyEnv.usdAddress,
+          usdPrice
+        );
       })
     );
 
@@ -81,42 +92,71 @@ describe("ExactlyOracle", function () {
     let priceOfDai = await exactlyOracle.getAssetPrice("DAI");
 
     // The price returned by the oracle is previously scaled to an 18-digit decimal
-    expect(priceOfEth).to.be.equal(chainlinkPrices.get("ETH")!.usdPrice.mul(1e10));
-    expect(priceOfDai).to.be.equal(chainlinkPrices.get("DAI")!.usdPrice.mul(1e10));
+    expect(priceOfEth).to.be.equal(
+      chainlinkPrices.get("ETH")!.usdPrice.mul(1e10)
+    );
+    expect(priceOfDai).to.be.equal(
+      chainlinkPrices.get("DAI")!.usdPrice.mul(1e10)
+    );
   });
 
   it("GetAssetPrice should fail when price value is zero", async () => {
-    await chainlinkFeedRegistry.setPrice(underlyingToken.address, exactlyEnv.usdAddress, 0);
+    await chainlinkFeedRegistry.setPrice(
+      underlyingToken.address,
+      exactlyEnv.usdAddress,
+      0
+    );
 
-    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(
+      errorGeneric(ProtocolError.PRICE_ERROR)
+    );
   });
 
   it("GetAssetPrice should fail when price value is lower than zero", async () => {
-    await chainlinkFeedRegistry.setPrice(underlyingToken.address, exactlyEnv.usdAddress, -10);
+    await chainlinkFeedRegistry.setPrice(
+      underlyingToken.address,
+      exactlyEnv.usdAddress,
+      -10
+    );
 
-    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(
+      errorGeneric(ProtocolError.PRICE_ERROR)
+    );
   });
 
   it("GetAssetPrice should fail when asset symbol is invalid", async () => {
-    await expect(exactlyOracle.getAssetPrice("INVALID")).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+    await expect(exactlyOracle.getAssetPrice("INVALID")).to.be.revertedWith(
+      errorGeneric(ProtocolError.PRICE_ERROR)
+    );
   });
 
   it("SetAssetSources should set the address source of an asset", async () => {
     let linkSymbol = "LINK";
     let linkAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA";
     await exactlyOracle.setAssetSources([linkSymbol], [linkAddress]);
-    await chainlinkFeedRegistry.setPrice(linkAddress, exactlyEnv.usdAddress, 10);
+    await chainlinkFeedRegistry.setPrice(
+      linkAddress,
+      exactlyEnv.usdAddress,
+      10
+    );
     await expect(exactlyOracle.getAssetPrice(linkSymbol)).to.not.be.reverted;
   });
 
   it("SetAssetSources should fail when called with different length for asset symbols and addresses", async () => {
     await expect(
-      exactlyOracle.setAssetSources(["ETH", "BTC"], ["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"])
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INCONSISTENT_PARAMS_LENGTH));
+      exactlyOracle.setAssetSources(
+        ["ETH", "BTC"],
+        ["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]
+      )
+    ).to.be.revertedWith(
+      errorGeneric(ProtocolError.INCONSISTENT_PARAMS_LENGTH)
+    );
   });
 
   it("SetAssetSources should fail when called from third parties", async () => {
-    await expect(exactlyOracle.connect(user).setAssetSources([], [])).to.be.revertedWith("AccessControl");
+    await expect(
+      exactlyOracle.connect(user).setAssetSources([], [])
+    ).to.be.revertedWith("AccessControl");
   });
 
   after(async () => {

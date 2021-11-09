@@ -13,7 +13,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const tokensForNetwork = config.tokenAddresses[hre.network.name].assets;
 
   if (hre.network.name === "hardhat") {
-    assert(process.env.FORKING === "true", "deploying the ecosystem on a loner node not supported (yet?)");
+    assert(
+      process.env.FORKING === "true",
+      "deploying the ecosystem on a loner node not supported (yet?)"
+    );
   }
 
   const tsUtils = await hre.deployments.deploy("TSUtils", {
@@ -26,7 +29,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       config.tokenAddresses[hre.network.name].mockedExactlyOracle
     );
   } else {
-    const { tokenAddresses, tokenSymbols } = await getTokenParameters(tokensForNetwork);
+    const { tokenAddresses, tokenSymbols } = await getTokenParameters(
+      tokensForNetwork
+    );
     exactlyOracle = await hre.deployments.deploy("ExactlyOracle", {
       from: deployer,
       args: [
@@ -60,17 +65,21 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     },
   });
 
-  const interestRateModel = await hre.deployments.deploy("DefaultInterestRateModel", {
-    from: deployer,
-    args: [parseUnits("0.02"), parseUnits("0.07")],
-    log: true,
-    libraries: {
-      TSUtils: tsUtils.address,
-    },
-  });
+  const interestRateModel = await hre.deployments.deploy(
+    "DefaultInterestRateModel",
+    {
+      from: deployer,
+      args: [parseUnits("0.02"), parseUnits("0.07")],
+      log: true,
+      libraries: {
+        TSUtils: tsUtils.address,
+      },
+    }
+  );
 
   for (const symbol of Object.keys(tokensForNetwork)) {
-    const { name, address, whale, collateralRate, oracleName, decimals } = tokensForNetwork[symbol];
+    const { name, address, whale, collateralRate, oracleName, decimals } =
+      tokensForNetwork[symbol];
     console.log("------");
     console.log("Exafin for %s will use: %s", symbol, address, auditor.address);
 
@@ -122,13 +131,21 @@ async function getTokenParameters(tokensForNetwork: any) {
   return { tokenAddresses, tokenSymbols };
 }
 
-async function sendTokens(hardhatRuntimeEnvironment: any, tokenAddress: string, whale: string, decimals: any) {
+async function sendTokens(
+  hardhatRuntimeEnvironment: any,
+  tokenAddress: string,
+  whale: string,
+  decimals: any
+) {
   let contract = await ethers.getContractAt("IERC20", tokenAddress);
 
   const whaleSigner = await impersonate(hardhatRuntimeEnvironment, whale);
   contract = contract.connect(whaleSigner);
 
-  await contract.transfer(process.env.PUBLIC_ADDRESS, ethers.utils.parseUnits("100", decimals));
+  await contract.transfer(
+    process.env.PUBLIC_ADDRESS,
+    ethers.utils.parseUnits("100", decimals)
+  );
 }
 
 async function impersonate(hardhatRuntimeEnvironment: any, address: string) {
@@ -141,7 +158,8 @@ async function impersonate(hardhatRuntimeEnvironment: any, address: string) {
   return signer;
 }
 
-func.skip = (hre: HardhatRuntimeEnvironment) => Promise.resolve(hre.network.name === "mainnet");
+func.skip = (hre: HardhatRuntimeEnvironment) =>
+  Promise.resolve(hre.network.name === "mainnet");
 func.tags = ["test"];
 
 export default func;

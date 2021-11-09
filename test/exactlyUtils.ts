@@ -1,5 +1,10 @@
 import { ethers } from "hardhat";
-import { Contract, BigNumber, ContractTransaction, ContractReceipt } from "ethers";
+import {
+  Contract,
+  BigNumber,
+  ContractTransaction,
+  ContractReceipt,
+} from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 
 export interface BorrowEventInterface {
@@ -56,7 +61,10 @@ export async function parseSupplyEvent(tx: ContractTransaction) {
   });
 }
 
-export function errorUnmatchedPool(state: PoolState, requiredState: PoolState): string {
+export function errorUnmatchedPool(
+  state: PoolState,
+  requiredState: PoolState
+): string {
   return "UnmatchedPoolState(" + state + ", " + requiredState + ")";
 }
 
@@ -163,7 +171,12 @@ export class RewardsLibEnv {
   exafinHarness: Contract;
   notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
 
-  constructor(_auditorHarness: Contract, _exaLib: Contract, _exaToken: Contract, _exafinHarness: Contract) {
+  constructor(
+    _auditorHarness: Contract,
+    _exaLib: Contract,
+    _exaToken: Contract,
+    _exafinHarness: Contract
+  ) {
     this.auditorHarness = _auditorHarness;
     this.exaLib = _exaLib;
     this.exaToken = _exaToken;
@@ -172,7 +185,9 @@ export class RewardsLibEnv {
 }
 
 export class ExactlyEnv {
-  static async create(mockedTokens: Map<string, MockedTokenSpec>): Promise<DefaultEnv> {
+  static async create(
+    mockedTokens: Map<string, MockedTokenSpec>
+  ): Promise<DefaultEnv> {
     let exafinContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
 
@@ -192,11 +207,14 @@ export class ExactlyEnv {
     let oracle = await MockedOracle.deploy();
     await oracle.deployed();
 
-    const DefaultInterestRateModel = await ethers.getContractFactory("DefaultInterestRateModel", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
+    const DefaultInterestRateModel = await ethers.getContractFactory(
+      "DefaultInterestRateModel",
+      {
+        libraries: {
+          TSUtils: tsUtils.address,
+        },
+      }
+    );
     let interestRateModel = await DefaultInterestRateModel.deploy(
       parseUnits("0.01"),
       parseUnits("0.07"),
@@ -216,7 +234,8 @@ export class ExactlyEnv {
     // We have to enable all the Exafins in the auditor
     await Promise.all(
       Array.from(mockedTokens.keys()).map(async (tokenName) => {
-        const { decimals, collateralRate, usdPrice } = mockedTokens.get(tokenName)!;
+        const { decimals, collateralRate, usdPrice } =
+          mockedTokens.get(tokenName)!;
         const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
         const MockedToken = await ethers.getContractFactory("MockedToken");
         const underlyingToken = await MockedToken.deploy(
@@ -243,7 +262,13 @@ export class ExactlyEnv {
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, usdPrice);
         // Enable Market for Exafin-TOKEN by setting the collateral rates
-        await auditor.enableMarket(exafin.address, collateralRate, tokenName, tokenName, decimals);
+        await auditor.enableMarket(
+          exafin.address,
+          collateralRate,
+          tokenName,
+          tokenName,
+          decimals
+        );
 
         // Handy maps with all the exafins and underlying tokens
         exafinContracts.set(tokenName, exafin);
@@ -290,7 +315,9 @@ export class ExactlyEnv {
     await auditorHarness.enableMarket(exafinHarness.address);
 
     return new Promise<RewardsLibEnv>((resolve) => {
-      resolve(new RewardsLibEnv(auditorHarness, exaLib, exaToken, exafinHarness));
+      resolve(
+        new RewardsLibEnv(auditorHarness, exaLib, exaToken, exafinHarness)
+      );
     });
   }
 }

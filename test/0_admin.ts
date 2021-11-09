@@ -2,7 +2,12 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ProtocolError, ExactlyEnv, errorGeneric, DefaultEnv } from "./exactlyUtils";
+import {
+  ProtocolError,
+  ExactlyEnv,
+  errorGeneric,
+  DefaultEnv,
+} from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Auditor Admin", function () {
@@ -42,20 +47,34 @@ describe("Auditor Admin", function () {
     auditor = exactlyEnv.auditor;
 
     // From Owner to User
-    await exactlyEnv.getUnderlying("DAI").transfer(user.address, parseUnits("10000"));
+    await exactlyEnv
+      .getUnderlying("DAI")
+      .transfer(user.address, parseUnits("10000"));
   });
 
   it("EnableMarket should fail when called from third parties", async () => {
     await expect(
       auditor
         .connect(user)
-        .enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI", mockedTokens.get("DAI")!.decimals)
+        .enableMarket(
+          exactlyEnv.getExafin("DAI").address,
+          0,
+          "DAI",
+          "DAI",
+          mockedTokens.get("DAI")!.decimals
+        )
     ).to.be.revertedWith("AccessControl");
   });
 
   it("It reverts when trying to list a market twice", async () => {
     await expect(
-      auditor.enableMarket(exactlyEnv.getExafin("DAI").address, 0, "DAI", "DAI", mockedTokens.get("DAI")!.decimals)
+      auditor.enableMarket(
+        exactlyEnv.getExafin("DAI").address,
+        0,
+        "DAI",
+        "DAI",
+        mockedTokens.get("DAI")!.decimals
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_ALREADY_LISTED));
   });
 
@@ -66,7 +85,10 @@ describe("Auditor Admin", function () {
         ExaLib: exactlyEnv.exaLib.address,
       },
     });
-    let newAuditor = await Auditor.deploy(exactlyEnv.oracle.address, exactlyEnv.exaToken.address);
+    let newAuditor = await Auditor.deploy(
+      exactlyEnv.oracle.address,
+      exactlyEnv.exaToken.address
+    );
     await newAuditor.deployed();
 
     const Exafin = await ethers.getContractFactory("Exafin", {
@@ -83,7 +105,13 @@ describe("Auditor Admin", function () {
     await exafin.deployed();
 
     await expect(
-      auditor.enableMarket(exafin.address, 0, "DAI", "DAI", mockedTokens.get("DAI")!.decimals)
+      auditor.enableMarket(
+        exafin.address,
+        0,
+        "DAI",
+        "DAI",
+        mockedTokens.get("DAI")!.decimals
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.AUDITOR_MISMATCH));
   });
 
@@ -106,18 +134,29 @@ describe("Auditor Admin", function () {
     await exafin.deployed();
 
     await expect(
-      auditor.enableMarket(exafin.address, parseUnits("0.5"), "DAI2", "DAI2", mockedTokens.get("DAI")!.decimals)
+      auditor.enableMarket(
+        exafin.address,
+        parseUnits("0.5"),
+        "DAI2",
+        "DAI2",
+        mockedTokens.get("DAI")!.decimals
+      )
     )
       .to.emit(auditor, "MarketListed")
       .withArgs(exafin.address);
   });
 
   it("SetOracle should fail from third parties", async () => {
-    await expect(auditor.connect(user).setOracle(exactlyEnv.oracle.address)).to.be.revertedWith("AccessControl");
+    await expect(
+      auditor.connect(user).setOracle(exactlyEnv.oracle.address)
+    ).to.be.revertedWith("AccessControl");
   });
 
   it("SetOracle should emit event", async () => {
-    await expect(auditor.setOracle(exactlyEnv.oracle.address)).to.emit(auditor, "OracleChanged");
+    await expect(auditor.setOracle(exactlyEnv.oracle.address)).to.emit(
+      auditor,
+      "OracleChanged"
+    );
   });
 
   it("GetMarketAddresses should return all markets", async () => {
@@ -129,35 +168,39 @@ describe("Auditor Admin", function () {
 
   it("SetMarketBorrowCaps should fail from third parties", async () => {
     let exafinDAI = exactlyEnv.getExafin("DAI");
-    await expect(auditor.connect(user).setMarketBorrowCaps([exafinDAI.address], [0])).to.be.revertedWith(
-      "AccessControl"
-    );
+    await expect(
+      auditor.connect(user).setMarketBorrowCaps([exafinDAI.address], [0])
+    ).to.be.revertedWith("AccessControl");
   });
 
   it("SetMarketBorrowCaps should fail when wrong arguments", async () => {
     let exafinDAI = exactlyEnv.getExafin("DAI");
-    await expect(auditor.setMarketBorrowCaps([exafinDAI.address], [])).to.be.revertedWith(
-      errorGeneric(ProtocolError.INVALID_SET_BORROW_CAP)
-    );
+    await expect(
+      auditor.setMarketBorrowCaps([exafinDAI.address], [])
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_SET_BORROW_CAP));
   });
 
   it("SetMarketBorrowCaps should fail when wrong market", async () => {
-    await expect(auditor.setMarketBorrowCaps([exactlyEnv.notAnExafinAddress], [parseUnits("1000")])).to.be.revertedWith(
-      errorGeneric(ProtocolError.MARKET_NOT_LISTED)
-    );
+    await expect(
+      auditor.setMarketBorrowCaps(
+        [exactlyEnv.notAnExafinAddress],
+        [parseUnits("1000")]
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("SetMarketBorrowCaps should emit events", async () => {
     let exafinDAI = exactlyEnv.getExafin("DAI");
-    await expect(auditor.setMarketBorrowCaps([exafinDAI.address], [parseUnits("1000")])).to.emit(
-      auditor,
-      "NewBorrowCap"
-    );
+    await expect(
+      auditor.setMarketBorrowCaps([exafinDAI.address], [parseUnits("1000")])
+    ).to.emit(auditor, "NewBorrowCap");
   });
 
   it("SetExaSpeed should emit events", async () => {
     let exafinDAI = exactlyEnv.getExafin("DAI");
-    await expect(auditor.setExaSpeed(exafinDAI.address, parseUnits("3000"))).to.emit(auditor, "ExaSpeedUpdated");
+    await expect(
+      auditor.setExaSpeed(exafinDAI.address, parseUnits("3000"))
+    ).to.emit(auditor, "ExaSpeedUpdated");
   });
 
   after(async () => {

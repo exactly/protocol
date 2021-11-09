@@ -19,11 +19,23 @@ dotnev.config();
 chai.use(solidity);
 
 assert(process.env.MNEMONIC, "include a valid mnemonic in your .env file");
-assert(process.env.FORKING, "specify wether to fork mainnet or not in your .env file");
-assert(process.env.ALCHEMY_RINKEBY_API_KEY, "specify an alchemy api key for rinkeby access in your .env file");
-assert(process.env.ALCHEMY_KOVAN_API_KEY, "specify an alchemy api key for kovan access in your .env file");
+assert(
+  process.env.FORKING,
+  "specify wether to fork mainnet or not in your .env file"
+);
+assert(
+  process.env.ALCHEMY_RINKEBY_API_KEY,
+  "specify an alchemy api key for rinkeby access in your .env file"
+);
+assert(
+  process.env.ALCHEMY_KOVAN_API_KEY,
+  "specify an alchemy api key for kovan access in your .env file"
+);
 if (process.env.FORKING) {
-  assert(process.env.ALCHEMY_MAINNET_API_KEY, "specify an alchemy api key for mainnet forking in your .env file");
+  assert(
+    process.env.ALCHEMY_MAINNET_API_KEY,
+    "specify an alchemy api key for mainnet forking in your .env file"
+  );
 }
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
@@ -62,7 +74,10 @@ let config: HardhatUserConfig = {
     ],
   },
   networks: {
-    hardhat: process.env.FORKING === "true" ? forkingHardhatConfig : standaloneHardhatConfig,
+    hardhat:
+      process.env.FORKING === "true"
+        ? forkingHardhatConfig
+        : standaloneHardhatConfig,
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY_API_KEY}`,
       gasPrice: 100000000000,
