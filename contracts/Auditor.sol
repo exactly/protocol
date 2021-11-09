@@ -291,6 +291,18 @@ contract Auditor is IAuditor, AccessControl {
         uint256 redeemTokens,
         uint256 maturityDate
     ) override external {
+        _redeemAllowed(exafinAddress, redeemer, redeemTokens, maturityDate);
+
+        rewardsState.updateExaSupplyIndex(block.number, exafinAddress);
+        rewardsState.distributeSupplierExa(exafinAddress, redeemer);
+    }
+
+    function _redeemAllowed(
+        address exafinAddress,
+        address redeemer,
+        uint256 redeemTokens,
+        uint256 maturityDate
+    ) internal view {
         if (!markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -313,9 +325,6 @@ contract Auditor is IAuditor, AccessControl {
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
-
-        rewardsState.updateExaSupplyIndex(block.number, exafinAddress);
-        rewardsState.distributeSupplierExa(exafinAddress, redeemer);
     }
 
     function repayAllowed(

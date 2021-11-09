@@ -5,6 +5,7 @@ import {
   DefaultEnv,
   errorGeneric,
   ExactlyEnv,
+  ExaTime,
   ProtocolError,
   RewardsLibEnv,
 } from "./exactlyUtils";
@@ -14,6 +15,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 describe("ExaToken", () => {
   let exactlyEnv: DefaultEnv;
   let rewardsLibEnv: RewardsLibEnv;
+  let exaTime: ExaTime = new ExaTime();
 
   let mockedTokens = new Map([
     [
@@ -51,14 +53,16 @@ describe("ExaToken", () => {
     rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
   });
 
-  describe("Rewards", () => {
+  describe("Integration", () => {
     let dai: Contract;
+    let exafinDAI: Contract;
     let auditor: Contract;
 
     beforeEach(async () => {
       [owner, mariaUser, bobUser] = await ethers.getSigners();
 
       dai = exactlyEnv.getUnderlying("DAI");
+      exafinDAI = exactlyEnv.getExafin("DAI");
       auditor = exactlyEnv.auditor;
 
       // From Owner to User
@@ -78,6 +82,107 @@ describe("ExaToken", () => {
         await expect(
           auditor.setExaSpeed(exactlyEnv.notAnExafinAddress, parseUnits("1"))
         ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      });
+    });
+
+    describe("Exafin-Auditor-ExaLib integration", () => {
+      let snapshot: any;
+
+      beforeEach(async () => {
+        snapshot = await ethers.provider.send("evm_snapshot", []);
+        await auditor.setExaSpeed(exafinDAI.address, parseUnits("0.5"));
+      });
+
+      it("should DistributedSupplierExa when supplying", async () => {
+        const underlyingAmount = parseUnits("100");
+        await dai.approve(exafinDAI.address, underlyingAmount);
+
+        await expect(
+          exafinDAI.supply(
+            owner.address,
+            underlyingAmount,
+            exaTime.nextPoolID()
+          )
+        ).to.emit(auditor, "DistributedSupplierExa");
+      });
+
+      it("should DistributedBorrowerExa when borrowing on second interaction", async () => {
+        const underlyingAmount = parseUnits("100");
+        await dai.approve(exafinDAI.address, underlyingAmount);
+        await exafinDAI.supply(
+          owner.address,
+          underlyingAmount,
+          exaTime.nextPoolID()
+        );
+
+        await expect(
+          exafinDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
+        ).to.not.emit(auditor, "DistributedBorrowerExa");
+
+        await expect(
+          exafinDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
+        ).to.emit(auditor, "DistributedBorrowerExa");
+      });
+
+      it("should DistributedSupplierExa when redeeming supply", async () => {
+        // connect through Maria
+        let exafinMaria = exafinDAI.connect(mariaUser);
+        let underlyingTokenUser = dai.connect(mariaUser);
+        let supplyAmount = parseUnits("1");
+
+        // supply some money and parse event
+        await underlyingTokenUser.approve(exafinMaria.address, supplyAmount);
+        await exafinMaria.supply(
+          mariaUser.address,
+          supplyAmount,
+          exaTime.nextPoolID()
+        );
+
+        // Move in time to maturity
+        await ethers.provider.send("evm_setNextBlockTimestamp", [
+          exaTime.nextPoolID(),
+        ]);
+        await ethers.provider.send("evm_mine", []);
+
+        await expect(
+          exafinMaria.redeem(
+            mariaUser.address,
+            supplyAmount,
+            exaTime.nextPoolID()
+          )
+        ).to.emit(auditor, "DistributedSupplierExa");
+      });
+
+      it("should DistributedBorrowerExa when repaying debt", async () => {
+        // connect through Maria
+        let exafinMaria = exafinDAI.connect(mariaUser);
+        let underlyingTokenUser = dai.connect(mariaUser);
+        let underlyingAmount = parseUnits("100");
+
+        await underlyingTokenUser.approve(exafinDAI.address, underlyingAmount);
+        // supply some money and parse event
+        await exafinMaria.supply(
+          mariaUser.address,
+          underlyingAmount.div(2),
+          exaTime.nextPoolID()
+        );
+        await exafinMaria.borrow(underlyingAmount.div(4), exaTime.nextPoolID());
+
+        // Move in time to maturity
+        await ethers.provider.send("evm_setNextBlockTimestamp", [
+          exaTime.nextPoolID(),
+        ]);
+        await ethers.provider.send("evm_mine", []);
+
+        // repay and succeed
+        await expect(
+          exafinMaria.repay(mariaUser.address, exaTime.nextPoolID())
+        ).to.emit(auditor, "DistributedBorrowerExa");
+      });
+
+      afterEach(async () => {
+        await ethers.provider.send("evm_revert", [snapshot]);
+        await ethers.provider.send("evm_mine", []);
       });
     });
   });
