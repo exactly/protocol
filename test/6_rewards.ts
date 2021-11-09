@@ -57,6 +57,7 @@ describe("ExaToken", () => {
     let dai: Contract;
     let exafinDAI: Contract;
     let auditor: Contract;
+    let exaToken: Contract;
 
     beforeEach(async () => {
       [owner, mariaUser, bobUser] = await ethers.getSigners();
@@ -64,6 +65,7 @@ describe("ExaToken", () => {
       dai = exactlyEnv.getUnderlying("DAI");
       exafinDAI = exactlyEnv.getExafin("DAI");
       auditor = exactlyEnv.auditor;
+      exaToken = exactlyEnv.exaToken;
 
       // From Owner to User
       await dai.transfer(mariaUser.address, parseUnits("1000"));
@@ -91,6 +93,34 @@ describe("ExaToken", () => {
       beforeEach(async () => {
         snapshot = await ethers.provider.send("evm_snapshot", []);
         await auditor.setExaSpeed(exafinDAI.address, parseUnits("0.5"));
+        await dai.transfer(mariaUser.address, parseUnits("1000"));
+        await exaToken.transfer(auditor.address, parseUnits("50"));
+      });
+
+      it("should retrieve all rewards when calling claimExaAll", async () => {
+        const underlyingAmount = parseUnits("100");
+        await dai
+          .connect(mariaUser)
+          .approve(exafinDAI.address, underlyingAmount);
+
+        let balanceUserPre = await exaToken
+          .connect(mariaUser)
+          .balanceOf(mariaUser.address);
+
+        await expect(
+          exafinDAI
+            .connect(mariaUser)
+            .supply(mariaUser.address, underlyingAmount, exaTime.nextPoolID())
+        ).to.emit(auditor, "DistributedSupplierExa");
+
+        await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
+
+        let balanceUserPost = await exaToken
+          .connect(mariaUser)
+          .balanceOf(mariaUser.address);
+
+        expect(balanceUserPre).to.equal(0);
+        expect(balanceUserPost).to.not.equal(0);
       });
 
       it("should DistributedSupplierExa when supplying", async () => {
