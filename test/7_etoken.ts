@@ -27,14 +27,26 @@ describe("EToken", () => {
     expect(userBalance).to.equal(amountToMint);
   });
 
+  it("Mint should correctly increase supply and balance of two different users in different calls", async () => {
+    let amountToMint = parseUnits("1000");
+    await eToken.mint(bob.address, amountToMint);
+    await eToken.mint(laura.address, amountToMint);
+    let totalSupply = await eToken.totalSupply();
+    let bobBalance = await eToken.balanceOf(bob.address);
+    let lauraBalance = await eToken.balanceOf(laura.address);
+
+    expect(bobBalance).to.equal(amountToMint);
+    expect(lauraBalance).to.equal(amountToMint);
+    expect(totalSupply).to.equal("2000");
+  });
+
   it("Mint should correctly increase balance of user if called several times", async () => {
     let amountToMint = parseUnits("100");
     await eToken.mint(bob.address, amountToMint);
-    await eToken.increaseLiquidity(parseUnits("100"));
     await eToken.mint(bob.address, amountToMint);
     let userBalance = await eToken.balanceOf(bob.address);
 
-    expect(userBalance).to.equal(parseUnits("300"));
+    expect(userBalance).to.equal(parseUnits("200"));
   });
 
   it("BalanceOf should return zero if user never minted", async () => {
@@ -43,11 +55,11 @@ describe("EToken", () => {
     expect(userBalance).to.equal("0");
   });
 
-  it("IncreaseLiquidity should increase user's balance if previously minted", async () => {
+  it("AccrueEarnings should increase user's balance if previously minted", async () => {
     let amountToMint = parseUnits("100");
     let amountToEarn = parseUnits("50");
     await eToken.mint(bob.address, amountToMint);
-    await eToken.increaseLiquidity(amountToEarn);
+    await eToken.accrueEarnings(amountToEarn);
     let totalSupply = await eToken.totalSupply();
     let userBalance = await eToken.balanceOf(bob.address);
 
@@ -55,15 +67,15 @@ describe("EToken", () => {
     expect(userBalance).to.equal(parseUnits("150"));
   });
 
-  it("IncreaseLiquidity should fail when total supply is zero", async () => {
-    await expect(eToken.increaseLiquidity(parseUnits("100"))).to.be.reverted;
+  it("AccrueEarnings should fail when total supply is zero", async () => {
+    await expect(eToken.accrueEarnings(parseUnits("100"))).to.be.reverted;
   });
 
-  it("IncreaseLiquidity should not increase user's balance if minted later", async () => {
+  it("AccrueEarnings should not increase user's balance if minted later", async () => {
     let amountToEarn = parseUnits("50");
     let amountToMint = parseUnits("100");
     await eToken.mint(laura.address, amountToMint);
-    await eToken.increaseLiquidity(amountToEarn);
+    await eToken.accrueEarnings(amountToEarn);
     await eToken.mint(bob.address, amountToMint);
     let userBalance = await eToken.balanceOf(bob.address);
 
