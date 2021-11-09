@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./EToken.sol";
 import "./interfaces/IExafin.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IInterestRateModel.sol";
@@ -12,7 +13,7 @@ import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract Exafin is IExafin, ReentrancyGuard {
+contract Exafin is IExafin, ReentrancyGuard, EToken {
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
     using PoolLib for PoolLib.Pool;
@@ -67,14 +68,10 @@ contract Exafin is IExafin, ReentrancyGuard {
     PoolLib.SmartPool public smartPool;
 
     IERC20 private trustedUnderlying;
-    string public override tokenName;
+    string public override underlyingTokenName;
 
     IAuditor public auditor;
     IInterestRateModel public interestRateModel;
-
-    // Smart Pool Values
-    uint256 public totalSupply;
-    mapping(address => uint256) public balances;
 
     // Total deposits in all maturities
     uint256 public override totalDeposits;
@@ -86,13 +83,18 @@ contract Exafin is IExafin, ReentrancyGuard {
 
     constructor(
         address _tokenAddress,
-        string memory _tokenName,
+        string memory _underlyingTokenName,
+        string memory _eTokenName,
+        string memory _eTokenSymbol,
         address _auditorAddress,
         address _interestRateModelAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
-        tokenName = _tokenName;
+        underlyingTokenName = _underlyingTokenName;
+        eTokenName = _eTokenName;
+        eTokenSymbol = _eTokenSymbol;
+
         auditor = IAuditor(_auditorAddress);
         interestRateModel = IInterestRateModel(_interestRateModelAddress);
 
@@ -116,7 +118,7 @@ contract Exafin is IExafin, ReentrancyGuard {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        auditor.requirePoolState(maturityDate, TSUtils.State.VALID); 
+        auditor.requirePoolState(maturityDate, TSUtils.State.VALID);
         PoolLib.Pool memory pool = pools[maturityDate];
 
         pool.borrowed = pool.borrowed + amount;
