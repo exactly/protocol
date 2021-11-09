@@ -1,14 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { Contract } from "ethers";
-import {
-  DefaultEnv,
-  errorGeneric,
-  ExactlyEnv,
-  ExaTime,
-  ProtocolError,
-  RewardsLibEnv,
-} from "./exactlyUtils";
+import { DefaultEnv, errorGeneric, ExactlyEnv, ExaTime, ProtocolError, RewardsLibEnv } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -74,39 +67,30 @@ describe("ExaToken", () => {
     describe("setExaSpeed", () => {
       it("should revert if non admin access", async () => {
         await expect(
-          auditor
-            .connect(mariaUser)
-            .setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"))
+          auditor.connect(mariaUser).setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"))
         ).to.be.revertedWith("AccessControl");
       });
 
       it("should revert if an invalid exafin address", async () => {
-        await expect(
-          auditor.setExaSpeed(exactlyEnv.notAnExafinAddress, parseUnits("1"))
-        ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+        await expect(auditor.setExaSpeed(exactlyEnv.notAnExafinAddress, parseUnits("1"))).to.be.revertedWith(
+          errorGeneric(ProtocolError.MARKET_NOT_LISTED)
+        );
       });
 
       it("should emit ExaSpeedUpdated if speed changes", async () => {
-        await expect(
-          auditor.setExaSpeed(
-            exactlyEnv.getExafin("DAI").address,
-            parseUnits("1")
-          )
-        ).to.emit(auditor, "ExaSpeedUpdated");
+        await expect(auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"))).to.emit(
+          auditor,
+          "ExaSpeedUpdated"
+        );
       });
 
       it("should NOT emit ExaSpeedUpdated if speed doesn't change", async () => {
-        await auditor.setExaSpeed(
-          exactlyEnv.getExafin("DAI").address,
-          parseUnits("1")
-        );
+        await auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"));
 
-        await expect(
-          auditor.setExaSpeed(
-            exactlyEnv.getExafin("DAI").address,
-            parseUnits("1")
-          )
-        ).to.not.emit(auditor, "ExaSpeedUpdated");
+        await expect(auditor.setExaSpeed(exactlyEnv.getExafin("DAI").address, parseUnits("1"))).to.not.emit(
+          auditor,
+          "ExaSpeedUpdated"
+        );
       });
     });
 
@@ -122,25 +106,17 @@ describe("ExaToken", () => {
 
       it("should retrieve all rewards when calling claimExaAll", async () => {
         const underlyingAmount = parseUnits("100");
-        await dai
-          .connect(mariaUser)
-          .approve(exafinDAI.address, underlyingAmount);
+        await dai.connect(mariaUser).approve(exafinDAI.address, underlyingAmount);
 
-        let balanceUserPre = await exaToken
-          .connect(mariaUser)
-          .balanceOf(mariaUser.address);
+        let balanceUserPre = await exaToken.connect(mariaUser).balanceOf(mariaUser.address);
 
         await expect(
-          exafinDAI
-            .connect(mariaUser)
-            .supply(mariaUser.address, underlyingAmount, exaTime.nextPoolID())
+          exafinDAI.connect(mariaUser).supply(mariaUser.address, underlyingAmount, exaTime.nextPoolID())
         ).to.emit(auditor, "DistributedSupplierExa");
 
         await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
 
-        let balanceUserPost = await exaToken
-          .connect(mariaUser)
-          .balanceOf(mariaUser.address);
+        let balanceUserPost = await exaToken.connect(mariaUser).balanceOf(mariaUser.address);
 
         expect(balanceUserPre).to.equal(0);
         expect(balanceUserPost).to.not.equal(0);
@@ -150,31 +126,26 @@ describe("ExaToken", () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(exafinDAI.address, underlyingAmount);
 
-        await expect(
-          exafinDAI.supply(
-            owner.address,
-            underlyingAmount,
-            exaTime.nextPoolID()
-          )
-        ).to.emit(auditor, "DistributedSupplierExa");
+        await expect(exafinDAI.supply(owner.address, underlyingAmount, exaTime.nextPoolID())).to.emit(
+          auditor,
+          "DistributedSupplierExa"
+        );
       });
 
       it("should DistributedBorrowerExa when borrowing on second interaction", async () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(exafinDAI.address, underlyingAmount);
-        await exafinDAI.supply(
-          owner.address,
-          underlyingAmount,
-          exaTime.nextPoolID()
+        await exafinDAI.supply(owner.address, underlyingAmount, exaTime.nextPoolID());
+
+        await expect(exafinDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())).to.not.emit(
+          auditor,
+          "DistributedBorrowerExa"
         );
 
-        await expect(
-          exafinDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
-        ).to.not.emit(auditor, "DistributedBorrowerExa");
-
-        await expect(
-          exafinDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
-        ).to.emit(auditor, "DistributedBorrowerExa");
+        await expect(exafinDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())).to.emit(
+          auditor,
+          "DistributedBorrowerExa"
+        );
       });
 
       it("should DistributedSupplierExa when redeeming supply", async () => {
@@ -185,25 +156,16 @@ describe("ExaToken", () => {
 
         // supply some money and parse event
         await underlyingTokenUser.approve(exafinMaria.address, supplyAmount);
-        await exafinMaria.supply(
-          mariaUser.address,
-          supplyAmount,
-          exaTime.nextPoolID()
-        );
+        await exafinMaria.supply(mariaUser.address, supplyAmount, exaTime.nextPoolID());
 
         // Move in time to maturity
-        await ethers.provider.send("evm_setNextBlockTimestamp", [
-          exaTime.nextPoolID(),
-        ]);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [exaTime.nextPoolID()]);
         await ethers.provider.send("evm_mine", []);
 
-        await expect(
-          exafinMaria.redeem(
-            mariaUser.address,
-            supplyAmount,
-            exaTime.nextPoolID()
-          )
-        ).to.emit(auditor, "DistributedSupplierExa");
+        await expect(exafinMaria.redeem(mariaUser.address, supplyAmount, exaTime.nextPoolID())).to.emit(
+          auditor,
+          "DistributedSupplierExa"
+        );
       });
 
       it("should DistributedBorrowerExa when repaying debt", async () => {
@@ -214,23 +176,18 @@ describe("ExaToken", () => {
 
         await underlyingTokenUser.approve(exafinDAI.address, underlyingAmount);
         // supply some money and parse event
-        await exafinMaria.supply(
-          mariaUser.address,
-          underlyingAmount.div(2),
-          exaTime.nextPoolID()
-        );
+        await exafinMaria.supply(mariaUser.address, underlyingAmount.div(2), exaTime.nextPoolID());
         await exafinMaria.borrow(underlyingAmount.div(4), exaTime.nextPoolID());
 
         // Move in time to maturity
-        await ethers.provider.send("evm_setNextBlockTimestamp", [
-          exaTime.nextPoolID(),
-        ]);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [exaTime.nextPoolID()]);
         await ethers.provider.send("evm_mine", []);
 
         // repay and succeed
-        await expect(
-          exafinMaria.repay(mariaUser.address, exaTime.nextPoolID())
-        ).to.emit(auditor, "DistributedBorrowerExa");
+        await expect(exafinMaria.repay(mariaUser.address, exaTime.nextPoolID())).to.emit(
+          auditor,
+          "DistributedBorrowerExa"
+        );
       });
 
       afterEach(async () => {
@@ -257,15 +214,10 @@ describe("ExaToken", () => {
 
       // Call exaSpeed and jump blocksDelta
       await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        exafinHarness.address,
-        parseUnits("0.5")
-      );
+      await auditorHarness.setExaSpeed(exafinHarness.address, parseUnits("0.5"));
       await auditorHarness.setBlockNumber(blocksDelta);
       await auditorHarness.updateExaBorrowIndex(exafinHarness.address);
-      const [newIndex] = await auditorHarness.getBorrowState(
-        exafinHarness.address
-      );
+      const [newIndex] = await auditorHarness.getBorrowState(exafinHarness.address);
       /*
         exaAccrued = deltaBlocks * borrowSpeed
                     = 2 * 0.5e18 = 1e18
@@ -273,9 +225,7 @@ describe("ExaToken", () => {
                     = 1e36 + (5e18 * 1e36 / 0.5e18) = ~1.019e36
       */
       let exaAccruedDelta = parseUnits("0.5").mul(blocksDelta);
-      let ratioDelta = exaAccruedDelta
-        .mul(parseUnits("1", 36))
-        .div(amountBorrowWithCommission);
+      let ratioDelta = exaAccruedDelta.mul(parseUnits("1", 36)).div(amountBorrowWithCommission);
 
       let newIndexCalculated = parseUnits("1", 36).add(ratioDelta);
       expect(newIndex).to.be.equal(newIndexCalculated);
@@ -283,16 +233,11 @@ describe("ExaToken", () => {
 
     it("should not update index if no blocks passed since last accrual", async () => {
       await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        exafinHarness.address,
-        parseUnits("0.5")
-      );
+      await auditorHarness.setExaSpeed(exafinHarness.address, parseUnits("0.5"));
       await exafinHarness.setTotalBorrows(parseUnits("10000"));
       await auditorHarness.updateExaBorrowIndex(exafinHarness.address);
 
-      const [newIndex, block] = await auditorHarness.getBorrowState(
-        exafinHarness.address
-      );
+      const [newIndex, block] = await auditorHarness.getBorrowState(exafinHarness.address);
       expect(newIndex).to.equal(parseUnits("1", 36));
       expect(block).to.equal(0);
     });
@@ -300,18 +245,13 @@ describe("ExaToken", () => {
     it("should not update index if EXA speed is 0", async () => {
       // Update borrows
       await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        exafinHarness.address,
-        parseUnits("0.5")
-      );
+      await auditorHarness.setExaSpeed(exafinHarness.address, parseUnits("0.5"));
       await auditorHarness.setBlockNumber(100);
       await auditorHarness.setExaSpeed(exafinHarness.address, 0);
       await exafinHarness.setTotalBorrows(parseUnits("10000"));
       await auditorHarness.updateExaBorrowIndex(exafinHarness.address);
 
-      const [newIndex, block] = await auditorHarness.getBorrowState(
-        exafinHarness.address
-      );
+      const [newIndex, block] = await auditorHarness.getBorrowState(exafinHarness.address);
       expect(newIndex).to.equal(parseUnits("1", 36));
       expect(block).to.equal(100);
     });
@@ -332,16 +272,11 @@ describe("ExaToken", () => {
 
       // Call exaSpeed and jump blocksDelta
       await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        exafinHarness.address,
-        parseUnits("0.5")
-      );
+      await auditorHarness.setExaSpeed(exafinHarness.address, parseUnits("0.5"));
       await auditorHarness.setBlockNumber(blocksDelta);
       await exafinHarness.setTotalDeposits(amountSupplyWithCommission);
       await auditorHarness.updateExaSupplyIndex(exafinHarness.address);
-      const [newIndex] = await auditorHarness.getSupplyState(
-        exafinHarness.address
-      );
+      const [newIndex] = await auditorHarness.getSupplyState(exafinHarness.address);
       /*
         exaAccrued = deltaBlocks * borrowSpeed
                     = 100 * 0.5e18 = 50e18
@@ -349,9 +284,7 @@ describe("ExaToken", () => {
                     = 1e36 + (50-8 * 1e36 / 0.5e18) = ~1.019e36
       */
       let exaAccruedDelta = parseUnits("0.5").mul(blocksDelta);
-      let ratioDelta = exaAccruedDelta
-        .mul(parseUnits("1", 36))
-        .div(amountSupplyWithCommission);
+      let ratioDelta = exaAccruedDelta.mul(parseUnits("1", 36)).div(amountSupplyWithCommission);
 
       let newIndexCalculated = parseUnits("1", 36).add(ratioDelta);
       expect(newIndex).to.be.equal(newIndexCalculated);
@@ -359,16 +292,11 @@ describe("ExaToken", () => {
 
     it("should not update index if no blocks passed since last accrual", async () => {
       await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        exafinHarness.address,
-        parseUnits("0.5")
-      );
+      await auditorHarness.setExaSpeed(exafinHarness.address, parseUnits("0.5"));
       await exafinHarness.setTotalDeposits(parseUnits("10000"));
       await auditorHarness.updateExaSupplyIndex(exafinHarness.address);
 
-      const [newIndex, block] = await auditorHarness.getSupplyState(
-        exafinHarness.address
-      );
+      const [newIndex, block] = await auditorHarness.getSupplyState(exafinHarness.address);
       expect(newIndex).to.equal(parseUnits("1", 36));
       expect(block).to.equal(0);
     });
@@ -376,18 +304,13 @@ describe("ExaToken", () => {
     it("should not update index if EXA speed is 0", async () => {
       // Update borrows
       await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        exafinHarness.address,
-        parseUnits("0.5")
-      );
+      await auditorHarness.setExaSpeed(exafinHarness.address, parseUnits("0.5"));
       await auditorHarness.setBlockNumber(100);
       await auditorHarness.setExaSpeed(exafinHarness.address, 0);
       await exafinHarness.setTotalDeposits(parseUnits("10000"));
       await auditorHarness.updateExaSupplyIndex(exafinHarness.address);
 
-      const [newIndex, block] = await auditorHarness.getSupplyState(
-        exafinHarness.address
-      );
+      const [newIndex, block] = await auditorHarness.getSupplyState(exafinHarness.address);
       expect(newIndex).to.equal(parseUnits("1", 36));
       expect(block).to.equal(100);
     });
@@ -406,40 +329,23 @@ describe("ExaToken", () => {
 
     it("should update borrow index checkpoint but not exaAccrued for first time user", async () => {
       let borrowIndex = parseUnits("6", 36);
-      await auditorHarness.setExaBorrowState(
-        exafinHarness.address,
-        borrowIndex,
-        10
-      );
+      await auditorHarness.setExaBorrowState(exafinHarness.address, borrowIndex, 10);
 
       await exafinHarness.setTotalBorrows(parseUnits("10000"));
       await exafinHarness.setBorrowsOf(owner.address, parseUnits("100"));
 
-      await auditorHarness.distributeBorrowerExa(
-        exafinHarness.address,
-        owner.address
-      );
+      await auditorHarness.distributeBorrowerExa(exafinHarness.address, owner.address);
 
       expect(await auditorHarness.getExaAccrued(owner.address)).to.equal(0);
-      const [newIndex] = await auditorHarness.getBorrowState(
-        exafinHarness.address
-      );
+      const [newIndex] = await auditorHarness.getBorrowState(exafinHarness.address);
       expect(newIndex).to.equal(borrowIndex);
     });
 
     it("should transfer EXA and update borrow index checkpoint correctly for repeat time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await exafinHarness.setBorrowsOf(mariaUser.address, parseUnits("5"));
-      await auditorHarness.setExaBorrowState(
-        exafinHarness.address,
-        parseUnits("6", 36),
-        10
-      );
-      await auditorHarness.setExaBorrowerIndex(
-        exafinHarness.address,
-        mariaUser.address,
-        parseUnits("1", 36)
-      );
+      await auditorHarness.setExaBorrowState(exafinHarness.address, parseUnits("6", 36), 10);
+      await auditorHarness.setExaBorrowerIndex(exafinHarness.address, mariaUser.address, parseUnits("1", 36));
       /**
        * this tests that an acct with half the total borrows over that time gets 25e18 EXA
        * borrowerAmount = 5e18
@@ -448,37 +354,21 @@ describe("ExaToken", () => {
        * borrowerAccrued= borrowerAmount * deltaIndex / 1e36
        *                = 5e18 * 5e36 / 1e36 = 25e18
        */
-      let tx = await auditorHarness.distributeBorrowerExa(
-        exafinHarness.address,
-        mariaUser.address
-      );
+      let tx = await auditorHarness.distributeBorrowerExa(exafinHarness.address, mariaUser.address);
       let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
 
       expect(accrued).to.equal(parseUnits("25"));
       expect(await exaToken.balanceOf(mariaUser.address)).to.equal(0);
       expect(tx)
         .to.emit(auditorHarness, "DistributedBorrowerExa")
-        .withArgs(
-          exafinHarness.address,
-          mariaUser.address,
-          parseUnits("25"),
-          parseUnits("6", 36)
-        );
+        .withArgs(exafinHarness.address, mariaUser.address, parseUnits("25"), parseUnits("6", 36));
     });
 
     it("should not transfer EXA automatically", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await exafinHarness.setBorrowsOf(mariaUser.address, parseUnits("0.5"));
-      await auditorHarness.setExaBorrowState(
-        exafinHarness.address,
-        parseUnits("1.0019", 36),
-        10
-      );
-      await auditorHarness.setExaBorrowerIndex(
-        exafinHarness.address,
-        mariaUser.address,
-        parseUnits("1", 36)
-      );
+      await auditorHarness.setExaBorrowState(exafinHarness.address, parseUnits("1.0019", 36), 10);
+      await auditorHarness.setExaBorrowerIndex(exafinHarness.address, mariaUser.address, parseUnits("1", 36));
       /*
        * borrowerAmount =  5e17
        * deltaIndex     = marketStoredIndex - userStoredIndex
@@ -486,10 +376,7 @@ describe("ExaToken", () => {
        * borrowerAccrued= borrowerAmount * deltaIndex / 1e36
        *                = 5e17 * 0.0019e36 / 1e36 = 0.00095e18
        */
-      await auditorHarness.distributeBorrowerExa(
-        exafinHarness.address,
-        mariaUser.address
-      );
+      await auditorHarness.distributeBorrowerExa(exafinHarness.address, mariaUser.address);
       let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
 
       expect(accrued).to.equal(parseUnits("0.00095"));
@@ -511,11 +398,7 @@ describe("ExaToken", () => {
     it("should transfer EXA and update supply index correctly for first time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await exafinHarness.setSuppliesOf(mariaUser.address, parseUnits("5"));
-      await auditorHarness.setExaSupplyState(
-        exafinHarness.address,
-        parseUnits("6", 36),
-        10
-      );
+      await auditorHarness.setExaSupplyState(exafinHarness.address, parseUnits("6", 36), 10);
       /**
        * 100 delta blocks, 10e18 total supply, 0.5e18 supplySpeed => 6e18 exaSupplyIndex
        * confirming an acct with half the total supply over that time gets 25e18 EXA:
@@ -525,37 +408,21 @@ describe("ExaToken", () => {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e18 * 5e36 / 1e36 = 25e18
        */
-      let tx = await auditorHarness.distributeAllSupplierExa(
-        exafinHarness.address,
-        mariaUser.address
-      );
+      let tx = await auditorHarness.distributeAllSupplierExa(exafinHarness.address, mariaUser.address);
       let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
       let balance = await exaToken.balanceOf(mariaUser.address);
       expect(accrued).to.equal(0);
       expect(balance).to.equal(parseUnits("25"));
       expect(tx)
         .to.emit(auditorHarness, "DistributedSupplierExa")
-        .withArgs(
-          exafinHarness.address,
-          mariaUser.address,
-          parseUnits("25"),
-          parseUnits("6", 36)
-        );
+        .withArgs(exafinHarness.address, mariaUser.address, parseUnits("25"), parseUnits("6", 36));
     });
 
     it("should update EXA accrued and supply index for repeat user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await exafinHarness.setSuppliesOf(mariaUser.address, parseUnits("5"));
-      await auditorHarness.setExaSupplyState(
-        exafinHarness.address,
-        parseUnits("6", 36),
-        10
-      );
-      await auditorHarness.setExaSupplierIndex(
-        exafinHarness.address,
-        mariaUser.address,
-        parseUnits("2", 36)
-      );
+      await auditorHarness.setExaSupplyState(exafinHarness.address, parseUnits("6", 36), 10);
+      await auditorHarness.setExaSupplierIndex(exafinHarness.address, mariaUser.address, parseUnits("2", 36));
       /**
        * supplierAmount  = 5e18
        * deltaIndex      = marketStoredIndex - userStoredIndex
@@ -563,10 +430,7 @@ describe("ExaToken", () => {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e18 * 4e36 / 1e36 = 20e18
        */
-      await auditorHarness.distributeAllSupplierExa(
-        exafinHarness.address,
-        mariaUser.address
-      );
+      await auditorHarness.distributeAllSupplierExa(exafinHarness.address, mariaUser.address);
       let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
       let balance = await exaToken.balanceOf(mariaUser.address);
       expect(accrued).to.equal(0);
@@ -576,11 +440,7 @@ describe("ExaToken", () => {
     it("should not transfer EXA automatically", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await exafinHarness.setSuppliesOf(mariaUser.address, parseUnits("0.5"));
-      await auditorHarness.setExaSupplyState(
-        exafinHarness.address,
-        parseUnits("1.0019", 36),
-        10
-      );
+      await auditorHarness.setExaSupplyState(exafinHarness.address, parseUnits("1.0019", 36), 10);
       /**
        * supplierAmount  = 5e17
        * deltaIndex      = marketStoredIndex - userStoredIndex
@@ -588,10 +448,7 @@ describe("ExaToken", () => {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e17 * 0.0019e36 / 1e36 = 0.00095e18
        */
-      await auditorHarness.distributeSupplierExa(
-        exafinHarness.address,
-        mariaUser.address
-      );
+      await auditorHarness.distributeSupplierExa(exafinHarness.address, mariaUser.address);
       let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
       let balance = await exaToken.balanceOf(mariaUser.address);
       expect(accrued).to.equal(parseUnits("0.00095"));
@@ -613,10 +470,7 @@ describe("ExaToken", () => {
       const mariaUserAccruedPre = 100;
       let balancePre = await exaToken.balanceOf(mariaUser.address);
       await exaToken.transfer(auditorHarness.address, exaRemaining);
-      await auditorHarness.setExaAccrued(
-        mariaUser.address,
-        mariaUserAccruedPre
-      );
+      await auditorHarness.setExaAccrued(mariaUser.address, mariaUserAccruedPre);
 
       await auditorHarness.grantExa(mariaUser.address, mariaUserAccruedPre);
 
@@ -630,10 +484,7 @@ describe("ExaToken", () => {
       const mariaUserAccruedPre = 100;
       let balancePre = await exaToken.balanceOf(mariaUser.address);
       await exaToken.transfer(auditorHarness.address, exaRemaining);
-      await auditorHarness.setExaAccrued(
-        mariaUser.address,
-        mariaUserAccruedPre
-      );
+      await auditorHarness.setExaAccrued(mariaUser.address, mariaUserAccruedPre);
 
       await auditorHarness.grantExa(mariaUser.address, mariaUserAccruedPre);
 
@@ -657,9 +508,9 @@ describe("ExaToken", () => {
     });
 
     it("should revert when a market is not listed", async () => {
-      await expect(
-        auditor.claimExa(mariaUser.address, [exactlyEnv.notAnExafinAddress])
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      await expect(auditor.claimExa(mariaUser.address, [exactlyEnv.notAnExafinAddress])).to.be.revertedWith(
+        errorGeneric(ProtocolError.MARKET_NOT_LISTED)
+      );
     });
 
     it("should accrue EXA and then transfer EXA accrued", async () => {
@@ -670,16 +521,11 @@ describe("ExaToken", () => {
       await exaToken.transfer(auditorHarness.address, exaRemaining);
 
       await auditorHarness.setBlockNumber(parseUnits("2", 7));
-      await auditorHarness.setExaSpeed(
-        exafinHarness.address,
-        parseUnits("0.5")
-      );
+      await auditorHarness.setExaSpeed(exafinHarness.address, parseUnits("0.5"));
       await auditorHarness.refreshIndexes(exafinHarness.address);
       await auditorHarness.setExaSpeed(exafinHarness.address, exaSpeed);
 
-      const bobAccruedPre = await auditorHarness.getExaAccrued(
-        exafinHarness.address
-      );
+      const bobAccruedPre = await auditorHarness.getExaAccrued(exafinHarness.address);
       const bobBalancePre = await exaToken.balanceOf(bobUser.address);
 
       await exafinHarness.setTotalDeposits(mintAmount);
@@ -687,9 +533,7 @@ describe("ExaToken", () => {
       await auditorHarness.setBlockNumber(parseUnits("2", 7).add(10));
 
       await auditorHarness.claimExaAll(bobUser.address);
-      const bobAccruedPost = await auditorHarness.getExaAccrued(
-        bobUser.address
-      );
+      const bobAccruedPost = await auditorHarness.getExaAccrued(bobUser.address);
       const bobBalancePost = await exaToken.balanceOf(bobUser.address);
 
       expect(bobAccruedPre).to.equal(0);
