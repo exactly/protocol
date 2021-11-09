@@ -116,13 +116,10 @@ contract Exafin is IExafin, ReentrancyGuard {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
+        auditor.requirePoolState(maturityDate, TSUtils.State.VALID); 
         PoolLib.Pool memory pool = pools[maturityDate];
 
-        // reverts on failure
-        auditor.borrowAllowed(address(this), msg.sender, amount, maturityDate);
-
         pool.borrowed = pool.borrowed + amount;
-
         if (amount > pool.available) {
             smartPool.borrowed = smartPool.borrowed + amount - pool.available;
             pool.debt = pool.debt + amount - pool.available;
@@ -140,6 +137,14 @@ contract Exafin is IExafin, ReentrancyGuard {
             newDebt
         );
         uint256 commission = amount.mul_(commissionRate);
+        uint256 totalBorrow = amount + commission;
+        // reverts on failure
+        auditor.borrowAllowed(
+            address(this),
+            msg.sender,
+            totalBorrow,
+            maturityDate
+        );
 
         pool.borrowed = pool.borrowed + commission;
         pools[maturityDate] = pool;
