@@ -16,3 +16,4 @@ Contracts' API
 
 .. autosolcontract:: ExactlyOracle
     :members: constructor, setAssetSources, _setAssetsSources, getAssetPrice
+

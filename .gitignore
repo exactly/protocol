@@ -4,6 +4,7 @@ build
 .env
 docs/_build
 tags
+.DS_Store
 
 node_modules
 
