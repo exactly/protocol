@@ -223,10 +223,10 @@ contract EToken is Context, IERC20, IERC20Metadata {
     }
 
     /**
-     * @dev Increases contract liquidity
+     * @dev Increases contract earnings
      * @param amount The amount of underlying tokens deposited
      */
-    function increaseLiquidity(uint256 amount) public virtual {
+    function accrueEarnings(uint256 amount) public virtual {
         require(_totalSupply > 0, "Total supply should be positive");
 
         liquidityReserveIndex += (amount * 1e18) / _totalSupply;
