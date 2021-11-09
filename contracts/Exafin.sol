@@ -35,7 +35,6 @@ contract Exafin is IExafin, ReentrancyGuard {
     );
 
     event Seized(address liquidator, address borrower, uint256 seizedAmount, uint256 maturityDate);
-
     event ReservesAdded(address benefactor, uint256 addAmount);
 
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
@@ -43,7 +42,6 @@ contract Exafin is IExafin, ReentrancyGuard {
     mapping(uint256 => PoolLib.Pool) public pools;
     mapping(address => uint256[]) public addressPools;
 
-    uint256 private constant RATE_UNIT = 1e18;
     uint256 private constant PROTOCOL_SEIZE_SHARE = 2.8e16; //2.8%
 
     PoolLib.SmartPool public smartPool;
@@ -54,9 +52,17 @@ contract Exafin is IExafin, ReentrancyGuard {
     IAuditor public auditor;
     IInterestRateModel public interestRateModel;
 
-    // POC for eternal pool
+    // Smart Pool Values
     uint256 public totalSupply;
     mapping(address => uint256) public balances;
+
+    // Total deposits in all maturities
+    uint256 public override totalDeposits;
+    mapping(address => uint256) private totalDepositsUser;
+
+    // Total borrows in all maturities
+    uint256 public override totalBorrows;
+    mapping(address => uint256) private totalBorrowsUser;
 
     constructor(
         address _tokenAddress,
@@ -75,9 +81,9 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Lends to a wallet for a certain maturity date/pool
-        @param amount amount to send to the specified wallet
-        @param maturityDate maturity date for repayment
+     * @dev Lends to a wallet for a certain maturity date/pool
+     * @param amount amount to send to the specified wallet
+     * @param maturityDate maturity date for repayment
      */
     function borrow(uint256 amount, uint256 maturityDate) public override nonReentrant {
         bool newDebt = false;
@@ -103,12 +109,17 @@ contract Exafin is IExafin, ReentrancyGuard {
             pool.available = pool.available - amount;
         }
 
+        uint256 commissionRate = interestRateModel.getRateToBorrow(maturityDate, pool, smartPool, newDebt);
+        uint256 commission = amount.mul_(commissionRate);
+
+        pool.borrowed = pool.borrowed + commission;
         pools[maturityDate] = pool;
 
-        uint256 commissionRate = interestRateModel.getRateToBorrow(maturityDate, pool, smartPool, newDebt);
+        uint256 currentTotalBorrow = amount + commission;
+        borrowedAmounts[maturityDate][msg.sender] += currentTotalBorrow;
 
-        uint256 commission = (amount * commissionRate) / RATE_UNIT;
-        borrowedAmounts[maturityDate][msg.sender] += amount + commission;
+        totalBorrows += currentTotalBorrow;
+        totalBorrowsUser[msg.sender] += currentTotalBorrow;
 
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
@@ -116,11 +127,11 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Supplies a certain amount to the protocol for 
-             a certain maturity date/pool
-        @param from wallet to receive amount from
-        @param amount amount to receive from the specified wallet
-        @param maturityDate maturity date / pool ID
+     * @dev Supplies a certain amount to the protocol for
+     *      a certain maturity date/pool
+     * @param from wallet to receive amount from
+     * @param amount amount to receive from the specified wallet
+     * @param maturityDate maturity date / pool ID
      */
     function supply(
         address from,
@@ -154,8 +165,12 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         uint256 commissionRate = interestRateModel.getRateToSupply(amount - pool.debt, maturityDate, pool, smartPool);
 
-        uint256 commission = ((amount * commissionRate) / RATE_UNIT);
-        suppliedAmounts[maturityDate][from] += amount + commission;
+        uint256 commission = amount.mul_(commissionRate);
+        uint256 currentTotalDeposit = amount + commission;
+        suppliedAmounts[maturityDate][from] += currentTotalDeposit;
+
+        totalDeposits += currentTotalDeposit;
+        totalDepositsUser[from] += currentTotalDeposit;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
@@ -163,26 +178,30 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice User collects a certain amount of underlying asset after having
-                supplied tokens until a certain maturity date
-        @dev The pool that the user is trying to retrieve the money should be matured
-        @param redeemer The address of the account which is redeeming the tokens
-        @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin
-        @param maturityDate the matured date for which we're trying to retrieve the funds
+     * @notice User collects a certain amount of underlying asset after having
+     *         supplied tokens until a certain maturity date
+     * @dev The pool that the user is trying to retrieve the money should be matured
+     * @param redeemer The address of the account which is redeeming the tokens
+     * @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin
+     * @param maturityDate the matured date for which we're trying to retrieve the funds
      */
     function redeem(
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
     ) external override nonReentrant {
-        require(redeemAmount != 0, "Redeem can't be zero");
+        if (redeemAmount == 0) {
+            revert GenericError(ErrorCode.REDEEM_CANT_BE_ZERO);
+        }
 
         // reverts on failure
         auditor.redeemAllowed(address(this), redeemer, redeemAmount, maturityDate);
 
         suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
+        totalDeposits -= redeemAmount;
+        totalDepositsUser[redeemer] -= redeemAmount;
 
-        require(trustedUnderlying.balanceOf(address(this)) > redeemAmount, "Not enough liquidity");
+        require(trustedUnderlying.balanceOf(address(this)) >= redeemAmount, "Not enough liquidity");
 
         trustedUnderlying.safeTransferFrom(address(this), redeemer, redeemAmount);
 
@@ -190,50 +209,36 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Sender repays borrower's debt for a maturity date
-        @dev The pool that the user is trying to repay to should be matured
-        @param borrower The address of the account that has the debt
-        @param maturityDate The matured date where the debt is located
+     * @notice Sender repays borrower's debt for a maturity date
+     * @dev The pool that the user is trying to repay to should be matured
+     * @param borrower The address of the account that has the debt
+     * @param maturityDate The matured date where the debt is located
      */
     function repay(address borrower, uint256 maturityDate) external override nonReentrant {
-        _repay(msg.sender, borrower, maturityDate);
-    }
-
-    /**
-        @notice Payer repays borrower's debt for a maturity date
-        @dev The pool that the user is trying to repay to should be matured.
-             The difference with `_repayLiquidate` is that this one doesn't alter
-             The pool and it's use for cancelling the debt
-        @param borrower The address of the account that has the debt
-        @param maturityDate The matured date where the debt is located
-     */
-    function _repay(
-        address payer,
-        address borrower,
-        uint256 maturityDate
-    ) internal {
         // reverts on failure
         auditor.repayAllowed(address(this), borrower, maturityDate);
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
 
-        trustedUnderlying.safeTransferFrom(payer, address(this), amountBorrowed);
+        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amountBorrowed);
+        totalBorrows -= amountBorrowed;
+        totalBorrowsUser[borrower] -= amountBorrowed;
 
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit Repaid(payer, borrower, amountBorrowed, maturityDate);
+        emit Repaid(msg.sender, borrower, amountBorrowed, maturityDate);
     }
 
     /**
-        @notice This function allows to partially repay a position on liquidation
-        @dev repay function on liquidation, it allows to partially pay debt, and it
-             doesn't check `repayAllowed` on the auditor. It should be called after 
-             liquidateAllowed
-        @param payer The address of the account that will pay the debt
-        @param borrower The address of the account that has the debt
-        @param repayAmount the amount of debt of the pool that should be paid
-        @param maturityDate the maturityDate to access the pool
+     * @notice This function allows to partially repay a position on liquidation
+     * @dev repay function on liquidation, it allows to partially pay debt, and it
+     *      doesn't check `repayAllowed` on the auditor. It should be called after
+     *      liquidateAllowed
+     * @param payer The address of the account that will pay the debt
+     * @param borrower The address of the account that has the debt
+     * @param repayAmount the amount of debt of the pool that should be paid
+     * @param maturityDate the maturityDate to access the pool
      */
     function _repayLiquidate(
         address payer,
@@ -243,10 +248,9 @@ contract Exafin is IExafin, ReentrancyGuard {
     ) internal {
         require(repayAmount != 0, "You can't repay zero");
 
-        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
-
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
+        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
         borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
 
         // That repayment diminishes debt in the pool
@@ -254,17 +258,20 @@ contract Exafin is IExafin, ReentrancyGuard {
         pool.borrowed -= repayAmount;
         pools[maturityDate] = pool;
 
+        totalBorrows -= repayAmount;
+        totalBorrowsUser[borrower] -= repayAmount;
+
         emit Repaid(payer, borrower, repayAmount, maturityDate);
     }
 
     /**
-        @notice Function to liquidate an uncollaterized position
-        @dev Msg.sender liquidates a borrower's position and repays a certain amount of collateral
-             for a maturity date, seizing a part of borrower's collateral
-        @param borrower wallet that has an outstanding debt for a certain maturity date
-        @param repayAmount amount to be repaid by liquidator(msg.sender)
-        @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
-        @param maturityDate maturity date for which the position will be liquidated
+     * @notice Function to liquidate an uncollaterized position
+     * @dev Msg.sender liquidates a borrower's position and repays a certain amount of collateral
+     *      for a maturity date, seizing a part of borrower's collateral
+     * @param borrower wallet that has an outstanding debt for a certain maturity date
+     * @param repayAmount amount to be repaid by liquidator(msg.sender)
+     * @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
+     * @param maturityDate maturity date for which the position will be liquidated
      */
     function liquidate(
         address borrower,
@@ -276,13 +283,13 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Internal Function to liquidate an uncollaterized position
-        @dev Liquidator liquidates a borrower's position and repays a certain amount of collateral
-             for a maturity date, seizing a part of borrower's collateral
-        @param borrower wallet that has an outstanding debt for a certain maturity date
-        @param repayAmount amount to be repaid by liquidator(msg.sender)
-        @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
-        @param maturityDate maturity date for which the position will be liquidated
+     * @notice Internal Function to liquidate an uncollaterized position
+     * @dev Liquidator liquidates a borrower's position and repays a certain amount of collateral
+     *      for a maturity date, seizing a part of borrower's collateral
+     * @param borrower wallet that has an outstanding debt for a certain maturity date
+     * @param repayAmount amount to be repaid by liquidator(msg.sender)
+     * @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
+     * @param maturityDate maturity date for which the position will be liquidated
      */
     function _liquidate(
         address liquidator,
@@ -332,14 +339,14 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Public function to seize a certain amount of tokens
-        @dev Public function for liquidator to seize borrowers tokens in a certain maturity date. 
-             This function will only be called from another Exafins, on `liquidation` calls. 
-             That's why msg.sender needs to be passed to the private function (to be validated as a market)
-        @param liquidator address which will receive the seized tokens
-        @param borrower address from which the tokens will be seized
-        @param seizeAmount amount to be removed from borrower's posession
-        @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
+     * @notice Public function to seize a certain amount of tokens
+     * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date.
+     *      This function will only be called from another Exafins, on `liquidation` calls.
+     *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
+     * @param liquidator address which will receive the seized tokens
+     * @param borrower address from which the tokens will be seized
+     * @param seizeAmount amount to be removed from borrower's posession
+     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function seize(
         address liquidator,
@@ -351,15 +358,15 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @notice Private function to seize a certain amount of tokens
-        @dev Private function for liquidator to seize borrowers tokens in a certain maturity date. 
-             This function will only be called from this Exafin, on `liquidation` or through `seize` calls from another Exafins. 
-             That's why msg.sender needs to be passed to the private function (to be validated as a market)
-        @param seizerExafin address which is calling the seize function (see `seize` public function)
-        @param liquidator address which will receive the seized tokens
-        @param borrower address from which the tokens will be seized
-        @param seizeAmount amount to be removed from borrower's posession
-        @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
+     * @notice Private function to seize a certain amount of tokens
+     * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date.
+     *      This function will only be called from this Exafin, on `liquidation` or through `seize` calls from another Exafins.
+     *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
+     * @param seizerExafin address which is calling the seize function (see `seize` public function)
+     * @param liquidator address which will receive the seized tokens
+     * @param borrower address from which the tokens will be seized
+     * @param seizeAmount amount to be removed from borrower's posession
+     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function _seize(
         address seizerExafin,
@@ -381,6 +388,9 @@ contract Exafin is IExafin, ReentrancyGuard {
         pool.supplied -= seizeAmount;
         pools[maturityDate] = pool;
 
+        totalDeposits -= seizeAmount;
+        totalDepositsUser[borrower] -= seizeAmount;
+
         trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
 
         emit Seized(liquidator, borrower, seizeAmount, maturityDate);
@@ -388,9 +398,9 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Gets current snapshot for a wallet in a certain maturity
-        @param who wallet to return status snapshot in the specified maturity date
-        @param maturityDate maturity date
+     * @dev Gets current snapshot for a wallet in a certain maturity
+     * @param who wallet to return status snapshot in the specified maturity date
+     * @param maturityDate maturity date
      */
     function getAccountSnapshot(address who, uint256 maturityDate) public view override returns (uint256, uint256) {
         if (!TSUtils.isPoolID(maturityDate)) {
@@ -400,8 +410,8 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Gets the total amount of borrowed money for a maturityDate
-        @param maturityDate maturity date
+     * @dev Gets the total amount of borrowed money for a maturityDate
+     * @param maturityDate maturity date
      */
     function getTotalBorrows(uint256 maturityDate) public view override returns (uint256) {
         if (!TSUtils.isPoolID(maturityDate)) {
@@ -411,9 +421,25 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-        @dev Gets the auditor contract interface being used to validate positions
+     * @dev Gets the auditor contract interface being used to validate positions
      */
     function getAuditor() public view override returns (IAuditor) {
         return IAuditor(auditor);
+    }
+
+    /**
+     * @dev Retrieves all the supplies (Smart + all maturities) in this Exafin
+     *      for a user -- This is NOT for ERC20 of the smart pool
+     */
+    function suppliesOf(address who) public view override returns (uint256) {
+        return balances[who] + totalDepositsUser[who];
+    }
+
+    /**
+     * @dev Retrieves all the borrows in this Exafin
+     *      for a user -- This is NOT for ERC20 of the smart pool
+     */
+    function borrowsOf(address who) public view override returns (uint256) {
+        return totalBorrowsUser[who];
     }
 }

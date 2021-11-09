@@ -2,12 +2,12 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ProtocolError, ExactlyEnv, ExaTime, parseSupplyEvent, errorGeneric } from "./exactlyUtils";
+import {  ExactlyEnv, ExaTime, DefaultEnv } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
 
 describe("DefaultInterestRateModel", () => {
-  let exactlyEnv: ExactlyEnv;
+  let exactlyEnv: DefaultEnv;
 
   let underlyingToken: Contract;
   let eth: Contract;
@@ -16,15 +16,28 @@ describe("DefaultInterestRateModel", () => {
   let auditor: Contract;
   let interestRateModel: Contract;
 
-  let tokensCollateralRate = new Map([
-    ["DAI", parseUnits("0.8", 18)],
-    ["ETH", parseUnits("0.7", 18)],
-  ]);
+  function truncDigits(inputNumber: number, digits: number): number {
+    const fact = 10 ** digits;
+    return Math.floor(inputNumber * fact) / fact;
+  }
 
-  // Oracle price is in 10**6
-  let tokensUSDPrice = new Map([
-    ["DAI", parseUnits("1", 6)],
-    ["ETH", parseUnits("3100", 6)],
+  const mockedTokens = new Map([
+    [
+      "DAI",
+      {
+        decimals: 18,
+        collateralRate: parseUnits("0.8"),
+        usdPrice: parseUnits("1"),
+      },
+    ],
+    [
+      "ETH",
+      {
+        decimals: 18,
+        collateralRate: parseUnits("0.7"),
+        usdPrice: parseUnits("3100"),
+      },
+    ],
   ]);
 
   let mariaUser: SignerWithAddress;
@@ -49,6 +62,7 @@ describe("DefaultInterestRateModel", () => {
 
   let mpSlopeRate: number = 0.07;
   let spSlopeRate:number = 0.07;
+  const closeToRate = 1 * 10 ** -18
 
   beforeEach(async () => {
     maturityPool = {
@@ -64,7 +78,7 @@ describe("DefaultInterestRateModel", () => {
     };
     [owner, mariaUser, johnUser] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(tokensUSDPrice, tokensCollateralRate);
+    exactlyEnv = await ExactlyEnv.create(mockedTokens);
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     eth = exactlyEnv.getUnderlying("ETH");
@@ -107,14 +121,12 @@ describe("DefaultInterestRateModel", () => {
       supplied: 100000,
     };
 
-    const yearlyRate = Math.max(
-      smartPool.supplied == 0 ? 0 : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
-      maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied
-    )
+    const yearlyRateMaturity = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied
+    
+    const rate = truncDigits(((yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365), 18)
+    const actual = formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))
 
-    const rate = ((yearlyRate * exaTime.daysDiffWith(futurePool)) / 365).toFixed(18)
-
-    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))).to.be.equal(rate);
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
 
   it("With well funded Smart pool, supply 10000 to Maturity Pool, borrow 10000 from maturity pool. Should get Maturity pool rate", async () => {
@@ -130,11 +142,12 @@ describe("DefaultInterestRateModel", () => {
       supplied: 110000,
     };
 
-    const yearlyRate = maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+    const yearlyRateMaturity =  (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
-    const rate = ((yearlyRate * exaTime.daysDiffWith(futurePool)) / 365).toFixed(18)
+    const rate = truncDigits(((yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365), 18)
+    const actual = formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true));
 
-    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))).to.be.equal(rate);
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
 
   it("With well funded Smart pool, borrow 10000 from maturity pool. Should get Maturity pool rate", async () => {
@@ -151,15 +164,12 @@ describe("DefaultInterestRateModel", () => {
     };
 
     
-    const yearlyRate = Math.max(
-      smartPool.supplied == 0 ? 0 : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
-      maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied
-    )
+    const yearlyRateMaturity = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied
 
-    const rate = ((yearlyRate * exaTime.daysDiffWith(futurePool)) / 365).toFixed(18)
+    const rate = truncDigits(((yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365), 18)
+    const actual = formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true));
 
-
-    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))).to.be.equal(rate);
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
 
   it("With well funded Smart pool, borrow 10000 from maturity pool, after that borrow 10000 again. Should get Maturity pool rate in both cases", async () => {
@@ -175,14 +185,13 @@ describe("DefaultInterestRateModel", () => {
       supplied: 100000,
     };
 
-    const yearlyRate = Math.max(
-      smartPool.supplied == 0 ? 0 : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
-      maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied
-    )
+    const yearlyRateMaturity = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied
+    
 
-    const rate = ((yearlyRate * exaTime.daysDiffWith(futurePool)) / 365).toFixed(18)
+    const rate =  truncDigits(((yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365), 18)
+    const actual = formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))
 
-    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))).to.be.equal(rate);
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
 
     maturityPool = {
       borrowed: 20000,
@@ -196,7 +205,7 @@ describe("DefaultInterestRateModel", () => {
       supplied: 100000,
     };
 
-    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))).to.be.equal(rate);
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
 
   it("Borrow less than supplied in maturity pool", async () => {
@@ -212,11 +221,12 @@ describe("DefaultInterestRateModel", () => {
       supplied: 10000,
     };
 
-    const yearlyRate = maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+    const yearlyRateMaturity = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
-    const rate = ((yearlyRate * exaTime.daysDiffWith(futurePool)) / 365).toFixed(18)
+    const rate = truncDigits(((yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365), 18)
+    const actual = formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))
 
-    expect(formatUnits(await interestRateModel.getRateToBorrow(futurePool, maturityPool, smartPool, true))).to.be.equal(rate);
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
 
   it("Borrow less than supplied in maturity pool, then supply some more tokens", async () => {
@@ -232,11 +242,12 @@ describe("DefaultInterestRateModel", () => {
       supplied: 10000,
     };
 
-    const yearlyRate = maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+    const yearlyRateMaturity = (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
     
-    const rate = ((yearlyRate * exaTime.daysDiffWith(futurePool)) / 365).toFixed(18)
+    const rate = truncDigits(((yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365),18)
+    const actual = formatUnits(await interestRateModel.getRateToSupply(10, futurePool, maturityPool, smartPool))
 
-    expect(formatUnits(await interestRateModel.getRateToSupply(10, futurePool, maturityPool, smartPool))).to.be.equal(rate);
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
 
   it("Borrow 10 from maturity pool with no money in maturity pool nor smart pool", async () => {

@@ -55,7 +55,7 @@ interface IAuditor {
         address exafinBorrowed,
         address exafinCollateral,
         uint256 actualRepayAmount
-    ) external view returns (uint);
+    ) external view returns (uint256);
 
     function getFuturePools() external view returns (uint256[] memory);
     function getMarketAddresses() external view returns (address[] memory);

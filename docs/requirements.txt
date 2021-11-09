@@ -1,3 +1,4 @@
+docutils<0.18
 Sphinx==1.8.2
 sphinx-a4doc==1.2.1
 sphinxcontrib-applehelp==1.0.1
