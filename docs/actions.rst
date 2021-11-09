@@ -58,7 +58,7 @@ Now, let's see the more complex call:
     loop every enabled Exafin
     Auditor -> Exafin: getAccountSnapshot(user.address, poolId)
     Auditor <-- Exafin: balance, borrowBalance
-    Auditor -> Exafin: tokenName()
+    Auditor -> Exafin: underlyingTokenName()
     Auditor <-- Exafin: name
     Auditor -> Oracle: price(name)
     Auditor <-- Oracle: price
