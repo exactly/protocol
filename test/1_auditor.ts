@@ -48,8 +48,6 @@ describe("Auditor from User Space", function () {
     ],
   ]);
 
-  let closeFactor = parseUnits("0.4");
-
   let snapshot: any;
   before(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);

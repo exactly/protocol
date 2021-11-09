@@ -27,7 +27,7 @@ describe("Exafin", function () {
       "DAI",
       {
         decimals: 18,
-        collateralRate: parseUnits("0.8"),
+        collateralRate: parseUnits("0.85"),
         usdPrice: parseUnits("1"),
       },
     ],
