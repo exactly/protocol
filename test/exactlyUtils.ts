@@ -254,6 +254,8 @@ export class ExactlyEnv {
         const exafin = await Exafin.deploy(
           underlyingToken.address,
           tokenName,
+          tokenName,
+          tokenName,
           auditor.address,
           interestRateModel.address
         );

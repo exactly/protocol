@@ -99,6 +99,8 @@ describe("Auditor Admin", function () {
     const exafin = await Exafin.deploy(
       exactlyEnv.getUnderlying("DAI").address,
       "DAI",
+      "eDAI",
+      "eDAI",
       newAuditor.address,
       exactlyEnv.interestRateModel.address
     );
@@ -128,6 +130,8 @@ describe("Auditor Admin", function () {
     const exafin = await Exafin.deploy(
       exactlyEnv.getUnderlying("DAI").address,
       "DAI2",
+      "eDAI2",
+      "eDAI2",
       auditor.address,
       exactlyEnv.interestRateModel.address
     );

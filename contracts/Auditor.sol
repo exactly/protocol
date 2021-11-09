@@ -169,7 +169,7 @@ contract Auditor is IAuditor, AccessControl {
             vars.collateralFactor = markets[address(asset)].collateralFactor;
 
             // Get the normalized price of the asset (18 decimals)
-            vars.oraclePrice = oracle.getAssetPrice(asset.tokenName());
+            vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenName());
 
             // We sum all the collateral prices
             vars.sumCollateral += DecimalMath.getTokenAmountInUSD(vars.balance, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
@@ -259,7 +259,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         // We check that the asset price is valid
-        oracle.getAssetPrice(IExafin(exafinAddress).tokenName());
+        oracle.getAssetPrice(IExafin(exafinAddress).underlyingTokenName());
 
         uint256 borrowCap = borrowCaps[exafinAddress];
         // Borrow cap of 0 corresponds to unlimited borrowing
@@ -362,8 +362,8 @@ contract Auditor is IAuditor, AccessControl {
     ) override external view returns (uint256) {
 
         /* Read oracle prices for borrowed and collateral markets */
-        uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).tokenName());
-        uint256 priceCollateral = oracle.getAssetPrice(IExafin(exafinCollateral).tokenName());
+        uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).underlyingTokenName());
+        uint256 priceCollateral = oracle.getAssetPrice(IExafin(exafinCollateral).underlyingTokenName());
 
         uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(actualRepayAmount, priceBorrowed, markets[exafinBorrowed].decimals);
         // 10**18: usd amount decimals
