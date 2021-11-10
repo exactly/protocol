@@ -258,6 +258,12 @@ export class ExactlyEnv {
           totalSupply.toString()
         );
         await underlyingToken.deployed();
+        const MockedEToken = await ethers.getContractFactory("EToken");
+        const eToken = await MockedEToken.deploy(
+          "eFake " + tokenName,
+          "eF" + tokenName
+        );
+        await eToken.deployed();
 
         const Exafin = await ethers.getContractFactory("Exafin", {
           libraries: {
@@ -267,8 +273,7 @@ export class ExactlyEnv {
         const exafin = await Exafin.deploy(
           underlyingToken.address,
           tokenName,
-          tokenName,
-          tokenName,
+          eToken.address,
           auditor.address,
           interestRateModel.address
         );

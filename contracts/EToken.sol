@@ -1,33 +1,37 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
+import "./interfaces/IEToken.sol";
 
-contract EToken is Context, IERC20, IERC20Metadata {
+contract EToken is Context, IEToken {
     mapping(address => uint256) internal balances;
     mapping(address => uint256) internal earningsIndexUser;
 
     mapping(address => mapping(address => uint256)) private _allowances;
 
     uint256 internal _totalSupply;
-    string internal eTokenName;
-    string internal eTokenSymbol;
+    string private _name;
+    string private _symbol;
     uint256 private liquidityReserveIndex;
+
+    constructor(string memory _tokenName, string memory _tokenSymbol) {
+        _name = _tokenName;
+        _symbol = _tokenSymbol;
+    }
 
     /**
      * @dev Returns the name of the token.
      */
     function name() public view virtual override returns (string memory) {
-        return eTokenName;
+        return _name;
     }
 
     /**
      * @return The symbol of the token
      **/
     function symbol() public view virtual override returns (string memory) {
-        return eTokenSymbol;
+        return _symbol;
     }
 
     /**
@@ -208,7 +212,7 @@ contract EToken is Context, IERC20, IERC20Metadata {
      * @param user The address receiving the minted tokens
      * @param amount The amount of tokens getting minted
      */
-    function mint(address user, uint256 amount) public virtual {
+    function mint(address user, uint256 amount) external override {
         require(user != address(0), "ERC20: mint to the zero address");
 
         _totalSupply += amount;
@@ -226,7 +230,7 @@ contract EToken is Context, IERC20, IERC20Metadata {
      * @dev Increases contract earnings
      * @param amount The amount of underlying tokens deposited
      */
-    function accrueEarnings(uint256 amount) public virtual {
+    function accrueEarnings(uint256 amount) external override {
         require(_totalSupply > 0, "Total supply should be positive");
 
         liquidityReserveIndex += (amount * 1e18) / _totalSupply;
@@ -238,11 +242,8 @@ contract EToken is Context, IERC20, IERC20Metadata {
      * @param user The owner of the eTokens, getting them burned
      * @param amount The amount being burned
      **/
-    function burn(address user, uint256 amount) public virtual {
-        require(
-            balanceOf(user) >= amount,
-            "ERC20: burn amount exceeds balance"
-        );
+    function burn(address user, uint256 amount) external override {
+        require(balanceOf(user) >= amount, "ERC20: burn amount exceeds balance");
 
         balances[user] -=
             amount -
