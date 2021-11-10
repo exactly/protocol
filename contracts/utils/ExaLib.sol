@@ -5,17 +5,9 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IExafin.sol";
 import "../utils/DecimalMath.sol";
+import "../utils/MarketsLib.sol";
 import "../utils/Errors.sol";
 import "../ExaToken.sol";
-
-struct Market {
-    string symbol;
-    string name;
-    bool isListed;
-    uint256 collateralFactor;
-    uint8 decimals;
-    mapping(address => bool) accountMembership;
-}
 
 struct MarketRewardsState {
     uint224 index;
@@ -233,7 +225,7 @@ library ExaLib {
     function claimExa(
         RewardsState storage exafinState,
         uint blockNumber,
-        mapping(address => Market) storage markets,
+        mapping(address => MarketsLib.Market) storage markets,
         address[] memory holders,
         address[] memory exafinAddresses,
         bool borrowers,
@@ -242,7 +234,7 @@ library ExaLib {
 
         for (uint i = 0; i < exafinAddresses.length; i++) {
             address exafin = exafinAddresses[i];
-            Market storage market = markets[exafin];
+            MarketsLib.Market storage market = markets[exafin];
 
             if (!market.isListed) {
                 revert GenericError(ErrorCode.MARKET_NOT_LISTED);

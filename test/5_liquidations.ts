@@ -100,7 +100,10 @@ describe("Liquidations", function () {
     describe("AND GIVEN Alice takes the biggest loan she can (39900 DAI), collaterallization 1.65", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
-        await auditor.enterMarkets([exafinETH.address, exafinWBTC.address]);
+        await auditor.enterMarkets(
+          [exafinETH.address, exafinWBTC.address],
+          nextPoolID
+        );
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
         amountToBorrowDAI = parseUnits("39900");
 

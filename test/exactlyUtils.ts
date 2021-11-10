@@ -100,6 +100,7 @@ export enum ProtocolError {
   MARKET_BORROW_CAP_REACHED,
   INCONSISTENT_PARAMS_LENGTH,
   REDEEM_CANT_BE_ZERO,
+  EXIT_MARKET_BALANCE_OWED,
 }
 
 export type MockedTokenSpec = {
@@ -114,6 +115,7 @@ export class DefaultEnv {
   interestRateModel: Contract;
   tsUtils: Contract;
   exaLib: Contract;
+  marketsLib: Contract;
   exaToken: Contract;
   exafinContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
@@ -130,6 +132,7 @@ export class DefaultEnv {
     _tsUtils: Contract,
     _exaLib: Contract,
     _exaToken: Contract,
+    _marketsLib: Contract,
     _exafinContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>
   ) {
@@ -140,6 +143,7 @@ export class DefaultEnv {
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
     this.exaLib = _exaLib;
+    this.marketsLib = _marketsLib;
     this.exaToken = _exaToken;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
@@ -199,6 +203,14 @@ export class ExactlyEnv {
     let exaLib = await ExaLib.deploy();
     await exaLib.deployed();
 
+    const MarketsLib = await ethers.getContractFactory("MarketsLib", {
+      libraries: {
+        TSUtils: tsUtils.address,
+      },
+    });
+    let marketsLib = await MarketsLib.deploy();
+    await marketsLib.deployed();
+
     const ExaToken = await ethers.getContractFactory("ExaToken");
     let exaToken = await ExaToken.deploy();
     await exaToken.deployed();
@@ -225,6 +237,7 @@ export class ExactlyEnv {
       libraries: {
         TSUtils: tsUtils.address,
         ExaLib: exaLib.address,
+        MarketsLib: marketsLib.address,
       },
     });
     let auditor = await Auditor.deploy(oracle.address, exaToken.address);
@@ -283,6 +296,7 @@ export class ExactlyEnv {
           interestRateModel,
           tsUtils,
           exaLib,
+          marketsLib,
           exaToken,
           exafinContracts,
           underlyingContracts
@@ -292,6 +306,10 @@ export class ExactlyEnv {
   }
 
   static async createRewardsEnv(): Promise<RewardsLibEnv> {
+    const TSUtilsLib = await ethers.getContractFactory("TSUtils");
+    let tsUtils = await TSUtilsLib.deploy();
+    await tsUtils.deployed();
+
     const ExaLib = await ethers.getContractFactory("ExaLib");
     let exaLib = await ExaLib.deploy();
     await exaLib.deployed();

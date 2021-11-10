@@ -83,7 +83,10 @@ describe("Liquidity computations", function () {
     await dai.transfer(bob.address, parseUnits("100000"));
     await usdc.transfer(bob.address, parseUnits("100000", 6));
     // we make DAI & USDC count as collateral
-    await auditor.enterMarkets([exafinDAI.address, exafinUSDC.address]);
+    await auditor.enterMarkets(
+      [exafinDAI.address, exafinUSDC.address],
+      nextPoolID
+    );
   });
 
   describe("GIVEN theres liquidity on the btc exafin", () => {

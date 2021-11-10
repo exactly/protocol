@@ -83,6 +83,7 @@ describe("Auditor Admin", function () {
       libraries: {
         TSUtils: exactlyEnv.tsUtils.address,
         ExaLib: exactlyEnv.exaLib.address,
+        MarketsLib: exactlyEnv.marketsLib.address,
       },
     });
     let newAuditor = await Auditor.deploy(

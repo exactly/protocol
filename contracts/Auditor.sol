@@ -18,11 +18,13 @@ contract Auditor is IAuditor, AccessControl {
     using DecimalMath for uint256;
     using SafeCast for uint256;
     using ExaLib for ExaLib.RewardsState;
+    using MarketsLib for MarketsLib.TheBook;
 
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     event MarketListed(address exafin);
     event MarketEntered(address exafin, address account);
+    event MarketExited(address exafin, address account);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
     event NewBorrowCap(address indexed exafin, uint256 newBorrowCap);
@@ -41,10 +43,8 @@ contract Auditor is IAuditor, AccessControl {
     );
 
     // Protocol Management
-    mapping(address => Market) public markets;
-    mapping(address => bool) public borrowPaused;
-    mapping(address => uint256) public borrowCaps;
-    mapping(address => IExafin[]) public accountAssets;
+    MarketsLib.TheBook private book;
+
     uint256 public closeFactor = 5e17;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
@@ -54,15 +54,6 @@ contract Auditor is IAuditor, AccessControl {
 
     IOracle public oracle;
 
-    // Struct to avoid stack too deep
-    struct AccountLiquidity {
-        uint256 balance;
-        uint256 borrowBalance;
-        uint256 collateralFactor;
-        uint256 oraclePrice;
-        uint256 sumCollateral;
-        uint256 sumDebt;
-    }
 
     constructor(address _priceOracleAddress, address _exaToken) {
         rewardsState.exaToken = _exaToken;
@@ -75,40 +66,42 @@ contract Auditor is IAuditor, AccessControl {
      * @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
      *      By performing this action, the wallet's money could be used as collateral
      * @param exafins contracts addresses to enable for `msg.sender`
+     * @param maturityDate poolID in which it will start participating
      */
-    function enterMarkets(address[] calldata exafins)
+    function enterMarkets(address[] calldata exafins, uint256 maturityDate)
         external
     {
         uint256 len = exafins.length;
         for (uint256 i = 0; i < len; i++) {
-            IExafin exafin = IExafin(exafins[i]);
-            _addToMarket(exafin, msg.sender);
+            book.addToMarket(exafins[i], msg.sender, maturityDate);    
         }
     }
 
     /**
-     * @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
-     *      By performing this action, the wallet's money could be used as collateral
-     * @param exafin contracts addresses to enable
-     * @param borrower wallet that wants to enter a market
+     * @notice Removes exafin from sender's account liquidity calculation
+     * @dev Sender must not have an outstanding borrow balance in the asset,
+     *  or be providing necessary collateral for an outstanding borrow.
+     * @param exafinAddress The address of the asset to be removed
+     * @param maturityDate The timestamp/poolID where the user wants to stop borrowing
      */
-    function _addToMarket(IExafin exafin, address borrower)
-        internal
-    {
-        Market storage marketToJoin = markets[address(exafin)];
+    function exitMarket(address exafinAddress, uint256 maturityDate) external {
+        IExafin exafin = IExafin(exafinAddress);
 
-        if (!marketToJoin.isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        if(!TSUtils.isPoolID(maturityDate)) { 
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        if (marketToJoin.accountMembership[borrower] == true) {
-            return;
+        (uint256 amountHeld,uint256 borrowBalance) = exafin.getAccountSnapshot(msg.sender, maturityDate);
+
+        /* Fail if the sender has a borrow balance */
+        if (borrowBalance != 0) {
+            revert GenericError(ErrorCode.EXIT_MARKET_BALANCE_OWED);
         }
 
-        marketToJoin.accountMembership[borrower] = true;
-        accountAssets[borrower].push(exafin);
+        /* Fail if the sender is not permitted to redeem all of their tokens */
+        _redeemAllowed(exafinAddress, msg.sender, amountHeld, maturityDate);
 
-        emit MarketEntered(address(exafin), borrower);
+        book.exitMarket(exafinAddress, msg.sender, maturityDate);
     }
 
     /**
@@ -125,75 +118,9 @@ contract Auditor is IAuditor, AccessControl {
             uint256
         )
     {
-        return _accountLiquidity(account, maturityDate, address(0), 0, 0);
+        return book.accountLiquidity(oracle, account, maturityDate, address(0), 0, 0);
     }
 
-    /**
-     * @dev Function to get account's liquidity for a certain maturity pool
-     * @param account wallet to retrieve liquidity for a certain maturity date
-     * @param maturityDate timestamp to calculate maturity's pool
-     */
-    function _accountLiquidity(
-        address account,
-        uint256 maturityDate,
-        address exafinToSimulate,
-        uint256 redeemAmount,
-        uint256 borrowAmount
-    )
-        internal
-        view
-        returns (
-            uint256,
-            uint256
-        )
-    {
-
-        AccountLiquidity memory vars; // Holds all our calculation results
-
-        // For each asset the account is in
-        IExafin[] memory assets = accountAssets[account];
-        for (uint256 i = 0; i < assets.length; i++) {
-            IExafin asset = assets[i];
-            Market storage market = markets[address(asset)];
-
-            // Read the balances
-            (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
-                account,
-                maturityDate
-            );
-            vars.collateralFactor = markets[address(asset)].collateralFactor;
-
-            // Get the normalized price of the asset (18 decimals)
-            vars.oraclePrice = oracle.getAssetPrice(asset.tokenName());
-
-            // We sum all the collateral prices
-            vars.sumCollateral += DecimalMath.getTokenAmountInUSD(vars.balance, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
-
-            // We sum all the debt
-            vars.sumDebt += DecimalMath.getTokenAmountInUSD(vars.borrowBalance, vars.oraclePrice, market.decimals);
-
-            // Simulate the effects of borrowing from/lending to a pool
-            if (asset == IExafin(exafinToSimulate)) {
-                // Calculate the effects of borrowing exafins
-                if (borrowAmount != 0) {
-                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(borrowAmount, vars.oraclePrice, market.decimals);
-                }
-
-                // Calculate the effects of redeeming exafins
-                // (having less collateral is the same as having more debt for this calculation)
-                if (redeemAmount != 0) {
-                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(redeemAmount, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
-                }
-            }
-        }
-
-        // These are safe, as the underflow condition is checked first
-        if (vars.sumCollateral > vars.sumDebt) {
-            return (vars.sumCollateral - vars.sumDebt, 0);
-        } else {
-            return (0, vars.sumDebt - vars.sumCollateral);
-        }
-    }
 
 
     function supplyAllowed(
@@ -204,7 +131,7 @@ contract Auditor is IAuditor, AccessControl {
     ) override external {
         supplyAmount;
 
-        if (!markets[exafinAddress].isListed) {
+        if (!book.markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
@@ -232,45 +159,16 @@ contract Auditor is IAuditor, AccessControl {
         uint256 maturityDate
     ) external override {
 
-        if (borrowPaused[exafinAddress]) {
+        if (book.borrowPaused[exafinAddress]) {
             revert GenericError(ErrorCode.BORROW_PAUSED);
         }
 
         _requirePoolState(maturityDate, TSUtils.State.VALID); 
 
-        if (!markets[exafinAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        book.validateBorrow(exafinAddress, oracle, borrower, borrowAmount, maturityDate);
 
-        if (!markets[exafinAddress].accountMembership[borrower]) {
-            // only exafins may call borrowAllowed if borrower not in market
-            if (msg.sender != exafinAddress) {
-                revert GenericError(ErrorCode.NOT_AN_EXAFIN_SENDER);
-            }
-
-            // attempt to add borrower to the market // reverts if error
-            _addToMarket(IExafin(msg.sender), borrower);
-
-            // it should be impossible to break the important invariant
-            assert(markets[exafinAddress].accountMembership[borrower]);
-        }
-
-        // We check that the asset price is valid
-        oracle.getAssetPrice(IExafin(exafinAddress).tokenName());
-
-        uint256 borrowCap = borrowCaps[exafinAddress];
-        // Borrow cap of 0 corresponds to unlimited borrowing
-        if (borrowCap != 0) {
-            uint256 totalBorrows = IExafin(exafinAddress).getTotalBorrows(
-                maturityDate
-            );
-            uint256 nextTotalBorrows = totalBorrows + borrowAmount;
-            if (nextTotalBorrows >= borrowCap) {
-                revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
-            }
-        }
-
-        (, uint256 shortfall) = _accountLiquidity(
+        (, uint256 shortfall) = book.accountLiquidity(
+            oracle,
             borrower,
             maturityDate,
             exafinAddress,
@@ -303,19 +201,20 @@ contract Auditor is IAuditor, AccessControl {
         uint256 redeemTokens,
         uint256 maturityDate
     ) internal view {
-        if (!markets[exafinAddress].isListed) {
+        if (!book.markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         _requirePoolState(maturityDate, TSUtils.State.MATURED); 
 
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
-        if (!markets[exafinAddress].accountMembership[redeemer]) {
+        if (!book.markets[exafinAddress].accountMembership[redeemer][maturityDate]) {
             return;
         }
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (, uint256 shortfall) = _accountLiquidity(
+        (, uint256 shortfall) = book.accountLiquidity(
+            oracle,
             redeemer,
             maturityDate,
             exafinAddress,
@@ -333,7 +232,7 @@ contract Auditor is IAuditor, AccessControl {
         uint256 maturityDate
     ) override external {
 
-        if (!markets[exafinAddress].isListed) {
+        if (!book.markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
@@ -361,9 +260,9 @@ contract Auditor is IAuditor, AccessControl {
         uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).tokenName());
         uint256 priceCollateral = oracle.getAssetPrice(IExafin(exafinCollateral).tokenName());
 
-        uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(actualRepayAmount, priceBorrowed, markets[exafinBorrowed].decimals);
+        uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(actualRepayAmount, priceBorrowed, book.markets[exafinBorrowed].decimals);
         // 10**18: usd amount decimals
-        uint256 seizeTokens = DecimalMath.getTokenAmountFromUsd(amountInUSD, priceCollateral, markets[exafinCollateral].decimals);
+        uint256 seizeTokens = DecimalMath.getTokenAmountFromUsd(amountInUSD, priceCollateral, book.markets[exafinCollateral].decimals);
 
         return seizeTokens;
     }
@@ -396,12 +295,12 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         // if markets are listed, they have the same auditor
-        if (!markets[exafinBorrowed].isListed || !markets[exafinCollateral].isListed) {
+        if (!book.markets[exafinBorrowed].isListed || !book.markets[exafinCollateral].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) = _accountLiquidity(borrower, maturityDate, address(0), 0, 0);
+        (, uint256 shortfall) = book.accountLiquidity(oracle, borrower, maturityDate, address(0), 0, 0);
         if (shortfall == 0) {
             revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
         }
@@ -434,7 +333,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         // If markets are listed, they have also the same Auditor
-        if (!markets[exafinCollateral].isListed || !markets[exafinBorrowed].isListed) {
+        if (!book.markets[exafinCollateral].isListed || !book.markets[exafinBorrowed].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
     }
@@ -451,7 +350,7 @@ contract Auditor is IAuditor, AccessControl {
         string memory name,
         uint8 decimals
     ) public onlyRole(TEAM_ROLE) {
-        Market storage market = markets[exafin];
+        MarketsLib.Market storage market = book.markets[exafin];
 
         if (market.isListed) {
             revert GenericError(ErrorCode.MARKET_ALREADY_LISTED);
@@ -489,11 +388,11 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         for(uint256 i = 0; i < numMarkets; i++) {
-            if (!markets[exafins[i]].isListed) {
+            if (!book.markets[exafins[i]].isListed) {
                 revert GenericError(ErrorCode.MARKET_NOT_LISTED);
             }
 
-            borrowCaps[exafins[i]] = newBorrowCaps[i];
+            book.borrowCaps[exafins[i]] = newBorrowCaps[i];
             emit NewBorrowCap(exafins[i], newBorrowCaps[i]);
         }
     }
@@ -508,11 +407,11 @@ contract Auditor is IAuditor, AccessControl {
         onlyRole(TEAM_ROLE)
         returns (bool)
     {
-        if (!markets[exafin].isListed) {
+        if (!book.markets[exafin].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        borrowPaused[address(exafin)] = paused;
+        book.borrowPaused[address(exafin)] = paused;
         emit ActionPaused(exafin, "Borrow", paused);
         return paused;
     }
@@ -532,7 +431,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param exaSpeed New EXA speed for market
      */
     function setExaSpeed(address exafinAddress, uint256 exaSpeed) external onlyRole(TEAM_ROLE) {
-        Market storage market = markets[exafinAddress];
+        MarketsLib.Market storage market = book.markets[exafinAddress];
         if(market.isListed == false) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -572,7 +471,7 @@ contract Auditor is IAuditor, AccessControl {
     function claimExa(address holder, address[] memory exafins) public {
         address[] memory holders = new address[](1);
         holders[0] = holder;
-        rewardsState.claimExa(block.number, markets, holders, exafins, true, true);
+        rewardsState.claimExa(block.number, book.markets, holders, exafins, true, true);
     }
 
 }
