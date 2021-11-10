@@ -2,9 +2,8 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-interface IEToken is IERC20, IERC20Metadata {
+interface IEToken is IERC20 {
   /**
     * @dev Mints `amount` eTokens to `user`
     * @param user The address receiving the minted tokens

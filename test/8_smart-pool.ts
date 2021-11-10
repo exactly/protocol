@@ -65,7 +65,7 @@ describe("Smart Pool", function () {
     expect(balanceOfAssetInUserAddress).to.equal(amountToWithdraw);
   });
 
-  it.only("WithdrawFromSmartPool should fail when eToken balance is lower than withdraw amount", async () => {
+  it("WithdrawFromSmartPool should fail when eToken balance is lower than withdraw amount", async () => {
     let amountToDeposit = parseUnits("100");
     let amountToWithdraw = parseUnits("200");
     await underlyingToken.approve(exafin.address, amountToDeposit);
