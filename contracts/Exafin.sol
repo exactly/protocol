@@ -17,13 +17,28 @@ contract Exafin is IExafin, ReentrancyGuard {
     using DecimalMath for uint256;
     using PoolLib for PoolLib.Pool;
 
-    event Borrowed(address indexed to, uint256 amount, uint256 commission, uint256 maturityDate);
+    event Borrowed(
+        address indexed to,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
 
-    event Supplied(address indexed from, uint256 amount, uint256 commission, uint256 maturityDate);
+    event Supplied(
+        address indexed from,
+        uint256 amount,
+        uint256 commission,
+        uint256 maturityDate
+    );
 
     event Redeemed(address indexed from, uint256 amount, uint256 maturityDate);
 
-    event Repaid(address indexed payer, address indexed borrower, uint256 amount, uint256 maturityDate);
+    event Repaid(
+        address indexed payer,
+        address indexed borrower,
+        uint256 amount,
+        uint256 maturityDate
+    );
 
     event LiquidateBorrow(
         address liquidator,
@@ -34,7 +49,12 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 maturityDate
     );
 
-    event Seized(address liquidator, address borrower, uint256 seizedAmount, uint256 maturityDate);
+    event Seized(
+        address liquidator,
+        address borrower,
+        uint256 seizedAmount,
+        uint256 maturityDate
+    );
     event ReservesAdded(address benefactor, uint256 addAmount);
 
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
@@ -85,7 +105,11 @@ contract Exafin is IExafin, ReentrancyGuard {
      * @param amount amount to send to the specified wallet
      * @param maturityDate maturity date for repayment
      */
-    function borrow(uint256 amount, uint256 maturityDate) public override nonReentrant {
+    function borrow(uint256 amount, uint256 maturityDate)
+        public
+        override
+        nonReentrant
+    {
         bool newDebt = false;
 
         if (!TSUtils.isPoolID(maturityDate)) {
@@ -109,7 +133,12 @@ contract Exafin is IExafin, ReentrancyGuard {
             pool.available = pool.available - amount;
         }
 
-        uint256 commissionRate = interestRateModel.getRateToBorrow(maturityDate, pool, smartPool, newDebt);
+        uint256 commissionRate = interestRateModel.getRateToBorrow(
+            maturityDate,
+            pool,
+            smartPool,
+            newDebt
+        );
         uint256 commission = amount.mul_(commissionRate);
 
         pool.borrowed = pool.borrowed + commission;
@@ -163,7 +192,12 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         pools[maturityDate] = pool;
 
-        uint256 commissionRate = interestRateModel.getRateToSupply(amount - pool.debt, maturityDate, pool, smartPool);
+        uint256 commissionRate = interestRateModel.getRateToSupply(
+            amount - pool.debt,
+            maturityDate,
+            pool,
+            smartPool
+        );
 
         uint256 commission = amount.mul_(commissionRate);
         uint256 currentTotalDeposit = amount + commission;
@@ -195,15 +229,27 @@ contract Exafin is IExafin, ReentrancyGuard {
         }
 
         // reverts on failure
-        auditor.redeemAllowed(address(this), redeemer, redeemAmount, maturityDate);
+        auditor.redeemAllowed(
+            address(this),
+            redeemer,
+            redeemAmount,
+            maturityDate
+        );
 
         suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
         totalDeposits -= redeemAmount;
         totalDepositsUser[redeemer] -= redeemAmount;
 
-        require(trustedUnderlying.balanceOf(address(this)) >= redeemAmount, "Not enough liquidity");
+        require(
+            trustedUnderlying.balanceOf(address(this)) >= redeemAmount,
+            "Not enough liquidity"
+        );
 
-        trustedUnderlying.safeTransferFrom(address(this), redeemer, redeemAmount);
+        trustedUnderlying.safeTransferFrom(
+            address(this),
+            redeemer,
+            redeemAmount
+        );
 
         emit Redeemed(redeemer, redeemAmount, maturityDate);
     }
@@ -214,14 +260,22 @@ contract Exafin is IExafin, ReentrancyGuard {
      * @param borrower The address of the account that has the debt
      * @param maturityDate The matured date where the debt is located
      */
-    function repay(address borrower, uint256 maturityDate) external override nonReentrant {
+    function repay(address borrower, uint256 maturityDate)
+        external
+        override
+        nonReentrant
+    {
         // reverts on failure
         auditor.repayAllowed(address(this), borrower, maturityDate);
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
 
-        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amountBorrowed);
+        trustedUnderlying.safeTransferFrom(
+            msg.sender,
+            address(this),
+            amountBorrowed
+        );
         totalBorrows -= amountBorrowed;
         totalBorrowsUser[borrower] -= amountBorrowed;
 
@@ -279,7 +333,14 @@ contract Exafin is IExafin, ReentrancyGuard {
         IExafin exafinCollateral,
         uint256 maturityDate
     ) external override nonReentrant returns (uint256) {
-        return _liquidate(msg.sender, borrower, repayAmount, exafinCollateral, maturityDate);
+        return
+            _liquidate(
+                msg.sender,
+                borrower,
+                repayAmount,
+                exafinCollateral,
+                maturityDate
+            );
     }
 
     /**
@@ -318,7 +379,10 @@ contract Exafin is IExafin, ReentrancyGuard {
         );
 
         /* Revert if borrower collateral token balance < seizeTokens */
-        (uint256 balance, ) = exafinCollateral.getAccountSnapshot(borrower, maturityDate);
+        (uint256 balance, ) = exafinCollateral.getAccountSnapshot(
+            borrower,
+            maturityDate
+        );
         if (balance < seizeTokens) {
             revert GenericError(ErrorCode.TOKENS_MORE_THAN_BALANCE);
         }
@@ -327,13 +391,31 @@ contract Exafin is IExafin, ReentrancyGuard {
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
         // both revert on failure
         if (address(exafinCollateral) == address(this)) {
-            _seize(address(this), liquidator, borrower, seizeTokens, maturityDate);
+            _seize(
+                address(this),
+                liquidator,
+                borrower,
+                seizeTokens,
+                maturityDate
+            );
         } else {
-            exafinCollateral.seize(liquidator, borrower, seizeTokens, maturityDate);
+            exafinCollateral.seize(
+                liquidator,
+                borrower,
+                seizeTokens,
+                maturityDate
+            );
         }
 
         /* We emit a LiquidateBorrow event */
-        emit LiquidateBorrow(liquidator, borrower, repayAmount, address(exafinCollateral), seizeTokens, maturityDate);
+        emit LiquidateBorrow(
+            liquidator,
+            borrower,
+            repayAmount,
+            address(exafinCollateral),
+            seizeTokens,
+            maturityDate
+        );
 
         return repayAmount;
     }
@@ -402,18 +484,31 @@ contract Exafin is IExafin, ReentrancyGuard {
      * @param who wallet to return status snapshot in the specified maturity date
      * @param maturityDate maturity date
      */
-    function getAccountSnapshot(address who, uint256 maturityDate) public view override returns (uint256, uint256) {
+    function getAccountSnapshot(address who, uint256 maturityDate)
+        public
+        view
+        override
+        returns (uint256, uint256)
+    {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
-        return (suppliedAmounts[maturityDate][who], borrowedAmounts[maturityDate][who]);
+        return (
+            suppliedAmounts[maturityDate][who],
+            borrowedAmounts[maturityDate][who]
+        );
     }
 
     /**
      * @dev Gets the total amount of borrowed money for a maturityDate
      * @param maturityDate maturity date
      */
-    function getTotalBorrows(uint256 maturityDate) public view override returns (uint256) {
+    function getTotalBorrows(uint256 maturityDate)
+        public
+        view
+        override
+        returns (uint256)
+    {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
