@@ -7,13 +7,14 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./EToken.sol";
 import "./interfaces/IExafin.sol";
 import "./interfaces/IAuditor.sol";
+import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract Exafin is IExafin, ReentrancyGuard, EToken {
+contract Exafin is IExafin, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
     using PoolLib for PoolLib.Pool;
@@ -68,6 +69,7 @@ contract Exafin is IExafin, ReentrancyGuard, EToken {
     PoolLib.SmartPool public smartPool;
 
     IERC20 private trustedUnderlying;
+    IEToken private eToken;
     string public override underlyingTokenName;
 
     IAuditor public auditor;
@@ -84,18 +86,16 @@ contract Exafin is IExafin, ReentrancyGuard, EToken {
     constructor(
         address _tokenAddress,
         string memory _underlyingTokenName,
-        string memory _eTokenName,
-        string memory _eTokenSymbol,
+        address _eTokenAddress,
         address _auditorAddress,
         address _interestRateModelAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
         underlyingTokenName = _underlyingTokenName;
-        eTokenName = _eTokenName;
-        eTokenSymbol = _eTokenSymbol;
 
         auditor = IAuditor(_auditorAddress);
+        eToken = IEToken(_eTokenAddress);
         interestRateModel = IInterestRateModel(_interestRateModelAddress);
 
         smartPool.borrowed = 0;
@@ -487,6 +487,36 @@ contract Exafin is IExafin, ReentrancyGuard, EToken {
     }
 
     /**
+    * @dev Deposits an `amount` of underlying asset into the smart pool, receiving in return overlying eTokens.
+    * - E.g. User deposits 100 USDC and gets in return 100 eUSDC
+    * @param amount The amount to be deposited
+    **/
+    function depositToSmartPool(uint256 amount) external override {
+        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
+
+        eToken.mint(msg.sender, amount);
+    }
+
+    /**
+    * @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned
+    * - E.g. User has 100 eUSDC, calls withdraw() and receives 100 USDC, burning the 100 eUSDC
+    * @param amount The underlying amount to be withdrawn
+    * - Send the value type(uint256).max in order to withdraw the whole eToken balance
+    **/
+    function withdrawFromSmartPool(
+        uint256 amount
+    ) external override {
+        uint256 userBalance = eToken.balanceOf(msg.sender);
+        uint256 amountToWithdraw = amount;
+        if (amount == type(uint256).max) {
+            amountToWithdraw = userBalance;
+        }
+
+        eToken.burn(msg.sender, amountToWithdraw);
+        trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
+    }
+
+    /**
      * @dev Gets current snapshot for a wallet in a certain maturity
      * @param who wallet to return status snapshot in the specified maturity date
      * @param maturityDate maturity date
@@ -534,7 +564,7 @@ contract Exafin is IExafin, ReentrancyGuard, EToken {
      *      for a user -- This is NOT for ERC20 of the smart pool
      */
     function suppliesOf(address who) public view override returns (uint256) {
-        return balances[who] + totalDepositsUser[who];
+        return eToken.balanceOf(who) + totalDepositsUser[who];
     }
 
     /**

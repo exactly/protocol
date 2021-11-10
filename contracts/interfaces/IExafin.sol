@@ -12,6 +12,14 @@ interface IExafin {
         uint256 maturityDate
     ) external;
 
+    function depositToSmartPool(
+        uint256 amount
+    ) external;
+
+    function withdrawFromSmartPool(
+        uint256 amount
+    ) external;
+
     function redeem(
         address payable redeemer,
         uint256 redeemAmount,
