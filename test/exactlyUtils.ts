@@ -131,8 +131,8 @@ export class DefaultEnv {
     _interestRateModel: Contract,
     _tsUtils: Contract,
     _exaLib: Contract,
-    _exaToken: Contract,
     _marketsLib: Contract,
+    _exaToken: Contract,
     _exafinContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>
   ) {

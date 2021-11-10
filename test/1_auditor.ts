@@ -343,7 +343,7 @@ describe("Auditor from User Space", function () {
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
   });
 
-  it.only("Uncollaterized position can be liquidated", async () => {
+  it("Uncollaterized position can be liquidated", async () => {
     const exafinETH = exactlyEnv.getExafin("ETH");
     const eth = exactlyEnv.getUnderlying("ETH");
     const exafinDAI = exactlyEnv.getExafin("DAI");

@@ -53,8 +53,8 @@ library MarketsLib {
     function addToMarket(TheBook storage book, address exafinAddress, address who, uint256 maturityDate) public {
         MarketsLib.Market storage marketToJoin = book.markets[exafinAddress];
         addToMaturity(marketToJoin, who, maturityDate);
-        book.accountAssets[msg.sender][maturityDate].push(IExafin(exafinAddress));
-        emit MarketEntered(exafinAddress, msg.sender);
+        book.accountAssets[who][maturityDate].push(IExafin(exafinAddress));
+        emit MarketEntered(exafinAddress, who);
     }
 
     /**
@@ -106,7 +106,7 @@ library MarketsLib {
         assert(assetIndex < len);
 
         // copy last item in list to location of item to be removed, reduce length by 1
-        IExafin[] storage storedList = book.accountAssets[msg.sender][maturityDate];
+        IExafin[] storage storedList = book.accountAssets[who][maturityDate];
         storedList[assetIndex] = storedList[storedList.length - 1];
         storedList.pop();
 
