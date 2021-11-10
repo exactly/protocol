@@ -70,14 +70,15 @@ describe("Auditor from User Space", function () {
 
   it("We try to enter an unlisted market and fail", async () => {
     await expect(
-      auditor.enterMarkets([exactlyEnv.notAnExafinAddress])
+      auditor.enterMarkets([exactlyEnv.notAnExafinAddress], nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("We enter market twice without failing", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
-    await auditor.enterMarkets([exafinDAI.address]);
-    await expect(auditor.enterMarkets([exafinDAI.address])).to.not.be.reverted;
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
+    await expect(auditor.enterMarkets([exafinDAI.address], nextPoolID)).to.not
+      .be.reverted;
   });
 
   it("SupplyAllowed should fail for an unlisted market", async () => {
@@ -110,7 +111,7 @@ describe("Auditor from User Space", function () {
     await dai.approve(exafinDAI.address, amountDAI);
     await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 
-    await auditor.enterMarkets([exafinDAI.address]);
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
 
     await exactlyEnv.oracle.setPrice("DAI", 0);
     await expect(
@@ -221,7 +222,7 @@ describe("Auditor from User Space", function () {
     await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
-    await auditor.enterMarkets([exafinDAI.address]);
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
     await expect(
       // user borrows half of it's collateral
       exafinDAI.borrow(amountDAI.div(2), nextPoolID)
@@ -299,7 +300,7 @@ describe("Auditor from User Space", function () {
     expect(await dai.balanceOf(exafinDAI.address)).to.equal(amountDAI);
 
     // we make it count as collateral (DAI)
-    await auditor.enterMarkets([exafinDAI.address]);
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
 
     const exafinETH = exactlyEnv.getExafin("ETH");
     const eth = exactlyEnv.getUnderlying("ETH");
@@ -313,7 +314,7 @@ describe("Auditor from User Space", function () {
     expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH);
 
     // we make it count as collateral (ETH)
-    await auditor.enterMarkets([exafinETH.address]);
+    await auditor.enterMarkets([exafinETH.address], nextPoolID);
 
     let liquidity = (
       await auditor.getAccountLiquidity(owner.address, nextPoolID)
@@ -364,7 +365,10 @@ describe("Auditor from User Space", function () {
     );
 
     // we make ETH & WBTC count as collateral
-    await auditor.enterMarkets([exafinETH.address, exafinWBTC.address]);
+    await auditor.enterMarkets(
+      [exafinETH.address, exafinWBTC.address],
+      nextPoolID
+    );
     // this works because 1USD (liquidity) = 1DAI (asset to borrow)
     let liquidityInUSD = (
       await auditor.getAccountLiquidity(owner.address, nextPoolID)
@@ -452,7 +456,7 @@ describe("Auditor from User Space", function () {
     await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
-    await auditor.enterMarkets([exafinDAI.address]);
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
 
     await exactlyEnv.oracle.setPrice("DAI", 0);
     await expect(

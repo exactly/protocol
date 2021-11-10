@@ -159,7 +159,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     let tx = await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
     expect(tx).to.emit(exafinMaria, "Borrowed");
     let event = await parseBorrowEvent(tx);
@@ -179,7 +179,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(
       exafinMaria.borrow(parseUnits("0.8"), exaTime.pastPoolID())
     ).to.be.revertedWith(
@@ -198,7 +198,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(
       exafinMaria.borrow(parseUnits("0.8"), notYetEnabledPoolID)
     ).to.be.revertedWith(
@@ -218,7 +218,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(
       exafinMaria.borrow(parseUnits("0.8"), invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
@@ -246,7 +246,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(exafinMaria.borrow(parseUnits("0.9"), exaTime.nextPoolID())).to
       .be.reverted;
   });

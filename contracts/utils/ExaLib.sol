@@ -14,7 +14,7 @@ struct Market {
     bool isListed;
     uint256 collateralFactor;
     uint8 decimals;
-    mapping(address => bool) accountMembership;
+    mapping(address => mapping(uint256 => bool)) accountMembership;
 }
 
 struct MarketRewardsState {
