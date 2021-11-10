@@ -31,11 +31,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 maturityDate
     );
 
-    event Redeemed(
-        address indexed from,
-        uint256 amount,
-        uint256 maturityDate
-    );
+    event Redeemed(address indexed from, uint256 amount, uint256 maturityDate);
 
     event Repaid(
         address indexed payer,
@@ -59,11 +55,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 seizedAmount,
         uint256 maturityDate
     );
-
-    event ReservesAdded(
-        address benefactor,
-        uint256 addAmount
-    );
+    event ReservesAdded(address benefactor, uint256 addAmount);
 
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
@@ -71,6 +63,8 @@ contract Exafin is IExafin, ReentrancyGuard {
     mapping(address => uint256[]) public addressPools;
 
     uint256 private constant PROTOCOL_SEIZE_SHARE = 2.8e16; //2.8%
+
+    PoolLib.SmartPool public smartPool;
 
     IERC20 private trustedUnderlying;
     string public override tokenName;
@@ -83,11 +77,11 @@ contract Exafin is IExafin, ReentrancyGuard {
     mapping(address => uint256) public balances;
 
     // Total deposits in all maturities
-    uint256 override public totalDeposits;
+    uint256 public override totalDeposits;
     mapping(address => uint256) private totalDepositsUser;
 
     // Total borrows in all maturities
-    uint256 override public totalBorrows;
+    uint256 public override totalBorrows;
     mapping(address => uint256) private totalBorrowsUser;
 
     constructor(
@@ -99,39 +93,11 @@ contract Exafin is IExafin, ReentrancyGuard {
         trustedUnderlying = IERC20(_tokenAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
         tokenName = _tokenName;
-
         auditor = IAuditor(_auditorAddress);
         interestRateModel = IInterestRateModel(_interestRateModelAddress);
-    }
 
-    /**
-     * @dev Get current rate to borrow a certain amount in a certain maturity
-     *      in the current state of the pool and the pot
-     * @param amount amount to borrow from a certain maturity date
-     * @param maturityDate maturity date for calculating rates
-     */
-    function getRateToBorrow(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
-        if(!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        PoolLib.Pool memory poolMaturity = pools[maturityDate];
-        return interestRateModel.getRateToBorrow(amount, maturityDate, poolMaturity, poolMaturity);
-    }
-
-    /**
-     * @dev Get current rate for supplying a certain amount in a certain maturity
-     *      in the current state of the pool and the pot
-     * @param amount amount to supply to a certain maturity date
-     * @param maturityDate maturity date for calculating rates
-     */
-    function getRateToSupply(uint256 amount, uint256 maturityDate) override public view returns (uint256) {
-        if(!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        PoolLib.Pool memory poolMaturity = pools[maturityDate];
-        return interestRateModel.getRateToSupply(amount, maturityDate, poolMaturity, poolMaturity);
+        smartPool.borrowed = 0;
+        smartPool.supplied = 0;
     }
 
     /**
@@ -139,40 +105,50 @@ contract Exafin is IExafin, ReentrancyGuard {
      * @param amount amount to send to the specified wallet
      * @param maturityDate maturity date for repayment
      */
-    function borrow(
-        uint256 amount,
-        uint256 maturityDate
-    ) override public nonReentrant {
+    function borrow(uint256 amount, uint256 maturityDate)
+        public
+        override
+        nonReentrant
+    {
+        bool newDebt = false;
 
-        if(!TSUtils.isPoolID(maturityDate)) {
+        if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
         // reverts on failure
-        auditor.borrowAllowed(
-            address(this),
-            msg.sender,
-            amount,
-            maturityDate
-        );
+        auditor.borrowAllowed(address(this), msg.sender, amount, maturityDate);
+
+        pool.borrowed = pool.borrowed + amount;
+
+        if (amount > pool.available) {
+            smartPool.borrowed = smartPool.borrowed + amount - pool.available;
+            pool.debt = pool.debt + amount - pool.available;
+            pool.supplied = pool.supplied + amount - pool.available;
+            pool.available = 0;
+            newDebt = true;
+        } else {
+            pool.available = pool.available - amount;
+        }
 
         uint256 commissionRate = interestRateModel.getRateToBorrow(
-            amount,
             maturityDate,
             pool,
-            pool // TO BE REPLACED BY POT
+            smartPool,
+            newDebt
         );
-
         uint256 commission = amount.mul_(commissionRate);
-        uint256 totalBorrow = amount + commission;
-        borrowedAmounts[maturityDate][msg.sender] += totalBorrow;
-        pool.borrowed += totalBorrow;
+
+        pool.borrowed = pool.borrowed + commission;
         pools[maturityDate] = pool;
 
-        totalBorrows += totalBorrow;
-        totalBorrowsUser[msg.sender] += totalBorrow;
+        uint256 currentTotalBorrow = amount + commission;
+        borrowedAmounts[maturityDate][msg.sender] += currentTotalBorrow;
+
+        totalBorrows += currentTotalBorrow;
+        totalBorrowsUser[msg.sender] += currentTotalBorrow;
 
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
@@ -180,7 +156,7 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-     * @dev Supplies a certain amount to the protocol for 
+     * @dev Supplies a certain amount to the protocol for
      *      a certain maturity date/pool
      * @param from wallet to receive amount from
      * @param amount amount to receive from the specified wallet
@@ -190,36 +166,45 @@ contract Exafin is IExafin, ReentrancyGuard {
         address from,
         uint256 amount,
         uint256 maturityDate
-    ) override public nonReentrant {
-        if(!TSUtils.isPoolID(maturityDate)) {
+    ) public override nonReentrant {
+        if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
         PoolLib.Pool memory pool = pools[maturityDate];
 
         // reverts on failure
-        auditor.supplyAllowed(
-            address(this),
-            from,
-            amount,
-            maturityDate
-        );
+        auditor.supplyAllowed(address(this), from, amount, maturityDate);
+
+        if (pool.debt > 0) {
+            if (amount >= pool.debt) {
+                pool.debt = 0;
+                pool.supplied = pool.supplied + amount;
+                pool.available = amount;
+            } else {
+                pool.debt = pool.debt - amount;
+                smartPool.supplied = smartPool.supplied + amount;
+            }
+        } else {
+            pool.supplied = pool.supplied + amount;
+            pool.available = pool.available + amount;
+        }
+
+        pools[maturityDate] = pool;
 
         uint256 commissionRate = interestRateModel.getRateToSupply(
-            amount,
+            amount - pool.debt,
             maturityDate,
             pool,
-            pool // TO BE REPLACED BY POT
+            smartPool
         );
 
         uint256 commission = amount.mul_(commissionRate);
-        uint256 totalAmount = amount + commission;
-        suppliedAmounts[maturityDate][from] += totalAmount;
-        pool.supplied += totalAmount;
-        pools[maturityDate] = pool;
+        uint256 currentTotalDeposit = amount + commission;
+        suppliedAmounts[maturityDate][from] += currentTotalDeposit;
 
-        totalDeposits += totalAmount;
-        totalDepositsUser[from] += totalAmount;
+        totalDeposits += currentTotalDeposit;
+        totalDepositsUser[from] += currentTotalDeposit;
 
         trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
@@ -239,7 +224,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 redeemAmount,
         uint256 maturityDate
     ) external override nonReentrant {
-        if(redeemAmount == 0) {
+        if (redeemAmount == 0) {
             revert GenericError(ErrorCode.REDEEM_CANT_BE_ZERO);
         }
 
@@ -275,21 +260,22 @@ contract Exafin is IExafin, ReentrancyGuard {
      * @param borrower The address of the account that has the debt
      * @param maturityDate The matured date where the debt is located
      */
-    function repay(
-        address borrower,
-        uint256 maturityDate
-    ) override external nonReentrant {
+    function repay(address borrower, uint256 maturityDate)
+        external
+        override
+        nonReentrant
+    {
         // reverts on failure
-        auditor.repayAllowed(
-            address(this),
-            borrower,
-            maturityDate
-        );
+        auditor.repayAllowed(address(this), borrower, maturityDate);
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
 
-        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amountBorrowed);
+        trustedUnderlying.safeTransferFrom(
+            msg.sender,
+            address(this),
+            amountBorrowed
+        );
         totalBorrows -= amountBorrowed;
         totalBorrowsUser[borrower] -= amountBorrowed;
 
@@ -301,7 +287,7 @@ contract Exafin is IExafin, ReentrancyGuard {
     /**
      * @notice This function allows to partially repay a position on liquidation
      * @dev repay function on liquidation, it allows to partially pay debt, and it
-     *      doesn't check `repayAllowed` on the auditor. It should be called after 
+     *      doesn't check `repayAllowed` on the auditor. It should be called after
      *      liquidateAllowed
      * @param payer The address of the account that will pay the debt
      * @param borrower The address of the account that has the debt
@@ -346,8 +332,15 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 repayAmount,
         IExafin exafinCollateral,
         uint256 maturityDate
-    ) override external nonReentrant returns (uint256) {
-        return _liquidate(msg.sender, borrower, repayAmount, exafinCollateral, maturityDate);
+    ) external override nonReentrant returns (uint256) {
+        return
+            _liquidate(
+                msg.sender,
+                borrower,
+                repayAmount,
+                exafinCollateral,
+                maturityDate
+            );
     }
 
     /**
@@ -366,24 +359,30 @@ contract Exafin is IExafin, ReentrancyGuard {
         IExafin exafinCollateral,
         uint256 maturityDate
     ) internal returns (uint256) {
-
         // reverts on failure
         auditor.liquidateAllowed(
             address(this),
             address(exafinCollateral),
             liquidator,
             borrower,
-            repayAmount, 
+            repayAmount,
             maturityDate
         );
 
         _repayLiquidate(liquidator, borrower, repayAmount, maturityDate);
 
         // reverts on failure
-        uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(address(this), address(exafinCollateral), repayAmount);
+        uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(
+            address(this),
+            address(exafinCollateral),
+            repayAmount
+        );
 
         /* Revert if borrower collateral token balance < seizeTokens */
-        (uint256 balance,) = exafinCollateral.getAccountSnapshot(borrower, maturityDate);
+        (uint256 balance, ) = exafinCollateral.getAccountSnapshot(
+            borrower,
+            maturityDate
+        );
         if (balance < seizeTokens) {
             revert GenericError(ErrorCode.TOKENS_MORE_THAN_BALANCE);
         }
@@ -392,21 +391,39 @@ contract Exafin is IExafin, ReentrancyGuard {
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
         // both revert on failure
         if (address(exafinCollateral) == address(this)) {
-            _seize(address(this), liquidator, borrower, seizeTokens, maturityDate);
+            _seize(
+                address(this),
+                liquidator,
+                borrower,
+                seizeTokens,
+                maturityDate
+            );
         } else {
-            exafinCollateral.seize(liquidator, borrower, seizeTokens, maturityDate);
+            exafinCollateral.seize(
+                liquidator,
+                borrower,
+                seizeTokens,
+                maturityDate
+            );
         }
 
         /* We emit a LiquidateBorrow event */
-        emit LiquidateBorrow(liquidator, borrower, repayAmount, address(exafinCollateral), seizeTokens, maturityDate);
+        emit LiquidateBorrow(
+            liquidator,
+            borrower,
+            repayAmount,
+            address(exafinCollateral),
+            seizeTokens,
+            maturityDate
+        );
 
         return repayAmount;
     }
 
     /**
      * @notice Public function to seize a certain amount of tokens
-     * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date. 
-     *      This function will only be called from another Exafins, on `liquidation` calls. 
+     * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date.
+     *      This function will only be called from another Exafins, on `liquidation` calls.
      *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
      * @param liquidator address which will receive the seized tokens
      * @param borrower address from which the tokens will be seized
@@ -418,14 +435,14 @@ contract Exafin is IExafin, ReentrancyGuard {
         address borrower,
         uint256 seizeAmount,
         uint256 maturityDate
-    ) override external nonReentrant {
+    ) external override nonReentrant {
         _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
     }
 
     /**
      * @notice Private function to seize a certain amount of tokens
-     * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date. 
-     *      This function will only be called from this Exafin, on `liquidation` or through `seize` calls from another Exafins. 
+     * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date.
+     *      This function will only be called from this Exafin, on `liquidation` or through `seize` calls from another Exafins.
      *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
      * @param seizerExafin address which is calling the seize function (see `seize` public function)
      * @param liquidator address which will receive the seized tokens
@@ -440,14 +457,8 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 seizeAmount,
         uint256 maturityDate
     ) internal {
-
         // reverts on failure
-        auditor.seizeAllowed(
-            address(this),
-            seizerExafin,
-            liquidator,
-            borrower
-        );
+        auditor.seizeAllowed(address(this), seizerExafin, liquidator, borrower);
 
         uint256 protocolAmount = seizeAmount.mul_(PROTOCOL_SEIZE_SHARE);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
@@ -479,10 +490,13 @@ contract Exafin is IExafin, ReentrancyGuard {
         override
         returns (uint256, uint256)
     {
-        if(!TSUtils.isPoolID(maturityDate)) {
+        if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
-        return (suppliedAmounts[maturityDate][who], borrowedAmounts[maturityDate][who]);
+        return (
+            suppliedAmounts[maturityDate][who],
+            borrowedAmounts[maturityDate][who]
+        );
     }
 
     /**
@@ -495,7 +509,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         override
         returns (uint256)
     {
-        if(!TSUtils.isPoolID(maturityDate)) {
+        if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
         return pools[maturityDate].borrowed;

@@ -277,6 +277,7 @@ contract Auditor is IAuditor, AccessControl {
             0,
             borrowAmount
         );
+
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
