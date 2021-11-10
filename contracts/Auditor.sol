@@ -71,6 +71,10 @@ contract Auditor is IAuditor, AccessControl {
     function enterMarkets(address[] calldata exafins, uint256 maturityDate)
         external
     {
+        if (!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
+
         uint256 len = exafins.length;
         for (uint256 i = 0; i < len; i++) {
             book.addToMarket(exafins[i], msg.sender, maturityDate);    

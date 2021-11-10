@@ -14,7 +14,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 describe("Liquidity computations", function () {
   let auditor: Contract;
   let exactlyEnv: DefaultEnv;
-  let nextPoolID: number;
+  let nextPoolID = new ExaTime().nextPoolID();
 
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
@@ -66,7 +66,6 @@ describe("Liquidity computations", function () {
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
-    nextPoolID = new ExaTime().nextPoolID();
 
     exafinDAI = exactlyEnv.getExafin("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
