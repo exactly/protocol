@@ -88,10 +88,6 @@ describe("DefaultInterestRateModel", () => {
     // This can be optimized (so we only do it once per file, not per test)
     // This helps with tests that use evm_setNextBlockTimestamp
     snapshot = await ethers.provider.send("evm_snapshot", []);
-
-    //This sets the EVM timestamp to a specific so we have real unit testing
-    // await ethers.provider.send("evm_setNextBlockTimestamp", [exaTime.nextPoolID()]);
-    // await ethers.provider.send("evm_mine", []);
   });
 
   afterEach(async () => {

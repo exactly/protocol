@@ -52,7 +52,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     /**
         @dev Get current rate for borrow a certain amount in a certain maturity
              with supply/demand values in the maturity pool and supply demand values
-             in the pot
+             in the smart pool
         @param maturityDate maturity date for calculating days left to maturity
         @param maturityPool supply/demand values for the maturity pool
         @param smartPool supply/demand values for the smartPool
@@ -68,15 +68,23 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        uint256 daysDifference = (maturityDate - TSUtils.trimmedDay(block.timestamp)) / 1 days;
+        uint256 daysDifference = (maturityDate -
+            TSUtils.trimmedDay(block.timestamp)) / 1 days;
         uint256 yearlyRate;
 
         if (!newDebt) {
-            yearlyRate = maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+            yearlyRate = maturityPool.supplied == 0
+                ? 0
+                : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
         } else {
             yearlyRate = Math.max(
-                smartPool.supplied == 0 ? 0 : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
-                maturityPool.supplied == 0 ? 0 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied
+                smartPool.supplied == 0
+                    ? 0
+                    : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
+                maturityPool.supplied == 0
+                    ? 0
+                    : (mpSlopeRate * maturityPool.borrowed) /
+                        maturityPool.supplied
             );
         }
 
@@ -86,7 +94,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     /**
         @dev Get current rate for supplying a certain amount in a certain maturity
              with supply/demand values in the maturity pool and supply demand values
-             in the pot
+             in the smart pool
         @param amount amount to supply to a certain maturity date
         @param maturityDate maturity date for calculating days left to maturity
         @param maturityPool supply/demand values for the maturity pool
@@ -108,9 +116,13 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
         uint256 smartPoolYearlyRate = smartPool.supplied == 0
             ? 0
-            : ((spSlopeRate * smartPool.borrowed) / (smartPool.supplied + amount));
+            : ((spSlopeRate * smartPool.borrowed) /
+                (smartPool.supplied + amount));
 
-        if (maturityPoolYearlyRate != 0 && maturityPool.supplied - maturityPool.borrowed != 0) {
+        if (
+            maturityPoolYearlyRate != 0 &&
+            maturityPool.supplied - maturityPool.borrowed != 0
+        ) {
             yearlyRate = maturityPoolYearlyRate;
         }
 
@@ -121,7 +133,8 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             yearlyRate = smartPoolYearlyRate;
         }
 
-        uint256 daysDifference = (maturityDate - TSUtils.trimmedDay(block.timestamp)) / 1 days;
+        uint256 daysDifference = (maturityDate -
+            TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
         return ((yearlyRate * daysDifference) / 365);
     }
