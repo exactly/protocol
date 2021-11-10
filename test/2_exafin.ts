@@ -46,6 +46,9 @@ describe("Exafin", function () {
   let exaTime: ExaTime = new ExaTime();
 
   let snapshot: any;
+  beforeEach(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  });
 
   beforeEach(async () => {
     [owner, mariaUser] = await ethers.getSigners();
@@ -58,10 +61,6 @@ describe("Exafin", function () {
 
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
-
-    // This can be optimized (so we only do it once per file, not per test)
-    // This helps with tests that use evm_setNextBlockTimestamp
-    snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
   it("GetAccountSnapshot fails on an invalid pool", async () => {

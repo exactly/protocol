@@ -54,7 +54,7 @@ describe("Liquidity computations", function () {
   ]);
 
   let snapshot: any;
-  before(async () => {
+  beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 

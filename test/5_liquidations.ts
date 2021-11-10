@@ -57,7 +57,7 @@ describe("Liquidations", function () {
   let owedDAI: BigNumber;
 
   let snapshot: any;
-  before(async () => {
+  beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
@@ -226,7 +226,7 @@ describe("Liquidations", function () {
     });
   });
 
-  after(async () => {
+  afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
   });
