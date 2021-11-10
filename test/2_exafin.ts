@@ -148,6 +148,22 @@ describe("Exafin", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
+  it("it doesn't allow you to enter an invalid market (INVALID POOL ID)", async () => {
+    const invalidPoolID = exaTime.pastPoolID() + 666;
+    await expect(
+      auditor.enterMarkets([exafin.address], invalidPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+  });
+
+  it("it doesn't allow you to enter an invalid market", async () => {
+    await expect(
+      auditor.enterMarkets(
+        [exactlyEnv.notAnExafinAddress],
+        exaTime.nextPoolID()
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
   it("it allows you to borrow money", async () => {
     let exafinMaria = exafin.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
