@@ -56,7 +56,10 @@ describe("DefaultInterestRateModel", () => {
   };
 
   let mpSlopeRate: number = 0.07;
-  const closeToRate = 1 * 10 ** -18;
+  let spSlopeRate: number = 0.07;
+  let spHighURSlopeRate: number = 0.4;
+
+  const closeToRate: number = 1 * 10 ** -17;
 
   beforeEach(async () => {
     maturityPool = {
@@ -289,6 +292,103 @@ describe("DefaultInterestRateModel", () => {
       (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
       18
     );
+    const actual = formatUnits(
+      await interestRateModel.getRateToSupply(
+        10,
+        futurePool,
+        maturityPool,
+        smartPool
+      )
+    );
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+  });
+
+  it("Borrow more than supplied in maturity pool with high UR in smart pool. Should get high slope", async () => {
+    maturityPool = {
+      borrowed: 2,
+      supplied: 1,
+      debt: 1,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 901,
+      supplied: 1000,
+    };
+
+    const actual = formatUnits(
+      await interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        true
+      )
+    );
+
+    const yearlyRateSmartHighUR =
+      (spHighURSlopeRate * smartPool.borrowed) / smartPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateSmartHighUR * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+  });
+
+  it("Supply to smart pool when high UR. Should get high slope", async () => {
+    maturityPool = {
+      borrowed: 10,
+      supplied: 10010,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 0,
+      supplied: 10000,
+    };
+
+    const yearlyRateMaturity =
+      (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+    const actual = formatUnits(
+      await interestRateModel.getRateToSupply(
+        10,
+        futurePool,
+        maturityPool,
+        smartPool
+      )
+    );
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+  });
+
+  it("Supply to empty maturity pool when smart pool has high UR", async () => {
+    maturityPool = {
+      borrowed: 0,
+      supplied: 0,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 9999,
+      supplied: 10000,
+    };
+
+    const yearlyRateSmart = spSlopeRate;
+
+    const rate = truncDigits(
+      (yearlyRateSmart * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+
     const actual = formatUnits(
       await interestRateModel.getRateToSupply(
         10,

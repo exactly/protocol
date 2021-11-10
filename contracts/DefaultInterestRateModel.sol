@@ -19,16 +19,24 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     uint256 public marginRate;
     uint256 public mpSlopeRate;
     uint256 public spSlopeRate;
+    uint256 public spHighURSlope;
+    uint256 public breakRate;
+
     using DecimalMath for uint256;
 
     constructor(
         uint256 _marginRate,
         uint256 _mpSlopeRate,
-        uint256 _spSlopeRate
+        uint256 _spSlopeRate,
+        uint256 _spHighURSlope,
+        uint256 _breakRate
     ) {
         marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
+        spHighURSlope = _spHighURSlope;
+        breakRate = _breakRate;
+
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(TEAM_ROLE, msg.sender);
     }
@@ -42,11 +50,13 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     function setParameters(
         uint256 _marginRate,
         uint256 _mpSlopeRate,
-        uint256 _spSlopeRate
+        uint256 _spSlopeRate,
+        uint256 _spHighURSlope
     ) external onlyRole(TEAM_ROLE) {
         marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
+        spHighURSlope = _spHighURSlope;
     }
 
     /**
@@ -56,7 +66,7 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         @param maturityDate maturity date for calculating days left to maturity
         @param maturityPool supply/demand values for the maturity pool
         @param smartPool supply/demand values for the smartPool
-        @param  newDebt checks if the maturity pool borrows money from the smart pool in this borrow
+        @param newDebt checks if the maturity pool borrows money from the smart pool in this borrow
      */
     function getRateToBorrow(
         uint256 maturityDate,
@@ -77,10 +87,13 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
                 ? 0
                 : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
         } else {
+            uint256 smartPoolUtilizationRate = smartPool.supplied == 0 ? 0 : smartPool.borrowed.div_(smartPool.supplied);
+            uint256 spCurrentSlopeRate = smartPoolUtilizationRate >= breakRate ? spHighURSlope : spSlopeRate;
+
             yearlyRate = Math.max(
                 smartPool.supplied == 0
                     ? 0
-                    : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
+                    : (spCurrentSlopeRate * smartPool.borrowed) / smartPool.supplied,
                 maturityPool.supplied == 0
                     ? 0
                     : (mpSlopeRate * maturityPool.borrowed) /
@@ -110,13 +123,16 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
+        uint256 smartPoolUtilizationRate = smartPool.supplied == 0 ? 0 : smartPool.borrowed.div_(smartPool.supplied);
+        bool isHighURSlope = smartPoolUtilizationRate >= breakRate ? true : false;
+
         uint256 yearlyRate;
         uint256 maturityPoolYearlyRate = maturityPool.supplied == 0
             ? 0
             : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
         uint256 smartPoolYearlyRate = smartPool.supplied == 0
             ? 0
-            : ((spSlopeRate * smartPool.borrowed) /
+            : isHighURSlope ? spSlopeRate : ((spSlopeRate * smartPool.borrowed) /
                 (smartPool.supplied + amount));
 
         if (
