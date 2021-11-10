@@ -13,7 +13,7 @@ describe("EToken", () => {
     [bob, laura] = await ethers.getSigners();
 
     const EToken = await ethers.getContractFactory("EToken", {});
-    eToken = await EToken.deploy();
+    eToken = await EToken.deploy("eDAI", "eDAI");
     await eToken.deployed();
   });
 
@@ -37,7 +37,7 @@ describe("EToken", () => {
 
     expect(bobBalance).to.equal(amountToMint);
     expect(lauraBalance).to.equal(amountToMint);
-    expect(totalSupply).to.equal("2000");
+    expect(totalSupply).to.equal(parseUnits("2000"));
   });
 
   it("Mint should correctly increase balance of user if called several times", async () => {
