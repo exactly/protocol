@@ -97,11 +97,15 @@ describe("Auditor Admin", function () {
         TSUtils: exactlyEnv.tsUtils.address,
       },
     });
+
+    const EToken = await ethers.getContractFactory("EToken");
+    const eToken = await EToken.deploy("aExa", "aEXA");
+    await eToken.deployed();
+
     const exafin = await Exafin.deploy(
       exactlyEnv.getUnderlying("DAI").address,
       "DAI",
-      "eDAI",
-      "eDAI",
+      eToken.address,
       newAuditor.address,
       exactlyEnv.interestRateModel.address
     );
@@ -128,11 +132,15 @@ describe("Auditor Admin", function () {
         TSUtils: tsUtils.address,
       },
     });
+
+    const EToken = await ethers.getContractFactory("EToken");
+    const eToken = await EToken.deploy("aExa", "aEXA");
+    await eToken.deployed();
+
     const exafin = await Exafin.deploy(
       exactlyEnv.getUnderlying("DAI").address,
       "DAI2",
-      "eDAI2",
-      "eDAI2",
+      eToken.address,
       auditor.address,
       exactlyEnv.interestRateModel.address
     );
