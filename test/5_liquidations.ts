@@ -219,7 +219,7 @@ describe("Liquidations", function () {
               errorGeneric(ProtocolError.TOKENS_MORE_THAN_BALANCE)
             );
           });
-          it("WHEN liquidating slightly more than the close factor(0.5), THEN it reverts", async () => {
+          it("WHEN liquidating slightly more than the close factor(0.5), (20000 DAI), THEN it reverts", async () => {
             // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
             await expect(
               exafinDAI
@@ -232,15 +232,49 @@ describe("Liquidations", function () {
                 )
             ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_REPAY));
           });
-          it("AND WHEN liquidating slightly less than the close factor, THEN it succeeds", async () => {
-            await exafinDAI
-              .connect(bob)
-              .liquidate(
-                alice.address,
-                parseUnits("19000"),
-                exafinWBTC.address,
-                nextPoolID
+          describe("AND WHEN liquidating slightly less than the close factor (19000 DAI)", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  parseUnits("19000"),
+                  exafinWBTC.address,
+                  nextPoolID
+                );
+              await tx;
+            });
+            // FIXME: this shouldn't work like this, the liquidation should be
+            // at a slightly better than market price
+            it("THEN roughly 19000 USD of collateral (WBTC) is seized", async () => {
+              const protocolShare = parseUnits("0.028");
+              // this is equivalent to 18999.9 USD, at the provided price of 32500
+              const seizedWBTC = parseUnits("58461538", 0);
+              await expect(tx)
+                .to.emit(exafinWBTC, "Seized")
+                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+              const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
+              // note that the liquidator is actually being paid 2.8% less (!!)
+              // than market rate
+              expect(await wbtc.balanceOf(bob.address)).to.eq(
+                seizedWBTC.sub(fee)
               );
+            });
+            it("AND 19000 DAI of debt is repaid", async () => {
+              const bobDAIBalanceBefore = parseUnits("35000");
+              await expect(tx)
+                .to.emit(exafinDAI, "Repaid")
+                .withArgs(
+                  bob.address,
+                  alice.address,
+                  parseUnits("19000"),
+                  nextPoolID
+                );
+              expect(await dai.balanceOf(bob.address)).to.eq(
+                bobDAIBalanceBefore.sub(parseUnits("19000"))
+              );
+            });
           });
         });
       });
