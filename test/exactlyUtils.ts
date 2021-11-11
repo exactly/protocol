@@ -324,9 +324,8 @@ export class ExactlyEnv {
 
 export class ExaTime {
   timestamp: number;
-
-  private oneDay: number = 86400;
-  private INTERVAL: number = 86400 * 7;
+  ONE_DAY: number = 86400;
+  INTERVAL: number = 86400 * 7;
 
   constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
     this.timestamp = timestamp;
@@ -345,11 +344,11 @@ export class ExaTime {
   }
 
   public trimmedDay(): number {
-    return this.timestamp - (this.timestamp % this.oneDay);
+    return this.timestamp - (this.timestamp % this.ONE_DAY);
   }
 
   public daysDiffWith(anotherTimestamp: number): number {
-    return (anotherTimestamp - this.trimmedDay()) / this.oneDay;
+    return (anotherTimestamp - this.trimmedDay()) / this.ONE_DAY;
   }
 
   public futurePools(maxPools: number): number[] {

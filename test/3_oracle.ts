@@ -4,6 +4,7 @@ import { Contract } from "ethers";
 import {
   errorGeneric,
   ExactlyEnv,
+  ExaTime,
   ProtocolError,
   DefaultEnv,
 } from "./exactlyUtils";
@@ -18,6 +19,10 @@ describe("ExactlyOracle", function () {
   let underlyingToken: Contract;
 
   let user: SignerWithAddress;
+  let snapshot: any;
+  let exaTime = new ExaTime();
+  let mockedDate = exaTime.timestamp;
+  let maxDelayTime: number;
 
   // Set the MockedOracle prices to zero
   let mockedTokens = new Map([
@@ -43,12 +48,7 @@ describe("ExactlyOracle", function () {
     ["ETH", { usdPrice: parseUnits("3100", 8) }],
   ]);
 
-  let snapshot: any;
-  beforeEach(async () => {
-    snapshot = await ethers.provider.send("evm_snapshot", []);
-  });
-
-  beforeEach(async () => {
+  before(async () => {
     [, user] = await ethers.getSigners();
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     underlyingToken = exactlyEnv.getUnderlying("DAI");
@@ -74,6 +74,7 @@ describe("ExactlyOracle", function () {
         );
       })
     );
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(exaTime.timestamp);
 
     const ExactlyOracle = await ethers.getContractFactory("ExactlyOracle");
     exactlyOracle = await ExactlyOracle.deploy(
@@ -85,6 +86,14 @@ describe("ExactlyOracle", function () {
     await exactlyOracle.deployed();
     await exactlyOracle.setAssetSources(tokenNames, tokenAddresses);
     await exactlyEnv.setOracle(exactlyOracle.address);
+    maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
+
+    // This helps with tests that use evm_setNextBlockTimestamp
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  });
+
+  beforeEach(async () => {
+    mockedDate += exaTime.ONE_DAY; // we add a day so it's not the same timestamp than previous blocks
   });
 
   it("GetAssetPrice returns a positive and valid price value", async () => {
@@ -97,6 +106,41 @@ describe("ExactlyOracle", function () {
     );
     expect(priceOfDai).to.be.equal(
       chainlinkPrices.get("DAI")!.usdPrice.mul(1e10)
+    );
+  });
+
+  it("GetAssetPrice does not fail when Chainlink price is not older than maxDelayTime", async () => {
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(
+      mockedDate - (maxDelayTime - 1)
+    );
+
+    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.not.be.reverted;
+  });
+
+  it("GetAssetPrice does not fail when Chainlink price is equal to maxDelayTime", async () => {
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(
+      mockedDate - maxDelayTime
+    );
+
+    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.not.be.reverted;
+  });
+
+  it("GetAssetPrice should fail when Chainlink price is older than maxDelayTime", async () => {
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(
+      mockedDate - (maxDelayTime + 1)
+    );
+
+    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(
+      errorGeneric(ProtocolError.PRICE_ERROR)
     );
   });
 
@@ -133,12 +177,24 @@ describe("ExactlyOracle", function () {
   it("SetAssetSources should set the address source of an asset", async () => {
     let linkSymbol = "LINK";
     let linkAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA";
-    await exactlyOracle.setAssetSources([linkSymbol], [linkAddress]);
+
+    await expect(
+      await exactlyOracle.setAssetSources([linkSymbol], [linkAddress])
+    )
+      .to.emit(exactlyOracle, "SymbolSourceUpdated")
+      .withArgs(linkSymbol, linkAddress);
     await chainlinkFeedRegistry.setPrice(
       linkAddress,
       exactlyEnv.usdAddress,
       10
     );
+
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(
+      mockedDate - maxDelayTime
+    );
+    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
+    await ethers.provider.send("evm_mine", []);
+
     await expect(exactlyOracle.getAssetPrice(linkSymbol)).to.not.be.reverted;
   });
 
@@ -159,7 +215,7 @@ describe("ExactlyOracle", function () {
     ).to.be.revertedWith("AccessControl");
   });
 
-  afterEach(async () => {
+  after(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
   });
