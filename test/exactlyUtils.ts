@@ -344,7 +344,7 @@ export class ExaTime {
   }
 
   public trimmedDay(): number {
-    return (this.timestamp - (this.timestamp % this.ONE_DAY));
+    return this.timestamp - (this.timestamp % this.ONE_DAY);
   }
 
   public daysDiffWith(anotherTimestamp: number): number {
