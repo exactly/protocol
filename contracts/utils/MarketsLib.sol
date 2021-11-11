@@ -27,7 +27,7 @@ library MarketsLib {
     }
 
     // Book-keeping
-    struct TheBook {
+    struct Book {
         mapping(address => MarketsLib.Market) markets;
         mapping(address => bool) borrowPaused;
         mapping(address => uint256) borrowCaps;
@@ -50,7 +50,7 @@ library MarketsLib {
      * @param who address of the user that it will start participating in a market/maturity
      * @param maturityDate poolID in which it will start participating
      */
-    function addToMarket(TheBook storage book, address exafinAddress, address who, uint256 maturityDate) public {
+    function addToMarket(Book storage book, address exafinAddress, address who, uint256 maturityDate) public {
         MarketsLib.Market storage marketToJoin = book.markets[exafinAddress];
         addToMaturity(marketToJoin, who, maturityDate);
         book.accountAssets[who][maturityDate].push(IExafin(exafinAddress));
@@ -80,7 +80,7 @@ library MarketsLib {
         market.accountMembership[borrower][maturityDate] = true;
     }
 
-    function exitMarket(TheBook storage book, address exafinAddress, address who, uint256 maturityDate) external {
+    function exitMarket(Book storage book, address exafinAddress, address who, uint256 maturityDate) external {
         MarketsLib.Market storage marketToExit = book.markets[exafinAddress];
 
         if (marketToExit.accountMembership[who][maturityDate] == false) {
@@ -110,7 +110,7 @@ library MarketsLib {
         storedList[assetIndex] = storedList[storedList.length - 1];
         storedList.pop();
 
-        emit MarketExited(exafinAddress, msg.sender);
+        emit MarketExited(exafinAddress, who);
     }
 
     /**
@@ -119,7 +119,7 @@ library MarketsLib {
      * @param maturityDate timestamp to calculate maturity's pool
      */
     function accountLiquidity(
-        TheBook storage book,
+        Book storage book,
         IOracle oracle,
         address account,
         uint256 maturityDate,
@@ -183,7 +183,7 @@ library MarketsLib {
     }
 
     function validateBorrow(
-        TheBook storage book,
+        Book storage book,
         address exafinAddress,
         IOracle oracle,
         address borrower,

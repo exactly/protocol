@@ -9,7 +9,7 @@ contract AuditorHarness {
 
     using DecimalMath for uint256;
     using ExaLib for ExaLib.RewardsState;
-    using MarketsLib for MarketsLib.TheBook;
+    using MarketsLib for MarketsLib.Book;
 
     event DistributedSupplierExa(
         address indexed exafin,
@@ -30,7 +30,7 @@ contract AuditorHarness {
     // Rewards Management
     ExaLib.RewardsState public rewardsState;
     // Protocol Management
-    MarketsLib.TheBook private book;
+    MarketsLib.Book private book;
 
     constructor(address _exaToken) {
         rewardsState.exaToken = _exaToken;

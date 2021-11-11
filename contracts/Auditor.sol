@@ -18,7 +18,7 @@ contract Auditor is IAuditor, AccessControl {
     using DecimalMath for uint256;
     using SafeCast for uint256;
     using ExaLib for ExaLib.RewardsState;
-    using MarketsLib for MarketsLib.TheBook;
+    using MarketsLib for MarketsLib.Book;
 
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
@@ -43,7 +43,7 @@ contract Auditor is IAuditor, AccessControl {
     );
 
     // Protocol Management
-    MarketsLib.TheBook private book;
+    MarketsLib.Book private book;
 
     uint256 public closeFactor = 5e17;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
