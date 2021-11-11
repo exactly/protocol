@@ -75,7 +75,8 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
      *      By performing this action, the wallet's money could be used as collateral
-     * @param exafins contracts addresses to enable for `msg.sender`
+     * @param exafins contracts addresses to enable for `msg.sender` for a certain maturity
+     * @param maturityDate poolID in which the exafins will be enabled
      */
     function enterMarkets(address[] calldata exafins, uint256 maturityDate)
         external
@@ -96,6 +97,7 @@ contract Auditor is IAuditor, AccessControl {
      *      By performing this action, the wallet's money could be used as collateral
      * @param exafin contracts addresses to enable
      * @param borrower wallet that wants to enter a market
+     * @param maturityDate poolID in which the exafins will be enabled
      */
     function _addToMarket(IExafin exafin, address borrower, uint256 maturityDate)
         internal
