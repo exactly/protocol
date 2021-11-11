@@ -36,7 +36,7 @@ describe("Auditor Admin", function () {
   ]);
 
   let snapshot: any;
-  before(async () => {
+  beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
@@ -203,7 +203,7 @@ describe("Auditor Admin", function () {
     ).to.emit(auditor, "ExaSpeedUpdated");
   });
 
-  after(async () => {
+  afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
   });

@@ -219,7 +219,7 @@ contract Auditor is IAuditor, AccessControl {
         rewardsState.distributeSupplierExa(exafinAddress, supplier);
     }
 
-    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external view {
+    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external override view {
         return _requirePoolState(maturityDate, requiredState);
     }
 
@@ -240,8 +240,6 @@ contract Auditor is IAuditor, AccessControl {
         if (borrowPaused[exafinAddress]) {
             revert GenericError(ErrorCode.BORROW_PAUSED);
         }
-
-        _requirePoolState(maturityDate, TSUtils.State.VALID); 
 
         if (!markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
@@ -282,6 +280,7 @@ contract Auditor is IAuditor, AccessControl {
             0,
             borrowAmount
         );
+
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }

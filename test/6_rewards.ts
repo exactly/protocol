@@ -16,6 +16,7 @@ describe("ExaToken", () => {
   let exactlyEnv: DefaultEnv;
   let rewardsLibEnv: RewardsLibEnv;
   let exaTime: ExaTime = new ExaTime();
+  let snapshot: any;
 
   let mockedTokens = new Map([
     [
@@ -47,6 +48,9 @@ describe("ExaToken", () => {
   let mariaUser: SignerWithAddress;
   let bobUser: SignerWithAddress;
   let owner: SignerWithAddress;
+  beforeEach(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  });
 
   beforeEach(async () => {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
@@ -111,10 +115,7 @@ describe("ExaToken", () => {
     });
 
     describe("Exafin-Auditor-ExaLib integration", () => {
-      let snapshot: any;
-
       beforeEach(async () => {
-        snapshot = await ethers.provider.send("evm_snapshot", []);
         await auditor.setExaSpeed(exafinDAI.address, parseUnits("0.5"));
         await dai.transfer(mariaUser.address, parseUnits("1000"));
         await exaToken.transfer(auditor.address, parseUnits("50"));
@@ -231,11 +232,6 @@ describe("ExaToken", () => {
         await expect(
           exafinMaria.repay(mariaUser.address, exaTime.nextPoolID())
         ).to.emit(auditor, "DistributedBorrowerExa");
-      });
-
-      afterEach(async () => {
-        await ethers.provider.send("evm_revert", [snapshot]);
-        await ethers.provider.send("evm_mine", []);
       });
     });
   });
@@ -697,5 +693,9 @@ describe("ExaToken", () => {
       expect(bobBalancePre).to.equal(0);
       expect(bobBalancePost).to.equal(exaSpeed.mul(deltaBlocks).sub(1));
     });
+  });
+  afterEach(async () => {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
   });
 });
