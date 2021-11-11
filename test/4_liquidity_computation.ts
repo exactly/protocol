@@ -14,7 +14,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 describe("Liquidity computations", function () {
   let auditor: Contract;
   let exactlyEnv: DefaultEnv;
-  let nextPoolID: number;
+  let nextPoolID = new ExaTime().nextPoolID();
 
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
@@ -66,7 +66,6 @@ describe("Liquidity computations", function () {
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
-    nextPoolID = new ExaTime().nextPoolID();
 
     exafinDAI = exactlyEnv.getExafin("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
@@ -84,10 +83,13 @@ describe("Liquidity computations", function () {
     await dai.transfer(bob.address, parseUnits("100000"));
     await usdc.transfer(bob.address, parseUnits("100000", 6));
     // we make DAI & USDC count as collateral
-    await auditor.enterMarkets([exafinDAI.address, exafinUSDC.address]);
+    await auditor.enterMarkets(
+      [exafinDAI.address, exafinUSDC.address],
+      nextPoolID
+    );
     await auditor
       .connect(laura)
-      .enterMarkets([exafinDAI.address, exafinUSDC.address]);
+      .enterMarkets([exafinDAI.address, exafinUSDC.address], nextPoolID);
   });
 
   describe("positions arent immediately liquidateable", () => {

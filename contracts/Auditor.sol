@@ -22,7 +22,7 @@ contract Auditor is IAuditor, AccessControl {
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     event MarketListed(address exafin);
-    event MarketEntered(address exafin, address account);
+    event MarketEntered(address exafin, address account, uint256 maturityDate);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
     event NewBorrowCap(address indexed exafin, uint256 newBorrowCap);
@@ -44,7 +44,8 @@ contract Auditor is IAuditor, AccessControl {
     mapping(address => Market) public markets;
     mapping(address => bool) public borrowPaused;
     mapping(address => uint256) public borrowCaps;
-    mapping(address => IExafin[]) public accountAssets;
+    mapping(address => mapping(uint256 => IExafin[])) public accountAssets;
+
     uint256 public closeFactor = 5e17;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
@@ -74,15 +75,18 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
      *      By performing this action, the wallet's money could be used as collateral
-     * @param exafins contracts addresses to enable for `msg.sender`
+     * @param exafins contracts addresses to enable for `msg.sender` for a certain maturity
+     * @param maturityDate poolID in which the exafins will be enabled
      */
-    function enterMarkets(address[] calldata exafins)
+    function enterMarkets(address[] calldata exafins, uint256 maturityDate)
         external
     {
+        _requirePoolState(maturityDate, TSUtils.State.VALID);
+
         uint256 len = exafins.length;
         for (uint256 i = 0; i < len; i++) {
             IExafin exafin = IExafin(exafins[i]);
-            _addToMarket(exafin, msg.sender);
+            _addToMarket(exafin, msg.sender, maturityDate);
         }
     }
 
@@ -91,8 +95,9 @@ contract Auditor is IAuditor, AccessControl {
      *      By performing this action, the wallet's money could be used as collateral
      * @param exafin contracts addresses to enable
      * @param borrower wallet that wants to enter a market
+     * @param maturityDate poolID in which the exafins will be enabled
      */
-    function _addToMarket(IExafin exafin, address borrower)
+    function _addToMarket(IExafin exafin, address borrower, uint256 maturityDate)
         internal
     {
         Market storage marketToJoin = markets[address(exafin)];
@@ -101,14 +106,14 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if (marketToJoin.accountMembership[borrower] == true) {
+        if (marketToJoin.accountMembership[borrower][maturityDate] == true) {
             return;
         }
 
-        marketToJoin.accountMembership[borrower] = true;
-        accountAssets[borrower].push(exafin);
+        marketToJoin.accountMembership[borrower][maturityDate] = true;
+        accountAssets[borrower][maturityDate].push(exafin);
 
-        emit MarketEntered(address(exafin), borrower);
+        emit MarketEntered(address(exafin), borrower, maturityDate);
     }
 
     /**
@@ -151,7 +156,7 @@ contract Auditor is IAuditor, AccessControl {
         AccountLiquidity memory vars; // Holds all our calculation results
 
         // For each asset the account is in
-        IExafin[] memory assets = accountAssets[account];
+        IExafin[] memory assets = accountAssets[account][maturityDate];
         for (uint256 i = 0; i < assets.length; i++) {
             IExafin asset = assets[i];
             Market storage market = markets[address(asset)];
@@ -240,17 +245,17 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if (!markets[exafinAddress].accountMembership[borrower]) {
+        if (!markets[exafinAddress].accountMembership[borrower][maturityDate]) {
             // only exafins may call borrowAllowed if borrower not in market
             if (msg.sender != exafinAddress) {
                 revert GenericError(ErrorCode.NOT_AN_EXAFIN_SENDER);
             }
 
             // attempt to add borrower to the market // reverts if error
-            _addToMarket(IExafin(msg.sender), borrower);
+            _addToMarket(IExafin(msg.sender), borrower, maturityDate);
 
             // it should be impossible to break the important invariant
-            assert(markets[exafinAddress].accountMembership[borrower]);
+            assert(markets[exafinAddress].accountMembership[borrower][maturityDate]);
         }
 
         // We check that the asset price is valid
@@ -309,7 +314,7 @@ contract Auditor is IAuditor, AccessControl {
         _requirePoolState(maturityDate, TSUtils.State.MATURED); 
 
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
-        if (!markets[exafinAddress].accountMembership[redeemer]) {
+        if (!markets[exafinAddress].accountMembership[redeemer][maturityDate]) {
             return;
         }
 

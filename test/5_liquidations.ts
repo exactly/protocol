@@ -14,7 +14,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 describe("Liquidations", function () {
   let auditor: Contract;
   let exactlyEnv: DefaultEnv;
-  let nextPoolID: number;
+  let nextPoolID = new ExaTime().nextPoolID();
 
   let bob: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -66,7 +66,6 @@ describe("Liquidations", function () {
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
-    nextPoolID = new ExaTime().nextPoolID();
 
     exafinETH = exactlyEnv.getExafin("ETH");
     eth = exactlyEnv.getUnderlying("ETH");
@@ -100,7 +99,10 @@ describe("Liquidations", function () {
     describe("AND GIVEN Alice takes the biggest loan she can (39850 DAI), collaterallization 1.65", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
-        await auditor.enterMarkets([exafinETH.address, exafinWBTC.address]);
+        await auditor.enterMarkets(
+          [exafinETH.address, exafinWBTC.address],
+          nextPoolID
+        );
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
         amountToBorrowDAI = parseUnits("39850");
 

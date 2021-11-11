@@ -133,6 +133,24 @@ describe("Exafin", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
+  it("it doesn't allow you to enter a market with an invalid pool id", async () => {
+    const invalidPoolID = exaTime.pastPoolID() + 666;
+    await expect(
+      auditor.enterMarkets([exafin.address], invalidPoolID)
+    ).to.be.revertedWith(
+      errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
+    );
+  });
+
+  it("it doesn't allow you to enter a not listed market (invalid exafin address)", async () => {
+    await expect(
+      auditor.enterMarkets(
+        [exactlyEnv.notAnExafinAddress],
+        exaTime.nextPoolID()
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
   it("it allows you to borrow money", async () => {
     let exafinMaria = exafin.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
@@ -144,7 +162,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     let tx = await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
     expect(tx).to.emit(exafinMaria, "Borrowed");
     let event = await parseBorrowEvent(tx);
@@ -164,7 +182,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(
       exafinMaria.borrow(parseUnits("0.8"), exaTime.pastPoolID())
     ).to.be.revertedWith(
@@ -183,7 +201,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(
       exafinMaria.borrow(parseUnits("0.8"), notYetEnabledPoolID)
     ).to.be.revertedWith(
@@ -203,7 +221,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(
       exafinMaria.borrow(parseUnits("0.8"), invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
@@ -231,7 +249,7 @@ describe("Exafin", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address]);
+    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(exafinMaria.borrow(parseUnits("0.9"), exaTime.nextPoolID())).to
       .be.reverted;
   });
