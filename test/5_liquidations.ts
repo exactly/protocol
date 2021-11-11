@@ -115,6 +115,36 @@ describe("Liquidations", function () {
           nextPoolID
         );
       });
+
+      describe("GIVEN a sufficient allowance on the liquidator", () => {
+        beforeEach(async () => {
+          await dai.connect(bob).approve(exafinDAI.address, owedDAI.mul(1000));
+          describe("WHEN the pool matures (prices stay the same)", () => {
+            beforeEach(async () => {
+              await ethers.provider.send("evm_setNextBlockTimestamp", [
+                nextPoolID,
+              ]);
+              await ethers.provider.send("evm_mine", []);
+            });
+            it("THEN the position is liquidateable", async () => {
+              let closeToMaxRepay = owedDAI
+                .mul(parseUnits("0.3"))
+                .div(parseUnits("1"))
+                .sub(100000);
+              const tx = await exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  closeToMaxRepay,
+                  exafinWBTC.address,
+                  nextPoolID
+                );
+              expect(tx).to.not.be.reverted;
+            });
+          });
+        });
+      });
+
       describe("AND GIVEN ETH price halves (Alices collateral goes from 66k to 38.5k), collaterallization: 0.96", () => {
         beforeEach(async () => {
           await exactlyEnv.setOracleMockPrice("WBTC", "32500");
