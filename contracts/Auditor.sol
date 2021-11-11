@@ -22,7 +22,7 @@ contract Auditor is IAuditor, AccessControl {
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     event MarketListed(address exafin);
-    event MarketEntered(address exafin, address account);
+    event MarketEntered(address exafin, address account, uint256 maturityDate);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
     event NewBorrowCap(address indexed exafin, uint256 newBorrowCap);
@@ -113,7 +113,7 @@ contract Auditor is IAuditor, AccessControl {
         marketToJoin.accountMembership[borrower][maturityDate] = true;
         accountAssets[borrower][maturityDate].push(exafin);
 
-        emit MarketEntered(address(exafin), borrower);
+        emit MarketEntered(address(exafin), borrower, maturityDate);
     }
 
     /**

@@ -152,7 +152,9 @@ describe("Exafin", function () {
     const invalidPoolID = exaTime.pastPoolID() + 666;
     await expect(
       auditor.enterMarkets([exafin.address], invalidPoolID)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+    ).to.be.revertedWith(
+      errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
+    );
   });
 
   it("it doesn't allow you to enter a not listed market (invalid exafin address)", async () => {
