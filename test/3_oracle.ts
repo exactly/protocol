@@ -1,7 +1,13 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import { errorGeneric, ExactlyEnv, ExaTime, ProtocolError, DefaultEnv } from "./exactlyUtils";
+import {
+  errorGeneric,
+  ExactlyEnv,
+  ExaTime,
+  ProtocolError,
+  DefaultEnv,
+} from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -103,43 +109,39 @@ describe("ExactlyOracle", function () {
     );
   });
 
-  it("GetAssetPrice does not fail when updatedAt time is above maxDelayTime (price updated)", async () => {
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(mockedDate - (maxDelayTime - 1));
+  it("GetAssetPrice does not fail when Chainlink price is not older than maxDelayTime", async () => {
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(
+      mockedDate - (maxDelayTime - 1)
+    );
 
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      mockedDate
-    ]);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
     await ethers.provider.send("evm_mine", []);
 
-    await expect(
-      exactlyOracle.getAssetPrice("DAI")
-    ).to.not.be.reverted;
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.not.be.reverted;
   });
 
-  it("GetAssetPrice does not fail when updatedAt time is equal to maxDelayTime (price updated)", async () => {
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(mockedDate - (maxDelayTime));
+  it("GetAssetPrice does not fail when Chainlink price is equal to maxDelayTime", async () => {
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(
+      mockedDate - maxDelayTime
+    );
 
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      mockedDate
-    ]);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
     await ethers.provider.send("evm_mine", []);
 
-    await expect(
-      exactlyOracle.getAssetPrice("DAI")
-    ).to.not.be.reverted;
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.not.be.reverted;
   });
 
-  it("GetAssetPrice should fail when updatedAt time is below maxDelayTime (price outdated)", async () => {
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(mockedDate - (maxDelayTime + 1));
+  it("GetAssetPrice should fail when Chainlink price is older than maxDelayTime", async () => {
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(
+      mockedDate - (maxDelayTime + 1)
+    );
 
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      mockedDate
-    ]);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
     await ethers.provider.send("evm_mine", []);
 
-    await expect(
-      exactlyOracle.getAssetPrice("DAI")
-    ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(
+      errorGeneric(ProtocolError.PRICE_ERROR)
+    );
   });
 
   it("GetAssetPrice should fail when price value is zero", async () => {
@@ -178,13 +180,19 @@ describe("ExactlyOracle", function () {
 
     await expect(
       await exactlyOracle.setAssetSources([linkSymbol], [linkAddress])
-    ).to.emit(exactlyOracle, "SymbolSourceUpdated").withArgs(linkSymbol, linkAddress);
-    await chainlinkFeedRegistry.setPrice(linkAddress, exactlyEnv.usdAddress, 10);
+    )
+      .to.emit(exactlyOracle, "SymbolSourceUpdated")
+      .withArgs(linkSymbol, linkAddress);
+    await chainlinkFeedRegistry.setPrice(
+      linkAddress,
+      exactlyEnv.usdAddress,
+      10
+    );
 
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(mockedDate - (maxDelayTime));
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      mockedDate
-    ]);
+    await chainlinkFeedRegistry.setUpdatedAtTimestamp(
+      mockedDate - maxDelayTime
+    );
+    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
     await ethers.provider.send("evm_mine", []);
 
     await expect(exactlyOracle.getAssetPrice(linkSymbol)).to.not.be.reverted;
