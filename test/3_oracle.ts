@@ -103,19 +103,6 @@ describe("ExactlyOracle", function () {
     );
   });
 
-  it("GetAssetPrice does not fail when updatedAt time is equal to maxDelayTime", async () => {
-    await chainlinkFeedRegistry.setUpdatedAtTimestamp(mockedDate - (maxDelayTime));
-
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      mockedDate
-    ]);
-    await ethers.provider.send("evm_mine", []);
-
-    await expect(
-      exactlyOracle.getAssetPrice("DAI")
-    ).to.not.be.reverted;
-  });
-
   it("GetAssetPrice does not fail when updatedAt time is above maxDelayTime (price updated)", async () => {
     await chainlinkFeedRegistry.setUpdatedAtTimestamp(mockedDate - (maxDelayTime - 1));
 
