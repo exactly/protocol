@@ -44,7 +44,7 @@ describe("ExactlyOracle", function () {
   ]);
 
   let snapshot: any;
-  before(async () => {
+  beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
@@ -159,7 +159,7 @@ describe("ExactlyOracle", function () {
     ).to.be.revertedWith("AccessControl");
   });
 
-  after(async () => {
+  afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
   });
