@@ -155,7 +155,7 @@ describe("Exafin", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
-  it("it doesn't allow you to enter an invalid market", async () => {
+  it("it doesn't allow you to enter a not listed market (invalid exafin address)", async () => {
     await expect(
       auditor.enterMarkets(
         [exactlyEnv.notAnExafinAddress],
