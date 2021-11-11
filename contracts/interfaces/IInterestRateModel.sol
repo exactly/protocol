@@ -4,19 +4,17 @@ pragma solidity ^0.8.4;
 import "../utils/Poollib.sol";
 
 interface IInterestRateModel {
-
     function getRateToBorrow(
-        uint256 amount,
         uint256 maturityDate,
         PoolLib.Pool memory poolMaturity,
-        PoolLib.Pool memory poolPot
+        PoolLib.SmartPool memory smartPool,
+        bool newDebt
     ) external view returns (uint256);
 
     function getRateToSupply(
         uint256 amount,
         uint256 maturityDate,
         PoolLib.Pool memory poolMaturity,
-        PoolLib.Pool memory poolPot
+        PoolLib.SmartPool memory smartPool
     ) external view returns (uint256);
- 
 }

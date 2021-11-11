@@ -23,8 +23,8 @@ contract Auditor is IAuditor, AccessControl {
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     event MarketListed(address exafin);
-    event MarketEntered(address exafin, address account);
-    event MarketExited(address exafin, address account);
+    event MarketEntered(address exafin, address account, uint256 maturityDate);
+    event MarketExited(address exafin, address account, uint256 maturityDate);
     event ActionPaused(address exafin, string action, bool paused);
     event OracleChanged(address newOracle);
     event NewBorrowCap(address indexed exafin, uint256 newBorrowCap);
@@ -65,16 +65,13 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
      *      By performing this action, the wallet's money could be used as collateral
-     * @param exafins contracts addresses to enable for `msg.sender`
-     * @param maturityDate poolID in which it will start participating
+     * @param exafins contracts addresses to enable for `msg.sender` for a certain maturity
+     * @param maturityDate poolID in which the exafins will be enabled
      */
     function enterMarkets(address[] calldata exafins, uint256 maturityDate)
         external
     {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
+        _requirePoolState(maturityDate, TSUtils.State.VALID);
         uint256 len = exafins.length;
         for (uint256 i = 0; i < len; i++) {
             book.addToMarket(exafins[i], msg.sender, maturityDate);    
@@ -145,7 +142,7 @@ contract Auditor is IAuditor, AccessControl {
         rewardsState.distributeSupplierExa(exafinAddress, supplier);
     }
 
-    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external view {
+    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external override view {
         return _requirePoolState(maturityDate, requiredState);
     }
 
@@ -179,6 +176,7 @@ contract Auditor is IAuditor, AccessControl {
             0,
             borrowAmount
         );
+
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }

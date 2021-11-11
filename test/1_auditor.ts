@@ -10,6 +10,8 @@ import {
   parseSupplyEvent,
   errorGeneric,
   DefaultEnv,
+  PoolState,
+  errorUnmatchedPool,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -48,10 +50,8 @@ describe("Auditor from User Space", function () {
     ],
   ]);
 
-  let closeFactor = parseUnits("0.4");
-
   let snapshot: any;
-  before(async () => {
+  beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
@@ -78,7 +78,9 @@ describe("Auditor from User Space", function () {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await expect(
       auditor.enterMarkets([exafinDAI.address], nextPoolID + 333)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+    ).to.be.revertedWith(
+      errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
+    );
   });
 
   it("We enter market twice without failing", async () => {
@@ -341,120 +343,6 @@ describe("Auditor from User Space", function () {
       .div(parseUnits("1"));
 
     expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
-  });
-
-  it("Uncollaterized position can be liquidated", async () => {
-    const exafinETH = exactlyEnv.getExafin("ETH");
-    const eth = exactlyEnv.getUnderlying("ETH");
-    const exafinDAI = exactlyEnv.getExafin("DAI");
-    const dai = exactlyEnv.getUnderlying("DAI");
-    const exafinWBTC = exactlyEnv.getExafin("WBTC");
-    const wbtc = exactlyEnv.getUnderlying("WBTC");
-
-    // we supply ETH to the protocol
-    const amountETH = parseUnits("1");
-    await eth.approve(exafinETH.address, amountETH);
-    await exafinETH.supply(owner.address, amountETH, nextPoolID);
-    // we supply WBTC to the protocol
-    const amountWBTC = parseUnits("1", 8);
-    await wbtc.approve(exafinWBTC.address, amountWBTC);
-    await exafinWBTC.supply(owner.address, amountWBTC, nextPoolID);
-
-    expect(await eth.balanceOf(exafinETH.address)).to.equal(amountETH);
-    expect(await wbtc.balanceOf(exafinWBTC.address)).to.equal(amountWBTC);
-
-    // we supply DAI to the protocol to have money in the pool
-    const amountDAI = parseUnits("65000");
-    await dai.connect(user).approve(exafinDAI.address, amountDAI);
-    await exafinDAI.connect(user).supply(user.address, amountDAI, nextPoolID);
-    expect(await dai.connect(user).balanceOf(exafinDAI.address)).to.equal(
-      amountDAI
-    );
-
-    // we make ETH & WBTC count as collateral
-    await auditor.enterMarkets(
-      [exafinETH.address, exafinWBTC.address],
-      nextPoolID
-    );
-    // this works because 1USD (liquidity) = 1DAI (asset to borrow)
-    let liquidityInUSD = (
-      await auditor.getAccountLiquidity(owner.address, nextPoolID)
-    )[0];
-    let amountToBorrowDAI = liquidityInUSD;
-
-    // user borrows all liquidity
-    await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
-
-    // We expect liquidity to be equal to zero
-    let liq = (await auditor.getAccountLiquidity(owner.address, nextPoolID))[0];
-    console.log(liq.toString());
-
-    // WBTC price goes to 1/2 of its original value
-    await exactlyEnv.setOracleMockPrice("WBTC", "32500");
-
-    // We expect liquidity to be equal to zero
-    let liquidityAfterOracleChange = (
-      await auditor.getAccountLiquidity(owner.address, nextPoolID)
-    )[0];
-    expect(liquidityAfterOracleChange).to.be.equal(0);
-
-    // We try to get all the ETH we can
-    // We expect trying to repay zero to fail
-    await expect(
-      exafinDAI.liquidate(owner.address, 0, exafinETH.address, nextPoolID)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.REPAY_ZERO));
-
-    // We expect self liquidation to fail
-    await expect(
-      exafinDAI.liquidate(
-        owner.address,
-        amountToBorrowDAI,
-        exafinETH.address,
-        nextPoolID
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER));
-
-    // We expect liquidation to fail because trying to liquidate
-    // and take over a collateral that the user doesn't have enough
-    await dai
-      .connect(user)
-      .approve(exafinDAI.address, amountToBorrowDAI.div(2));
-    await expect(
-      exafinDAI
-        .connect(user)
-        .liquidate(
-          owner.address,
-          amountToBorrowDAI.div(2),
-          exafinETH.address,
-          nextPoolID
-        )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.TOKENS_MORE_THAN_BALANCE));
-
-    // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
-    await expect(
-      exafinDAI
-        .connect(user)
-        .liquidate(
-          owner.address,
-          amountToBorrowDAI.div(2) + 100,
-          exafinWBTC.address,
-          nextPoolID
-        )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_REPAY));
-
-    let closeToMaxRepay = amountToBorrowDAI
-      .mul(closeFactor)
-      .div(parseUnits("1"));
-
-    await dai.connect(user).approve(exafinDAI.address, closeToMaxRepay);
-    await exafinDAI
-      .connect(user)
-      .liquidate(
-        owner.address,
-        closeToMaxRepay,
-        exafinWBTC.address,
-        nextPoolID
-      );
   });
 
   it("Auditor reverts if Oracle acts weird", async () => {

@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract, BigNumber } from "ethers";
+import { Contract } from "ethers";
 import {
   DefaultEnv,
   errorGeneric,
@@ -27,7 +27,7 @@ describe("Exafin", function () {
       "DAI",
       {
         decimals: 18,
-        collateralRate: parseUnits("0.8"),
+        collateralRate: parseUnits("0.85"),
         usdPrice: parseUnits("1"),
       },
     ],
@@ -46,6 +46,9 @@ describe("Exafin", function () {
   let exaTime: ExaTime = new ExaTime();
 
   let snapshot: any;
+  beforeEach(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+  });
 
   beforeEach(async () => {
     [owner, mariaUser] = await ethers.getSigners();
@@ -58,10 +61,6 @@ describe("Exafin", function () {
 
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
-
-    // This can be optimized (so we only do it once per file, not per test)
-    // This helps with tests that use evm_setNextBlockTimestamp
-    snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
   it("GetAccountSnapshot fails on an invalid pool", async () => {
@@ -76,20 +75,6 @@ describe("Exafin", function () {
     await expect(exafin.getTotalBorrows(invalidPoolID)).to.be.revertedWith(
       errorGeneric(ProtocolError.INVALID_POOL_ID)
     );
-  });
-
-  it("GetRateToSupply fails on an invalid pool", async () => {
-    let invalidPoolID = exaTime.nextPoolID() + 3;
-    await expect(
-      exafin.getRateToSupply(parseUnits("10"), invalidPoolID)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-  });
-
-  it("GetRateToBorrow fails on an invalid pool", async () => {
-    let invalidPoolID = exaTime.nextPoolID() + 3;
-    await expect(
-      exafin.getRateToBorrow(parseUnits("10"), invalidPoolID)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
   it("it allows to give money to a pool", async () => {
@@ -146,22 +131,6 @@ describe("Exafin", function () {
     await expect(
       exafin.supply(owner.address, underlyingAmount, invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-  });
-
-  it("it doesn't allow you to enter an invalid market (INVALID POOL ID)", async () => {
-    const invalidPoolID = exaTime.pastPoolID() + 666;
-    await expect(
-      auditor.enterMarkets([exafin.address], invalidPoolID)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-  });
-
-  it("it doesn't allow you to enter an invalid market", async () => {
-    await expect(
-      auditor.enterMarkets(
-        [exactlyEnv.notAnExafinAddress],
-        exaTime.nextPoolID()
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("it allows you to borrow money", async () => {
@@ -265,78 +234,6 @@ describe("Exafin", function () {
     await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
     await expect(exafinMaria.borrow(parseUnits("0.9"), exaTime.nextPoolID())).to
       .be.reverted;
-  });
-
-  it("Calculates the right rate to supply", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let unitsToSupply = parseUnits("1");
-
-    let rateSupplyToApply = await exafinMaria.getRateToSupply(
-      unitsToSupply,
-      exaTime.nextPoolID()
-    );
-    // We supply the money
-    await underlyingTokenUser.approve(exafin.address, unitsToSupply);
-    let tx = await exafinMaria.supply(
-      mariaUser.address,
-      unitsToSupply,
-      exaTime.nextPoolID()
-    );
-    let supplyEvent = await parseSupplyEvent(tx);
-
-    // We expect that the actual rate was taken when we submitted the supply transaction
-    expect(supplyEvent.commission).to.be.closeTo(
-      unitsToSupply.mul(rateSupplyToApply).div(parseUnits("1")),
-      20
-    );
-  });
-
-  it("Calculates the right rate to borrow", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let unitsToSupply = parseUnits("1");
-    let unitsToBorrow = parseUnits("0.8");
-
-    await underlyingTokenUser.approve(exafin.address, unitsToSupply);
-    await exafinMaria.supply(
-      mariaUser.address,
-      unitsToSupply,
-      exaTime.nextPoolID()
-    );
-
-    let rateBorrowToApply = await exafinMaria.getRateToBorrow(
-      unitsToBorrow,
-      exaTime.nextPoolID()
-    );
-
-    let tx = await exafinMaria.borrow(unitsToBorrow, exaTime.nextPoolID());
-    expect(tx).to.emit(exafinMaria, "Borrowed");
-    let borrowEvent = await parseBorrowEvent(tx);
-
-    // It should be the base rate since there are no other deposits
-    let nextExpirationDate = exaTime.nextPoolID();
-    let daysToExpiration = exaTime.daysDiffWith(nextExpirationDate);
-
-    // We just receive the multiplying factor for the amount "rateBorrowToApply"
-    // so by multiplying we get the APY
-    let yearlyRateProjected = BigNumber.from(rateBorrowToApply)
-      .mul(365)
-      .div(daysToExpiration);
-
-    // This Rate is purely calculated on JS/TS side
-    let yearlyRateCalculated = exactlyEnv.marginRate.add(
-      exactlyEnv.slopeRate.mul(unitsToBorrow).div(unitsToSupply)
-    );
-
-    // Expected "85999999999999996" (changes from day to day) to be within 1000 of 86000000000000000
-    expect(yearlyRateProjected).to.be.closeTo(yearlyRateCalculated, 1000);
-
-    // We expect that the actual rate was taken when we submitted the borrowing transaction
-    expect(borrowEvent.commission).to.be.closeTo(
-      unitsToBorrow.mul(rateBorrowToApply).div(parseUnits("1")),
-      1000
-    );
   });
 
   it("it allows the mariaUser to withdraw money only after maturity", async () => {

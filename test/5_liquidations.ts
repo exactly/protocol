@@ -57,7 +57,7 @@ describe("Liquidations", function () {
   let owedDAI: BigNumber;
 
   let snapshot: any;
-  before(async () => {
+  beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
@@ -96,7 +96,7 @@ describe("Liquidations", function () {
       await exafinDAI.connect(bob).supply(bob.address, amountDAI, nextPoolID);
     });
 
-    describe("AND GIVEN Alice takes the biggest loan she can (39900 DAI), collaterallization 1.65", () => {
+    describe("AND GIVEN Alice takes the biggest loan she can (39850 DAI), collaterallization 1.65", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
         await auditor.enterMarkets(
@@ -104,7 +104,7 @@ describe("Liquidations", function () {
           nextPoolID
         );
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
-        amountToBorrowDAI = parseUnits("39900");
+        amountToBorrowDAI = parseUnits("39850");
 
         // alice borrows all liquidity
         await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
@@ -123,7 +123,7 @@ describe("Liquidations", function () {
           let liquidityAfterOracleChange = (
             await auditor.getAccountLiquidity(alice.address, nextPoolID)
           )[0];
-          expect(liquidityAfterOracleChange).to.be.equal(0);
+          expect(liquidityAfterOracleChange).to.be.lt("1");
         });
         it("AND alice has a liquidity shortfall", async () => {
           let shortfall = (
@@ -180,7 +180,7 @@ describe("Liquidations", function () {
               .connect(bob)
               .approve(exafinDAI.address, owedDAI.mul(1000));
           });
-          it("WHEN trying to liquidate 39900 DAI for ETH (of which there is only 3000usd), THEN it reverts with a TOKENS_MORE_THAN_BALANCE error", async () => {
+          it("WHEN trying to liquidate 39850 DAI for ETH (of which there is only 3000usd), THEN it reverts with a TOKENS_MORE_THAN_BALANCE error", async () => {
             // We expect liquidation to fail because trying to liquidate
             // and take over a collateral that bob doesn't have enough
             await expect(
@@ -228,7 +228,7 @@ describe("Liquidations", function () {
     });
   });
 
-  after(async () => {
+  afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
   });

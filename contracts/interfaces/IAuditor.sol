@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
+import "../utils/TSUtils.sol";
 
 interface IAuditor {
 
@@ -59,5 +60,7 @@ interface IAuditor {
 
     function getFuturePools() external view returns (uint256[] memory);
     function getMarketAddresses() external view returns (address[] memory);
+
+    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external view;
 
 }
