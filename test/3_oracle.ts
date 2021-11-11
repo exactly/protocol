@@ -42,11 +42,6 @@ describe("ExactlyOracle", function () {
     ["ETH", { usdPrice: parseUnits("3100", 8) }],
   ]);
 
-  beforeEach(async () => {
-    snapshot = await ethers.provider.send("evm_snapshot", []);
-  });
-  const MOCKED_DATE = Math.floor(Date.now() / 1000) + 3600; // we add a day so it's not the same timestamp of previous blocks
-
   before(async () => {
     [, user] = await ethers.getSigners();
     exactlyEnv = await ExactlyEnv.create(mockedTokens);

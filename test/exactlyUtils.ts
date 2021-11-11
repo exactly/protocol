@@ -344,11 +344,7 @@ export class ExaTime {
   }
 
   public trimmedDay(): number {
-<<<<<<< HEAD
-    return this.timestamp - (this.timestamp % this.oneDay);
-=======
     return (this.timestamp - (this.timestamp % this.ONE_DAY));
->>>>>>> 8c777f5 (Refactor oracle tests)
   }
 
   public daysDiffWith(anotherTimestamp: number): number {
