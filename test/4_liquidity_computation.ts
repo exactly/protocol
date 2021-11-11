@@ -83,10 +83,13 @@ describe("Liquidity computations", function () {
     await dai.transfer(bob.address, parseUnits("100000"));
     await usdc.transfer(bob.address, parseUnits("100000", 6));
     // we make DAI & USDC count as collateral
-    await auditor.enterMarkets([exafinDAI.address, exafinUSDC.address], nextPoolID);
+    await auditor.enterMarkets(
+      [exafinDAI.address, exafinUSDC.address],
+      nextPoolID
+    );
     await auditor
       .connect(laura)
-      .enterMarkets([exafinDAI.address, exafinUSDC.address]);
+      .enterMarkets([exafinDAI.address, exafinUSDC.address], nextPoolID);
   });
 
   describe("positions arent immediately liquidateable", () => {
