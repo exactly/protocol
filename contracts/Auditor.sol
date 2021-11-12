@@ -106,7 +106,6 @@ contract Auditor is IAuditor, AccessControl {
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
         _redeemAllowed(exafinAddress, msg.sender, amountHeld, maturityDate);
-        console.log("estoy3");
 
         book.exitMarket(exafinAddress, msg.sender, maturityDate);
     }
