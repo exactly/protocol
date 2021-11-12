@@ -200,6 +200,29 @@ contract Auditor is IAuditor, AccessControl {
         }
     }
 
+    function supplySmartPoolAllowed(
+        address exafinAddress,
+        address supplier
+    ) override external {
+        if (!markets[exafinAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        rewardsState.updateExaSmartPoolIndex(block.number, exafinAddress);
+        rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
+    }
+
+    function withdrawSmartPoolAllowed(
+        address exafinAddress,
+        address supplier
+    ) override external {
+        if (!markets[exafinAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        rewardsState.updateExaSmartPoolIndex(block.number, exafinAddress);
+        rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
+    }
 
     function supplyAllowed(
         address exafinAddress,
@@ -576,7 +599,7 @@ contract Auditor is IAuditor, AccessControl {
     function claimExa(address holder, address[] memory exafins) public {
         address[] memory holders = new address[](1);
         holders[0] = holder;
-        rewardsState.claimExa(block.number, markets, holders, exafins, true, true);
+        rewardsState.claimExa(block.number, markets, holders, exafins, true, true, true);
     }
 
 }

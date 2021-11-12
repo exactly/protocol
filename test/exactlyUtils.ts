@@ -169,18 +169,21 @@ export class RewardsLibEnv {
   exaLib: Contract;
   exaToken: Contract;
   exafinHarness: Contract;
+  eToken: Contract;
   notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
 
   constructor(
     _auditorHarness: Contract,
     _exaLib: Contract,
     _exaToken: Contract,
-    _exafinHarness: Contract
+    _exafinHarness: Contract,
+    _eToken: Contract
   ) {
     this.auditorHarness = _auditorHarness;
     this.exaLib = _exaLib;
     this.exaToken = _exaToken;
     this.exafinHarness = _exafinHarness;
+    this.eToken = _eToken;
   }
 }
 
@@ -308,9 +311,14 @@ export class ExactlyEnv {
     let exaToken = await ExaToken.deploy();
     await exaToken.deployed();
 
+    const EToken = await ethers.getContractFactory("EToken", {});
+    let eToken = await EToken.deploy("eDAI", "eDAI");
+    await eToken.deployed();
+
     const ExafinHarness = await ethers.getContractFactory("ExafinHarness");
     let exafinHarness = await ExafinHarness.deploy();
     await exafinHarness.deployed();
+    await exafinHarness.setEToken(eToken.address);
 
     const AuditorHarness = await ethers.getContractFactory("AuditorHarness", {
       libraries: {
@@ -323,7 +331,13 @@ export class ExactlyEnv {
 
     return new Promise<RewardsLibEnv>((resolve) => {
       resolve(
-        new RewardsLibEnv(auditorHarness, exaLib, exaToken, exafinHarness)
+        new RewardsLibEnv(
+          auditorHarness,
+          exaLib,
+          exaToken,
+          exafinHarness,
+          eToken
+        )
       );
     });
   }

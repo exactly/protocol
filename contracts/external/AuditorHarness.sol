@@ -146,7 +146,7 @@ contract AuditorHarness {
     function claimExa(address holder, address[] memory exafins) public {
         address[] memory holders = new address[](1);
         holders[0] = holder;
-        rewardsState.claimExa(blockNumber, markets, holders, exafins, true, true);
+        rewardsState.claimExa(blockNumber, markets, holders, exafins, true, true, true);
     }
 
     function enableMarket(
