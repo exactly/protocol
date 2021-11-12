@@ -10,6 +10,8 @@ contract ExafinHarness {
     mapping(address => uint256) public borrowsOf;
     mapping(address => uint256) public suppliesOf;
 
+    IEToken public eToken;
+
     function setTotalBorrows(uint _totalBorrows) public {
         totalBorrows = _totalBorrows;
     }
@@ -24,5 +26,9 @@ contract ExafinHarness {
 
     function setSuppliesOf(address _who, uint256 _amount) public {
         suppliesOf[_who] = _amount;
+    }
+
+    function setEToken(address _eTokenAddress) public {
+        eToken = IEToken(_eTokenAddress);
     }
 }

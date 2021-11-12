@@ -29,5 +29,4 @@ interface IEToken is IERC20 {
     * @param amount The amount of underlying tokens deposited
     */
   function accrueEarnings(uint256 amount) external;
-
 }

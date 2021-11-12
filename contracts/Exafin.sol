@@ -69,7 +69,7 @@ contract Exafin is IExafin, ReentrancyGuard {
     PoolLib.SmartPool public smartPool;
 
     IERC20 private trustedUnderlying;
-    IEToken private eToken;
+    IEToken public override eToken;
     string public override underlyingTokenName;
 
     IAuditor public auditor;
@@ -490,6 +490,8 @@ contract Exafin is IExafin, ReentrancyGuard {
     * @param amount The amount to be deposited
     **/
     function depositToSmartPool(uint256 amount) external override {
+        auditor.supplySmartPoolAllowed(address(this), msg.sender);
+
         trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
         eToken.mint(msg.sender, amount);
@@ -504,6 +506,8 @@ contract Exafin is IExafin, ReentrancyGuard {
     function withdrawFromSmartPool(
         uint256 amount
     ) external override {
+        auditor.withdrawSmartPoolAllowed(address(this), msg.sender);
+
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
         if (amount == type(uint256).max) {
@@ -562,7 +566,7 @@ contract Exafin is IExafin, ReentrancyGuard {
      *      for a user -- This is NOT for ERC20 of the smart pool
      */
     function suppliesOf(address who) public view override returns (uint256) {
-        return eToken.balanceOf(who) + totalDepositsUser[who];
+        return totalDepositsUser[who];
     }
 
     /**

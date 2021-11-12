@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IExafin.sol";
+import "../interfaces/IEToken.sol";
 import "../utils/DecimalMath.sol";
 import "../utils/MarketsLib.sol";
 import "../utils/Errors.sol";
@@ -40,14 +41,53 @@ library ExaLib {
         uint256 exaSpeed;
         MarketRewardsState exaSupplyState;
         MarketRewardsState exaBorrowState;
+        MarketRewardsState exaSmartState;
         mapping(address => uint256) exaSupplierIndex;
         mapping(address => uint256) exaBorrowerIndex;
+        mapping(address => uint256) exaSmartSupplierIndex;
     }
 
     struct RewardsState {
         address exaToken;
         mapping(address => ExaLib.ExaState) exaState;
         mapping(address => uint) exaAccruedUser;
+    }
+
+    /**
+     * @notice Accrue EXA to the market by updating the smart index
+     * @param exafinAddress The address of the smart pool
+     * @param blockNumber current block number (injected for testing purpuses)
+     * @param exafinAddress The market whose supply index to update
+     */
+    function updateExaSmartPoolIndex(
+        RewardsState storage exafinState,
+        uint blockNumber,
+        address exafinAddress
+    ) external {
+        _updateExaSmartPoolIndex(exafinState, blockNumber, exafinAddress);
+    }
+
+    function _updateExaSmartPoolIndex(
+        RewardsState storage exafinState,
+        uint blockNumber,
+        address exafinAddress
+    ) internal {
+        ExaState storage exaState = exafinState.exaState[exafinAddress];
+        MarketRewardsState storage smartState = exaState.exaSmartState;
+        uint supplySpeed = exaState.exaSpeed;
+        uint deltaBlocks = (blockNumber - uint(smartState.block));
+        if (deltaBlocks > 0 && supplySpeed > 0) {
+            uint256 smartTokens = IExafin(exafinAddress).eToken().totalSupply();
+            uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
+            Double memory ratio = smartTokens > 0 ? exaAccruedDelta.fraction(smartTokens) : Double({value: 0});
+            Double memory index = Double({value: smartState.index}).add_(ratio);
+            exaState.exaSupplyState = MarketRewardsState({
+                index: index.value.toUint224(),
+                block: blockNumber.toUint32()
+            });
+        } else if (deltaBlocks > 0) {
+            smartState.block = blockNumber.toUint32();
+        }
     }
 
     /**
@@ -126,6 +166,64 @@ library ExaLib {
         }
     }
 
+        /**
+     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @param exafinState RewardsState storage in Auditor
+     * @param exafinAddress The market in which the supplier is interacting
+     * @param supplier The address of the supplier to distribute EXA to
+     */
+    function distributeSmartPoolExa(
+        RewardsState storage exafinState, 
+        address exafinAddress,
+        address supplier
+    ) external {
+        _distributeSmartPoolExa(exafinState, exafinAddress, supplier);
+    }
+
+    /**
+     * @notice INTERNAL Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @param exafinState RewardsState storage in Auditor
+     * @param exafinAddress The market in which the supplier is interacting
+     * @param supplier The address of the supplier to distribute EXA to
+     */
+    function _distributeSmartPoolExa(
+        RewardsState storage exafinState,
+        address exafinAddress,
+        address supplier
+    ) internal {
+        ExaState storage exaState = exafinState.exaState[exafinAddress];
+        MarketRewardsState storage smartState = exaState.exaSmartState;
+        Double memory smartPoolIndex = Double({value: smartState.index});
+        Double memory smartSupplierIndex = Double({value: exaState.exaSmartSupplierIndex[supplier]});
+        exaState.exaSmartSupplierIndex[supplier] = smartPoolIndex.value;
+
+        if (smartSupplierIndex.value == 0 && smartPoolIndex.value > 0) {
+            smartSupplierIndex.value = EXA_INITIAL_INDEX;
+        }
+
+        Double memory deltaIndex = smartPoolIndex.sub_(smartSupplierIndex);
+
+        uint smartSupplierTokens = IExafin(exafinAddress).eToken().balanceOf(supplier);
+        uint smartSupplierDelta = smartSupplierTokens.mul_(deltaIndex);
+        uint smartSupplierAccrued = exafinState.exaAccruedUser[supplier] + smartSupplierDelta;
+        exafinState.exaAccruedUser[supplier] = smartSupplierAccrued;
+        emit DistributedSupplierExa(exafinAddress, supplier, smartSupplierDelta, smartPoolIndex.value);
+    }
+
+    /**
+     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @param exafinState RewardsState storage in Auditor
+     * @param exafinAddress The market in which the supplier is interacting
+     * @param supplier The address of the supplier to distribute EXA to
+     */
+    function distributeSupplierExa(
+        RewardsState storage exafinState, 
+        address exafinAddress,
+        address supplier
+    ) external {
+        _distributeSupplierExa(exafinState, exafinAddress, supplier);
+    }
+
     /**
      * @notice INTERNAL Calculate EXA accrued by a supplier and possibly transfer it to them
      * @param exafinState RewardsState storage in Auditor
@@ -156,19 +254,6 @@ library ExaLib {
         emit DistributedSupplierExa(exafinAddress, supplier, supplierDelta, supplyIndex.value);
     }
 
-    /**
-     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
-     * @param exafinState RewardsState storage in Auditor
-     * @param exafinAddress The market in which the supplier is interacting
-     * @param supplier The address of the supplier to distribute EXA to
-     */
-    function distributeSupplierExa(
-        RewardsState storage exafinState, 
-        address exafinAddress,
-        address supplier
-    ) external {
-        _distributeSupplierExa(exafinState, exafinAddress, supplier);
-    }
 
     /**
      * @notice Calculate EXA accrued by a borrower
@@ -229,7 +314,8 @@ library ExaLib {
         address[] memory holders,
         address[] memory exafinAddresses,
         bool borrowers,
-        bool suppliers
+        bool suppliers,
+        bool smartSuppliers
     ) external {
 
         for (uint i = 0; i < exafinAddresses.length; i++) {
@@ -254,6 +340,15 @@ library ExaLib {
                     exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
                 }
             }
+
+            if (smartSuppliers == true) {
+                _updateExaSmartPoolIndex(exafinState, blockNumber, exafin);
+                for (uint j = 0; j < holders.length; j++) {
+                    _distributeSmartPoolExa(exafinState, exafin, holders[j]);
+                    exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
+                }
+            }
+
         }
     }
 
@@ -311,6 +406,7 @@ library ExaLib {
         if (currentExaSpeed != 0) {
             _updateExaSupplyIndex(exafinState, blockNumber, exafinAddress);
             _updateExaBorrowIndex(exafinState, blockNumber, exafinAddress);
+            _updateExaSmartPoolIndex(exafinState, blockNumber, exafinAddress);
         } else if (exaSpeed != 0) {
             // what happens @ compound.finance if someone doesn't set the exaSpeed
             // but supply/borrow first? in that case, block number will be updated
@@ -325,6 +421,13 @@ library ExaLib {
 
             if (state.exaBorrowState.index == 0) {
                 state.exaBorrowState = MarketRewardsState({
+                    index: EXA_INITIAL_INDEX,
+                    block: blockNumber.toUint32()
+                });
+            }
+
+            if (state.exaSmartState.index == 0) {
+                state.exaSmartState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
                     block: blockNumber.toUint32()
                 });
