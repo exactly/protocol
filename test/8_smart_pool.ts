@@ -17,7 +17,6 @@ describe("Smart Pool", function () {
   let exafin: Contract;
   let eDAI: Contract;
   let bob: SignerWithAddress;
-  let laura: SignerWithAddress;
 
   const mockedTokens = new Map([
     [
@@ -31,7 +30,7 @@ describe("Smart Pool", function () {
   ]);
 
   beforeEach(async () => {
-    [bob, laura] = await ethers.getSigners();
+    [bob] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     eDAI = exactlyEnv.getEToken("DAI");
