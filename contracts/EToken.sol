@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./interfaces/IEToken.sol";
+import "./utils/Errors.sol";
 
 contract EToken is ERC20, IEToken {
     mapping(address => uint256) private userEarningsIndex;
@@ -14,9 +15,9 @@ contract EToken is ERC20, IEToken {
     }
 
     /**
-    * @dev Returns the total supply of the eToken
-    * @return The current total supply
-    **/
+     * @dev Returns the total supply of the eToken
+     * @return The current total supply
+     **/
     function totalSupply() public view override(ERC20, IERC20) returns (uint256) {
         return currentSupplyScaled;
     }
@@ -35,13 +36,14 @@ contract EToken is ERC20, IEToken {
      * @param user The address receiving the minted tokens
      * @param amount The amount of tokens getting minted
      */
-    function mint(address user, uint256 amount) external override  {
+    function mint(address user, uint256 amount) external override {
         require(user != address(0), "ERC20: mint to the zero address");
 
         currentSupplyScaled += amount;
         liquidityReserveIndex += (amount / currentSupplyScaled) * 1e18;
         userBalances[user] += ((userBalances[user] * (liquidityReserveIndex - userEarningsIndex[user])) / 1e18) + amount;
         userEarningsIndex[user] = liquidityReserveIndex;
+
         emit Transfer(address(0), user, amount);
     }
 
@@ -62,7 +64,9 @@ contract EToken is ERC20, IEToken {
      * @param amount The amount being burned
      **/
     function burn(address user, uint256 amount) external override {
-        require(balanceOf(user) >= amount, "ERC20: burn amount exceeds balance");
+        if (balanceOf(user) < amount) {
+            revert GenericError(ErrorCode.BURN_AMOUNT_EXCEEDS_BALANCE);
+        }
 
         userBalances[user] -=
             amount -

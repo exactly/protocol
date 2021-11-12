@@ -100,6 +100,7 @@ export enum ProtocolError {
   MARKET_BORROW_CAP_REACHED,
   INCONSISTENT_PARAMS_LENGTH,
   REDEEM_CANT_BE_ZERO,
+  BURN_AMOUNT_EXCEEDS_BALANCE,
 }
 
 export type MockedTokenSpec = {
@@ -117,6 +118,7 @@ export class DefaultEnv {
   exaToken: Contract;
   exafinContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
+  eTokenContracts: Map<string, Contract>;
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
@@ -131,12 +133,14 @@ export class DefaultEnv {
     _exaLib: Contract,
     _exaToken: Contract,
     _exafinContracts: Map<string, Contract>,
-    _underlyingContracts: Map<string, Contract>
+    _underlyingContracts: Map<string, Contract>,
+    _eTokenContracts: Map<string, Contract>
   ) {
     this.oracle = _oracle;
     this.auditor = _auditor;
     this.exafinContracts = _exafinContracts;
     this.underlyingContracts = _underlyingContracts;
+    this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
     this.exaLib = _exaLib;
@@ -153,6 +157,10 @@ export class DefaultEnv {
 
   public getUnderlying(key: string): Contract {
     return this.underlyingContracts.get(key)!;
+  }
+
+  public getEToken(key: string): Contract {
+    return this.eTokenContracts.get(key)!;
   }
 
   public async setOracle(oracleAddress: string) {
@@ -190,6 +198,7 @@ export class ExactlyEnv {
   ): Promise<DefaultEnv> {
     let exafinContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
+    let eTokenContracts = new Map<string, Contract>();
 
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
@@ -280,6 +289,7 @@ export class ExactlyEnv {
         // Handy maps with all the exafins and underlying tokens
         exafinContracts.set(tokenName, exafin);
         underlyingContracts.set(tokenName, underlyingToken);
+        eTokenContracts.set(tokenName, eToken);
       })
     );
 
@@ -293,7 +303,8 @@ export class ExactlyEnv {
           exaLib,
           exaToken,
           exafinContracts,
-          underlyingContracts
+          underlyingContracts,
+          eTokenContracts
         )
       );
     });
