@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./IAuditor.sol";
+import "./IEToken.sol";
 
 interface IExafin {
     function borrow(uint256 amount, uint256 maturityDate) external;
@@ -55,6 +56,8 @@ interface IExafin {
         returns (uint256);
 
     function getAuditor() external view returns (IAuditor);
+
+    function eToken() external view returns (IEToken);
 
     function totalBorrows() external view returns (uint256);
 
