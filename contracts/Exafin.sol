@@ -59,6 +59,9 @@ contract Exafin is IExafin, ReentrancyGuard {
     );
     event ReservesAdded(address benefactor, uint256 addAmount);
 
+    event DepositToSmartPool(address indexed user, uint256 amount);
+    event WithdrawFromSmartPool(address indexed user, uint256 amount);
+
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
     mapping(uint256 => PoolLib.Pool) public pools;
@@ -487,29 +490,29 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
-    * @dev Deposits an `amount` of underlying asset into the smart pool, receiving in return overlying eTokens.
-    * - E.g. User deposits 100 USDC and gets in return 100 eUSDC
-    * @param amount The amount to be deposited
-    **/
+     * @dev Deposits an `amount` of underlying asset into the smart pool, receiving in return overlying eTokens.
+     * - E.g. User deposits 100 USDC and gets in return 100 eUSDC
+     * @param amount The amount to be deposited
+     **/
     function depositToSmartPool(uint256 amount) external override {
         auditor.supplySmartPoolAllowed(address(this), msg.sender);
 
         trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
         eToken.mint(msg.sender, amount);
+
+        emit DepositToSmartPool(msg.sender, amount);
     }
 
     /**
-    * @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned
-    * - E.g. User has 100 eUSDC, calls withdraw() and receives 100 USDC, burning the 100 eUSDC
-    * @param amount The underlying amount to be withdrawn
-    * - Send the value type(uint256).max in order to withdraw the whole eToken balance
-    **/
-    function withdrawFromSmartPool(
-        uint256 amount
-    ) external override {
+     * @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned
+     * - E.g. User has 100 eUSDC, calls withdraw() and receives 100 USDC, burning the 100 eUSDC
+     * @param amount The underlying amount to be withdrawn
+     * - Send the value type(uint256).max in order to withdraw the whole eToken balance
+     **/
+    function withdrawFromSmartPool(uint256 amount) external override {
         auditor.withdrawSmartPoolAllowed(address(this), msg.sender);
-
+        
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
         if (amount == type(uint256).max) {
@@ -518,6 +521,8 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         eToken.burn(msg.sender, amountToWithdraw);
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
+
+        emit WithdrawFromSmartPool(msg.sender, amount);
     }
 
     /**
