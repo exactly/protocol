@@ -74,7 +74,7 @@ contract Auditor is IAuditor, AccessControl {
         _requirePoolState(maturityDate, TSUtils.State.VALID);
         uint256 len = exafins.length;
         for (uint256 i = 0; i < len; i++) {
-            book.addToMarket(exafins[i], maturityDate);    
+            book.addToMarket(exafins[i], msg.sender, maturityDate);
         }
     }
 
