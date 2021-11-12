@@ -166,7 +166,7 @@ contract Auditor is IAuditor, AccessControl {
 
         _requirePoolState(maturityDate, TSUtils.State.VALID); 
 
-        book.validateBorrow(exafinAddress, oracle, borrower, borrowAmount, maturityDate);
+        book.validateBorrow(oracle, exafinAddress, borrower, borrowAmount, maturityDate);
 
         (, uint256 shortfall) = book.accountLiquidity(
             oracle,

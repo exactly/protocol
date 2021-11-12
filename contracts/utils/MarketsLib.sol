@@ -46,6 +46,7 @@ library MarketsLib {
 
     /**
      * @dev Allows a user to start participating in a market
+     * @param book book in which the addMarket function will be applied to
      * @param exafinAddress address used to retrieve the market data
      * @param who address of the user that it will start participating in a market/maturity
      * @param maturityDate poolID in which it will start participating
@@ -80,6 +81,14 @@ library MarketsLib {
         market.accountMembership[borrower][maturityDate] = true;
     }
 
+    /**
+     * @dev Allows wallet to exit certain markets (exafinDAI, exafinETH, etc)
+     *      By performing this action, the wallet's money stops being used as collateral
+     * @param book book in which the addMarket function will be applied to
+     * @param exafinAddress market address used to retrieve the market data
+     * @param who wallet that wants to exit a market/maturity
+     * @param maturityDate poolID in which the wallet will stop using as collateral
+     */
     function exitMarket(Book storage book, address exafinAddress, address who, uint256 maturityDate) external {
         MarketsLib.Market storage marketToExit = book.markets[exafinAddress];
 
@@ -112,9 +121,14 @@ library MarketsLib {
     }
 
     /**
-     * @dev Function to get account's liquidity for a certain maturity pool
-     * @param account wallet to retrieve liquidity for a certain maturity date
+     * @dev Function to get account's liquidity for a certain market/maturity pool
+     * @param book account book that it will be used to calculate liquidity
+     * @param oracle oracle used to perform all liquidity calculations
+     * @param account wallet which the liquidity will be calculated
      * @param maturityDate timestamp to calculate maturity's pool
+     * @param exafinToSimulate exafin in which we want to simulate redeem/borrow ops (see next two args)
+     * @param redeemAmount amount to simulate redeem
+     * @param borrowAmount amount to simulate borrow
      */
     function accountLiquidity(
         Book storage book,
@@ -180,10 +194,22 @@ library MarketsLib {
         }
     }
 
+    /**
+     * @dev Function to validate if a borrow should be allowed based on the what the book says.
+            if the user is not participating in a market, and the caller is an exafin, the function
+            will subscribe the wallet to the market membership
+     * @param book account book that it will be used to perform validation
+     * @param oracle oracle used to perform all liquidity calculations
+     * @param exafinAddress address of the market that the borrow will be validated. If this equals msg.sender
+              then the wallet will be autosubscribed to the market membership,
+     * @param borrower address which will be borrowing money from this market
+     * @param borrowAmount amount to be valide the borrow action with
+     * @param maturityDate of the market that the borrow will be validated.
+     */
     function validateBorrow(
         Book storage book,
-        address exafinAddress,
         IOracle oracle,
+        address exafinAddress,
         address borrower,
         uint256 borrowAmount,
         uint256 maturityDate
