@@ -3,11 +3,13 @@ pragma solidity ^0.8.4;
 
 import "../utils/DecimalMath.sol";
 import "../utils/ExaLib.sol";
+import "../utils/MarketsLib.sol";
 
 contract AuditorHarness {
 
     using DecimalMath for uint256;
     using ExaLib for ExaLib.RewardsState;
+    using MarketsLib for MarketsLib.Book;
 
     event DistributedSupplierExa(
         address indexed exafin,
@@ -27,7 +29,8 @@ contract AuditorHarness {
 
     // Rewards Management
     ExaLib.RewardsState public rewardsState;
-    mapping(address => Market) public markets;
+    // Protocol Management
+    MarketsLib.Book private book;
 
     constructor(address _exaToken) {
         rewardsState.exaToken = _exaToken;
@@ -146,13 +149,13 @@ contract AuditorHarness {
     function claimExa(address holder, address[] memory exafins) public {
         address[] memory holders = new address[](1);
         holders[0] = holder;
-        rewardsState.claimExa(blockNumber, markets, holders, exafins, true, true);
+        rewardsState.claimExa(blockNumber, book.markets, holders, exafins, true, true);
     }
 
     function enableMarket(
         address exafin
     ) public {
-        Market storage market = markets[exafin];
+        MarketsLib.Market storage market = book.markets[exafin];
         market.isListed = true;
 
         marketAddresses.push(exafin);

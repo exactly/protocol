@@ -10,6 +10,8 @@ import {
   parseSupplyEvent,
   errorGeneric,
   DefaultEnv,
+  PoolState,
+  errorUnmatchedPool,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -49,11 +51,10 @@ describe("Auditor from User Space", function () {
   ]);
 
   let snapshot: any;
-  beforeEach(async () => {
-    snapshot = await ethers.provider.send("evm_snapshot", []);
-  });
 
   beforeEach(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
+
     [owner, user] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
@@ -72,11 +73,84 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
+  it("We try to enter an invalid market and fail", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.enterMarkets([exafinDAI.address], nextPoolID + 333)
+    ).to.be.revertedWith(
+      errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
+    );
+  });
+
   it("We enter market twice without failing", async () => {
     const exafinDAI = exactlyEnv.getExafin("DAI");
     await auditor.enterMarkets([exafinDAI.address], nextPoolID);
     await expect(auditor.enterMarkets([exafinDAI.address], nextPoolID)).to.not
       .be.reverted;
+  });
+
+  it("We try to exit an unlisted market and fail", async () => {
+    await expect(
+      auditor.exitMarket(exactlyEnv.notAnExafinAddress, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("We try to exit an invalid market", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.exitMarket(exafinDAI.address, nextPoolID + 333)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+  });
+
+  it("We can't exit a market until maturity", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+    const amountDAI = parseUnits("100");
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    // we make it count as collateral (DAI)
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
+    // Move in time to maturity
+    await expect(
+      auditor.exitMarket(exafinDAI.address, nextPoolID)
+    ).to.be.revertedWith(
+      errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
+    );
+  });
+
+  it("We exit a market after maturity", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+    const amountDAI = parseUnits("100");
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    // we make it count as collateral (DAI)
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
+    // Move in time to maturity
+    await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
+    await ethers.provider.send("evm_mine", []);
+    await expect(auditor.exitMarket(exafinDAI.address, nextPoolID)).to.not.be
+      .reverted;
+  });
+
+  it("shouldn't allow to leave a market if there's debt", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+    const amountDAI = parseUnits("100");
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+    await exafinDAI.borrow(amountDAI.div(2), nextPoolID);
+
+    // we make it count as collateral (DAI)
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
+    // Move in time to maturity
+    await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
+    await ethers.provider.send("evm_mine", []);
+    await expect(
+      auditor.exitMarket(exafinDAI.address, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED));
   });
 
   it("SupplyAllowed should fail for an unlisted market", async () => {
@@ -352,7 +426,7 @@ describe("Auditor from User Space", function () {
     ).to.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
-  after(async () => {
+  afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
   });
