@@ -81,18 +81,23 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @notice Removes exafin from sender's account liquidity calculation
      * @dev Sender must not have an outstanding borrow balance in the asset,
-     *  or be providing necessary collateral for an outstanding borrow.
+     *      or be providing necessary collateral for an outstanding borrow.
      * @param exafinAddress The address of the asset to be removed
      * @param maturityDate The timestamp/poolID where the user wants to stop providing collateral
      */
     function exitMarket(address exafinAddress, uint256 maturityDate) external {
+
+        if (!book.markets[exafinAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
         IExafin exafin = IExafin(exafinAddress);
 
         if(!TSUtils.isPoolID(maturityDate)) { 
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        (uint256 amountHeld,uint256 borrowBalance) = exafin.getAccountSnapshot(msg.sender, maturityDate);
+        (uint256 amountHeld, uint256 borrowBalance) = exafin.getAccountSnapshot(msg.sender, maturityDate);
 
         /* Fail if the sender has a borrow balance */
         if (borrowBalance != 0) {
@@ -101,6 +106,7 @@ contract Auditor is IAuditor, AccessControl {
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
         _redeemAllowed(exafinAddress, msg.sender, amountHeld, maturityDate);
+        console.log("estoy3");
 
         book.exitMarket(exafinAddress, msg.sender, maturityDate);
     }

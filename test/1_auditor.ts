@@ -90,6 +90,36 @@ describe("Auditor from User Space", function () {
       .be.reverted;
   });
 
+  it("We try to exit an unlisted market and fail", async () => {
+    await expect(
+      auditor.exitMarket(exactlyEnv.notAnExafinAddress, nextPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("We try to exit an invalid market", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    await expect(
+      auditor.exitMarket(exafinDAI.address, nextPoolID + 333)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+  });
+
+  it("We can't exit a market until maturity", async () => {
+    const exafinDAI = exactlyEnv.getExafin("DAI");
+    const dai = exactlyEnv.getUnderlying("DAI");
+    const amountDAI = parseUnits("100");
+    await dai.approve(exafinDAI.address, amountDAI);
+    await exafinDAI.supply(owner.address, amountDAI, nextPoolID);
+
+    // we make it count as collateral (DAI)
+    await auditor.enterMarkets([exafinDAI.address], nextPoolID);
+    // Move in time to maturity
+    await expect(
+      auditor.exitMarket(exafinDAI.address, nextPoolID)
+    ).to.be.revertedWith(
+      errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
+    );
+  });
+
   it("SupplyAllowed should fail for an unlisted market", async () => {
     await expect(
       auditor.supplyAllowed(

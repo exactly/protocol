@@ -13,8 +13,8 @@ library MarketsLib {
 
     using DecimalMath for uint256;
 
-    event MarketEntered(address exafin, address account);
-    event MarketExited(address exafin, address account);
+    event MarketEntered(address exafin, address account, uint256 maturityDate);
+    event MarketExited(address exafin, address account, uint256 maturityDate);
 
     // Struct to avoid stack too deep
     struct AccountLiquidity {
@@ -55,7 +55,7 @@ library MarketsLib {
         MarketsLib.Market storage marketToJoin = book.markets[exafinAddress];
         addToMaturity(marketToJoin, who, maturityDate);
         book.accountAssets[who][maturityDate].push(IExafin(exafinAddress));
-        emit MarketEntered(exafinAddress, who);
+        emit MarketEntered(exafinAddress, who, maturityDate);
     }
 
     /**
@@ -117,7 +117,7 @@ library MarketsLib {
         storedList[assetIndex] = storedList[storedList.length - 1];
         storedList.pop();
 
-        emit MarketExited(exafinAddress, who);
+        emit MarketExited(exafinAddress, who, maturityDate);
     }
 
     /**
