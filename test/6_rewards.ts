@@ -409,7 +409,7 @@ describe("ExaToken", () => {
       );
 
       await exafinHarness.setTotalBorrows(parseUnits("10000"));
-      await exafinHarness.setBorrowsOf(owner.address, parseUnits("100"));
+      await exafinHarness.setTotalBorrowsUser(owner.address, parseUnits("100"));
 
       await auditorHarness.distributeBorrowerExa(
         exafinHarness.address,
@@ -425,7 +425,10 @@ describe("ExaToken", () => {
 
     it("should transfer EXA and update borrow index checkpoint correctly for repeat time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await exafinHarness.setBorrowsOf(mariaUser.address, parseUnits("5"));
+      await exafinHarness.setTotalBorrowsUser(
+        mariaUser.address,
+        parseUnits("5")
+      );
       await auditorHarness.setExaBorrowState(
         exafinHarness.address,
         parseUnits("6", 36),
@@ -464,7 +467,10 @@ describe("ExaToken", () => {
 
     it("should not transfer EXA automatically", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await exafinHarness.setBorrowsOf(mariaUser.address, parseUnits("0.5"));
+      await exafinHarness.setTotalBorrowsUser(
+        mariaUser.address,
+        parseUnits("0.5")
+      );
       await auditorHarness.setExaBorrowState(
         exafinHarness.address,
         parseUnits("1.0019", 36),
@@ -506,7 +512,10 @@ describe("ExaToken", () => {
 
     it("should transfer EXA and update supply index correctly for first time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await exafinHarness.setSuppliesOf(mariaUser.address, parseUnits("5"));
+      await exafinHarness.setTotalDepositsUser(
+        mariaUser.address,
+        parseUnits("5")
+      );
       await auditorHarness.setExaSupplyState(
         exafinHarness.address,
         parseUnits("6", 36),
@@ -541,7 +550,10 @@ describe("ExaToken", () => {
 
     it("should update EXA accrued and supply index for repeat user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await exafinHarness.setSuppliesOf(mariaUser.address, parseUnits("5"));
+      await exafinHarness.setTotalDepositsUser(
+        mariaUser.address,
+        parseUnits("5")
+      );
       await auditorHarness.setExaSupplyState(
         exafinHarness.address,
         parseUnits("6", 36),
@@ -571,7 +583,10 @@ describe("ExaToken", () => {
 
     it("should not transfer EXA automatically", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await exafinHarness.setSuppliesOf(mariaUser.address, parseUnits("0.5"));
+      await exafinHarness.setTotalDepositsUser(
+        mariaUser.address,
+        parseUnits("0.5")
+      );
       await auditorHarness.setExaSupplyState(
         exafinHarness.address,
         parseUnits("1.0019", 36),
@@ -679,7 +694,7 @@ describe("ExaToken", () => {
       const bobBalancePre = await exaToken.balanceOf(bobUser.address);
 
       await exafinHarness.setTotalDeposits(mintAmount);
-      await exafinHarness.setSuppliesOf(bobUser.address, mintAmount);
+      await exafinHarness.setTotalDepositsUser(bobUser.address, mintAmount);
       await auditorHarness.setBlockNumber(parseUnits("2", 7).add(10));
 
       await auditorHarness.claimExaAll(bobUser.address);
