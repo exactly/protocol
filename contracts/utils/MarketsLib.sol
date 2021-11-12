@@ -163,7 +163,7 @@ library MarketsLib {
             vars.collateralFactor = book.markets[address(asset)].collateralFactor;
 
             // Get the normalized price of the asset (18 decimals)
-            vars.oraclePrice = oracle.getAssetPrice(asset.tokenName());
+            vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenName());
 
             // We sum all the collateral prices
             vars.sumCollateral += DecimalMath.getTokenAmountInUSD(vars.balance, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
@@ -232,7 +232,7 @@ library MarketsLib {
         }
 
         // We check that the asset price is valid
-        oracle.getAssetPrice(IExafin(exafinAddress).tokenName());
+        oracle.getAssetPrice(IExafin(exafinAddress).underlyingTokenName());
 
         uint256 borrowCap = book.borrowCaps[exafinAddress];
         // Borrow cap of 0 corresponds to unlimited borrowing
