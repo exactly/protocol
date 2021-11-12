@@ -83,7 +83,7 @@ contract Auditor is IAuditor, AccessControl {
      * @dev Sender must not have an outstanding borrow balance in the asset,
      *  or be providing necessary collateral for an outstanding borrow.
      * @param exafinAddress The address of the asset to be removed
-     * @param maturityDate The timestamp/poolID where the user wants to stop borrowing
+     * @param maturityDate The timestamp/poolID where the user wants to stop providing collateral
      */
     function exitMarket(address exafinAddress, uint256 maturityDate) external {
         IExafin exafin = IExafin(exafinAddress);
