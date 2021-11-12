@@ -247,7 +247,7 @@ library ExaLib {
 
         Double memory deltaIndex = supplyIndex.sub_(supplierIndex);
 
-        uint supplierTokens = IExafin(exafinAddress).suppliesOf(supplier);
+        uint supplierTokens = IExafin(exafinAddress).totalDepositsUser(supplier);
         uint supplierDelta = supplierTokens.mul_(deltaIndex);
         uint supplierAccrued = exafinState.exaAccruedUser[supplier] + supplierDelta;
         exafinState.exaAccruedUser[supplier] = supplierAccrued;
@@ -289,7 +289,7 @@ library ExaLib {
 
         if (borrowerIndex.value > 0) {
             Double memory deltaIndex = borrowIndex.sub_(borrowerIndex);
-            uint borrowerAmount = IExafin(exafinAddress).borrowsOf(borrower);
+            uint borrowerAmount = IExafin(exafinAddress).totalBorrowsUser(borrower);
             uint borrowerDelta = borrowerAmount.mul_(deltaIndex);
             uint borrowerAccrued = exafinState.exaAccruedUser[borrower] + borrowerDelta;
             exafinState.exaAccruedUser[borrower] = borrowerAccrued;
