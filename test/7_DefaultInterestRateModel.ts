@@ -56,7 +56,6 @@ describe("DefaultInterestRateModel", () => {
   };
 
   let mpSlopeRate: number = 0.07;
-  let spSlopeRate: number = 0.07;
   let baseRate: number = 0.02;
 
   const closeToRate = 1 * 10 ** -18;
@@ -324,7 +323,6 @@ describe("DefaultInterestRateModel", () => {
       await interestRateModel.getRateToSupply(futurePool, maturityPool)
     );
 
-
     expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
 
     maturityPool = {
@@ -334,7 +332,8 @@ describe("DefaultInterestRateModel", () => {
       available: 0,
     };
 
-    const yearlyRateMaturity2 = baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+    const yearlyRateMaturity2 =
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
     const rate2 = truncDigits(
       (yearlyRateMaturity2 * exaTime.daysDiffWith(futurePool)) / 365,
@@ -349,7 +348,6 @@ describe("DefaultInterestRateModel", () => {
         false
       )
     );
-
 
     expect(parseFloat(actual2)).to.be.closeTo(rate2, closeToRate);
     expect(parseFloat(actual2)).to.be.above(parseFloat(actual));
@@ -380,7 +378,6 @@ describe("DefaultInterestRateModel", () => {
       await interestRateModel.getRateToSupply(futurePool, maturityPool)
     );
 
-
     expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
 
     maturityPool = {
@@ -395,7 +392,8 @@ describe("DefaultInterestRateModel", () => {
       supplied: 100000000000000,
     };
 
-    const yearlyRateMaturity2 = baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+    const yearlyRateMaturity2 =
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
     const rate2 = truncDigits(
       (yearlyRateMaturity2 * exaTime.daysDiffWith(futurePool)) / 365,
@@ -410,7 +408,6 @@ describe("DefaultInterestRateModel", () => {
         false
       )
     );
-
 
     expect(parseFloat(actual2)).to.be.closeTo(rate2, closeToRate);
     expect(parseFloat(actual2)).to.be.above(parseFloat(actual));
