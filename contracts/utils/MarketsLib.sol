@@ -87,10 +87,8 @@ library MarketsLib {
             return;
         }
 
-        /* Set cToken account membership to false */
         delete marketToExit.accountMembership[who][maturityDate];
 
-        /* Delete cToken from the account’s list of assets */
         // load into memory for faster iteration
         IExafin[] memory userAssetList = book.accountAssets[who][maturityDate];
         uint len = userAssetList.length;
