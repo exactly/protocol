@@ -29,4 +29,16 @@ interface IEToken is IERC20 {
     * @param amount The amount of underlying tokens deposited
     */
   function accrueEarnings(uint256 amount) external;
+
+  /**
+    * @dev Emitted when `exafin` is setted
+    * - The Exafin is where the eToken is used
+    */
+  event ExafinSetted(address indexed exafin);
+
+  /**
+    * @dev Emitted when `amount` is accrued as earnings
+    */
+  event EarningsAccrued(uint256 amount);
+
 }

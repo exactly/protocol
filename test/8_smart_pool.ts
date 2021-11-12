@@ -38,6 +38,7 @@ describe("Smart Pool", function () {
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     exafin = exactlyEnv.getExafin("DAI");
+    await eDAI.setExafin(exafin.address);
 
     // From Owner to User
     await underlyingToken.transfer(bob.address, parseUnits("2000"));

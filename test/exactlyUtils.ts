@@ -102,6 +102,8 @@ export enum ProtocolError {
   REDEEM_CANT_BE_ZERO,
   EXIT_MARKET_BALANCE_OWED,
   BURN_AMOUNT_EXCEEDS_BALANCE,
+  CALLER_MUST_BE_EXAFIN,
+  EXAFIN_ALREADY_SETTED,
 }
 
 export type MockedTokenSpec = {
