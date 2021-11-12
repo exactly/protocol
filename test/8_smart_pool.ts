@@ -3,13 +3,19 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { DefaultEnv, ExactlyEnv } from "./exactlyUtils";
+import {
+  ProtocolError,
+  errorGeneric,
+  DefaultEnv,
+  ExactlyEnv,
+} from "./exactlyUtils";
 
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;
 
   let underlyingToken: Contract;
   let exafin: Contract;
+  let eDAI: Contract;
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
 
@@ -28,49 +34,70 @@ describe("Smart Pool", function () {
     [bob, laura] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    eDAI = exactlyEnv.getEToken("DAI");
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     exafin = exactlyEnv.getExafin("DAI");
+    await eDAI.setExafin(exafin.address);
 
     // From Owner to User
-    await underlyingToken.transfer(bob.address, parseUnits("1000"));
+    await underlyingToken.transfer(bob.address, parseUnits("2000"));
   });
 
-  it("DepositToSmartPool should transfer underlying asset amount to contract", async () => {
-    let amountToDeposit = parseUnits("100");
-    await underlyingToken.approve(exafin.address, amountToDeposit);
-    await exafin.depositToSmartPool(amountToDeposit);
+  describe("GIVEN bob has 2000DAI in balance, AND deposits 1000DAI", () => {
+    beforeEach(async () => {
+      let bobBalance = parseUnits("2000");
+      await underlyingToken.approve(exafin.address, bobBalance);
+      await exafin.depositToSmartPool(parseUnits("1000"));
+    });
+    it("THEN balance of DAI in contract is 1000", async () => {
+      let balanceOfAssetInContract = await underlyingToken.balanceOf(
+        exafin.address
+      );
 
-    let balanceOfAssetInContract = await underlyingToken.balanceOf(
-      exafin.address
-    );
+      expect(balanceOfAssetInContract).to.equal(parseUnits("1000"));
+    });
+    it("THEN balance of eDAI in BOB's address is 1000", async () => {
+      let balanceOfETokenInUserAddress = await eDAI.balanceOf(bob.address);
 
-    expect(balanceOfAssetInContract).to.equal(amountToDeposit);
-  });
+      expect(balanceOfETokenInUserAddress).to.equal(parseUnits("1000"));
+    });
+    it("AND WHEN bob deposits 100DAI more, THEN event DepositToSmartPool is emitted", async () => {
+      await expect(exafin.depositToSmartPool(parseUnits("100"))).to.emit(
+        exafin,
+        "DepositToSmartPool"
+      );
+    });
+    describe("AND bob withdraws 500DAI", () => {
+      beforeEach(async () => {
+        let amountToWithdraw = parseUnits("500");
+        await exafin.withdrawFromSmartPool(amountToWithdraw);
+      });
+      it("THEN balance of DAI in contract is 500", async () => {
+        let balanceOfAssetInContract = await underlyingToken.balanceOf(
+          exafin.address
+        );
 
-  it("WithdrawFromSmartPool should transfer underlying asset amount from contract", async () => {
-    let amountToWithdraw = parseUnits("100");
-    await underlyingToken.transfer(laura.address, amountToWithdraw);
+        expect(balanceOfAssetInContract).to.equal(parseUnits("500"));
+      });
+      it("THEN balance of eDAI in BOB's address is 500", async () => {
+        let balanceOfETokenInUserAddress = await eDAI.balanceOf(bob.address);
 
-    await underlyingToken
-      .connect(laura)
-      .approve(exafin.address, amountToWithdraw);
-    await exafin.connect(laura).depositToSmartPool(amountToWithdraw);
-
-    await exafin.connect(laura).withdrawFromSmartPool(amountToWithdraw);
-    let balanceOfAssetInUserAddress = await underlyingToken.balanceOf(
-      laura.address
-    );
-
-    expect(balanceOfAssetInUserAddress).to.equal(amountToWithdraw);
-  });
-
-  it("WithdrawFromSmartPool should fail when eToken balance is lower than withdraw amount", async () => {
-    let amountToDeposit = parseUnits("100");
-    let amountToWithdraw = parseUnits("200");
-    await underlyingToken.approve(exafin.address, amountToDeposit);
-    await exafin.depositToSmartPool(amountToDeposit);
-
-    await expect(exafin.withdrawFromSmartPool(amountToWithdraw)).to.be.reverted;
+        expect(balanceOfETokenInUserAddress).to.equal(parseUnits("500"));
+      });
+      it("AND WHEN bob withdraws 100DAI more, THEN event WithdrawFromSmartPool is emitted", async () => {
+        await expect(exafin.withdrawFromSmartPool(parseUnits("100"))).to.emit(
+          exafin,
+          "WithdrawFromSmartPool"
+        );
+      });
+      it("AND WHEN bob wants to withdraw 600DAI more, THEN it reverts because his eDAI balance is not enough", async () => {
+        await expect(
+          exafin.withdrawFromSmartPool(parseUnits("600"))
+        ).to.be.revertedWith(
+          errorGeneric(ProtocolError.BURN_AMOUNT_EXCEEDS_BALANCE)
+        );
+      });
+    });
   });
 });
