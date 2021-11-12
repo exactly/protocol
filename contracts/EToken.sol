@@ -1,17 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./interfaces/IEToken.sol";
+import "./interfaces/IExafin.sol";
 import "./utils/Errors.sol";
 
-contract EToken is ERC20, IEToken {
+contract EToken is ERC20, IEToken, AccessControl {
+    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
+
     mapping(address => uint256) private userEarningsIndex;
     mapping(address => uint256) private userBalances;
     uint256 private currentSupplyScaled;
     uint256 private liquidityReserveIndex;
+    IExafin private exafin;
 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
+        _setupRole(TEAM_ROLE, msg.sender);
+    }
+
+    modifier onlyExafin {
+        if(_msgSender() != address(exafin)) {
+            revert GenericError(ErrorCode.CALLER_MUST_BE_EXAFIN);
+        }
+        _;
     }
 
     /**
@@ -33,10 +46,11 @@ contract EToken is ERC20, IEToken {
 
     /**
      * @dev Mints `amount` eTokens to `user`
+     * - Only callable by the Exafin
      * @param user The address receiving the minted tokens
      * @param amount The amount of tokens getting minted
      */
-    function mint(address user, uint256 amount) external override {
+    function mint(address user, uint256 amount) external override onlyExafin {
         require(user != address(0), "ERC20: mint to the zero address");
 
         currentSupplyScaled += amount;
@@ -49,21 +63,25 @@ contract EToken is ERC20, IEToken {
 
     /**
      * @dev Increases contract earnings
+     * - Only callable by the Exafin
      * @param amount The amount of underlying tokens deposited
      */
-    function accrueEarnings(uint256 amount) external override {
+    function accrueEarnings(uint256 amount) external override onlyExafin {
         require(currentSupplyScaled > 0, "Total supply should be positive");
 
         liquidityReserveIndex += (amount * 1e18) / currentSupplyScaled;
         currentSupplyScaled += amount;
+
+        emit EarningsAccrued(amount);
     }
 
     /**
      * @dev Burns eTokens from `user`
+     * - Only callable by the Exafin
      * @param user The owner of the eTokens, getting them burned
      * @param amount The amount being burned
      **/
-    function burn(address user, uint256 amount) external override {
+    function burn(address user, uint256 amount) external override onlyExafin {
         if (balanceOf(user) < amount) {
             revert GenericError(ErrorCode.BURN_AMOUNT_EXCEEDS_BALANCE);
         }
@@ -78,4 +96,19 @@ contract EToken is ERC20, IEToken {
 
         emit Transfer(user, address(0), amount);
     }
+
+    /**
+     * @dev Sets the Exafin where this eToken is used
+     * - Only able to set the Exafin once
+     * @param exafinAddress The address of the Exafin that uses this eToken
+     */
+    function setExafin(address exafinAddress) external onlyRole(TEAM_ROLE) {
+        if(address(exafin) != address(0)) {
+            revert GenericError(ErrorCode.EXAFIN_ALREADY_SETTED);
+        }
+        exafin = IExafin(exafinAddress);
+
+        emit ExafinSetted(exafinAddress);
+    }
+
 }
