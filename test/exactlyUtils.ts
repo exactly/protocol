@@ -227,6 +227,7 @@ export class ExactlyEnv {
         },
       }
     );
+
     let interestRateModel = await DefaultInterestRateModel.deploy(
       parseUnits("0.01"),
       parseUnits("0.07"),

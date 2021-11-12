@@ -56,6 +56,9 @@ describe("DefaultInterestRateModel", () => {
   };
 
   let mpSlopeRate: number = 0.07;
+  let spSlopeRate: number = 0.07;
+  let baseRate: number = 0.02;
+
   const closeToRate = 1 * 10 ** -18;
 
   beforeEach(async () => {
@@ -109,7 +112,7 @@ describe("DefaultInterestRateModel", () => {
     };
 
     const yearlyRateMaturity =
-      (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
     const rate = truncDigits(
       (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
@@ -141,7 +144,7 @@ describe("DefaultInterestRateModel", () => {
     };
 
     const yearlyRateMaturity =
-      (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
     const rate = truncDigits(
       (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
@@ -173,7 +176,7 @@ describe("DefaultInterestRateModel", () => {
     };
 
     const yearlyRateMaturity =
-      (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
     const rate = truncDigits(
       (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
@@ -205,7 +208,7 @@ describe("DefaultInterestRateModel", () => {
     };
 
     const yearlyRateMaturity =
-      (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
     const rate = truncDigits(
       (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
@@ -251,7 +254,7 @@ describe("DefaultInterestRateModel", () => {
     };
 
     const yearlyRateMaturity =
-      (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
     const rate = truncDigits(
       (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
@@ -283,22 +286,134 @@ describe("DefaultInterestRateModel", () => {
     };
 
     const yearlyRateMaturity =
-      (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
 
     const rate = truncDigits(
       (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
       18
     );
     const actual = formatUnits(
-      await interestRateModel.getRateToSupply(
-        10,
-        futurePool,
-        maturityPool,
-        smartPool
-      )
+      await interestRateModel.getRateToSupply(futurePool, maturityPool)
     );
 
     expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+  });
+
+  it("Supply into an empty maturity pool when smart pool UR is near to 75%, then borrow half of the amount you supply", async () => {
+    maturityPool = {
+      borrowed: 0,
+      supplied: 100000,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 3000000,
+      supplied: 4000000,
+    };
+
+    const yearlyRateMaturity =
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+
+    const actual = formatUnits(
+      await interestRateModel.getRateToSupply(futurePool, maturityPool)
+    );
+
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+
+    maturityPool = {
+      borrowed: 50000,
+      supplied: 100000,
+      debt: 0,
+      available: 0,
+    };
+
+    const yearlyRateMaturity2 = baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate2 = truncDigits(
+      (yearlyRateMaturity2 * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+
+    const actual2 = formatUnits(
+      await interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        false
+      )
+    );
+
+
+    expect(parseFloat(actual2)).to.be.closeTo(rate2, closeToRate);
+    expect(parseFloat(actual2)).to.be.above(parseFloat(actual));
+  });
+
+  it("Deposits to empty maturity pool, makes flash loan and deposit all of it to smart pool, borrow from maturity pool all collateral, pays flash loan", async () => {
+    maturityPool = {
+      borrowed: 0,
+      supplied: 226213,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 3000000,
+      supplied: 4000000,
+    };
+
+    const yearlyRateMaturity =
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+
+    const actual = formatUnits(
+      await interestRateModel.getRateToSupply(futurePool, maturityPool)
+    );
+
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+
+    maturityPool = {
+      borrowed: 150000,
+      supplied: 226213,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 0,
+      supplied: 100000000000000,
+    };
+
+    const yearlyRateMaturity2 = baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate2 = truncDigits(
+      (yearlyRateMaturity2 * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+
+    const actual2 = formatUnits(
+      await interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        false
+      )
+    );
+
+
+    expect(parseFloat(actual2)).to.be.closeTo(rate2, closeToRate);
+    expect(parseFloat(actual2)).to.be.above(parseFloat(actual));
   });
 
   it("Borrow 10 from maturity pool with no money in maturity pool nor smart pool", async () => {
