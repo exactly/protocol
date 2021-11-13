@@ -22,6 +22,12 @@ contract AuditorHarness {
         uint256 borrowerDelta,
         uint256 exaSupplyIndex
     );
+    event DistributedSmartPoolExa(
+        address indexed exafin,
+        address indexed supplier,
+        uint smartSupplierDelta,
+        uint smartPoolIndex
+    );
 
     uint256 public blockNumber;
     address[] public marketAddresses;

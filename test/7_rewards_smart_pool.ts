@@ -95,17 +95,17 @@ describe("ExaToken Smart Pool", () => {
         expect(balanceUserPost).to.not.equal(0);
       });
 
-      it("should emit DistributedSupplierExa event when depositing to smart pool", async () => {
+      it("should emit DistributedSmartPoolExa event when depositing to smart pool", async () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(exafinDAI.address, underlyingAmount);
 
         await expect(exafinDAI.depositToSmartPool(underlyingAmount)).to.emit(
           auditor,
-          "DistributedSupplierExa"
+          "DistributedSmartPoolExa"
         );
       });
 
-      it("should DistributedSupplierExa when withdrawing from smart pool", async () => {
+      it("should DistributedSmartPoolExa when withdrawing from smart pool", async () => {
         // connect through Maria
         let exafinMaria = exafinDAI.connect(mariaUser);
         let underlyingTokenUser = dai.connect(mariaUser);
@@ -117,7 +117,7 @@ describe("ExaToken Smart Pool", () => {
 
         await expect(exafinMaria.withdrawFromSmartPool(depositAmount)).to.emit(
           auditor,
-          "DistributedSupplierExa"
+          "DistributedSmartPoolExa"
         );
       });
     });
@@ -234,7 +234,7 @@ describe("ExaToken Smart Pool", () => {
       expect(accrued).to.equal(0);
       expect(balance).to.equal(parseUnits("25"));
       expect(tx)
-        .to.emit(auditorHarness, "DistributedSupplierExa")
+        .to.emit(auditorHarness, "DistributedSmartPoolExa")
         .withArgs(
           exafinHarness.address,
           mariaUser.address,
