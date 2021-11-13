@@ -8,16 +8,16 @@ contract ExafinHarness {
     uint256 public totalBorrows;
     uint256 public totalDeposits;
 
-    mapping(address => uint256) public totalDepositUser;
+    mapping(address => uint256) public totalDepositsUser;
     mapping(address => uint256) public totalBorrowsUser;
 
     IEToken public eToken;
 
-    function setTotalBorrows(uint _totalBorrows) public {
+    function setTotalBorrows(uint256 _totalBorrows) public {
         totalBorrows = _totalBorrows;
     }
 
-    function setTotalDeposits(uint _totalDeposits) public {
+    function setTotalDeposits(uint256 _totalDeposits) public {
         totalDeposits = _totalDeposits;
     }
 
@@ -26,7 +26,11 @@ contract ExafinHarness {
     }
 
     function setTotalDepositsUser(address _who, uint256 _amount) public {
-        totalDepositUser[_who] = _amount;
+        totalDepositsUser[_who] = _amount;
+    }
+
+    function setTotalSmartPoolDeposits(address _who, uint256 _totalDeposits) public {
+        eToken.mint(_who, _totalDeposits);
     }
 
     function setEToken(address _eTokenAddress) public {
