@@ -47,6 +47,12 @@ npx hardhat test
 npx hardhat coverage
 ```
 
+## Gas Reports
+
+```bash
+export REPORT_GAS=1 && npx hardhat test
+```
+
 ## Deploy
 
 ```bash
