@@ -32,7 +32,12 @@ library ExaLib {
         uint borrowerDelta,
         uint exaBorrowIndex
     );
-
+    event DistributedSmartPoolExa(
+        address indexed exafin,
+        address indexed supplier,
+        uint smartSupplierDelta,
+        uint smartPoolIndex
+    );
 
     // Double precision
     uint224 public constant EXA_INITIAL_INDEX = 1e36;
@@ -207,7 +212,7 @@ library ExaLib {
         uint smartSupplierDelta = smartSupplierTokens.mul_(deltaIndex);
         uint smartSupplierAccrued = exafinState.exaAccruedUser[supplier] + smartSupplierDelta;
         exafinState.exaAccruedUser[supplier] = smartSupplierAccrued;
-        emit DistributedSupplierExa(exafinAddress, supplier, smartSupplierDelta, smartPoolIndex.value);
+        emit DistributedSmartPoolExa(exafinAddress, supplier, smartSupplierDelta, smartPoolIndex.value);
     }
 
     /**
