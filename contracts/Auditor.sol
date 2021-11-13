@@ -40,6 +40,12 @@ contract Auditor is IAuditor, AccessControl {
         uint256 borrowerDelta,
         uint256 exaSupplyIndex
     );
+    event DistributedSmartPoolExa(
+        address indexed exafin,
+        address indexed supplier,
+        uint smartSupplierDelta,
+        uint smartPoolIndex
+    );
 
     // Protocol Management
     MarketsLib.Book private book;
