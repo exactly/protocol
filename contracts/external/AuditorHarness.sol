@@ -52,6 +52,14 @@ contract AuditorHarness {
         );
     }
 
+    function getSmartState(address exafinAddress)
+        public
+        view
+        returns (MarketRewardsState memory)
+    {
+        return rewardsState.exaState[exafinAddress].exaSmartState;
+    }
+
     function getSupplyState(address exafinAddress)
         public
         view
@@ -68,6 +76,10 @@ contract AuditorHarness {
         return rewardsState.exaState[exafinAddress].exaBorrowState;
     }
 
+    function updateExaSmartPoolIndex(address exafinAddress) public {
+        rewardsState.updateExaSmartPoolIndex(blockNumber, exafinAddress);
+    }
+
     function updateExaBorrowIndex(address exafinAddress) public {
         rewardsState.updateExaBorrowIndex(blockNumber, exafinAddress);
     }
@@ -79,6 +91,15 @@ contract AuditorHarness {
     function refreshIndexes(address exafinAddress) external {
         updateExaSupplyIndex(exafinAddress);
         updateExaBorrowIndex(exafinAddress);
+    }
+
+    function setExaSmartState(
+        address exafinAddress,
+        uint224 index,
+        uint32 _blockNumber
+    ) public {
+        rewardsState.exaState[exafinAddress].exaSmartState.index = index;
+        rewardsState.exaState[exafinAddress].exaSmartState.block = _blockNumber;
     }
 
     function setExaSupplyState(
@@ -111,6 +132,16 @@ contract AuditorHarness {
         uint256 index
     ) public {
         rewardsState.exaState[exafinAddress].exaBorrowerIndex[borrower] = index;
+    }
+
+    function setExaSmartSupplierIndex(
+        address exafinAddress,
+        address supplier,
+        uint256 index
+    ) public {
+        rewardsState.exaState[exafinAddress].exaSmartSupplierIndex[
+            supplier
+        ] = index;
     }
 
     function setExaSupplierIndex(
@@ -147,6 +178,22 @@ contract AuditorHarness {
         public
     {
         rewardsState.distributeSupplierExa(exafinAddress, supplier);
+        rewardsState.exaAccruedUser[supplier] = rewardsState.grantExa(
+            supplier,
+            rewardsState.exaAccruedUser[supplier]
+        );
+    }
+
+    function distributeSmartPoolExa(address exafinAddress, address supplier)
+        public
+    {
+        rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
+    }
+
+    function distributeAllSmartPoolExa(address exafinAddress, address supplier)
+        public
+    {
+        rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
         rewardsState.exaAccruedUser[supplier] = rewardsState.grantExa(
             supplier,
             rewardsState.exaAccruedUser[supplier]

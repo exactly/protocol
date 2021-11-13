@@ -350,6 +350,7 @@ export class ExactlyEnv {
     let exafinHarness = await ExafinHarness.deploy();
     await exafinHarness.deployed();
     await exafinHarness.setEToken(eToken.address);
+    eToken.setExafin(exafinHarness.address);
 
     const AuditorHarness = await ethers.getContractFactory("AuditorHarness", {
       libraries: {
