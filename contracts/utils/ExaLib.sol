@@ -81,7 +81,7 @@ library ExaLib {
             uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
             Double memory ratio = smartTokens > 0 ? exaAccruedDelta.fraction(smartTokens) : Double({value: 0});
             Double memory index = Double({value: smartState.index}).add_(ratio);
-            exaState.exaSupplyState = MarketRewardsState({
+            exaState.exaSmartState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
             });
