@@ -55,6 +55,7 @@ describe("ExaToken", () => {
   beforeEach(async () => {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
+    [owner, mariaUser, bobUser] = await ethers.getSigners();
   });
 
   describe("Integration", () => {
@@ -64,8 +65,6 @@ describe("ExaToken", () => {
     let exaToken: Contract;
 
     beforeEach(async () => {
-      [owner, mariaUser, bobUser] = await ethers.getSigners();
-
       dai = exactlyEnv.getUnderlying("DAI");
       exafinDAI = exactlyEnv.getExafin("DAI");
       auditor = exactlyEnv.auditor;
