@@ -115,18 +115,77 @@ describe("Liquidations", function () {
           await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
           await ethers.provider.send("evm_mine", []);
         });
-        it("THEN the position is liquidateable", async () => {
-          const tx = exafinDAI
-            .connect(bob)
-            .liquidate(
+        // should we disable the close factor for overdue debts?
+        describe("AND the position is liquidated a first time (19kdai, just below close factor of 0.5)", () => {
+          let tx: any;
+          beforeEach(async () => {
+            tx = exafinDAI
+              .connect(bob)
+              .liquidate(
+                alice.address,
+                parseUnits("19000"),
+                exafinWBTC.address,
+                nextPoolID
+              );
+            await tx;
+          });
+          it("THEN the liquidator seizes 19k of collateral (WBTC)", async () => {
+            // FIXME the liquidator should get a price better than market
+            // 19kusd of btc at its current price of 63kusd
+            const seizedWBTC = parseUnits("30158730", 0);
+            await expect(tx)
+              .to.emit(exafinWBTC, "Seized")
+              .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+          });
+          it("AND 19k DAI of debt has been repaid, making debt ~20900 DAI", async () => {
+            const [, debt] = await exafinDAI.getAccountSnapshot(
               alice.address,
-              parseUnits("15000"),
-              exafinWBTC.address,
               nextPoolID
             );
-          await expect(tx).to.not.be.reverted;
+            expect(debt).to.be.lt(parseUnits("20900"));
+            expect(debt).to.be.gt(parseUnits("20800"));
+          });
+          describe("AND WHEN the position is liquidated a second time (39850-19000)/2 == 10400", () => {
+            beforeEach(async () => {
+              tx = exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  parseUnits("10400"),
+                  exafinWBTC.address,
+                  nextPoolID
+                );
+              await tx;
+            });
+            it("THEN the liquidator seizes 10k of collateral (WBTC)", async () => {
+              // FIXME the liquidator should get a price better than market
+              // 10.4kusd of btc at its current price of 63kusd
+              const seizedWBTC = parseUnits("16507936", 0);
+              await expect(tx)
+                .to.emit(exafinWBTC, "Seized")
+                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+            });
+            it("AND 10k DAI of debt has been repaid, making debt ~10k DAI", async () => {
+              const [, debt] = await exafinDAI.getAccountSnapshot(
+                alice.address,
+                nextPoolID
+              );
+              expect(debt).to.be.lt(parseUnits("10500"));
+              expect(debt).to.be.gt(parseUnits("10400"));
+            });
+            it("AND the position still has plenty of liquidity", async () => {
+              const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+                alice.address,
+                nextPoolID
+              );
+              expect(liquidity).to.be.gt(parseUnits("11000"));
+              expect(liquidity).to.be.lt(parseUnits("12000"));
+              expect(shortfall).to.eq("0");
+            });
+          });
         });
       });
+
       describe("A position can be recollateralized through liquidation", () => {
         describe("AND WHEN ETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850)", () => {
           beforeEach(async () => {
