@@ -49,6 +49,7 @@ contract Auditor is IAuditor, AccessControl {
     MarketsLib.Book private book;
 
     uint256 public closeFactor = 5e17;
+    uint256 public liquidationIncentive = 1e18+1e17;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
 
@@ -331,7 +332,7 @@ contract Auditor is IAuditor, AccessControl {
             book.markets[fixedLenderCollateral].decimals
         );
 
-        return seizeTokens;
+        return seizeTokens.mul_(liquidationIncentive);
     }
 
     /**
