@@ -129,10 +129,9 @@ describe("Liquidations", function () {
               );
             await tx;
           });
-          it("THEN the liquidator seizes 19k of collateral (WBTC)", async () => {
-            // FIXME the liquidator should get a price better than market
-            // 19kusd of btc at its current price of 63kusd
-            const seizedWBTC = parseUnits("30158730", 0);
+          it("THEN the liquidator seizes 19k+10% of collateral (WBTC)", async () => {
+            // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+            const seizedWBTC = parseUnits("33174603", 0);
             await expect(tx)
               .to.emit(exafinWBTC, "Seized")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
@@ -157,10 +156,9 @@ describe("Liquidations", function () {
                 );
               await tx;
             });
-            it("THEN the liquidator seizes 10k of collateral (WBTC)", async () => {
-              // FIXME the liquidator should get a price better than market
-              // 10.4kusd of btc at its current price of 63kusd
-              const seizedWBTC = parseUnits("16507936", 0);
+            it("THEN the liquidator seizes 10k+10% of collateral (WBTC)", async () => {
+              // 10.4kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+              const seizedWBTC = parseUnits("18158729", 0);
               await expect(tx)
                 .to.emit(exafinWBTC, "Seized")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
@@ -178,8 +176,8 @@ describe("Liquidations", function () {
                 alice.address,
                 nextPoolID
               );
-              expect(liquidity).to.be.gt(parseUnits("11000"));
-              expect(liquidity).to.be.lt(parseUnits("12000"));
+              expect(liquidity).to.be.gt(parseUnits("10000"));
+              expect(liquidity).to.be.lt(parseUnits("11000"));
               expect(shortfall).to.eq("0");
             });
           });
@@ -221,10 +219,9 @@ describe("Liquidations", function () {
               )[1];
               expect(shortfall).to.eq(0);
             });
-            it("AND the liquidator seized 19k of collateral (WBTC)", async () => {
-              // FIXME the liquidator should get a price better than market
-              // 19kusd of btc at its current price of 63kusd
-              const seizedWBTC = parseUnits("30158730", 0);
+            it("AND the liquidator seized 19k + 10% = 20900 of collateral (WBTC)", async () => {
+              // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+              const seizedWBTC = parseUnits("33174603", 0);
               await expect(tx)
                 .to.emit(exafinWBTC, "Seized")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
@@ -236,8 +233,8 @@ describe("Liquidations", function () {
               const liquidity = (
                 await auditor.getAccountLiquidity(alice.address, nextPoolID)
               )[0];
-              expect(liquidity).to.be.gt(parseUnits("6500"));
-              expect(liquidity).to.be.lt(parseUnits("6600"));
+              expect(liquidity).to.be.gt(parseUnits("5400"));
+              expect(liquidity).to.be.lt(parseUnits("5600"));
             });
           });
         });
@@ -350,12 +347,11 @@ describe("Liquidations", function () {
               );
             await tx;
           });
-          // FIXME: this shouldn't work like this, the liquidation should be
-          // at a slightly better than market price
-          it("THEN roughly 19000 USD of collateral (WBTC) is seized", async () => {
+          it("THEN roughly 19000 USD + 10% = 20900 of collateral (WBTC) is seized", async () => {
             const protocolShare = parseUnits("0.028");
-            // this is equivalent to 18999.9 USD, at the provided price of 32500
-            const seizedWBTC = parseUnits("58461538", 0);
+            // this is equivalent to 18999.9 USD, at the provided price of
+            // 32500 + 10% liquidation incentive
+            const seizedWBTC = parseUnits("64307691", 0);
             await expect(tx)
               .to.emit(exafinWBTC, "Seized")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
