@@ -10,8 +10,7 @@ import "./utils/DecimalMath.sol";
 
 contract EToken is ERC20, IEToken, AccessControl {
     using DecimalMath for uint256;
-    
-    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
+
     // totalBalance = smart pool's balance
     uint256 public totalBalance;
     // index = totalBalance / totalScaledBalance
@@ -21,12 +20,14 @@ contract EToken is ERC20, IEToken, AccessControl {
 
     IExafin private exafin;
 
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
-        _setupRole(TEAM_ROLE, msg.sender);
+    constructor(string memory name_, string memory symbol_)
+        ERC20(name_, symbol_)
+    {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    modifier onlyExafin {
-        if(_msgSender() != address(exafin)) {
+    modifier onlyExafin() {
+        if (_msgSender() != address(exafin)) {
             revert GenericError(ErrorCode.CALLER_MUST_BE_EXAFIN);
         }
         _;
@@ -36,7 +37,12 @@ contract EToken is ERC20, IEToken, AccessControl {
      * @dev Returns the total supply of the eToken
      * @return The current total supply
      **/
-    function totalSupply() public view override(ERC20, IERC20) returns (uint256) {
+    function totalSupply()
+        public
+        view
+        override(ERC20, IERC20)
+        returns (uint256)
+    {
         return totalBalance;
     }
 
@@ -45,7 +51,12 @@ contract EToken is ERC20, IEToken, AccessControl {
      * @param account The user whose balance is calculated
      * @return The balance of the user
      **/
-    function balanceOf(address account) public view override(ERC20, IERC20) returns (uint256) {
+    function balanceOf(address account)
+        public
+        view
+        override(ERC20, IERC20)
+        returns (uint256)
+    {
         if (userScaledBalance[account] == 0) {
             return 0;
         }
@@ -95,7 +106,8 @@ contract EToken is ERC20, IEToken, AccessControl {
             revert GenericError(ErrorCode.BURN_AMOUNT_EXCEEDS_BALANCE);
         }
 
-        uint256 scaledWithdrawAmount = (amount * totalScaledBalance) / totalBalance;
+        uint256 scaledWithdrawAmount = (amount * totalScaledBalance) /
+            totalBalance;
 
         totalScaledBalance -= scaledWithdrawAmount;
         userScaledBalance[user] -= scaledWithdrawAmount;
@@ -107,7 +119,10 @@ contract EToken is ERC20, IEToken, AccessControl {
      * - Only able to set the Exafin once
      * @param exafinAddress The address of the Exafin that uses this eToken
      */
-    function setExafin(address exafinAddress) external onlyRole(TEAM_ROLE) {
+    function setExafin(address exafinAddress)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         if (address(exafin) != address(0)) {
             revert GenericError(ErrorCode.EXAFIN_ALREADY_SETTED);
         }
@@ -115,5 +130,4 @@ contract EToken is ERC20, IEToken, AccessControl {
 
         emit ExafinSetted(exafinAddress);
     }
-
 }

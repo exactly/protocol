@@ -13,8 +13,6 @@ import "hardhat/console.sol";
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.Pool;
 
-    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
-
     // Parameters to the system, expressed with 1e18 decimals
     uint256 public marginRate;
     uint256 public mpSlopeRate;
@@ -35,7 +33,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         baseRate = _baseRate;
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(TEAM_ROLE, msg.sender);
     }
 
     /**
@@ -49,7 +46,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _mpSlopeRate,
         uint256 _spSlopeRate,
         uint256 _baseRate
-    ) external onlyRole(TEAM_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;

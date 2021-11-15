@@ -19,8 +19,6 @@ contract Auditor is IAuditor, AccessControl {
     using ExaLib for ExaLib.RewardsState;
     using MarketsLib for MarketsLib.Book;
 
-    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
-
     event MarketListed(address exafin);
     event MarketEntered(address exafin, address account, uint256 maturityDate);
     event MarketExited(address exafin, address account, uint256 maturityDate);
@@ -63,7 +61,6 @@ contract Auditor is IAuditor, AccessControl {
         rewardsState.exaToken = _exaToken;
         oracle = IOracle(_priceOracleAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(TEAM_ROLE, msg.sender);
     }
 
     /**
@@ -433,7 +430,7 @@ contract Auditor is IAuditor, AccessControl {
         string memory symbol,
         string memory name,
         uint8 decimals
-    ) public onlyRole(TEAM_ROLE) {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         MarketsLib.Market storage market = book.markets[exafin];
 
         if (market.isListed) {
@@ -463,7 +460,7 @@ contract Auditor is IAuditor, AccessControl {
     function setMarketBorrowCaps(
         address[] calldata exafins,
         uint256[] calldata newBorrowCaps
-    ) external onlyRole(TEAM_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint256 numMarkets = exafins.length;
         uint256 numBorrowCaps = newBorrowCaps.length;
 
@@ -488,7 +485,7 @@ contract Auditor is IAuditor, AccessControl {
      */
     function pauseBorrow(address exafin, bool paused)
         public
-        onlyRole(TEAM_ROLE)
+        onlyRole(DEFAULT_ADMIN_ROLE)
         returns (bool)
     {
         if (!book.markets[exafin].isListed) {
@@ -504,7 +501,7 @@ contract Auditor is IAuditor, AccessControl {
      * @dev Function to set Oracle's to be used
      * @param _priceOracleAddress address of the new oracle
      */
-    function setOracle(address _priceOracleAddress) public onlyRole(TEAM_ROLE) {
+    function setOracle(address _priceOracleAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
         oracle = IOracle(_priceOracleAddress);
         emit OracleChanged(_priceOracleAddress);
     }
@@ -516,7 +513,7 @@ contract Auditor is IAuditor, AccessControl {
      */
     function setExaSpeed(address exafinAddress, uint256 exaSpeed)
         external
-        onlyRole(TEAM_ROLE)
+        onlyRole(DEFAULT_ADMIN_ROLE)
     {
         MarketsLib.Market storage market = book.markets[exafinAddress];
         if (market.isListed == false) {
