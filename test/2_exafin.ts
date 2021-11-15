@@ -98,7 +98,7 @@ describe("Exafin", function () {
 
     expect(
       (await exafin.getAccountSnapshot(owner.address, exaTime.nextPoolID()))[0]
-    ).to.be.equal(underlyingAmount);
+    ).to.be.equal(underlyingAmount.add(event.commission));
   });
 
   it("it doesn't allow you to give money to a pool that matured", async () => {

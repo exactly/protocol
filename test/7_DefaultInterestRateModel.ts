@@ -58,7 +58,7 @@ describe("DefaultInterestRateModel", () => {
   let mpSlopeRate: number = 0.07;
   let baseRate: number = 0.02;
 
-  const closeToRate = 1 * 10 ** -18;
+  const closeToRate = 1 * 10 ** -17;
 
   beforeEach(async () => {
     maturityPool = {
