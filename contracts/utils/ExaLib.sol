@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IExafin.sol";
 import "../interfaces/IEToken.sol";
@@ -171,7 +170,7 @@ library ExaLib {
         }
     }
 
-        /**
+    /**
      * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
      * @param exafinState RewardsState storage in Auditor
      * @param exafinAddress The market in which the supplier is interacting

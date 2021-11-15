@@ -145,9 +145,7 @@ contract AuditorHarness {
         address supplier,
         uint256 index
     ) public {
-        rewardsState.exaState[exafinAddress].exaSmartSupplierIndex[
-            supplier
-        ] = index;
+        rewardsState.exaState[exafinAddress].exaSmartSupplierIndex[supplier] = index;
     }
 
     function setExaSupplierIndex(
