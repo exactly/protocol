@@ -15,6 +15,7 @@ describe("EToken", () => {
 
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
+  let tito: SignerWithAddress;
   let eDAI: Contract;
 
   const mockedTokens = new Map([
@@ -29,7 +30,7 @@ describe("EToken", () => {
   ]);
 
   beforeEach(async () => {
-    [bob, laura] = await ethers.getSigners();
+    [bob, laura, tito] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     eDAI = exactlyEnv.getEToken("DAI");
@@ -129,6 +130,39 @@ describe("EToken", () => {
 
     expect(totalSupply).to.equal(parseUnits("50"));
     expect(userBalance).to.equal(parseUnits("50"));
+  });
+
+  it.only("withdraw and mints another user", async () => {
+    let amountToMintBob = parseUnits("100");
+    let amountToMintLaura = parseUnits("50");
+
+    // bob 2/3 -- laura 1/3
+    await eDAI.mint(bob.address, amountToMintBob);
+    await eDAI.mint(laura.address, amountToMintLaura);
+    await eDAI.accrueEarnings(parseUnits("60"));
+
+    // bob 100 + 0.66_ * 60 = 140
+    // laura 50 + 0.33_ * 60 = 70
+    expect(await eDAI.totalSupply()).to.equal(parseUnits("210"));
+    expect(await eDAI.balanceOf(bob.address)).to.equal(parseUnits("140"));
+
+    // if we burn 140
+    await eDAI.burn(bob.address, parseUnits("140"));
+
+    // and laura is left out with 70
+    expect(await eDAI.balanceOf(laura.address)).to.equal(parseUnits("70"));
+
+    // someone else's joins with 70 (50 / 50 pool)
+    await eDAI.mint(tito.address, parseUnits("70"));
+    expect(await eDAI.balanceOf(tito.address)).to.equal(parseUnits("70"));
+    expect(await eDAI.totalSupply()).to.equal(parseUnits("140"));
+
+    // ... and we deposit some more earnings (it should be 50 and 50)
+    await eDAI.accrueEarnings(parseUnits("100"));
+
+    // then 70 each + 50 each = 120 (and total supply 240)
+    expect(await eDAI.totalSupply()).to.equal(parseUnits("240"));
+    expect(await eDAI.balanceOf(laura.address)).to.equal(parseUnits("120"));
   });
 
   it("Burn should emit event", async () => {
