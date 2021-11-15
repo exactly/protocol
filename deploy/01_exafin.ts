@@ -69,7 +69,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     "DefaultInterestRateModel",
     {
       from: deployer,
-      args: [parseUnits("0.02"), parseUnits("0.07")],
+      args: [parseUnits("0.02"), parseUnits("0.07"), parseUnits("0.07"), parseUnits("0.02")],
       log: true,
       libraries: {
         TSUtils: tsUtils.address,
