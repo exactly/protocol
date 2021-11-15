@@ -11,8 +11,6 @@ import "./utils/DecimalMath.sol";
 contract EToken is ERC20, IEToken, AccessControl {
     using DecimalMath for uint256;
     
-    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
-
     mapping(address => uint256) private userEarningsIndex;
     mapping(address => uint256) private userBalances;
     uint256 private currentSupplyScaled;
@@ -20,7 +18,7 @@ contract EToken is ERC20, IEToken, AccessControl {
     IExafin private exafin;
 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
-        _setupRole(TEAM_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     modifier onlyExafin {
@@ -105,7 +103,7 @@ contract EToken is ERC20, IEToken, AccessControl {
      * - Only able to set the Exafin once
      * @param exafinAddress The address of the Exafin that uses this eToken
      */
-    function setExafin(address exafinAddress) external onlyRole(TEAM_ROLE) {
+    function setExafin(address exafinAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (address(exafin) != address(0)) {
             revert GenericError(ErrorCode.EXAFIN_ALREADY_SETTED);
         }
