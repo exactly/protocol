@@ -6,14 +6,17 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IExafin.sol";
 import "./utils/Errors.sol";
+import "./utils/DecimalMath.sol";
 
 contract EToken is ERC20, IEToken, AccessControl {
+    using DecimalMath for uint256;
+    
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     mapping(address => uint256) private userEarningsIndex;
     mapping(address => uint256) private userBalances;
     uint256 private currentSupplyScaled;
-    uint256 private liquidityReserveIndex;
+    uint256 private earningsIndex;
     IExafin private exafin;
 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
@@ -41,7 +44,7 @@ contract EToken is ERC20, IEToken, AccessControl {
      * @return The balance of the user
      **/
     function balanceOf(address account) public view override(ERC20, IERC20) returns (uint256) {
-        return userBalances[account] + (userBalances[account] * (liquidityReserveIndex - userEarningsIndex[account])) / 1e18;
+        return userBalances[account] + (userBalances[account].mul_(earningsIndex - userEarningsIndex[account]));
     }
 
     /**
@@ -54,9 +57,9 @@ contract EToken is ERC20, IEToken, AccessControl {
         require(user != address(0), "ERC20: mint to the zero address");
 
         currentSupplyScaled += amount;
-        liquidityReserveIndex += (amount / currentSupplyScaled) * 1e18;
-        userBalances[user] += ((userBalances[user] * (liquidityReserveIndex - userEarningsIndex[user])) / 1e18) + amount;
-        userEarningsIndex[user] = liquidityReserveIndex;
+        earningsIndex += (amount / currentSupplyScaled) * 1e18;
+        userBalances[user] += (userBalances[user].mul_(earningsIndex - userEarningsIndex[user])) + amount;
+        userEarningsIndex[user] = earningsIndex;
 
         emit Transfer(address(0), user, amount);
     }
@@ -69,7 +72,7 @@ contract EToken is ERC20, IEToken, AccessControl {
     function accrueEarnings(uint256 amount) external override onlyExafin {
         require(currentSupplyScaled > 0, "Total supply should be positive");
 
-        liquidityReserveIndex += (amount * 1e18) / currentSupplyScaled;
+        earningsIndex += (amount * 1e18) / currentSupplyScaled;
         currentSupplyScaled += amount;
 
         emit EarningsAccrued(amount);
@@ -80,7 +83,7 @@ contract EToken is ERC20, IEToken, AccessControl {
      * - Only callable by the Exafin
      * @param user The owner of the eTokens, getting them burned
      * @param amount The amount being burned
-     **/
+     */
     function burn(address user, uint256 amount) external override onlyExafin {
         if (balanceOf(user) < amount) {
             revert GenericError(ErrorCode.BURN_AMOUNT_EXCEEDS_BALANCE);
@@ -89,9 +92,9 @@ contract EToken is ERC20, IEToken, AccessControl {
         userBalances[user] -=
             amount -
             ((userBalances[user] *
-                (liquidityReserveIndex - userEarningsIndex[user])) / 1e18);
-        liquidityReserveIndex -= (amount / currentSupplyScaled) * 1e18;
-        userEarningsIndex[user] = liquidityReserveIndex;
+                (earningsIndex - userEarningsIndex[user])) / 1e18);
+        earningsIndex -= (amount / currentSupplyScaled) * 1e18;
+        userEarningsIndex[user] = earningsIndex;
         currentSupplyScaled -= amount;
 
         emit Transfer(user, address(0), amount);
@@ -103,7 +106,7 @@ contract EToken is ERC20, IEToken, AccessControl {
      * @param exafinAddress The address of the Exafin that uses this eToken
      */
     function setExafin(address exafinAddress) external onlyRole(TEAM_ROLE) {
-        if(address(exafin) != address(0)) {
+        if (address(exafin) != address(0)) {
             revert GenericError(ErrorCode.EXAFIN_ALREADY_SETTED);
         }
         exafin = IExafin(exafinAddress);
