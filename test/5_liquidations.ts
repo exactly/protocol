@@ -244,6 +244,87 @@ describe("Liquidations", function () {
         beforeEach(async () => {
           await exactlyEnv.setOracleMockPrice("WBTC", "32500");
         });
+        describe("the collateral can be entirely depleted and still have some debt left", () => {
+          describe("WHEN depleting Alices ETH collateral", () => {
+            beforeEach(async () => {
+              await exafinDAI.connect(bob).liquidate(
+                alice.address,
+                // maybe I should've used amounts divisible by each other
+                parseUnits("2727"),
+                exafinETH.address,
+                nextPoolID
+              );
+            });
+            it("THEN theres nearly no ETH supplied by Alice", async () => {
+              const [suppliedETH] = await exafinETH.getAccountSnapshot(
+                alice.address,
+                nextPoolID
+              );
+              expect(suppliedETH).to.be.lt(parseUnits("0.001"));
+            });
+            describe("AND WHEN liquidating $27500 of Alices WBTC collateral (two steps required)", () => {
+              beforeEach(async () => {
+                await exafinDAI
+                  .connect(bob)
+                  .liquidate(
+                    alice.address,
+                    parseUnits("18000"),
+                    exafinWBTC.address,
+                    nextPoolID
+                  );
+                await exafinDAI
+                  .connect(bob)
+                  .liquidate(
+                    alice.address,
+                    parseUnits("9500"),
+                    exafinWBTC.address,
+                    nextPoolID
+                  );
+              });
+              it("THEN liquidating the max amount (4500, half of the remaining debt) is no longer possible", async () => {
+                await expect(
+                  exafinDAI
+                    .connect(bob)
+                    .liquidate(
+                      alice.address,
+                      parseUnits("4500"),
+                      exafinETH.address,
+                      nextPoolID
+                    )
+                ).to.be.revertedWith(
+                  errorGeneric(ProtocolError.TOKENS_MORE_THAN_BALANCE)
+                );
+              });
+              describe("AND WHEN liquidating the rest of the collateral", () => {
+                beforeEach(async () => {
+                  await exafinDAI
+                    .connect(bob)
+                    .liquidate(
+                      alice.address,
+                      parseUnits("2045"),
+                      exafinWBTC.address,
+                      nextPoolID
+                    );
+                });
+                it("THEN the Alice has zero WBTC deposited", async () => {
+                  const [suppliedWBTC] = await exafinWBTC.getAccountSnapshot(
+                    alice.address,
+                    nextPoolID
+                  );
+                  expect(suppliedWBTC).to.be.lt(parseUnits("0.0001", 8));
+                });
+                // now theres no incentive to liquidate those 7500 dai
+                it("AND alice still has some DAI debt", async () => {
+                  const [, debt] = await exafinDAI.getAccountSnapshot(
+                    alice.address,
+                    nextPoolID
+                  );
+                  expect(debt).to.be.gt(parseUnits("7500"));
+                });
+              });
+            });
+          });
+        });
 
         it("THEN alices liquidity is zero", async () => {
           // We expect liquidity to be equal to zero
