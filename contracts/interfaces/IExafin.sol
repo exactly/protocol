@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./IAuditor.sol";
+import "./IEToken.sol";
 
 interface IExafin {
     function borrow(uint256 amount, uint256 maturityDate) external;
@@ -10,6 +11,14 @@ interface IExafin {
         address from,
         uint256 amount,
         uint256 maturityDate
+    ) external;
+
+    function depositToSmartPool(
+        uint256 amount
+    ) external;
+
+    function withdrawFromSmartPool(
+        uint256 amount
     ) external;
 
     function redeem(
@@ -34,19 +43,27 @@ interface IExafin {
         uint256 maturityDate
     ) external returns (uint256);
 
-    function tokenName() external view returns (string calldata);
+    function underlyingTokenName() external view returns (string calldata);
 
-    function getAccountSnapshot(address who, uint256 timestamp) external view returns (uint256, uint256);
+    function getAccountSnapshot(address who, uint256 timestamp)
+        external
+        view
+        returns (uint256, uint256);
 
-    function getTotalBorrows(uint256 maturityDate) external view returns (uint256);
+    function getTotalBorrows(uint256 maturityDate)
+        external
+        view
+        returns (uint256);
 
     function getAuditor() external view returns (IAuditor);
+
+    function eToken() external view returns (IEToken);
 
     function totalBorrows() external view returns (uint256);
 
     function totalDeposits() external view returns (uint256);
 
-    function borrowsOf(address who) external view returns (uint256);
+    function totalBorrowsUser(address who) external view returns (uint256);
 
-    function suppliesOf(address who) external view returns (uint256);
+    function totalDepositsUser(address who) external view returns (uint256);
 }

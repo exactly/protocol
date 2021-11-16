@@ -9,6 +9,16 @@ interface IAuditor {
         uint256 maturityDate
     ) external view returns (uint256, uint256);
 
+    function beforeSupplySmartPool(
+        address exafinAddress,
+        address supplier
+    ) external;
+
+    function beforeWithdrawSmartPool(
+        address exafinAddress,
+        address supplier
+    ) external;
+
     function supplyAllowed(
         address exafinAddress,
         address borrower,

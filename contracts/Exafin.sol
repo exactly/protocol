@@ -4,8 +4,10 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./EToken.sol";
 import "./interfaces/IExafin.sol";
 import "./interfaces/IAuditor.sol";
+import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
@@ -57,6 +59,9 @@ contract Exafin is IExafin, ReentrancyGuard {
     );
     event ReservesAdded(address benefactor, uint256 addAmount);
 
+    event DepositToSmartPool(address indexed user, uint256 amount);
+    event WithdrawFromSmartPool(address indexed user, uint256 amount);
+
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
     mapping(uint256 => PoolLib.Pool) public pools;
@@ -67,33 +72,33 @@ contract Exafin is IExafin, ReentrancyGuard {
     PoolLib.SmartPool public smartPool;
 
     IERC20 private trustedUnderlying;
-    string public override tokenName;
+    IEToken public override eToken;
+    string public override underlyingTokenName;
 
     IAuditor public auditor;
     IInterestRateModel public interestRateModel;
 
-    // Smart Pool Values
-    uint256 public totalSupply;
-    mapping(address => uint256) public balances;
-
     // Total deposits in all maturities
     uint256 public override totalDeposits;
-    mapping(address => uint256) private totalDepositsUser;
+    mapping(address => uint256) public override totalDepositsUser;
 
     // Total borrows in all maturities
     uint256 public override totalBorrows;
-    mapping(address => uint256) private totalBorrowsUser;
+    mapping(address => uint256) public override totalBorrowsUser;
 
     constructor(
         address _tokenAddress,
-        string memory _tokenName,
+        string memory _underlyingTokenName,
+        address _eTokenAddress,
         address _auditorAddress,
         address _interestRateModelAddress
     ) {
         trustedUnderlying = IERC20(_tokenAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
-        tokenName = _tokenName;
+        underlyingTokenName = _underlyingTokenName;
+
         auditor = IAuditor(_auditorAddress);
+        eToken = IEToken(_eTokenAddress);
         interestRateModel = IInterestRateModel(_interestRateModelAddress);
 
         smartPool.borrowed = 0;
@@ -483,6 +488,42 @@ contract Exafin is IExafin, ReentrancyGuard {
     }
 
     /**
+     * @dev Deposits an `amount` of underlying asset into the smart pool, receiving in return overlying eTokens.
+     * - E.g. User deposits 100 USDC and gets in return 100 eUSDC
+     * @param amount The amount to be deposited
+     **/
+    function depositToSmartPool(uint256 amount) external override {
+        auditor.beforeSupplySmartPool(address(this), msg.sender);
+
+        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
+
+        eToken.mint(msg.sender, amount);
+
+        emit DepositToSmartPool(msg.sender, amount);
+    }
+
+    /**
+     * @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned
+     * - E.g. User has 100 eUSDC, calls withdraw() and receives 100 USDC, burning the 100 eUSDC
+     * @param amount The underlying amount to be withdrawn
+     * - Send the value type(uint256).max in order to withdraw the whole eToken balance
+     **/
+    function withdrawFromSmartPool(uint256 amount) external override {
+        auditor.beforeWithdrawSmartPool(address(this), msg.sender);
+        
+        uint256 userBalance = eToken.balanceOf(msg.sender);
+        uint256 amountToWithdraw = amount;
+        if (amount == type(uint256).max) {
+            amountToWithdraw = userBalance;
+        }
+
+        eToken.burn(msg.sender, amountToWithdraw);
+        trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
+
+        emit WithdrawFromSmartPool(msg.sender, amount);
+    }
+
+    /**
      * @dev Gets current snapshot for a wallet in a certain maturity
      * @param who wallet to return status snapshot in the specified maturity date
      * @param maturityDate maturity date
@@ -525,19 +566,4 @@ contract Exafin is IExafin, ReentrancyGuard {
         return IAuditor(auditor);
     }
 
-    /**
-     * @dev Retrieves all the supplies (Smart + all maturities) in this Exafin
-     *      for a user -- This is NOT for ERC20 of the smart pool
-     */
-    function suppliesOf(address who) public view override returns (uint256) {
-        return balances[who] + totalDepositsUser[who];
-    }
-
-    /**
-     * @dev Retrieves all the borrows in this Exafin
-     *      for a user -- This is NOT for ERC20 of the smart pool
-     */
-    function borrowsOf(address who) public view override returns (uint256) {
-        return totalBorrowsUser[who];
-    }
 }

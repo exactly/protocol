@@ -101,6 +101,10 @@ export enum ProtocolError {
   INCONSISTENT_PARAMS_LENGTH,
   REDEEM_CANT_BE_ZERO,
   EXIT_MARKET_BALANCE_OWED,
+  BURN_AMOUNT_EXCEEDS_BALANCE,
+  CALLER_MUST_BE_EXAFIN,
+  EXAFIN_ALREADY_SET,
+  MINT_NOT_TO_ZERO_ADDRESS,
 }
 
 export type MockedTokenSpec = {
@@ -119,6 +123,7 @@ export class DefaultEnv {
   exaToken: Contract;
   exafinContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
+  eTokenContracts: Map<string, Contract>;
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
@@ -134,12 +139,14 @@ export class DefaultEnv {
     _marketsLib: Contract,
     _exaToken: Contract,
     _exafinContracts: Map<string, Contract>,
-    _underlyingContracts: Map<string, Contract>
+    _underlyingContracts: Map<string, Contract>,
+    _eTokenContracts: Map<string, Contract>
   ) {
     this.oracle = _oracle;
     this.auditor = _auditor;
     this.exafinContracts = _exafinContracts;
     this.underlyingContracts = _underlyingContracts;
+    this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
     this.exaLib = _exaLib;
@@ -159,6 +166,10 @@ export class DefaultEnv {
     return this.underlyingContracts.get(key)!;
   }
 
+  public getEToken(key: string): Contract {
+    return this.eTokenContracts.get(key)!;
+  }
+
   public async setOracle(oracleAddress: string) {
     await this.auditor.setOracle(oracleAddress);
   }
@@ -173,18 +184,21 @@ export class RewardsLibEnv {
   exaLib: Contract;
   exaToken: Contract;
   exafinHarness: Contract;
+  eToken: Contract;
   notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
 
   constructor(
     _auditorHarness: Contract,
     _exaLib: Contract,
     _exaToken: Contract,
-    _exafinHarness: Contract
+    _exafinHarness: Contract,
+    _eToken: Contract
   ) {
     this.auditorHarness = _auditorHarness;
     this.exaLib = _exaLib;
     this.exaToken = _exaToken;
     this.exafinHarness = _exafinHarness;
+    this.eToken = _eToken;
   }
 }
 
@@ -194,6 +208,7 @@ export class ExactlyEnv {
   ): Promise<DefaultEnv> {
     let exafinContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
+    let eTokenContracts = new Map<string, Contract>();
 
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
@@ -260,6 +275,12 @@ export class ExactlyEnv {
           totalSupply.toString()
         );
         await underlyingToken.deployed();
+        const MockedEToken = await ethers.getContractFactory("EToken");
+        const eToken = await MockedEToken.deploy(
+          "eFake " + tokenName,
+          "eF" + tokenName
+        );
+        await eToken.deployed();
 
         const Exafin = await ethers.getContractFactory("Exafin", {
           libraries: {
@@ -269,6 +290,7 @@ export class ExactlyEnv {
         const exafin = await Exafin.deploy(
           underlyingToken.address,
           tokenName,
+          eToken.address,
           auditor.address,
           interestRateModel.address
         );
@@ -288,6 +310,7 @@ export class ExactlyEnv {
         // Handy maps with all the exafins and underlying tokens
         exafinContracts.set(tokenName, exafin);
         underlyingContracts.set(tokenName, underlyingToken);
+        eTokenContracts.set(tokenName, eToken);
       })
     );
 
@@ -302,7 +325,8 @@ export class ExactlyEnv {
           marketsLib,
           exaToken,
           exafinContracts,
-          underlyingContracts
+          underlyingContracts,
+          eTokenContracts
         )
       );
     });
@@ -321,9 +345,15 @@ export class ExactlyEnv {
     let exaToken = await ExaToken.deploy();
     await exaToken.deployed();
 
+    const EToken = await ethers.getContractFactory("EToken", {});
+    let eToken = await EToken.deploy("eDAI", "eDAI");
+    await eToken.deployed();
+
     const ExafinHarness = await ethers.getContractFactory("ExafinHarness");
     let exafinHarness = await ExafinHarness.deploy();
     await exafinHarness.deployed();
+    await exafinHarness.setEToken(eToken.address);
+    eToken.setExafin(exafinHarness.address);
 
     const AuditorHarness = await ethers.getContractFactory("AuditorHarness", {
       libraries: {
@@ -336,7 +366,13 @@ export class ExactlyEnv {
 
     return new Promise<RewardsLibEnv>((resolve) => {
       resolve(
-        new RewardsLibEnv(auditorHarness, exaLib, exaToken, exafinHarness)
+        new RewardsLibEnv(
+          auditorHarness,
+          exaLib,
+          exaToken,
+          exafinHarness,
+          eToken
+        )
       );
     });
   }

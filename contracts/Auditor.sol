@@ -14,13 +14,10 @@ import "./utils/ExaLib.sol";
 import "hardhat/console.sol";
 
 contract Auditor is IAuditor, AccessControl {
-
     using DecimalMath for uint256;
     using SafeCast for uint256;
     using ExaLib for ExaLib.RewardsState;
     using MarketsLib for MarketsLib.Book;
-
-    bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
 
     event MarketListed(address exafin);
     event MarketEntered(address exafin, address account, uint256 maturityDate);
@@ -32,14 +29,20 @@ contract Auditor is IAuditor, AccessControl {
     event DistributedSupplierExa(
         address indexed exafin,
         address indexed supplier,
-        uint supplierDelta,
-        uint exaSupplyIndex
+        uint256 supplierDelta,
+        uint256 exaSupplyIndex
     );
     event DistributedBorrowerExa(
         address indexed exafin,
         address indexed borrower,
-        uint borrowerDelta,
-        uint exaSupplyIndex
+        uint256 borrowerDelta,
+        uint256 exaSupplyIndex
+    );
+    event DistributedSmartPoolExa(
+        address indexed exafin,
+        address indexed supplier,
+        uint smartSupplierDelta,
+        uint smartPoolIndex
     );
 
     // Protocol Management
@@ -54,12 +57,10 @@ contract Auditor is IAuditor, AccessControl {
 
     IOracle public oracle;
 
-
     constructor(address _priceOracleAddress, address _exaToken) {
         rewardsState.exaToken = _exaToken;
         oracle = IOracle(_priceOracleAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(TEAM_ROLE, msg.sender);
     }
 
     /**
@@ -86,18 +87,20 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate The timestamp/poolID where the user wants to stop providing collateral
      */
     function exitMarket(address exafinAddress, uint256 maturityDate) external {
-
         if (!book.markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         IExafin exafin = IExafin(exafinAddress);
 
-        if(!TSUtils.isPoolID(maturityDate)) { 
+        if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        (uint256 amountHeld, uint256 borrowBalance) = exafin.getAccountSnapshot(msg.sender, maturityDate);
+        (uint256 amountHeld, uint256 borrowBalance) = exafin.getAccountSnapshot(
+            msg.sender,
+            maturityDate
+        );
 
         /* Fail if the sender has a borrow balance */
         if (borrowBalance != 0) {
@@ -119,22 +122,49 @@ contract Auditor is IAuditor, AccessControl {
         public
         view
         override
-        returns (
-            uint256,
-            uint256
-        )
+        returns (uint256, uint256)
     {
-        return book.accountLiquidity(oracle, account, maturityDate, address(0), 0, 0);
+        return
+            book.accountLiquidity(
+                oracle,
+                account,
+                maturityDate,
+                address(0),
+                0,
+                0
+            );
     }
 
+    function beforeSupplySmartPool(
+        address exafinAddress,
+        address supplier
+    ) override external {
+        if (!book.markets[exafinAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
 
+        rewardsState.updateExaSmartPoolIndex(block.number, exafinAddress);
+        rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
+    }
+
+    function beforeWithdrawSmartPool(
+        address exafinAddress,
+        address supplier
+    ) override external {
+        if (!book.markets[exafinAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        rewardsState.updateExaSmartPoolIndex(block.number, exafinAddress);
+        rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
+    }
 
     function supplyAllowed(
         address exafinAddress,
         address supplier,
         uint256 supplyAmount,
         uint256 maturityDate
-    ) override external {
+    ) external override {
         supplyAmount;
 
         if (!book.markets[exafinAddress].isListed) {
@@ -147,13 +177,24 @@ contract Auditor is IAuditor, AccessControl {
         rewardsState.distributeSupplierExa(exafinAddress, supplier);
     }
 
-    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external override view {
+    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState)
+        external
+        view
+        override
+    {
         return _requirePoolState(maturityDate, requiredState);
     }
 
-    function _requirePoolState(uint256 maturityDate, TSUtils.State requiredState) internal view {
-        TSUtils.State poolState = TSUtils.getPoolState(block.timestamp, maturityDate, maxFuturePools);
-        if(poolState != requiredState) {
+    function _requirePoolState(
+        uint256 maturityDate,
+        TSUtils.State requiredState
+    ) internal view {
+        TSUtils.State poolState = TSUtils.getPoolState(
+            block.timestamp,
+            maturityDate,
+            maxFuturePools
+        );
+        if (poolState != requiredState) {
             revert UnmatchedPoolState(poolState, requiredState);
         }
     }
@@ -164,14 +205,19 @@ contract Auditor is IAuditor, AccessControl {
         uint256 borrowAmount,
         uint256 maturityDate
     ) external override {
-
         if (book.borrowPaused[exafinAddress]) {
             revert GenericError(ErrorCode.BORROW_PAUSED);
         }
 
-        _requirePoolState(maturityDate, TSUtils.State.VALID); 
+        _requirePoolState(maturityDate, TSUtils.State.VALID);
 
-        book.validateBorrow(oracle, exafinAddress, borrower, borrowAmount, maturityDate);
+        book.validateBorrow(
+            oracle,
+            exafinAddress,
+            borrower,
+            borrowAmount,
+            maturityDate
+        );
 
         (, uint256 shortfall) = book.accountLiquidity(
             oracle,
@@ -195,7 +241,7 @@ contract Auditor is IAuditor, AccessControl {
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
-    ) override external {
+    ) external override {
         _redeemAllowed(exafinAddress, redeemer, redeemTokens, maturityDate);
 
         rewardsState.updateExaSupplyIndex(block.number, exafinAddress);
@@ -212,10 +258,14 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        _requirePoolState(maturityDate, TSUtils.State.MATURED); 
+        _requirePoolState(maturityDate, TSUtils.State.MATURED);
 
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
-        if (!book.markets[exafinAddress].accountMembership[redeemer][maturityDate]) {
+        if (
+            !book.markets[exafinAddress].accountMembership[redeemer][
+                maturityDate
+            ]
+        ) {
             return;
         }
 
@@ -237,8 +287,7 @@ contract Auditor is IAuditor, AccessControl {
         address exafinAddress,
         address borrower,
         uint256 maturityDate
-    ) override external {
-
+    ) external override {
         if (!book.markets[exafinAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -251,7 +300,7 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Function to calculate the amount of assets to be seized
-     *      - when a position is undercollaterized it should be repaid and this functions calculates the 
+     *      - when a position is undercollaterized it should be repaid and this functions calculates the
      *        amount of collateral to be seized
      * @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
      * @param exafinBorrowed market from where the debt is pending
@@ -261,22 +310,33 @@ contract Auditor is IAuditor, AccessControl {
         address exafinBorrowed,
         address exafinCollateral,
         uint256 actualRepayAmount
-    ) override external view returns (uint256) {
-
+    ) external view override returns (uint256) {
         /* Read oracle prices for borrowed and collateral markets */
-        uint256 priceBorrowed = oracle.getAssetPrice(IExafin(exafinBorrowed).tokenName());
-        uint256 priceCollateral = oracle.getAssetPrice(IExafin(exafinCollateral).tokenName());
+        uint256 priceBorrowed = oracle.getAssetPrice(
+            IExafin(exafinBorrowed).underlyingTokenName()
+        );
+        uint256 priceCollateral = oracle.getAssetPrice(
+            IExafin(exafinCollateral).underlyingTokenName()
+        );
 
-        uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(actualRepayAmount, priceBorrowed, book.markets[exafinBorrowed].decimals);
+        uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(
+            actualRepayAmount,
+            priceBorrowed,
+            book.markets[exafinBorrowed].decimals
+        );
         // 10**18: usd amount decimals
-        uint256 seizeTokens = DecimalMath.getTokenAmountFromUsd(amountInUSD, priceCollateral, book.markets[exafinCollateral].decimals);
+        uint256 seizeTokens = DecimalMath.getTokenAmountFromUsd(
+            amountInUSD,
+            priceCollateral,
+            book.markets[exafinCollateral].decimals
+        );
 
         return seizeTokens;
     }
 
     /**
-     * @dev Function to allow/reject liquidation of assets. This function can be called 
-     *      externally, but only will have effect when called from an exafin. 
+     * @dev Function to allow/reject liquidation of assets. This function can be called
+     *      externally, but only will have effect when called from an exafin.
      * @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
      * @param exafinBorrowed market from where the debt is pending
      * @param liquidator address that is liquidating the assets
@@ -291,8 +351,7 @@ contract Auditor is IAuditor, AccessControl {
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
-    ) override external view {
-
+    ) external view override {
         if (repayAmount == 0) {
             revert GenericError(ErrorCode.REPAY_ZERO);
         }
@@ -302,18 +361,31 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         // if markets are listed, they have the same auditor
-        if (!book.markets[exafinBorrowed].isListed || !book.markets[exafinCollateral].isListed) {
+        if (
+            !book.markets[exafinBorrowed].isListed ||
+            !book.markets[exafinCollateral].isListed
+        ) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) = book.accountLiquidity(oracle, borrower, maturityDate, address(0), 0, 0);
+        (, uint256 shortfall) = book.accountLiquidity(
+            oracle,
+            borrower,
+            maturityDate,
+            address(0),
+            0,
+            0
+        );
         if (shortfall == 0) {
             revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
         }
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
-        (,uint256 borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(borrower, maturityDate);
+        (, uint256 borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(
+            borrower,
+            maturityDate
+        );
         uint256 maxClose = closeFactor.mul_(borrowBalance);
         if (repayAmount > maxClose) {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
@@ -321,8 +393,8 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Function to allow/reject seizing of assets. This function can be called 
-     *      externally, but only will have effect when called from an exafin. 
+     * @dev Function to allow/reject seizing of assets. This function can be called
+     *      externally, but only will have effect when called from an exafin.
      * @param exafinCollateral market where the assets will be seized (should be msg.sender on Exafin.sol)
      * @param exafinBorrowed market from where the debt will be paid
      * @param liquidator address to validate where the seized assets will be received
@@ -333,14 +405,16 @@ contract Auditor is IAuditor, AccessControl {
         address exafinBorrowed,
         address liquidator,
         address borrower
-    ) override external view {
-
+    ) external view override {
         if (borrower == liquidator) {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
         }
 
         // If markets are listed, they have also the same Auditor
-        if (!book.markets[exafinCollateral].isListed || !book.markets[exafinBorrowed].isListed) {
+        if (
+            !book.markets[exafinCollateral].isListed ||
+            !book.markets[exafinBorrowed].isListed
+        ) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
     }
@@ -356,7 +430,7 @@ contract Auditor is IAuditor, AccessControl {
         string memory symbol,
         string memory name,
         uint8 decimals
-    ) public onlyRole(TEAM_ROLE) {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         MarketsLib.Market storage market = book.markets[exafin];
 
         if (market.isListed) {
@@ -386,7 +460,7 @@ contract Auditor is IAuditor, AccessControl {
     function setMarketBorrowCaps(
         address[] calldata exafins,
         uint256[] calldata newBorrowCaps
-    ) external onlyRole(TEAM_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint256 numMarkets = exafins.length;
         uint256 numBorrowCaps = newBorrowCaps.length;
 
@@ -394,7 +468,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
         }
 
-        for(uint256 i = 0; i < numMarkets; i++) {
+        for (uint256 i = 0; i < numMarkets; i++) {
             if (!book.markets[exafins[i]].isListed) {
                 revert GenericError(ErrorCode.MARKET_NOT_LISTED);
             }
@@ -411,7 +485,7 @@ contract Auditor is IAuditor, AccessControl {
      */
     function pauseBorrow(address exafin, bool paused)
         public
-        onlyRole(TEAM_ROLE)
+        onlyRole(DEFAULT_ADMIN_ROLE)
         returns (bool)
     {
         if (!book.markets[exafin].isListed) {
@@ -427,7 +501,7 @@ contract Auditor is IAuditor, AccessControl {
      * @dev Function to set Oracle's to be used
      * @param _priceOracleAddress address of the new oracle
      */
-    function setOracle(address _priceOracleAddress) public onlyRole(TEAM_ROLE) {
+    function setOracle(address _priceOracleAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
         oracle = IOracle(_priceOracleAddress);
         emit OracleChanged(_priceOracleAddress);
     }
@@ -437,13 +511,19 @@ contract Auditor is IAuditor, AccessControl {
      * @param exafinAddress The market whose EXA speed to update
      * @param exaSpeed New EXA speed for market
      */
-    function setExaSpeed(address exafinAddress, uint256 exaSpeed) external onlyRole(TEAM_ROLE) {
+    function setExaSpeed(address exafinAddress, uint256 exaSpeed)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         MarketsLib.Market storage market = book.markets[exafinAddress];
-        if(market.isListed == false) {
+        if (market.isListed == false) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if(rewardsState.setExaSpeed(block.number, exafinAddress, exaSpeed) == true) {
+        if (
+            rewardsState.setExaSpeed(block.number, exafinAddress, exaSpeed) ==
+            true
+        ) {
             emit ExaSpeedUpdated(exafinAddress, exaSpeed);
         }
     }
@@ -451,14 +531,24 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @dev Function to retrieve valid future pools
      */
-    function getFuturePools() override external view returns (uint256[] memory) {
+    function getFuturePools()
+        external
+        view
+        override
+        returns (uint256[] memory)
+    {
         return TSUtils.futurePools(block.timestamp, maxFuturePools);
     }
 
     /**
      * @dev Function to retrieve all markets
      */
-    function getMarketAddresses() override external view returns (address[] memory) {
+    function getMarketAddresses()
+        external
+        view
+        override
+        returns (address[] memory)
+    {
         return marketsAddresses;
     }
 
@@ -478,7 +568,6 @@ contract Auditor is IAuditor, AccessControl {
     function claimExa(address holder, address[] memory exafins) public {
         address[] memory holders = new address[](1);
         holders[0] = holder;
-        rewardsState.claimExa(block.number, book.markets, holders, exafins, true, true);
+        rewardsState.claimExa(block.number, book.markets, holders, exafins, true, true, true);
     }
-
 }
