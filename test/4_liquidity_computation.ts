@@ -95,14 +95,14 @@ describe("Liquidity computations", function () {
 
   describe("positions arent immediately liquidateable", () => {
     describe("GIVEN laura supplies 1kdai", () => {
-      let tx: any;
+      let supplyEvent: any;
       beforeEach(async () => {
         const amount = parseUnits("1000");
         await dai.connect(laura).approve(exafinDAI.address, amount);
         const txDai = await exafinDAI
           .connect(laura)
           .supply(laura.address, amount, nextPoolID);
-        tx = await parseSupplyEvent(txDai);
+        supplyEvent = await parseSupplyEvent(txDai);
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -112,7 +112,7 @@ describe("Liquidity computations", function () {
         );
 
         const expectedLiquidity =
-          800 + parseFloat(formatUnits(tx.commission)) * 0.8;
+          800 + parseFloat(formatUnits(supplyEvent.commission)) * 0.8;
 
         expect(parseFloat(formatUnits(liquidity))).to.be.eq(expectedLiquidity);
         expect(shortfall).to.be.eq(parseUnits("0"));
@@ -123,7 +123,9 @@ describe("Liquidity computations", function () {
           laura.address,
           nextPoolID
         );
-        expect(supplied).to.be.eq(parseUnits("1000").add(tx.commission));
+        expect(supplied).to.be.eq(
+          parseUnits("1000").add(supplyEvent.commission)
+        );
         expect(owed).to.be.eq(parseUnits("0"));
       });
       it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
@@ -152,7 +154,9 @@ describe("Liquidity computations", function () {
             nextPoolID
           );
 
-          expect(supplied).to.be.eq(parseUnits("1000").add(tx.commission));
+          expect(supplied).to.be.eq(
+            parseUnits("1000").add(supplyEvent.commission)
+          );
           expect(borrowed).to.be.gt(parseUnits("799"));
           expect(borrowed).to.be.lt(parseUnits("800"));
         });
