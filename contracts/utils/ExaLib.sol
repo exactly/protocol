@@ -67,15 +67,7 @@ library ExaLib {
         RewardsState storage exafinState,
         uint blockNumber,
         address exafinAddress
-    ) external {
-        _updateExaSmartPoolIndex(exafinState, blockNumber, exafinAddress);
-    }
-
-    function _updateExaSmartPoolIndex(
-        RewardsState storage exafinState,
-        uint blockNumber,
-        address exafinAddress
-    ) internal {
+    ) public {
         ExaState storage exaState = exafinState.exaState[exafinAddress];
         MarketRewardsState storage smartState = exaState.exaSmartState;
         uint supplySpeed = exaState.exaSpeed;
@@ -104,15 +96,7 @@ library ExaLib {
         RewardsState storage exafinState,
         uint blockNumber,
         address exafinAddress
-    ) external {
-        _updateExaSupplyIndex(exafinState, blockNumber, exafinAddress);
-    }
-
-    function _updateExaSupplyIndex(
-        RewardsState storage exafinState,
-        uint blockNumber,
-        address exafinAddress
-    ) internal {
+    ) public {
         ExaState storage exaState = exafinState.exaState[exafinAddress];
         MarketRewardsState storage supplyState = exaState.exaSupplyState;
         uint supplySpeed = exaState.exaSpeed;
@@ -141,15 +125,7 @@ library ExaLib {
         RewardsState storage exafinState,
         uint blockNumber,
         address exafinAddress
-    ) external {
-        _updateExaBorrowIndex(exafinState, blockNumber, exafinAddress);
-    }
-
-    function _updateExaBorrowIndex(
-        RewardsState storage exafinState,
-        uint blockNumber,
-        address exafinAddress
-    ) internal {
+    ) public {
         ExaState storage exaState = exafinState.exaState[exafinAddress];
         MarketRewardsState storage borrowState = exaState.exaBorrowState;
         uint borrowSpeed = exaState.exaSpeed;
@@ -331,14 +307,14 @@ library ExaLib {
             }
 
             if (borrowers == true) {
-                _updateExaBorrowIndex(exafinState, blockNumber, exafin);
+                updateExaBorrowIndex(exafinState, blockNumber, exafin);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeBorrowerExa(exafinState, exafin, holders[j]);
                     exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
                 }
             }
             if (suppliers == true) {
-                _updateExaSupplyIndex(exafinState, blockNumber, exafin);
+                updateExaSupplyIndex(exafinState, blockNumber, exafin);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeSupplierExa(exafinState, exafin, holders[j]);
                     exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
@@ -346,7 +322,7 @@ library ExaLib {
             }
 
             if (smartSuppliers == true) {
-                _updateExaSmartPoolIndex(exafinState, blockNumber, exafin);
+                updateExaSmartPoolIndex(exafinState, blockNumber, exafin);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeSmartPoolExa(exafinState, exafin, holders[j]);
                     exafinState.exaAccruedUser[holders[j]] = _grantExa(exafinState, holders[j], exafinState.exaAccruedUser[holders[j]]);
@@ -408,9 +384,9 @@ library ExaLib {
         ExaState storage state = exafinState.exaState[exafinAddress];
         uint currentExaSpeed = state.exaSpeed;
         if (currentExaSpeed != 0) {
-            _updateExaSupplyIndex(exafinState, blockNumber, exafinAddress);
-            _updateExaBorrowIndex(exafinState, blockNumber, exafinAddress);
-            _updateExaSmartPoolIndex(exafinState, blockNumber, exafinAddress);
+            updateExaSupplyIndex(exafinState, blockNumber, exafinAddress);
+            updateExaBorrowIndex(exafinState, blockNumber, exafinAddress);
+            updateExaSmartPoolIndex(exafinState, blockNumber, exafinAddress);
         } else if (exaSpeed != 0) {
             // what happens @ compound.finance if someone doesn't set the exaSpeed
             // but supply/borrow first? in that case, block number will be updated
