@@ -27,7 +27,7 @@ contract EToken is ERC20, IEToken, AccessControl {
     }
 
     modifier onlyExafin() {
-        if (_msgSender() != address(exafin)) {
+        if (msg.sender != address(exafin)) {
             revert GenericError(ErrorCode.CALLER_MUST_BE_EXAFIN);
         }
         _;
@@ -130,6 +130,6 @@ contract EToken is ERC20, IEToken, AccessControl {
         }
         exafin = IExafin(exafinAddress);
 
-        emit ExafinSetted(exafinAddress);
+        emit ExafinSet(exafinAddress);
     }
 }
