@@ -39,220 +39,217 @@ describe("EToken", () => {
     await eDAI.setExafin(bob.address); // We simulate that the address of user bob is the exafin contact
   });
 
-  it("Mint should increase supply and balance of user", async () => {
-    let amountToMint = parseUnits("100");
-    await eDAI.mint(bob.address, amountToMint);
-    let totalSupply = await eDAI.totalSupply();
-    let userBalance = await eDAI.balanceOf(bob.address);
+  describe("GIVEN bob mints 1000 eDAI", () => {
+    beforeEach(async () => {
+      await eDAI.mint(bob.address, parseUnits("1000"));
+    });
 
-    expect(totalSupply).to.equal(amountToMint);
-    expect(userBalance).to.equal(amountToMint);
+    it("THEN balance of eDAI in bob's address is 1000", async () => {
+      let bobBalance = await eDAI.balanceOf(bob.address);
+
+      expect(bobBalance).to.equal(parseUnits("1000"));
+    });
+    it("THEN total supply in contract is 1000", async () => {
+      let totalSupply = await eDAI.totalSupply();
+
+      expect(totalSupply).to.equal(parseUnits("1000"));
+    });
+    it("AND WHEN bob mints 100 eDAI more, THEN his balance increases & event Transfer is emitted", async () => {
+      await expect(await eDAI.mint(bob.address, parseUnits("100"))).to.emit(
+        eDAI,
+        "Transfer"
+      );
+      let bobBalance = await eDAI.balanceOf(bob.address);
+
+      expect(bobBalance).to.equal(parseUnits("1100"));
+    });
+    describe("AND GIVEN an accrue of earnings by 1000 eDAI", () => {
+      beforeEach(async () => {
+        await eDAI.accrueEarnings(parseUnits("1000"));
+      });
+      it("THEN total supply in contract is 2000", async () => {
+        let totalSupply = await eDAI.totalSupply();
+
+        expect(totalSupply).to.equal(parseUnits("2000"));
+      });
+      it("THEN balance of eDAI in bob's address is 2000", async () => {
+        let bobBalance = await eDAI.balanceOf(bob.address);
+
+        expect(bobBalance).to.equal(parseUnits("2000"));
+      });
+      describe("AND GIVEN laura mints 1000 eDAI", () => {
+        beforeEach(async () => {
+          await eDAI.mint(laura.address, parseUnits("1000"));
+        });
+        it("THEN balance of laura is still 1000", async () => {
+          let lauraBalance = await eDAI.balanceOf(laura.address);
+
+          expect(lauraBalance).to.equal(parseUnits("1000"));
+        });
+        describe("AND GIVEN an accrue of earnings by 600 eDAI", () => {
+          beforeEach(async () => {
+            await eDAI.accrueEarnings(parseUnits("600"));
+          });
+
+          it("THEN total supply in contract is 3600", async () => {
+            let totalSupply = await eDAI.totalSupply();
+
+            expect(totalSupply).to.equal(parseUnits("3600"));
+          });
+          it("THEN balance of eDAI in bob's address is 2400", async () => {
+            let bobBalance = await eDAI.balanceOf(bob.address);
+
+            expect(bobBalance).to.equal(parseUnits("2400"));
+          });
+          it("THEN balance of eDAI in laura's address is 1200", async () => {
+            let lauraBalance = await eDAI.balanceOf(laura.address);
+
+            expect(lauraBalance).to.equal(parseUnits("1200"));
+          });
+        });
+      });
+    });
+    describe("AND GIVEN laura mints 1000 eDAI", () => {
+      beforeEach(async () => {
+        await eDAI.mint(laura.address, parseUnits("1000"));
+      });
+      it("THEN balance of eDAI in laura's address is 1000", async () => {
+        let lauraBalance = await eDAI.balanceOf(laura.address);
+
+        expect(lauraBalance).to.be.closeTo(parseUnits("1000"), 1);
+      });
+      it("THEN balance of eDAI in bob's address is still 1000", async () => {
+        let bobBalance = await eDAI.balanceOf(bob.address);
+
+        expect(bobBalance).to.equal(parseUnits("1000"));
+      });
+      it("THEN total supply in contract is 2000", async () => {
+        let totalSupply = await eDAI.totalSupply();
+
+        expect(totalSupply).to.equal(parseUnits("2000"));
+      });
+      describe("AND GIVEN an accrue of earnings by 500 eDAI", () => {
+        beforeEach(async () => {
+          await eDAI.accrueEarnings(parseUnits("500"));
+        });
+        it("THEN total supply in contract is 2500", async () => {
+          let totalSupply = await eDAI.totalSupply();
+
+          expect(totalSupply).to.equal(parseUnits("2500"));
+        });
+        it("THEN balance of eDAI in laura's address is 1250", async () => {
+          let lauraBalance = await eDAI.balanceOf(laura.address);
+
+          expect(lauraBalance).to.equal(parseUnits("1250"));
+        });
+        it("THEN balance of eDAI in bob's address is 1250", async () => {
+          let bobBalance = await eDAI.balanceOf(bob.address);
+
+          expect(bobBalance).to.equal(parseUnits("1250"));
+        });
+        it("AND WHEN an accrue of earnings is made, THEN event EarningsAccrued is emitted", async () => {
+          await expect(await eDAI.accrueEarnings(parseUnits("100"))).to.emit(
+            eDAI,
+            "EarningsAccrued"
+          );
+        });
+        describe("AND GIVEN bob burns 625 eDAI", () => {
+          beforeEach(async () => {
+            await eDAI.burn(bob.address, parseUnits("625"));
+          });
+          it("THEN balance of eDAI in bob's address is 625", async () => {
+            let bobBalance = await eDAI.balanceOf(bob.address);
+
+            expect(bobBalance).to.equal(parseUnits("625"));
+          });
+          it("THEN total supply in contract is 1875", async () => {
+            let totalSupply = await eDAI.totalSupply();
+
+            expect(totalSupply).to.equal(parseUnits("1875"));
+          });
+          it("AND WHEN bob burns 625 eDAI more, THEN his balance is 0", async () => {
+            await eDAI.burn(bob.address, parseUnits("625"));
+            let bobBalance = await eDAI.balanceOf(bob.address);
+
+            expect(bobBalance).to.equal(parseUnits("0"));
+          });
+          it("AND WHEN another burn is made, THEN event Transfer is emitted", async () => {
+            await expect(
+              await eDAI.burn(laura.address, parseUnits("100"))
+            ).to.emit(eDAI, "Transfer");
+          });
+          describe("AND GIVEN tito mints 1250 eDAI", () => {
+            beforeEach(async () => {
+              await eDAI.mint(tito.address, parseUnits("1250"));
+            });
+            describe("AND GIVEN an accrue of earnings by 1000 eDAI", () => {
+              beforeEach(async () => {
+                await eDAI.accrueEarnings(parseUnits("1000"));
+              });
+              it("THEN total supply in contract is 4125", async () => {
+                let totalSupply = await eDAI.totalSupply();
+
+                expect(totalSupply).to.equal(parseUnits("4125"));
+              });
+              it("THEN balance of eDAI in tito's and laura's address is 1650", async () => {
+                let titoBalance = await eDAI.balanceOf(tito.address);
+                let lauraBalance = await eDAI.balanceOf(laura.address);
+
+                expect(titoBalance).to.equal(parseUnits("1650"));
+                expect(lauraBalance).to.equal(parseUnits("1650"));
+              });
+              it("THEN balance of eDAI in bob's address is 825", async () => {
+                let bobBalance = await eDAI.balanceOf(bob.address);
+
+                expect(bobBalance).to.equal(parseUnits("825"));
+              });
+            });
+          });
+        });
+      });
+    });
   });
 
-  it("Mint should correctly increase supply and balance of two different users in different calls", async () => {
-    let amountToMint = parseUnits("1000");
-    await eDAI.mint(bob.address, amountToMint);
-    await eDAI.mint(laura.address, amountToMint);
-    let totalSupply = await eDAI.totalSupply();
-    let bobBalance = await eDAI.balanceOf(bob.address);
-    let lauraBalance = await eDAI.balanceOf(laura.address);
+  describe("GIVEN a mint from the zero address", () => {
+    it("THEN it reverts with a MINT_NOT_TO_ZERO_ADDRESS error", async () => {
+      await expect(
+        eDAI.mint(ADDRESS_ZERO, parseUnits("100"))
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.MINT_NOT_TO_ZERO_ADDRESS)
+      );
+    });
+    it("THEN balance of address should return zero if never minted", async () => {
+      let userBalance = await eDAI.balanceOf(ADDRESS_ZERO);
 
-    expect(bobBalance).to.equal(amountToMint);
-    expect(lauraBalance).to.equal(amountToMint);
-    expect(totalSupply).to.equal(parseUnits("2000"));
+      expect(userBalance).to.equal("0");
+    });
   });
 
-  it("Mint should correctly increase balance of user if called several times", async () => {
-    let amountToMint = parseUnits("100");
-    await eDAI.mint(bob.address, amountToMint);
-    await eDAI.mint(bob.address, amountToMint);
-    let userBalance = await eDAI.balanceOf(bob.address);
-
-    expect(userBalance).to.equal(parseUnits("200"));
+  describe("GIVEN exafin address already set", () => {
+    it("AND trying to set again, THEN it should revert with EXAFIN_ALREADY_SET error", async () => {
+      await expect(eDAI.setExafin(laura.address)).to.be.revertedWith(
+        errorGeneric(ProtocolError.EXAFIN_ALREADY_SET)
+      );
+    });
+    it("AND called from third parties, THEN it should revert with AccessControl error", async () => {
+      await expect(
+        eDAI.connect(laura).setExafin(laura.address)
+      ).to.be.revertedWith("AccessControl");
+    });
   });
 
-  it("Mint should emit event", async () => {
-    let amountToMint = parseUnits("100");
-    await expect(await eDAI.mint(bob.address, amountToMint)).to.emit(
-      eDAI,
-      "Transfer"
-    );
-  });
-
-  it("Mint should fail when user is address zero", async () => {
-    await expect(eDAI.mint(ADDRESS_ZERO, parseUnits("100"))).to.be.revertedWith(
-      errorGeneric(ProtocolError.MINT_NOT_TO_ZERO_ADDRESS)
-    );
-  });
-
-  it("BalanceOf should return zero if user never minted", async () => {
-    let userBalance = await eDAI.balanceOf(bob.address);
-
-    expect(userBalance).to.equal("0");
-  });
-
-  it("AccrueEarnings should increase user's balance if previously minted", async () => {
-    let amountToMint = parseUnits("100");
-    let amountToEarn = parseUnits("50");
-    await eDAI.mint(bob.address, amountToMint);
-    await eDAI.accrueEarnings(amountToEarn);
-    let totalSupply = await eDAI.totalSupply();
-    let userBalance = await eDAI.balanceOf(bob.address);
-
-    expect(totalSupply).to.equal(parseUnits("150"));
-    expect(userBalance).to.equal(parseUnits("150"));
-  });
-
-  it("AccrueEarnings should increase users' balance simoultaneously", async () => {
-    let amountToMint = parseUnits("100");
-    let amountToEarn = parseUnits("50");
-    await eDAI.mint(bob.address, amountToMint);
-    await eDAI.accrueEarnings(amountToEarn);
-    await eDAI.mint(laura.address, amountToMint);
-    await eDAI.accrueEarnings(amountToEarn);
-    let totalSupply = await eDAI.totalSupply();
-    let bobBalance = await eDAI.balanceOf(bob.address);
-    let lauraBalance = await eDAI.balanceOf(laura.address);
-
-    expect(totalSupply).to.equal(parseUnits("300"));
-    expect(lauraBalance).to.be.closeTo(parseUnits("120"), 1);
-    expect(bobBalance).to.equal(parseUnits("180"));
-  });
-
-  it("AccrueEarnings should not increase user's balance if minted later", async () => {
-    let amountToEarn = parseUnits("50");
-    let amountToMint = parseUnits("100");
-    await eDAI.mint(laura.address, amountToMint);
-    await eDAI.accrueEarnings(amountToEarn);
-    await eDAI.mint(bob.address, amountToMint);
-    let userBalance = await eDAI.balanceOf(bob.address);
-
-    expect(userBalance).to.be.closeTo(amountToMint, 1);
-  });
-
-  it("AccrueEarnings should emit event", async () => {
-    let amountToEarn = parseUnits("100");
-    await eDAI.mint(laura.address, amountToEarn);
-    await expect(await eDAI.accrueEarnings(amountToEarn)).to.emit(
-      eDAI,
-      "EarningsAccrued"
-    );
-  });
-
-  it("Burn should decrease supply and balance of user", async () => {
-    let amountToMint = parseUnits("100");
-    let amountToBurn = parseUnits("50");
-    await eDAI.mint(bob.address, amountToMint);
-    await eDAI.burn(bob.address, amountToBurn);
-    let totalSupply = await eDAI.totalSupply();
-    let userBalance = await eDAI.balanceOf(bob.address);
-
-    expect(totalSupply).to.equal(parseUnits("50"));
-    expect(userBalance).to.equal(parseUnits("50"));
-  });
-
-  it("Burn should decrease supply and update balance of user if previosuly received earnings", async () => {
-    let amountToMint = parseUnits("100");
-    let amountToEarn = parseUnits("75");
-    let amountToBurn = parseUnits("50");
-    await eDAI.mint(bob.address, amountToMint);
-    await eDAI.accrueEarnings(amountToEarn);
-    await eDAI.burn(bob.address, amountToBurn);
-    let totalSupply = await eDAI.totalSupply();
-    let userBalance = await eDAI.balanceOf(bob.address);
-
-    expect(totalSupply).to.equal(parseUnits("125"));
-    expect(userBalance).to.equal(parseUnits("125"));
-  });
-
-  it("Burn should leave balance of user in zero if amount to burn includes earnings", async () => {
-    let amountToMint = parseUnits("100");
-    let amountToEarn = parseUnits("50");
-    let amountToBurn = parseUnits("150");
-    await eDAI.mint(bob.address, amountToMint);
-    await eDAI.accrueEarnings(amountToEarn);
-    await eDAI.burn(bob.address, amountToBurn);
-    let totalSupply = await eDAI.totalSupply();
-    let userBalance = await eDAI.balanceOf(bob.address);
-
-    expect(totalSupply).to.equal(parseUnits("0"));
-    expect(userBalance).to.equal(parseUnits("0"));
-  });
-
-  it("Burn between users' balances increasing should not interfere in accounting", async () => {
-    let amountToMintBob = parseUnits("100");
-    let amountToMintLaura = parseUnits("50");
-
-    // bob 2/3 -- laura 1/3
-    await eDAI.mint(bob.address, amountToMintBob);
-    await eDAI.mint(laura.address, amountToMintLaura);
-    await eDAI.accrueEarnings(parseUnits("60"));
-
-    // bob 100 + 0.66_ * 60 = 140
-    // laura 50 + 0.33_ * 60 = 70
-    expect(await eDAI.totalSupply()).to.equal(parseUnits("210"));
-    expect(await eDAI.balanceOf(bob.address)).to.equal(parseUnits("140"));
-
-    // if we burn 140
-    await eDAI.burn(bob.address, parseUnits("140"));
-
-    // and laura is left out with 70
-    expect(await eDAI.balanceOf(laura.address)).to.equal(parseUnits("70"));
-
-    // someone else's joins with 70 (50 / 50 pool)
-    await eDAI.mint(tito.address, parseUnits("70"));
-    expect(await eDAI.balanceOf(tito.address)).to.equal(parseUnits("70"));
-    expect(await eDAI.totalSupply()).to.equal(parseUnits("140"));
-
-    // ... and we deposit some more earnings (it should be 50 and 50)
-    await eDAI.accrueEarnings(parseUnits("100"));
-
-    // then 70 each + 50 each = 120 (and total supply 240)
-    expect(await eDAI.totalSupply()).to.equal(parseUnits("240"));
-    expect(await eDAI.balanceOf(laura.address)).to.equal(parseUnits("120"));
-
-    // then burns 80 from laura
-    await eDAI.burn(laura.address, parseUnits("80"));
-    expect(await eDAI.balanceOf(laura.address)).to.equal(parseUnits("40"));
-    // TODO: Rounding Errors
-    expect(await eDAI.balanceOf(tito.address)).to.closeTo(
-      parseUnits("120"),
-      10
-    );
-  });
-
-  it("Burn should emit event", async () => {
-    let amountToMint = parseUnits("100");
-    await expect(await eDAI.mint(bob.address, amountToMint)).to.emit(
-      eDAI,
-      "Transfer"
-    );
-  });
-
-  it("SetExafin should fail when called from third parties", async () => {
-    await expect(
-      eDAI.connect(laura).setExafin(laura.address)
-    ).to.be.revertedWith("AccessControl");
-  });
-
-  it("SetExafin should fail when Exafin address already set", async () => {
-    await expect(eDAI.setExafin(laura.address)).to.be.revertedWith(
-      errorGeneric(ProtocolError.EXAFIN_ALREADY_SETTED)
-    );
-  });
-
-  describe("Modifiers", () => {
-    it("Tries to invoke mint not being the Exafin", async () => {
+  describe("GIVEN function calls not being the Exafin contract", () => {
+    it("AND invoking mint, THEN it should revert with error CALLER_MUST_BE_EXAFIN", async () => {
       await expect(
         eDAI.connect(laura).mint(laura.address, "100")
       ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_EXAFIN));
     });
-    it("Tries to invoke accrueEarnings not being the Exafin", async () => {
+    it("AND invoking accrueEarnings, THEN it should revert with error CALLER_MUST_BE_EXAFIN", async () => {
       await expect(
         eDAI.connect(laura).accrueEarnings("100")
       ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_EXAFIN));
     });
-    it("Tries to invoke burn not being the Exafin", async () => {
+    it("AND invoking burn, THEN it should revert with error CALLER_MUST_BE_EXAFIN", async () => {
       await expect(
         eDAI.connect(laura).burn(laura.address, "100")
       ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_EXAFIN));

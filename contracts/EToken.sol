@@ -114,6 +114,8 @@ contract EToken is ERC20, IEToken, AccessControl {
         totalScaledBalance -= scaledWithdrawAmount;
         userScaledBalance[user] -= scaledWithdrawAmount;
         totalBalance -= amount;
+
+        emit Transfer(user, address(0), amount);
     }
 
     /**
@@ -126,7 +128,7 @@ contract EToken is ERC20, IEToken, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         if (address(exafin) != address(0)) {
-            revert GenericError(ErrorCode.EXAFIN_ALREADY_SETTED);
+            revert GenericError(ErrorCode.EXAFIN_ALREADY_SET);
         }
         exafin = IExafin(exafinAddress);
 
