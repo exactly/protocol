@@ -18,7 +18,7 @@ describe("EToken", () => {
   let tito: SignerWithAddress;
   let eDAI: Contract;
 
-  const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
+  const { AddressZero } = ethers.constants;
   const mockedTokens = new Map([
     [
       "DAI",
@@ -173,6 +173,13 @@ describe("EToken", () => {
 
             expect(bobBalance).to.equal(parseUnits("0"));
           });
+          it("AND WHEN bob burns more than his balance, THEN it reverts with error BURN_AMOUNT_EXCEEDS_BALANCE", async () => {
+            await expect(
+              eDAI.burn(bob.address, parseUnits("1000"))
+            ).to.be.revertedWith(
+              errorGeneric(ProtocolError.BURN_AMOUNT_EXCEEDS_BALANCE)
+            );
+          });
           it("AND WHEN another burn is made, THEN event Transfer is emitted", async () => {
             await expect(
               await eDAI.burn(laura.address, parseUnits("100"))
@@ -213,13 +220,13 @@ describe("EToken", () => {
   describe("GIVEN a mint from the zero address", () => {
     it("THEN it reverts with a MINT_NOT_TO_ZERO_ADDRESS error", async () => {
       await expect(
-        eDAI.mint(ADDRESS_ZERO, parseUnits("100"))
+        eDAI.mint(AddressZero, parseUnits("100"))
       ).to.be.revertedWith(
         errorGeneric(ProtocolError.MINT_NOT_TO_ZERO_ADDRESS)
       );
     });
     it("THEN balance of address should return zero if never minted", async () => {
-      let userBalance = await eDAI.balanceOf(ADDRESS_ZERO);
+      let userBalance = await eDAI.balanceOf(AddressZero);
 
       expect(userBalance).to.equal("0");
     });
