@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "@ethersproject/units";
+import { parseUnits, formatUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import { BigNumber } from "@ethersproject/bignumber";
 import {
@@ -391,6 +391,7 @@ describe("Auditor from User Space", function () {
     let liquidity = (
       await auditor.getAccountLiquidity(owner.address, nextPoolID)
     )[0];
+
     let collaterDAI = amountDAI
       .add(borrowDAIEvent.commission)
       .mul(mockedTokens.get("DAI")!.collateralRate)
@@ -405,7 +406,9 @@ describe("Auditor from User Space", function () {
       .mul(mockedTokens.get("ETH")!.usdPrice)
       .div(parseUnits("1"));
 
-    expect(liquidity).to.be.equal(collaterDAI.add(collaterETH));
+    expect(parseFloat(await formatUnits(liquidity))).to.be.equal(
+      parseFloat(formatUnits(collaterDAI.add(collaterETH)))
+    );
   });
 
   it("Auditor reverts if Oracle acts weird", async () => {

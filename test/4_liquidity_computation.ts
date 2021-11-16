@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "@ethersproject/units";
+import { parseUnits, formatUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import {
   ProtocolError,
@@ -8,6 +8,7 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
+  parseSupplyEvent,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -94,19 +95,26 @@ describe("Liquidity computations", function () {
 
   describe("positions arent immediately liquidateable", () => {
     describe("GIVEN laura supplies 1kdai", () => {
+      let supplyEvent: any;
       beforeEach(async () => {
         const amount = parseUnits("1000");
         await dai.connect(laura).approve(exafinDAI.address, amount);
-        await exafinDAI
+        const txDai = await exafinDAI
           .connect(laura)
           .supply(laura.address, amount, nextPoolID);
+        supplyEvent = await parseSupplyEvent(txDai);
       });
+
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
         const [liquidity, shortfall] = await auditor.getAccountLiquidity(
           laura.address,
           nextPoolID
         );
-        expect(liquidity).to.be.eq(parseUnits("800"));
+
+        const expectedLiquidity =
+          800 + parseFloat(formatUnits(supplyEvent.commission)) * 0.8;
+
+        expect(parseFloat(formatUnits(liquidity))).to.be.eq(expectedLiquidity);
         expect(shortfall).to.be.eq(parseUnits("0"));
       });
       // TODO: a test where the supply interest is != 0, see if there's an error like the one described in this commit
@@ -115,7 +123,9 @@ describe("Liquidity computations", function () {
           laura.address,
           nextPoolID
         );
-        expect(supplied).to.be.eq(parseUnits("1000"));
+        expect(supplied).to.be.eq(
+          parseUnits("1000").add(supplyEvent.commission)
+        );
         expect(owed).to.be.eq(parseUnits("0"));
       });
       it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
@@ -143,7 +153,10 @@ describe("Liquidity computations", function () {
             laura.address,
             nextPoolID
           );
-          expect(supplied).to.be.eq(parseUnits("1000"));
+
+          expect(supplied).to.be.eq(
+            parseUnits("1000").add(supplyEvent.commission)
+          );
           expect(borrowed).to.be.gt(parseUnits("799"));
           expect(borrowed).to.be.lt(parseUnits("800"));
         });

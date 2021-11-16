@@ -19,16 +19,21 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     uint256 public marginRate;
     uint256 public mpSlopeRate;
     uint256 public spSlopeRate;
+    uint256 public baseRate;
+
     using DecimalMath for uint256;
 
     constructor(
         uint256 _marginRate,
         uint256 _mpSlopeRate,
-        uint256 _spSlopeRate
+        uint256 _spSlopeRate,
+        uint256 _baseRate
     ) {
         marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
+        baseRate = _baseRate;
+
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(TEAM_ROLE, msg.sender);
     }
@@ -42,11 +47,13 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
     function setParameters(
         uint256 _marginRate,
         uint256 _mpSlopeRate,
-        uint256 _spSlopeRate
+        uint256 _spSlopeRate,
+        uint256 _baseRate
     ) external onlyRole(TEAM_ROLE) {
         marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
+        baseRate = _baseRate;
     }
 
     /**
@@ -75,7 +82,9 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         if (!newDebt) {
             yearlyRate = maturityPool.supplied == 0
                 ? 0
-                : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+                : baseRate +
+                    (mpSlopeRate * maturityPool.borrowed) /
+                    maturityPool.supplied;
         } else {
             yearlyRate = Math.max(
                 smartPool.supplied == 0
@@ -83,7 +92,8 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
                     : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
                 maturityPool.supplied == 0
                     ? 0
-                    : (mpSlopeRate * maturityPool.borrowed) /
+                    : baseRate +
+                        (mpSlopeRate * maturityPool.borrowed) /
                         maturityPool.supplied
             );
         }
@@ -95,47 +105,25 @@ contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
         @dev Get current rate for supplying a certain amount in a certain maturity
              with supply/demand values in the maturity pool and supply demand values
              in the smart pool
-        @param amount amount to supply to a certain maturity date
         @param maturityDate maturity date for calculating days left to maturity
         @param maturityPool supply/demand values for the maturity pool
-        @param smartPool supply/demand values for the smart pool
      */
     function getRateToSupply(
-        uint256 amount,
         uint256 maturityDate,
-        PoolLib.Pool memory maturityPool,
-        PoolLib.SmartPool memory smartPool
+        PoolLib.Pool memory maturityPool
     ) external view override returns (uint256) {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        uint256 yearlyRate;
         uint256 maturityPoolYearlyRate = maturityPool.supplied == 0
             ? 0
-            : (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
-        uint256 smartPoolYearlyRate = smartPool.supplied == 0
-            ? 0
-            : ((spSlopeRate * smartPool.borrowed) /
-                (smartPool.supplied + amount));
-
-        if (
-            maturityPoolYearlyRate != 0 &&
-            maturityPool.supplied - maturityPool.borrowed != 0
-        ) {
-            yearlyRate = maturityPoolYearlyRate;
-        }
-
-        if (
-            (smartPoolYearlyRate != 0 && maturityPoolYearlyRate == 0) ||
-            maturityPool.supplied - maturityPool.borrowed == 0
-        ) {
-            yearlyRate = smartPoolYearlyRate;
-        }
+            : baseRate +
+                ((mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied);
 
         uint256 daysDifference = (maturityDate -
             TSUtils.trimmedDay(block.timestamp)) / 1 days;
 
-        return ((yearlyRate * daysDifference) / 365);
+        return (maturityPoolYearlyRate * daysDifference) / (365);
     }
 }
