@@ -14,22 +14,25 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
 
     // Parameters to the system, expressed with 1e18 decimals
-    uint256 public marginRate;
     uint256 public mpSlopeRate;
     uint256 public spSlopeRate;
+    uint256 public spHighURSlope;
     uint256 public baseRate;
+    uint256 public breakRate;
 
     using DecimalMath for uint256;
 
     constructor(
-        uint256 _marginRate,
         uint256 _mpSlopeRate,
         uint256 _spSlopeRate,
+        uint256 _spHighURSlope,
+        uint256 _breakRate,
         uint256 _baseRate
     ) {
-        marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
+        spHighURSlope = _spHighURSlope;
+        breakRate = _breakRate;
         baseRate = _baseRate;
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -42,14 +45,14 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param _spSlopeRate slope to alter the utilization rate
      */
     function setParameters(
-        uint256 _marginRate,
         uint256 _mpSlopeRate,
         uint256 _spSlopeRate,
+        uint256 _spHighURSlope,
         uint256 _baseRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
+        spHighURSlope = _spHighURSlope;
         baseRate = _baseRate;
     }
 
@@ -83,10 +86,18 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
                     (mpSlopeRate * maturityPool.borrowed) /
                     maturityPool.supplied;
         } else {
+            uint256 smartPoolUtilizationRate = smartPool.supplied == 0
+                ? 0
+                : smartPool.borrowed.div_(smartPool.supplied);
+            uint256 spCurrentSlopeRate = smartPoolUtilizationRate >= breakRate
+                ? spHighURSlope
+                : spSlopeRate;
+
             yearlyRate = Math.max(
                 smartPool.supplied == 0
                     ? 0
-                    : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
+                    : (spCurrentSlopeRate * smartPool.borrowed) /
+                        smartPool.supplied,
                 maturityPool.supplied == 0
                     ? 0
                     : baseRate +
