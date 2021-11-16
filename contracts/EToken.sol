@@ -12,11 +12,13 @@ contract EToken is ERC20, IEToken, AccessControl {
     using DecimalMath for uint256;
     
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
+    // totalBalance = smart pool's balance
+    uint256 public totalBalance;
+    // index = totalBalance / totalScaledBalance
+    uint256 public totalScaledBalance;
+    // userBalance = userScaledBalance * index
+    mapping(address => uint256) public userScaledBalance;
 
-    mapping(address => uint256) private userEarningsIndex;
-    mapping(address => uint256) private userBalances;
-    uint256 private currentSupplyScaled;
-    uint256 private earningsIndex;
     IExafin private exafin;
 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
@@ -35,7 +37,7 @@ contract EToken is ERC20, IEToken, AccessControl {
      * @return The current total supply
      **/
     function totalSupply() public view override(ERC20, IERC20) returns (uint256) {
-        return currentSupplyScaled;
+        return totalBalance;
     }
 
     /**
@@ -44,7 +46,11 @@ contract EToken is ERC20, IEToken, AccessControl {
      * @return The balance of the user
      **/
     function balanceOf(address account) public view override(ERC20, IERC20) returns (uint256) {
-        return userBalances[account] + (userBalances[account].mul_(earningsIndex - userEarningsIndex[account]));
+        if (userScaledBalance[account] == 0) {
+            return 0;
+        }
+
+        return (userScaledBalance[account] * totalBalance) / totalScaledBalance;
     }
 
     /**
@@ -56,10 +62,14 @@ contract EToken is ERC20, IEToken, AccessControl {
     function mint(address user, uint256 amount) external override onlyExafin {
         require(user != address(0), "ERC20: mint to the zero address");
 
-        currentSupplyScaled += amount;
-        earningsIndex += (amount / currentSupplyScaled) * 1e18;
-        userBalances[user] += (userBalances[user].mul_(earningsIndex - userEarningsIndex[user])) + amount;
-        userEarningsIndex[user] = earningsIndex;
+        uint256 scaledBalance = amount;
+        if (totalBalance != 0) {
+            scaledBalance = (scaledBalance * totalScaledBalance) / totalBalance;
+        }
+
+        userScaledBalance[user] += scaledBalance;
+        totalScaledBalance += scaledBalance;
+        totalBalance += amount;
 
         emit Transfer(address(0), user, amount);
     }
@@ -70,11 +80,7 @@ contract EToken is ERC20, IEToken, AccessControl {
      * @param amount The amount of underlying tokens deposited
      */
     function accrueEarnings(uint256 amount) external override onlyExafin {
-        require(currentSupplyScaled > 0, "Total supply should be positive");
-
-        earningsIndex += (amount * 1e18) / currentSupplyScaled;
-        currentSupplyScaled += amount;
-
+        totalBalance += amount;
         emit EarningsAccrued(amount);
     }
 
@@ -89,15 +95,11 @@ contract EToken is ERC20, IEToken, AccessControl {
             revert GenericError(ErrorCode.BURN_AMOUNT_EXCEEDS_BALANCE);
         }
 
-        userBalances[user] -=
-            amount -
-            ((userBalances[user] *
-                (earningsIndex - userEarningsIndex[user])) / 1e18);
-        earningsIndex -= (amount / currentSupplyScaled) * 1e18;
-        userEarningsIndex[user] = earningsIndex;
-        currentSupplyScaled -= amount;
+        uint256 scaledWithdrawAmount = (amount * totalScaledBalance) / totalBalance;
 
-        emit Transfer(user, address(0), amount);
+        totalScaledBalance -= scaledWithdrawAmount;
+        userScaledBalance[user] -= scaledWithdrawAmount;
+        totalBalance -= amount;
     }
 
     /**

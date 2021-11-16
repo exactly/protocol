@@ -163,6 +163,15 @@ describe("EToken", () => {
     // then 70 each + 50 each = 120 (and total supply 240)
     expect(await eDAI.totalSupply()).to.equal(parseUnits("240"));
     expect(await eDAI.balanceOf(laura.address)).to.equal(parseUnits("120"));
+
+    // then burns 80 from laura
+    await eDAI.burn(laura.address, parseUnits("80"));
+    expect(await eDAI.balanceOf(laura.address)).to.equal(parseUnits("40"));
+    // TODO: Rounding Errors
+    expect(await eDAI.balanceOf(tito.address)).to.closeTo(
+      parseUnits("120"),
+      10
+    );
   });
 
   it("Burn should emit event", async () => {
