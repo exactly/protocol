@@ -6,7 +6,7 @@ import { ExactlyEnv, ExaTime, DefaultEnv } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
 
-describe("DefaultInterestRateModel", () => {
+describe("InterestRateModel", () => {
   let exactlyEnv: DefaultEnv;
 
   let underlyingToken: Contract;

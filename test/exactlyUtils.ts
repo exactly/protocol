@@ -219,8 +219,8 @@ export class ExactlyEnv {
     let oracle = await MockedOracle.deploy();
     await oracle.deployed();
 
-    const DefaultInterestRateModel = await ethers.getContractFactory(
-      "DefaultInterestRateModel",
+    const InterestRateModel = await ethers.getContractFactory(
+      "InterestRateModel",
       {
         libraries: {
           TSUtils: tsUtils.address,
@@ -228,7 +228,7 @@ export class ExactlyEnv {
       }
     );
 
-    let interestRateModel = await DefaultInterestRateModel.deploy(
+    let interestRateModel = await InterestRateModel.deploy(
       parseUnits("0.01"),
       parseUnits("0.07"),
       parseUnits("0.07"),
