@@ -148,10 +148,10 @@ describe("EToken", () => {
           expect(bobBalance).to.equal(parseUnits("1250"));
         });
         it("AND WHEN an accrue of earnings is made, THEN event EarningsAccrued is emitted", async () => {
-          await expect(await eDAI.accrueEarnings(parseUnits("100"))).to.emit(
-            eDAI,
-            "EarningsAccrued"
-          );
+          let earningsAmount = parseUnits("100");
+          await expect(await eDAI.accrueEarnings(earningsAmount))
+            .to.emit(eDAI, "EarningsAccrued")
+            .withArgs(earningsAmount);
         });
         describe("AND GIVEN bob burns 625 eDAI", () => {
           beforeEach(async () => {
