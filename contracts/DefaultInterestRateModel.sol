@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "hardhat/console.sol";
 
-contract DefaultInterestRateModel is IInterestRateModel, AccessControl {
+contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.Pool;
 
     bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");

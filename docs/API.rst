@@ -8,7 +8,7 @@ Contracts' API
 .. autosolcontract:: Exafin
     :members: constructor, getRateToSupply, getRateToBorrow, borrow, supply, redeem, repay, seize, repay, _repayLiquidate, _liquidate, _seize
 
-.. autosolcontract:: DefaultInterestRateModel
+.. autosolcontract:: InterestRateModel
     :members: constructor, getRateToBorrow, getRateToSupply
 
 .. autosolcontract:: Auditor

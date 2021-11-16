@@ -66,7 +66,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   });
 
   const interestRateModel = await hre.deployments.deploy(
-    "DefaultInterestRateModel",
+    "InterestRateModel",
     {
       from: deployer,
       args: [
