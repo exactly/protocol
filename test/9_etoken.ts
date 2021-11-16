@@ -18,6 +18,7 @@ describe("EToken", () => {
   let tito: SignerWithAddress;
   let eDAI: Contract;
 
+  const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
   const mockedTokens = new Map([
     [
       "DAI",
@@ -78,6 +79,12 @@ describe("EToken", () => {
     );
   });
 
+  it("Mint should fail when user is address zero", async () => {
+    await expect(eDAI.mint(ADDRESS_ZERO, parseUnits("100"))).to.be.revertedWith(
+      errorGeneric(ProtocolError.MINT_NOT_TO_ZERO_ADDRESS)
+    );
+  });
+
   it("BalanceOf should return zero if user never minted", async () => {
     let userBalance = await eDAI.balanceOf(bob.address);
 
@@ -96,8 +103,20 @@ describe("EToken", () => {
     expect(userBalance).to.equal(parseUnits("150"));
   });
 
-  it("AccrueEarnings should fail when total supply is zero", async () => {
-    await expect(eDAI.accrueEarnings(parseUnits("100"))).to.be.reverted;
+  it("AccrueEarnings should increase users' balance simoultaneously", async () => {
+    let amountToMint = parseUnits("100");
+    let amountToEarn = parseUnits("50");
+    await eDAI.mint(bob.address, amountToMint);
+    await eDAI.accrueEarnings(amountToEarn);
+    await eDAI.mint(laura.address, amountToMint);
+    await eDAI.accrueEarnings(amountToEarn);
+    let totalSupply = await eDAI.totalSupply();
+    let bobBalance = await eDAI.balanceOf(bob.address);
+    let lauraBalance = await eDAI.balanceOf(laura.address);
+
+    expect(totalSupply).to.equal(parseUnits("300"));
+    expect(lauraBalance).to.be.closeTo(parseUnits("120"), 1);
+    expect(bobBalance).to.equal(parseUnits("180"));
   });
 
   it("AccrueEarnings should not increase user's balance if minted later", async () => {
@@ -108,7 +127,7 @@ describe("EToken", () => {
     await eDAI.mint(bob.address, amountToMint);
     let userBalance = await eDAI.balanceOf(bob.address);
 
-    expect(userBalance).to.equal(amountToMint);
+    expect(userBalance).to.be.closeTo(amountToMint, 1);
   });
 
   it("AccrueEarnings should emit event", async () => {
@@ -132,7 +151,35 @@ describe("EToken", () => {
     expect(userBalance).to.equal(parseUnits("50"));
   });
 
-  it.only("withdraw and mints another user", async () => {
+  it("Burn should decrease supply and update balance of user if previosuly received earnings", async () => {
+    let amountToMint = parseUnits("100");
+    let amountToEarn = parseUnits("75");
+    let amountToBurn = parseUnits("50");
+    await eDAI.mint(bob.address, amountToMint);
+    await eDAI.accrueEarnings(amountToEarn);
+    await eDAI.burn(bob.address, amountToBurn);
+    let totalSupply = await eDAI.totalSupply();
+    let userBalance = await eDAI.balanceOf(bob.address);
+
+    expect(totalSupply).to.equal(parseUnits("125"));
+    expect(userBalance).to.equal(parseUnits("125"));
+  });
+
+  it("Burn should leave balance of user in zero if amount to burn includes earnings", async () => {
+    let amountToMint = parseUnits("100");
+    let amountToEarn = parseUnits("50");
+    let amountToBurn = parseUnits("150");
+    await eDAI.mint(bob.address, amountToMint);
+    await eDAI.accrueEarnings(amountToEarn);
+    await eDAI.burn(bob.address, amountToBurn);
+    let totalSupply = await eDAI.totalSupply();
+    let userBalance = await eDAI.balanceOf(bob.address);
+
+    expect(totalSupply).to.equal(parseUnits("0"));
+    expect(userBalance).to.equal(parseUnits("0"));
+  });
+
+  it("Burn between users' balances increasing should not interfere in accounting", async () => {
     let amountToMintBob = parseUnits("100");
     let amountToMintLaura = parseUnits("50");
 
