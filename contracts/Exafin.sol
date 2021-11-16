@@ -493,7 +493,7 @@ contract Exafin is IExafin, ReentrancyGuard {
      * @param amount The amount to be deposited
      **/
     function depositToSmartPool(uint256 amount) external override {
-        auditor.supplySmartPoolAllowed(address(this), msg.sender);
+        auditor.beforeSupplySmartPool(address(this), msg.sender);
 
         trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -509,7 +509,7 @@ contract Exafin is IExafin, ReentrancyGuard {
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      **/
     function withdrawFromSmartPool(uint256 amount) external override {
-        auditor.withdrawSmartPoolAllowed(address(this), msg.sender);
+        auditor.beforeWithdrawSmartPool(address(this), msg.sender);
         
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;

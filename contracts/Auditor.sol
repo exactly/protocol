@@ -135,7 +135,7 @@ contract Auditor is IAuditor, AccessControl {
             );
     }
 
-    function supplySmartPoolAllowed(
+    function beforeSupplySmartPool(
         address exafinAddress,
         address supplier
     ) override external {
@@ -147,7 +147,7 @@ contract Auditor is IAuditor, AccessControl {
         rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
     }
 
-    function withdrawSmartPoolAllowed(
+    function beforeWithdrawSmartPool(
         address exafinAddress,
         address supplier
     ) override external {
