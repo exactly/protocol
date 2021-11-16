@@ -14,8 +14,6 @@ import "../utils/Errors.sol";
 */
 contract ExactlyOracle is IOracle, AccessControl {
 
-  bytes32 public constant TEAM_ROLE = keccak256("TEAM_ROLE");
-
   event SymbolSourceUpdated(string indexed symbol, address indexed source);
 
   mapping(string => address) public assetsSources;
@@ -35,7 +33,6 @@ contract ExactlyOracle is IOracle, AccessControl {
   */
   constructor(address _chainlinkFeedRegistry, string[] memory _symbols, address[] memory _sources, address _baseCurrency) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    _setupRole(TEAM_ROLE, msg.sender);
     _setAssetsSources(_symbols, _sources);
 
     chainlinkFeedRegistry = IChainlinkFeedRegistry(_chainlinkFeedRegistry);
@@ -70,7 +67,7 @@ contract ExactlyOracle is IOracle, AccessControl {
   */
   function setAssetSources(string[] calldata symbols, address[] calldata sources)
     external
-    onlyRole(TEAM_ROLE)
+    onlyRole(DEFAULT_ADMIN_ROLE)
   {
     _setAssetsSources(symbols, sources);
   }
