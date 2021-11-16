@@ -104,6 +104,7 @@ export enum ProtocolError {
   BURN_AMOUNT_EXCEEDS_BALANCE,
   CALLER_MUST_BE_EXAFIN,
   EXAFIN_ALREADY_SETTED,
+  MINT_NOT_TO_ZERO_ADDRESS,
 }
 
 export type MockedTokenSpec = {

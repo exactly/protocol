@@ -71,7 +71,9 @@ contract EToken is ERC20, IEToken, AccessControl {
      * @param amount The amount of tokens getting minted
      */
     function mint(address user, uint256 amount) external override onlyExafin {
-        require(user != address(0), "ERC20: mint to the zero address");
+        if (user == address(0)) {
+            revert GenericError(ErrorCode.MINT_NOT_TO_ZERO_ADDRESS);
+        }
 
         uint256 scaledBalance = amount;
         if (totalBalance != 0) {
