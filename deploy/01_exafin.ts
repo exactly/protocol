@@ -65,22 +65,19 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     },
   });
 
-  const interestRateModel = await hre.deployments.deploy(
-    "InterestRateModel",
-    {
-      from: deployer,
-      args: [
-        parseUnits("0.02"),
-        parseUnits("0.07"),
-        parseUnits("0.07"),
-        parseUnits("0.02"),
-      ],
-      log: true,
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    }
-  );
+  const interestRateModel = await hre.deployments.deploy("InterestRateModel", {
+    from: deployer,
+    args: [
+      parseUnits("0.02"),
+      parseUnits("0.07"),
+      parseUnits("0.07"),
+      parseUnits("0.02"),
+    ],
+    log: true,
+    libraries: {
+      TSUtils: tsUtils.address,
+    },
+  });
 
   for (const symbol of Object.keys(tokensForNetwork)) {
     const { name, address, whale, collateralRate, oracleName, decimals } =
