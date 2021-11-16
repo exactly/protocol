@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 interface IEToken is IERC20 {
     /**
      * @dev Mints `amount` eTokens to `user`
+     * - Only callable by the Exafin
      * @param user The address receiving the minted tokens
      * @param amount The amount of tokens getting minted
      */
@@ -13,6 +14,7 @@ interface IEToken is IERC20 {
 
     /**
      * @dev Burns eTokens from `user`
+     * - Only callable by the Exafin
      * @param user The owner of the eTokens, getting them burned
      * @param amount The amount being burned
      **/
@@ -20,6 +22,7 @@ interface IEToken is IERC20 {
 
     /**
      * @dev Increases contract earnings
+     * - Only callable by the Exafin
      * @param amount The amount of underlying tokens deposited
      */
     function accrueEarnings(uint256 amount) external;
