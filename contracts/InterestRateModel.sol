@@ -100,14 +100,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
                 ? spHighURSlopeRate
                 : spSlopeRate;
 
-            yearlyRate = Math.max(
-                (spCurrentSlopeRate * smartPool.borrowed) / smartPool.supplied,
-                maturityPool.supplied == 0
-                    ? 0
-                    : baseRate +
-                        (mpSlopeRate * maturityPool.borrowed) /
-                        maturityPool.supplied
-            );
+            uint256 smartPoolRate = (spCurrentSlopeRate * smartPool.borrowed) /
+                smartPool.supplied;
+            uint256 maturityPoolRate = maturityPool.supplied == 0
+                ? 0
+                : baseRate +
+                    (mpSlopeRate * maturityPool.borrowed) /
+                    maturityPool.supplied;
+
+            yearlyRate = Math.max(smartPoolRate, maturityPoolRate);
         }
 
         return ((yearlyRate * daysDifference) / 365);
