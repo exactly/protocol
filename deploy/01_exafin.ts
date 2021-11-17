@@ -83,9 +83,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const { name, address, whale, collateralRate, oracleName, decimals } =
       tokensForNetwork[symbol];
     console.log("------");
-    console.log("Exafin for %s will use: %s", symbol, address, auditor.address);
+    console.log(
+      "FixedLender for %s will use: %s",
+      symbol,
+      address,
+      auditor.address
+    );
 
-    const exafin = await hre.deployments.deploy("Exafin", {
+    const fixedLender = await hre.deployments.deploy("FixedLender", {
       from: deployer,
       args: [address, oracleName, auditor.address, interestRateModel.address],
       log: true,
@@ -94,18 +99,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       },
     });
 
-    // We enable this ExaFin Market on Auditor
+    // We enable this FixedLender Market on Auditor
     await hre.deployments.execute(
       "Auditor",
       { from: deployer },
       "enableMarket",
-      exafin.address,
+      fixedLender.address,
       parseUnits(collateralRate, 18),
       symbol,
       name,
       decimals
     );
-    console.log("Exafin %s deployed to: %s", symbol, exafin.address);
+    console.log("FixedLender %s deployed to: %s", symbol, fixedLender.address);
 
     if (!process.env.PUBLIC_ADDRESS) {
       console.log("Add PUBLIC_ADDRESS key to your .env file");

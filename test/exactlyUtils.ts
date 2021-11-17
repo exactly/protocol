@@ -95,15 +95,15 @@ export enum ProtocolError {
   INVALID_POOL_ID,
   LIQUIDATOR_NOT_BORROWER,
   BORROW_PAUSED,
-  NOT_AN_EXAFIN_SENDER,
+  NOT_A_FIXED_LENDER_SENDER,
   INVALID_SET_BORROW_CAP,
   MARKET_BORROW_CAP_REACHED,
   INCONSISTENT_PARAMS_LENGTH,
   REDEEM_CANT_BE_ZERO,
   EXIT_MARKET_BALANCE_OWED,
   BURN_AMOUNT_EXCEEDS_BALANCE,
-  CALLER_MUST_BE_EXAFIN,
-  EXAFIN_ALREADY_SET,
+  CALLER_MUST_BE_FIXED_LENDER,
+  FIXED_LENDER_ALREADY_SET,
   MINT_NOT_TO_ZERO_ADDRESS,
 }
 
@@ -121,13 +121,13 @@ export class DefaultEnv {
   exaLib: Contract;
   marketsLib: Contract;
   exaToken: Contract;
-  exafinContracts: Map<string, Contract>;
+  fixedLenderContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   eTokenContracts: Map<string, Contract>;
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
-  notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
+  notAnFixedLenderAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
   usdAddress: string;
 
   constructor(
@@ -138,13 +138,13 @@ export class DefaultEnv {
     _exaLib: Contract,
     _marketsLib: Contract,
     _exaToken: Contract,
-    _exafinContracts: Map<string, Contract>,
+    _fixedLenderContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
     _eTokenContracts: Map<string, Contract>
   ) {
     this.oracle = _oracle;
     this.auditor = _auditor;
-    this.exafinContracts = _exafinContracts;
+    this.fixedLenderContracts = _fixedLenderContracts;
     this.underlyingContracts = _underlyingContracts;
     this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
@@ -158,8 +158,8 @@ export class DefaultEnv {
     this.usdAddress = "0x0000000000000000000000000000000000000348";
   }
 
-  public getExafin(key: string): Contract {
-    return this.exafinContracts.get(key)!;
+  public getFixedLender(key: string): Contract {
+    return this.fixedLenderContracts.get(key)!;
   }
 
   public getUnderlying(key: string): Contract {
@@ -183,21 +183,21 @@ export class RewardsLibEnv {
   auditorHarness: Contract;
   exaLib: Contract;
   exaToken: Contract;
-  exafinHarness: Contract;
+  fixedLenderHarness: Contract;
   eToken: Contract;
-  notAnExafinAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
+  notAnFixedLenderAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
 
   constructor(
     _auditorHarness: Contract,
     _exaLib: Contract,
     _exaToken: Contract,
-    _exafinHarness: Contract,
+    _fixedLenderHarness: Contract,
     _eToken: Contract
   ) {
     this.auditorHarness = _auditorHarness;
     this.exaLib = _exaLib;
     this.exaToken = _exaToken;
-    this.exafinHarness = _exafinHarness;
+    this.fixedLenderHarness = _fixedLenderHarness;
     this.eToken = _eToken;
   }
 }
@@ -206,7 +206,7 @@ export class ExactlyEnv {
   static async create(
     mockedTokens: Map<string, MockedTokenSpec>
   ): Promise<DefaultEnv> {
-    let exafinContracts = new Map<string, Contract>();
+    let fixedLenderContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
     let eTokenContracts = new Map<string, Contract>();
 
@@ -261,7 +261,7 @@ export class ExactlyEnv {
     let auditor = await Auditor.deploy(oracle.address, exaToken.address);
     await auditor.deployed();
 
-    // We have to enable all the Exafins in the auditor
+    // We have to enable all the FixedLenders in the auditor
     await Promise.all(
       Array.from(mockedTokens.keys()).map(async (tokenName) => {
         const { decimals, collateralRate, usdPrice } =
@@ -282,33 +282,33 @@ export class ExactlyEnv {
         );
         await eToken.deployed();
 
-        const Exafin = await ethers.getContractFactory("Exafin", {
+        const FixedLender = await ethers.getContractFactory("FixedLender", {
           libraries: {
             TSUtils: tsUtils.address,
           },
         });
-        const exafin = await Exafin.deploy(
+        const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
           eToken.address,
           auditor.address,
           interestRateModel.address
         );
-        await exafin.deployed();
+        await fixedLender.deployed();
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, usdPrice);
-        // Enable Market for Exafin-TOKEN by setting the collateral rates
+        // Enable Market for FixedLender-TOKEN by setting the collateral rates
         await auditor.enableMarket(
-          exafin.address,
+          fixedLender.address,
           collateralRate,
           tokenName,
           tokenName,
           decimals
         );
 
-        // Handy maps with all the exafins and underlying tokens
-        exafinContracts.set(tokenName, exafin);
+        // Handy maps with all the fixedLenders and underlying tokens
+        fixedLenderContracts.set(tokenName, fixedLender);
         underlyingContracts.set(tokenName, underlyingToken);
         eTokenContracts.set(tokenName, eToken);
       })
@@ -324,7 +324,7 @@ export class ExactlyEnv {
           exaLib,
           marketsLib,
           exaToken,
-          exafinContracts,
+          fixedLenderContracts,
           underlyingContracts,
           eTokenContracts
         )
@@ -349,11 +349,13 @@ export class ExactlyEnv {
     let eToken = await EToken.deploy("eDAI", "eDAI");
     await eToken.deployed();
 
-    const ExafinHarness = await ethers.getContractFactory("ExafinHarness");
-    let exafinHarness = await ExafinHarness.deploy();
-    await exafinHarness.deployed();
-    await exafinHarness.setEToken(eToken.address);
-    eToken.setExafin(exafinHarness.address);
+    const FixedLenderHarness = await ethers.getContractFactory(
+      "FixedLenderHarness"
+    );
+    let fixedLenderHarness = await FixedLenderHarness.deploy();
+    await fixedLenderHarness.deployed();
+    await fixedLenderHarness.setEToken(eToken.address);
+    eToken.setFixedLender(fixedLenderHarness.address);
 
     const AuditorHarness = await ethers.getContractFactory("AuditorHarness", {
       libraries: {
@@ -362,7 +364,7 @@ export class ExactlyEnv {
     });
     let auditorHarness = await AuditorHarness.deploy(exaToken.address);
     await auditorHarness.deployed();
-    await auditorHarness.enableMarket(exafinHarness.address);
+    await auditorHarness.enableMarket(fixedLenderHarness.address);
 
     return new Promise<RewardsLibEnv>((resolve) => {
       resolve(
@@ -370,7 +372,7 @@ export class ExactlyEnv {
           auditorHarness,
           exaLib,
           exaToken,
-          exafinHarness,
+          fixedLenderHarness,
           eToken
         )
       );

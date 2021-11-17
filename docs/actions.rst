@@ -10,7 +10,7 @@ Previous steps
 - The user deposited assets in one or more maturity pools
 - The user has marked one or more of those assets as collateral
 
-In this case, the user is trying to borrow DAI from the appropiate Exafin contract, EXADAI
+In this case, the user is trying to borrow DAI from the appropiate FixedLender contract, EXADAI
 
 
 .. uml::
@@ -49,17 +49,17 @@ Now, let's see the more complex call:
 
 .. uml::
 
-    participant Exafin
+    participant FixedLender
     participant Auditor
     participant Oracle
 
-    Exafin -> Auditor: borrowAllowed(Exafin.address, user.address, amount, poolId)
+    FixedLender -> Auditor: borrowAllowed(FixedLender.address, user.address, amount, poolId)
 
-    loop every enabled Exafin
-    Auditor -> Exafin: getAccountSnapshot(user.address, poolId)
-    Auditor <-- Exafin: balance, borrowBalance
-    Auditor -> Exafin: underlyingTokenName()
-    Auditor <-- Exafin: name
+    loop every enabled FixedLender
+    Auditor -> FixedLender: getAccountSnapshot(user.address, poolId)
+    Auditor <-- FixedLender: balance, borrowBalance
+    Auditor -> FixedLender: underlyingTokenName()
+    Auditor <-- FixedLender: name
     Auditor -> Oracle: price(name)
     Auditor <-- Oracle: price
     note across
@@ -67,11 +67,11 @@ Now, let's see the more complex call:
     collateral += price*balance
     end note
 
-    alt asset == Exafin.address (the one we're simulating)
+    alt asset == FixedLender.address (the one we're simulating)
     note across
     debt += price*amount
     end note
     end
     note over Auditor: revert if debt > collateral
-    Exafin <-- Auditor
+    FixedLender <-- Auditor
 

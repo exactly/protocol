@@ -20,11 +20,11 @@ describe("Liquidity computations", function () {
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
 
-  let exafinDAI: Contract;
+  let fixedLenderDAI: Contract;
   let dai: Contract;
-  let exafinUSDC: Contract;
+  let fixedLenderUSDC: Contract;
   let usdc: Contract;
-  let exafinWBTC: Contract;
+  let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
   let mockedTokens = new Map([
@@ -68,11 +68,11 @@ describe("Liquidity computations", function () {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
 
-    exafinDAI = exactlyEnv.getExafin("DAI");
+    fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
-    exafinUSDC = exactlyEnv.getExafin("USDC");
+    fixedLenderUSDC = exactlyEnv.getFixedLender("USDC");
     usdc = exactlyEnv.getUnderlying("USDC");
-    exafinWBTC = exactlyEnv.getExafin("WBTC");
+    fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
     // TODO: perhaps pass the addresses to ExactlyEnv.create and do all the
@@ -85,12 +85,15 @@ describe("Liquidity computations", function () {
     await usdc.transfer(bob.address, parseUnits("100000", 6));
     // we make DAI & USDC count as collateral
     await auditor.enterMarkets(
-      [exafinDAI.address, exafinUSDC.address],
+      [fixedLenderDAI.address, fixedLenderUSDC.address],
       nextPoolID
     );
     await auditor
       .connect(laura)
-      .enterMarkets([exafinDAI.address, exafinUSDC.address], nextPoolID);
+      .enterMarkets(
+        [fixedLenderDAI.address, fixedLenderUSDC.address],
+        nextPoolID
+      );
   });
 
   describe("positions arent immediately liquidateable", () => {
@@ -98,8 +101,8 @@ describe("Liquidity computations", function () {
       let supplyEvent: any;
       beforeEach(async () => {
         const amount = parseUnits("1000");
-        await dai.connect(laura).approve(exafinDAI.address, amount);
-        const txDai = await exafinDAI
+        await dai.connect(laura).approve(fixedLenderDAI.address, amount);
+        const txDai = await fixedLenderDAI
           .connect(laura)
           .supply(laura.address, amount, nextPoolID);
         supplyEvent = await parseSupplyEvent(txDai);
@@ -119,7 +122,7 @@ describe("Liquidity computations", function () {
       });
       // TODO: a test where the supply interest is != 0, see if there's an error like the one described in this commit
       it("AND she has zero debt and is owed 1000DAI", async () => {
-        const [supplied, owed] = await exafinDAI.getAccountSnapshot(
+        const [supplied, owed] = await fixedLenderDAI.getAccountSnapshot(
           laura.address,
           nextPoolID
         );
@@ -130,7 +133,7 @@ describe("Liquidity computations", function () {
       });
       it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
         await expect(
-          exafinDAI.connect(laura).borrow(parseUnits("800"), nextPoolID)
+          fixedLenderDAI.connect(laura).borrow(parseUnits("800"), nextPoolID)
         ).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
         );
@@ -138,7 +141,9 @@ describe("Liquidity computations", function () {
 
       describe("AND WHEN laura asks for a 799 DAI loan (1 DAI buffer for interest)", () => {
         beforeEach(async () => {
-          await exafinDAI.connect(laura).borrow(parseUnits("799"), nextPoolID);
+          await fixedLenderDAI
+            .connect(laura)
+            .borrow(parseUnits("799"), nextPoolID);
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
@@ -149,7 +154,7 @@ describe("Liquidity computations", function () {
           expect(shortfall).to.be.lt(parseUnits("1"));
         });
         it("AND she has 799+interest debt and is owed 1000DAI", async () => {
-          const [supplied, borrowed] = await exafinDAI.getAccountSnapshot(
+          const [supplied, borrowed] = await fixedLenderDAI.getAccountSnapshot(
             laura.address,
             nextPoolID
           );
@@ -165,12 +170,12 @@ describe("Liquidity computations", function () {
   });
 
   describe("support for tokens with different decimals", () => {
-    describe("GIVEN theres liquidity on the btc exafin", () => {
+    describe("GIVEN theres liquidity on the btc fixedLender", () => {
       beforeEach(async () => {
         // laura supplies wbtc to the protocol to have lendable money in the pool
         const amount = parseUnits("3", 8);
-        await wbtc.connect(laura).approve(exafinWBTC.address, amount);
-        await exafinWBTC
+        await wbtc.connect(laura).approve(fixedLenderWBTC.address, amount);
+        await fixedLenderWBTC
           .connect(laura)
           .supply(laura.address, amount, nextPoolID);
       });
@@ -179,8 +184,8 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await dai
             .connect(bob)
-            .approve(exafinDAI.address, parseUnits("60000"));
-          await exafinDAI
+            .approve(fixedLenderDAI.address, parseUnits("60000"));
+          await fixedLenderDAI
             .connect(bob)
             .supply(bob.address, parseUnits("60000"), nextPoolID);
         });
@@ -194,7 +199,7 @@ describe("Liquidity computations", function () {
         it("WHEN he tries to take a 1btc (8 decimals) loan (100% collateralization), THEN it reverts", async () => {
           // We expect liquidity to be equal to zero
           await expect(
-            exafinWBTC.connect(bob).borrow(parseUnits("1", 8), nextPoolID)
+            fixedLenderWBTC.connect(bob).borrow(parseUnits("1", 8), nextPoolID)
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
@@ -205,20 +210,20 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await dai
             .connect(bob)
-            .approve(exafinDAI.address, parseUnits("20000"));
-          await exafinDAI
+            .approve(fixedLenderDAI.address, parseUnits("20000"));
+          await fixedLenderDAI
             .connect(bob)
             .supply(bob.address, parseUnits("20000"), nextPoolID);
           await usdc
             .connect(bob)
-            .approve(exafinUSDC.address, parseUnits("40000", 6));
-          await exafinUSDC
+            .approve(fixedLenderUSDC.address, parseUnits("40000", 6));
+          await fixedLenderUSDC
             .connect(bob)
             .supply(bob.address, parseUnits("40000", 6), nextPoolID);
         });
         describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
           beforeEach(async () => {
-            await exafinWBTC
+            await fixedLenderWBTC
               .connect(bob)
               .borrow(parseUnits("0.5", 8), nextPoolID);
           });
@@ -237,7 +242,7 @@ describe("Liquidity computations", function () {
             it("WHEN he tries to redeem the usdc (8 decimals) collateral, THEN it reverts ()", async () => {
               // We expect liquidity to be equal to zero
               await expect(
-                exafinUSDC
+                fixedLenderUSDC
                   .connect(bob)
                   .redeem(bob.address, parseUnits("40000", 6), nextPoolID)
               ).to.be.revertedWith(

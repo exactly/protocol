@@ -50,13 +50,13 @@ notes eip-1155
 
 we might just be able to use all of this standard's features to create a token that actually represents debt/collateral positions in a way that can potentially be read by other frontends
 
-draft (we could probably move the boundaries so everything fits, since the exafin address takes up 20 bytes and we could do with less bytes for the maturity):
+draft (we could probably move the boundaries so everything fits, since the fixedLender address takes up 20 bytes and we could do with less bytes for the maturity):
 
 ================= ===============================   ================================
 0                 1-127                             128-255
 ================= ===============================   ================================
 0                 0000000000000000000000000000000   00000000000000000000000000000000
-debt/collateral   exafin id                         maturity
+debt/collateral   fixedLender id                         maturity
 ================= ===============================   ================================
 
 - the amount represents the actual amount supplied/owed
