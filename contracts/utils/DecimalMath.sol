@@ -21,6 +21,10 @@ library DecimalMath {
         return (a * b.value) / DOUBLE_SCALE;
     }
 
+    function div_(uint256 a, uint256 b) internal pure returns (uint256) {
+        return (a * NUMBER_SCALE) / b;
+    }
+    
     function add_(Double memory a, Double memory b) internal pure returns (Double memory) {
         return Double({value: a.value + b.value});
     }
