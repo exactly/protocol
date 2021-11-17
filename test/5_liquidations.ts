@@ -19,11 +19,11 @@ describe("Liquidations", function () {
   let bob: SignerWithAddress;
   let alice: SignerWithAddress;
 
-  let exafinETH: Contract;
+  let fixedLenderETH: Contract;
   let eth: Contract;
-  let exafinDAI: Contract;
+  let fixedLenderDAI: Contract;
   let dai: Contract;
-  let exafinWBTC: Contract;
+  let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
   let mockedTokens = new Map([
@@ -67,11 +67,11 @@ describe("Liquidations", function () {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
 
-    exafinETH = exactlyEnv.getExafin("ETH");
+    fixedLenderETH = exactlyEnv.getFixedLender("ETH");
     eth = exactlyEnv.getUnderlying("ETH");
-    exafinDAI = exactlyEnv.getExafin("DAI");
+    fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
-    exafinWBTC = exactlyEnv.getExafin("WBTC");
+    fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
     // From alice to bob
@@ -82,33 +82,35 @@ describe("Liquidations", function () {
     beforeEach(async () => {
       // we supply Eth to the protocol
       const amountETH = parseUnits("1");
-      await eth.approve(exafinETH.address, amountETH);
-      await exafinETH.supply(alice.address, amountETH, nextPoolID);
+      await eth.approve(fixedLenderETH.address, amountETH);
+      await fixedLenderETH.supply(alice.address, amountETH, nextPoolID);
 
       // we supply WBTC to the protocol
       const amountWBTC = parseUnits("1", 8);
-      await wbtc.approve(exafinWBTC.address, amountWBTC);
-      await exafinWBTC.supply(alice.address, amountWBTC, nextPoolID);
+      await wbtc.approve(fixedLenderWBTC.address, amountWBTC);
+      await fixedLenderWBTC.supply(alice.address, amountWBTC, nextPoolID);
 
       // bob supplies DAI to the protocol to have money in the pool
       const amountDAI = parseUnits("65000");
-      await dai.connect(bob).approve(exafinDAI.address, amountDAI);
-      await exafinDAI.connect(bob).supply(bob.address, amountDAI, nextPoolID);
+      await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
+      await fixedLenderDAI
+        .connect(bob)
+        .supply(bob.address, amountDAI, nextPoolID);
     });
 
     describe("AND GIVEN Alice takes the biggest loan she can (39850 DAI), collaterallization 1.65", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
         await auditor.enterMarkets(
-          [exafinETH.address, exafinWBTC.address],
+          [fixedLenderETH.address, fixedLenderWBTC.address],
           nextPoolID
         );
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
         amountToBorrowDAI = parseUnits("39850");
 
         // alice borrows all liquidity
-        await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
-        [, owedDAI] = await exafinDAI.getAccountSnapshot(
+        await fixedLenderDAI.borrow(amountToBorrowDAI, nextPoolID);
+        [, owedDAI] = await fixedLenderDAI.getAccountSnapshot(
           alice.address,
           nextPoolID
         );
@@ -135,16 +137,21 @@ describe("Liquidations", function () {
           // We try to get all the ETH we can
           // We expect trying to repay zero to fail
           await expect(
-            exafinDAI.liquidate(alice.address, 0, exafinETH.address, nextPoolID)
+            fixedLenderDAI.liquidate(
+              alice.address,
+              0,
+              fixedLenderETH.address,
+              nextPoolID
+            )
           ).to.be.revertedWith(errorGeneric(ProtocolError.REPAY_ZERO));
         });
         it("AND the position cant be liquidated by the borrower", async () => {
           // We expect self liquidation to fail
           await expect(
-            exafinDAI.liquidate(
+            fixedLenderDAI.liquidate(
               alice.address,
               owedDAI,
-              exafinETH.address,
+              fixedLenderETH.address,
               nextPoolID
             )
           ).to.be.revertedWith(
@@ -156,18 +163,18 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await dai
               .connect(bob)
-              .approve(exafinDAI.address, owedDAI.div(2).sub(100000));
+              .approve(fixedLenderDAI.address, owedDAI.div(2).sub(100000));
           });
           it("WHEN trying to liquidate, THEN it reverts with a ERC20 transfer error", async () => {
             // We expect liquidation to fail because trying to liquidate
             // and take over a collateral that bob doesn't have enough
             await expect(
-              exafinDAI
+              fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   owedDAI.div(2).sub(100),
-                  exafinETH.address,
+                  fixedLenderETH.address,
                   nextPoolID
                 )
             ).to.be.revertedWith("ERC20");
@@ -178,18 +185,18 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await dai
               .connect(bob)
-              .approve(exafinDAI.address, owedDAI.mul(1000));
+              .approve(fixedLenderDAI.address, owedDAI.mul(1000));
           });
           it("WHEN trying to liquidate 39850 DAI for ETH (of which there is only 3000usd), THEN it reverts with a TOKENS_MORE_THAN_BALANCE error", async () => {
             // We expect liquidation to fail because trying to liquidate
             // and take over a collateral that bob doesn't have enough
             await expect(
-              exafinDAI
+              fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   owedDAI.div(2).sub(100),
-                  exafinETH.address,
+                  fixedLenderETH.address,
                   nextPoolID
                 )
             ).to.be.revertedWith(
@@ -199,12 +206,12 @@ describe("Liquidations", function () {
           it("WHEN liquidating slightly more than the close factor(0.5), THEN it reverts", async () => {
             // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
             await expect(
-              exafinDAI
+              fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   owedDAI.div(2).add(1000),
-                  exafinWBTC.address,
+                  fixedLenderWBTC.address,
                   nextPoolID
                 )
             ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_REPAY));
@@ -214,12 +221,12 @@ describe("Liquidations", function () {
               .mul(parseUnits("0.3"))
               .div(parseUnits("1"))
               .sub(100000);
-            await exafinDAI
+            await fixedLenderDAI
               .connect(bob)
               .liquidate(
                 alice.address,
                 closeToMaxRepay,
-                exafinWBTC.address,
+                fixedLenderWBTC.address,
                 nextPoolID
               );
           });

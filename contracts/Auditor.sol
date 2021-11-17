@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import "./interfaces/IExafin.sol";
+import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IOracle.sol";
 import "./utils/TSUtils.sol";
@@ -19,27 +19,27 @@ contract Auditor is IAuditor, AccessControl {
     using ExaLib for ExaLib.RewardsState;
     using MarketsLib for MarketsLib.Book;
 
-    event MarketListed(address exafin);
-    event MarketEntered(address exafin, address account, uint256 maturityDate);
-    event MarketExited(address exafin, address account, uint256 maturityDate);
-    event ActionPaused(address exafin, string action, bool paused);
+    event MarketListed(address fixedLender);
+    event MarketEntered(address fixedLender, address account, uint256 maturityDate);
+    event MarketExited(address fixedLender, address account, uint256 maturityDate);
+    event ActionPaused(address fixedLender, string action, bool paused);
     event OracleChanged(address newOracle);
-    event NewBorrowCap(address indexed exafin, uint256 newBorrowCap);
-    event ExaSpeedUpdated(address exafinAddress, uint256 newSpeed);
+    event NewBorrowCap(address indexed fixedLender, uint256 newBorrowCap);
+    event ExaSpeedUpdated(address fixedLenderAddress, uint256 newSpeed);
     event DistributedSupplierExa(
-        address indexed exafin,
+        address indexed fixedLender,
         address indexed supplier,
         uint256 supplierDelta,
         uint256 exaSupplyIndex
     );
     event DistributedBorrowerExa(
-        address indexed exafin,
+        address indexed fixedLender,
         address indexed borrower,
         uint256 borrowerDelta,
         uint256 exaSupplyIndex
     );
     event DistributedSmartPoolExa(
-        address indexed exafin,
+        address indexed fixedLender,
         address indexed supplier,
         uint smartSupplierDelta,
         uint smartPoolIndex
@@ -64,40 +64,40 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Allows wallet to enter certain markets (exafinDAI, exafinETH, etc)
+     * @dev Allows wallet to enter certain markets (fixedLenderDAI, fixedLenderETH, etc)
      *      By performing this action, the wallet's money could be used as collateral
-     * @param exafins contracts addresses to enable for `msg.sender` for a certain maturity
-     * @param maturityDate poolID in which the exafins will be enabled
+     * @param fixedLenders contracts addresses to enable for `msg.sender` for a certain maturity
+     * @param maturityDate poolID in which the fixedLenders will be enabled
      */
-    function enterMarkets(address[] calldata exafins, uint256 maturityDate)
+    function enterMarkets(address[] calldata fixedLenders, uint256 maturityDate)
         external
     {
         _requirePoolState(maturityDate, TSUtils.State.VALID);
-        uint256 len = exafins.length;
+        uint256 len = fixedLenders.length;
         for (uint256 i = 0; i < len; i++) {
-            book.addToMarket(exafins[i], msg.sender, maturityDate);
+            book.addToMarket(fixedLenders[i], msg.sender, maturityDate);
         }
     }
 
     /**
-     * @notice Removes exafin from sender's account liquidity calculation
+     * @notice Removes fixedLender from sender's account liquidity calculation
      * @dev Sender must not have an outstanding borrow balance in the asset,
      *      or be providing necessary collateral for an outstanding borrow.
-     * @param exafinAddress The address of the asset to be removed
+     * @param fixedLenderAddress The address of the asset to be removed
      * @param maturityDate The timestamp/poolID where the user wants to stop providing collateral
      */
-    function exitMarket(address exafinAddress, uint256 maturityDate) external {
-        if (!book.markets[exafinAddress].isListed) {
+    function exitMarket(address fixedLenderAddress, uint256 maturityDate) external {
+        if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        IExafin exafin = IExafin(exafinAddress);
+        IFixedLender fixedLender = IFixedLender(fixedLenderAddress);
 
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        (uint256 amountHeld, uint256 borrowBalance) = exafin.getAccountSnapshot(
+        (uint256 amountHeld, uint256 borrowBalance) = fixedLender.getAccountSnapshot(
             msg.sender,
             maturityDate
         );
@@ -108,9 +108,9 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        _redeemAllowed(exafinAddress, msg.sender, amountHeld, maturityDate);
+        _redeemAllowed(fixedLenderAddress, msg.sender, amountHeld, maturityDate);
 
-        book.exitMarket(exafinAddress, msg.sender, maturityDate);
+        book.exitMarket(fixedLenderAddress, msg.sender, maturityDate);
     }
 
     /**
@@ -136,45 +136,45 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     function beforeSupplySmartPool(
-        address exafinAddress,
+        address fixedLenderAddress,
         address supplier
     ) override external {
-        if (!book.markets[exafinAddress].isListed) {
+        if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaSmartPoolIndex(block.number, exafinAddress);
-        rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
+        rewardsState.updateExaSmartPoolIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSmartPoolExa(fixedLenderAddress, supplier);
     }
 
     function beforeWithdrawSmartPool(
-        address exafinAddress,
+        address fixedLenderAddress,
         address supplier
     ) override external {
-        if (!book.markets[exafinAddress].isListed) {
+        if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaSmartPoolIndex(block.number, exafinAddress);
-        rewardsState.distributeSmartPoolExa(exafinAddress, supplier);
+        rewardsState.updateExaSmartPoolIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSmartPoolExa(fixedLenderAddress, supplier);
     }
 
     function supplyAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address supplier,
         uint256 supplyAmount,
         uint256 maturityDate
     ) external override {
         supplyAmount;
 
-        if (!book.markets[exafinAddress].isListed) {
+        if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
-        rewardsState.updateExaSupplyIndex(block.number, exafinAddress);
-        rewardsState.distributeSupplierExa(exafinAddress, supplier);
+        rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSupplierExa(fixedLenderAddress, supplier);
     }
 
     function requirePoolState(uint256 maturityDate, TSUtils.State requiredState)
@@ -200,12 +200,12 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     function borrowAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,
         uint256 maturityDate
     ) external override {
-        if (book.borrowPaused[exafinAddress]) {
+        if (book.borrowPaused[fixedLenderAddress]) {
             revert GenericError(ErrorCode.BORROW_PAUSED);
         }
 
@@ -213,7 +213,7 @@ contract Auditor is IAuditor, AccessControl {
 
         book.validateBorrow(
             oracle,
-            exafinAddress,
+            fixedLenderAddress,
             borrower,
             borrowAmount,
             maturityDate
@@ -223,7 +223,7 @@ contract Auditor is IAuditor, AccessControl {
             oracle,
             borrower,
             maturityDate,
-            exafinAddress,
+            fixedLenderAddress,
             0,
             borrowAmount
         );
@@ -232,29 +232,29 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
 
-        rewardsState.updateExaBorrowIndex(block.number, exafinAddress);
-        rewardsState.distributeBorrowerExa(exafinAddress, borrower);
+        rewardsState.updateExaBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeBorrowerExa(fixedLenderAddress, borrower);
     }
 
     function redeemAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
     ) external override {
-        _redeemAllowed(exafinAddress, redeemer, redeemTokens, maturityDate);
+        _redeemAllowed(fixedLenderAddress, redeemer, redeemTokens, maturityDate);
 
-        rewardsState.updateExaSupplyIndex(block.number, exafinAddress);
-        rewardsState.distributeSupplierExa(exafinAddress, redeemer);
+        rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSupplierExa(fixedLenderAddress, redeemer);
     }
 
     function _redeemAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
     ) internal view {
-        if (!book.markets[exafinAddress].isListed) {
+        if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
@@ -262,7 +262,7 @@ contract Auditor is IAuditor, AccessControl {
 
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
         if (
-            !book.markets[exafinAddress].accountMembership[redeemer][
+            !book.markets[fixedLenderAddress].accountMembership[redeemer][
                 maturityDate
             ]
         ) {
@@ -274,7 +274,7 @@ contract Auditor is IAuditor, AccessControl {
             oracle,
             redeemer,
             maturityDate,
-            exafinAddress,
+            fixedLenderAddress,
             redeemTokens,
             0
         );
@@ -284,51 +284,51 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     function repayAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address borrower,
         uint256 maturityDate
     ) external override {
-        if (!book.markets[exafinAddress].isListed) {
+        if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         _requirePoolState(maturityDate, TSUtils.State.MATURED);
 
-        rewardsState.updateExaBorrowIndex(block.number, exafinAddress);
-        rewardsState.distributeBorrowerExa(exafinAddress, borrower);
+        rewardsState.updateExaBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
      * @dev Function to calculate the amount of assets to be seized
      *      - when a position is undercollaterized it should be repaid and this functions calculates the
      *        amount of collateral to be seized
-     * @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
-     * @param exafinBorrowed market from where the debt is pending
+     * @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol)
+     * @param fixedLenderBorrowed market from where the debt is pending
      * @param actualRepayAmount repay amount in the borrowed asset
      */
     function liquidateCalculateSeizeAmount(
-        address exafinBorrowed,
-        address exafinCollateral,
+        address fixedLenderBorrowed,
+        address fixedLenderCollateral,
         uint256 actualRepayAmount
     ) external view override returns (uint256) {
         /* Read oracle prices for borrowed and collateral markets */
         uint256 priceBorrowed = oracle.getAssetPrice(
-            IExafin(exafinBorrowed).underlyingTokenName()
+            IFixedLender(fixedLenderBorrowed).underlyingTokenName()
         );
         uint256 priceCollateral = oracle.getAssetPrice(
-            IExafin(exafinCollateral).underlyingTokenName()
+            IFixedLender(fixedLenderCollateral).underlyingTokenName()
         );
 
         uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(
             actualRepayAmount,
             priceBorrowed,
-            book.markets[exafinBorrowed].decimals
+            book.markets[fixedLenderBorrowed].decimals
         );
         // 10**18: usd amount decimals
         uint256 seizeTokens = DecimalMath.getTokenAmountFromUsd(
             amountInUSD,
             priceCollateral,
-            book.markets[exafinCollateral].decimals
+            book.markets[fixedLenderCollateral].decimals
         );
 
         return seizeTokens;
@@ -336,17 +336,17 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Function to allow/reject liquidation of assets. This function can be called
-     *      externally, but only will have effect when called from an exafin.
-     * @param exafinCollateral market where the assets will be liquidated (should be msg.sender on Exafin.sol)
-     * @param exafinBorrowed market from where the debt is pending
+     *      externally, but only will have effect when called from a fixedLender.
+     * @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol)
+     * @param fixedLenderBorrowed market from where the debt is pending
      * @param liquidator address that is liquidating the assets
      * @param borrower address which the assets are being liquidated
      * @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
      * @param maturityDate maturity where the position has a shortfall in liquidity
      */
     function liquidateAllowed(
-        address exafinBorrowed,
-        address exafinCollateral,
+        address fixedLenderBorrowed,
+        address fixedLenderCollateral,
         address liquidator,
         address borrower,
         uint256 repayAmount,
@@ -362,8 +362,8 @@ contract Auditor is IAuditor, AccessControl {
 
         // if markets are listed, they have the same auditor
         if (
-            !book.markets[exafinBorrowed].isListed ||
-            !book.markets[exafinCollateral].isListed
+            !book.markets[fixedLenderBorrowed].isListed ||
+            !book.markets[fixedLenderCollateral].isListed
         ) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -382,7 +382,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
-        (, uint256 borrowBalance) = IExafin(exafinBorrowed).getAccountSnapshot(
+        (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed).getAccountSnapshot(
             borrower,
             maturityDate
         );
@@ -394,15 +394,15 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Function to allow/reject seizing of assets. This function can be called
-     *      externally, but only will have effect when called from an exafin.
-     * @param exafinCollateral market where the assets will be seized (should be msg.sender on Exafin.sol)
-     * @param exafinBorrowed market from where the debt will be paid
+     *      externally, but only will have effect when called from a fixedLender.
+     * @param fixedLenderCollateral market where the assets will be seized (should be msg.sender on FixedLender.sol)
+     * @param fixedLenderBorrowed market from where the debt will be paid
      * @param liquidator address to validate where the seized assets will be received
      * @param borrower address to validate where the assets will be removed
      */
     function seizeAllowed(
-        address exafinCollateral,
-        address exafinBorrowed,
+        address fixedLenderCollateral,
+        address fixedLenderBorrowed,
         address liquidator,
         address borrower
     ) external view override {
@@ -412,32 +412,32 @@ contract Auditor is IAuditor, AccessControl {
 
         // If markets are listed, they have also the same Auditor
         if (
-            !book.markets[exafinCollateral].isListed ||
-            !book.markets[exafinBorrowed].isListed
+            !book.markets[fixedLenderCollateral].isListed ||
+            !book.markets[fixedLenderBorrowed].isListed
         ) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
     }
 
     /**
-     * @dev Function to enable a certain Exafin market to be used as collateral
-     * @param exafin address to add to the protocol
-     * @param collateralFactor exafin's collateral factor for the underlying asset
+     * @dev Function to enable a certain FixedLender market to be used as collateral
+     * @param fixedLender address to add to the protocol
+     * @param collateralFactor fixedLender's collateral factor for the underlying asset
      */
     function enableMarket(
-        address exafin,
+        address fixedLender,
         uint256 collateralFactor,
         string memory symbol,
         string memory name,
         uint8 decimals
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        MarketsLib.Market storage market = book.markets[exafin];
+        MarketsLib.Market storage market = book.markets[fixedLender];
 
         if (market.isListed) {
             revert GenericError(ErrorCode.MARKET_ALREADY_LISTED);
         }
 
-        if (IExafin(exafin).getAuditor() != this) {
+        if (IFixedLender(fixedLender).getAuditor() != this) {
             revert GenericError(ErrorCode.AUDITOR_MISMATCH);
         }
 
@@ -447,21 +447,21 @@ contract Auditor is IAuditor, AccessControl {
         market.name = name;
         market.decimals = decimals;
 
-        marketsAddresses.push(exafin);
+        marketsAddresses.push(fixedLender);
 
-        emit MarketListed(exafin);
+        emit MarketListed(fixedLender);
     }
 
     /**
-     * @notice Set the given borrow caps for the given exafin markets. Borrowing that brings total borrows to or above borrow cap will revert.
-     * @param exafins The addresses of the markets (tokens) to change the borrow caps for
+     * @notice Set the given borrow caps for the given fixedLender markets. Borrowing that brings total borrows to or above borrow cap will revert.
+     * @param fixedLenders The addresses of the markets (tokens) to change the borrow caps for
      * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
      */
     function setMarketBorrowCaps(
-        address[] calldata exafins,
+        address[] calldata fixedLenders,
         uint256[] calldata newBorrowCaps
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 numMarkets = exafins.length;
+        uint256 numMarkets = fixedLenders.length;
         uint256 numBorrowCaps = newBorrowCaps.length;
 
         if (numMarkets == 0 || numMarkets != numBorrowCaps) {
@@ -469,31 +469,31 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         for (uint256 i = 0; i < numMarkets; i++) {
-            if (!book.markets[exafins[i]].isListed) {
+            if (!book.markets[fixedLenders[i]].isListed) {
                 revert GenericError(ErrorCode.MARKET_NOT_LISTED);
             }
 
-            book.borrowCaps[exafins[i]] = newBorrowCaps[i];
-            emit NewBorrowCap(exafins[i], newBorrowCaps[i]);
+            book.borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
+            emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
         }
     }
 
     /**
      * @dev Function to pause/unpause borrowing on a certain market
-     * @param exafin address to pause
+     * @param fixedLender address to pause
      * @param paused true/false
      */
-    function pauseBorrow(address exafin, bool paused)
+    function pauseBorrow(address fixedLender, bool paused)
         public
         onlyRole(DEFAULT_ADMIN_ROLE)
         returns (bool)
     {
-        if (!book.markets[exafin].isListed) {
+        if (!book.markets[fixedLender].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        book.borrowPaused[address(exafin)] = paused;
-        emit ActionPaused(exafin, "Borrow", paused);
+        book.borrowPaused[address(fixedLender)] = paused;
+        emit ActionPaused(fixedLender, "Borrow", paused);
         return paused;
     }
 
@@ -508,23 +508,23 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @notice Set EXA speed for a single market
-     * @param exafinAddress The market whose EXA speed to update
+     * @param fixedLenderAddress The market whose EXA speed to update
      * @param exaSpeed New EXA speed for market
      */
-    function setExaSpeed(address exafinAddress, uint256 exaSpeed)
+    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        MarketsLib.Market storage market = book.markets[exafinAddress];
+        MarketsLib.Market storage market = book.markets[fixedLenderAddress];
         if (market.isListed == false) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         if (
-            rewardsState.setExaSpeed(block.number, exafinAddress, exaSpeed) ==
+            rewardsState.setExaSpeed(block.number, fixedLenderAddress, exaSpeed) ==
             true
         ) {
-            emit ExaSpeedUpdated(exafinAddress, exaSpeed);
+            emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
         }
     }
 
@@ -563,11 +563,11 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @notice Claim all the EXA accrued by holder in the specified markets
      * @param holder The address to claim EXA for
-     * @param exafins The list of markets to claim EXA in
+     * @param fixedLenders The list of markets to claim EXA in
      */
-    function claimExa(address holder, address[] memory exafins) public {
+    function claimExa(address holder, address[] memory fixedLenders) public {
         address[] memory holders = new address[](1);
         holders[0] = holder;
-        rewardsState.claimExa(block.number, book.markets, holders, exafins, true, true, true);
+        rewardsState.claimExa(block.number, book.markets, holders, fixedLenders, true, true, true);
     }
 }

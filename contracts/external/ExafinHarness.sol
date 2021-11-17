@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "../utils/DecimalMath.sol";
 import "../utils/ExaLib.sol";
 
-contract ExafinHarness {
+contract FixedLenderHarness {
     uint256 public totalBorrows;
     uint256 public totalDeposits;
 

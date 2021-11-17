@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./interfaces/IEToken.sol";
-import "./interfaces/IExafin.sol";
+import "./interfaces/IFixedLender.sol";
 import "./utils/Errors.sol";
 import "./utils/DecimalMath.sol";
 
@@ -18,7 +18,7 @@ contract EToken is ERC20, IEToken, AccessControl {
     // userBalance = userScaledBalance * index
     mapping(address => uint256) public userScaledBalance;
 
-    IExafin private exafin;
+    IFixedLender private fixedLender;
 
     constructor(string memory name_, string memory symbol_)
         ERC20(name_, symbol_)
@@ -26,9 +26,9 @@ contract EToken is ERC20, IEToken, AccessControl {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    modifier onlyExafin() {
-        if (msg.sender != address(exafin)) {
-            revert GenericError(ErrorCode.CALLER_MUST_BE_EXAFIN);
+    modifier onlyFixedLender() {
+        if (msg.sender != address(fixedLender)) {
+            revert GenericError(ErrorCode.CALLER_MUST_BE_FIXED_LENDER);
         }
         _;
     }
@@ -66,11 +66,11 @@ contract EToken is ERC20, IEToken, AccessControl {
 
     /**
      * @dev Mints `amount` eTokens to `user`
-     * - Only callable by the Exafin
+     * - Only callable by the FixedLender
      * @param user The address receiving the minted tokens
      * @param amount The amount of tokens getting minted
      */
-    function mint(address user, uint256 amount) external override onlyExafin {
+    function mint(address user, uint256 amount) external override onlyFixedLender {
         if (user == address(0)) {
             revert GenericError(ErrorCode.MINT_NOT_TO_ZERO_ADDRESS);
         }
@@ -89,21 +89,21 @@ contract EToken is ERC20, IEToken, AccessControl {
 
     /**
      * @dev Increases contract earnings
-     * - Only callable by the Exafin
+     * - Only callable by the FixedLender
      * @param amount The amount of underlying tokens deposited
      */
-    function accrueEarnings(uint256 amount) external override onlyExafin {
+    function accrueEarnings(uint256 amount) external override onlyFixedLender {
         totalBalance += amount;
         emit EarningsAccrued(amount);
     }
 
     /**
      * @dev Burns eTokens from `user`
-     * - Only callable by the Exafin
+     * - Only callable by the FixedLender
      * @param user The owner of the eTokens, getting them burned
      * @param amount The amount being burned
      */
-    function burn(address user, uint256 amount) external override onlyExafin {
+    function burn(address user, uint256 amount) external override onlyFixedLender {
         if (balanceOf(user) < amount) {
             revert GenericError(ErrorCode.BURN_AMOUNT_EXCEEDS_BALANCE);
         }
@@ -119,19 +119,19 @@ contract EToken is ERC20, IEToken, AccessControl {
     }
 
     /**
-     * @dev Sets the Exafin where this eToken is used
-     * - Only able to set the Exafin once
-     * @param exafinAddress The address of the Exafin that uses this eToken
+     * @dev Sets the FixedLender where this eToken is used
+     * - Only able to set the FixedLender once
+     * @param fixedLenderAddress The address of the FixedLender that uses this eToken
      */
-    function setExafin(address exafinAddress)
+    function setFixedLender(address fixedLenderAddress)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        if (address(exafin) != address(0)) {
-            revert GenericError(ErrorCode.EXAFIN_ALREADY_SET);
+        if (address(fixedLender) != address(0)) {
+            revert GenericError(ErrorCode.FIXED_LENDER_ALREADY_SET);
         }
-        exafin = IExafin(exafinAddress);
+        fixedLender = IFixedLender(fixedLenderAddress);
 
-        emit ExafinSet(exafinAddress);
+        emit FixedLenderSet(fixedLenderAddress);
     }
 }

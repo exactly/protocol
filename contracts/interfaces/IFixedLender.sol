@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "./IAuditor.sol";
 import "./IEToken.sol";
 
-interface IExafin {
+interface IFixedLender {
     function borrow(uint256 amount, uint256 maturityDate) external;
 
     function supply(
@@ -39,7 +39,7 @@ interface IExafin {
     function liquidate(
         address borrower,
         uint256 repayAmount,
-        IExafin exafinCollateral,
+        IFixedLender fixedLenderCollateral,
         uint256 maturityDate
     ) external returns (uint256);
 
