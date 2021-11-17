@@ -18,7 +18,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 public spSlopeRate;
     uint256 public spHighURSlope;
     uint256 public baseRate;
-    uint256 public breakRate;
+    uint256 public slopeChangeRate;
 
     using DecimalMath for uint256;
 
@@ -26,13 +26,13 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _mpSlopeRate,
         uint256 _spSlopeRate,
         uint256 _spHighURSlope,
-        uint256 _breakRate,
+        uint256 _slopeChangeRate,
         uint256 _baseRate
     ) {
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
         spHighURSlope = _spHighURSlope;
-        breakRate = _breakRate;
+        slopeChangeRate = _slopeChangeRate;
         baseRate = _baseRate;
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -89,7 +89,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             uint256 smartPoolUtilizationRate = smartPool.supplied == 0
                 ? 0
                 : smartPool.borrowed.div_(smartPool.supplied);
-            uint256 spCurrentSlopeRate = smartPoolUtilizationRate >= breakRate
+            uint256 spCurrentSlopeRate = smartPoolUtilizationRate >= slopeChangeRate
                 ? spHighURSlope
                 : spSlopeRate;
 
