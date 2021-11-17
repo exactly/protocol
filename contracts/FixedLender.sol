@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./EToken.sol";
-import "./interfaces/IExafin.sol";
+import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
@@ -15,7 +15,7 @@ import "./utils/Errors.sol";
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract Exafin is IExafin, ReentrancyGuard {
+contract FixedLender is IFixedLender, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
     using PoolLib for PoolLib.Pool;
@@ -55,7 +55,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         address liquidator,
         address borrower,
         uint256 repayAmount,
-        address exafinCollateral,
+        address fixedLenderCollateral,
         uint256 seizeAmount,
         uint256 maturityDate
     );
@@ -233,8 +233,8 @@ contract Exafin is IExafin, ReentrancyGuard {
      *         supplied tokens until a certain maturity date
      * @dev The pool that the user is trying to retrieve the money should be matured
      * @param redeemer The address of the account which is redeeming the tokens
-     * @param redeemAmount The number of underlying tokens to receive from redeeming this Exafin
-     * @param maturityDate the matured date for which we're trying to retrieve the funds
+     * @param redeemAmount The number of underlying tokens to receive
+     * @param maturityDate The matured date for which we're trying to retrieve the funds
      */
     function redeem(
         address payable redeemer,
@@ -352,13 +352,13 @@ contract Exafin is IExafin, ReentrancyGuard {
      *      for a maturity date, seizing a part of borrower's collateral
      * @param borrower wallet that has an outstanding debt for a certain maturity date
      * @param repayAmount amount to be repaid by liquidator(msg.sender)
-     * @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
+     * @param fixedLenderCollateral address of fixedLender from which the collateral will be seized to give the liquidator
      * @param maturityDate maturity date for which the position will be liquidated
      */
     function liquidate(
         address borrower,
         uint256 repayAmount,
-        IExafin exafinCollateral,
+        IFixedLender fixedLenderCollateral,
         uint256 maturityDate
     ) external override nonReentrant returns (uint256) {
         return
@@ -366,7 +366,7 @@ contract Exafin is IExafin, ReentrancyGuard {
                 msg.sender,
                 borrower,
                 repayAmount,
-                exafinCollateral,
+                fixedLenderCollateral,
                 maturityDate
             );
     }
@@ -377,20 +377,20 @@ contract Exafin is IExafin, ReentrancyGuard {
      *      for a maturity date, seizing a part of borrower's collateral
      * @param borrower wallet that has an outstanding debt for a certain maturity date
      * @param repayAmount amount to be repaid by liquidator(msg.sender)
-     * @param exafinCollateral address of exafin from which the collateral will be seized to give the liquidator
+     * @param fixedLenderCollateral address of fixedLender from which the collateral will be seized to give the liquidator
      * @param maturityDate maturity date for which the position will be liquidated
      */
     function _liquidate(
         address liquidator,
         address borrower,
         uint256 repayAmount,
-        IExafin exafinCollateral,
+        IFixedLender fixedLenderCollateral,
         uint256 maturityDate
     ) internal returns (uint256) {
         // reverts on failure
         auditor.liquidateAllowed(
             address(this),
-            address(exafinCollateral),
+            address(fixedLenderCollateral),
             liquidator,
             borrower,
             repayAmount,
@@ -402,12 +402,12 @@ contract Exafin is IExafin, ReentrancyGuard {
         // reverts on failure
         uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(
             address(this),
-            address(exafinCollateral),
+            address(fixedLenderCollateral),
             repayAmount
         );
 
         /* Revert if borrower collateral token balance < seizeTokens */
-        (uint256 balance, ) = exafinCollateral.getAccountSnapshot(
+        (uint256 balance, ) = fixedLenderCollateral.getAccountSnapshot(
             borrower,
             maturityDate
         );
@@ -418,7 +418,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         // If this is also the collateral
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
         // both revert on failure
-        if (address(exafinCollateral) == address(this)) {
+        if (address(fixedLenderCollateral) == address(this)) {
             _seize(
                 address(this),
                 liquidator,
@@ -427,7 +427,7 @@ contract Exafin is IExafin, ReentrancyGuard {
                 maturityDate
             );
         } else {
-            exafinCollateral.seize(
+            fixedLenderCollateral.seize(
                 liquidator,
                 borrower,
                 seizeTokens,
@@ -440,7 +440,7 @@ contract Exafin is IExafin, ReentrancyGuard {
             liquidator,
             borrower,
             repayAmount,
-            address(exafinCollateral),
+            address(fixedLenderCollateral),
             seizeTokens,
             maturityDate
         );
@@ -451,7 +451,7 @@ contract Exafin is IExafin, ReentrancyGuard {
     /**
      * @notice Public function to seize a certain amount of tokens
      * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date.
-     *      This function will only be called from another Exafins, on `liquidation` calls.
+     *      This function will only be called from another FixedLender, on `liquidation` calls.
      *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
      * @param liquidator address which will receive the seized tokens
      * @param borrower address from which the tokens will be seized
@@ -470,23 +470,23 @@ contract Exafin is IExafin, ReentrancyGuard {
     /**
      * @notice Private function to seize a certain amount of tokens
      * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date.
-     *      This function will only be called from this Exafin, on `liquidation` or through `seize` calls from another Exafins.
+     *      This function will only be called from this FixedLender, on `liquidation` or through `seize` calls from another FixedLender.
      *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
-     * @param seizerExafin address which is calling the seize function (see `seize` public function)
+     * @param seizerFixedLender address which is calling the seize function (see `seize` public function)
      * @param liquidator address which will receive the seized tokens
      * @param borrower address from which the tokens will be seized
      * @param seizeAmount amount to be removed from borrower's posession
      * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function _seize(
-        address seizerExafin,
+        address seizerFixedLender,
         address liquidator,
         address borrower,
         uint256 seizeAmount,
         uint256 maturityDate
     ) internal {
         // reverts on failure
-        auditor.seizeAllowed(address(this), seizerExafin, liquidator, borrower);
+        auditor.seizeAllowed(address(this), seizerFixedLender, liquidator, borrower);
 
         uint256 protocolAmount = seizeAmount.mul_(PROTOCOL_SEIZE_SHARE);
         uint256 amountToTransfer = seizeAmount - protocolAmount;

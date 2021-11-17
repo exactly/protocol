@@ -10,45 +10,45 @@ interface IAuditor {
     ) external view returns (uint256, uint256);
 
     function beforeSupplySmartPool(
-        address exafinAddress,
+        address fixedLenderAddress,
         address supplier
     ) external;
 
     function beforeWithdrawSmartPool(
-        address exafinAddress,
+        address fixedLenderAddress,
         address supplier
     ) external;
 
     function supplyAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,
         uint256 maturityDate
     ) external;
 
     function borrowAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,
         uint256 maturityDate
     ) external;
 
     function redeemAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
     ) external;
 
     function repayAllowed(
-        address exafinAddress,
+        address fixedLenderAddress,
         address borrower,
         uint256 maturityDate
     ) external;
 
     function liquidateAllowed(
-        address exafinBorrowed,
-        address exafinCollateral,
+        address fixedLenderBorrowed,
+        address fixedLenderCollateral,
         address liquidator,
         address borrower,
         uint256 repayAmount, 
@@ -56,15 +56,15 @@ interface IAuditor {
     ) external view;
 
     function seizeAllowed(
-        address exafinCollateral,
-        address exafinBorrowed,
+        address fixedLenderCollateral,
+        address fixedLenderBorrowed,
         address liquidator,
         address borrower
     ) external view;
 
     function liquidateCalculateSeizeAmount(
-        address exafinBorrowed,
-        address exafinCollateral,
+        address fixedLenderBorrowed,
+        address fixedLenderCollateral,
         uint256 actualRepayAmount
     ) external view returns (uint256);
 

@@ -19,7 +19,7 @@ describe("EToken", () => {
     const MockedEToken = await ethers.getContractFactory("EToken");
     eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI");
     await eDAI.deployed();
-    await eDAI.setExafin(bob.address); // We simulate that the address of user bob is the exafin contact
+    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the exafin contact
   });
 
   describe("GIVEN bob mints 1000 eDAI", () => {
@@ -215,34 +215,40 @@ describe("EToken", () => {
     });
   });
 
-  describe("GIVEN exafin address already set", () => {
-    it("AND trying to set again, THEN it should revert with EXAFIN_ALREADY_SET error", async () => {
-      await expect(eDAI.setExafin(laura.address)).to.be.revertedWith(
-        errorGeneric(ProtocolError.EXAFIN_ALREADY_SET)
+  describe("GIVEN fixedLender address already set", () => {
+    it("AND trying to set again, THEN it should revert with FIXED_LENDER_ALREADY_SET error", async () => {
+      await expect(eDAI.setFixedLender(laura.address)).to.be.revertedWith(
+        errorGeneric(ProtocolError.FIXED_LENDER_ALREADY_SET)
       );
     });
     it("AND called from third parties, THEN it should revert with AccessControl error", async () => {
       await expect(
-        eDAI.connect(laura).setExafin(laura.address)
+        eDAI.connect(laura).setFixedLender(laura.address)
       ).to.be.revertedWith("AccessControl");
     });
   });
 
-  describe("GIVEN function calls not being the Exafin contract", () => {
-    it("AND invoking mint, THEN it should revert with error CALLER_MUST_BE_EXAFIN", async () => {
+  describe("GIVEN function calls not being the FixedLender contract", () => {
+    it("AND invoking mint, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         eDAI.connect(laura).mint(laura.address, "100")
-      ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_EXAFIN));
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
+      );
     });
-    it("AND invoking accrueEarnings, THEN it should revert with error CALLER_MUST_BE_EXAFIN", async () => {
+    it("AND invoking accrueEarnings, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         eDAI.connect(laura).accrueEarnings("100")
-      ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_EXAFIN));
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
+      );
     });
-    it("AND invoking burn, THEN it should revert with error CALLER_MUST_BE_EXAFIN", async () => {
+    it("AND invoking burn, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         eDAI.connect(laura).burn(laura.address, "100")
-      ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_EXAFIN));
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
+      );
     });
   });
 });

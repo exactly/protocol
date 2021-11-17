@@ -15,11 +15,11 @@ import {
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-describe("Exafin", function () {
+describe("FixedLender", function () {
   let exactlyEnv: DefaultEnv;
 
   let underlyingToken: Contract;
-  let exafin: Contract;
+  let fixedLender: Contract;
   let auditor: Contract;
 
   const mockedTokens = new Map([
@@ -56,7 +56,7 @@ describe("Exafin", function () {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
-    exafin = exactlyEnv.getExafin("DAI");
+    fixedLender = exactlyEnv.getFixedLender("DAI");
     auditor = exactlyEnv.auditor;
 
     // From Owner to User
@@ -66,22 +66,22 @@ describe("Exafin", function () {
   it("GetAccountSnapshot fails on an invalid pool", async () => {
     let invalidPoolID = exaTime.nextPoolID() + 3;
     await expect(
-      exafin.getAccountSnapshot(owner.address, invalidPoolID)
+      fixedLender.getAccountSnapshot(owner.address, invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
   it("GetTotalBorrows fails on an invalid pool", async () => {
     let invalidPoolID = exaTime.nextPoolID() + 3;
-    await expect(exafin.getTotalBorrows(invalidPoolID)).to.be.revertedWith(
+    await expect(fixedLender.getTotalBorrows(invalidPoolID)).to.be.revertedWith(
       errorGeneric(ProtocolError.INVALID_POOL_ID)
     );
   });
 
   it("it allows to give money to a pool", async () => {
     const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(exafin.address, underlyingAmount);
+    await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
-    let tx = await exafin.supply(
+    let tx = await fixedLender.supply(
       owner.address,
       underlyingAmount,
       exaTime.nextPoolID()
@@ -92,21 +92,26 @@ describe("Exafin", function () {
     expect(event.amount).to.equal(underlyingAmount);
     expect(event.maturityDate).to.equal(exaTime.nextPoolID());
 
-    expect(await underlyingToken.balanceOf(exafin.address)).to.equal(
+    expect(await underlyingToken.balanceOf(fixedLender.address)).to.equal(
       underlyingAmount
     );
 
     expect(
-      (await exafin.getAccountSnapshot(owner.address, exaTime.nextPoolID()))[0]
+      (
+        await fixedLender.getAccountSnapshot(
+          owner.address,
+          exaTime.nextPoolID()
+        )
+      )[0]
     ).to.be.equal(underlyingAmount.add(event.commission));
   });
 
   it("it doesn't allow you to give money to a pool that matured", async () => {
     const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(exafin.address, underlyingAmount);
+    await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
     await expect(
-      exafin.supply(owner.address, underlyingAmount, exaTime.pastPoolID())
+      fixedLender.supply(owner.address, underlyingAmount, exaTime.pastPoolID())
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
     );
@@ -114,11 +119,11 @@ describe("Exafin", function () {
 
   it("it doesn't allow you to give money to a pool that hasn't been enabled yet", async () => {
     const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(exafin.address, underlyingAmount);
+    await underlyingToken.approve(fixedLender.address, underlyingAmount);
     const notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
 
     await expect(
-      exafin.supply(owner.address, underlyingAmount, notYetEnabledPoolID)
+      fixedLender.supply(owner.address, underlyingAmount, notYetEnabledPoolID)
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
     );
@@ -126,86 +131,101 @@ describe("Exafin", function () {
 
   it("it doesn't allow you to give money to a pool that is invalid", async () => {
     const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(exafin.address, underlyingAmount);
+    await underlyingToken.approve(fixedLender.address, underlyingAmount);
     const invalidPoolID = exaTime.pastPoolID() + 666;
     await expect(
-      exafin.supply(owner.address, underlyingAmount, invalidPoolID)
+      fixedLender.supply(owner.address, underlyingAmount, invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
   it("it allows you to borrow money", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
-    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
-    let tx = await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
-    expect(tx).to.emit(exafinMaria, "Borrowed");
-    let event = await parseBorrowEvent(tx);
-    expect(await exafinMaria.getTotalBorrows(exaTime.nextPoolID())).to.equal(
-      parseUnits("0.8").add(event.commission)
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address],
+      exaTime.nextPoolID()
     );
+    let tx = await fixedLenderMaria.borrow(
+      parseUnits("0.8"),
+      exaTime.nextPoolID()
+    );
+    expect(tx).to.emit(fixedLenderMaria, "Borrowed");
+    let event = await parseBorrowEvent(tx);
+    expect(
+      await fixedLenderMaria.getTotalBorrows(exaTime.nextPoolID())
+    ).to.equal(parseUnits("0.8").add(event.commission));
   });
 
   it("it doesn't allow you to borrow money from a pool that matured", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
-    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address],
+      exaTime.nextPoolID()
+    );
     await expect(
-      exafinMaria.borrow(parseUnits("0.8"), exaTime.pastPoolID())
+      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.pastPoolID())
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
     );
   });
 
   it("it doesn't allow you to borrow money from a pool that hasn't been enabled yet", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
     let notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
-    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address],
+      exaTime.nextPoolID()
+    );
     await expect(
-      exafinMaria.borrow(parseUnits("0.8"), notYetEnabledPoolID)
+      fixedLenderMaria.borrow(parseUnits("0.8"), notYetEnabledPoolID)
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
     );
   });
 
   it("it doesn't allow you to borrow money from a pool that is invalid", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
     const invalidPoolID = exaTime.pastPoolID() + 666;
 
-    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address],
+      exaTime.nextPoolID()
+    );
     await expect(
-      exafinMaria.borrow(parseUnits("0.8"), invalidPoolID)
+      fixedLenderMaria.borrow(parseUnits("0.8"), invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
@@ -221,33 +241,37 @@ describe("Exafin", function () {
   });
 
   it("it doesnt allow mariaUser to borrow money because not collateralized enough", async () => {
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
-    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await auditorUser.enterMarkets([exafinMaria.address], exaTime.nextPoolID());
-    await expect(exafinMaria.borrow(parseUnits("0.9"), exaTime.nextPoolID())).to
-      .be.reverted;
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address],
+      exaTime.nextPoolID()
+    );
+    await expect(
+      fixedLenderMaria.borrow(parseUnits("0.9"), exaTime.nextPoolID())
+    ).to.be.reverted;
   });
 
   it("it allows the mariaUser to withdraw money only after maturity", async () => {
     // give the protocol some solvency
-    await underlyingToken.transfer(exafin.address, parseUnits("100"));
+    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
     let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
 
     // connect through Maria
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     // supply some money and parse event
-    await underlyingTokenUser.approve(exafin.address, parseUnits("1"));
-    let tx = await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    let tx = await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
@@ -256,7 +280,7 @@ describe("Exafin", function () {
 
     // try to redeem before maturity
     await expect(
-      exafinMaria.redeem(
+      fixedLenderMaria.redeem(
         mariaUser.address,
         supplyEvent.amount.add(supplyEvent.commission),
         exaTime.nextPoolID()
@@ -272,7 +296,7 @@ describe("Exafin", function () {
     await ethers.provider.send("evm_mine", []);
 
     // finally redeem voucher and we expect maria to have her original amount + the comission earned
-    await exafinMaria.redeem(
+    await fixedLenderMaria.redeem(
       mariaUser.address,
       supplyEvent.amount.add(supplyEvent.commission),
       exaTime.nextPoolID()
@@ -284,27 +308,30 @@ describe("Exafin", function () {
 
   it("it allows the mariaUser to repay her debt only after maturity", async () => {
     // give the protocol some solvency
-    await underlyingToken.transfer(exafin.address, parseUnits("100"));
+    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
 
     // connect through Maria
     let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     // supply some money and parse event
-    await underlyingTokenUser.approve(exafin.address, parseUnits("5.0"));
-    let txSupply = await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
+    let txSupply = await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
     let supplyEvent = await parseSupplyEvent(txSupply);
-    let tx = await exafinMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
+    let tx = await fixedLenderMaria.borrow(
+      parseUnits("0.8"),
+      exaTime.nextPoolID()
+    );
     let borrowEvent = await parseBorrowEvent(tx);
 
     // try to redeem before maturity
     await expect(
-      exafinMaria.repay(mariaUser.address, exaTime.nextPoolID())
+      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
     );
@@ -317,7 +344,7 @@ describe("Exafin", function () {
 
     // try to redeem without paying debt and fail
     await expect(
-      exafinMaria.redeem(
+      fixedLenderMaria.redeem(
         mariaUser.address,
         supplyEvent.amount.add(supplyEvent.commission),
         exaTime.nextPoolID()
@@ -325,10 +352,10 @@ describe("Exafin", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
 
     // repay and succeed
-    await exafinMaria.repay(mariaUser.address, exaTime.nextPoolID());
+    await fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID());
 
     // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
-    await exafinMaria.redeem(
+    await fixedLenderMaria.redeem(
       mariaUser.address,
       supplyEvent.amount.add(supplyEvent.commission),
       exaTime.nextPoolID()
@@ -341,21 +368,24 @@ describe("Exafin", function () {
 
   it("GetAccountSnapshot should reflect BaseRate penaltyFee for mariaUser", async () => {
     // give the protocol some solvency
-    await underlyingToken.transfer(exafin.address, parseUnits("1000"));
+    await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
 
     // connect through Maria
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
     let baseRate = await exactlyEnv.interestRateModel.baseRate();
 
     // supply some money and parse event
-    await underlyingTokenUser.approve(exafin.address, parseUnits("5"));
-    await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
+    await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let tx = await exafinMaria.borrow(parseUnits("0.5"), exaTime.nextPoolID());
+    let tx = await fixedLenderMaria.borrow(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
     let borrowEvent = await parseBorrowEvent(tx);
 
     // Move in time to maturity + 1 day
@@ -364,7 +394,7 @@ describe("Exafin", function () {
     ]);
     await ethers.provider.send("evm_mine", []);
 
-    let [, amountOwed] = await exafinMaria.getAccountSnapshot(
+    let [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
       mariaUser.address,
       exaTime.nextPoolID()
     );
@@ -380,21 +410,24 @@ describe("Exafin", function () {
 
   it("should charge mariaUser penaltyFee when paying her debt one day late", async () => {
     // give the protocol some solvency
-    await underlyingToken.transfer(exafin.address, parseUnits("1000"));
+    await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
 
     // connect through Maria
-    let exafinMaria = exafin.connect(mariaUser);
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
     let baseRate = await exactlyEnv.interestRateModel.baseRate();
 
     // supply some money and parse event
-    await underlyingTokenUser.approve(exafin.address, parseUnits("5"));
-    await exafinMaria.supply(
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
+    await fixedLenderMaria.supply(
       mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let tx = await exafinMaria.borrow(parseUnits("0.5"), exaTime.nextPoolID());
+    let tx = await fixedLenderMaria.borrow(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
     let borrowEvent = await parseBorrowEvent(tx);
 
     // Move in time to maturity + 1 day
@@ -413,8 +446,10 @@ describe("Exafin", function () {
     // sanity check to make sure he paid more
     expect(amountBorrowed).not.eq(amountPaid);
 
-    await expect(exafinMaria.repay(mariaUser.address, exaTime.nextPoolID()))
-      .to.emit(exafinMaria, "Repaid")
+    await expect(
+      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+    )
+      .to.emit(fixedLenderMaria, "Repaid")
       .withArgs(
         mariaUser.address,
         mariaUser.address,
