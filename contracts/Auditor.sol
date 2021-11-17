@@ -49,6 +49,7 @@ contract Auditor is IAuditor, AccessControl {
     MarketsLib.Book private book;
 
     uint256 public closeFactor = 5e17;
+    uint256 public liquidationIncentive = 1e18+1e17;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
 
@@ -331,7 +332,7 @@ contract Auditor is IAuditor, AccessControl {
             book.markets[fixedLenderCollateral].decimals
         );
 
-        return seizeTokens;
+        return seizeTokens.mul_(liquidationIncentive);
     }
 
     /**
@@ -369,15 +370,10 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) = book.accountLiquidity(
-            oracle,
-            borrower,
-            maturityDate,
-            address(0),
-            0,
-            0
-        );
-        if (shortfall == 0) {
+        (, uint256 shortfall) = book.accountLiquidity(oracle, borrower, maturityDate, address(0), 0, 0);
+        TSUtils.State currentState = TSUtils.getPoolState(block.timestamp, maturityDate, maxFuturePools);
+        // positions without shortfall are liquidateable if they are overdue
+        if (shortfall == 0 && currentState != TSUtils.State.MATURED) {
             revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
         }
 
