@@ -558,7 +558,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
         uint256 debt = borrowedAmounts[maturityDate][who];
-        uint256 daysDelayed = TSUtils.daysDelayed(maturityDate);
+        uint256 daysDelayed = TSUtils.daysPast(maturityDate);
         if (daysDelayed > 0) {
             debt += debt.mul_(daysDelayed * interestRateModel.baseRate());
         }
