@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 library PoolLib {
 
-    struct Pool {
+    struct MaturityPool {
         uint256 borrowed;
         uint256 supplied;
         uint256 debt;
