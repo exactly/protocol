@@ -49,11 +49,13 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _mpSlopeRate,
         uint256 _spSlopeRate,
         uint256 _spHighURSlopeRate,
+        uint256 _slopeChangeRate,
         uint256 _baseRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
         spHighURSlopeRate = _spHighURSlopeRate;
+        slopeChangeRate = _slopeChangeRate;
         baseRate = _baseRate;
     }
 

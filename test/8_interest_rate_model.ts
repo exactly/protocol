@@ -475,4 +475,31 @@ describe("InterestRateModel", () => {
 
     expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
+
+  it("should change parameters", async () => {
+    await interestRateModel.setParameters(
+      parseUnits("0.1"),
+      parseUnits("0.1"),
+      parseUnits("0.1"),
+      parseUnits("0.1"),
+      parseUnits("0.1")
+    );
+    expect(formatUnits(await interestRateModel.mpSlopeRate())).to.be.equal(
+      "0.1"
+    );
+
+    expect(formatUnits(await interestRateModel.spSlopeRate())).to.be.equal(
+      "0.1"
+    );
+
+    expect(
+      formatUnits(await interestRateModel.spHighURSlopeRate())
+    ).to.be.equal("0.1");
+
+    expect(formatUnits(await interestRateModel.slopeChangeRate())).to.be.equal(
+      "0.1"
+    );
+
+    expect(formatUnits(await interestRateModel.baseRate())).to.be.equal("0.1");
+  });
 });
