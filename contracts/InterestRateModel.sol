@@ -17,7 +17,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 public marginRate;
     uint256 public mpSlopeRate;
     uint256 public spSlopeRate;
-    uint256 public baseRate;
+    uint256 public override baseRate;
 
     using DecimalMath for uint256;
 

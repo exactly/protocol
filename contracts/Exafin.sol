@@ -560,7 +560,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         uint256 debt = borrowedAmounts[maturityDate][who];
         uint256 daysDelayed = TSUtils.daysDelayed(maturityDate);
         if (daysDelayed > 0) {
-            debt += debt * daysDelayed * 1 / 10;
+            debt += debt.mul_(daysDelayed * interestRateModel.baseRate());
         }
 
         return (

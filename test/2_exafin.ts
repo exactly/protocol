@@ -346,6 +346,7 @@ describe("Exafin", function () {
     // connect through Maria
     let exafinMaria = exafin.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
+    let baseRate = await exactlyEnv.interestRateModel.baseRate();
 
     // supply some money and parse event
     await underlyingTokenUser.approve(exafin.address, parseUnits("5"));
@@ -370,7 +371,10 @@ describe("Exafin", function () {
 
     // 10% increase because one day late
     expect(amountOwed).to.equal(
-      borrowEvent.amount.add(borrowEvent.commission).mul(11).div(10)
+      borrowEvent.amount
+        .add(borrowEvent.commission)
+        .mul(baseRate.add(parseUnits("1")))
+        .div(parseUnits("1"))
     );
   });
 
@@ -381,6 +385,7 @@ describe("Exafin", function () {
     // connect through Maria
     let exafinMaria = exafin.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
+    let baseRate = await exactlyEnv.interestRateModel.baseRate();
 
     // supply some money and parse event
     await underlyingTokenUser.approve(exafin.address, parseUnits("5"));
@@ -400,8 +405,8 @@ describe("Exafin", function () {
 
     let amountPaid = borrowEvent.amount
       .add(borrowEvent.commission)
-      .mul(11)
-      .div(10);
+      .mul(baseRate.add(parseUnits("1")))
+      .div(parseUnits("1"));
     let amountBorrowed = borrowEvent.amount.add(borrowEvent.commission);
 
     // sanity check to make sure he paid more
