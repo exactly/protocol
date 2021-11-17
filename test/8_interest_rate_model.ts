@@ -502,4 +502,16 @@ describe("InterestRateModel", () => {
 
     expect(formatUnits(await interestRateModel.baseRate())).to.be.equal("0.1");
   });
+
+  it("should revert on invalid pool id when trying to borrow", async () => {
+    await expect(
+      interestRateModel.getRateToBorrow("123", maturityPool, smartPool, false)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+  });
+
+  it("should revert on invalid pool id when trying to supply", async () => {
+    await expect(
+      interestRateModel.getRateToSupply("123", maturityPool)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+  });
 });
