@@ -371,9 +371,9 @@ describe("FixedLender", function () {
     await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
 
     // connect through Maria
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let baseRate = await exactlyEnv.interestRateModel.baseRate();
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const baseRate = await exactlyEnv.interestRateModel.baseRate();
 
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
@@ -382,11 +382,11 @@ describe("FixedLender", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let tx = await fixedLenderMaria.borrow(
+    const tx = await fixedLenderMaria.borrow(
       parseUnits("0.5"),
       exaTime.nextPoolID()
     );
-    let borrowEvent = await parseBorrowEvent(tx);
+    const borrowEvent = await parseBorrowEvent(tx);
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -394,7 +394,7 @@ describe("FixedLender", function () {
     ]);
     await ethers.provider.send("evm_mine", []);
 
-    let [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
+    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
       mariaUser.address,
       exaTime.nextPoolID()
     );
@@ -413,9 +413,9 @@ describe("FixedLender", function () {
     await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
 
     // connect through Maria
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let baseRate = await exactlyEnv.interestRateModel.baseRate();
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const baseRate = await exactlyEnv.interestRateModel.baseRate();
 
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
@@ -424,11 +424,11 @@ describe("FixedLender", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let tx = await fixedLenderMaria.borrow(
+    const tx = await fixedLenderMaria.borrow(
       parseUnits("0.5"),
       exaTime.nextPoolID()
     );
-    let borrowEvent = await parseBorrowEvent(tx);
+    const borrowEvent = await parseBorrowEvent(tx);
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -437,11 +437,11 @@ describe("FixedLender", function () {
     await ethers.provider.send("evm_mine", []);
 
     // if baseRate is 0.2 then we multiply for 1.2
-    let amountPaid = borrowEvent.amount
+    const amountPaid = borrowEvent.amount
       .add(borrowEvent.commission)
       .mul(baseRate.add(parseUnits("1")))
       .div(parseUnits("1"));
-    let amountBorrowed = borrowEvent.amount.add(borrowEvent.commission);
+    const amountBorrowed = borrowEvent.amount.add(borrowEvent.commission);
 
     // sanity check to make sure he paid more
     expect(amountBorrowed).not.eq(amountPaid);
