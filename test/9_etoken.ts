@@ -249,17 +249,23 @@ describe("EToken", () => {
     it("AND invoking mint, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         eDAI.connect(laura).mint(laura.address, "100")
-      ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER));
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
+      );
     });
     it("AND invoking accrueEarnings, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         eDAI.connect(laura).accrueEarnings("100")
-      ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER));
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
+      );
     });
     it("AND invoking burn, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         eDAI.connect(laura).burn(laura.address, "100")
-      ).to.be.revertedWith(errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER));
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
+      );
     });
   });
 });
