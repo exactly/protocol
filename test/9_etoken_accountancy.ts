@@ -10,7 +10,7 @@ import {
   ExactlyEnv,
 } from "./exactlyUtils";
 
-describe("EToken", () => {
+describe("EToken accountancy (mint, burn & accrueEarnings)", () => {
   let exactlyEnv: DefaultEnv;
 
   let bob: SignerWithAddress;
@@ -48,6 +48,11 @@ describe("EToken", () => {
       let bobBalance = await eDAI.balanceOf(bob.address);
 
       expect(bobBalance).to.equal(parseUnits("1000"));
+    });
+    it("THEN balance of eDAI in laura's address is 0", async () => {
+      let lauraBalance = await eDAI.balanceOf(laura.address);
+
+      expect(lauraBalance).to.equal(parseUnits("0"));
     });
     it("THEN total supply in contract is 1000", async () => {
       let totalSupply = await eDAI.totalSupply();

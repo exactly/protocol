@@ -119,6 +119,44 @@ contract EToken is ERC20, IEToken, AccessControl {
     }
 
     /**
+     * @dev Executes a transfer of tokens from msg.sender to recipient
+     * @param recipient The recipient of the tokens
+     * @param amount The amount of tokens being transferred
+     * @return `true` if the transfer succeeds, `false` otherwise
+     **/
+    function transfer(address recipient, uint256 amount) public virtual override(ERC20, IERC20) returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    /**
+     * @dev Moves `amount` of tokens from `sender` to `recipient`.
+     * @param sender The sender of the tokens
+     * @param recipient The recipient of the tokens
+     * @param amount The amount of tokens being transferred
+     **/
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal override virtual {
+        if (recipient == address(0)) {
+            revert GenericError(ErrorCode.TRANSFER_ZERO_ADDRESS);
+        }
+
+        uint256 senderBalance = balanceOf(sender);
+        if (senderBalance < amount) {
+            revert GenericError(ErrorCode.TRANSFER_EXCEEDS_BALANCE);
+        }
+
+        uint256 senderRemainingBalance = senderBalance - amount;
+        userScaledBalance[sender] = (senderRemainingBalance * totalScaledBalance) / totalBalance;
+        userScaledBalance[recipient] = ((balanceOf(recipient) + amount) * totalScaledBalance) / totalBalance;
+
+        emit Transfer(sender, recipient, amount);
+    }
+
+    /**
      * @dev Sets the FixedLender where this eToken is used
      * - Only able to set the FixedLender once
      * @param fixedLenderAddress The address of the FixedLender that uses this eToken
