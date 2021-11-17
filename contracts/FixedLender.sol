@@ -17,7 +17,7 @@ import "hardhat/console.sol";
 contract FixedLender is IFixedLender, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
-    using PoolLib for PoolLib.Pool;
+    using PoolLib for PoolLib.MaturityPool;
 
     event Borrowed(
         address indexed to,
@@ -64,7 +64,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
 
     mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
     mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
-    mapping(uint256 => PoolLib.Pool) public pools;
+    mapping(uint256 => PoolLib.MaturityPool) public pools;
     mapping(address => uint256[]) public addressPools;
 
     uint256 private constant PROTOCOL_SEIZE_SHARE = 2.8e16; //2.8%
@@ -122,7 +122,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
         }
 
         auditor.requirePoolState(maturityDate, TSUtils.State.VALID);
-        PoolLib.Pool memory pool = pools[maturityDate];
+        PoolLib.MaturityPool memory pool = pools[maturityDate];
 
         pool.borrowed = pool.borrowed + amount;
         if (amount > pool.available) {
@@ -181,7 +181,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        PoolLib.Pool memory pool = pools[maturityDate];
+        PoolLib.MaturityPool memory pool = pools[maturityDate];
 
         // reverts on failure
         auditor.supplyAllowed(address(this), from, amount, maturityDate);
@@ -316,7 +316,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
         borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
 
         // That repayment diminishes debt in the pool
-        PoolLib.Pool memory pool = pools[maturityDate];
+        PoolLib.MaturityPool memory pool = pools[maturityDate];
         pool.borrowed -= repayAmount;
         pools[maturityDate] = pool;
 
@@ -474,7 +474,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
         suppliedAmounts[maturityDate][borrower] -= seizeAmount;
 
         // That seize amount diminishes liquidity in the pool
-        PoolLib.Pool memory pool = pools[maturityDate];
+        PoolLib.MaturityPool memory pool = pools[maturityDate];
         pool.supplied -= seizeAmount;
         pools[maturityDate] = pool;
 
