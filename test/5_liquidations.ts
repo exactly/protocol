@@ -115,6 +115,33 @@ describe("Liquidations", function () {
           await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
           await ethers.provider.send("evm_mine", []);
         });
+        describe.only("AND the liquidation incentive is increased to 15%", () => {
+          beforeEach(async () => {
+            await auditor.setLiquidationIncentive(parseUnits("1.15"));
+          });
+          describe("AND the position is liquidated (19kdai, just below close factor of 0.5)", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  parseUnits("19000"),
+                  exafinWBTC.address,
+                  nextPoolID
+                );
+              await tx;
+            });
+            it("THEN the liquidator seizes 19k+15% of collateral (WBTC)", async () => {
+              // 19kusd of btc at its current price of 63kusd + 15% incentive for liquidators
+              const seizedWBTC = parseUnits("34682539", 0);
+
+              await expect(tx)
+                .to.emit(exafinWBTC, "Seized")
+                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+            });
+          });
+        });
         // should we disable the close factor for overdue debts?
         describe("AND the position is liquidated a first time (19kdai, just below close factor of 0.5)", () => {
           let tx: any;
