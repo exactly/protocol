@@ -51,17 +51,14 @@ describe("ExaToken Smart Pool", () => {
   describe("Integration", () => {
     let dai: Contract;
     let exafinDAI: Contract;
-    let eDAI: Contract;
     let auditor: Contract;
     let exaToken: Contract;
 
     beforeEach(async () => {
       dai = exactlyEnv.getUnderlying("DAI");
       exafinDAI = exactlyEnv.getExafin("DAI");
-      eDAI = exactlyEnv.getEToken("DAI");
       auditor = exactlyEnv.auditor;
       exaToken = exactlyEnv.exaToken;
-      await eDAI.setExafin(exafinDAI.address);
 
       // From Owner to User
       await dai.transfer(mariaUser.address, parseUnits("1000"));

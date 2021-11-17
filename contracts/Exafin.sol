@@ -276,16 +276,19 @@ contract Exafin is IExafin, ReentrancyGuard {
         // reverts on failure
         auditor.repayAllowed(address(this), borrower, maturityDate);
 
-        // the commission is included
+        // the fixed commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
+        (, uint256 amountWithPenalty) = getAccountSnapshot(borrower, maturityDate);
 
         trustedUnderlying.safeTransferFrom(
             msg.sender,
             address(this),
-            amountBorrowed
+            amountWithPenalty
         );
         totalBorrows -= amountBorrowed;
         totalBorrowsUser[borrower] -= amountBorrowed;
+
+        eToken.accrueEarnings(amountWithPenalty - amountBorrowed);
 
         delete borrowedAmounts[maturityDate][borrower];
 
@@ -312,8 +315,8 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
-        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
-        borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
+        (,uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
+        borrowedAmounts[maturityDate][borrower] = amountOwed - repayAmount;
 
         // That repayment diminishes debt in the pool
         PoolLib.Pool memory pool = pools[maturityDate];
@@ -537,9 +540,15 @@ contract Exafin is IExafin, ReentrancyGuard {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
+        uint256 debt = borrowedAmounts[maturityDate][who];
+        uint256 daysDelayed = TSUtils.daysDelayed(maturityDate);
+        if (daysDelayed > 0) {
+            debt += debt * daysDelayed * 1 / 10;
+        }
+
         return (
             suppliedAmounts[maturityDate][who],
-            borrowedAmounts[maturityDate][who]
+            debt
         );
     }
 

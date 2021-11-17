@@ -39,6 +39,14 @@ library TSUtils {
         return (timestamp % INTERVAL) == 0;
     }
 
+    function daysDelayed(uint256 maturityDate) public view returns (uint256) {
+        uint256 trimmedNow = trimmedDay(block.timestamp);
+        if (maturityDate >= trimmedNow) {
+            return 0;
+        }
+        return (trimmedNow - maturityDate) / 1 days;
+    }
+
     function futurePools(uint256 startingTimestamp, uint8 maxPools) public pure returns (uint256[] memory) {
         uint256[] memory poolIDs = new uint256[](maxPools);
         uint256 timestamp = startingTimestamp - (startingTimestamp % INTERVAL);

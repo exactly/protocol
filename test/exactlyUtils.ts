@@ -296,6 +296,8 @@ export class ExactlyEnv {
         );
         await exafin.deployed();
 
+        await eToken.setExafin(exafin.address);
+
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, usdPrice);
         // Enable Market for Exafin-TOKEN by setting the collateral rates

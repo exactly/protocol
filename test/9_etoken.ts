@@ -11,7 +11,6 @@ import {
 } from "./exactlyUtils";
 
 describe("EToken", () => {
-  let exactlyEnv: DefaultEnv;
 
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
@@ -19,23 +18,13 @@ describe("EToken", () => {
   let eDAI: Contract;
 
   const { AddressZero } = ethers.constants;
-  const mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-  ]);
 
   beforeEach(async () => {
     [bob, laura, tito] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
-    eDAI = exactlyEnv.getEToken("DAI");
-
+    const MockedEToken = await ethers.getContractFactory("EToken");
+    eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI");
+    await eDAI.deployed();
     await eDAI.setExafin(bob.address); // We simulate that the address of user bob is the exafin contact
   });
 
