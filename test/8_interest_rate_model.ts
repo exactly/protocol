@@ -200,6 +200,38 @@ describe("InterestRateModel", () => {
     expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
 
+  it("With well funded Smart pool, borrow 10000 from maturity pool. Should get Maturity pool rate", async () => {
+    maturityPool = {
+      borrowed: 10000,
+      supplied: 10000,
+      debt: 10000,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 10000,
+      supplied: 100000,
+    };
+
+    const yearlyRateMaturity =
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+    const actual = formatUnits(
+      await interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        true
+      )
+    );
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+  });
+
   it("With well funded Smart pool, borrow 10000 from maturity pool, after that borrow 10000 again. Should get Maturity pool rate in both cases", async () => {
     maturityPool = {
       borrowed: 10000,
@@ -441,6 +473,38 @@ describe("InterestRateModel", () => {
         true
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+  });
+
+  it("Borrow less than supplied in maturity, smart is empty", async () => {
+    maturityPool = {
+      borrowed: 10,
+      supplied: 20,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 0,
+      supplied: 0,
+    };
+
+    const yearlyRateMaturity =
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+    const actual = formatUnits(
+      await interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        false
+      )
+    );
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
   });
 
   it("Borrow more than supplied in maturity pool with high UR in smart pool. Should get high slope", async () => {
