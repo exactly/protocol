@@ -13,6 +13,7 @@ import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract Exafin is IExafin, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -38,7 +39,15 @@ contract Exafin is IExafin, ReentrancyGuard {
     event Repaid(
         address indexed payer,
         address indexed borrower,
-        uint256 amount,
+        uint256 penalty,
+        uint256 amountBorrowed,
+        uint256 maturityDate
+    );
+
+    event RepaidLiquidate(
+        address indexed payer,
+        address indexed borrower,
+        uint256 repayAmount,
         uint256 maturityDate
     );
 
@@ -288,11 +297,13 @@ contract Exafin is IExafin, ReentrancyGuard {
         totalBorrows -= amountBorrowed;
         totalBorrowsUser[borrower] -= amountBorrowed;
 
-        eToken.accrueEarnings(amountWithPenalty - amountBorrowed);
+        uint256 penalty = amountWithPenalty - amountBorrowed;
+
+        eToken.accrueEarnings(penalty);
 
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit Repaid(msg.sender, borrower, amountBorrowed, maturityDate);
+        emit Repaid(msg.sender, borrower, penalty, amountBorrowed, maturityDate);
     }
 
     /**
@@ -315,8 +326,14 @@ contract Exafin is IExafin, ReentrancyGuard {
 
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
+        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
         (,uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
         borrowedAmounts[maturityDate][borrower] = amountOwed - repayAmount;
+
+        uint256 penalty = amountOwed - amountBorrowed;
+        if (penalty > 0) {
+            eToken.accrueEarnings(Math.min(repayAmount, penalty));
+        }
 
         // That repayment diminishes debt in the pool
         PoolLib.Pool memory pool = pools[maturityDate];
@@ -326,7 +343,7 @@ contract Exafin is IExafin, ReentrancyGuard {
         totalBorrows -= repayAmount;
         totalBorrowsUser[borrower] -= repayAmount;
 
-        emit Repaid(payer, borrower, repayAmount, maturityDate);
+        emit RepaidLiquidate(payer, borrower, repayAmount, maturityDate);
     }
 
     /**

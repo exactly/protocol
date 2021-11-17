@@ -339,6 +339,85 @@ describe("Exafin", function () {
     );
   });
 
+  it("GetAccountSnapshot should reflect 10% penaltyFee for mariaUser", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(exafin.address, parseUnits("1000"));
+
+    // connect through Maria
+    let exafinMaria = exafin.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    // supply some money and parse event
+    await underlyingTokenUser.approve(exafin.address, parseUnits("5"));
+    await exafinMaria.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    let tx = await exafinMaria.borrow(parseUnits("0.5"), exaTime.nextPoolID());
+    let borrowEvent = await parseBorrowEvent(tx);
+
+    // Move in time to maturity
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      exaTime.nextPoolID() + exaTime.ONE_DAY,
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    let [, amountOwed] = await exafinMaria.getAccountSnapshot(
+      mariaUser.address,
+      exaTime.nextPoolID()
+    );
+
+    // 10% increase because one day late
+    expect(amountOwed).to.equal(
+      borrowEvent.amount.add(borrowEvent.commission).mul(11).div(10)
+    );
+  });
+
+  it("should charge mariaUser penaltyFee when paying her debt one day late", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(exafin.address, parseUnits("1000"));
+
+    // connect through Maria
+    let exafinMaria = exafin.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    // supply some money and parse event
+    await underlyingTokenUser.approve(exafin.address, parseUnits("5"));
+    await exafinMaria.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    let tx = await exafinMaria.borrow(parseUnits("0.5"), exaTime.nextPoolID());
+    let borrowEvent = await parseBorrowEvent(tx);
+
+    // Move in time to maturity + 1 day
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      exaTime.nextPoolID() + exaTime.ONE_DAY,
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    let amountPaid = borrowEvent.amount
+      .add(borrowEvent.commission)
+      .mul(11)
+      .div(10);
+    let amountBorrowed = borrowEvent.amount.add(borrowEvent.commission);
+
+    // sanity check to make sure he paid more
+    expect(amountBorrowed).not.eq(amountPaid);
+
+    await expect(exafinMaria.repay(mariaUser.address, exaTime.nextPoolID()))
+      .to.emit(exafinMaria, "Repaid")
+      .withArgs(
+        mariaUser.address,
+        mariaUser.address,
+        amountPaid.sub(amountBorrowed),
+        amountBorrowed,
+        exaTime.nextPoolID()
+      );
+  });
+
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
