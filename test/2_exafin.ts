@@ -339,7 +339,7 @@ describe("Exafin", function () {
     );
   });
 
-  it("GetAccountSnapshot should reflect 10% penaltyFee for mariaUser", async () => {
+  it("GetAccountSnapshot should reflect BaseRate penaltyFee for mariaUser", async () => {
     // give the protocol some solvency
     await underlyingToken.transfer(exafin.address, parseUnits("1000"));
 
@@ -358,7 +358,7 @@ describe("Exafin", function () {
     let tx = await exafinMaria.borrow(parseUnits("0.5"), exaTime.nextPoolID());
     let borrowEvent = await parseBorrowEvent(tx);
 
-    // Move in time to maturity
+    // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
       exaTime.nextPoolID() + exaTime.ONE_DAY,
     ]);
@@ -369,7 +369,7 @@ describe("Exafin", function () {
       exaTime.nextPoolID()
     );
 
-    // 10% increase because one day late
+    // if baseRate is 0.2 then we multiply for 1.2
     expect(amountOwed).to.equal(
       borrowEvent.amount
         .add(borrowEvent.commission)
@@ -403,6 +403,7 @@ describe("Exafin", function () {
     ]);
     await ethers.provider.send("evm_mine", []);
 
+    // if baseRate is 0.2 then we multiply for 1.2
     let amountPaid = borrowEvent.amount
       .add(borrowEvent.commission)
       .mul(baseRate.add(parseUnits("1")))
