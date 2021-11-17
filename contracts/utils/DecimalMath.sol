@@ -17,34 +17,6 @@ library DecimalMath {
         return (a * b) / NUMBER_SCALE;
     }
 
-    function mul_(
-        uint256 a,
-        uint256 b,
-        uint256 scale
-    ) internal pure returns (uint256) {
-        return (a * b) / scale;
-    }
-
-    function div_(
-        uint256 a,
-        uint256 b,
-        uint256 scale
-    ) internal pure returns (uint256) {
-        return (a * scale) / b;
-    }
-
-    function div_(uint256 a, uint256 b) internal pure returns (uint256) {
-        return (a * NUMBER_SCALE) / b;
-    }
-
-    function div_(Double memory a, Double memory b) internal pure returns (Double memory) {
-        return Double({value: (a.value * DOUBLE_SCALE) / b.value});
-    }
-
-    function mul_(Double memory a, Double memory b) internal pure returns (Double memory) {
-        return Double({value: (a.value * b.value) / DOUBLE_SCALE});
-    }
-
     function mul_(uint256 a, Double memory b) internal pure returns (uint256) {
         return (a * b.value) / DOUBLE_SCALE;
     }
