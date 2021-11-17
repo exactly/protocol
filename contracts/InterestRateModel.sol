@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "hardhat/console.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
-    using PoolLib for PoolLib.Pool;
+    using PoolLib for PoolLib.MaturityPool;
 
     // Parameters to the system, expressed with 1e18 decimals
     uint256 public marginRate;
@@ -64,7 +64,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      */
     function getRateToBorrow(
         uint256 maturityDate,
-        PoolLib.Pool memory maturityPool,
+        PoolLib.MaturityPool memory maturityPool,
         PoolLib.SmartPool memory smartPool,
         bool newDebt
     ) external view override returns (uint256) {
@@ -107,7 +107,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      */
     function getRateToSupply(
         uint256 maturityDate,
-        PoolLib.Pool memory maturityPool
+        PoolLib.MaturityPool memory maturityPool
     ) external view override returns (uint256) {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
