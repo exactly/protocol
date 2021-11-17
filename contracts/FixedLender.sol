@@ -128,6 +128,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
 
         pool.borrowed = pool.borrowed + amount;
         if (amount > pool.available) {
+            uint256 smartPoolAvailable = smartPool.supplied - smartPool.borrowed;
+
+            if (amount - pool.available > smartPoolAvailable) {
+                revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
+            }
+            
             smartPool.borrowed = smartPool.borrowed + amount - pool.available;
             pool.debt = pool.debt + amount - pool.available;
             pool.supplied = pool.supplied + amount - pool.available;
@@ -136,6 +142,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
         } else {
             pool.available = pool.available - amount;
         }
+
 
         uint256 commissionRate = interestRateModel.getRateToBorrow(
             maturityDate,

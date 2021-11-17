@@ -2,7 +2,13 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ExactlyEnv, ExaTime, DefaultEnv } from "./exactlyUtils";
+import {
+  ExactlyEnv,
+  ExaTime,
+  DefaultEnv,
+  errorGeneric,
+  ProtocolError,
+} from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
 
@@ -427,16 +433,14 @@ describe("InterestRateModel", () => {
       supplied: 0,
     };
 
-    expect(
-      formatUnits(
-        await interestRateModel.getRateToBorrow(
-          futurePool,
-          maturityPool,
-          smartPool,
-          true
-        )
+    await expect(
+      interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        true
       )
-    ).to.be.equal("0.0");
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
   });
 
   it("Borrow more than supplied in maturity pool with high UR in smart pool. Should get high slope", async () => {

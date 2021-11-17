@@ -372,6 +372,23 @@ describe("FixedLender", function () {
     );
   });
 
+  it("it doesn't allow you to borrow more money that the available", async () => {
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const auditorUser = auditor.connect(mariaUser);
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address],
+      exaTime.nextPoolID()
+    );
+
+    await expect(
+      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+  });
+
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
