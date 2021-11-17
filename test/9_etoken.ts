@@ -3,15 +3,9 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  ProtocolError,
-  errorGeneric,
-  DefaultEnv,
-  ExactlyEnv,
-} from "./exactlyUtils";
+import { ProtocolError, errorGeneric } from "./exactlyUtils";
 
 describe("EToken", () => {
-
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
   let tito: SignerWithAddress;
