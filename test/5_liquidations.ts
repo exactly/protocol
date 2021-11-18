@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "@ethersproject/units";
+import { formatUnits, parseUnits } from "@ethersproject/units";
 import { BigNumber, Contract } from "ethers";
 import {
   ProtocolError,
@@ -14,7 +14,8 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 describe("Liquidations", function () {
   let auditor: Contract;
   let exactlyEnv: DefaultEnv;
-  let nextPoolID = new ExaTime().nextPoolID();
+  let nextPoolID: number;
+  let exaTime = new ExaTime();
 
   let bob: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -73,6 +74,8 @@ describe("Liquidations", function () {
     exafinWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
+    nextPoolID = exaTime.nextPoolID();
+
     // From alice to bob
     await dai.transfer(bob.address, parseUnits("100000"));
   });
@@ -110,15 +113,25 @@ describe("Liquidations", function () {
         await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
       });
 
-      describe("WHEN the pool matures (prices stay the same)", () => {
+      describe("WHEN the pool matures (prices stay the same) and 20 days goes by without payment", () => {
         beforeEach(async () => {
-          await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
+          await ethers.provider.send("evm_setNextBlockTimestamp", [
+            nextPoolID + exaTime.ONE_DAY * 10,
+          ]);
           await ethers.provider.send("evm_mine", []);
         });
         // should we disable the close factor for overdue debts?
         describe("AND the position is liquidated a first time (19kdai, just below close factor of 0.5)", () => {
           let tx: any;
           beforeEach(async () => {
+            const [, debt] = await exafinDAI.getAccountSnapshot(
+              alice.address,
+              nextPoolID
+            );
+
+            console.log("------");
+            console.log(formatUnits(debt));
+
             tx = exafinDAI
               .connect(bob)
               .liquidate(

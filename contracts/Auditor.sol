@@ -371,9 +371,9 @@ contract Auditor is IAuditor, AccessControl {
 
         /* The borrower must have shortfall in order to be liquidatable */
         (, uint256 shortfall) = book.accountLiquidity(oracle, borrower, maturityDate, address(0), 0, 0);
-        TSUtils.State currentState = TSUtils.getPoolState(block.timestamp, maturityDate, maxFuturePools);
+
         // positions without shortfall are liquidateable if they are overdue
-        if (shortfall == 0 && currentState != TSUtils.State.MATURED) {
+        if (shortfall == 0) {
             revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
         }
 
