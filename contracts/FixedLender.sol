@@ -15,7 +15,7 @@ import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
+contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
     using PoolLib for PoolLib.MaturityPool;
@@ -563,7 +563,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
         );
     }
 
-    function setLiquidationFee(uint256 _liquidationFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setLiquidationFee(uint256 _liquidationFee)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         liquidationFee = _liquidationFee;
     }
 
