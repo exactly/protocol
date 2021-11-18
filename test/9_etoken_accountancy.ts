@@ -178,12 +178,10 @@ describe("EToken accountancy (mint, burn & accrueEarnings)", () => {
 
             expect(bobBalance).to.equal(parseUnits("0"));
           });
-          it("AND WHEN bob burns more than his balance, THEN it reverts with error BURN_AMOUNT_EXCEEDS_BALANCE", async () => {
+          it("AND WHEN bob burns more than his balance, THEN it reverts with error ERC20 burn error", async () => {
             await expect(
               eDAI.burn(bob.address, parseUnits("1000"))
-            ).to.be.revertedWith(
-              errorGeneric(ProtocolError.BURN_AMOUNT_EXCEEDS_BALANCE)
-            );
+            ).to.be.revertedWith("ERC20: burn amount exceeds balance");
           });
           it("AND WHEN another burn is made, THEN event Transfer is emitted", async () => {
             await expect(
@@ -223,12 +221,10 @@ describe("EToken accountancy (mint, burn & accrueEarnings)", () => {
   });
 
   describe("GIVEN a mint from the zero address", () => {
-    it("THEN it reverts with a MINT_NOT_TO_ZERO_ADDRESS error", async () => {
+    it("THEN it reverts with an ERC20 mint error", async () => {
       await expect(
         eDAI.mint(AddressZero, parseUnits("100"))
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.MINT_NOT_TO_ZERO_ADDRESS)
-      );
+      ).to.be.revertedWith("ERC20: mint to the zero address");
     });
     it("THEN balance of address should return zero if never minted", async () => {
       let userBalance = await eDAI.balanceOf(AddressZero);

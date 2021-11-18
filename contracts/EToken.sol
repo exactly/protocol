@@ -67,9 +67,7 @@ contract EToken is IEToken, AccessControl {
      * @param amount The amount of tokens getting minted
      */
     function mint(address user, uint256 amount) external override onlyFixedLender {
-        if (user == address(0)) {
-            revert GenericError(ErrorCode.MINT_NOT_TO_ZERO_ADDRESS);
-        }
+        require(user != address(0), "ERC20: mint to the zero address");
 
         uint256 scaledBalance = amount;
         if (totalBalance != 0) {
@@ -100,9 +98,8 @@ contract EToken is IEToken, AccessControl {
      * @param amount The amount being burned
      */
     function burn(address user, uint256 amount) external override onlyFixedLender {
-        if (balanceOf(user) < amount) {
-            revert GenericError(ErrorCode.BURN_AMOUNT_EXCEEDS_BALANCE);
-        }
+        require(user != address(0), "ERC20: burn from the zero address");
+        require(balanceOf(user) >= amount, "ERC20: burn amount exceeds balance");
 
         uint256 scaledWithdrawAmount = (amount * totalScaledBalance) /
             totalBalance;

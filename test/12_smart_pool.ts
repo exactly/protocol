@@ -3,12 +3,7 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  ProtocolError,
-  errorGeneric,
-  DefaultEnv,
-  ExactlyEnv,
-} from "./exactlyUtils";
+import { DefaultEnv, ExactlyEnv } from "./exactlyUtils";
 
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;
@@ -101,9 +96,7 @@ describe("Smart Pool", function () {
       it("AND WHEN bob wants to withdraw 600DAI more, THEN it reverts because his eDAI balance is not enough", async () => {
         await expect(
           fixedLender.withdrawFromSmartPool(parseUnits("600"))
-        ).to.be.revertedWith(
-          errorGeneric(ProtocolError.BURN_AMOUNT_EXCEEDS_BALANCE)
-        );
+        ).to.be.revertedWith("ERC20: burn amount exceeds balance");
       });
     });
   });
