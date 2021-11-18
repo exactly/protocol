@@ -158,7 +158,6 @@ describe("Auditor from User Space", function () {
       auditor.supplyAllowed(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
-        100,
         nextPoolID
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));

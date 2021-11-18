@@ -184,7 +184,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
         PoolLib.MaturityPool memory pool = pools[maturityDate];
 
         // reverts on failure
-        auditor.supplyAllowed(address(this), from, amount, maturityDate);
+        auditor.supplyAllowed(address(this), from, maturityDate);
 
         if (pool.debt > 0) {
             if (amount >= pool.debt) {
