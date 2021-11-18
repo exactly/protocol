@@ -650,6 +650,17 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
+     * @notice Set liquidation incentive for the whole ecosystem
+     * @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18
+     */
+    function setLiquidationIncentive(uint256 _liquidationIncentive)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        liquidationIncentive = _liquidationIncentive;
+    }
+
+    /**
      * @notice Set EXA speed for a single market
      * @param fixedLenderAddress The market whose EXA speed to update
      * @param exaSpeed New EXA speed for market
