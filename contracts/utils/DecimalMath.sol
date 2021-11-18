@@ -33,12 +33,14 @@ library DecimalMath {
         return Double({value: ((a * DOUBLE_SCALE) / b)});
     }
 
-    // @notice Converts an amount of a particular token into a normalized USD value
-    // @dev it abstracts the decimals of the token, it's used to compute liquidity
-    // @param tokenAmount the amount of the token to convert to USD
-    // @param oraclePrice the price of the token, as returned from the oracle
-    // @param underlyingDecimals the decimals of the token (eg: 18 instead of 10**18)
-    // @return the amount of USD the asset represents, normalized to 18 decimals precision
+    /**
+     * @notice Converts an amount of a particular token into a normalized USD value
+     * @dev it abstracts the decimals of the token, it's used to compute liquidity
+     * @param tokenAmount the amount of the token to convert to USD
+     * @param oraclePrice the price of the token, as returned from the oracle
+     * @param underlyingDecimals the decimals of the token (eg: 18 instead of 10**18)
+     * @return the amount of USD the asset represents, normalized to 18 decimals precision
+     */
     function getTokenAmountInUSD(
         uint256 tokenAmount,
         uint256 oraclePrice,
@@ -49,12 +51,14 @@ library DecimalMath {
         return (normalizedTokenAmount * oraclePrice) / NUMBER_SCALE;
     }
 
-    // @notice Converts normalized USD value into an  amount of a particular token
-    // @dev it abstracts the decimals of the token, it's used to get the seizable amount in a liquidation
-    // @param usdAmount the amount of usd to convert to the token
-    // @param oraclePrice the price of the token, as returned from the oracle
-    // @param tokenDecimals the decimals of the token (eg: 18 instead of 10**18)
-    // @return the raw amount of the token equivalent to the provided usd amount
+    /**
+     * @notice Converts normalized USD value into an  amount of a particular token
+     * @dev it abstracts the decimals of the token, it's used to get the seizable amount in a liquidation
+     * @param usdAmount the amount of usd to convert to the token
+     * @param oraclePrice the price of the token, as returned from the oracle
+     * @param tokenDecimals the decimals of the token (eg: 18 instead of 10**18)
+     * @return the raw amount of the token equivalent to the provided usd amount
+     */
     function getTokenAmountFromUsd(
         uint256 usdAmount,
         uint256 oraclePrice,

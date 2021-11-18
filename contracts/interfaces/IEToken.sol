@@ -17,7 +17,7 @@ interface IEToken is IERC20 {
      * - Only callable by the FixedLender
      * @param user The owner of the eTokens, getting them burned
      * @param amount The amount being burned
-     **/
+     */
     function burn(address user, uint256 amount) external;
 
     /**
