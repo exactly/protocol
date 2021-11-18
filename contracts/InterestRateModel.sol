@@ -36,10 +36,10 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     }
 
     /**
-        @dev Function to update this model's parameters (TEAM_ONLY)
-        @param _marginRate spread between borrowing and lending
-        @param _mpSlopeRate slope to alter the utilization rate
-        @param _spSlopeRate slope to alter the utilization rate
+     * @dev Function to update this model's parameters (TEAM_ONLY)
+     * @param _marginRate spread between borrowing and lending
+     * @param _mpSlopeRate slope to alter the utilization rate
+     * @param _spSlopeRate slope to alter the utilization rate
      */
     function setParameters(
         uint256 _marginRate,
@@ -54,13 +54,13 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     }
 
     /**
-        @dev Get current rate for borrow a certain amount in a certain maturity
-             with supply/demand values in the maturity pool and supply demand values
-             in the smart pool
-        @param maturityDate maturity date for calculating days left to maturity
-        @param maturityPool supply/demand values for the maturity pool
-        @param smartPool supply/demand values for the smartPool
-        @param  newDebt checks if the maturity pool borrows money from the smart pool in this borrow
+     * @dev Get current rate for borrow a certain amount in a certain maturity
+     *      with supply/demand values in the maturity pool and supply demand values
+     *      in the smart pool
+     * @param maturityDate maturity date for calculating days left to maturity
+     * @param maturityPool supply/demand values for the maturity pool
+     * @param smartPool supply/demand values for the smartPool
+     * @param newDebt checks if the maturity pool borrows money from the smart pool in this borrow
      */
     function getRateToBorrow(
         uint256 maturityDate,
@@ -99,11 +99,11 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     }
 
     /**
-        @dev Get current rate for supplying a certain amount in a certain maturity
-             with supply/demand values in the maturity pool and supply demand values
-             in the smart pool
-        @param maturityDate maturity date for calculating days left to maturity
-        @param maturityPool supply/demand values for the maturity pool
+     * @dev Get current rate for supplying a certain amount in a certain maturity
+     *      with supply/demand values in the maturity pool and supply demand values
+     *      in the smart pool
+     * @param maturityDate maturity date for calculating days left to maturity
+     * @param maturityPool supply/demand values for the maturity pool
      */
     function getRateToSupply(
         uint256 maturityDate,
