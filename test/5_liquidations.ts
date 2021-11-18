@@ -116,7 +116,7 @@ describe("Liquidations", function () {
       describe("WHEN the pool matures (prices stay the same) and 20 days goes by without payment", () => {
         beforeEach(async () => {
           await ethers.provider.send("evm_setNextBlockTimestamp", [
-            nextPoolID + exaTime.ONE_DAY * 10,
+            nextPoolID + exaTime.ONE_DAY * 20,
           ]);
           await ethers.provider.send("evm_mine", []);
         });
