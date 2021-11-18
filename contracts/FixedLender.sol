@@ -128,12 +128,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
 
         pool.borrowed = pool.borrowed + amount;
         if (amount > pool.available) {
-            uint256 smartPoolAvailable = smartPool.supplied - smartPool.borrowed;
+            uint256 smartPoolAvailable = smartPool.supplied -
+                smartPool.borrowed;
 
             if (amount - pool.available > smartPoolAvailable) {
                 revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
             }
-            
+
             smartPool.borrowed = smartPool.borrowed + amount - pool.available;
             pool.debt = pool.debt + amount - pool.available;
             pool.supplied = pool.supplied + amount - pool.available;
@@ -142,7 +143,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
         } else {
             pool.available = pool.available - amount;
         }
-
 
         uint256 commissionRate = interestRateModel.getRateToBorrow(
             maturityDate,
@@ -475,7 +475,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
         uint256 maturityDate
     ) internal {
         // reverts on failure
-        auditor.seizeAllowed(address(this), seizerFixedLender, liquidator, borrower);
+        auditor.seizeAllowed(
+            address(this),
+            seizerFixedLender,
+            liquidator,
+            borrower
+        );
 
         uint256 protocolAmount = seizeAmount.mul_(liquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
@@ -508,6 +513,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
 
         eToken.mint(msg.sender, amount);
 
+        smartPool.supplied += amount;
         emit DepositToSmartPool(msg.sender, amount);
     }
 
@@ -519,7 +525,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
      */
     function withdrawFromSmartPool(uint256 amount) external override {
         auditor.beforeWithdrawSmartPool(address(this), msg.sender);
-        
+
+        if (smartPool.supplied - amount < smartPool.borrowed) {
+            revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
+        }
+
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
         if (amount == type(uint256).max) {
@@ -529,6 +539,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
         eToken.burn(msg.sender, amountToWithdraw);
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
+        smartPool.supplied -= amount;
         emit WithdrawFromSmartPool(msg.sender, amount);
     }
 
@@ -578,5 +589,4 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
     function getAuditor() public view override returns (IAuditor) {
         return IAuditor(auditor);
     }
-
 }

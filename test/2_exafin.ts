@@ -19,7 +19,9 @@ describe("FixedLender", function () {
   let exactlyEnv: DefaultEnv;
 
   let underlyingToken: Contract;
+  let underlyingTokenETH: Contract;
   let fixedLender: Contract;
+  let fixedLenderETH: Contract;
   let auditor: Contract;
 
   const mockedTokens = new Map([
@@ -44,6 +46,7 @@ describe("FixedLender", function () {
   let mariaUser: SignerWithAddress;
   let owner: SignerWithAddress;
   let exaTime: ExaTime = new ExaTime();
+  let eDAI: Contract;
 
   let snapshot: any;
   beforeEach(async () => {
@@ -56,11 +59,17 @@ describe("FixedLender", function () {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
+    underlyingTokenETH = exactlyEnv.getUnderlying("ETH");
     fixedLender = exactlyEnv.getFixedLender("DAI");
+    fixedLenderETH = exactlyEnv.getFixedLender("ETH");
     auditor = exactlyEnv.auditor;
+
+    eDAI = exactlyEnv.getEToken("DAI");
+    await eDAI.setFixedLender(fixedLender.address);
 
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
+    await underlyingTokenETH.transfer(mariaUser.address, parseUnits("10"));
   });
 
   it("GetAccountSnapshot fails on an invalid pool", async () => {
@@ -387,6 +396,210 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
     ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+  });
+
+  it("it doesn't allow you to borrow when maturity and smart pool are empty", async () => {
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+
+    await expect(
+      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+  });
+
+  it("it doesn't allow you to borrow when the sum of the available amount in the smart and the maturity is lower than what is asked", async () => {
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
+
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const underlyingTokenUserETH = underlyingTokenETH.connect(mariaUser);
+
+    const auditorUser = auditor.connect(mariaUser);
+
+    await underlyingToken.approve(fixedLender.address, parseUnits("10"));
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("10"));
+    await underlyingTokenUserETH.approve(
+      fixedLenderETH.address,
+      parseUnits("1")
+    );
+
+    await fixedLenderMariaETH.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+
+    await fixedLenderMaria.supply(
+      mariaUser.address,
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
+
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address, fixedLenderMariaETH.address],
+      exaTime.nextPoolID()
+    );
+
+    await fixedLender.depositToSmartPool(parseUnits("0.2"));
+
+    await expect(
+      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+  });
+
+  it("it doesn't allow you to borrow when no money in the smart pool and you ask for more than available in maturity", async () => {
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
+
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const underlyingTokenUserETH = underlyingTokenETH.connect(mariaUser);
+
+    const auditorUser = auditor.connect(mariaUser);
+
+    await underlyingToken.approve(fixedLender.address, parseUnits("10"));
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("10"));
+    await underlyingTokenUserETH.approve(
+      fixedLenderETH.address,
+      parseUnits("1")
+    );
+
+    await fixedLenderMariaETH.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+
+    await fixedLenderMaria.supply(
+      mariaUser.address,
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
+
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address, fixedLenderMariaETH.address],
+      exaTime.nextPoolID()
+    );
+
+    await expect(
+      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+  });
+
+  it("it doesn't allow you to borrow when no money in the maturity pool and you ask for more than available in smart pool", async () => {
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
+
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const underlyingTokenUserETH = underlyingTokenETH.connect(mariaUser);
+
+    const auditorUser = auditor.connect(mariaUser);
+
+    await underlyingToken.approve(fixedLender.address, parseUnits("10"));
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("10"));
+    await underlyingTokenUserETH.approve(
+      fixedLenderETH.address,
+      parseUnits("1")
+    );
+
+    await fixedLenderMariaETH.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+
+    await auditorUser.enterMarkets(
+      [fixedLenderMariaETH.address],
+      exaTime.nextPoolID()
+    );
+
+    await fixedLender.depositToSmartPool(parseUnits("0.2"));
+
+    await expect(
+      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+  });
+
+  it("it allows you to borrow when the sum of the available amount in the smart and the maturity is higher than what is asked", async () => {
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
+
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const underlyingTokenUserETH = underlyingTokenETH.connect(mariaUser);
+
+    const auditorUser = auditor.connect(mariaUser);
+
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    await underlyingTokenUserETH.approve(
+      fixedLenderETH.address,
+      parseUnits("1")
+    );
+
+    await fixedLenderMariaETH.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+
+    await fixedLenderMaria.supply(
+      mariaUser.address,
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
+
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address, fixedLenderMariaETH.address],
+      exaTime.nextPoolID()
+    );
+
+    await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
+
+    const borrow = fixedLenderMaria.borrow(
+      parseUnits("0.3"),
+      exaTime.nextPoolID()
+    );
+
+    await expect(borrow).to.not.be.reverted;
+  });
+
+  it("it allows you to borrow when the sum of the available amount in the smart and the maturity is exact what is asked", async () => {
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
+
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const underlyingTokenUserETH = underlyingTokenETH.connect(mariaUser);
+
+    const auditorUser = auditor.connect(mariaUser);
+
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    await underlyingTokenUserETH.approve(
+      fixedLenderETH.address,
+      parseUnits("1")
+    );
+
+    await fixedLenderMariaETH.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+
+    await fixedLenderMaria.supply(
+      mariaUser.address,
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
+
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address, fixedLenderMariaETH.address],
+      exaTime.nextPoolID()
+    );
+
+    await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
+
+    const borrow = fixedLenderMaria.borrow(
+      parseUnits("0.40"),
+      exaTime.nextPoolID()
+    );
+
+    await expect(borrow).to.not.be.reverted;
   });
 
   afterEach(async () => {
