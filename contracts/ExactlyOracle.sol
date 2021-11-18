@@ -3,9 +3,9 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-import "../interfaces/IOracle.sol";
-import "../interfaces/IChainlinkFeedRegistry.sol";
-import "../utils/Errors.sol";
+import "./interfaces/IOracle.sol";
+import "./interfaces/IChainlinkFeedRegistry.sol";
+import "./utils/Errors.sol";
 
 /**
  * @title ExactlyOracle
