@@ -163,7 +163,7 @@ describe("Liquidity computations", function () {
             parseUnits("1000").add(supplyEvent.commission)
           );
           expect(borrowed).to.be.gt(parseUnits("799"));
-          expect(borrowed).to.be.lt(parseUnits("800"));
+          expect(borrowed).to.be.lt(parseUnits("801"));
         });
       });
     });
