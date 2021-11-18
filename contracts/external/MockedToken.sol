@@ -12,7 +12,4 @@ contract MockedToken is ERC20 {
         _mint(msg.sender, initialSupply);
         storedDecimals = _decimals;
     }
-    function decimals() public view virtual override returns (uint8) {
-        return storedDecimals;
-    }
 }

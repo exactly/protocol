@@ -511,7 +511,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
      * @dev Deposits an `amount` of underlying asset into the smart pool, receiving in return overlying eTokens.
      * - E.g. User deposits 100 USDC and gets in return 100 eUSDC
      * @param amount The amount to be deposited
-     **/
+     */
     function depositToSmartPool(uint256 amount) external override {
         auditor.beforeSupplySmartPool(address(this), msg.sender);
 
@@ -527,7 +527,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
      * - E.g. User has 100 eUSDC, calls withdraw() and receives 100 USDC, burning the 100 eUSDC
      * @param amount The underlying amount to be withdrawn
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
-     **/
+     */
     function withdrawFromSmartPool(uint256 amount) external override {
         auditor.beforeWithdrawSmartPool(address(this), msg.sender);
         

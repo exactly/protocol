@@ -311,7 +311,7 @@ describe("Liquidations", function () {
                     alice.address,
                     nextPoolID
                   );
-                  expect(suppliedWBTC).to.be.lt(parseUnits("0.0001", 8));
+                  expect(suppliedWBTC).to.be.lt(parseUnits("0.0005", 8));
                 });
                 // now theres no incentive to liquidate those 7500 dai
                 it("AND alice still has some DAI debt", async () => {
