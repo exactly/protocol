@@ -13,9 +13,9 @@ contract EToken is IEToken, AccessControl {
     // totalSupply = smart pool's balance
     uint256 public override totalSupply;
     // index = totalSupply / totalScaledBalance
-    uint256 public totalScaledBalance;
+    uint256 private totalScaledBalance;
     // userBalance = userScaledBalance * index
-    mapping(address => uint256) public userScaledBalance;
+    mapping(address => uint256) private userScaledBalance;
 
     mapping(address => mapping(address => uint256)) private _allowances;
     string public override name;
