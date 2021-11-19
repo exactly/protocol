@@ -10,7 +10,7 @@ import {
   ExactlyEnv,
 } from "./exactlyUtils";
 
-describe("EToken", () => {
+describe("EToken accounting (mint, burn & accrueEarnings)", () => {
   let exactlyEnv: DefaultEnv;
 
   let bob: SignerWithAddress;
@@ -36,7 +36,7 @@ describe("EToken", () => {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     eDAI = exactlyEnv.getEToken("DAI");
 
-    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contact
+    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contract
   });
 
   describe("GIVEN bob mints 1000 eDAI", () => {
@@ -48,6 +48,11 @@ describe("EToken", () => {
       let bobBalance = await eDAI.balanceOf(bob.address);
 
       expect(bobBalance).to.equal(parseUnits("1000"));
+    });
+    it("THEN balance of eDAI in laura's address is 0", async () => {
+      let lauraBalance = await eDAI.balanceOf(laura.address);
+
+      expect(lauraBalance).to.equal(parseUnits("0"));
     });
     it("THEN total supply in contract is 1000", async () => {
       let totalSupply = await eDAI.totalSupply();
@@ -173,12 +178,10 @@ describe("EToken", () => {
 
             expect(bobBalance).to.equal(parseUnits("0"));
           });
-          it("AND WHEN bob burns more than his balance, THEN it reverts with error BURN_AMOUNT_EXCEEDS_BALANCE", async () => {
+          it("AND WHEN bob burns more than his balance, THEN it reverts with error ERC20 burn error", async () => {
             await expect(
               eDAI.burn(bob.address, parseUnits("1000"))
-            ).to.be.revertedWith(
-              errorGeneric(ProtocolError.BURN_AMOUNT_EXCEEDS_BALANCE)
-            );
+            ).to.be.revertedWith("ERC20: burn amount exceeds balance");
           });
           it("AND WHEN another burn is made, THEN event Transfer is emitted", async () => {
             await expect(
@@ -218,12 +221,10 @@ describe("EToken", () => {
   });
 
   describe("GIVEN a mint from the zero address", () => {
-    it("THEN it reverts with a MINT_NOT_TO_ZERO_ADDRESS error", async () => {
+    it("THEN it reverts with an ERC20 mint error", async () => {
       await expect(
         eDAI.mint(AddressZero, parseUnits("100"))
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.MINT_NOT_TO_ZERO_ADDRESS)
-      );
+      ).to.be.revertedWith("ERC20: mint to the zero address");
     });
     it("THEN balance of address should return zero if never minted", async () => {
       let userBalance = await eDAI.balanceOf(AddressZero);

@@ -321,7 +321,47 @@ describe("FixedLender", function () {
     );
   });
 
-  it("it allows the mariaUser to repay her debt only after maturity", async () => {
+  it("it allows the mariaUser to repay her debt before maturity, but not redeeming her collateral", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
+
+    // connect through Maria
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    // supply some money and parse event
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
+    let txSupply = await fixedLenderMaria.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    let supplyEvent = await parseSupplyEvent(txSupply);
+    await fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
+
+    // try to redeem without paying debt and fail
+    await expect(
+      fixedLenderMaria.redeem(mariaUser.address, 0, exaTime.nextPoolID())
+    ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
+
+    // repay and succeed
+    await expect(
+      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+    ).to.not.be.reverted;
+
+    // try to redeem without paying debt and fail
+    await expect(
+      fixedLenderMaria.redeem(
+        mariaUser.address,
+        supplyEvent.amount.add(supplyEvent.commission),
+        exaTime.nextPoolID()
+      )
+    ).to.be.revertedWith(
+      errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
+    );
+  });
+
+  it("it allows the mariaUser to repay her debt at maturity and also redeeming her collateral", async () => {
     // give the protocol some solvency
     await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
 
@@ -344,18 +384,16 @@ describe("FixedLender", function () {
     );
     let borrowEvent = await parseBorrowEvent(tx);
 
-    // try to redeem before maturity
-    await expect(
-      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
-    );
-
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
       exaTime.nextPoolID(),
     ]);
     await ethers.provider.send("evm_mine", []);
+
+    // try to redeem without paying debt and fail
+    await expect(
+      fixedLenderMaria.redeem(mariaUser.address, 0, exaTime.nextPoolID())
+    ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
 
     // try to redeem without paying debt and fail
     await expect(
@@ -367,7 +405,9 @@ describe("FixedLender", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
 
     // repay and succeed
-    await fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID());
+    await expect(
+      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+    ).to.not.be.reverted;
 
     // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
     await fixedLenderMaria.redeem(
