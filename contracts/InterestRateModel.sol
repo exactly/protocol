@@ -8,8 +8,6 @@ import "./utils/Errors.sol";
 import "./utils/DecimalMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "hardhat/console.sol";
-
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
 
