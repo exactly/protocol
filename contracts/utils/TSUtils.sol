@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "hardhat/console.sol";
-
 library TSUtils {
 
     uint32 public constant INTERVAL = 7 days;

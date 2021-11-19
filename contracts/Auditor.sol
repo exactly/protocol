@@ -11,7 +11,6 @@ import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "./utils/ExaLib.sol";
-import "hardhat/console.sol";
 
 contract Auditor is IAuditor, AccessControl {
     using DecimalMath for uint256;
