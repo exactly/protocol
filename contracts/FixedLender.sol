@@ -525,20 +525,20 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     function withdrawFromSmartPool(uint256 amount) external override {
         auditor.beforeWithdrawSmartPool(address(this), msg.sender);
 
-        if (smartPool.supplied - amount < smartPool.borrowed) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-        }
-
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
         if (amount == type(uint256).max) {
             amountToWithdraw = userBalance;
         }
 
-        eToken.burn(msg.sender, amountToWithdraw);
-        trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
+        if (smartPool.supplied - amountToWithdraw < smartPool.borrowed) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
 
-        smartPool.supplied -= amount;
+        eToken.burn(msg.sender, amountToWithdraw);
+        trustedUnderlying.safeTransferFrom(address(this), msg.sender, amountToWithdraw);
+
+        smartPool.supplied -= amountToWithdraw;
         emit WithdrawFromSmartPool(msg.sender, amount);
     }
 
