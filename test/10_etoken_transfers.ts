@@ -18,7 +18,7 @@ describe("EToken transfers", () => {
     eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI");
     await eDAI.deployed();
 
-    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contact
+    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contract
   });
 
   describe("GIVEN bob has 1000 eDAI AND transfers 500 eDAI to laura", () => {
@@ -98,37 +98,48 @@ describe("EToken transfers", () => {
 
           expect(totalSupply).to.equal(parseUnits("3000"));
         });
-        describe("AND GIVEN bob transfers 1500 eDAI to tito, AND GIVEN 1000 eDAI more minted to tito, AND GIVEN an accrue of earnings by 1000 eDAI", () => {
+        it("AND WHEN tito burns all his tokens THEN balance of eDAI in his address is 0", async () => {
+          await eDAI.burn(tito.address, parseUnits("1500"));
+          let titoBalance = await eDAI.balanceOf(tito.address);
+
+          expect(titoBalance).to.equal(parseUnits("0"));
+        });
+        describe("AND GIVEN tito burns 750 eDAI", () => {
           beforeEach(async () => {
-            await eDAI.transfer(tito.address, parseUnits("1500"));
-            await eDAI.mint(tito.address, parseUnits("1000"));
-            await eDAI.accrueEarnings(parseUnits("1000"));
+            await eDAI.burn(tito.address, parseUnits("750"));
           });
+          describe("AND GIVEN bob transfers 1500 eDAI to tito, AND GIVEN 1000 eDAI more minted to tito, AND GIVEN an accrue of earnings by 1000 eDAI", () => {
+            beforeEach(async () => {
+              await eDAI.transfer(tito.address, parseUnits("1500"));
+              await eDAI.mint(tito.address, parseUnits("1000"));
+              await eDAI.accrueEarnings(parseUnits("1000"));
+            });
 
-          it("THEN balance of eDAI in tito's address is 5000", async () => {
-            let titoBalance = await eDAI.balanceOf(tito.address);
+            it("THEN balance of eDAI in tito's address is 5000", async () => {
+              let titoBalance = await eDAI.balanceOf(tito.address);
 
-            expect(titoBalance).to.equal(parseUnits("5000"));
-          });
-          it("THEN balance of eDAI in bob's address is 0", async () => {
-            let bobBalance = await eDAI.balanceOf(bob.address);
+              expect(titoBalance).to.equal(parseUnits("4250"));
+            });
+            it("THEN balance of eDAI in bob's address is 0", async () => {
+              let bobBalance = await eDAI.balanceOf(bob.address);
 
-            expect(bobBalance).to.equal(parseUnits("0"));
-          });
-          it("THEN balance of eDAI in laura's address is 0", async () => {
-            let lauraBalance = await eDAI.balanceOf(laura.address);
+              expect(bobBalance).to.equal(parseUnits("0"));
+            });
+            it("THEN balance of eDAI in laura's address is 0", async () => {
+              let lauraBalance = await eDAI.balanceOf(laura.address);
 
-            expect(lauraBalance).to.equal(parseUnits("0"));
-          });
-          it("THEN balance supply in contract is 5000", async () => {
-            let totalSupply = await eDAI.totalSupply();
+              expect(lauraBalance).to.equal(parseUnits("0"));
+            });
+            it("THEN balance supply in contract is 4250", async () => {
+              let totalSupply = await eDAI.totalSupply();
 
-            expect(totalSupply).to.equal(parseUnits("5000"));
-          });
-          it("AND WHEN bob transfers more than his balance, THEN it reverts with ERC20 transfer exceeds balance error", async () => {
-            await expect(
-              eDAI.transfer(tito.address, parseUnits("100"))
-            ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+              expect(totalSupply).to.equal(parseUnits("4250"));
+            });
+            it("AND WHEN bob transfers more than his balance, THEN it reverts with ERC20 transfer exceeds balance error", async () => {
+              await expect(
+                eDAI.transfer(tito.address, parseUnits("100"))
+              ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+            });
           });
         });
       });

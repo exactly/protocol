@@ -22,7 +22,7 @@ describe("EToken ERC20 Behavior", () => {
     const EToken = await ethers.getContractFactory("EToken");
     token = await EToken.deploy(name, symbol);
     await token.deployed();
-    await token.setFixedLender(tokenOwner.address); // We simulate that the address of user initialHolder is the fixedLender contact
+    await token.setFixedLender(tokenOwner.address); // We simulate that the address of user initialHolder is the fixedLender contract
     await token.mint(tokenOwner.address, initialSupply);
   });
 

@@ -4,11 +4,12 @@ pragma solidity ^0.8.4;
 import "../EToken.sol";
 
 // mock class using EToken
-contract MockedERCToken is EToken {
-    constructor(string memory name, string memory symbol) EToken(name, symbol) {
-    }
+contract ETokenHarness is EToken {
+    constructor(string memory name, string memory symbol)
+        EToken(name, symbol)
+    {}
 
-    function transferInternal(
+    function callInternalTransfer(
         address from,
         address to,
         uint256 value
@@ -16,7 +17,7 @@ contract MockedERCToken is EToken {
         _transfer(from, to, value);
     }
 
-    function approveInternal(
+    function callInternalApprove(
         address owner,
         address spender,
         uint256 value

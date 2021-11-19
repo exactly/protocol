@@ -36,7 +36,7 @@ describe("EToken accountancy (mint, burn & accrueEarnings)", () => {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     eDAI = exactlyEnv.getEToken("DAI");
 
-    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contact
+    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contract
   });
 
   describe("GIVEN bob mints 1000 eDAI", () => {

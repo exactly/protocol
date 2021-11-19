@@ -8,7 +8,7 @@ describe("EToken ERC20 API", () => {
   let initialHolder: SignerWithAddress;
   let account: SignerWithAddress;
   let token: Contract;
-  let mockedToken: Contract;
+  let tokenHarness: Contract;
 
   const { AddressZero } = ethers.constants;
   const name = "eToken DAI";
@@ -22,7 +22,7 @@ describe("EToken ERC20 API", () => {
     const EToken = await ethers.getContractFactory("EToken");
     token = await EToken.deploy(name, symbol);
     await token.deployed();
-    await token.setFixedLender(initialHolder.address); // We simulate that the address of user initialHolder is the fixedLender contact
+    await token.setFixedLender(initialHolder.address); // We simulate that the address of user initialHolder is the fixedLender contract
     await token.mint(initialHolder.address, initialSupply);
   });
 
@@ -315,16 +315,16 @@ describe("EToken ERC20 API", () => {
   });
   describe("_transfer", function () {
     before(async function () {
-      const MockedERCToken = await ethers.getContractFactory("MockedERCToken");
-      mockedToken = await MockedERCToken.deploy(name, symbol);
-      await mockedToken.deployed();
+      const ETokenHarness = await ethers.getContractFactory("ETokenHarness");
+      tokenHarness = await ETokenHarness.deploy(name, symbol);
+      await tokenHarness.deployed();
     });
 
     describe("_transfer", function () {
       describe("when the sender is the zero address", function () {
         it("reverts", async function () {
           await expect(
-            mockedToken.transferInternal(
+            tokenHarness.callInternalTransfer(
               AddressZero,
               initialHolder.address,
               initialSupply
@@ -338,7 +338,7 @@ describe("EToken ERC20 API", () => {
       describe("when the owner is the zero address", function () {
         it("reverts", async function () {
           await expect(
-            mockedToken.approveInternal(
+            tokenHarness.callInternalApprove(
               AddressZero,
               initialHolder.address,
               initialSupply
