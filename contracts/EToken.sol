@@ -156,14 +156,11 @@ contract EToken is IEToken, AccessControl {
         address recipient,
         uint256 amount
     ) internal virtual {
-        if (recipient == address(0)) {
-            revert GenericError(ErrorCode.TRANSFER_ZERO_ADDRESS);
-        }
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
 
         uint256 senderBalance = balanceOf(sender);
-        if (senderBalance < amount) {
-            revert GenericError(ErrorCode.TRANSFER_EXCEEDS_BALANCE);
-        }
+        require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
 
         uint256 senderRemainingBalance = senderBalance - amount;
         userScaledBalance[sender] = (senderRemainingBalance * totalScaledBalance) / totalBalance;
