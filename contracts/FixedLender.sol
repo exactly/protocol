@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./EToken.sol";
 import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
@@ -15,7 +16,7 @@ import "./utils/Errors.sol";
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract FixedLender is IFixedLender, ReentrancyGuard {
+contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
     using PoolLib for PoolLib.MaturityPool;
@@ -76,7 +77,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
     mapping(uint256 => PoolLib.MaturityPool) public pools;
     mapping(address => uint256[]) public addressPools;
 
-    uint256 private constant PROTOCOL_SEIZE_SHARE = 2.8e16; //2.8%
+    uint256 private liquidationFee = 2.8e16; //2.8%
 
     PoolLib.SmartPool public smartPool;
 
@@ -102,6 +103,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
         address _auditorAddress,
         address _interestRateModelAddress
     ) {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         trustedUnderlying = IERC20(_tokenAddress);
         trustedUnderlying.safeApprove(address(this), type(uint256).max);
         underlyingTokenName = _underlyingTokenName;
@@ -193,7 +195,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
         PoolLib.MaturityPool memory pool = pools[maturityDate];
 
         // reverts on failure
-        auditor.supplyAllowed(address(this), from, amount, maturityDate);
+        auditor.supplyAllowed(address(this), from, maturityDate);
 
         if (pool.debt > 0) {
             if (amount >= pool.debt) {
@@ -488,7 +490,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
         // reverts on failure
         auditor.seizeAllowed(address(this), seizerFixedLender, liquidator, borrower);
 
-        uint256 protocolAmount = seizeAmount.mul_(PROTOCOL_SEIZE_SHARE);
+        uint256 protocolAmount = seizeAmount.mul_(liquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
 
         suppliedAmounts[maturityDate][borrower] -= seizeAmount;
@@ -567,6 +569,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard {
             suppliedAmounts[maturityDate][who],
             debt
         );
+    }
+
+    function setLiquidationFee(uint256 _liquidationFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        liquidationFee = _liquidationFee;
     }
 
     /**

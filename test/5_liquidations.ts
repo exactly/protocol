@@ -120,6 +120,84 @@ describe("Liquidations", function () {
           ]);
           await ethers.provider.send("evm_mine", []);
         });
+        describe("AND the liquidation incentive is increased to 15%", () => {
+          beforeEach(async () => {
+            await auditor.setLiquidationIncentive(parseUnits("1.15"));
+          });
+          describe("AND the position is liquidated (19kdai, just below close factor of 0.5)", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  parseUnits("19000"),
+                  exafinWBTC.address,
+                  nextPoolID
+                );
+              await tx;
+            });
+            it("THEN the liquidator seizes 19k+15% of collateral (in WBTC, 34682539 sats)", async () => {
+              // 19kusd of btc at its current price of 63kusd + 15% incentive for liquidators
+              const seizedWBTC = parseUnits("34682539", 0);
+
+              await expect(tx)
+                .to.emit(exafinWBTC, "Seized")
+                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+            });
+            it("AND 0.028% in fee is charged (971111 sats)", async () => {
+              const seizedWBTC = parseUnits("34682539", 0);
+              const protocolShare = parseUnits("0.028");
+              const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
+              expect(await wbtc.balanceOf(bob.address)).to.eq(
+                seizedWBTC.sub(fee)
+              );
+              await expect(tx)
+                .to.emit(exafinWBTC, "ReservesAdded")
+                .withArgs(exafinWBTC.address, fee);
+            });
+          });
+        });
+
+        describe("AND the protcol fee is increased to 4%", () => {
+          beforeEach(async () => {
+            await exafinWBTC.setLiquidationFee(parseUnits("0.04"));
+          });
+          describe("AND the position is liquidated (19kdai, just below close factor of 0.5)", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = exafinDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  parseUnits("19000"),
+                  exafinWBTC.address,
+                  nextPoolID
+                );
+              await tx;
+            });
+            it("THEN the liquidator seizes 19k+10% of collateral (WBTC)", async () => {
+              // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+              const seizedWBTC = parseUnits("33174603", 0);
+
+              await expect(tx)
+                .to.emit(exafinWBTC, "Seized")
+                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+            });
+            it("AND 0.4% in fee is charged (1326984 sats)", async () => {
+              const seizedWBTC = parseUnits("33174603", 0);
+              const protocolShare = parseUnits("0.04");
+              const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
+              expect(await wbtc.balanceOf(bob.address)).to.eq(
+                seizedWBTC.sub(fee)
+              );
+              await expect(tx)
+                .to.emit(exafinWBTC, "ReservesAdded")
+                .withArgs(exafinWBTC.address, fee);
+            });
+          });
+        });
+
         // should we disable the close factor for overdue debts?
         describe("AND the position is liquidated a first time (19kdai, just below close factor of 0.5)", () => {
           let tx: any;
@@ -450,8 +528,6 @@ describe("Liquidations", function () {
               .to.emit(exafinWBTC, "Seized")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
-            // note that the liquidator is actually being paid 2.8% less (!!)
-            // than market rate
             expect(await wbtc.balanceOf(bob.address)).to.eq(
               seizedWBTC.sub(fee)
             );

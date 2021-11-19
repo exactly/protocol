@@ -66,6 +66,12 @@ describe("Auditor Admin", function () {
     ).to.be.revertedWith("AccessControl");
   });
 
+  it("setLiquidationFee should fail from third parties", async () => {
+    await expect(
+      auditor.connect(user).setLiquidationIncentive(parseUnits("1.01"))
+    ).to.be.revertedWith("AccessControl");
+  });
+
   it("It reverts when trying to list a market twice", async () => {
     await expect(
       auditor.enableMarket(

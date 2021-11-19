@@ -22,7 +22,6 @@ interface IAuditor {
     function supplyAllowed(
         address fixedLenderAddress,
         address borrower,
-        uint256 borrowAmount,
         uint256 maturityDate
     ) external;
 

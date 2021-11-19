@@ -70,6 +70,12 @@ describe("FixedLender", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
+  it("setLiquidationFee fails from third parties", async () => {
+    await expect(
+      fixedLender.connect(mariaUser).setLiquidationFee(parseUnits("0.04"))
+    ).to.be.revertedWith("AccessControl");
+  });
+
   it("GetTotalBorrows fails on an invalid pool", async () => {
     let invalidPoolID = exaTime.nextPoolID() + 3;
     await expect(fixedLender.getTotalBorrows(invalidPoolID)).to.be.revertedWith(
