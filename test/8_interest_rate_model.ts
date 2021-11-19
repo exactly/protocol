@@ -472,7 +472,9 @@ describe("InterestRateModel", () => {
         smartPool,
         true
       )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+    ).to.be.revertedWith(
+      errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+    );
   });
 
   it("Borrow less than supplied in maturity, smart is empty", async () => {

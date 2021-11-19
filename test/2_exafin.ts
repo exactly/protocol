@@ -395,7 +395,9 @@ describe("FixedLender", function () {
 
     await expect(
       fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+    ).to.be.revertedWith(
+      errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+    );
   });
 
   it("it doesn't allow you to borrow when maturity and smart pool are empty", async () => {
@@ -403,7 +405,9 @@ describe("FixedLender", function () {
 
     await expect(
       fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+    ).to.be.revertedWith(
+      errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+    );
   });
 
   it("it doesn't allow you to borrow when the sum of the available amount in the smart and the maturity is lower than what is asked", async () => {
@@ -443,7 +447,9 @@ describe("FixedLender", function () {
 
     await expect(
       fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+    ).to.be.revertedWith(
+      errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+    );
   });
 
   it("it doesn't allow you to borrow when no money in the smart pool and you ask for more than available in maturity", async () => {
@@ -481,7 +487,9 @@ describe("FixedLender", function () {
 
     await expect(
       fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+    ).to.be.revertedWith(
+      errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+    );
   });
 
   it("it doesn't allow you to borrow when no money in the maturity pool and you ask for more than available in smart pool", async () => {
@@ -515,7 +523,9 @@ describe("FixedLender", function () {
 
     await expect(
       fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+    ).to.be.revertedWith(
+      errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+    );
   });
 
   it("it allows you to borrow when the sum of the available amount in the smart and the maturity is higher than what is asked", async () => {

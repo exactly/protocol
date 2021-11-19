@@ -105,6 +105,7 @@ export enum ProtocolError {
   CALLER_MUST_BE_FIXED_LENDER,
   FIXED_LENDER_ALREADY_SET,
   MINT_NOT_TO_ZERO_ADDRESS,
+  INSUFFICIENT_PROTOCOL_LIQUIDITY,
 }
 
 export type MockedTokenSpec = {

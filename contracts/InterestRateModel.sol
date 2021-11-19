@@ -90,7 +90,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
                     maturityPool.supplied;
         } else {
             if (smartPool.supplied == 0) {
-                revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
+                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
             }
             uint256 smartPoolUtilizationRate = smartPool.borrowed.div_(
                 smartPool.supplied

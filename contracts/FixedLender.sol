@@ -132,7 +132,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
                 smartPool.borrowed;
 
             if (amount - pool.available > smartPoolAvailable) {
-                revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
+                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
             }
 
             smartPool.borrowed = smartPool.borrowed + amount - pool.available;
