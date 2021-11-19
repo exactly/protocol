@@ -527,7 +527,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         auditor.beforeWithdrawSmartPool(address(this), msg.sender);
 
         if (smartPool.supplied - amount < smartPool.borrowed) {
-            revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
