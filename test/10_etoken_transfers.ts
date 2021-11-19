@@ -3,7 +3,6 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ProtocolError, errorGeneric } from "./exactlyUtils";
 
 describe("EToken transfers", () => {
   let bob: SignerWithAddress;
