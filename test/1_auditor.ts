@@ -153,6 +153,24 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED));
   });
 
+  it("beforeSupplySmartPool should fail for an unlisted market", async () => {
+    await expect(
+      auditor.beforeSupplySmartPool(
+        exactlyEnv.notAnFixedLenderAddress,
+        owner.address
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("beforeWithdrawSmartPool should fail for an unlisted market", async () => {
+    await expect(
+      auditor.beforeWithdrawSmartPool(
+        exactlyEnv.notAnFixedLenderAddress,
+        owner.address
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
   it("SupplyAllowed should fail for an unlisted market", async () => {
     await expect(
       auditor.supplyAllowed(
