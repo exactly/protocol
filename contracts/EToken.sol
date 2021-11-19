@@ -24,12 +24,12 @@ contract EToken is IEToken, AccessControl {
 
     IFixedLender private fixedLender;
 
-    constructor(string memory _name, string memory _symbol) {
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
         name = _name;
         symbol = _symbol;
-        decimals = 18;
+        decimals = _decimals;
     }
 
     modifier onlyFixedLender() {
@@ -115,7 +115,7 @@ contract EToken is IEToken, AccessControl {
      * @dev Executes a transfer of tokens from msg.sender to recipient
      * @param recipient The recipient of the tokens
      * @param amount The amount of tokens being transferred
-     * @return `true` if the transfer succeeds, `false` otherwise
+     * @return `true` if the transfer succeeds, reverts otherwise
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         _transfer(msg.sender, recipient, amount);
@@ -127,7 +127,7 @@ contract EToken is IEToken, AccessControl {
      * @param sender The owner of the tokens
      * @param recipient The recipient of the tokens
      * @param amount The amount of tokens being transferred
-     * @return `true` if the transfer succeeds, `false` otherwise
+     * @return `true` if the transfer succeeds, reverts otherwise
      */
     function transferFrom(
         address sender,
@@ -173,7 +173,7 @@ contract EToken is IEToken, AccessControl {
      * @dev Allows `spender` to spend the tokens owned by msg.sender
      * @param spender The user allowed to spend msg.sender tokens
      * @param amount The amount of tokens spender is allowed to spend
-     * @return `true`
+     * @return `true` if the reverts succeeds, reverts otherwise
      */
     function approve(address spender, uint256 amount)
         public
@@ -223,7 +223,7 @@ contract EToken is IEToken, AccessControl {
      * @dev Increases the allowance of spender to spend msg.sender tokens
      * @param spender The user allowed to spend on behalf of msg.sender
      * @param addedValue The amount being added to the allowance
-     * @return `true`
+     * @return `true` if the increase allowance succeeds, reverts otherwise
      */
     function increaseAllowance(address spender, uint256 addedValue)
         public
@@ -242,7 +242,7 @@ contract EToken is IEToken, AccessControl {
      * @dev Decreases the allowance of spender to spend msg.sender tokens
      * @param spender The user allowed to spend on behalf of msg.sender
      * @param subtractedValue The amount being subtracted to the allowance
-     * @return `true`
+     * @return `true` if the decrease allowance succeeds, reverts otherwise
      */
     function decreaseAllowance(address spender, uint256 subtractedValue)
         public

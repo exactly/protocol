@@ -20,7 +20,7 @@ describe("EToken ERC20 Behavior", () => {
     [tokenOwner, account, anotherAccount] = await ethers.getSigners();
 
     const EToken = await ethers.getContractFactory("EToken");
-    token = await EToken.deploy(name, symbol);
+    token = await EToken.deploy(name, symbol, "18");
     await token.deployed();
     await token.setFixedLender(tokenOwner.address); // We simulate that the address of user initialHolder is the fixedLender contract
     await token.mint(tokenOwner.address, initialSupply);

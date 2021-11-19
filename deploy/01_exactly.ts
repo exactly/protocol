@@ -86,7 +86,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     const eToken = await hre.deployments.deploy("EToken", {
       from: deployer,
-      args: ["e" + name, "e" + oracleName],
+      args: ["e" + name, "e" + oracleName, decimals],
       log: true,
     });
     console.log("eToken e%s deployed", oracleName);

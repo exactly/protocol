@@ -13,6 +13,7 @@ describe("EToken ERC20 API", () => {
   const { AddressZero } = ethers.constants;
   const name = "eToken DAI";
   const symbol = "eDAI";
+  const decimals = 18;
 
   const initialSupply = parseUnits("100");
 
@@ -20,7 +21,7 @@ describe("EToken ERC20 API", () => {
     [initialHolder, account] = await ethers.getSigners();
 
     const EToken = await ethers.getContractFactory("EToken");
-    token = await EToken.deploy(name, symbol);
+    token = await EToken.deploy(name, symbol, decimals);
     await token.deployed();
     await token.setFixedLender(initialHolder.address); // We simulate that the address of user initialHolder is the fixedLender contract
     await token.mint(initialHolder.address, initialSupply);
@@ -35,7 +36,7 @@ describe("EToken ERC20 API", () => {
   });
 
   it("has 18 decimals", async function () {
-    expect(await token.decimals()).to.be.equal(18);
+    expect(await token.decimals()).to.be.equal(decimals);
   });
 
   describe("decrease allowance", function () {
@@ -316,7 +317,7 @@ describe("EToken ERC20 API", () => {
   describe("_transfer", function () {
     before(async function () {
       const ETokenHarness = await ethers.getContractFactory("ETokenHarness");
-      tokenHarness = await ETokenHarness.deploy(name, symbol);
+      tokenHarness = await ETokenHarness.deploy(name, symbol, decimals);
       await tokenHarness.deployed();
     });
 

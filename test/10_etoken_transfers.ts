@@ -15,7 +15,7 @@ describe("EToken transfers", () => {
     [bob, laura, tito] = await ethers.getSigners();
 
     const MockedEToken = await ethers.getContractFactory("EToken");
-    eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI");
+    eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI", 18);
     await eDAI.deployed();
 
     await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contract
@@ -115,7 +115,7 @@ describe("EToken transfers", () => {
               await eDAI.accrueEarnings(parseUnits("1000"));
             });
 
-            it("THEN balance of eDAI in tito's address is 5000", async () => {
+            it("THEN balance of eDAI in tito's address is 4250", async () => {
               let titoBalance = await eDAI.balanceOf(tito.address);
 
               expect(titoBalance).to.equal(parseUnits("4250"));

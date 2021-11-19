@@ -10,7 +10,7 @@ import {
   ExactlyEnv,
 } from "./exactlyUtils";
 
-describe("EToken accountancy (mint, burn & accrueEarnings)", () => {
+describe("EToken accounting (mint, burn & accrueEarnings)", () => {
   let exactlyEnv: DefaultEnv;
 
   let bob: SignerWithAddress;

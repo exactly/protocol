@@ -8,9 +8,12 @@ import { DefaultEnv, ExactlyEnv } from "./exactlyUtils";
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;
 
-  let underlyingToken: Contract;
-  let fixedLender: Contract;
+  let underlyingTokenDAI: Contract;
+  let fixedLenderDAI: Contract;
   let eDAI: Contract;
+  let underlyingTokenWBTC: Contract;
+  let fixedLenderWBTC: Contract;
+  let eWBTC: Contract;
   let bob: SignerWithAddress;
   let john: SignerWithAddress;
 
@@ -23,6 +26,14 @@ describe("Smart Pool", function () {
         usdPrice: parseUnits("1"),
       },
     ],
+    [
+      "WBTC",
+      {
+        decimals: 8,
+        collateralRate: parseUnits("0.6", 18),
+        usdPrice: parseUnits("60000"),
+      },
+    ],
   ]);
 
   beforeEach(async () => {
@@ -30,32 +41,36 @@ describe("Smart Pool", function () {
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     eDAI = exactlyEnv.getEToken("DAI");
+    underlyingTokenDAI = exactlyEnv.getUnderlying("DAI");
+    fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
+    await eDAI.setFixedLender(fixedLenderDAI.address);
 
-    underlyingToken = exactlyEnv.getUnderlying("DAI");
-    fixedLender = exactlyEnv.getFixedLender("DAI");
-    await eDAI.setFixedLender(fixedLender.address);
+    eWBTC = exactlyEnv.getEToken("WBTC");
+    underlyingTokenWBTC = exactlyEnv.getUnderlying("WBTC");
+    fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
+    await eWBTC.setFixedLender(fixedLenderWBTC.address);
 
     // From Owner to User
-    await underlyingToken.transfer(bob.address, parseUnits("2000"));
-    await underlyingToken.transfer(john.address, parseUnits("2000"));
+    await underlyingTokenDAI.transfer(bob.address, parseUnits("2000"));
+    await underlyingTokenWBTC.transfer(bob.address, parseUnits("1", 8));
+    await underlyingTokenDAI.transfer(john.address, parseUnits("2000"));
   });
 
-  describe("GIVEN bob has 2000DAI in balance, AND deposits 1000DAI", () => {
+  describe("GIVEN bob and jhon have 2000DAI in balance, AND deposit 1000DAI each", () => {
     beforeEach(async () => {
       let bobBalance = parseUnits("2000");
       let johnBalance = parseUnits("2000");
-      const fixedLenderJohn = fixedLender.connect(john);
-      await underlyingToken.approve(fixedLender.address, bobBalance);
+      await underlyingTokenDAI.approve(fixedLenderDAI.address, bobBalance);
+      await underlyingTokenDAI
+        .connect(john)
+        .approve(fixedLenderDAI.address, johnBalance);
 
-      const underlyingTokenUser = underlyingToken.connect(john);
-      await underlyingTokenUser.approve(fixedLender.address, johnBalance);
-
-      await fixedLenderJohn.depositToSmartPool(parseUnits("1000"));
-      await fixedLender.depositToSmartPool(parseUnits("1000"));
+      await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("1000"));
+      await fixedLenderDAI.depositToSmartPool(parseUnits("1000"));
     });
     it("THEN balance of DAI in contract is 2000", async () => {
-      let balanceOfAssetInContract = await underlyingToken.balanceOf(
-        fixedLender.address
+      let balanceOfAssetInContract = await underlyingTokenDAI.balanceOf(
+        fixedLenderDAI.address
       );
 
       expect(balanceOfAssetInContract).to.equal(parseUnits("2000"));
@@ -66,19 +81,18 @@ describe("Smart Pool", function () {
       expect(balanceOfETokenInUserAddress).to.equal(parseUnits("1000"));
     });
     it("AND WHEN bob deposits 100DAI more, THEN event DepositToSmartPool is emitted", async () => {
-      await expect(fixedLender.depositToSmartPool(parseUnits("100"))).to.emit(
-        fixedLender,
-        "DepositToSmartPool"
-      );
+      await expect(
+        fixedLenderDAI.depositToSmartPool(parseUnits("100"))
+      ).to.emit(fixedLenderDAI, "DepositToSmartPool");
     });
     describe("AND bob withdraws 500DAI", () => {
       beforeEach(async () => {
         let amountToWithdraw = parseUnits("500");
-        await fixedLender.withdrawFromSmartPool(amountToWithdraw);
+        await fixedLenderDAI.withdrawFromSmartPool(amountToWithdraw);
       });
       it("THEN balance of DAI in contract is 1500", async () => {
-        let balanceOfAssetInContract = await underlyingToken.balanceOf(
-          fixedLender.address
+        let balanceOfAssetInContract = await underlyingTokenDAI.balanceOf(
+          fixedLenderDAI.address
         );
 
         expect(balanceOfAssetInContract).to.equal(parseUnits("1500"));
@@ -90,14 +104,34 @@ describe("Smart Pool", function () {
       });
       it("AND WHEN bob withdraws 100DAI more, THEN event WithdrawFromSmartPool is emitted", async () => {
         await expect(
-          fixedLender.withdrawFromSmartPool(parseUnits("100"))
-        ).to.emit(fixedLender, "WithdrawFromSmartPool");
+          fixedLenderDAI.withdrawFromSmartPool(parseUnits("100"))
+        ).to.emit(fixedLenderDAI, "WithdrawFromSmartPool");
       });
       it("AND WHEN bob wants to withdraw 600DAI more, THEN it reverts because his eDAI balance is not enough", async () => {
         await expect(
-          fixedLender.withdrawFromSmartPool(parseUnits("600"))
+          fixedLenderDAI.withdrawFromSmartPool(parseUnits("600"))
         ).to.be.revertedWith("ERC20: burn amount exceeds balance");
       });
+    });
+  });
+  describe("GIVEN bob has 1WBTC in balance, AND deposit 1WBTC", () => {
+    beforeEach(async () => {
+      let bobBalance = parseUnits("1", 8);
+      await underlyingTokenWBTC.approve(fixedLenderWBTC.address, bobBalance);
+
+      await fixedLenderWBTC.depositToSmartPool(parseUnits("1", 8));
+    });
+    it("THEN balance of WBTC in contract is 1", async () => {
+      let balanceOfAssetInContract = await underlyingTokenWBTC.balanceOf(
+        fixedLenderWBTC.address
+      );
+
+      expect(balanceOfAssetInContract).to.equal(parseUnits("1", 8));
+    });
+    it("THEN balance of eWBTC in BOB's address is 1", async () => {
+      let balanceOfETokenInUserAddress = await eWBTC.balanceOf(bob.address);
+
+      expect(balanceOfETokenInUserAddress).to.equal(parseUnits("1", 8));
     });
   });
 });

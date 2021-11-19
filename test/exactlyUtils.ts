@@ -278,7 +278,8 @@ export class ExactlyEnv {
         const MockedEToken = await ethers.getContractFactory("EToken");
         const eToken = await MockedEToken.deploy(
           "eFake " + tokenName,
-          "eF" + tokenName
+          "eF" + tokenName,
+          decimals
         );
         await eToken.deployed();
 
@@ -346,7 +347,7 @@ export class ExactlyEnv {
     await exaToken.deployed();
 
     const EToken = await ethers.getContractFactory("EToken", {});
-    let eToken = await EToken.deploy("eDAI", "eDAI");
+    let eToken = await EToken.deploy("eDAI", "eDAI", 18);
     await eToken.deployed();
 
     const FixedLenderHarness = await ethers.getContractFactory(

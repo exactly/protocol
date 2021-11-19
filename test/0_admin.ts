@@ -105,7 +105,7 @@ describe("Auditor Admin", function () {
     });
 
     const EToken = await ethers.getContractFactory("EToken");
-    const eToken = await EToken.deploy("aExa", "aEXA");
+    const eToken = await EToken.deploy("aExa", "aEXA", 18);
     await eToken.deployed();
 
     const fixedLender = await FixedLender.deploy(
@@ -140,7 +140,7 @@ describe("Auditor Admin", function () {
     });
 
     const EToken = await ethers.getContractFactory("EToken");
-    const eToken = await EToken.deploy("aExa", "aEXA");
+    const eToken = await EToken.deploy("aExa", "aEXA", 18);
     await eToken.deployed();
 
     const fixedLender = await FixedLender.deploy(
