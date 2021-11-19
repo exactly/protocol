@@ -19,9 +19,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     );
   }
 
-  const tsUtils = await hre.deployments.deploy("TSUtils", {
-    from: deployer,
-  });
+  const { tsUtils, decimalMath, marketsLib, exaLib } = await deployLibraries(
+    deployer,
+    hre
+  );
 
   let exactlyOracle;
   if (hre.network.name === "rinkeby") {
@@ -47,10 +48,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
   }
 
-  const exaLib = await hre.deployments.deploy("ExaLib", {
-    from: deployer,
-  });
-
   const exaToken = await hre.deployments.deploy("ExaToken", {
     from: deployer,
   });
@@ -61,7 +58,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
     libraries: {
       TSUtils: tsUtils.address,
+      DecimalMath: decimalMath.address,
       ExaLib: exaLib.address,
+      MarketsLib: marketsLib.address,
     },
   });
 
@@ -84,21 +83,43 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const { name, address, whale, collateralRate, oracleName, decimals } =
       tokensForNetwork[symbol];
     console.log("------");
-    console.log(
-      "FixedLender for %s will use: %s",
-      symbol,
-      address,
-      auditor.address
-    );
+
+    const eToken = await hre.deployments.deploy("EToken", {
+      from: deployer,
+      args: ["e" + name, "e" + oracleName, decimals],
+      log: true,
+    });
+    console.log("eToken e%s deployed", oracleName);
 
     const fixedLender = await hre.deployments.deploy("FixedLender", {
       from: deployer,
-      args: [address, oracleName, auditor.address, interestRateModel.address],
+      args: [
+        address,
+        oracleName,
+        eToken.address,
+        auditor.address,
+        interestRateModel.address,
+      ],
       log: true,
       libraries: {
         TSUtils: tsUtils.address,
       },
     });
+    console.log(
+      "FixedLender for %s uses underlying asset address: %s, etoken address: %s, and auditor address: %s",
+      symbol,
+      address,
+      eToken.address,
+      auditor.address
+    );
+
+    // We set the FixedLender where the eToken is used
+    await hre.deployments.execute(
+      "EToken",
+      { from: deployer },
+      "setFixedLender",
+      fixedLender.address
+    );
 
     // We enable this FixedLender Market on Auditor
     await hre.deployments.execute(
@@ -111,7 +132,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       name,
       decimals
     );
-    console.log("FixedLender %s deployed to: %s", symbol, fixedLender.address);
 
     if (!process.env.PUBLIC_ADDRESS) {
       console.log("Add PUBLIC_ADDRESS key to your .env file");
@@ -125,6 +145,40 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
   }
 };
+
+async function deployLibraries(deployer: any, hardhatRuntimeEnvironment: any) {
+  const tsUtils = await hardhatRuntimeEnvironment.deployments.deploy(
+    "TSUtils",
+    {
+      from: deployer,
+    }
+  );
+  const decimalMath = await hardhatRuntimeEnvironment.deployments.deploy(
+    "DecimalMath",
+    {
+      from: deployer,
+    }
+  );
+  const marketsLib = await hardhatRuntimeEnvironment.deployments.deploy(
+    "MarketsLib",
+    {
+      from: deployer,
+      libraries: {
+        TSUtils: tsUtils.address,
+        DecimalMath: decimalMath.address,
+      },
+    }
+  );
+  const exaLib = await hardhatRuntimeEnvironment.deployments.deploy("ExaLib", {
+    from: deployer,
+    libraries: {
+      MarketsLib: marketsLib.address,
+      DecimalMath: decimalMath.address,
+    },
+  });
+
+  return { tsUtils, decimalMath, marketsLib, exaLib };
+}
 
 async function getTokenParameters(tokensForNetwork: any) {
   let tokenAddresses = new Array();

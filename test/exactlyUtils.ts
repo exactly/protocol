@@ -101,10 +101,8 @@ export enum ProtocolError {
   INCONSISTENT_PARAMS_LENGTH,
   REDEEM_CANT_BE_ZERO,
   EXIT_MARKET_BALANCE_OWED,
-  BURN_AMOUNT_EXCEEDS_BALANCE,
   CALLER_MUST_BE_FIXED_LENDER,
   FIXED_LENDER_ALREADY_SET,
-  MINT_NOT_TO_ZERO_ADDRESS,
   INSUFFICIENT_PROTOCOL_LIQUIDITY,
 }
 
@@ -280,7 +278,8 @@ export class ExactlyEnv {
         const MockedEToken = await ethers.getContractFactory("EToken");
         const eToken = await MockedEToken.deploy(
           "eFake " + tokenName,
-          "eF" + tokenName
+          "eF" + tokenName,
+          decimals
         );
         await eToken.deployed();
 
@@ -348,7 +347,7 @@ export class ExactlyEnv {
     await exaToken.deployed();
 
     const EToken = await ethers.getContractFactory("EToken", {});
-    let eToken = await EToken.deploy("eDAI", "eDAI");
+    let eToken = await EToken.deploy("eDAI", "eDAI", 18);
     await eToken.deployed();
 
     const FixedLenderHarness = await ethers.getContractFactory(
