@@ -315,12 +315,12 @@ describe("EToken transfers", () => {
         .to.emit(eDAI, "Transfer")
         .withArgs(bob.address, laura.address, parseUnits("100"));
     });
-    it("AND WHEN tito transfers 100 eDAI from bob to address zero, THEN it reverts with error TRANSFER_ZERO_ADDRESS", async () => {
+    it("AND WHEN tito transfers 100 eDAI from bob to address zero, THEN it reverts with ERC20 transfer error", async () => {
       await expect(
         eDAI
           .connect(tito)
           .transferFrom(bob.address, AddressZero, parseUnits("100"))
-      ).to.be.revertedWith(errorGeneric(ProtocolError.TRANSFER_ZERO_ADDRESS));
+      ).to.be.revertedWith("ERC20: transfer to the zero address");
     });
     describe("AND GIVEN an accrue of earnings by 1000 eDAI", () => {
       beforeEach(async () => {
@@ -401,15 +401,13 @@ describe("EToken transfers", () => {
 
             expect(totalSupply).to.equal(parseUnits("5000"));
           });
-          it("AND WHEN tito transfers more than bob's balance, THEN it reverts with error TRANSFER_EXCEEDS_BALANCE", async () => {
+          it("AND WHEN tito transfers more than bob's balance, THEN it reverts with ERC20 transfer exceeds balance error", async () => {
             await eDAI.approve(tito.address, parseUnits("100"));
             await expect(
               eDAI
                 .connect(tito)
                 .transferFrom(bob.address, tito.address, parseUnits("100"))
-            ).to.be.revertedWith(
-              errorGeneric(ProtocolError.TRANSFER_EXCEEDS_BALANCE)
-            );
+            ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
           });
         });
       });
