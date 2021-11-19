@@ -32,7 +32,7 @@ describe("Liquidity computations", function () {
       "DAI",
       {
         decimals: 18,
-        collateralRate: parseUnits("0.8", 18),
+        collateralRate: parseUnits("0.8"),
         usdPrice: parseUnits("1"),
       },
     ],
@@ -40,7 +40,7 @@ describe("Liquidity computations", function () {
       "USDC",
       {
         decimals: 6,
-        collateralRate: parseUnits("0.8", 18),
+        collateralRate: parseUnits("0.8"),
         usdPrice: parseUnits("1"),
       },
     ],
@@ -48,7 +48,7 @@ describe("Liquidity computations", function () {
       "WBTC",
       {
         decimals: 8,
-        collateralRate: parseUnits("0.6", 18),
+        collateralRate: parseUnits("0.6"),
         usdPrice: parseUnits("60000"),
       },
     ],
@@ -164,6 +164,80 @@ describe("Liquidity computations", function () {
           );
           expect(borrowed).to.be.gt(parseUnits("799"));
           expect(borrowed).to.be.lt(parseUnits("801"));
+        });
+      });
+    });
+  });
+
+  describe.only("payday loans", () => {
+    describe("GIVEN a well funded maturity pool (10kdai, laura), AND collateral for the borrower, (10kusdc, bob)", () => {
+      const usdcDecimals = mockedTokens.get("USDC")!.decimals;
+      beforeEach(async () => {
+        const daiAmount = parseUnits("10000");
+        await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
+        await fixedLenderDAI
+          .connect(laura)
+          .supply(laura.address, daiAmount, nextPoolID);
+        const usdcAmount = parseUnits("10000", usdcDecimals);
+        await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
+        await fixedLenderUSDC
+          .connect(bob)
+          .supply(bob.address, usdcAmount, nextPoolID);
+      });
+      describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
+        beforeEach(async () => {
+          await fixedLenderDAI
+            .connect(bob)
+            .borrow(parseUnits("7000"), nextPoolID);
+        });
+        it("THEN bob has 1kusd liquidity and no shortfall", async () => {
+          const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+            bob.address,
+            nextPoolID
+          );
+          expect(liquidity).to.be.lt(parseUnits("1000"));
+          expect(liquidity).to.be.gt(parseUnits("990"));
+          expect(shortfall).to.eq(parseUnits("0"));
+        });
+        describe("AND WHEN moving to five days after the maturity date", () => {
+          beforeEach(async () => {
+            // Move in time to maturity
+            await ethers.provider.send("evm_setNextBlockTimestamp", [
+              nextPoolID + 5 * new ExaTime().ONE_DAY,
+            ]);
+            await ethers.provider.send("evm_mine", []);
+          });
+          it("THEN 5 days of *daily* base rate interest is charged, adding 1.02^5 =10% interest to the debt", async () => {
+            const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+              bob.address,
+              nextPoolID
+            );
+            // 1000 - 7000*1.02^5-7000
+            // 271.4343776000
+            expect(liquidity).to.be.lt(parseUnits("272"));
+            expect(liquidity).to.be.gt(parseUnits("250"));
+            expect(shortfall).to.eq(parseUnits("0"));
+          });
+          describe("AND WHEN moving to fifteen days after the maturity date", () => {
+            beforeEach(async () => {
+              // Move in time to maturity
+              await ethers.provider.send("evm_setNextBlockTimestamp", [
+                nextPoolID + 15 * new ExaTime().ONE_DAY,
+              ]);
+              await ethers.provider.send("evm_mine", []);
+            });
+            it("THEN 15 days of *daily* base rate interest is charged, adding 1.02^15 =35% interest to the debt, causing a shortfall", async () => {
+              const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+                bob.address,
+                nextPoolID
+              );
+              // 1000 - 7000*1.02^15+7000
+              // -1421.07836826890714498000
+              expect(shortfall).to.be.lt(parseUnits("1422"));
+              expect(shortfall).to.be.gt(parseUnits("1400"));
+              expect(liquidity).to.eq(parseUnits("0"));
+            });
+          });
         });
       });
     });
