@@ -61,13 +61,13 @@ describe("Smart Pool", function () {
   describe("GIVEN bob and jhon have 2000DAI in balance, AND deposit 1000DAI each", () => {
     beforeEach(async () => {
       await underlyingTokenDAI
-        .connect(john)
+        .connect(bob)
         .approve(fixedLenderDAI.address, bobBalancePre);
       await underlyingTokenDAI
         .connect(john)
         .approve(fixedLenderDAI.address, johnBalancePre);
 
-      await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("1000"));
+      await fixedLenderDAI.connect(bob).depositToSmartPool(parseUnits("1000"));
       await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("1000"));
     });
     it("THEN balance of DAI in contract is 2000", async () => {
