@@ -330,20 +330,28 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl{
 
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
         (,uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
-        borrowedAmounts[maturityDate][borrower] = amountOwed - repayAmount;
 
-        uint256 penalty = amountOwed - amountBorrowed;
-        if (penalty > 0) {
-            eToken.accrueEarnings(Math.min(repayAmount, penalty));
-        }
+        // We calculate the amount of the debt this covers, paying proportionally
+        // the amount of interests on the overdue debt. If repay amount = amount owed,
+        // then amountBorrowed is what should be discounted to the users account
+        uint256 debtCovered = (repayAmount * amountBorrowed) / amountOwed;
+        eToken.accrueEarnings(repayAmount - debtCovered);
+        borrowedAmounts[maturityDate][borrower] = amountBorrowed - debtCovered;
+
+        console.log("------------------------------");
+        console.log("---- OWED: %s", amountOwed);
+        console.log("---- BORROWED: %s", amountBorrowed);
+        console.log("---- DEBT COVERED: %s", debtCovered);
+        console.log("---- DEBT LEFT: %s", amountBorrowed - debtCovered);
+        console.log("------------------------------");
 
         // That repayment diminishes debt in the pool
         PoolLib.MaturityPool memory pool = pools[maturityDate];
-        pool.borrowed -= repayAmount;
+        pool.borrowed -= debtCovered;
         pools[maturityDate] = pool;
 
-        totalBorrows -= repayAmount;
-        totalBorrowsUser[borrower] -= repayAmount;
+        totalBorrows -= debtCovered;
+        totalBorrowsUser[borrower] -= debtCovered;
 
         emit RepaidLiquidate(payer, borrower, repayAmount, maturityDate);
     }

@@ -229,6 +229,7 @@ describe("Liquidity computations", function () {
             const calculatedLiquidity = totalSupplyAmount.sub(
               totalBorrowAmount.mul(2).mul(5).div(100) // 2% * 5 days
             );
+            // TODO: this should equal
             expect(liquidity).to.be.lt(calculatedLiquidity);
             expect(shortfall).to.eq(parseUnits("0"));
           });
