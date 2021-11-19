@@ -9,6 +9,7 @@ import {
   errorGeneric,
   DefaultEnv,
   parseSupplyEvent,
+  parseBorrowEvent,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -169,13 +170,15 @@ describe("Liquidity computations", function () {
     });
   });
 
-  describe.only("unpaid debts after maturity", () => {
+  describe("unpaid debts after maturity", () => {
     describe("GIVEN a well funded maturity pool (10kdai, laura), AND collateral for the borrower, (10kusdc, bob)", () => {
       const usdcDecimals = mockedTokens.get("USDC")!.decimals;
+      let txSupply: any;
+      let txBorrow: any;
       beforeEach(async () => {
         const daiAmount = parseUnits("10000");
         await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
-        await fixedLenderDAI
+        txSupply = await fixedLenderDAI
           .connect(laura)
           .supply(laura.address, daiAmount, nextPoolID);
         const usdcAmount = parseUnits("10000", usdcDecimals);
@@ -186,7 +189,7 @@ describe("Liquidity computations", function () {
       });
       describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
         beforeEach(async () => {
-          await fixedLenderDAI
+          txBorrow = await fixedLenderDAI
             .connect(bob)
             .borrow(parseUnits("7000"), nextPoolID);
         });
@@ -212,10 +215,21 @@ describe("Liquidity computations", function () {
               bob.address,
               nextPoolID
             );
-            // 1000 - 7000*1.02^5-7000
-            // 271.4343776000
-            expect(liquidity).to.be.lt(parseUnits("272"));
-            expect(liquidity).to.be.gt(parseUnits("250"));
+            // Based on the events emitted, we calculate the liquidity
+            // This is because we need to take into account the fixed rates
+            // that the borrow and the lent got at the time of the transaction
+            const supplyEvent = await parseSupplyEvent(txSupply);
+            const borrowEvent = await parseBorrowEvent(txBorrow);
+            const totalSupplyAmount = supplyEvent.amount.add(
+              supplyEvent.commission
+            );
+            const totalBorrowAmount = borrowEvent.amount.add(
+              borrowEvent.commission
+            );
+            const calculatedLiquidity = totalSupplyAmount.sub(
+              totalBorrowAmount.mul(2).mul(5).div(100) // 2% * 5 days
+            );
+            expect(liquidity).to.be.lt(calculatedLiquidity);
             expect(shortfall).to.eq(parseUnits("0"));
           });
           describe("AND WHEN moving to fifteen days after the maturity date", () => {
@@ -231,10 +245,21 @@ describe("Liquidity computations", function () {
                 bob.address,
                 nextPoolID
               );
-              // 1000 - 7000*1.02^15+7000
-              // -1421.07836826890714498000
-              expect(shortfall).to.be.lt(parseUnits("1422"));
-              expect(shortfall).to.be.gt(parseUnits("1400"));
+              // Based on the events emitted, we calculate the liquidity
+              // This is because we need to take into account the fixed rates
+              // that the borrow and the lent got at the time of the transaction
+              const supplyEvent = await parseSupplyEvent(txSupply);
+              const borrowEvent = await parseBorrowEvent(txBorrow);
+              const totalSupplyAmount = supplyEvent.amount.add(
+                supplyEvent.commission
+              );
+              const totalBorrowAmount = borrowEvent.amount.add(
+                borrowEvent.commission
+              );
+              const calculatedShortfall = totalSupplyAmount.sub(
+                totalBorrowAmount.mul(2).mul(15).div(100) // 2% * 15 days
+              );
+              expect(shortfall).to.be.lt(calculatedShortfall);
               expect(liquidity).to.eq(parseUnits("0"));
             });
           });
