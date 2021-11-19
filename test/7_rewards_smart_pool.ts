@@ -120,7 +120,7 @@ describe("ExaToken Smart Pool", () => {
         await fixedLenderMaria.depositToSmartPool(depositAmount);
 
         await expect(
-          fixedLenderMaria.withdrawFromSmartPool(depositAmount)
+          fixedLenderMaria.withdrawFromSmartPool(ethers.constants.MaxUint256)
         ).to.emit(auditor, "DistributedSmartPoolExa");
       });
     });

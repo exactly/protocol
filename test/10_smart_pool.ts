@@ -105,6 +105,12 @@ describe("Smart Pool", function () {
           errorGeneric(ProtocolError.BURN_AMOUNT_EXCEEDS_BALANCE)
         );
       });
+
+      it("AND WHEN bob wants to withdraw all the assets, THEN he doesn't need to especifically set the amount", async () => {
+        await expect(
+          fixedLender.withdrawFromSmartPool(ethers.constants.MaxUint256)
+        ).to.not.be.reverted;
+      });
     });
   });
 });
