@@ -169,7 +169,7 @@ describe("Liquidity computations", function () {
     });
   });
 
-  describe.only("payday loans", () => {
+  describe.only("unpaid debts after maturity", () => {
     describe("GIVEN a well funded maturity pool (10kdai, laura), AND collateral for the borrower, (10kusdc, bob)", () => {
       const usdcDecimals = mockedTokens.get("USDC")!.decimals;
       beforeEach(async () => {
