@@ -647,7 +647,7 @@ describe("FixedLender", function () {
     await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
 
     const borrow = fixedLenderMaria.borrow(
-      parseUnits("0.40"),
+      parseUnits("0.4"),
       exaTime.nextPoolID()
     );
 
