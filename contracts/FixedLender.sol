@@ -283,7 +283,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         nonReentrant
     {
         // reverts on failure
-        auditor.repayAllowed(address(this), borrower, maturityDate);
+        auditor.repayAllowed(address(this), borrower);
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];

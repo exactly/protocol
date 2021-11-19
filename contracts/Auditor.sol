@@ -394,19 +394,14 @@ contract Auditor is IAuditor, AccessControl {
      *      This function is called from fixedLender contracts.
      * @param fixedLenderAddress address of the fixedLender that will collect money in a maturity
      * @param borrower address of the user that wants to repay its debt
-     * @param maturityDate timestamp for the maturity date that the user wants to repay its debt. It should
-     *                     be in a MATURED state (meaning that the date is VALID + MATURED)
      */
     function repayAllowed(
         address fixedLenderAddress,
-        address borrower,
-        uint256 maturityDate
+        address borrower
     ) external override {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
-
-        _requirePoolState(maturityDate, TSUtils.State.MATURED);
 
         rewardsState.updateExaBorrowIndex(block.number, fixedLenderAddress);
         rewardsState.distributeBorrowerExa(fixedLenderAddress, borrower);

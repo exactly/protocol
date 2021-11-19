@@ -41,8 +41,7 @@ interface IAuditor {
 
     function repayAllowed(
         address fixedLenderAddress,
-        address borrower,
-        uint256 maturityDate
+        address borrower
     ) external;
 
     function liquidateAllowed(

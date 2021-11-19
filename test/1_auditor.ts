@@ -208,11 +208,7 @@ describe("Auditor from User Space", function () {
 
   it("RepayAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.repayAllowed(
-        exactlyEnv.notAnFixedLenderAddress,
-        owner.address,
-        nextPoolID
-      )
+      auditor.repayAllowed(exactlyEnv.notAnFixedLenderAddress, owner.address)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
