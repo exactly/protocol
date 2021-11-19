@@ -131,9 +131,11 @@ describe("Smart Pool", function () {
   describe("GIVEN bob has 1WBTC in balance, AND deposit 1WBTC", () => {
     beforeEach(async () => {
       let bobBalance = parseUnits("1", 8);
-      await underlyingTokenWBTC.approve(fixedLenderWBTC.address, bobBalance);
+      await underlyingTokenWBTC
+        .connect(bob)
+        .approve(fixedLenderWBTC.address, bobBalance);
 
-      await fixedLenderWBTC.depositToSmartPool(parseUnits("1", 8));
+      await fixedLenderWBTC.connect(bob).depositToSmartPool(parseUnits("1", 8));
     });
     it("THEN balance of WBTC in contract is 1", async () => {
       let balanceOfAssetInContract = await underlyingTokenWBTC.balanceOf(
