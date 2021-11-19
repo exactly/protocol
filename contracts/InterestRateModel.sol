@@ -14,42 +14,48 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
 
     // Parameters to the system, expressed with 1e18 decimals
-    uint256 public marginRate;
     uint256 public mpSlopeRate;
     uint256 public spSlopeRate;
+    uint256 public spHighURSlopeRate;
     uint256 public baseRate;
+    uint256 public slopeChangeRate;
 
     using DecimalMath for uint256;
 
     constructor(
-        uint256 _marginRate,
         uint256 _mpSlopeRate,
         uint256 _spSlopeRate,
+        uint256 _spHighURSlopeRate,
+        uint256 _slopeChangeRate,
         uint256 _baseRate
     ) {
-        marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
+        spHighURSlopeRate = _spHighURSlopeRate;
+        slopeChangeRate = _slopeChangeRate;
         baseRate = _baseRate;
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /**
-     * @dev Function to update this model's parameters (TEAM_ONLY)
-     * @param _marginRate spread between borrowing and lending
-     * @param _mpSlopeRate slope to alter the utilization rate
-     * @param _spSlopeRate slope to alter the utilization rate
+     * @dev Function to update this model's parameters (DEFAULT_ADMIN_ROLE)
+     * @param _mpSlopeRate slope to alter the utilization rate of maturity pool
+     * @param _spSlopeRate slope to alter the utilization rate of smart pool
+     * @param _spHighURSlopeRate slope when utilization rate is higher than baseRate
+     * @param _baseRate rate that defines if we are using _spSlopeRate or _spHighURSlopeRate
      */
     function setParameters(
-        uint256 _marginRate,
         uint256 _mpSlopeRate,
         uint256 _spSlopeRate,
+        uint256 _spHighURSlopeRate,
+        uint256 _slopeChangeRate,
         uint256 _baseRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        marginRate = _marginRate;
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
+        spHighURSlopeRate = _spHighURSlopeRate;
+        slopeChangeRate = _slopeChangeRate;
         baseRate = _baseRate;
     }
 
@@ -83,16 +89,26 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
                     (mpSlopeRate * maturityPool.borrowed) /
                     maturityPool.supplied;
         } else {
-            yearlyRate = Math.max(
-                smartPool.supplied == 0
-                    ? 0
-                    : (spSlopeRate * smartPool.borrowed) / smartPool.supplied,
-                maturityPool.supplied == 0
-                    ? 0
-                    : baseRate +
-                        (mpSlopeRate * maturityPool.borrowed) /
-                        maturityPool.supplied
+            if (smartPool.supplied == 0) {
+                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+            }
+            uint256 smartPoolUtilizationRate = smartPool.borrowed.div_(
+                smartPool.supplied
             );
+            uint256 spCurrentSlopeRate = smartPoolUtilizationRate >=
+                slopeChangeRate
+                ? spHighURSlopeRate
+                : spSlopeRate;
+
+            uint256 smartPoolRate = (spCurrentSlopeRate * smartPool.borrowed) /
+                smartPool.supplied;
+            uint256 maturityPoolRate = maturityPool.supplied == 0
+                ? 0
+                : baseRate +
+                    (mpSlopeRate * maturityPool.borrowed) /
+                    maturityPool.supplied;
+
+            yearlyRate = Math.max(smartPoolRate, maturityPoolRate);
         }
 
         return ((yearlyRate * daysDifference) / 365);

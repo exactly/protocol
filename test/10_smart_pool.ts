@@ -17,6 +17,7 @@ describe("Smart Pool", function () {
   let fixedLender: Contract;
   let eDAI: Contract;
   let bob: SignerWithAddress;
+  let john: SignerWithAddress;
 
   const mockedTokens = new Map([
     [
@@ -30,7 +31,7 @@ describe("Smart Pool", function () {
   ]);
 
   beforeEach(async () => {
-    [bob] = await ethers.getSigners();
+    [bob, john] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     eDAI = exactlyEnv.getEToken("DAI");
@@ -41,20 +42,28 @@ describe("Smart Pool", function () {
 
     // From Owner to User
     await underlyingToken.transfer(bob.address, parseUnits("2000"));
+    await underlyingToken.transfer(john.address, parseUnits("2000"));
   });
 
   describe("GIVEN bob has 2000DAI in balance, AND deposits 1000DAI", () => {
     beforeEach(async () => {
       let bobBalance = parseUnits("2000");
+      let johnBalance = parseUnits("2000");
+      const fixedLenderJohn = fixedLender.connect(john);
       await underlyingToken.approve(fixedLender.address, bobBalance);
+
+      const underlyingTokenUser = underlyingToken.connect(john);
+      await underlyingTokenUser.approve(fixedLender.address, johnBalance);
+
+      await fixedLenderJohn.depositToSmartPool(parseUnits("1000"));
       await fixedLender.depositToSmartPool(parseUnits("1000"));
     });
-    it("THEN balance of DAI in contract is 1000", async () => {
+    it("THEN balance of DAI in contract is 2000", async () => {
       let balanceOfAssetInContract = await underlyingToken.balanceOf(
         fixedLender.address
       );
 
-      expect(balanceOfAssetInContract).to.equal(parseUnits("1000"));
+      expect(balanceOfAssetInContract).to.equal(parseUnits("2000"));
     });
     it("THEN balance of eDAI in BOB's address is 1000", async () => {
       let balanceOfETokenInUserAddress = await eDAI.balanceOf(bob.address);
@@ -72,12 +81,12 @@ describe("Smart Pool", function () {
         let amountToWithdraw = parseUnits("500");
         await fixedLender.withdrawFromSmartPool(amountToWithdraw);
       });
-      it("THEN balance of DAI in contract is 500", async () => {
+      it("THEN balance of DAI in contract is 1500", async () => {
         let balanceOfAssetInContract = await underlyingToken.balanceOf(
           fixedLender.address
         );
 
-        expect(balanceOfAssetInContract).to.equal(parseUnits("500"));
+        expect(balanceOfAssetInContract).to.equal(parseUnits("1500"));
       });
       it("THEN balance of eDAI in BOB's address is 500", async () => {
         let balanceOfETokenInUserAddress = await eDAI.balanceOf(bob.address);

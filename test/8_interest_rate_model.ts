@@ -2,7 +2,13 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { formatUnits, parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ExactlyEnv, ExaTime, DefaultEnv } from "./exactlyUtils";
+import {
+  ExactlyEnv,
+  ExaTime,
+  DefaultEnv,
+  errorGeneric,
+  ProtocolError,
+} from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
 
@@ -56,6 +62,7 @@ describe("InterestRateModel", () => {
   };
 
   let mpSlopeRate: number = 0.07;
+  let spHighURSlopeRate: number = 0.4;
   let baseRate: number = 0.02;
 
   const closeToRate = 1 * 10 ** -17;
@@ -140,6 +147,38 @@ describe("InterestRateModel", () => {
     smartPool = {
       borrowed: 10000,
       supplied: 110000,
+    };
+
+    const yearlyRateMaturity =
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+    const actual = formatUnits(
+      await interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        true
+      )
+    );
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+  });
+
+  it("With well funded Smart pool, borrow 10000 from maturity pool. Should get Maturity pool rate", async () => {
+    maturityPool = {
+      borrowed: 10000,
+      supplied: 10000,
+      debt: 10000,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 10000,
+      supplied: 100000,
     };
 
     const yearlyRateMaturity =
@@ -426,15 +465,119 @@ describe("InterestRateModel", () => {
       supplied: 0,
     };
 
-    expect(
-      formatUnits(
-        await interestRateModel.getRateToBorrow(
-          futurePool,
-          maturityPool,
-          smartPool,
-          true
-        )
+    await expect(
+      interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        true
       )
-    ).to.be.equal("0.0");
+    ).to.be.revertedWith(
+      errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+    );
+  });
+
+  it("Borrow less than supplied in maturity, smart is empty", async () => {
+    maturityPool = {
+      borrowed: 10,
+      supplied: 20,
+      debt: 0,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 0,
+      supplied: 0,
+    };
+
+    const yearlyRateMaturity =
+      baseRate + (mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateMaturity * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+    const actual = formatUnits(
+      await interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        false
+      )
+    );
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+  });
+
+  it("Borrow more than supplied in maturity pool with high UR in smart pool. Should get high slope", async () => {
+    maturityPool = {
+      borrowed: 2,
+      supplied: 1,
+      debt: 1,
+      available: 0,
+    };
+
+    smartPool = {
+      borrowed: 901,
+      supplied: 1000,
+    };
+
+    const actual = formatUnits(
+      await interestRateModel.getRateToBorrow(
+        futurePool,
+        maturityPool,
+        smartPool,
+        true
+      )
+    );
+
+    const yearlyRateSmartHighUR =
+      (spHighURSlopeRate * smartPool.borrowed) / smartPool.supplied;
+
+    const rate = truncDigits(
+      (yearlyRateSmartHighUR * exaTime.daysDiffWith(futurePool)) / 365,
+      18
+    );
+
+    expect(parseFloat(actual)).to.be.closeTo(rate, closeToRate);
+  });
+
+  it("should change parameters", async () => {
+    await interestRateModel.setParameters(
+      parseUnits("0.1"),
+      parseUnits("0.1"),
+      parseUnits("0.1"),
+      parseUnits("0.1"),
+      parseUnits("0.1")
+    );
+    expect(formatUnits(await interestRateModel.mpSlopeRate())).to.be.equal(
+      "0.1"
+    );
+
+    expect(formatUnits(await interestRateModel.spSlopeRate())).to.be.equal(
+      "0.1"
+    );
+
+    expect(
+      formatUnits(await interestRateModel.spHighURSlopeRate())
+    ).to.be.equal("0.1");
+
+    expect(formatUnits(await interestRateModel.slopeChangeRate())).to.be.equal(
+      "0.1"
+    );
+
+    expect(formatUnits(await interestRateModel.baseRate())).to.be.equal("0.1");
+  });
+
+  it("should revert on invalid pool id when trying to borrow", async () => {
+    await expect(
+      interestRateModel.getRateToBorrow("123", maturityPool, smartPool, false)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+  });
+
+  it("should revert on invalid pool id when trying to supply", async () => {
+    await expect(
+      interestRateModel.getRateToSupply("123", maturityPool)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 });
