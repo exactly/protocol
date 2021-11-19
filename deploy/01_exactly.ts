@@ -113,7 +113,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       auditor.address
     );
 
-    // Sets the FixedLender where the eToken is used
+    // We set the FixedLender where the eToken is used
     await hre.deployments.execute(
       "EToken",
       { from: deployer },
