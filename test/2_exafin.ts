@@ -605,7 +605,7 @@ describe("FixedLender", function () {
     await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
 
     const borrow = fixedLenderMaria.borrow(
-      parseUnits("0.40"),
+      parseUnits("0.4"),
       exaTime.nextPoolID()
     );
 
@@ -656,7 +656,7 @@ describe("FixedLender", function () {
     let poolData = await fixedLender.pools(exaTime.nextPoolID());
     let debt = poolData[2];
 
-    expect(debt).not.to.be.equal("0x00");
+    expect(debt).not.to.be.equal("0");
 
     await fixedLenderMaria.supply(
       mariaUser.address,
@@ -666,7 +666,7 @@ describe("FixedLender", function () {
 
     poolData = await fixedLender.pools(exaTime.nextPoolID());
     debt = poolData[2];
-    expect(debt).to.be.equal("0x00");
+    expect(debt).to.be.equal("0");
   });
 
   it("it doesn't allow you to borrow from smart pool if not enough liquidity", async () => {
