@@ -9,6 +9,7 @@ import {
   errorGeneric,
   DefaultEnv,
   parseSupplyEvent,
+  parseBorrowEvent,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -32,7 +33,7 @@ describe("Liquidity computations", function () {
       "DAI",
       {
         decimals: 18,
-        collateralRate: parseUnits("0.8", 18),
+        collateralRate: parseUnits("0.8"),
         usdPrice: parseUnits("1"),
       },
     ],
@@ -40,7 +41,7 @@ describe("Liquidity computations", function () {
       "USDC",
       {
         decimals: 6,
-        collateralRate: parseUnits("0.8", 18),
+        collateralRate: parseUnits("0.8"),
         usdPrice: parseUnits("1"),
       },
     ],
@@ -48,7 +49,7 @@ describe("Liquidity computations", function () {
       "WBTC",
       {
         decimals: 8,
-        collateralRate: parseUnits("0.6", 18),
+        collateralRate: parseUnits("0.6"),
         usdPrice: parseUnits("60000"),
       },
     ],
@@ -164,6 +165,105 @@ describe("Liquidity computations", function () {
           );
           expect(borrowed).to.be.gt(parseUnits("799"));
           expect(borrowed).to.be.lt(parseUnits("801"));
+        });
+      });
+    });
+  });
+
+  describe("unpaid debts after maturity", () => {
+    describe("GIVEN a well funded maturity pool (10kdai, laura), AND collateral for the borrower, (10kusdc, bob)", () => {
+      const usdcDecimals = mockedTokens.get("USDC")!.decimals;
+      let txSupply: any;
+      let txBorrow: any;
+      beforeEach(async () => {
+        const daiAmount = parseUnits("10000");
+        await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
+        txSupply = await fixedLenderDAI
+          .connect(laura)
+          .supply(laura.address, daiAmount, nextPoolID);
+        const usdcAmount = parseUnits("10000", usdcDecimals);
+        await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
+        await fixedLenderUSDC
+          .connect(bob)
+          .supply(bob.address, usdcAmount, nextPoolID);
+      });
+      describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
+        beforeEach(async () => {
+          txBorrow = await fixedLenderDAI
+            .connect(bob)
+            .borrow(parseUnits("7000"), nextPoolID);
+        });
+        it("THEN bob has 1kusd liquidity and no shortfall", async () => {
+          const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+            bob.address,
+            nextPoolID
+          );
+          expect(liquidity).to.be.lt(parseUnits("1000"));
+          expect(liquidity).to.be.gt(parseUnits("990"));
+          expect(shortfall).to.eq(parseUnits("0"));
+        });
+        describe("AND WHEN moving to five days after the maturity date", () => {
+          beforeEach(async () => {
+            // Move in time to maturity
+            await ethers.provider.send("evm_setNextBlockTimestamp", [
+              nextPoolID + 5 * new ExaTime().ONE_DAY,
+            ]);
+            await ethers.provider.send("evm_mine", []);
+          });
+          it("THEN 5 days of *daily* base rate interest is charged, adding 1.02^5 =10% interest to the debt", async () => {
+            const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+              bob.address,
+              nextPoolID
+            );
+            // Based on the events emitted, we calculate the liquidity
+            // This is because we need to take into account the fixed rates
+            // that the borrow and the lent got at the time of the transaction
+            const supplyEvent = await parseSupplyEvent(txSupply);
+            const borrowEvent = await parseBorrowEvent(txBorrow);
+            const totalSupplyAmount = supplyEvent.amount.add(
+              supplyEvent.commission
+            );
+            const totalBorrowAmount = borrowEvent.amount.add(
+              borrowEvent.commission
+            );
+            const calculatedLiquidity = totalSupplyAmount.sub(
+              totalBorrowAmount.mul(2).mul(5).div(100) // 2% * 5 days
+            );
+            // TODO: this should equal
+            expect(liquidity).to.be.lt(calculatedLiquidity);
+            expect(shortfall).to.eq(parseUnits("0"));
+          });
+          describe("AND WHEN moving to fifteen days after the maturity date", () => {
+            beforeEach(async () => {
+              // Move in time to maturity
+              await ethers.provider.send("evm_setNextBlockTimestamp", [
+                nextPoolID + 15 * new ExaTime().ONE_DAY,
+              ]);
+              await ethers.provider.send("evm_mine", []);
+            });
+            it("THEN 15 days of *daily* base rate interest is charged, adding 1.02^15 =35% interest to the debt, causing a shortfall", async () => {
+              const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+                bob.address,
+                nextPoolID
+              );
+              // Based on the events emitted, we calculate the liquidity
+              // This is because we need to take into account the fixed rates
+              // that the borrow and the lent got at the time of the transaction
+              const supplyEvent = await parseSupplyEvent(txSupply);
+              const borrowEvent = await parseBorrowEvent(txBorrow);
+              const totalSupplyAmount = supplyEvent.amount.add(
+                supplyEvent.commission
+              );
+              const totalBorrowAmount = borrowEvent.amount.add(
+                borrowEvent.commission
+              );
+              const calculatedShortfall = totalSupplyAmount.sub(
+                totalBorrowAmount.mul(2).mul(15).div(100) // 2% * 15 days
+              );
+              expect(shortfall).to.be.lt(calculatedShortfall);
+              expect(liquidity).to.eq(parseUnits("0"));
+            });
+          });
         });
       });
     });

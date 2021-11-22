@@ -38,7 +38,15 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     event Repaid(
         address indexed payer,
         address indexed borrower,
-        uint256 amount,
+        uint256 penalty,
+        uint256 amountBorrowed,
+        uint256 maturityDate
+    );
+
+    event RepaidLiquidate(
+        address indexed payer,
+        address indexed borrower,
+        uint256 repayAmount,
         uint256 maturityDate
     );
 
@@ -286,18 +294,25 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
+        (, uint256 amountWithPenalty) = getAccountSnapshot(borrower, maturityDate);
+
 
         trustedUnderlying.safeTransferFrom(
             msg.sender,
             address(this),
-            amountBorrowed
+            amountWithPenalty
         );
         totalBorrows -= amountBorrowed;
         totalBorrowsUser[borrower] -= amountBorrowed;
 
+        uint256 penalty = amountWithPenalty - amountBorrowed;
+
+        // TODO can the flashloan when repaying debt to accrue most of the earnings?
+        eToken.accrueEarnings(penalty);
+
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit Repaid(msg.sender, borrower, amountBorrowed, maturityDate);
+        emit Repaid(msg.sender, borrower, penalty, amountBorrowed, maturityDate);
     }
 
     /**
@@ -321,17 +336,24 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
-        borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
+        (,uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
+
+        // We calculate the amount of the debt this covers, paying proportionally
+        // the amount of interests on the overdue debt. If repay amount = amount owed,
+        // then amountBorrowed is what should be discounted to the users account
+        uint256 debtCovered = (repayAmount * amountBorrowed) / amountOwed;
+        eToken.accrueEarnings(repayAmount - debtCovered);
+        borrowedAmounts[maturityDate][borrower] = amountBorrowed - debtCovered;
 
         // That repayment diminishes debt in the pool
         PoolLib.MaturityPool memory pool = pools[maturityDate];
-        pool.borrowed -= repayAmount;
+        pool.borrowed -= debtCovered;
         pools[maturityDate] = pool;
 
-        totalBorrows -= repayAmount;
-        totalBorrowsUser[borrower] -= repayAmount;
+        totalBorrows -= debtCovered;
+        totalBorrowsUser[borrower] -= debtCovered;
 
-        emit Repaid(payer, borrower, repayAmount, maturityDate);
+        emit RepaidLiquidate(payer, borrower, repayAmount, maturityDate);
     }
 
     /**
@@ -556,9 +578,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
+
+        uint256 debt = borrowedAmounts[maturityDate][who];
+        uint256 daysDelayed = TSUtils.daysPast(maturityDate);
+        if (daysDelayed > 0) {
+            debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
+        }
+
         return (
             suppliedAmounts[maturityDate][who],
-            borrowedAmounts[maturityDate][who]
+            debt
         );
     }
 

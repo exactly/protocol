@@ -46,7 +46,6 @@ describe("FixedLender", function () {
   let mariaUser: SignerWithAddress;
   let owner: SignerWithAddress;
   let exaTime: ExaTime = new ExaTime();
-  let eDAI: Contract;
 
   let snapshot: any;
   beforeEach(async () => {
@@ -63,9 +62,6 @@ describe("FixedLender", function () {
     fixedLender = exactlyEnv.getFixedLender("DAI");
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");
     auditor = exactlyEnv.auditor;
-
-    eDAI = exactlyEnv.getEToken("DAI");
-    await eDAI.setFixedLender(fixedLender.address);
 
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
@@ -359,6 +355,99 @@ describe("FixedLender", function () {
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
     );
+  });
+
+  it("GetAccountSnapshot should reflect BaseRate penaltyFee for mariaUser", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
+
+    // connect through Maria
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const baseRate = await exactlyEnv.interestRateModel.baseRate();
+
+    // supply some money and parse event
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
+    await fixedLenderMaria.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    const tx = await fixedLenderMaria.borrow(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
+    const borrowEvent = await parseBorrowEvent(tx);
+
+    // Move in time to maturity + 1 day
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      exaTime.nextPoolID() + exaTime.ONE_DAY,
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
+      mariaUser.address,
+      exaTime.nextPoolID()
+    );
+
+    // if baseRate is 0.2 then we multiply for 1.2
+    expect(amountOwed).to.equal(
+      borrowEvent.amount
+        .add(borrowEvent.commission)
+        .mul(baseRate.add(parseUnits("1")))
+        .div(parseUnits("1"))
+    );
+  });
+
+  it("should charge mariaUser penaltyFee when paying her debt one day late", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
+
+    // connect through Maria
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const baseRate = await exactlyEnv.interestRateModel.baseRate();
+
+    // supply some money and parse event
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
+    await fixedLenderMaria.supply(
+      mariaUser.address,
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    const tx = await fixedLenderMaria.borrow(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
+    const borrowEvent = await parseBorrowEvent(tx);
+
+    // Move in time to maturity + 1 day
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      exaTime.nextPoolID() + exaTime.ONE_DAY,
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    // if baseRate is 0.2 then we multiply for 1.2
+    const amountPaid = borrowEvent.amount
+      .add(borrowEvent.commission)
+      .mul(baseRate.add(parseUnits("1")))
+      .div(parseUnits("1"));
+    const amountBorrowed = borrowEvent.amount.add(borrowEvent.commission);
+
+    // sanity check to make sure he paid more
+    expect(amountBorrowed).not.eq(amountPaid);
+
+    await expect(
+      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+    )
+      .to.emit(fixedLenderMaria, "Repaid")
+      .withArgs(
+        mariaUser.address,
+        mariaUser.address,
+        amountPaid.sub(amountBorrowed),
+        amountBorrowed,
+        exaTime.nextPoolID()
+      );
   });
 
   it("it allows the mariaUser to repay her debt at maturity and also redeeming her collateral", async () => {

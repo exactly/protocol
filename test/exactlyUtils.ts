@@ -297,6 +297,8 @@ export class ExactlyEnv {
         );
         await fixedLender.deployed();
 
+        await eToken.setFixedLender(fixedLender.address);
+
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, usdPrice);
         // Enable Market for FixedLender-TOKEN by setting the collateral rates

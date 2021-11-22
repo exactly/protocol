@@ -15,4 +15,7 @@ interface IInterestRateModel {
         uint256 maturityDate,
         PoolLib.MaturityPool memory poolMaturity
     ) external view returns (uint256);
+
+    function penaltyRate() external view returns (uint256);
+
 }

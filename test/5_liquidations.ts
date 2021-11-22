@@ -8,13 +8,15 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
+  parseBorrowEvent,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Liquidations", function () {
   let auditor: Contract;
   let exactlyEnv: DefaultEnv;
-  let nextPoolID = new ExaTime().nextPoolID();
+  let nextPoolID: number;
+  let exaTime = new ExaTime();
 
   let bob: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -73,11 +75,14 @@ describe("Liquidations", function () {
     exafinWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
+    nextPoolID = exaTime.nextPoolID();
+
     // From alice to bob
-    await dai.transfer(bob.address, parseUnits("100000"));
+    await dai.transfer(bob.address, parseUnits("200000"));
   });
 
   describe("GIVEN alice supplies USD63k worth of WBTC, USD3k worth of ETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob supplies 65kDAI", () => {
+    let txBorrowAliceDAI: any;
     beforeEach(async () => {
       // we supply Eth to the protocol
       const amountETH = parseUnits("1");
@@ -93,7 +98,7 @@ describe("Liquidations", function () {
       const amountDAI = parseUnits("65000");
       await dai.connect(bob).approve(exafinDAI.address, amountDAI);
       await exafinDAI.connect(bob).supply(bob.address, amountDAI, nextPoolID);
-      await dai.connect(bob).approve(exafinDAI.address, parseUnits("100000"));
+      await dai.connect(bob).approve(exafinDAI.address, parseUnits("200000"));
     });
 
     describe("AND GIVEN Alice takes the biggest loan she can (39850 DAI), 50 buffer for interest", () => {
@@ -107,12 +112,17 @@ describe("Liquidations", function () {
         amountToBorrowDAI = parseUnits("39850");
 
         // alice borrows all liquidity
-        await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
+        txBorrowAliceDAI = await exafinDAI.borrow(
+          amountToBorrowDAI,
+          nextPoolID
+        );
       });
 
-      describe("WHEN the pool matures (prices stay the same)", () => {
+      describe("WHEN the pool matures (prices stay the same) and 20 days goes by without payment", () => {
         beforeEach(async () => {
-          await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
+          await ethers.provider.send("evm_setNextBlockTimestamp", [
+            nextPoolID + exaTime.ONE_DAY * 20,
+          ]);
           await ethers.provider.send("evm_mine", []);
         });
         describe("AND the liquidation incentive is increased to 15%", () => {
@@ -214,49 +224,55 @@ describe("Liquidations", function () {
               .to.emit(exafinWBTC, "Seized")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
           });
-          it("AND 19k DAI of debt has been repaid, making debt ~20900 DAI", async () => {
+          it("AND 19k DAI of debt has been repaid, making debt ~36818 DAI", async () => {
             const [, debt] = await exafinDAI.getAccountSnapshot(
               alice.address,
               nextPoolID
             );
-            expect(debt).to.be.lt(parseUnits("20900"));
-            expect(debt).to.be.gt(parseUnits("20800"));
+            const borrowEventDAI = await parseBorrowEvent(txBorrowAliceDAI);
+            const totalBorrowAmount = borrowEventDAI.amount.add(
+              borrowEventDAI.commission
+            );
+
+            // 2% * 20 days = 40/100 + 1 = 140/100
+            const amountOwed = totalBorrowAmount.mul(140).div(100);
+            const debtCovered = parseUnits("19000")
+              .mul(totalBorrowAmount)
+              .div(amountOwed);
+            // remaining debt + 2% * 20 days = 40/100 + 1 = 140/100
+            const newDebtCalculated = totalBorrowAmount
+              .sub(debtCovered)
+              .mul(140)
+              .div(100);
+
+            expect(debt).to.be.closeTo(newDebtCalculated, 10000);
           });
-          describe("AND WHEN the position is liquidated a second time (39850-19000)/2 == 10400", () => {
+          describe("AND WHEN the position is liquidated a second time (55818-19000)/2 ~== 18000", () => {
             beforeEach(async () => {
               tx = exafinDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
-                  parseUnits("10400"),
+                  parseUnits("18000"),
                   exafinWBTC.address,
                   nextPoolID
                 );
               await tx;
             });
-            it("THEN the liquidator seizes 10k+10% of collateral (WBTC)", async () => {
+            it("THEN the liquidator seizes 18k+10% of collateral (WBTC)", async () => {
               // 10.4kusd of btc at its current price of 63kusd + 10% incentive for liquidators
-              const seizedWBTC = parseUnits("18158729", 0);
+              const seizedWBTC = parseUnits("31428570", 0);
               await expect(tx)
                 .to.emit(exafinWBTC, "Seized")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
-            it("AND 10k DAI of debt has been repaid, making debt ~10k DAI", async () => {
+            it("AND 18k DAI of debt has been repaid, making debt ~10k DAI", async () => {
               const [, debt] = await exafinDAI.getAccountSnapshot(
                 alice.address,
                 nextPoolID
               );
-              expect(debt).to.be.lt(parseUnits("10500"));
-              expect(debt).to.be.gt(parseUnits("10400"));
-            });
-            it("AND the position still has plenty of liquidity", async () => {
-              const [liquidity, shortfall] = await auditor.getAccountLiquidity(
-                alice.address,
-                nextPoolID
-              );
-              expect(liquidity).to.be.gt(parseUnits("10000"));
-              expect(liquidity).to.be.lt(parseUnits("11000"));
-              expect(shortfall).to.eq("0");
+              expect(debt).to.be.lt(parseUnits("19000"));
+              expect(debt).to.be.gt(parseUnits("18000"));
             });
           });
         });
@@ -520,9 +536,9 @@ describe("Liquidations", function () {
             );
           });
           it("AND 19000 DAI of debt is repaid", async () => {
-            const bobDAIBalanceBefore = parseUnits("35000");
+            const bobDAIBalanceBefore = parseUnits("135000");
             await expect(tx)
-              .to.emit(exafinDAI, "Repaid")
+              .to.emit(exafinDAI, "RepaidLiquidate")
               .withArgs(
                 bob.address,
                 alice.address,
