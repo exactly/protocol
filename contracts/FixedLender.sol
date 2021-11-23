@@ -294,18 +294,18 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
-        (, uint256 amountWithPenalty) = getAccountSnapshot(borrower, maturityDate);
+        (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
 
 
         trustedUnderlying.safeTransferFrom(
             msg.sender,
             address(this),
-            amountWithPenalty
+            amountOwed
         );
         totalBorrows -= amountBorrowed;
         totalBorrowsUser[borrower] -= amountBorrowed;
 
-        uint256 penalty = amountWithPenalty - amountBorrowed;
+        uint256 penalty = amountOwed - amountBorrowed;
 
         // TODO can the flashloan when repaying debt to accrue most of the earnings?
         eToken.accrueEarnings(penalty);
@@ -336,7 +336,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
-        (,uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
+        (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
 
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
