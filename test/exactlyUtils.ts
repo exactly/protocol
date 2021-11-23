@@ -386,6 +386,7 @@ export class ExactlyEnv {
 
 export class ExaTime {
   timestamp: number;
+  ONE_HOUR: number = 3600;
   ONE_DAY: number = 86400;
   INTERVAL: number = 86400 * 7;
 
