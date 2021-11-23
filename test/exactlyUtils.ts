@@ -247,7 +247,8 @@ export class ExactlyEnv {
       parseUnits("0.07"), // Smart pool slope rate
       parseUnits("0.4"), // High UR slope rate
       parseUnits("0.8"), // Slope change rate
-      parseUnits("0.02") // Base rate
+      parseUnits("0.02"), // Base rate
+      parseUnits("0.02") // Penalty Rate
     );
     await interestRateModel.deployed();
 

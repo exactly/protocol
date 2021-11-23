@@ -18,7 +18,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 public baseRate;
     uint256 public slopeChangeRate;
 
-    uint256 public override penaltyRate = 2e16; // 2%
+    uint256 public override penaltyRate;
 
     using DecimalMath for uint256;
 
@@ -27,13 +27,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _spSlopeRate,
         uint256 _spHighURSlopeRate,
         uint256 _slopeChangeRate,
-        uint256 _baseRate
+        uint256 _baseRate,
+        uint256 _penaltyRate
     ) {
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
         spHighURSlopeRate = _spHighURSlopeRate;
         slopeChangeRate = _slopeChangeRate;
         baseRate = _baseRate;
+        penaltyRate = _penaltyRate;
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -50,13 +52,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _spSlopeRate,
         uint256 _spHighURSlopeRate,
         uint256 _slopeChangeRate,
-        uint256 _baseRate
+        uint256 _baseRate,
+        uint256 _penaltyRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         mpSlopeRate = _mpSlopeRate;
         spSlopeRate = _spSlopeRate;
         spHighURSlopeRate = _spHighURSlopeRate;
         slopeChangeRate = _slopeChangeRate;
         baseRate = _baseRate;
+        penaltyRate = _penaltyRate;
     }
 
     /**
