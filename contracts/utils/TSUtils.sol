@@ -55,8 +55,8 @@ library TSUtils {
     }
 
     /**
-     * @notice Function to calculate how many days in past a certain timestamp was
-     * @param timestamp to use to calculate how many days in the past it was
+     * @notice Function to calculate how many days have passed since the end of the POOLID
+     * @param POOLID to calculate how many days the user is exceeded
      */
     function daysPast(uint256 timestamp) public view returns (uint256) {
         uint256 trimmedNow = trimmedDay(block.timestamp);
