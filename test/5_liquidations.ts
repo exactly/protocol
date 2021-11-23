@@ -63,7 +63,7 @@ describe("Liquidations", function () {
   beforeEach(async () => {
     [alice, bob] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
 
     exafinETH = exactlyEnv.getFixedLender("ETH");
@@ -223,8 +223,7 @@ describe("Liquidations", function () {
               alice.address,
               nextPoolID
             );
-            expect(debt).to.be.lt(parseUnits("20900"));
-            expect(debt).to.be.gt(parseUnits("20800"));
+            expect(debt).to.eq(parseUnits("20850"));
           });
           describe("AND WHEN the position is liquidated a second time (39850-19000)/2 == 10400", () => {
             beforeEach(async () => {
@@ -250,16 +249,15 @@ describe("Liquidations", function () {
                 alice.address,
                 nextPoolID
               );
-              expect(debt).to.be.lt(parseUnits("10500"));
-              expect(debt).to.be.gt(parseUnits("10400"));
+              expect(debt).to.eq(parseUnits("10450"));
             });
             it("AND the position still has plenty of liquidity", async () => {
               const [liquidity, shortfall] = await auditor.getAccountLiquidity(
                 alice.address,
                 nextPoolID
               );
-              expect(liquidity).to.be.gt(parseUnits("10000"));
-              expect(liquidity).to.be.lt(parseUnits("11000"));
+              expect(liquidity).to.be.lt(parseUnits("10050"));
+              expect(liquidity).to.be.gt(parseUnits("10040"));
               expect(shortfall).to.eq("0");
             });
           });
@@ -275,8 +273,7 @@ describe("Liquidations", function () {
             let shortfall = (
               await auditor.getAccountLiquidity(alice.address, nextPoolID)
             )[1];
-            expect(shortfall).to.be.gt(parseUnits("1000"));
-            expect(shortfall).to.be.lt(parseUnits("1100"));
+            expect(shortfall).to.eq(parseUnits("1000"));
           });
           // The liquidator has an incentive to repay as much of the debt as
           // possible (assuming he has an incentive to repay the debt in the
@@ -316,7 +313,7 @@ describe("Liquidations", function () {
                 await auditor.getAccountLiquidity(alice.address, nextPoolID)
               )[0];
               expect(liquidity).to.be.gt(parseUnits("5400"));
-              expect(liquidity).to.be.lt(parseUnits("5600"));
+              expect(liquidity).to.be.lt(parseUnits("5500"));
             });
           });
         });
@@ -401,7 +398,7 @@ describe("Liquidations", function () {
                     alice.address,
                     nextPoolID
                   );
-                  expect(debt).to.be.gt(parseUnits("7500"));
+                  expect(debt).to.eq(parseUnits("7578"));
                 });
               });
             });
@@ -419,7 +416,7 @@ describe("Liquidations", function () {
           let shortfall = (
             await auditor.getAccountLiquidity(alice.address, nextPoolID)
           )[1];
-          expect(shortfall).to.be.gt(parseUnits("18000"));
+          expect(shortfall).to.eq(parseUnits("18250"));
         });
         it("AND trying to repay an amount of zero fails", async () => {
           // We try to get all the ETH we can

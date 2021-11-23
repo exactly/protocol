@@ -65,7 +65,7 @@ describe("Liquidity computations", function () {
     // laura the lender
     [bob, laura] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
 
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
@@ -131,29 +131,36 @@ describe("Liquidity computations", function () {
         );
         expect(owed).to.be.eq(parseUnits("0"));
       });
-      it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
-        await expect(
+      describe("AND GIVEN a 1% borrow interest rate", () => {
+        beforeEach(async () => {
+          await exactlyEnv
+            .getInterestRateModel()
+            .setBorrowRate(parseUnits("0.01"));
+        });
+        it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
+          await expect(
           fixedLenderDAI
             .connect(laura)
             .borrowFromMaturityPool(parseUnits("800"), nextPoolID)
-        ).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
-        );
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+          );
+        });
       });
 
-      describe("AND WHEN laura asks for a 799 DAI loan (1 DAI buffer for interest)", () => {
+      describe("AND WHEN laura asks for a 800 DAI loan", () => {
         beforeEach(async () => {
           await fixedLenderDAI
             .connect(laura)
-            .borrowFromMaturityPool(parseUnits("799"), nextPoolID);
+            .borrowFromMaturityPool(parseUnits("800"), nextPoolID);
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
             laura.address,
             nextPoolID
           );
-          expect(liquidity).to.be.lt(parseUnits("1"));
-          expect(shortfall).to.be.lt(parseUnits("1"));
+          expect(liquidity).to.eq(parseUnits("0"));
+          expect(shortfall).to.eq(parseUnits("0"));
         });
         it("AND she has 799+interest debt and is owed 1000DAI", async () => {
           const [supplied, borrowed] = await fixedLenderDAI.getAccountSnapshot(
@@ -164,8 +171,7 @@ describe("Liquidity computations", function () {
           expect(supplied).to.be.eq(
             parseUnits("1000").add(supplyEvent.commission)
           );
-          expect(borrowed).to.be.gt(parseUnits("799"));
-          expect(borrowed).to.be.lt(parseUnits("801"));
+          expect(borrowed).to.eq(parseUnits("800"));
         });
       });
     });

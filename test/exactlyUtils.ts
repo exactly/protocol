@@ -110,6 +110,11 @@ export enum ProtocolError {
   INSUFFICIENT_PROTOCOL_LIQUIDITY,
 }
 
+export type EnvConfig = {
+  mockedTokens: Map<string, MockedTokenSpec>;
+  useRealInterestRateModel?: boolean;
+};
+
 export type MockedTokenSpec = {
   decimals: BigNumber | number;
   collateralRate: BigNumber;
@@ -168,6 +173,9 @@ export class DefaultEnv {
   public getUnderlying(key: string): Contract {
     return this.underlyingContracts.get(key)!;
   }
+  public getInterestRateModel(): Contract {
+    return this.interestRateModel;
+  }
 
   public getEToken(key: string): Contract {
     return this.eTokenContracts.get(key)!;
@@ -206,9 +214,10 @@ export class RewardsLibEnv {
 }
 
 export class ExactlyEnv {
-  static async create(
-    mockedTokens: Map<string, MockedTokenSpec>
-  ): Promise<DefaultEnv> {
+  static async create({
+    mockedTokens,
+    useRealInterestRateModel,
+  }: EnvConfig): Promise<DefaultEnv> {
     let fixedLenderContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
     let eTokenContracts = new Map<string, Contract>();
@@ -237,7 +246,11 @@ export class ExactlyEnv {
     let oracle = await MockedOracle.deploy();
     await oracle.deployed();
 
-    const InterestRateModel = await ethers.getContractFactory(
+    const MockedInterestRateModelFactory = await ethers.getContractFactory(
+      "MockedInterestRateModel"
+    );
+
+    const InterestRateModelFactory = await ethers.getContractFactory(
       "InterestRateModel",
       {
         libraries: {
@@ -246,13 +259,15 @@ export class ExactlyEnv {
       }
     );
 
-    let interestRateModel = await InterestRateModel.deploy(
-      parseUnits("0.07"), // Maturity pool slope rate
-      parseUnits("0.07"), // Smart pool slope rate
-      parseUnits("0.4"), // High UR slope rate
-      parseUnits("0.8"), // Slope change rate
-      parseUnits("0.02") // Base rate
-    );
+    const interestRateModel = useRealInterestRateModel
+      ? await InterestRateModelFactory.deploy(
+          parseUnits("0.07"), // Maturity pool slope rate
+          parseUnits("0.07"), // Smart pool slope rate
+          parseUnits("0.4"), // High UR slope rate
+          parseUnits("0.8"), // Slope change rate
+          parseUnits("0.02") // Base rate
+        )
+      : await MockedInterestRateModelFactory.deploy();
     await interestRateModel.deployed();
 
     const Auditor = await ethers.getContractFactory("Auditor", {

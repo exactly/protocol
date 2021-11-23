@@ -57,7 +57,7 @@ describe("Auditor from User Space", function () {
 
     [owner, user] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
     nextPoolID = new ExaTime().nextPoolID();
 

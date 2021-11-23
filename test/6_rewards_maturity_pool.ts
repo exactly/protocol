@@ -53,7 +53,7 @@ describe("ExaToken", () => {
   });
 
   beforeEach(async () => {
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
     [owner, mariaUser, bobUser] = await ethers.getSigners();
   });

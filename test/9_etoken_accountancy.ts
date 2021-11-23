@@ -33,7 +33,7 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
   beforeEach(async () => {
     [bob, laura, tito] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     eDAI = exactlyEnv.getEToken("DAI");
 
     await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contract
