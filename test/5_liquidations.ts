@@ -133,7 +133,7 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await auditor.setLiquidationIncentive(parseUnits("1.15"));
           });
-          describe("AND the position is liquidated (19kdai, just below close factor of 0.5)", () => {
+          describe("AND the position is liquidated (19kdai)", () => {
             let tx: any;
             beforeEach(async () => {
               tx = fixedLenderDAI
@@ -172,7 +172,7 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await fixedLenderWBTC.setLiquidationFee(parseUnits("0.04"));
           });
-          describe("AND the position is liquidated (19kdai, just below close factor of 0.5)", () => {
+          describe("AND the position is liquidated (19kdai)", () => {
             let tx: any;
             beforeEach(async () => {
               tx = fixedLenderDAI
@@ -208,7 +208,7 @@ describe("Liquidations", function () {
         });
 
         // should we disable the close factor for overdue debts?
-        describe("AND the position is liquidated a first time (19kdai, just below close factor of 0.5)", () => {
+        describe("AND the position is liquidated a first time (19kdai)", () => {
           let tx: any;
           beforeEach(async () => {
             tx = fixedLenderDAI
