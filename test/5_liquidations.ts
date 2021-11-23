@@ -21,11 +21,11 @@ describe("Liquidations", function () {
   let bob: SignerWithAddress;
   let alice: SignerWithAddress;
 
-  let exafinETH: Contract;
+  let fixedLenderETH: Contract;
   let eth: Contract;
-  let exafinDAI: Contract;
+  let fixedLenderDAI: Contract;
   let dai: Contract;
-  let exafinWBTC: Contract;
+  let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
   let mockedTokens = new Map([
@@ -68,11 +68,11 @@ describe("Liquidations", function () {
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
 
-    exafinETH = exactlyEnv.getFixedLender("ETH");
+    fixedLenderETH = exactlyEnv.getFixedLender("ETH");
     eth = exactlyEnv.getUnderlying("ETH");
-    exafinDAI = exactlyEnv.getFixedLender("DAI");
+    fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
-    exafinWBTC = exactlyEnv.getFixedLender("WBTC");
+    fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
     nextPoolID = exaTime.nextPoolID();
@@ -86,33 +86,37 @@ describe("Liquidations", function () {
     beforeEach(async () => {
       // we supply Eth to the protocol
       const amountETH = parseUnits("1");
-      await eth.approve(exafinETH.address, amountETH);
-      await exafinETH.supply(alice.address, amountETH, nextPoolID);
+      await eth.approve(fixedLenderETH.address, amountETH);
+      await fixedLenderETH.supply(alice.address, amountETH, nextPoolID);
 
       // we supply WBTC to the protocol
       const amountWBTC = parseUnits("1", 8);
-      await wbtc.approve(exafinWBTC.address, amountWBTC);
-      await exafinWBTC.supply(alice.address, amountWBTC, nextPoolID);
+      await wbtc.approve(fixedLenderWBTC.address, amountWBTC);
+      await fixedLenderWBTC.supply(alice.address, amountWBTC, nextPoolID);
 
       // bob supplies DAI to the protocol to have money in the pool
       const amountDAI = parseUnits("65000");
-      await dai.connect(bob).approve(exafinDAI.address, amountDAI);
-      await exafinDAI.connect(bob).supply(bob.address, amountDAI, nextPoolID);
-      await dai.connect(bob).approve(exafinDAI.address, parseUnits("200000"));
+      await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
+      await fixedLenderDAI
+        .connect(bob)
+        .supply(bob.address, amountDAI, nextPoolID);
+      await dai
+        .connect(bob)
+        .approve(fixedLenderDAI.address, parseUnits("200000"));
     });
 
     describe("AND GIVEN Alice takes the biggest loan she can (39850 DAI), 50 buffer for interest", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
         await auditor.enterMarkets(
-          [exafinETH.address, exafinWBTC.address],
+          [fixedLenderETH.address, fixedLenderWBTC.address],
           nextPoolID
         );
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
         amountToBorrowDAI = parseUnits("39850");
 
         // alice borrows all liquidity
-        txBorrowAliceDAI = await exafinDAI.borrow(
+        txBorrowAliceDAI = await fixedLenderDAI.borrow(
           amountToBorrowDAI,
           nextPoolID
         );
@@ -132,12 +136,12 @@ describe("Liquidations", function () {
           describe("AND the position is liquidated (19kdai, just below close factor of 0.5)", () => {
             let tx: any;
             beforeEach(async () => {
-              tx = exafinDAI
+              tx = fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   parseUnits("19000"),
-                  exafinWBTC.address,
+                  fixedLenderWBTC.address,
                   nextPoolID
                 );
               await tx;
@@ -147,7 +151,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("34682539", 0);
 
               await expect(tx)
-                .to.emit(exafinWBTC, "Seized")
+                .to.emit(fixedLenderWBTC, "Seized")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
             it("AND 0.028% in fee is charged (971111 sats)", async () => {
@@ -158,25 +162,25 @@ describe("Liquidations", function () {
                 seizedWBTC.sub(fee)
               );
               await expect(tx)
-                .to.emit(exafinWBTC, "ReservesAdded")
-                .withArgs(exafinWBTC.address, fee);
+                .to.emit(fixedLenderWBTC, "ReservesAdded")
+                .withArgs(fixedLenderWBTC.address, fee);
             });
           });
         });
 
         describe("AND the protcol fee is increased to 4%", () => {
           beforeEach(async () => {
-            await exafinWBTC.setLiquidationFee(parseUnits("0.04"));
+            await fixedLenderWBTC.setLiquidationFee(parseUnits("0.04"));
           });
           describe("AND the position is liquidated (19kdai, just below close factor of 0.5)", () => {
             let tx: any;
             beforeEach(async () => {
-              tx = exafinDAI
+              tx = fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   parseUnits("19000"),
-                  exafinWBTC.address,
+                  fixedLenderWBTC.address,
                   nextPoolID
                 );
               await tx;
@@ -186,7 +190,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("33174603", 0);
 
               await expect(tx)
-                .to.emit(exafinWBTC, "Seized")
+                .to.emit(fixedLenderWBTC, "Seized")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
             it("AND 0.4% in fee is charged (1326984 sats)", async () => {
@@ -197,8 +201,8 @@ describe("Liquidations", function () {
                 seizedWBTC.sub(fee)
               );
               await expect(tx)
-                .to.emit(exafinWBTC, "ReservesAdded")
-                .withArgs(exafinWBTC.address, fee);
+                .to.emit(fixedLenderWBTC, "ReservesAdded")
+                .withArgs(fixedLenderWBTC.address, fee);
             });
           });
         });
@@ -207,12 +211,12 @@ describe("Liquidations", function () {
         describe("AND the position is liquidated a first time (19kdai, just below close factor of 0.5)", () => {
           let tx: any;
           beforeEach(async () => {
-            tx = exafinDAI
+            tx = fixedLenderDAI
               .connect(bob)
               .liquidate(
                 alice.address,
                 parseUnits("19000"),
-                exafinWBTC.address,
+                fixedLenderWBTC.address,
                 nextPoolID
               );
             await tx;
@@ -221,11 +225,11 @@ describe("Liquidations", function () {
             // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
             const seizedWBTC = parseUnits("33174603", 0);
             await expect(tx)
-              .to.emit(exafinWBTC, "Seized")
+              .to.emit(fixedLenderWBTC, "Seized")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
           });
           it("AND 19k DAI of debt has been repaid, making debt ~36818 DAI", async () => {
-            const [, debt] = await exafinDAI.getAccountSnapshot(
+            const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
               nextPoolID
             );
@@ -249,12 +253,12 @@ describe("Liquidations", function () {
           });
           describe("AND WHEN the position is liquidated a second time (55818-19000)/2 ~== 18000", () => {
             beforeEach(async () => {
-              tx = exafinDAI
+              tx = fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   parseUnits("18000"),
-                  exafinWBTC.address,
+                  fixedLenderWBTC.address,
                   nextPoolID
                 );
               await tx;
@@ -263,11 +267,11 @@ describe("Liquidations", function () {
               // 10.4kusd of btc at its current price of 63kusd + 10% incentive for liquidators
               const seizedWBTC = parseUnits("31428570", 0);
               await expect(tx)
-                .to.emit(exafinWBTC, "Seized")
+                .to.emit(fixedLenderWBTC, "Seized")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
             it("AND 18k DAI of debt has been repaid, making debt ~10k DAI", async () => {
-              const [, debt] = await exafinDAI.getAccountSnapshot(
+              const [, debt] = await fixedLenderDAI.getAccountSnapshot(
                 alice.address,
                 nextPoolID
               );
@@ -298,12 +302,12 @@ describe("Liquidations", function () {
           describe("AND WHEN a liquidator repays the max amount (19kDAI)", () => {
             let tx: any;
             beforeEach(async () => {
-              tx = await exafinDAI
+              tx = await fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   parseUnits("19000"),
-                  exafinWBTC.address,
+                  fixedLenderWBTC.address,
                   nextPoolID
                 );
             });
@@ -317,7 +321,7 @@ describe("Liquidations", function () {
               // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
               const seizedWBTC = parseUnits("33174603", 0);
               await expect(tx)
-                .to.emit(exafinWBTC, "Seized")
+                .to.emit(fixedLenderWBTC, "Seized")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
             // debt: 39850-19000 = 20850
@@ -341,16 +345,16 @@ describe("Liquidations", function () {
         describe("the collateral can be entirely depleted and still have some debt left", () => {
           describe("WHEN depleting Alices ETH collateral", () => {
             beforeEach(async () => {
-              await exafinDAI.connect(bob).liquidate(
+              await fixedLenderDAI.connect(bob).liquidate(
                 alice.address,
                 // maybe I should've used amounts divisible by each other
                 parseUnits("2727"),
-                exafinETH.address,
+                fixedLenderETH.address,
                 nextPoolID
               );
             });
             it("THEN theres nearly no ETH supplied by Alice", async () => {
-              const [suppliedETH] = await exafinETH.getAccountSnapshot(
+              const [suppliedETH] = await fixedLenderETH.getAccountSnapshot(
                 alice.address,
                 nextPoolID
               );
@@ -358,31 +362,31 @@ describe("Liquidations", function () {
             });
             describe("AND WHEN liquidating $27500 of Alices WBTC collateral (two steps required)", () => {
               beforeEach(async () => {
-                await exafinDAI
+                await fixedLenderDAI
                   .connect(bob)
                   .liquidate(
                     alice.address,
                     parseUnits("18000"),
-                    exafinWBTC.address,
+                    fixedLenderWBTC.address,
                     nextPoolID
                   );
-                await exafinDAI
+                await fixedLenderDAI
                   .connect(bob)
                   .liquidate(
                     alice.address,
                     parseUnits("9500"),
-                    exafinWBTC.address,
+                    fixedLenderWBTC.address,
                     nextPoolID
                   );
               });
               it("THEN liquidating the max amount (4500, half of the remaining debt) is no longer possible", async () => {
                 await expect(
-                  exafinDAI
+                  fixedLenderDAI
                     .connect(bob)
                     .liquidate(
                       alice.address,
                       parseUnits("4500"),
-                      exafinETH.address,
+                      fixedLenderETH.address,
                       nextPoolID
                     )
                 ).to.be.revertedWith(
@@ -391,25 +395,26 @@ describe("Liquidations", function () {
               });
               describe("AND WHEN liquidating the rest of the collateral", () => {
                 beforeEach(async () => {
-                  await exafinDAI
+                  await fixedLenderDAI
                     .connect(bob)
                     .liquidate(
                       alice.address,
                       parseUnits("2045"),
-                      exafinWBTC.address,
+                      fixedLenderWBTC.address,
                       nextPoolID
                     );
                 });
                 it("THEN the Alice has zero WBTC deposited", async () => {
-                  const [suppliedWBTC] = await exafinWBTC.getAccountSnapshot(
-                    alice.address,
-                    nextPoolID
-                  );
+                  const [suppliedWBTC] =
+                    await fixedLenderWBTC.getAccountSnapshot(
+                      alice.address,
+                      nextPoolID
+                    );
                   expect(suppliedWBTC).to.be.lt(parseUnits("0.0005", 8));
                 });
                 // now theres no incentive to liquidate those 7500 dai
                 it("AND alice still has some DAI debt", async () => {
-                  const [, debt] = await exafinDAI.getAccountSnapshot(
+                  const [, debt] = await fixedLenderDAI.getAccountSnapshot(
                     alice.address,
                     nextPoolID
                   );
@@ -437,16 +442,21 @@ describe("Liquidations", function () {
           // We try to get all the ETH we can
           // We expect trying to repay zero to fail
           await expect(
-            exafinDAI.liquidate(alice.address, 0, exafinETH.address, nextPoolID)
+            fixedLenderDAI.liquidate(
+              alice.address,
+              0,
+              fixedLenderETH.address,
+              nextPoolID
+            )
           ).to.be.revertedWith(errorGeneric(ProtocolError.REPAY_ZERO));
         });
         it("AND the position cant be liquidated by the borrower", async () => {
           // We expect self liquidation to fail
           await expect(
-            exafinDAI.liquidate(
+            fixedLenderDAI.liquidate(
               alice.address,
               parseUnits("15000"),
-              exafinETH.address,
+              fixedLenderETH.address,
               nextPoolID
             )
           ).to.be.revertedWith(
@@ -458,18 +468,18 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await dai
               .connect(bob)
-              .approve(exafinDAI.address, parseUnits("10000"));
+              .approve(fixedLenderDAI.address, parseUnits("10000"));
           });
           it("WHEN trying to liquidate, THEN it reverts with a ERC20 transfer error", async () => {
             // We expect liquidation to fail because trying to liquidate
             // and take over a collateral that bob doesn't have enough
             await expect(
-              exafinDAI
+              fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   parseUnits("15000"),
-                  exafinETH.address,
+                  fixedLenderETH.address,
                   nextPoolID
                 )
             ).to.be.revertedWith("ERC20");
@@ -481,12 +491,12 @@ describe("Liquidations", function () {
             // We expect liquidation to fail because trying to liquidate
             // and take over a collateral that bob doesn't have enough
             await expect(
-              exafinDAI
+              fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   parseUnits("10000"),
-                  exafinETH.address,
+                  fixedLenderETH.address,
                   nextPoolID
                 )
             ).to.be.revertedWith(
@@ -496,12 +506,12 @@ describe("Liquidations", function () {
           it("WHEN liquidating slightly more than the close factor(0.5), (20000 DAI), THEN it reverts", async () => {
             // We expect liquidation to fail because trying to liquidate too much (more than close factor of the borrowed asset)
             await expect(
-              exafinDAI
+              fixedLenderDAI
                 .connect(bob)
                 .liquidate(
                   alice.address,
                   parseUnits("20000"),
-                  exafinWBTC.address,
+                  fixedLenderWBTC.address,
                   nextPoolID
                 )
             ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_REPAY));
@@ -512,12 +522,12 @@ describe("Liquidations", function () {
         describe("AND WHEN liquidating slightly less than the close factor (19000 DAI)", () => {
           let tx: any;
           beforeEach(async () => {
-            tx = exafinDAI
+            tx = fixedLenderDAI
               .connect(bob)
               .liquidate(
                 alice.address,
                 parseUnits("19000"),
-                exafinWBTC.address,
+                fixedLenderWBTC.address,
                 nextPoolID
               );
             await tx;
@@ -528,7 +538,7 @@ describe("Liquidations", function () {
             // 32500 + 10% liquidation incentive
             const seizedWBTC = parseUnits("64307691", 0);
             await expect(tx)
-              .to.emit(exafinWBTC, "Seized")
+              .to.emit(fixedLenderWBTC, "Seized")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
             expect(await wbtc.balanceOf(bob.address)).to.eq(
@@ -538,7 +548,7 @@ describe("Liquidations", function () {
           it("AND 19000 DAI of debt is repaid", async () => {
             const bobDAIBalanceBefore = parseUnits("135000");
             await expect(tx)
-              .to.emit(exafinDAI, "RepaidLiquidate")
+              .to.emit(fixedLenderDAI, "RepaidLiquidate")
               .withArgs(
                 bob.address,
                 alice.address,
