@@ -125,8 +125,8 @@ library MarketsLib {
      * @param oracle oracle used to perform all liquidity calculations
      * @param account wallet which the liquidity will be calculated
      * @param maturityDate timestamp to calculate maturity's pool
-     * @param fixedLenderToSimulate fixedLender in which we want to simulate redeem/borrow ops (see next two args)
-     * @param redeemAmount amount to simulate redeem
+     * @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args)
+     * @param withdrawAmount amount to simulate withdraw
      * @param borrowAmount amount to simulate borrow
      */
     function accountLiquidity(
@@ -135,7 +135,7 @@ library MarketsLib {
         address account,
         uint256 maturityDate,
         address fixedLenderToSimulate,
-        uint256 redeemAmount,
+        uint256 withdrawAmount,
         uint256 borrowAmount
     )
         external 
@@ -179,8 +179,8 @@ library MarketsLib {
 
                 // Calculate the effects of redeeming fixedLenders
                 // (having less collateral is the same as having more debt for this calculation)
-                if (redeemAmount != 0) {
-                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(redeemAmount, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
+                if (withdrawAmount != 0) {
+                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(withdrawAmount, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
                 }
             }
         }
