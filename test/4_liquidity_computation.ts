@@ -133,7 +133,9 @@ describe("Liquidity computations", function () {
       });
       it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
         await expect(
-          fixedLenderDAI.connect(laura).borrow(parseUnits("800"), nextPoolID)
+          fixedLenderDAI
+            .connect(laura)
+            .borrowFromMaturityPool(parseUnits("800"), nextPoolID)
         ).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
         );
@@ -143,7 +145,7 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await fixedLenderDAI
             .connect(laura)
-            .borrow(parseUnits("799"), nextPoolID);
+            .borrowFromMaturityPool(parseUnits("799"), nextPoolID);
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
@@ -199,7 +201,9 @@ describe("Liquidity computations", function () {
         it("WHEN he tries to take a 1btc (8 decimals) loan (100% collateralization), THEN it reverts", async () => {
           // We expect liquidity to be equal to zero
           await expect(
-            fixedLenderWBTC.connect(bob).borrow(parseUnits("1", 8), nextPoolID)
+            fixedLenderWBTC
+              .connect(bob)
+              .borrowFromMaturityPool(parseUnits("1", 8), nextPoolID)
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
@@ -225,7 +229,7 @@ describe("Liquidity computations", function () {
           beforeEach(async () => {
             await fixedLenderWBTC
               .connect(bob)
-              .borrow(parseUnits("0.5", 8), nextPoolID);
+              .borrowFromMaturityPool(parseUnits("0.5", 8), nextPoolID);
           });
           describe("AND GIVEN the pool matures", () => {
             beforeEach(async () => {

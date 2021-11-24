@@ -173,11 +173,17 @@ describe("ExaToken", () => {
         );
 
         await expect(
-          fixedLenderDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
+          fixedLenderDAI.borrowFromMaturityPool(
+            underlyingAmount.div(4),
+            exaTime.nextPoolID()
+          )
         ).to.not.emit(auditor, "DistributedBorrowerExa");
 
         await expect(
-          fixedLenderDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
+          fixedLenderDAI.borrowFromMaturityPool(
+            underlyingAmount.div(4),
+            exaTime.nextPoolID()
+          )
         ).to.emit(auditor, "DistributedBorrowerExa");
       });
 
@@ -227,7 +233,7 @@ describe("ExaToken", () => {
           underlyingAmount.div(2),
           exaTime.nextPoolID()
         );
-        await fixedLenderMaria.borrow(
+        await fixedLenderMaria.borrowFromMaturityPool(
           underlyingAmount.div(4),
           exaTime.nextPoolID()
         );

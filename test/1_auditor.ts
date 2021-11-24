@@ -141,7 +141,7 @@ describe("Auditor from User Space", function () {
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
     await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
-    await fixedLenderDAI.borrow(amountDAI.div(2), nextPoolID);
+    await fixedLenderDAI.borrowFromMaturityPool(amountDAI.div(2), nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
@@ -315,7 +315,7 @@ describe("Auditor from User Space", function () {
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
     await expect(
       // user borrows half of it's collateral
-      fixedLenderDAI.borrow(amountDAI.div(2), nextPoolID)
+      fixedLenderDAI.borrowFromMaturityPool(amountDAI.div(2), nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.BORROW_PAUSED));
   });
 
@@ -357,7 +357,7 @@ describe("Auditor from User Space", function () {
 
     await expect(
       // user tries to borrow more than the cap
-      fixedLenderDAI.borrow(20, nextPoolID)
+      fixedLenderDAI.borrowFromMaturityPool(20, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_BORROW_CAP_REACHED));
   });
 

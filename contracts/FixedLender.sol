@@ -188,10 +188,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
     /**
      * @dev Lends to a wallet for a certain maturity date/pool
-     * @param amount amount to send to the specified wallet
+     * @param amount amount to send to the msg.sender
      * @param maturityDate maturity date for repayment
      */
-    function borrow(uint256 amount, uint256 maturityDate)
+    function borrowFromMaturityPool(uint256 amount, uint256 maturityDate)
         external
         override
         nonReentrant

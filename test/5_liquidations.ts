@@ -111,7 +111,7 @@ describe("Liquidations", function () {
         amountToBorrowDAI = parseUnits("39850");
 
         // alice borrows all liquidity
-        await exafinDAI.borrow(amountToBorrowDAI, nextPoolID);
+        await exafinDAI.borrowFromMaturityPool(amountToBorrowDAI, nextPoolID);
       });
 
       describe("WHEN the pool matures (prices stay the same)", () => {

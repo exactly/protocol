@@ -166,7 +166,7 @@ describe("FixedLender", function () {
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
     );
-    let tx = await fixedLenderMaria.borrow(
+    let tx = await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
       exaTime.nextPoolID()
     );
@@ -192,7 +192,10 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.pastPoolID())
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.8"),
+        exaTime.pastPoolID()
+      )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
     );
@@ -213,7 +216,10 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.8"), notYetEnabledPoolID)
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.8"),
+        notYetEnabledPoolID
+      )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
     );
@@ -235,7 +241,7 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.8"), invalidPoolID)
+      fixedLenderMaria.borrowFromMaturityPool(parseUnits("0.8"), invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
@@ -265,7 +271,10 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.9"), exaTime.nextPoolID())
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.9"),
+        exaTime.nextPoolID()
+      )
     ).to.be.reverted;
   });
 
@@ -329,7 +338,10 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
     let depositEvent = await parseDepositToMaturityPoolEvent(txSupply);
-    await fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
+    await fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.8"),
+      exaTime.nextPoolID()
+    );
 
     // try to redeem without paying debt and fail
     await expect(
@@ -369,7 +381,7 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
     let depositEvent = await parseDepositToMaturityPoolEvent(txSupply);
-    let tx = await fixedLenderMaria.borrow(
+    let tx = await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
       exaTime.nextPoolID()
     );
@@ -425,7 +437,10 @@ describe("FixedLender", function () {
     );
 
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.8"),
+        exaTime.nextPoolID()
+      )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
     );
@@ -435,7 +450,10 @@ describe("FixedLender", function () {
     const fixedLenderMaria = fixedLender.connect(mariaUser);
 
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.8"),
+        exaTime.nextPoolID()
+      )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
     );
@@ -475,7 +493,10 @@ describe("FixedLender", function () {
     await fixedLender.depositToSmartPool(parseUnits("0.2"));
 
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.8"),
+        exaTime.nextPoolID()
+      )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
     );
@@ -513,7 +534,10 @@ describe("FixedLender", function () {
     );
 
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.8"),
+        exaTime.nextPoolID()
+      )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
     );
@@ -548,7 +572,10 @@ describe("FixedLender", function () {
     await fixedLender.depositToSmartPool(parseUnits("0.2"));
 
     await expect(
-      fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID())
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.8"),
+        exaTime.nextPoolID()
+      )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
     );
@@ -586,7 +613,7 @@ describe("FixedLender", function () {
 
     await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
 
-    const borrow = fixedLenderMaria.borrow(
+    const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.3"),
       exaTime.nextPoolID()
     );
@@ -626,7 +653,7 @@ describe("FixedLender", function () {
 
     await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
 
-    const borrow = fixedLenderMaria.borrow(
+    const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.4"),
       exaTime.nextPoolID()
     );
@@ -666,7 +693,7 @@ describe("FixedLender", function () {
 
     await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
 
-    const borrow = fixedLenderMaria.borrow(
+    const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.4"),
       exaTime.nextPoolID()
     );
@@ -715,7 +742,10 @@ describe("FixedLender", function () {
     );
 
     await fixedLender.depositToSmartPool(parseUnits("1"));
-    await fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
+    await fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.8"),
+      exaTime.nextPoolID()
+    );
 
     await expect(
       fixedLender.withdrawFromSmartPool(parseUnits("1"))
