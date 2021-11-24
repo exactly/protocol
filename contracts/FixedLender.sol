@@ -59,7 +59,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount of the asset that it was supplied
      * @param maturityDate poolID where the user collected its deposits
      */
-    event Redeemed(
+    event RedeemedFromMaturityPool(
         address indexed from,
         uint256 amount,
         uint256 maturityDate
@@ -72,7 +72,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount of the asset that it was repaid
      * @param maturityDate poolID where the user repaid its borrowed amounts
      */
-    event Repaid(
+    event RepaidToMaturityPool(
         address indexed payer,
         address indexed borrower,
         uint256 amount,
@@ -313,7 +313,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param redeemAmount The number of underlying tokens to receive
      * @param maturityDate The matured date for which we're trying to retrieve the funds
      */
-    function redeem(
+    function redeemFromMaturityPool(
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
@@ -345,7 +345,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             redeemAmount
         );
 
-        emit Redeemed(redeemer, redeemAmount, maturityDate);
+        emit RedeemedFromMaturityPool(redeemer, redeemAmount, maturityDate);
     }
 
     /**
@@ -354,7 +354,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param borrower The address of the account that has the debt
      * @param maturityDate The matured date where the debt is located
      */
-    function repay(address borrower, uint256 maturityDate)
+    function repayToMaturityPool(address borrower, uint256 maturityDate)
         external
         override
         nonReentrant
@@ -375,7 +375,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit Repaid(msg.sender, borrower, amountBorrowed, maturityDate);
+        emit RepaidToMaturityPool(msg.sender, borrower, amountBorrowed, maturityDate);
     }
 
     /**
@@ -409,7 +409,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         totalBorrows -= repayAmount;
         totalBorrowsUser[borrower] -= repayAmount;
 
-        emit Repaid(payer, borrower, repayAmount, maturityDate);
+        emit RepaidToMaturityPool(payer, borrower, repayAmount, maturityDate);
     }
 
     /**

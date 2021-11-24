@@ -297,7 +297,7 @@ describe("FixedLender", function () {
 
     // try to redeem before maturity
     await expect(
-      fixedLenderMaria.redeem(
+      fixedLenderMaria.redeemFromMaturityPool(
         mariaUser.address,
         depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
@@ -313,7 +313,7 @@ describe("FixedLender", function () {
     await ethers.provider.send("evm_mine", []);
 
     // finally redeem voucher and we expect maria to have her original amount + the comission earned
-    await fixedLenderMaria.redeem(
+    await fixedLenderMaria.redeemFromMaturityPool(
       mariaUser.address,
       depositEvent.amount.add(depositEvent.commission),
       exaTime.nextPoolID()
@@ -345,17 +345,24 @@ describe("FixedLender", function () {
 
     // try to redeem without paying debt and fail
     await expect(
-      fixedLenderMaria.redeem(mariaUser.address, 0, exaTime.nextPoolID())
+      fixedLenderMaria.redeemFromMaturityPool(
+        mariaUser.address,
+        0,
+        exaTime.nextPoolID()
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
 
     // repay and succeed
     await expect(
-      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+      fixedLenderMaria.repayToMaturityPool(
+        mariaUser.address,
+        exaTime.nextPoolID()
+      )
     ).to.not.be.reverted;
 
     // try to redeem without paying debt and fail
     await expect(
-      fixedLenderMaria.redeem(
+      fixedLenderMaria.redeemFromMaturityPool(
         mariaUser.address,
         depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
@@ -395,12 +402,16 @@ describe("FixedLender", function () {
 
     // try to redeem without paying debt and fail
     await expect(
-      fixedLenderMaria.redeem(mariaUser.address, 0, exaTime.nextPoolID())
+      fixedLenderMaria.redeemFromMaturityPool(
+        mariaUser.address,
+        0,
+        exaTime.nextPoolID()
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
 
     // try to redeem without paying debt and fail
     await expect(
-      fixedLenderMaria.redeem(
+      fixedLenderMaria.redeemFromMaturityPool(
         mariaUser.address,
         depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
@@ -409,11 +420,14 @@ describe("FixedLender", function () {
 
     // repay and succeed
     await expect(
-      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+      fixedLenderMaria.repayToMaturityPool(
+        mariaUser.address,
+        exaTime.nextPoolID()
+      )
     ).to.not.be.reverted;
 
     // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
-    await fixedLenderMaria.redeem(
+    await fixedLenderMaria.redeemFromMaturityPool(
       mariaUser.address,
       depositEvent.amount.add(depositEvent.commission),
       exaTime.nextPoolID()

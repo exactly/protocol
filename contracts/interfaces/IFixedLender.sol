@@ -23,13 +23,13 @@ interface IFixedLender {
         uint256 amount
     ) external;
 
-    function redeem(
+    function redeemFromMaturityPool(
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
     ) external;
 
-    function repay(address borrower, uint256 maturityDate) external;
+    function repayToMaturityPool(address borrower, uint256 maturityDate) external;
 
     function seize(
         address liquidator,

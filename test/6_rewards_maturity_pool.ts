@@ -210,7 +210,7 @@ describe("ExaToken", () => {
         await ethers.provider.send("evm_mine", []);
 
         await expect(
-          fixedLenderMaria.redeem(
+          fixedLenderMaria.redeemFromMaturityPool(
             mariaUser.address,
             supplyAmount,
             exaTime.nextPoolID()
@@ -246,7 +246,10 @@ describe("ExaToken", () => {
 
         // repay and succeed
         await expect(
-          fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+          fixedLenderMaria.repayToMaturityPool(
+            mariaUser.address,
+            exaTime.nextPoolID()
+          )
         ).to.emit(auditor, "DistributedBorrowerExa");
       });
     });

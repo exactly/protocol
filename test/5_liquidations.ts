@@ -526,7 +526,7 @@ describe("Liquidations", function () {
           it("AND 19000 DAI of debt is repaid", async () => {
             const bobDAIBalanceBefore = parseUnits("35000");
             await expect(tx)
-              .to.emit(exafinDAI, "Repaid")
+              .to.emit(exafinDAI, "RepaidToMaturityPool")
               .withArgs(
                 bob.address,
                 alice.address,

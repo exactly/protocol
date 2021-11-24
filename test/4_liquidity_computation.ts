@@ -248,7 +248,11 @@ describe("Liquidity computations", function () {
               await expect(
                 fixedLenderUSDC
                   .connect(bob)
-                  .redeem(bob.address, parseUnits("40000", 6), nextPoolID)
+                  .redeemFromMaturityPool(
+                    bob.address,
+                    parseUnits("40000", 6),
+                    nextPoolID
+                  )
               ).to.be.revertedWith(
                 errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
               );
