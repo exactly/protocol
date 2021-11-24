@@ -243,12 +243,12 @@ describe("Liquidity computations", function () {
             // computing the simulated liquidity with a supplyAmount of zero and
             // the to-be-loaned amount as the borrowAmount, the amount of
             // collateral to withdraw is passed as the supplyAmount
-            it("WHEN he tries to withdraw the usdc (8 decimals) collateral, THEN it reverts ()", async () => {
+            it("WHEN he tries to redeem the usdc (8 decimals) collateral, THEN it reverts ()", async () => {
               // We expect liquidity to be equal to zero
               await expect(
                 fixedLenderUSDC
                   .connect(bob)
-                  .withdrawFromMaturityPool(
+                  .redeemFromMaturityPool(
                     bob.address,
                     parseUnits("40000", 6),
                     nextPoolID

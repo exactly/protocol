@@ -210,7 +210,7 @@ describe("ExaToken", () => {
         await ethers.provider.send("evm_mine", []);
 
         await expect(
-          fixedLenderMaria.withdrawFromMaturityPool(
+          fixedLenderMaria.redeemFromMaturityPool(
             mariaUser.address,
             depositAmount,
             exaTime.nextPoolID()

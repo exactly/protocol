@@ -295,9 +295,9 @@ describe("FixedLender", function () {
     );
     let depositEvent = await parseDepositToMaturityPoolEvent(tx);
 
-    // try to withdraw before maturity
+    // try to redeem before maturity
     await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
+      fixedLenderMaria.redeemFromMaturityPool(
         mariaUser.address,
         depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
@@ -312,8 +312,8 @@ describe("FixedLender", function () {
     ]);
     await ethers.provider.send("evm_mine", []);
 
-    // finally withdraw voucher and we expect maria to have her original amount + the comission earned
-    await fixedLenderMaria.withdrawFromMaturityPool(
+    // finally redeem voucher and we expect maria to have her original amount + the comission earned
+    await fixedLenderMaria.redeemFromMaturityPool(
       mariaUser.address,
       depositEvent.amount.add(depositEvent.commission),
       exaTime.nextPoolID()
@@ -323,7 +323,7 @@ describe("FixedLender", function () {
     );
   });
 
-  it("it allows the mariaUser to repay her debt before maturity, but not withdrawing her collateral", async () => {
+  it("it allows the mariaUser to repay her debt before maturity, but not redeeming her collateral", async () => {
     // give the protocol some solvency
     await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
 
@@ -343,9 +343,9 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
 
-    // try to withdraw without paying debt and fail
+    // try to redeem without paying debt and fail
     await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
+      fixedLenderMaria.redeemFromMaturityPool(
         mariaUser.address,
         0,
         exaTime.nextPoolID()
@@ -360,9 +360,9 @@ describe("FixedLender", function () {
       )
     ).to.not.be.reverted;
 
-    // try to withdraw without paying debt and fail
+    // try to redeem without paying debt and fail
     await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
+      fixedLenderMaria.redeemFromMaturityPool(
         mariaUser.address,
         depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
@@ -372,7 +372,7 @@ describe("FixedLender", function () {
     );
   });
 
-  it("it allows the mariaUser to repay her debt at maturity and also withdrawing her collateral", async () => {
+  it("it allows the mariaUser to repay her debt at maturity and also redeeming her collateral", async () => {
     // give the protocol some solvency
     await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
 
@@ -400,18 +400,18 @@ describe("FixedLender", function () {
     ]);
     await ethers.provider.send("evm_mine", []);
 
-    // try to withdraw without paying debt and fail
+    // try to redeem without paying debt and fail
     await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
+      fixedLenderMaria.redeemFromMaturityPool(
         mariaUser.address,
         0,
         exaTime.nextPoolID()
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
 
-    // try to withdraw without paying debt and fail
+    // try to redeem without paying debt and fail
     await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
+      fixedLenderMaria.redeemFromMaturityPool(
         mariaUser.address,
         depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
@@ -426,8 +426,8 @@ describe("FixedLender", function () {
       )
     ).to.not.be.reverted;
 
-    // finally withdraw voucher and we expect maria to have her original amount + the comission earned - comission paid
-    await fixedLenderMaria.withdrawFromMaturityPool(
+    // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
+    await fixedLenderMaria.redeemFromMaturityPool(
       mariaUser.address,
       depositEvent.amount.add(depositEvent.commission),
       exaTime.nextPoolID()

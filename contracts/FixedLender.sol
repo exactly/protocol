@@ -59,7 +59,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount of the asset that it was deposited
      * @param maturityDate poolID where the user collected its deposits
      */
-    event WithdrawFromMaturityPool(
+    event RedeemFromMaturityPool(
         address indexed from,
         uint256 amount,
         uint256 maturityDate
@@ -319,7 +319,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param redeemAmount The number of underlying tokens to receive
      * @param maturityDate The matured date for which we're trying to retrieve the funds
      */
-    function withdrawFromMaturityPool(
+    function redeemFromMaturityPool(
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
@@ -351,7 +351,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             redeemAmount
         );
 
-        emit WithdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
+        emit RedeemFromMaturityPool(redeemer, redeemAmount, maturityDate);
     }
 
     /**
