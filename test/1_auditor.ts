@@ -171,9 +171,9 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
-  it("SupplyAllowed should fail for an unlisted market", async () => {
+  it("beforeDepositMaturityPool should fail for an unlisted market", async () => {
     await expect(
-      auditor.supplyAllowed(
+      auditor.beforeDepositMaturityPool(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
         nextPoolID
@@ -183,7 +183,7 @@ describe("Auditor from User Space", function () {
 
   it("BorrowAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.borrowAllowed(
+      auditor.beforeBorrowMaturityPool(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
         100,
@@ -204,7 +204,7 @@ describe("Auditor from User Space", function () {
 
     await exactlyEnv.oracle.setPrice("DAI", 0);
     await expect(
-      auditor.borrowAllowed(
+      auditor.beforeBorrowMaturityPool(
         fixedLenderDAI.address,
         owner.address,
         100,
@@ -330,7 +330,7 @@ describe("Auditor from User Space", function () {
 
     // we make it count as collateral (DAI)
     await expect(
-      auditor.borrowAllowed(
+      auditor.beforeBorrowMaturityPool(
         fixedLenderDAI.address,
         owner.address,
         100,

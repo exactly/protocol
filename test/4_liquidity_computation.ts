@@ -97,7 +97,7 @@ describe("Liquidity computations", function () {
   });
 
   describe("positions arent immediately liquidateable", () => {
-    describe("GIVEN laura supplies 1kdai", () => {
+    describe("GIVEN laura deposits 1kdai to a maturity pool", () => {
       let supplyEvent: any;
       beforeEach(async () => {
         const amount = parseUnits("1000");

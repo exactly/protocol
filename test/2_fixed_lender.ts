@@ -152,7 +152,7 @@ describe("FixedLender", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
-  it("it allows you to borrow money", async () => {
+  it("it allows you to borrow money from a maturity pool", async () => {
     let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
@@ -438,7 +438,7 @@ describe("FixedLender", function () {
     );
   });
 
-  it("it doesn't allow you to borrow more money that the available", async () => {
+  it("it doesn't allow you to borrow more money than the available", async () => {
     const fixedLenderMaria = fixedLender.connect(mariaUser);
     const auditorUser = auditor.connect(mariaUser);
     const underlyingTokenUser = underlyingToken.connect(mariaUser);

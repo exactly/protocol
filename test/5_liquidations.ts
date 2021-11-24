@@ -77,23 +77,23 @@ describe("Liquidations", function () {
     await dai.transfer(bob.address, parseUnits("100000"));
   });
 
-  describe("GIVEN alice supplies USD63k worth of WBTC, USD3k worth of ETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob supplies 65kDAI", () => {
+  describe("GIVEN alice deposits USD63k worth of WBTC, USD3k worth of ETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob deposits 65kDAI", () => {
     beforeEach(async () => {
-      // we supply Eth to the protocol
+      // we deposit Eth to the protocol
       const amountETH = parseUnits("1");
       await eth.approve(exafinETH.address, amountETH);
       await exafinETH
         .connect(alice)
         .depositToMaturityPool(amountETH, nextPoolID);
 
-      // we supply WBTC to the protocol
+      // we deposit WBTC to the protocol
       const amountWBTC = parseUnits("1", 8);
       await wbtc.approve(exafinWBTC.address, amountWBTC);
       await exafinWBTC
         .connect(alice)
         .depositToMaturityPool(amountWBTC, nextPoolID);
 
-      // bob supplies DAI to the protocol to have money in the pool
+      // bob deposits DAI to the protocol to have money in the pool
       const amountDAI = parseUnits("65000");
       await dai.connect(bob).approve(exafinDAI.address, amountDAI);
       await exafinDAI.connect(bob).depositToMaturityPool(amountDAI, nextPoolID);
@@ -337,12 +337,12 @@ describe("Liquidations", function () {
                 nextPoolID
               );
             });
-            it("THEN theres nearly no ETH supplied by Alice", async () => {
-              const [suppliedETH] = await exafinETH.getAccountSnapshot(
+            it("THEN theres nearly no ETH deposited by Alice", async () => {
+              const [depositedETH] = await exafinETH.getAccountSnapshot(
                 alice.address,
                 nextPoolID
               );
-              expect(suppliedETH).to.be.lt(parseUnits("0.001"));
+              expect(depositedETH).to.be.lt(parseUnits("0.001"));
             });
             describe("AND WHEN liquidating $27500 of Alices WBTC collateral (two steps required)", () => {
               beforeEach(async () => {
@@ -389,11 +389,11 @@ describe("Liquidations", function () {
                     );
                 });
                 it("THEN the Alice has zero WBTC deposited", async () => {
-                  const [suppliedWBTC] = await exafinWBTC.getAccountSnapshot(
+                  const [depositedWBTC] = await exafinWBTC.getAccountSnapshot(
                     alice.address,
                     nextPoolID
                   );
-                  expect(suppliedWBTC).to.be.lt(parseUnits("0.0005", 8));
+                  expect(depositedWBTC).to.be.lt(parseUnits("0.0005", 8));
                 });
                 // now theres no incentive to liquidate those 7500 dai
                 it("AND alice still has some DAI debt", async () => {

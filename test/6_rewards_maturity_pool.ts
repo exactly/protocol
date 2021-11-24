@@ -187,19 +187,19 @@ describe("ExaToken", () => {
         ).to.emit(auditor, "DistributedBorrowerExa");
       });
 
-      it("should DistributedSupplierExa when redeeming supply", async () => {
+      it("should DistributedSupplierExa when redeeming deposit", async () => {
         // connect through Maria
         let fixedLenderMaria = fixedLenderDAI.connect(mariaUser);
         let underlyingTokenUser = dai.connect(mariaUser);
-        let supplyAmount = parseUnits("1");
+        let depositAmount = parseUnits("1");
 
-        // supply some money and parse event
+        // deposit some money to a maturity and parse event
         await underlyingTokenUser.approve(
           fixedLenderMaria.address,
-          supplyAmount
+          depositAmount
         );
         await fixedLenderMaria.depositToMaturityPool(
-          supplyAmount,
+          depositAmount,
           exaTime.nextPoolID()
         );
 
@@ -212,7 +212,7 @@ describe("ExaToken", () => {
         await expect(
           fixedLenderMaria.redeemFromMaturityPool(
             mariaUser.address,
-            supplyAmount,
+            depositAmount,
             exaTime.nextPoolID()
           )
         ).to.emit(auditor, "DistributedSupplierExa");
@@ -228,7 +228,7 @@ describe("ExaToken", () => {
           fixedLenderDAI.address,
           underlyingAmount
         );
-        // supply some money and parse event
+        // deposit some money and parse event
         await fixedLenderMaria.depositToMaturityPool(
           underlyingAmount.div(2),
           exaTime.nextPoolID()
