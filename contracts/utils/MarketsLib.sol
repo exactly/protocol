@@ -198,7 +198,6 @@ library MarketsLib {
             if the user is not participating in a market, and the caller is a fixedLender, the function
             will subscribe the wallet to the market membership
      * @param book account book that it will be used to perform validation
-     * @param oracle oracle used to perform all liquidity calculations
      * @param fixedLenderAddress address of the market that the borrow will be validated. If this equals msg.sender
               then the wallet will be autosubscribed to the market membership,
      * @param borrower address which will be borrowing money from this market
@@ -207,7 +206,6 @@ library MarketsLib {
      */
     function validateBorrow(
         Book storage book,
-        IOracle oracle,
         address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,
@@ -229,9 +227,6 @@ library MarketsLib {
             // it should be impossible to break the important invariant
             assert(book.markets[fixedLenderAddress].accountMembership[borrower][maturityDate]);
         }
-
-        // We check that the asset price is valid
-        oracle.getAssetPrice(IFixedLender(fixedLenderAddress).underlyingTokenName());
 
         uint256 borrowCap = book.borrowCaps[fixedLenderAddress];
         // Borrow cap of 0 corresponds to unlimited borrowing

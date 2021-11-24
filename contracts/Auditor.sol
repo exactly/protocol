@@ -295,7 +295,6 @@ contract Auditor is IAuditor, AccessControl {
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
         book.validateBorrow(
-            oracle,
             fixedLenderAddress,
             borrower,
             borrowAmount,
