@@ -170,7 +170,7 @@ describe("FixedLender", function () {
       parseUnits("0.8"),
       exaTime.nextPoolID()
     );
-    expect(tx).to.emit(fixedLenderMaria, "BorrowedFromMaturityPool");
+    expect(tx).to.emit(fixedLenderMaria, "BorrowFromMaturityPool");
     let event = await parseBorrowFromMaturityPoolEvent(tx);
     expect(
       await fixedLenderMaria.getTotalBorrows(exaTime.nextPoolID())

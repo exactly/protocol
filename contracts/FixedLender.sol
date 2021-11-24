@@ -29,7 +29,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param maturityDate dateID/poolID/maturity in which the user will have 
      *                     to repay the loan
      */
-    event BorrowedFromMaturityPool(
+    event BorrowFromMaturityPool(
         address indexed to,
         uint256 amount,
         uint256 commission,
@@ -46,7 +46,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param maturityDate dateID/poolID/maturity in which the user will be able 
      *                     to collect his deposit + his commission
      */
-    event DepositedToMaturityPool(
+    event DepositToMaturityPool(
         address indexed from,
         uint256 amount,
         uint256 commission,
@@ -59,7 +59,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount of the asset that it was supplied
      * @param maturityDate poolID where the user collected its deposits
      */
-    event RedeemedFromMaturityPool(
+    event RedeemFromMaturityPool(
         address indexed from,
         uint256 amount,
         uint256 maturityDate
@@ -72,7 +72,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount of the asset that it was repaid
      * @param maturityDate poolID where the user repaid its borrowed amounts
      */
-    event RepaidToMaturityPool(
+    event RepayToMaturityPool(
         address indexed payer,
         address indexed borrower,
         uint256 amount,
@@ -250,7 +250,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
-        emit BorrowedFromMaturityPool(msg.sender, amount, commission, maturityDate);
+        emit BorrowFromMaturityPool(msg.sender, amount, commission, maturityDate);
     }
 
     /**
@@ -302,7 +302,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit DepositedToMaturityPool(msg.sender, amount, commission, maturityDate);
+        emit DepositToMaturityPool(msg.sender, amount, commission, maturityDate);
     }
 
     /**
@@ -345,7 +345,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             redeemAmount
         );
 
-        emit RedeemedFromMaturityPool(redeemer, redeemAmount, maturityDate);
+        emit RedeemFromMaturityPool(redeemer, redeemAmount, maturityDate);
     }
 
     /**
@@ -375,7 +375,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit RepaidToMaturityPool(msg.sender, borrower, amountBorrowed, maturityDate);
+        emit RepayToMaturityPool(msg.sender, borrower, amountBorrowed, maturityDate);
     }
 
     /**
@@ -409,7 +409,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         totalBorrows -= repayAmount;
         totalBorrowsUser[borrower] -= repayAmount;
 
-        emit RepaidToMaturityPool(payer, borrower, repayAmount, maturityDate);
+        emit RepayToMaturityPool(payer, borrower, repayAmount, maturityDate);
     }
 
     /**

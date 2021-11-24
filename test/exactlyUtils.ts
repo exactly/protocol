@@ -28,7 +28,7 @@ export async function parseBorrowFromMaturityPoolEvent(
   return new Promise<BorrowFromMaturityPoolEventInterface>(
     (resolve, reject) => {
       let args = receipt.events?.filter((x) => {
-        return x.event == "BorrowedFromMaturityPool";
+        return x.event == "BorrowFromMaturityPool";
       })[0]["args"];
 
       if (args != undefined) {
@@ -49,7 +49,7 @@ export async function parseDepositToMaturityPoolEvent(tx: ContractTransaction) {
   let receipt: ContractReceipt = await tx.wait();
   return new Promise<DepositToMaturityPoolEventInterface>((resolve, reject) => {
     let args = receipt.events?.filter((x) => {
-      return x.event == "DepositedToMaturityPool";
+      return x.event == "DepositToMaturityPool";
     })[0]["args"];
 
     if (args != undefined) {
