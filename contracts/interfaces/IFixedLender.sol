@@ -5,10 +5,12 @@ import "./IAuditor.sol";
 import "./IEToken.sol";
 
 interface IFixedLender {
-    function borrow(uint256 amount, uint256 maturityDate) external;
+    function borrow(
+        uint256 amount, 
+        uint256 maturityDate
+    ) external;
 
     function supply(
-        address from,
         uint256 amount,
         uint256 maturityDate
     ) external;

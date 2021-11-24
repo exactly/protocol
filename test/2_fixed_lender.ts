@@ -96,11 +96,7 @@ describe("FixedLender", function () {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
-    let tx = await fixedLender.supply(
-      owner.address,
-      underlyingAmount,
-      exaTime.nextPoolID()
-    );
+    let tx = await fixedLender.supply(underlyingAmount, exaTime.nextPoolID());
     let event = await parseSupplyEvent(tx);
 
     expect(event.from).to.equal(owner.address);
@@ -126,7 +122,7 @@ describe("FixedLender", function () {
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
     await expect(
-      fixedLender.supply(owner.address, underlyingAmount, exaTime.pastPoolID())
+      fixedLender.supply(underlyingAmount, exaTime.pastPoolID())
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
     );
@@ -138,7 +134,7 @@ describe("FixedLender", function () {
     const notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
 
     await expect(
-      fixedLender.supply(owner.address, underlyingAmount, notYetEnabledPoolID)
+      fixedLender.supply(underlyingAmount, notYetEnabledPoolID)
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
     );
@@ -149,7 +145,7 @@ describe("FixedLender", function () {
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
     const invalidPoolID = exaTime.pastPoolID() + 666;
     await expect(
-      fixedLender.supply(owner.address, underlyingAmount, invalidPoolID)
+      fixedLender.supply(underlyingAmount, invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
@@ -159,11 +155,7 @@ describe("FixedLender", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -185,11 +177,7 @@ describe("FixedLender", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -207,11 +195,7 @@ describe("FixedLender", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
     let notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -230,11 +214,7 @@ describe("FixedLender", function () {
     const invalidPoolID = exaTime.pastPoolID() + 666;
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -261,11 +241,7 @@ describe("FixedLender", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -287,7 +263,6 @@ describe("FixedLender", function () {
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     let tx = await fixedLenderMaria.supply(
-      mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
@@ -332,7 +307,6 @@ describe("FixedLender", function () {
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     let txSupply = await fixedLenderMaria.supply(
-      mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
@@ -373,7 +347,6 @@ describe("FixedLender", function () {
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     let txSupply = await fixedLenderMaria.supply(
-      mariaUser.address,
       parseUnits("1"),
       exaTime.nextPoolID()
     );
@@ -466,17 +439,9 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
 
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("0.2"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -508,17 +473,9 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
 
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("0.2"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -548,11 +505,7 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
 
     await auditorUser.enterMarkets(
       [fixedLenderMariaETH.address],
@@ -583,17 +536,9 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
 
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("0.2"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -625,17 +570,9 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
 
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("0.2"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -667,17 +604,9 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
 
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("0.2"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -698,11 +627,7 @@ describe("FixedLender", function () {
 
     expect(debt).not.to.be.equal("0");
 
-    await fixedLenderMaria.supply(
-      mariaUser.address,
-      parseUnits("0.5"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMaria.supply(parseUnits("0.5"), exaTime.nextPoolID());
 
     poolData = await fixedLender.pools(exaTime.nextPoolID());
     debt = poolData[2];
@@ -725,11 +650,7 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(
-      mariaUser.address,
-      parseUnits("1"),
-      exaTime.nextPoolID()
-    );
+    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
 
     await auditorUser.enterMarkets(
       [fixedLenderMariaETH.address],

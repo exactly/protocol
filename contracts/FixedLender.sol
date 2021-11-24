@@ -192,7 +192,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param maturityDate maturity date for repayment
      */
     function borrow(uint256 amount, uint256 maturityDate)
-        public
+        external
         override
         nonReentrant
     {
@@ -256,15 +256,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     /**
      * @dev Supplies a certain amount to the protocol for
      *      a certain maturity date/pool
-     * @param from wallet to receive amount from
      * @param amount amount to receive from the specified wallet
      * @param maturityDate maturity date / pool ID
      */
     function supply(
-        address from,
         uint256 amount,
         uint256 maturityDate
-    ) public override nonReentrant {
+    ) external override nonReentrant {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
@@ -272,7 +270,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         PoolLib.MaturityPool memory pool = pools[maturityDate];
 
         // reverts on failure
-        auditor.supplyAllowed(address(this), from, maturityDate);
+        auditor.supplyAllowed(address(this), msg.sender, maturityDate);
 
         if (pool.debt > 0) {
             if (amount >= pool.debt) {
@@ -297,14 +295,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         uint256 commission = amount.mul_(commissionRate);
         uint256 currentTotalDeposit = amount + commission;
-        suppliedAmounts[maturityDate][from] += currentTotalDeposit;
+        suppliedAmounts[maturityDate][msg.sender] += currentTotalDeposit;
 
         totalDeposits += currentTotalDeposit;
-        totalDepositsUser[from] += currentTotalDeposit;
+        totalDepositsUser[msg.sender] += currentTotalDeposit;
 
-        trustedUnderlying.safeTransferFrom(from, address(this), amount);
+        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Supplied(from, amount, commission, maturityDate);
+        emit Supplied(msg.sender, amount, commission, maturityDate);
     }
 
     /**

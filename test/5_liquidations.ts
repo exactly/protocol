@@ -82,17 +82,17 @@ describe("Liquidations", function () {
       // we supply Eth to the protocol
       const amountETH = parseUnits("1");
       await eth.approve(exafinETH.address, amountETH);
-      await exafinETH.supply(alice.address, amountETH, nextPoolID);
+      await exafinETH.connect(alice).supply(amountETH, nextPoolID);
 
       // we supply WBTC to the protocol
       const amountWBTC = parseUnits("1", 8);
       await wbtc.approve(exafinWBTC.address, amountWBTC);
-      await exafinWBTC.supply(alice.address, amountWBTC, nextPoolID);
+      await exafinWBTC.connect(alice).supply(amountWBTC, nextPoolID);
 
       // bob supplies DAI to the protocol to have money in the pool
       const amountDAI = parseUnits("65000");
       await dai.connect(bob).approve(exafinDAI.address, amountDAI);
-      await exafinDAI.connect(bob).supply(bob.address, amountDAI, nextPoolID);
+      await exafinDAI.connect(bob).supply(amountDAI, nextPoolID);
       await dai.connect(bob).approve(exafinDAI.address, parseUnits("100000"));
     });
 

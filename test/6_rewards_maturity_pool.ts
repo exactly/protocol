@@ -139,7 +139,7 @@ describe("ExaToken", () => {
         await expect(
           fixedLenderDAI
             .connect(mariaUser)
-            .supply(mariaUser.address, underlyingAmount, exaTime.nextPoolID())
+            .supply(underlyingAmount, exaTime.nextPoolID())
         ).to.emit(auditor, "DistributedSupplierExa");
 
         await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
@@ -157,22 +157,14 @@ describe("ExaToken", () => {
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
 
         await expect(
-          fixedLenderDAI.supply(
-            owner.address,
-            underlyingAmount,
-            exaTime.nextPoolID()
-          )
+          fixedLenderDAI.supply(underlyingAmount, exaTime.nextPoolID())
         ).to.emit(auditor, "DistributedSupplierExa");
       });
 
       it("should DistributedBorrowerExa when borrowing on second interaction", async () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
-        await fixedLenderDAI.supply(
-          owner.address,
-          underlyingAmount,
-          exaTime.nextPoolID()
-        );
+        await fixedLenderDAI.supply(underlyingAmount, exaTime.nextPoolID());
 
         await expect(
           fixedLenderDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
@@ -194,11 +186,7 @@ describe("ExaToken", () => {
           fixedLenderMaria.address,
           supplyAmount
         );
-        await fixedLenderMaria.supply(
-          mariaUser.address,
-          supplyAmount,
-          exaTime.nextPoolID()
-        );
+        await fixedLenderMaria.supply(supplyAmount, exaTime.nextPoolID());
 
         // Move in time to maturity
         await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -227,7 +215,6 @@ describe("ExaToken", () => {
         );
         // supply some money and parse event
         await fixedLenderMaria.supply(
-          mariaUser.address,
           underlyingAmount.div(2),
           exaTime.nextPoolID()
         );

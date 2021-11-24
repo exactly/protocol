@@ -107,7 +107,7 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(owner.address, amountDAI, nextPoolID);
+    await fixedLenderDAI.supply(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
@@ -124,7 +124,7 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(owner.address, amountDAI, nextPoolID);
+    await fixedLenderDAI.supply(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
@@ -140,7 +140,7 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(owner.address, amountDAI, nextPoolID);
+    await fixedLenderDAI.supply(amountDAI, nextPoolID);
     await fixedLenderDAI.borrow(amountDAI.div(2), nextPoolID);
 
     // we make it count as collateral (DAI)
@@ -198,7 +198,7 @@ describe("Auditor from User Space", function () {
 
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(owner.address, amountDAI, nextPoolID);
+    await fixedLenderDAI.supply(amountDAI, nextPoolID);
 
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
 
@@ -309,7 +309,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(owner.address, amountDAI, nextPoolID);
+    await fixedLenderDAI.supply(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
@@ -326,7 +326,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(owner.address, amountDAI, nextPoolID);
+    await fixedLenderDAI.supply(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await expect(
@@ -353,7 +353,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(owner.address, amountDAI, nextPoolID);
+    await fixedLenderDAI.supply(amountDAI, nextPoolID);
 
     await expect(
       // user tries to borrow more than the cap
@@ -389,11 +389,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    let txDAI = await fixedLenderDAI.supply(
-      owner.address,
-      amountDAI,
-      nextPoolID
-    );
+    let txDAI = await fixedLenderDAI.supply(amountDAI, nextPoolID);
     let borrowDAIEvent = await parseSupplyEvent(txDAI);
 
     expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(amountDAI);
@@ -407,11 +403,7 @@ describe("Auditor from User Space", function () {
     // we supply Eth to the protocol
     const amountETH = parseUnits("1");
     await eth.approve(fixedLenderETH.address, amountETH);
-    let txETH = await fixedLenderETH.supply(
-      owner.address,
-      amountETH,
-      nextPoolID
-    );
+    let txETH = await fixedLenderETH.supply(amountETH, nextPoolID);
     let borrowETHEvent = await parseSupplyEvent(txETH);
 
     expect(await eth.balanceOf(fixedLenderETH.address)).to.equal(amountETH);
@@ -449,7 +441,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(owner.address, amountDAI, nextPoolID);
+    await fixedLenderDAI.supply(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
