@@ -5,31 +5,24 @@ import "./IAuditor.sol";
 import "./IEToken.sol";
 
 interface IFixedLender {
-    function borrowFromMaturityPool(
-        uint256 amount, 
-        uint256 maturityDate
-    ) external;
+    function borrowFromMaturityPool(uint256 amount, uint256 maturityDate)
+        external;
 
-    function depositToMaturityPool(
-        uint256 amount,
-        uint256 maturityDate
-    ) external;
+    function depositToMaturityPool(uint256 amount, uint256 maturityDate)
+        external;
 
-    function depositToSmartPool(
-        uint256 amount
-    ) external;
+    function depositToSmartPool(uint256 amount) external;
 
-    function withdrawFromSmartPool(
-        uint256 amount
-    ) external;
+    function withdrawFromSmartPool(uint256 amount) external;
 
-    function redeemFromMaturityPool(
+    function withdrawFromMaturityPool(
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
     ) external;
 
-    function repayToMaturityPool(address borrower, uint256 maturityDate) external;
+    function repayToMaturityPool(address borrower, uint256 maturityDate)
+        external;
 
     function seize(
         address liquidator,

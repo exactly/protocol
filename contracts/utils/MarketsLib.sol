@@ -9,11 +9,18 @@ import "../utils/Errors.sol";
 import "../utils/DecimalMath.sol";
 
 library MarketsLib {
-
     using DecimalMath for uint256;
 
-    event MarketEntered(address fixedLender, address account, uint256 maturityDate);
-    event MarketExited(address fixedLender, address account, uint256 maturityDate);
+    event MarketEntered(
+        address fixedLender,
+        address account,
+        uint256 maturityDate
+    );
+    event MarketExited(
+        address fixedLender,
+        address account,
+        uint256 maturityDate
+    );
 
     // Struct to avoid stack too deep
     struct AccountLiquidity {
@@ -50,10 +57,19 @@ library MarketsLib {
      * @param who address of the user that it will start participating in a market/maturity
      * @param maturityDate poolID in which it will start participating
      */
-    function addToMarket(Book storage book, address fixedLenderAddress, address who, uint256 maturityDate) public {
-        MarketsLib.Market storage marketToJoin = book.markets[fixedLenderAddress];
+    function addToMarket(
+        Book storage book,
+        address fixedLenderAddress,
+        address who,
+        uint256 maturityDate
+    ) public {
+        MarketsLib.Market storage marketToJoin = book.markets[
+            fixedLenderAddress
+        ];
         addToMaturity(marketToJoin, who, maturityDate);
-        book.accountAssets[who][maturityDate].push(IFixedLender(fixedLenderAddress));
+        book.accountAssets[who][maturityDate].push(
+            IFixedLender(fixedLenderAddress)
+        );
         emit MarketEntered(fixedLenderAddress, who, maturityDate);
     }
 
@@ -64,8 +80,12 @@ library MarketsLib {
      * @param borrower wallet that wants to enter a market
      * @param maturityDate poolID in which the wallet will be added to
      */
-    function addToMaturity(Market storage market, address borrower, uint256 maturityDate) internal {
-        if(!TSUtils.isPoolID(maturityDate)) { 
+    function addToMaturity(
+        Market storage market,
+        address borrower,
+        uint256 maturityDate
+    ) internal {
+        if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
@@ -88,8 +108,15 @@ library MarketsLib {
      * @param who wallet that wants to exit a market/maturity
      * @param maturityDate poolID in which the wallet will stop using as collateral
      */
-    function exitMarket(Book storage book, address fixedLenderAddress, address who, uint256 maturityDate) external {
-        MarketsLib.Market storage marketToExit = book.markets[fixedLenderAddress];
+    function exitMarket(
+        Book storage book,
+        address fixedLenderAddress,
+        address who,
+        uint256 maturityDate
+    ) external {
+        MarketsLib.Market storage marketToExit = book.markets[
+            fixedLenderAddress
+        ];
 
         if (marketToExit.accountMembership[who][maturityDate] == false) {
             return;
@@ -98,10 +125,12 @@ library MarketsLib {
         delete marketToExit.accountMembership[who][maturityDate];
 
         // load into memory for faster iteration
-        IFixedLender[] memory userAssetList = book.accountAssets[who][maturityDate];
-        uint len = userAssetList.length;
-        uint assetIndex = len;
-        for (uint i = 0; i < len; i++) {
+        IFixedLender[] memory userAssetList = book.accountAssets[who][
+            maturityDate
+        ];
+        uint256 len = userAssetList.length;
+        uint256 assetIndex = len;
+        for (uint256 i = 0; i < len; i++) {
             if (userAssetList[i] == IFixedLender(fixedLenderAddress)) {
                 assetIndex = i;
                 break;
@@ -112,7 +141,9 @@ library MarketsLib {
         assert(assetIndex < len);
 
         // copy last item in list to location of item to be removed, reduce length by 1
-        IFixedLender[] storage storedList = book.accountAssets[who][maturityDate];
+        IFixedLender[] storage storedList = book.accountAssets[who][
+            maturityDate
+        ];
         storedList[assetIndex] = storedList[storedList.length - 1];
         storedList.pop();
 
@@ -125,8 +156,8 @@ library MarketsLib {
      * @param oracle oracle used to perform all liquidity calculations
      * @param account wallet which the liquidity will be calculated
      * @param maturityDate timestamp to calculate maturity's pool
-     * @param fixedLenderToSimulate fixedLender in which we want to simulate redeem/borrow ops (see next two args)
-     * @param redeemAmount amount to simulate redeem
+     * @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args)
+     * @param withdrawAmount amount to simulate withdraw
      * @param borrowAmount amount to simulate borrow
      */
     function accountLiquidity(
@@ -135,21 +166,15 @@ library MarketsLib {
         address account,
         uint256 maturityDate,
         address fixedLenderToSimulate,
-        uint256 redeemAmount,
+        uint256 withdrawAmount,
         uint256 borrowAmount
-    )
-        external 
-        view
-        returns (
-            uint256,
-            uint256
-        )
-    {
-
+    ) external view returns (uint256, uint256) {
         AccountLiquidity memory vars; // Holds all our calculation results
 
         // For each asset the account is in
-        IFixedLender[] memory assets = book.accountAssets[account][maturityDate];
+        IFixedLender[] memory assets = book.accountAssets[account][
+            maturityDate
+        ];
         for (uint256 i = 0; i < assets.length; i++) {
             IFixedLender asset = assets[i];
             MarketsLib.Market storage market = book.markets[address(asset)];
@@ -159,28 +184,52 @@ library MarketsLib {
                 account,
                 maturityDate
             );
-            vars.collateralFactor = book.markets[address(asset)].collateralFactor;
+            vars.collateralFactor = book
+                .markets[address(asset)]
+                .collateralFactor;
 
             // Get the normalized price of the asset (18 decimals)
-            vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenName());
+            vars.oraclePrice = oracle.getAssetPrice(
+                asset.underlyingTokenName()
+            );
 
             // We sum all the collateral prices
-            vars.sumCollateral += DecimalMath.getTokenAmountInUSD(vars.balance, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
+            vars.sumCollateral += DecimalMath
+                .getTokenAmountInUSD(
+                    vars.balance,
+                    vars.oraclePrice,
+                    market.decimals
+                )
+                .mul_(vars.collateralFactor);
 
             // We sum all the debt
-            vars.sumDebt += DecimalMath.getTokenAmountInUSD(vars.borrowBalance, vars.oraclePrice, market.decimals);
+            vars.sumDebt += DecimalMath.getTokenAmountInUSD(
+                vars.borrowBalance,
+                vars.oraclePrice,
+                market.decimals
+            );
 
             // Simulate the effects of borrowing from/lending to a pool
             if (asset == IFixedLender(fixedLenderToSimulate)) {
                 // Calculate the effects of borrowing fixedLenders
                 if (borrowAmount != 0) {
-                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(borrowAmount, vars.oraclePrice, market.decimals);
+                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(
+                        borrowAmount,
+                        vars.oraclePrice,
+                        market.decimals
+                    );
                 }
 
                 // Calculate the effects of redeeming fixedLenders
                 // (having less collateral is the same as having more debt for this calculation)
-                if (redeemAmount != 0) {
-                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(redeemAmount, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
+                if (withdrawAmount != 0) {
+                    vars.sumDebt += DecimalMath
+                        .getTokenAmountInUSD(
+                            withdrawAmount,
+                            vars.oraclePrice,
+                            market.decimals
+                        )
+                        .mul_(vars.collateralFactor);
                 }
             }
         }
@@ -217,7 +266,11 @@ library MarketsLib {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if (!book.markets[fixedLenderAddress].accountMembership[borrower][maturityDate]) {
+        if (
+            !book.markets[fixedLenderAddress].accountMembership[borrower][
+                maturityDate
+            ]
+        ) {
             // only fixedLenders may call borrowAllowed if borrower not in market
             if (msg.sender != fixedLenderAddress) {
                 revert GenericError(ErrorCode.NOT_A_FIXED_LENDER_SENDER);
@@ -227,24 +280,27 @@ library MarketsLib {
             addToMarket(book, fixedLenderAddress, borrower, maturityDate);
 
             // it should be impossible to break the important invariant
-            assert(book.markets[fixedLenderAddress].accountMembership[borrower][maturityDate]);
+            assert(
+                book.markets[fixedLenderAddress].accountMembership[borrower][
+                    maturityDate
+                ]
+            );
         }
 
         // We check that the asset price is valid
-        oracle.getAssetPrice(IFixedLender(fixedLenderAddress).underlyingTokenName());
+        oracle.getAssetPrice(
+            IFixedLender(fixedLenderAddress).underlyingTokenName()
+        );
 
         uint256 borrowCap = book.borrowCaps[fixedLenderAddress];
         // Borrow cap of 0 corresponds to unlimited borrowing
         if (borrowCap != 0) {
-            uint256 totalBorrows = IFixedLender(fixedLenderAddress).getTotalBorrows(
-                maturityDate
-            );
+            uint256 totalBorrows = IFixedLender(fixedLenderAddress)
+                .getTotalBorrows(maturityDate);
             uint256 nextTotalBorrows = totalBorrows + borrowAmount;
             if (nextTotalBorrows >= borrowCap) {
                 revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
             }
         }
-
     }
-
 }
