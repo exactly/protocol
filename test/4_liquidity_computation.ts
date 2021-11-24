@@ -8,7 +8,7 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
-  parseSupplyEvent,
+  parseDepositToMaturityPoolEvent,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -104,8 +104,8 @@ describe("Liquidity computations", function () {
         await dai.connect(laura).approve(fixedLenderDAI.address, amount);
         const txDai = await fixedLenderDAI
           .connect(laura)
-          .supply(amount, nextPoolID);
-        supplyEvent = await parseSupplyEvent(txDai);
+          .depositToMaturityPool(amount, nextPoolID);
+        supplyEvent = await parseDepositToMaturityPoolEvent(txDai);
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -175,7 +175,9 @@ describe("Liquidity computations", function () {
         // laura supplies wbtc to the protocol to have lendable money in the pool
         const amount = parseUnits("3", 8);
         await wbtc.connect(laura).approve(fixedLenderWBTC.address, amount);
-        await fixedLenderWBTC.connect(laura).supply(amount, nextPoolID);
+        await fixedLenderWBTC
+          .connect(laura)
+          .depositToMaturityPool(amount, nextPoolID);
       });
 
       describe("AND GIVEN Bob provides 60kdai (18 decimals) as collateral", () => {
@@ -185,7 +187,7 @@ describe("Liquidity computations", function () {
             .approve(fixedLenderDAI.address, parseUnits("60000"));
           await fixedLenderDAI
             .connect(bob)
-            .supply(parseUnits("60000"), nextPoolID);
+            .depositToMaturityPool(parseUnits("60000"), nextPoolID);
         });
         // Here I'm trying to make sure we use the borrowed token's decimals
         // properly to compute liquidity
@@ -211,13 +213,13 @@ describe("Liquidity computations", function () {
             .approve(fixedLenderDAI.address, parseUnits("20000"));
           await fixedLenderDAI
             .connect(bob)
-            .supply(parseUnits("20000"), nextPoolID);
+            .depositToMaturityPool(parseUnits("20000"), nextPoolID);
           await usdc
             .connect(bob)
             .approve(fixedLenderUSDC.address, parseUnits("40000", 6));
           await fixedLenderUSDC
             .connect(bob)
-            .supply(parseUnits("40000", 6), nextPoolID);
+            .depositToMaturityPool(parseUnits("40000", 6), nextPoolID);
         });
         describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
           beforeEach(async () => {

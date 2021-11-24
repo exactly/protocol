@@ -139,7 +139,7 @@ describe("ExaToken", () => {
         await expect(
           fixedLenderDAI
             .connect(mariaUser)
-            .supply(underlyingAmount, exaTime.nextPoolID())
+            .depositToMaturityPool(underlyingAmount, exaTime.nextPoolID())
         ).to.emit(auditor, "DistributedSupplierExa");
 
         await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
@@ -157,14 +157,20 @@ describe("ExaToken", () => {
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
 
         await expect(
-          fixedLenderDAI.supply(underlyingAmount, exaTime.nextPoolID())
+          fixedLenderDAI.depositToMaturityPool(
+            underlyingAmount,
+            exaTime.nextPoolID()
+          )
         ).to.emit(auditor, "DistributedSupplierExa");
       });
 
       it("should DistributedBorrowerExa when borrowing on second interaction", async () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
-        await fixedLenderDAI.supply(underlyingAmount, exaTime.nextPoolID());
+        await fixedLenderDAI.depositToMaturityPool(
+          underlyingAmount,
+          exaTime.nextPoolID()
+        );
 
         await expect(
           fixedLenderDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
@@ -186,7 +192,10 @@ describe("ExaToken", () => {
           fixedLenderMaria.address,
           supplyAmount
         );
-        await fixedLenderMaria.supply(supplyAmount, exaTime.nextPoolID());
+        await fixedLenderMaria.depositToMaturityPool(
+          supplyAmount,
+          exaTime.nextPoolID()
+        );
 
         // Move in time to maturity
         await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -214,7 +223,7 @@ describe("ExaToken", () => {
           underlyingAmount
         );
         // supply some money and parse event
-        await fixedLenderMaria.supply(
+        await fixedLenderMaria.depositToMaturityPool(
           underlyingAmount.div(2),
           exaTime.nextPoolID()
         );

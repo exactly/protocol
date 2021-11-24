@@ -41,7 +41,7 @@ export async function parseBorrowEvent(tx: ContractTransaction) {
   });
 }
 
-export async function parseSupplyEvent(tx: ContractTransaction) {
+export async function parseDepositToMaturityPoolEvent(tx: ContractTransaction) {
   let receipt: ContractReceipt = await tx.wait();
   return new Promise<SuppliedEventInterface>((resolve, reject) => {
     let args = receipt.events?.filter((x) => {

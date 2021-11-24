@@ -254,12 +254,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     }
 
     /**
-     * @dev Supplies a certain amount to the protocol for
+     * @dev Deposits a certain amount to the protocol for
      *      a certain maturity date/pool
-     * @param amount amount to receive from the specified wallet
+     * @param amount amount to receive from the msg.sender
      * @param maturityDate maturity date / pool ID
      */
-    function supply(
+    function depositToMaturityPool(
         uint256 amount,
         uint256 maturityDate
     ) external override nonReentrant {

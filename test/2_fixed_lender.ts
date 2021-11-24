@@ -8,7 +8,7 @@ import {
   ExactlyEnv,
   ExaTime,
   parseBorrowEvent,
-  parseSupplyEvent,
+  parseDepositToMaturityPoolEvent,
   PoolState,
   ProtocolError,
 } from "./exactlyUtils";
@@ -96,8 +96,11 @@ describe("FixedLender", function () {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
-    let tx = await fixedLender.supply(underlyingAmount, exaTime.nextPoolID());
-    let event = await parseSupplyEvent(tx);
+    let tx = await fixedLender.depositToMaturityPool(
+      underlyingAmount,
+      exaTime.nextPoolID()
+    );
+    let event = await parseDepositToMaturityPoolEvent(tx);
 
     expect(event.from).to.equal(owner.address);
     expect(event.amount).to.equal(underlyingAmount);
@@ -122,7 +125,7 @@ describe("FixedLender", function () {
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
     await expect(
-      fixedLender.supply(underlyingAmount, exaTime.pastPoolID())
+      fixedLender.depositToMaturityPool(underlyingAmount, exaTime.pastPoolID())
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
     );
@@ -134,7 +137,7 @@ describe("FixedLender", function () {
     const notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
 
     await expect(
-      fixedLender.supply(underlyingAmount, notYetEnabledPoolID)
+      fixedLender.depositToMaturityPool(underlyingAmount, notYetEnabledPoolID)
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
     );
@@ -145,7 +148,7 @@ describe("FixedLender", function () {
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
     const invalidPoolID = exaTime.pastPoolID() + 666;
     await expect(
-      fixedLender.supply(underlyingAmount, invalidPoolID)
+      fixedLender.depositToMaturityPool(underlyingAmount, invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
@@ -155,7 +158,10 @@ describe("FixedLender", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -177,7 +183,10 @@ describe("FixedLender", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -195,7 +204,10 @@ describe("FixedLender", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
     let notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -214,7 +226,10 @@ describe("FixedLender", function () {
     const invalidPoolID = exaTime.pastPoolID() + 666;
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -241,7 +256,10 @@ describe("FixedLender", function () {
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
@@ -260,19 +278,19 @@ describe("FixedLender", function () {
     let fixedLenderMaria = fixedLender.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
-    // supply some money and parse event
+    // deposit some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    let tx = await fixedLenderMaria.supply(
+    let tx = await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let supplyEvent = await parseSupplyEvent(tx);
+    let depositEvent = await parseDepositToMaturityPoolEvent(tx);
 
     // try to redeem before maturity
     await expect(
       fixedLenderMaria.redeem(
         mariaUser.address,
-        supplyEvent.amount.add(supplyEvent.commission),
+        depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
       )
     ).to.be.revertedWith(
@@ -288,11 +306,11 @@ describe("FixedLender", function () {
     // finally redeem voucher and we expect maria to have her original amount + the comission earned
     await fixedLenderMaria.redeem(
       mariaUser.address,
-      supplyEvent.amount.add(supplyEvent.commission),
+      depositEvent.amount.add(depositEvent.commission),
       exaTime.nextPoolID()
     );
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
-      originalAmount.add(supplyEvent.commission)
+      originalAmount.add(depositEvent.commission)
     );
   });
 
@@ -306,11 +324,11 @@ describe("FixedLender", function () {
 
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
-    let txSupply = await fixedLenderMaria.supply(
+    let txSupply = await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let supplyEvent = await parseSupplyEvent(txSupply);
+    let depositEvent = await parseDepositToMaturityPoolEvent(txSupply);
     await fixedLenderMaria.borrow(parseUnits("0.8"), exaTime.nextPoolID());
 
     // try to redeem without paying debt and fail
@@ -327,7 +345,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.redeem(
         mariaUser.address,
-        supplyEvent.amount.add(supplyEvent.commission),
+        depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
       )
     ).to.be.revertedWith(
@@ -346,11 +364,11 @@ describe("FixedLender", function () {
 
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
-    let txSupply = await fixedLenderMaria.supply(
+    let txSupply = await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let supplyEvent = await parseSupplyEvent(txSupply);
+    let depositEvent = await parseDepositToMaturityPoolEvent(txSupply);
     let tx = await fixedLenderMaria.borrow(
       parseUnits("0.8"),
       exaTime.nextPoolID()
@@ -372,7 +390,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.redeem(
         mariaUser.address,
-        supplyEvent.amount.add(supplyEvent.commission),
+        depositEvent.amount.add(depositEvent.commission),
         exaTime.nextPoolID()
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
@@ -385,12 +403,12 @@ describe("FixedLender", function () {
     // finally redeem voucher and we expect maria to have her original amount + the comission earned - comission paid
     await fixedLenderMaria.redeem(
       mariaUser.address,
-      supplyEvent.amount.add(supplyEvent.commission),
+      depositEvent.amount.add(depositEvent.commission),
       exaTime.nextPoolID()
     );
 
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
-      originalAmount.add(supplyEvent.commission).sub(borrowEvent.commission)
+      originalAmount.add(depositEvent.commission).sub(borrowEvent.commission)
     );
   });
 
@@ -439,9 +457,15 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMariaETH.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
 
-    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -473,9 +497,15 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMariaETH.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
 
-    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -505,7 +535,10 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMariaETH.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
 
     await auditorUser.enterMarkets(
       [fixedLenderMariaETH.address],
@@ -536,9 +569,15 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMariaETH.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
 
-    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -570,9 +609,15 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMariaETH.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
 
-    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -604,9 +649,15 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMariaETH.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
 
-    await fixedLenderMaria.supply(parseUnits("0.2"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("0.2"),
+      exaTime.nextPoolID()
+    );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
@@ -627,7 +678,10 @@ describe("FixedLender", function () {
 
     expect(debt).not.to.be.equal("0");
 
-    await fixedLenderMaria.supply(parseUnits("0.5"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
 
     poolData = await fixedLender.pools(exaTime.nextPoolID());
     debt = poolData[2];
@@ -650,7 +704,10 @@ describe("FixedLender", function () {
       parseUnits("1")
     );
 
-    await fixedLenderMariaETH.supply(parseUnits("1"), exaTime.nextPoolID());
+    await fixedLenderMariaETH.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
 
     await auditorUser.enterMarkets(
       [fixedLenderMariaETH.address],

@@ -10,7 +10,7 @@ interface IFixedLender {
         uint256 maturityDate
     ) external;
 
-    function supply(
+    function depositToMaturityPool(
         uint256 amount,
         uint256 maturityDate
     ) external;
