@@ -7,7 +7,7 @@ import {
   errorUnmatchedPool,
   ExactlyEnv,
   ExaTime,
-  parseBorrowEvent,
+  parseBorrowFromMaturityPoolEvent,
   parseDepositToMaturityPoolEvent,
   PoolState,
   ProtocolError,
@@ -170,8 +170,8 @@ describe("FixedLender", function () {
       parseUnits("0.8"),
       exaTime.nextPoolID()
     );
-    expect(tx).to.emit(fixedLenderMaria, "Borrowed");
-    let event = await parseBorrowEvent(tx);
+    expect(tx).to.emit(fixedLenderMaria, "BorrowedFromMaturityPool");
+    let event = await parseBorrowFromMaturityPoolEvent(tx);
     expect(
       await fixedLenderMaria.getTotalBorrows(exaTime.nextPoolID())
     ).to.equal(parseUnits("0.8").add(event.commission));
@@ -385,7 +385,7 @@ describe("FixedLender", function () {
       parseUnits("0.8"),
       exaTime.nextPoolID()
     );
-    let borrowEvent = await parseBorrowEvent(tx);
+    let borrowEvent = await parseBorrowFromMaturityPoolEvent(tx);
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [

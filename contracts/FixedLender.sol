@@ -29,7 +29,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param maturityDate dateID/poolID/maturity in which the user will have 
      *                     to repay the loan
      */
-    event Borrowed(
+    event BorrowedFromMaturityPool(
         address indexed to,
         uint256 amount,
         uint256 commission,
@@ -46,7 +46,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param maturityDate dateID/poolID/maturity in which the user will be able 
      *                     to collect his deposit + his commission
      */
-    event Supplied(
+    event DepositedToMaturityPool(
         address indexed from,
         uint256 amount,
         uint256 commission,
@@ -250,7 +250,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
-        emit Borrowed(msg.sender, amount, commission, maturityDate);
+        emit BorrowedFromMaturityPool(msg.sender, amount, commission, maturityDate);
     }
 
     /**
@@ -302,7 +302,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Supplied(msg.sender, amount, commission, maturityDate);
+        emit DepositedToMaturityPool(msg.sender, amount, commission, maturityDate);
     }
 
     /**

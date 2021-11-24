@@ -7,45 +7,49 @@ import {
 } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 
-export interface BorrowEventInterface {
+export interface BorrowFromMaturityPoolEventInterface {
   to: string;
   amount: BigNumber;
   commission: BigNumber;
   maturityDate: BigNumber;
 }
 
-export interface SuppliedEventInterface {
+export interface DepositToMaturityPoolEventInterface {
   from: string;
   amount: BigNumber;
   commission: BigNumber;
   maturityDate: BigNumber;
 }
 
-export async function parseBorrowEvent(tx: ContractTransaction) {
+export async function parseBorrowFromMaturityPoolEvent(
+  tx: ContractTransaction
+) {
   let receipt: ContractReceipt = await tx.wait();
-  return new Promise<BorrowEventInterface>((resolve, reject) => {
-    let args = receipt.events?.filter((x) => {
-      return x.event == "Borrowed";
-    })[0]["args"];
+  return new Promise<BorrowFromMaturityPoolEventInterface>(
+    (resolve, reject) => {
+      let args = receipt.events?.filter((x) => {
+        return x.event == "BorrowedFromMaturityPool";
+      })[0]["args"];
 
-    if (args != undefined) {
-      resolve({
-        to: args.to.toString(),
-        amount: BigNumber.from(args.amount),
-        commission: BigNumber.from(args.commission),
-        maturityDate: BigNumber.from(args.maturityDate),
-      });
-    } else {
-      reject(new Error("Event not found"));
+      if (args != undefined) {
+        resolve({
+          to: args.to.toString(),
+          amount: BigNumber.from(args.amount),
+          commission: BigNumber.from(args.commission),
+          maturityDate: BigNumber.from(args.maturityDate),
+        });
+      } else {
+        reject(new Error("Event not found"));
+      }
     }
-  });
+  );
 }
 
 export async function parseDepositToMaturityPoolEvent(tx: ContractTransaction) {
   let receipt: ContractReceipt = await tx.wait();
-  return new Promise<SuppliedEventInterface>((resolve, reject) => {
+  return new Promise<DepositToMaturityPoolEventInterface>((resolve, reject) => {
     let args = receipt.events?.filter((x) => {
-      return x.event == "Supplied";
+      return x.event == "DepositedToMaturityPool";
     })[0]["args"];
 
     if (args != undefined) {
