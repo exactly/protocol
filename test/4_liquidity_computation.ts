@@ -8,7 +8,6 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
-  parseDepositToMaturityPoolEvent,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -98,14 +97,12 @@ describe("Liquidity computations", function () {
 
   describe("positions arent immediately liquidateable", () => {
     describe("GIVEN laura deposits 1kdai to a maturity pool", () => {
-      let supplyEvent: any;
       beforeEach(async () => {
         const amount = parseUnits("1000");
         await dai.connect(laura).approve(fixedLenderDAI.address, amount);
-        const txDai = await fixedLenderDAI
+        await fixedLenderDAI
           .connect(laura)
           .depositToMaturityPool(amount, nextPoolID);
-        supplyEvent = await parseDepositToMaturityPoolEvent(txDai);
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -114,8 +111,7 @@ describe("Liquidity computations", function () {
           nextPoolID
         );
 
-        const expectedLiquidity =
-          800 + parseFloat(formatUnits(supplyEvent.commission)) * 0.8;
+        const expectedLiquidity = 800;
 
         expect(parseFloat(formatUnits(liquidity))).to.be.eq(expectedLiquidity);
         expect(shortfall).to.be.eq(parseUnits("0"));
@@ -126,9 +122,7 @@ describe("Liquidity computations", function () {
           laura.address,
           nextPoolID
         );
-        expect(supplied).to.be.eq(
-          parseUnits("1000").add(supplyEvent.commission)
-        );
+        expect(supplied).to.be.eq(parseUnits("1000"));
         expect(owed).to.be.eq(parseUnits("0"));
       });
       describe("AND GIVEN a 1% borrow interest rate", () => {
@@ -139,9 +133,9 @@ describe("Liquidity computations", function () {
         });
         it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
           await expect(
-          fixedLenderDAI
-            .connect(laura)
-            .borrowFromMaturityPool(parseUnits("800"), nextPoolID)
+            fixedLenderDAI
+              .connect(laura)
+              .borrowFromMaturityPool(parseUnits("800"), nextPoolID)
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
@@ -168,9 +162,7 @@ describe("Liquidity computations", function () {
             nextPoolID
           );
 
-          expect(supplied).to.be.eq(
-            parseUnits("1000").add(supplyEvent.commission)
-          );
+          expect(supplied).to.be.eq(parseUnits("1000"));
           expect(borrowed).to.eq(parseUnits("800"));
         });
       });
