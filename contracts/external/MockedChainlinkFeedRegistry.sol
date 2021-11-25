@@ -7,7 +7,7 @@ contract MockedChainlinkFeedRegistry is IChainlinkFeedRegistry {
     mapping(address => mapping(address => int256)) public assetsPricesByCurrency;
     uint256 public updatedAtTimestamp;
     
-    function latestRoundData(address base, address quote) override external view returns (
+    function latestRoundData(address base, address quote) external override view returns (
       uint80 roundId,
       int256 answer,
       uint256 startedAt,
