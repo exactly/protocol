@@ -7,7 +7,7 @@ import {
   ProtocolError,
   ExactlyEnv,
   ExaTime,
-  parseSupplyEvent,
+  parseDepositToMaturityPoolEvent,
   errorGeneric,
   DefaultEnv,
   PoolState,
@@ -107,7 +107,7 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(amountDAI, nextPoolID);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
@@ -124,7 +124,7 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(amountDAI, nextPoolID);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
@@ -140,8 +140,8 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(amountDAI, nextPoolID);
-    await fixedLenderDAI.borrow(amountDAI.div(2), nextPoolID);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
+    await fixedLenderDAI.borrowFromMaturityPool(amountDAI.div(2), nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
@@ -171,9 +171,9 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
-  it("SupplyAllowed should fail for an unlisted market", async () => {
+  it("beforeDepositMaturityPool should fail for an unlisted market", async () => {
     await expect(
-      auditor.supplyAllowed(
+      auditor.beforeDepositMaturityPool(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
         nextPoolID
@@ -183,7 +183,7 @@ describe("Auditor from User Space", function () {
 
   it("BorrowAllowed should fail for an unlisted market", async () => {
     await expect(
-      auditor.borrowAllowed(
+      auditor.beforeBorrowMaturityPool(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
         100,
@@ -198,13 +198,13 @@ describe("Auditor from User Space", function () {
 
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(amountDAI, nextPoolID);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
 
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
 
     await exactlyEnv.oracle.setPrice("DAI", 0);
     await expect(
-      auditor.borrowAllowed(
+      auditor.beforeBorrowMaturityPool(
         fixedLenderDAI.address,
         owner.address,
         100,
@@ -309,13 +309,13 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(amountDAI, nextPoolID);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
     await expect(
       // user borrows half of it's collateral
-      fixedLenderDAI.borrow(amountDAI.div(2), nextPoolID)
+      fixedLenderDAI.borrowFromMaturityPool(amountDAI.div(2), nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.BORROW_PAUSED));
   });
 
@@ -326,11 +326,11 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(amountDAI, nextPoolID);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await expect(
-      auditor.borrowAllowed(
+      auditor.beforeBorrowMaturityPool(
         fixedLenderDAI.address,
         owner.address,
         100,
@@ -353,11 +353,11 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(amountDAI, nextPoolID);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
 
     await expect(
       // user tries to borrow more than the cap
-      fixedLenderDAI.borrow(20, nextPoolID)
+      fixedLenderDAI.borrowFromMaturityPool(20, nextPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_BORROW_CAP_REACHED));
   });
 
@@ -389,8 +389,11 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    let txDAI = await fixedLenderDAI.supply(amountDAI, nextPoolID);
-    let borrowDAIEvent = await parseSupplyEvent(txDAI);
+    let txDAI = await fixedLenderDAI.depositToMaturityPool(
+      amountDAI,
+      nextPoolID
+    );
+    let borrowDAIEvent = await parseDepositToMaturityPoolEvent(txDAI);
 
     expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(amountDAI);
 
@@ -403,8 +406,11 @@ describe("Auditor from User Space", function () {
     // we supply Eth to the protocol
     const amountETH = parseUnits("1");
     await eth.approve(fixedLenderETH.address, amountETH);
-    let txETH = await fixedLenderETH.supply(amountETH, nextPoolID);
-    let borrowETHEvent = await parseSupplyEvent(txETH);
+    let txETH = await fixedLenderETH.depositToMaturityPool(
+      amountETH,
+      nextPoolID
+    );
+    let borrowETHEvent = await parseDepositToMaturityPoolEvent(txETH);
 
     expect(await eth.balanceOf(fixedLenderETH.address)).to.equal(amountETH);
 
@@ -441,7 +447,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.supply(amountDAI, nextPoolID);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
 
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);

@@ -8,7 +8,7 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
-  parseSupplyEvent,
+  parseDepositToMaturityPoolEvent,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -97,15 +97,15 @@ describe("Liquidity computations", function () {
   });
 
   describe("positions arent immediately liquidateable", () => {
-    describe("GIVEN laura supplies 1kdai", () => {
+    describe("GIVEN laura deposits 1kdai to a maturity pool", () => {
       let supplyEvent: any;
       beforeEach(async () => {
         const amount = parseUnits("1000");
         await dai.connect(laura).approve(fixedLenderDAI.address, amount);
         const txDai = await fixedLenderDAI
           .connect(laura)
-          .supply(amount, nextPoolID);
-        supplyEvent = await parseSupplyEvent(txDai);
+          .depositToMaturityPool(amount, nextPoolID);
+        supplyEvent = await parseDepositToMaturityPoolEvent(txDai);
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -133,7 +133,9 @@ describe("Liquidity computations", function () {
       });
       it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
         await expect(
-          fixedLenderDAI.connect(laura).borrow(parseUnits("800"), nextPoolID)
+          fixedLenderDAI
+            .connect(laura)
+            .borrowFromMaturityPool(parseUnits("800"), nextPoolID)
         ).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
         );
@@ -143,7 +145,7 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await fixedLenderDAI
             .connect(laura)
-            .borrow(parseUnits("799"), nextPoolID);
+            .borrowFromMaturityPool(parseUnits("799"), nextPoolID);
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
@@ -175,7 +177,9 @@ describe("Liquidity computations", function () {
         // laura supplies wbtc to the protocol to have lendable money in the pool
         const amount = parseUnits("3", 8);
         await wbtc.connect(laura).approve(fixedLenderWBTC.address, amount);
-        await fixedLenderWBTC.connect(laura).supply(amount, nextPoolID);
+        await fixedLenderWBTC
+          .connect(laura)
+          .depositToMaturityPool(amount, nextPoolID);
       });
 
       describe("AND GIVEN Bob provides 60kdai (18 decimals) as collateral", () => {
@@ -185,7 +189,7 @@ describe("Liquidity computations", function () {
             .approve(fixedLenderDAI.address, parseUnits("60000"));
           await fixedLenderDAI
             .connect(bob)
-            .supply(parseUnits("60000"), nextPoolID);
+            .depositToMaturityPool(parseUnits("60000"), nextPoolID);
         });
         // Here I'm trying to make sure we use the borrowed token's decimals
         // properly to compute liquidity
@@ -197,7 +201,9 @@ describe("Liquidity computations", function () {
         it("WHEN he tries to take a 1btc (8 decimals) loan (100% collateralization), THEN it reverts", async () => {
           // We expect liquidity to be equal to zero
           await expect(
-            fixedLenderWBTC.connect(bob).borrow(parseUnits("1", 8), nextPoolID)
+            fixedLenderWBTC
+              .connect(bob)
+              .borrowFromMaturityPool(parseUnits("1", 8), nextPoolID)
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
@@ -211,19 +217,19 @@ describe("Liquidity computations", function () {
             .approve(fixedLenderDAI.address, parseUnits("20000"));
           await fixedLenderDAI
             .connect(bob)
-            .supply(parseUnits("20000"), nextPoolID);
+            .depositToMaturityPool(parseUnits("20000"), nextPoolID);
           await usdc
             .connect(bob)
             .approve(fixedLenderUSDC.address, parseUnits("40000", 6));
           await fixedLenderUSDC
             .connect(bob)
-            .supply(parseUnits("40000", 6), nextPoolID);
+            .depositToMaturityPool(parseUnits("40000", 6), nextPoolID);
         });
         describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
           beforeEach(async () => {
             await fixedLenderWBTC
               .connect(bob)
-              .borrow(parseUnits("0.5", 8), nextPoolID);
+              .borrowFromMaturityPool(parseUnits("0.5", 8), nextPoolID);
           });
           describe("AND GIVEN the pool matures", () => {
             beforeEach(async () => {
@@ -237,12 +243,16 @@ describe("Liquidity computations", function () {
             // computing the simulated liquidity with a supplyAmount of zero and
             // the to-be-loaned amount as the borrowAmount, the amount of
             // collateral to withdraw is passed as the supplyAmount
-            it("WHEN he tries to redeem the usdc (8 decimals) collateral, THEN it reverts ()", async () => {
+            it("WHEN he tries to withdraw the usdc (8 decimals) collateral, THEN it reverts ()", async () => {
               // We expect liquidity to be equal to zero
               await expect(
                 fixedLenderUSDC
                   .connect(bob)
-                  .redeem(bob.address, parseUnits("40000", 6), nextPoolID)
+                  .withdrawFromMaturityPool(
+                    bob.address,
+                    parseUnits("40000", 6),
+                    nextPoolID
+                  )
               ).to.be.revertedWith(
                 errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
               );
