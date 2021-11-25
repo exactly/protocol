@@ -117,7 +117,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param benefactor address added a certain amount to its reserves
      * @param addAmount amount added as reserves as part of the liquidation event
      */
-    event ReservesAdded(address benefactor, uint256 addAmount);
+    event AddReserves(address benefactor, uint256 addAmount);
 
     /**
      * @notice Event emitted when a user contributed to the smart pool
@@ -586,7 +586,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
 
         emit Seized(liquidator, borrower, seizeAmount, maturityDate);
-        emit ReservesAdded(address(this), protocolAmount);
+        emit AddReserves(address(this), protocolAmount);
     }
 
     /**

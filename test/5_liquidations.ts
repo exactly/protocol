@@ -152,7 +152,7 @@ describe("Liquidations", function () {
                 seizedWBTC.sub(fee)
               );
               await expect(tx)
-                .to.emit(exafinWBTC, "ReservesAdded")
+                .to.emit(exafinWBTC, "AddReserves")
                 .withArgs(exafinWBTC.address, fee);
             });
           });
@@ -191,7 +191,7 @@ describe("Liquidations", function () {
                 seizedWBTC.sub(fee)
               );
               await expect(tx)
-                .to.emit(exafinWBTC, "ReservesAdded")
+                .to.emit(exafinWBTC, "AddReserves")
                 .withArgs(exafinWBTC.address, fee);
             });
           });
