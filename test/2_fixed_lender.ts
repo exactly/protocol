@@ -379,8 +379,14 @@ describe("FixedLender", function () {
 
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
-    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
-    await fixedLenderMaria.borrow(parseUnits("0.5"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -412,8 +418,14 @@ describe("FixedLender", function () {
 
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
-    await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
-    await fixedLenderMaria.borrow(parseUnits("0.5"), exaTime.nextPoolID());
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    await fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
