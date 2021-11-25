@@ -14,8 +14,6 @@ import "./utils/Errors.sol";
  */
 contract ExactlyOracle is IOracle, AccessControl {
 
-  event SymbolSourceUpdated(string indexed symbol, address indexed source);
-
   mapping(string => address) public assetsSources;
   IChainlinkFeedRegistry public chainlinkFeedRegistry;
   address public immutable baseCurrency;
@@ -23,6 +21,8 @@ contract ExactlyOracle is IOracle, AccessControl {
   uint256 constant public TARGET_DECIMALS = 18; // Auditor's target precision
   uint256 constant public ORACLE_DECIMALS = 8; // At date of Exactly launch, Chainlink uses an 8-digit price
   uint256 constant public MAX_DELAY_TIME = 1 hours; // The max delay time for Chainlink prices to be considered as updated
+
+  event SymbolSourceUpdated(string indexed symbol, address indexed source);
 
   /**
    * @notice Constructor
@@ -40,6 +40,18 @@ contract ExactlyOracle is IOracle, AccessControl {
   }
 
   /**
+   * @notice Set or replace the sources of assets
+   * @param symbols The symbols of the assets
+   * @param sources The address of the source of each asset
+   */
+  function setAssetSources(string[] calldata symbols, address[] calldata sources)
+    external
+    onlyRole(DEFAULT_ADMIN_ROLE)
+  {
+    _setAssetsSources(symbols, sources);
+  }
+
+  /**
    * @notice Gets an asset price by symbol. If the returned price by the Chainlink Feed Registry is <= 0 the call is reverted
    * @param symbol The symbol of the asset
    */
@@ -50,26 +62,6 @@ contract ExactlyOracle is IOracle, AccessControl {
     } else {
       revert GenericError(ErrorCode.PRICE_ERROR);
     }
-  }
-
-  /**
-   * @notice Scale the price returned by the oracle to an 18-digit decimal for use by Auditor
-   * @param price The price to be scaled
-   */
-  function _scaleOraclePriceByDigits(uint256 price) internal pure returns (uint256) {
-    return price * 10 ** (TARGET_DECIMALS - ORACLE_DECIMALS);
-  }
-
-  /**
-   * @notice Set or replace the sources of assets
-   * @param symbols The symbols of the assets
-   * @param sources The address of the source of each asset
-   */
-  function setAssetSources(string[] calldata symbols, address[] calldata sources)
-    external
-    onlyRole(DEFAULT_ADMIN_ROLE)
-  {
-    _setAssetsSources(symbols, sources);
   }
 
   /**
@@ -86,6 +78,14 @@ contract ExactlyOracle is IOracle, AccessControl {
       assetsSources[symbols[i]] = sources[i];
       emit SymbolSourceUpdated(symbols[i], sources[i]);
     }
+  }
+
+  /**
+   * @notice Scale the price returned by the oracle to an 18-digit decimal for use by Auditor
+   * @param price The price to be scaled
+   */
+  function _scaleOraclePriceByDigits(uint256 price) internal pure returns (uint256) {
+    return price * 10 ** (TARGET_DECIMALS - ORACLE_DECIMALS);
   }
 
 }

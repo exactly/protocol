@@ -18,6 +18,19 @@ contract Auditor is IAuditor, AccessControl {
     using ExaLib for ExaLib.RewardsState;
     using MarketsLib for MarketsLib.Book;
 
+    // Protocol Management
+    MarketsLib.Book private book;
+
+    uint256 public closeFactor = 5e17;
+    uint256 public liquidationIncentive = 1e18+1e17;
+    uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
+    address[] public marketsAddresses;
+
+    // Rewards Management
+    ExaLib.RewardsState public rewardsState;
+
+    IOracle public oracle;
+
     /**
      * @notice Event emitted when a new market is listed for borrow/lending
      * @param fixedLender address of the fixedLender market that it was listed
@@ -125,19 +138,6 @@ contract Auditor is IAuditor, AccessControl {
         uint256 smartPoolIndex
     );
 
-    // Protocol Management
-    MarketsLib.Book private book;
-
-    uint256 public closeFactor = 5e17;
-    uint256 public liquidationIncentive = 1e18 + 1e17;
-    uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
-    address[] public marketsAddresses;
-
-    // Rewards Management
-    ExaLib.RewardsState public rewardsState;
-
-    IOracle public oracle;
-
     constructor(address _priceOracleAddress, address _exaToken) {
         rewardsState.exaToken = _exaToken;
         oracle = IOracle(_priceOracleAddress);
@@ -225,28 +225,6 @@ contract Auditor is IAuditor, AccessControl {
         );
 
         book.exitMarket(fixedLenderAddress, msg.sender, maturityDate);
-    }
-
-    /**
-     * @dev Function to get account's liquidity for a certain maturity pool
-     * @param account wallet to retrieve liquidity for a certain maturity date
-     * @param maturityDate timestamp to calculate maturity's pool
-     */
-    function getAccountLiquidity(address account, uint256 maturityDate)
-        public
-        view
-        override
-        returns (uint256, uint256)
-    {
-        return
-            book.accountLiquidity(
-                oracle,
-                account,
-                maturityDate,
-                address(0),
-                0,
-                0
-            );
     }
 
     /**
@@ -387,49 +365,27 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Internal function to be called before someone wants to receive its money back from a market/maturity.
-     *      This function verifies if market is valid, maturity is MATURED, checks if the user has no outstanding
-     *      debts. This function is called indirectly from fixedLender contracts(redeem) and directly from this
-     *      when the user wants to exit a market.
-     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
-     * @param redeemer address of the user that wants to withdraw it's money
-     * @param redeemAmount amount that the user wants to withdraw from the maturity
-     * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
-     *                     be in a MATURED state (meaning that the date is VALID + MATURED)
+     * @dev Hook function to be called before someone supplies money to a market/maturity.
+     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly. 
+     * @param fixedLenderAddress address of the fixedLender that will deposit money in a maturity
+     * @param supplier address of the user that will supply money to a certain maturity (it can be later on
+     *                 used as collater with _enterMarkets_ functions)
+     * @param maturityDate timestamp for the maturity date that the user wants to supply money. It should
+     *                     be in a VALID state (meaning that is not in the distant future, nor matured)
      */
-    function _redeemAllowed(
+    function supplyAllowed(
         address fixedLenderAddress,
-        address redeemer,
-        uint256 redeemAmount,
+        address supplier,
         uint256 maturityDate
-    ) internal view {
+    ) external override {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        _requirePoolState(maturityDate, TSUtils.State.MATURED);
+        _requirePoolState(maturityDate, TSUtils.State.VALID);
 
-        /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
-        if (
-            !book.markets[fixedLenderAddress].accountMembership[redeemer][
-                maturityDate
-            ]
-        ) {
-            return;
-        }
-
-        /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (, uint256 shortfall) = book.accountLiquidity(
-            oracle,
-            redeemer,
-            maturityDate,
-            fixedLenderAddress,
-            redeemAmount,
-            0
-        );
-        if (shortfall > 0) {
-            revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
-        }
+        rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -449,6 +405,156 @@ contract Auditor is IAuditor, AccessControl {
 
         rewardsState.updateExaBorrowIndex(block.number, fixedLenderAddress);
         rewardsState.distributeBorrowerExa(fixedLenderAddress, borrower);
+    }
+
+    /**
+     * @dev Function to set Oracle's to be used
+     * @param _priceOracleAddress address of the new oracle
+     */
+    function setOracle(address _priceOracleAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        oracle = IOracle(_priceOracleAddress);
+        emit OracleChanged(_priceOracleAddress);
+    }
+
+    /**
+     * @notice Set liquidation incentive for the whole ecosystem
+     * @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18
+     */
+    function setLiquidationIncentive(uint256 _liquidationIncentive)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        liquidationIncentive = _liquidationIncentive;
+    }
+
+    /**
+     * @notice Set EXA speed for a single market
+     * @param fixedLenderAddress The market whose EXA speed to update
+     * @param exaSpeed New EXA speed for market
+     */
+    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        MarketsLib.Market storage market = book.markets[fixedLenderAddress];
+        if (market.isListed == false) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        if (
+            rewardsState.setExaSpeed(block.number, fixedLenderAddress, exaSpeed) ==
+            true
+        ) {
+            emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
+        }
+    }
+
+     /**
+     * @dev Function to enable a certain FixedLender market to be used as collateral
+     * @param fixedLender address to add to the protocol
+     * @param collateralFactor fixedLender's collateral factor for the underlying asset
+     */
+    function enableMarket(
+        address fixedLender,
+        uint256 collateralFactor,
+        string memory symbol,
+        string memory name,
+        uint8 decimals
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        MarketsLib.Market storage market = book.markets[fixedLender];
+
+        if (market.isListed) {
+            revert GenericError(ErrorCode.MARKET_ALREADY_LISTED);
+        }
+
+        if (IFixedLender(fixedLender).getAuditor() != this) {
+            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
+        }
+
+        market.isListed = true;
+        market.collateralFactor = collateralFactor;
+        market.symbol = symbol;
+        market.name = name;
+        market.decimals = decimals;
+
+        marketsAddresses.push(fixedLender);
+
+        emit MarketListed(fixedLender);
+    }
+
+    /**
+     * @dev Function to pause/unpause borrowing on a certain market
+     * @param fixedLender address to pause
+     * @param paused true/false
+     */
+    function pauseBorrow(address fixedLender, bool paused)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        returns (bool)
+    {
+        if (!book.markets[fixedLender].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        book.borrowPaused[address(fixedLender)] = paused;
+        emit ActionPaused(fixedLender, "Borrow", paused);
+        return paused;
+    }
+
+    /**
+     * @notice Set the given borrow caps for the given fixedLender markets. Borrowing that brings total borrows to or above borrow cap will revert.
+     * @param fixedLenders The addresses of the markets (tokens) to change the borrow caps for
+     * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
+     */
+    function setMarketBorrowCaps(
+        address[] calldata fixedLenders,
+        uint256[] calldata newBorrowCaps
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 numMarkets = fixedLenders.length;
+        uint256 numBorrowCaps = newBorrowCaps.length;
+
+        if (numMarkets == 0 || numMarkets != numBorrowCaps) {
+            revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
+        }
+
+        for (uint256 i = 0; i < numMarkets; i++) {
+            if (!book.markets[fixedLenders[i]].isListed) {
+                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+            }
+
+            book.borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
+            emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
+        }
+    }
+
+    /**
+     * @notice Claim all the EXA accrued by holder in all markets
+     * @param holder The address to claim EXA for
+     */
+    function claimExaAll(address holder) external {
+        claimExa(holder, marketsAddresses);
+    }
+
+    /**
+     * @dev Function to get account's liquidity for a certain maturity pool
+     * @param account wallet to retrieve liquidity for a certain maturity date
+     * @param maturityDate timestamp to calculate maturity's pool
+     */
+    function getAccountLiquidity(address account, uint256 maturityDate)
+        external
+        view
+        override
+        returns (uint256, uint256)
+    {
+        return
+            book.accountLiquidity(
+                oracle,
+                account,
+                maturityDate,
+                address(0),
+                0,
+                0
+            );
     }
 
     /**
@@ -579,152 +685,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Internal Function to verify that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
-     *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
-     * @param maturityDate timestamp of the maturity date to be verified
-     * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
-     */
-    function _requirePoolState(
-        uint256 maturityDate,
-        TSUtils.State requiredState
-    ) internal view {
-        TSUtils.State poolState = TSUtils.getPoolState(
-            block.timestamp,
-            maturityDate,
-            maxFuturePools
-        );
-        if (poolState != requiredState) {
-            revert UnmatchedPoolState(poolState, requiredState);
-        }
-    }
-
-    /**
-     * @dev Function to enable a certain FixedLender market to be used as collateral
-     * @param fixedLender address to add to the protocol
-     * @param collateralFactor fixedLender's collateral factor for the underlying asset
-     */
-    function enableMarket(
-        address fixedLender,
-        uint256 collateralFactor,
-        string memory symbol,
-        string memory name,
-        uint8 decimals
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        MarketsLib.Market storage market = book.markets[fixedLender];
-
-        if (market.isListed) {
-            revert GenericError(ErrorCode.MARKET_ALREADY_LISTED);
-        }
-
-        if (IFixedLender(fixedLender).getAuditor() != this) {
-            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
-        }
-
-        market.isListed = true;
-        market.collateralFactor = collateralFactor;
-        market.symbol = symbol;
-        market.name = name;
-        market.decimals = decimals;
-
-        marketsAddresses.push(fixedLender);
-
-        emit MarketListed(fixedLender);
-    }
-
-    /**
-     * @notice Set the given borrow caps for the given fixedLender markets. Borrowing that brings total borrows to or above borrow cap will revert.
-     * @param fixedLenders The addresses of the markets (tokens) to change the borrow caps for
-     * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
-     */
-    function setMarketBorrowCaps(
-        address[] calldata fixedLenders,
-        uint256[] calldata newBorrowCaps
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 numMarkets = fixedLenders.length;
-        uint256 numBorrowCaps = newBorrowCaps.length;
-
-        if (numMarkets == 0 || numMarkets != numBorrowCaps) {
-            revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
-        }
-
-        for (uint256 i = 0; i < numMarkets; i++) {
-            if (!book.markets[fixedLenders[i]].isListed) {
-                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-            }
-
-            book.borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
-            emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
-        }
-    }
-
-    /**
-     * @dev Function to pause/unpause borrowing on a certain market
-     * @param fixedLender address to pause
-     * @param paused true/false
-     */
-    function pauseBorrow(address fixedLender, bool paused)
-        public
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        returns (bool)
-    {
-        if (!book.markets[fixedLender].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        book.borrowPaused[address(fixedLender)] = paused;
-        emit ActionPaused(fixedLender, "Borrow", paused);
-        return paused;
-    }
-
-    /**
-     * @dev Function to set Oracle's to be used
-     * @param _priceOracleAddress address of the new oracle
-     */
-    function setOracle(address _priceOracleAddress)
-        public
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        oracle = IOracle(_priceOracleAddress);
-        emit OracleChanged(_priceOracleAddress);
-    }
-
-    /**
-     * @notice Set liquidation incentive for the whole ecosystem
-     * @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18
-     */
-    function setLiquidationIncentive(uint256 _liquidationIncentive)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        liquidationIncentive = _liquidationIncentive;
-    }
-
-    /**
-     * @notice Set EXA speed for a single market
-     * @param fixedLenderAddress The market whose EXA speed to update
-     * @param exaSpeed New EXA speed for market
-     */
-    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        MarketsLib.Market storage market = book.markets[fixedLenderAddress];
-        if (market.isListed == false) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        if (
-            rewardsState.setExaSpeed(
-                block.number,
-                fixedLenderAddress,
-                exaSpeed
-            ) == true
-        ) {
-            emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
-        }
-    }
-
-    /**
      * @dev Function to retrieve valid future pools
      */
     function getFuturePools()
@@ -749,14 +709,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @notice Claim all the EXA accrued by holder in all markets
-     * @param holder The address to claim EXA for
-     */
-    function claimExaAll(address holder) external {
-        claimExa(holder, marketsAddresses);
-    }
-
-    /**
      * @notice Claim all the EXA accrued by holder in the specified markets
      * @param holder The address to claim EXA for
      * @param fixedLenders The list of markets to claim EXA in
@@ -774,4 +726,71 @@ contract Auditor is IAuditor, AccessControl {
             true
         );
     }
+
+    /**
+     * @dev Internal Function to verify that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
+     *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
+     * @param maturityDate timestamp of the maturity date to be verified
+     * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
+     */
+    function _requirePoolState(
+        uint256 maturityDate,
+        TSUtils.State requiredState
+    ) internal view {
+        TSUtils.State poolState = TSUtils.getPoolState(
+            block.timestamp,
+            maturityDate,
+            maxFuturePools
+        );
+        if (poolState != requiredState) {
+            revert UnmatchedPoolState(poolState, requiredState);
+        }
+    }
+
+    /**
+     * @dev Internal function to be called before someone wants to receive its money back from a market/maturity.
+     *      This function verifies if market is valid, maturity is MATURED, checks if the user has no outstanding
+     *      debts. This function is called indirectly from fixedLender contracts(redeem) and directly from this
+     *      when the user wants to exit a market.
+     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
+     * @param redeemer address of the user that wants to withdraw it's money
+     * @param redeemAmount amount that the user wants to withdraw from the maturity
+     * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
+     *                     be in a MATURED state (meaning that the date is VALID + MATURED)
+     */
+    function _redeemAllowed(
+        address fixedLenderAddress,
+        address redeemer,
+        uint256 redeemAmount,
+        uint256 maturityDate
+    ) internal view {
+        if (!book.markets[fixedLenderAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        _requirePoolState(maturityDate, TSUtils.State.MATURED);
+
+        /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
+        if (
+            !book.markets[fixedLenderAddress].accountMembership[redeemer][
+                maturityDate
+            ]
+        ) {
+            return;
+        }
+
+        /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
+        (, uint256 shortfall) = book.accountLiquidity(
+            oracle,
+            redeemer,
+            maturityDate,
+            fixedLenderAddress,
+            redeemAmount,
+            0
+        );
+        if (shortfall > 0) {
+            revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
+        }
+    }
+
 }
