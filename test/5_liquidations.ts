@@ -8,7 +8,6 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
-  parseBorrowEvent,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -82,7 +81,6 @@ describe("Liquidations", function () {
   });
 
   describe("GIVEN alice supplies USD63k worth of WBTC, USD3k worth of ETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob supplies 65kDAI", () => {
-    let txBorrowAliceDAI: any;
     beforeEach(async () => {
       // we supply Eth to the protocol
       const amountETH = parseUnits("1");
@@ -114,10 +112,7 @@ describe("Liquidations", function () {
         amountToBorrowDAI = parseUnits("39850");
 
         // alice borrows all liquidity
-        txBorrowAliceDAI = await fixedLenderDAI.borrow(
-          amountToBorrowDAI,
-          nextPoolID
-        );
+        await fixedLenderDAI.borrow(amountToBorrowDAI, nextPoolID);
       });
 
       describe("WHEN the pool matures (prices stay the same) and 20 days goes by without payment", () => {
@@ -225,27 +220,27 @@ describe("Liquidations", function () {
               .to.emit(fixedLenderWBTC, "Seized")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
           });
-          it("AND 19k DAI of debt has been repaid, making debt ~36818 DAI", async () => {
+          it("AND 19k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
               nextPoolID
             );
-            const borrowEventDAI = await parseBorrowEvent(txBorrowAliceDAI);
-            const totalBorrowAmount = borrowEventDAI.amount.add(
-              borrowEventDAI.commission
-            );
 
-            // 2% * 20 days = 40/100 + 1 = 140/100
-            const amountOwed = totalBorrowAmount.mul(140).div(100);
+            // Borrowed is 39850 + interests
+            const totalBorrowAmount = parseUnits("39898.0828672286617178");
+
+            // penalty is 2% * 20 days = 40/100 + 1 = 140/100
+            // so amount owed is 55857.31601412012640492
+            const amountOwed = parseUnits("55857.31601412012640492");
             const debtCovered = parseUnits("19000")
               .mul(totalBorrowAmount)
               .div(amountOwed);
-            // remaining debt + 2% * 20 days = 40/100 + 1 = 140/100
             const newDebtCalculated = totalBorrowAmount
               .sub(debtCovered)
               .mul(140)
               .div(100);
 
+            // debt should be approximately 36857
             expect(debt).to.be.closeTo(newDebtCalculated, 10000);
           });
           describe("AND WHEN the position is liquidated a second time (55818-19000)/2 ~== 18000", () => {
