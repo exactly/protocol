@@ -31,16 +31,24 @@ contract Auditor is IAuditor, AccessControl {
      * @param account address of the user that just entered a market
      * @param maturityDate dateID/poolID/maturity that the user just entered
      */
-    event MarketEntered(address fixedLender, address account, uint256 maturityDate);
+    event MarketEntered(
+        address fixedLender,
+        address account,
+        uint256 maturityDate
+    );
 
     /**
-     * @notice Event emitted when a user leaves a market. This means that he would stop using 
+     * @notice Event emitted when a user leaves a market. This means that he would stop using
      *         his deposit as collateral and it won't ask for any loans in this market
      * @param fixedLender address of the market that the user just left
      * @param account address of the user that just left a market
      * @param maturityDate dateID/poolID/maturity that the user just left
      */
-    event MarketExited(address fixedLender, address account, uint256 maturityDate);
+    event MarketExited(
+        address fixedLender,
+        address account,
+        uint256 maturityDate
+    );
 
     /**
      * @notice Event emitted when a certain action has been paused by the protocol
@@ -80,7 +88,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param supplier address of the supplier that have received rewards in a given lender space
      * @param supplierDelta delta blocks that have been processed
-     * @param exaSupplyIndex index of the given market that was used to update user rewards 
+     * @param exaSupplyIndex index of the given market that was used to update user rewards
      */
     event DistributedSupplierExa(
         address indexed fixedLender,
@@ -94,7 +102,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param borrower address of the borrower that have received rewards in a given fixedLender space
      * @param borrowerDelta delta blocks that have been processed
-     * @param exaSupplyIndex index of the given market that was used to update user rewards 
+     * @param exaSupplyIndex index of the given market that was used to update user rewards
      */
     event DistributedBorrowerExa(
         address indexed fixedLender,
@@ -108,20 +116,20 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param supplier address of the supplier that have received rewards in a given lender space
      * @param smartSupplierDelta delta blocks that have been processed
-     * @param smartPoolIndex index of the given market that was used to update user rewards 
+     * @param smartPoolIndex index of the given market that was used to update user rewards
      */
     event DistributedSmartPoolExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint smartSupplierDelta,
-        uint smartPoolIndex
+        uint256 smartSupplierDelta,
+        uint256 smartPoolIndex
     );
 
     // Protocol Management
     MarketsLib.Book private book;
 
     uint256 public closeFactor = 5e17;
-    uint256 public liquidationIncentive = 1e18+1e17;
+    uint256 public liquidationIncentive = 1e18 + 1e17;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
 
@@ -156,17 +164,29 @@ contract Auditor is IAuditor, AccessControl {
      * @dev Given a fixedLender address, it returns the corresponding market data
      * @param fixedLenderAddress Address of the contract where we are getting the data
      */
-    function getMarketData(address fixedLenderAddress) 
-        external 
+    function getMarketData(address fixedLenderAddress)
+        external
         view
-        returns (string memory,string memory,bool, uint256,uint8) 
+        returns (
+            string memory,
+            string memory,
+            bool,
+            uint256,
+            uint8
+        )
     {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
         MarketsLib.Market storage marketData = book.markets[fixedLenderAddress];
-        return (marketData.symbol, marketData.name, marketData.isListed, marketData.collateralFactor, marketData.decimals);
-    } 
+        return (
+            marketData.symbol,
+            marketData.name,
+            marketData.isListed,
+            marketData.collateralFactor,
+            marketData.decimals
+        );
+    }
 
     /**
      * @notice Removes fixedLender from sender's account liquidity calculation
@@ -175,7 +195,9 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenderAddress The address of the asset to be removed
      * @param maturityDate The timestamp/poolID where the user wants to stop providing collateral
      */
-    function exitMarket(address fixedLenderAddress, uint256 maturityDate) external {
+    function exitMarket(address fixedLenderAddress, uint256 maturityDate)
+        external
+    {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -186,10 +208,8 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        (uint256 amountHeld, uint256 borrowBalance) = fixedLender.getAccountSnapshot(
-            msg.sender,
-            maturityDate
-        );
+        (uint256 amountHeld, uint256 borrowBalance) = fixedLender
+            .getAccountSnapshot(msg.sender, maturityDate);
 
         /* Fail if the sender has a borrow balance */
         if (borrowBalance != 0) {
@@ -197,7 +217,12 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        _redeemAllowed(fixedLenderAddress, msg.sender, amountHeld, maturityDate);
+        _redeemAllowed(
+            fixedLenderAddress,
+            msg.sender,
+            amountHeld,
+            maturityDate
+        );
 
         book.exitMarket(fixedLenderAddress, msg.sender, maturityDate);
     }
@@ -226,16 +251,16 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Hook function to be called before someone supplies money to the smart pool
-     *      This function basically checks if the address of the fixed Lender market is 
+     *      This function basically checks if the address of the fixed Lender market is
      *      valid and makes sure to accrue EXA tokens to the market and the user.
      * @param fixedLenderAddress address of the fixed lender that will receive money in
      *                           it's smart pool
      * @param supplier address of the user that will supply money to the smart pool
      */
-    function beforeSupplySmartPool(
-        address fixedLenderAddress,
-        address supplier
-    ) override external {
+    function beforeSupplySmartPool(address fixedLenderAddress, address supplier)
+        external
+        override
+    {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -246,7 +271,7 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Hook function to be called before someone withdraws money from the smart pool
-     *      This function basically checks if the address of the fixed Lender market is 
+     *      This function basically checks if the address of the fixed Lender market is
      *      valid and makes sure to accrue EXA tokens to the market and the user.
      * @param fixedLenderAddress address of the fixed lender that will receive money in
      *                           it's smart pool
@@ -255,7 +280,7 @@ contract Auditor is IAuditor, AccessControl {
     function beforeWithdrawSmartPool(
         address fixedLenderAddress,
         address supplier
-    ) override external {
+    ) external override {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -266,7 +291,7 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Hook function to be called before someone supplies money to a market/maturity.
-     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly. 
+     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly.
      * @param fixedLenderAddress address of the fixedLender that will deposit money in a maturity
      * @param supplier address of the user that will supply money to a certain maturity (it can be later on
      *                 used as collater with _enterMarkets_ functions)
@@ -291,7 +316,7 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @dev Hook function to be called before someone borrows money to a market/maturity.
      *      This function verifies if market is valid, maturity is valid, checks if the user has enough collateral
-     *      and accrues rewards accordingly. 
+     *      and accrues rewards accordingly.
      * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
      * @param borrower address of the user that will borrow money from a maturity date
      * @param borrowAmount amount that will be lent out to the borrower (expressed with same precision as underlying)
@@ -351,7 +376,12 @@ contract Auditor is IAuditor, AccessControl {
         uint256 redeemAmount,
         uint256 maturityDate
     ) external override {
-        _redeemAllowed(fixedLenderAddress, redeemer, redeemAmount, maturityDate);
+        _redeemAllowed(
+            fixedLenderAddress,
+            redeemer,
+            redeemAmount,
+            maturityDate
+        );
 
         rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeSupplierExa(fixedLenderAddress, redeemer);
@@ -410,10 +440,10 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenderAddress address of the fixedLender that will collect money in a maturity
      * @param borrower address of the user that wants to repay its debt
      */
-    function repayAllowed(
-        address fixedLenderAddress,
-        address borrower
-    ) external override {
+    function repayAllowed(address fixedLenderAddress, address borrower)
+        external
+        override
+    {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -493,18 +523,27 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) = book.accountLiquidity(oracle, borrower, maturityDate, address(0), 0, 0);
-        TSUtils.State currentState = TSUtils.getPoolState(block.timestamp, maturityDate, maxFuturePools);
+        (, uint256 shortfall) = book.accountLiquidity(
+            oracle,
+            borrower,
+            maturityDate,
+            address(0),
+            0,
+            0
+        );
+        TSUtils.State currentState = TSUtils.getPoolState(
+            block.timestamp,
+            maturityDate,
+            maxFuturePools
+        );
         // positions without shortfall are liquidateable if they are overdue
         if (shortfall == 0 && currentState != TSUtils.State.MATURED) {
             revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
         }
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
-        (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed).getAccountSnapshot(
-            borrower,
-            maturityDate
-        );
+        (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed)
+            .getAccountSnapshot(borrower, maturityDate);
         uint256 maxClose = closeFactor.mul_(borrowBalance);
         if (repayAmount > maxClose) {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
@@ -654,7 +693,10 @@ contract Auditor is IAuditor, AccessControl {
      * @dev Function to set Oracle's to be used
      * @param _priceOracleAddress address of the new oracle
      */
-    function setOracle(address _priceOracleAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setOracle(address _priceOracleAddress)
+        public
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         oracle = IOracle(_priceOracleAddress);
         emit OracleChanged(_priceOracleAddress);
     }
@@ -685,8 +727,11 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         if (
-            rewardsState.setExaSpeed(block.number, fixedLenderAddress, exaSpeed) ==
-            true
+            rewardsState.setExaSpeed(
+                block.number,
+                fixedLenderAddress,
+                exaSpeed
+            ) == true
         ) {
             emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
         }
@@ -732,6 +777,14 @@ contract Auditor is IAuditor, AccessControl {
     function claimExa(address holder, address[] memory fixedLenders) public {
         address[] memory holders = new address[](1);
         holders[0] = holder;
-        rewardsState.claimExa(block.number, book.markets, holders, fixedLenders, true, true, true);
+        rewardsState.claimExa(
+            block.number,
+            book.markets,
+            holders,
+            fixedLenders,
+            true,
+            true,
+            true
+        );
     }
 }
