@@ -168,10 +168,14 @@ describe("Liquidity computations", function () {
       beforeEach(async () => {
         const daiAmount = parseUnits("10000");
         await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
-        await fixedLenderDAI.connect(laura).supply(daiAmount, nextPoolID);
+        await fixedLenderDAI
+          .connect(laura)
+          .depositToMaturityPool(daiAmount, nextPoolID);
         const usdcAmount = parseUnits("10000", usdcDecimals);
         await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
-        await fixedLenderUSDC.connect(bob).supply(usdcAmount, nextPoolID);
+        await fixedLenderUSDC
+          .connect(bob)
+          .depositToMaturityPool(usdcAmount, nextPoolID);
       });
       describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
         beforeEach(async () => {

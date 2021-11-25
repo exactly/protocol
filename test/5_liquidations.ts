@@ -98,7 +98,9 @@ describe("Liquidations", function () {
       const amountDAI = parseUnits("65000");
 
       await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
-      await fixedLenderDAI.connect(bob).depositToMaturityPool(amountDAI, nextPoolID);
+      await fixedLenderDAI
+        .connect(bob)
+        .depositToMaturityPool(amountDAI, nextPoolID);
       await dai
         .connect(bob)
         .approve(fixedLenderDAI.address, parseUnits("200000"));
@@ -118,7 +120,10 @@ describe("Liquidations", function () {
         amountToBorrowDAI = parseUnits("39850");
 
         // alice borrows all liquidity
-        await fixedLenderDAI.borrowFromMaturityPool(amountToBorrowDAI, nextPoolID);
+        await fixedLenderDAI.borrowFromMaturityPool(
+          amountToBorrowDAI,
+          nextPoolID
+        );
       });
 
       describe("WHEN john supplies to the smart pool & the pool matures (prices stay the same) and 20 days goes by without payment", () => {
