@@ -383,7 +383,7 @@ describe("FixedLender", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    await fixedLenderMaria.depositToMaturityPool(
+    await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.5"),
       exaTime.nextPoolID()
     );
@@ -433,7 +433,7 @@ describe("FixedLender", function () {
     ]);
     await ethers.provider.send("evm_mine", []);
 
-    // if baseRate is 0.2 then we multiply for 1.2
+    // if baseRate is 0.02 then we multiply for 1.2
     const expectedAmountPaid = parseUnits("0.5")
       .mul(baseRate.add(parseUnits("1")))
       .div(parseUnits("1"));
@@ -448,7 +448,7 @@ describe("FixedLender", function () {
         exaTime.nextPoolID()
       )
     )
-      .to.emit(fixedLenderMaria, "Repaid")
+      .to.emit(fixedLenderMaria, "RepayToMaturityPool")
       .withArgs(
         mariaUser.address,
         mariaUser.address,

@@ -64,7 +64,7 @@ describe("Liquidity computations", function () {
     // laura the lender
     [bob, laura] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
 
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
@@ -134,11 +134,11 @@ describe("Liquidity computations", function () {
         );
       });
 
-      describe("AND WHEN laura asks for a 799 DAI loan (1 DAI buffer for interest)", () => {
+      describe("AND WHEN laura asks for a 800 DAI loan", () => {
         beforeEach(async () => {
           await fixedLenderDAI
             .connect(laura)
-            .borrowFromMaturityPool(parseUnits("799"), nextPoolID);
+            .borrowFromMaturityPool(parseUnits("800"), nextPoolID);
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
