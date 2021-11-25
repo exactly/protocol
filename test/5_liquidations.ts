@@ -207,7 +207,6 @@ describe("Liquidations", function () {
           });
         });
 
-        // should we disable the close factor for overdue debts?
         describe("AND the position is liquidated a first time (19kdai)", () => {
           let tx: any;
           beforeEach(async () => {
