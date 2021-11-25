@@ -19,6 +19,7 @@ describe("Liquidations", function () {
 
   let bob: SignerWithAddress;
   let alice: SignerWithAddress;
+  let john: SignerWithAddress;
 
   let fixedLenderETH: Contract;
   let eth: Contract;
@@ -62,7 +63,7 @@ describe("Liquidations", function () {
   });
 
   beforeEach(async () => {
-    [alice, bob] = await ethers.getSigners();
+    [alice, bob, john] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
@@ -78,6 +79,7 @@ describe("Liquidations", function () {
 
     // From alice to bob
     await dai.transfer(bob.address, parseUnits("200000"));
+    await dai.transfer(john.address, parseUnits("10000"));
   });
 
   describe("GIVEN alice supplies USD63k worth of WBTC, USD3k worth of ETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob supplies 65kDAI", () => {
@@ -99,6 +101,9 @@ describe("Liquidations", function () {
       await dai
         .connect(bob)
         .approve(fixedLenderDAI.address, parseUnits("200000"));
+      await dai
+        .connect(john)
+        .approve(fixedLenderDAI.address, parseUnits("10000"));
     });
 
     describe("AND GIVEN Alice takes the biggest loan she can (39850 DAI), 50 buffer for interest", () => {
@@ -115,8 +120,9 @@ describe("Liquidations", function () {
         await fixedLenderDAI.borrow(amountToBorrowDAI, nextPoolID);
       });
 
-      describe("WHEN the pool matures (prices stay the same) and 20 days goes by without payment", () => {
+      describe("WHEN john supplies to the smart pool & the pool matures (prices stay the same) and 20 days goes by without payment", () => {
         beforeEach(async () => {
+          fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("10000"));
           await ethers.provider.send("evm_setNextBlockTimestamp", [
             nextPoolID + exaTime.ONE_DAY * 20 + exaTime.ONE_HOUR * 10,
           ]);
@@ -220,6 +226,26 @@ describe("Liquidations", function () {
               .to.emit(fixedLenderWBTC, "Seized")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
           });
+
+          it("THEN john collected the penalty fees for being in the smart pool on the 19K repay", async () => {
+            let johnBalanceEDAI = await exactlyEnv
+              .getEToken("DAI")
+              .balanceOf(john.address);
+
+            // Borrowed is 39850 + interests
+            const totalBorrowAmount = parseUnits("39898.0828672286617178");
+            // penalty is 2% * 20 days = 40/100 + 1 = 140/100
+            // so amount owed is 55857.31601412012640492
+            const amountOwed = parseUnits("55857.31601412012640492");
+            const debtCovered = parseUnits("19000")
+              .mul(totalBorrowAmount)
+              .div(amountOwed);
+            const earnings = parseUnits("19000").sub(debtCovered);
+
+            // John initial balance on the smart pool was 10000
+            expect(johnBalanceEDAI).to.equal(parseUnits("10000").add(earnings));
+          });
+
           it("AND 19k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
