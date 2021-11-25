@@ -373,11 +373,10 @@ describe("FixedLender", function () {
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    const tx = await fixedLenderMaria.borrow(
+    await fixedLenderMaria.borrow(
       parseUnits("0.5"),
       exaTime.nextPoolID()
     );
-    const borrowEvent = await parseBorrowEvent(tx);
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -392,8 +391,7 @@ describe("FixedLender", function () {
 
     // if baseRate is 0.2 then we multiply for 1.2
     expect(amountOwed).to.equal(
-      borrowEvent.amount
-        .add(borrowEvent.commission)
+      parseUnits("0.500527397260273972")
         .mul(baseRate.add(parseUnits("1")))
         .div(parseUnits("1"))
     );
