@@ -269,7 +269,7 @@ describe("Liquidations", function () {
                 .to.emit(fixedLenderWBTC, "Seized")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
-            it("AND 18k DAI of debt has been repaid, making debt ~10k DAI", async () => {
+            it("AND 18k DAI of debt has been repaid, making debt ~18k DAI", async () => {
               const [, debt] = await fixedLenderDAI.getAccountSnapshot(
                 alice.address,
                 nextPoolID
