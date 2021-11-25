@@ -97,14 +97,12 @@ describe("Liquidity computations", function () {
 
   describe("positions arent immediately liquidateable", () => {
     describe("GIVEN laura deposits 1kdai to a maturity pool", () => {
-      let supplyEvent: any;
       beforeEach(async () => {
         const amount = parseUnits("1000");
         await dai.connect(laura).approve(fixedLenderDAI.address, amount);
-        const txDai = await fixedLenderDAI
+        await fixedLenderDAI
           .connect(laura)
           .depositToMaturityPool(amount, nextPoolID);
-        supplyEvent = await parseDepositToMaturityPoolEvent(txDai);
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -113,9 +111,7 @@ describe("Liquidity computations", function () {
           nextPoolID
         );
 
-        const expectedLiquidity =
-          800 + parseFloat(formatUnits(supplyEvent.commission)) * 0.8;
-
+        const expectedLiquidity = 800;
         expect(parseFloat(formatUnits(liquidity))).to.be.eq(expectedLiquidity);
         expect(shortfall).to.be.eq(parseUnits("0"));
       });
@@ -125,9 +121,7 @@ describe("Liquidity computations", function () {
           laura.address,
           nextPoolID
         );
-        expect(supplied).to.be.eq(
-          parseUnits("1000").add(supplyEvent.commission)
-        );
+        expect(supplied).to.be.eq(parseUnits("1000"));
         expect(owed).to.be.eq(parseUnits("0"));
       });
       it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
@@ -160,9 +154,7 @@ describe("Liquidity computations", function () {
             nextPoolID
           );
 
-          expect(supplied).to.be.eq(
-            parseUnits("1000").add(supplyEvent.commission)
-          );
+          expect(supplied).to.be.eq(parseUnits("1000"));
           expect(borrowed).to.be.gt(parseUnits("799"));
           expect(borrowed).to.be.lt(parseUnits("801"));
         });
@@ -173,21 +165,17 @@ describe("Liquidity computations", function () {
   describe("unpaid debts after maturity", () => {
     describe("GIVEN a well funded maturity pool (10kdai, laura), AND collateral for the borrower, (10kusdc, bob)", () => {
       const usdcDecimals = mockedTokens.get("USDC")!.decimals;
-      let txSupply: any;
-      let txBorrow: any;
       beforeEach(async () => {
         const daiAmount = parseUnits("10000");
         await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
-        txSupply = await fixedLenderDAI
-          .connect(laura)
-          .supply(daiAmount, nextPoolID);
+        await fixedLenderDAI.connect(laura).supply(daiAmount, nextPoolID);
         const usdcAmount = parseUnits("10000", usdcDecimals);
         await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
         await fixedLenderUSDC.connect(bob).supply(usdcAmount, nextPoolID);
       });
       describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
         beforeEach(async () => {
-          txBorrow = await fixedLenderDAI
+          await fixedLenderDAI
             .connect(bob)
             .borrow(parseUnits("7000"), nextPoolID);
         });
@@ -216,14 +204,8 @@ describe("Liquidity computations", function () {
             // Based on the events emitted, we calculate the liquidity
             // This is because we need to take into account the fixed rates
             // that the borrow and the lent got at the time of the transaction
-            const supplyEvent = await parseSupplyEvent(txSupply);
-            const borrowEvent = await parseBorrowEvent(txBorrow);
-            const totalSupplyAmount = supplyEvent.amount.add(
-              supplyEvent.commission
-            );
-            const totalBorrowAmount = borrowEvent.amount.add(
-              borrowEvent.commission
-            );
+            const totalSupplyAmount = parseUnits("10000");
+            const totalBorrowAmount = parseUnits("7000");
             const calculatedLiquidity = totalSupplyAmount.sub(
               totalBorrowAmount.mul(2).mul(5).div(100) // 2% * 5 days
             );
@@ -247,14 +229,8 @@ describe("Liquidity computations", function () {
               // Based on the events emitted, we calculate the liquidity
               // This is because we need to take into account the fixed rates
               // that the borrow and the lent got at the time of the transaction
-              const supplyEvent = await parseSupplyEvent(txSupply);
-              const borrowEvent = await parseBorrowEvent(txBorrow);
-              const totalSupplyAmount = supplyEvent.amount.add(
-                supplyEvent.commission
-              );
-              const totalBorrowAmount = borrowEvent.amount.add(
-                borrowEvent.commission
-              );
+              const totalSupplyAmount = parseUnits("10000");
+              const totalBorrowAmount = parseUnits("7000");
               const calculatedShortfall = totalSupplyAmount.sub(
                 totalBorrowAmount.mul(2).mul(15).div(100) // 2% * 15 days
               );

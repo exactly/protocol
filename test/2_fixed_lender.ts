@@ -413,11 +413,7 @@ describe("FixedLender", function () {
     // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
     await fixedLenderMaria.supply(parseUnits("1"), exaTime.nextPoolID());
-    const tx = await fixedLenderMaria.borrow(
-      parseUnits("0.5"),
-      exaTime.nextPoolID()
-    );
-    const borrowEvent = await parseBorrowEvent(tx);
+    await fixedLenderMaria.borrow(parseUnits("0.5"), exaTime.nextPoolID());
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -426,11 +422,10 @@ describe("FixedLender", function () {
     await ethers.provider.send("evm_mine", []);
 
     // if baseRate is 0.2 then we multiply for 1.2
-    const expectedAmountPaid = borrowEvent.amount
-      .add(borrowEvent.commission)
+    const expectedAmountPaid = parseUnits("0.5")
       .mul(baseRate.add(parseUnits("1")))
       .div(parseUnits("1"));
-    const amountBorrowed = borrowEvent.amount.add(borrowEvent.commission);
+    const amountBorrowed = parseUnits("0.5");
 
     // sanity check to make sure he paid more
     expect(amountBorrowed).not.eq(expectedAmountPaid);
@@ -447,7 +442,7 @@ describe("FixedLender", function () {
         exaTime.nextPoolID()
       );
   });
-  
+
   it("it allows the mariaUser to repay her debt at maturity and also withdrawing her collateral", async () => {
     // give the protocol some solvency
     await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
