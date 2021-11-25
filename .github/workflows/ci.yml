@@ -10,7 +10,7 @@ on:
 
     # And is tagged with version 0.0.x
     tags:
-      - 0.0.*
+      - *.*.*
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
