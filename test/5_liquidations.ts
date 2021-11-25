@@ -141,7 +141,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("34682539", 0);
 
               await expect(tx)
-                .to.emit(exafinWBTC, "Seized")
+                .to.emit(exafinWBTC, "SeizeAsset")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
             it("AND 0.028% in fee is charged (971111 sats)", async () => {
@@ -180,7 +180,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("33174603", 0);
 
               await expect(tx)
-                .to.emit(exafinWBTC, "Seized")
+                .to.emit(exafinWBTC, "SeizeAsset")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
             it("AND 0.4% in fee is charged (1326984 sats)", async () => {
@@ -215,7 +215,7 @@ describe("Liquidations", function () {
             // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
             const seizedWBTC = parseUnits("33174603", 0);
             await expect(tx)
-              .to.emit(exafinWBTC, "Seized")
+              .to.emit(exafinWBTC, "SeizeAsset")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
           });
           it("AND 19k DAI of debt has been repaid, making debt ~20900 DAI", async () => {
@@ -242,7 +242,7 @@ describe("Liquidations", function () {
               // 10.4kusd of btc at its current price of 63kusd + 10% incentive for liquidators
               const seizedWBTC = parseUnits("18158729", 0);
               await expect(tx)
-                .to.emit(exafinWBTC, "Seized")
+                .to.emit(exafinWBTC, "SeizeAsset")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
             it("AND 10k DAI of debt has been repaid, making debt ~10k DAI", async () => {
@@ -305,7 +305,7 @@ describe("Liquidations", function () {
               // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
               const seizedWBTC = parseUnits("33174603", 0);
               await expect(tx)
-                .to.emit(exafinWBTC, "Seized")
+                .to.emit(exafinWBTC, "SeizeAsset")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
             // debt: 39850-19000 = 20850
@@ -516,7 +516,7 @@ describe("Liquidations", function () {
             // 32500 + 10% liquidation incentive
             const seizedWBTC = parseUnits("64307691", 0);
             await expect(tx)
-              .to.emit(exafinWBTC, "Seized")
+              .to.emit(exafinWBTC, "SeizeAsset")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
             expect(await wbtc.balanceOf(bob.address)).to.eq(

@@ -105,7 +105,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param seizedAmount amount seized of the collateral
      * @param maturityDate poolID where the borrower lost the amount of collateral
      */
-    event Seized(
+    event SeizeAsset(
         address liquidator,
         address borrower,
         uint256 seizedAmount,
@@ -585,7 +585,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
 
-        emit Seized(liquidator, borrower, seizeAmount, maturityDate);
+        emit SeizeAsset(liquidator, borrower, seizeAmount, maturityDate);
         emit AddReserves(address(this), protocolAmount);
     }
 
