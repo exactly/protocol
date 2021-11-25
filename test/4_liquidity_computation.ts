@@ -183,9 +183,7 @@ describe("Liquidity computations", function () {
           .supply(daiAmount, nextPoolID);
         const usdcAmount = parseUnits("10000", usdcDecimals);
         await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
-        await fixedLenderUSDC
-          .connect(bob)
-          .supply(usdcAmount, nextPoolID);
+        await fixedLenderUSDC.connect(bob).supply(usdcAmount, nextPoolID);
       });
       describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
         beforeEach(async () => {
