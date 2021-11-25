@@ -5,7 +5,6 @@ import {
   DefaultEnv,
   errorGeneric,
   errorUnmatchedPool,
-  parseDepositToMaturityPoolEvent,
   ExactlyEnv,
   ExaTime,
   PoolState,
@@ -95,15 +94,17 @@ describe("FixedLender", function () {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
-    let tx = await fixedLender.depositToMaturityPool(
+    let tx = fixedLender.depositToMaturityPool(
       underlyingAmount,
       exaTime.nextPoolID()
     );
-    let event = await parseDepositToMaturityPoolEvent(tx);
-
-    expect(event.from).to.equal(owner.address);
-    expect(event.amount).to.equal(underlyingAmount);
-    expect(event.maturityDate).to.equal(exaTime.nextPoolID());
+    await tx;
+    await expect(tx).to.emit(fixedLender, "DepositToMaturityPool").withArgs(
+      owner.address,
+      underlyingAmount,
+      parseUnits("0"), // commission, its zero with the mocked rate
+      exaTime.nextPoolID()
+    );
 
     expect(await underlyingToken.balanceOf(fixedLender.address)).to.equal(
       underlyingAmount

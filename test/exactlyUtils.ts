@@ -1,10 +1,5 @@
 import { ethers } from "hardhat";
-import {
-  Contract,
-  BigNumber,
-  ContractTransaction,
-  ContractReceipt,
-} from "ethers";
+import { Contract, BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 
 export interface BorrowFromMaturityPoolEventInterface {
@@ -19,50 +14,6 @@ export interface DepositToMaturityPoolEventInterface {
   amount: BigNumber;
   commission: BigNumber;
   maturityDate: BigNumber;
-}
-
-export async function parseBorrowFromMaturityPoolEvent(
-  tx: ContractTransaction
-) {
-  let receipt: ContractReceipt = await tx.wait();
-  return new Promise<BorrowFromMaturityPoolEventInterface>(
-    (resolve, reject) => {
-      let args = receipt.events?.filter((x) => {
-        return x.event == "BorrowFromMaturityPool";
-      })[0]["args"];
-
-      if (args != undefined) {
-        resolve({
-          to: args.to.toString(),
-          amount: BigNumber.from(args.amount),
-          commission: BigNumber.from(args.commission),
-          maturityDate: BigNumber.from(args.maturityDate),
-        });
-      } else {
-        reject(new Error("Event not found"));
-      }
-    }
-  );
-}
-
-export async function parseDepositToMaturityPoolEvent(tx: ContractTransaction) {
-  let receipt: ContractReceipt = await tx.wait();
-  return new Promise<DepositToMaturityPoolEventInterface>((resolve, reject) => {
-    let args = receipt.events?.filter((x) => {
-      return x.event == "DepositToMaturityPool";
-    })[0]["args"];
-
-    if (args != undefined) {
-      resolve({
-        from: args.from.toString(),
-        amount: BigNumber.from(args.amount),
-        commission: BigNumber.from(args.commission),
-        maturityDate: BigNumber.from(args.maturityDate),
-      });
-    } else {
-      reject(new Error("Event not found"));
-    }
-  });
 }
 
 export function errorUnmatchedPool(
@@ -173,6 +124,7 @@ export class DefaultEnv {
   public getUnderlying(key: string): Contract {
     return this.underlyingContracts.get(key)!;
   }
+
   public getInterestRateModel(): Contract {
     return this.interestRateModel;
   }
