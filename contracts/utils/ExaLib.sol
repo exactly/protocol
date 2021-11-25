@@ -19,6 +19,25 @@ library ExaLib {
     using DecimalMath for Double;
     using SafeCast for uint256;
 
+    struct ExaState {
+        uint256 exaSpeed;
+        MarketRewardsState exaSupplyState;
+        MarketRewardsState exaBorrowState;
+        MarketRewardsState exaSmartState;
+        mapping(address => uint256) exaSupplierIndex;
+        mapping(address => uint256) exaBorrowerIndex;
+        mapping(address => uint256) exaSmartSupplierIndex;
+    }
+
+    struct RewardsState {
+        address exaToken;
+        mapping(address => ExaLib.ExaState) exaState;
+        mapping(address => uint) exaAccruedUser;
+    }
+
+    // Double precision
+    uint224 public constant EXA_INITIAL_INDEX = 1e36;
+
     event DistributedSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
@@ -38,23 +57,168 @@ library ExaLib {
         uint smartPoolIndex
     );
 
-    // Double precision
-    uint224 public constant EXA_INITIAL_INDEX = 1e36;
-
-    struct ExaState {
-        uint256 exaSpeed;
-        MarketRewardsState exaSupplyState;
-        MarketRewardsState exaBorrowState;
-        MarketRewardsState exaSmartState;
-        mapping(address => uint256) exaSupplierIndex;
-        mapping(address => uint256) exaBorrowerIndex;
-        mapping(address => uint256) exaSmartSupplierIndex;
+    /**
+     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @param fixedLenderState RewardsState storage in Auditor
+     * @param fixedLenderAddress The market in which the supplier is interacting
+     * @param supplier The address of the supplier to distribute EXA to
+     */
+    function distributeSmartPoolExa(
+        RewardsState storage fixedLenderState, 
+        address fixedLenderAddress,
+        address supplier
+    ) external {
+        _distributeSmartPoolExa(fixedLenderState, fixedLenderAddress, supplier);
     }
 
-    struct RewardsState {
-        address exaToken;
-        mapping(address => ExaLib.ExaState) exaState;
-        mapping(address => uint) exaAccruedUser;
+    /**
+     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @param fixedLenderState RewardsState storage in Auditor
+     * @param fixedLenderAddress The market in which the supplier is interacting
+     * @param supplier The address of the supplier to distribute EXA to
+     */
+    function distributeSupplierExa(
+        RewardsState storage fixedLenderState, 
+        address fixedLenderAddress,
+        address supplier
+    ) external {
+        _distributeSupplierExa(fixedLenderState, fixedLenderAddress, supplier);
+    }
+
+    /**
+     * @notice Calculate EXA accrued by a borrower
+     * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
+     * @param fixedLenderAddress The market address in which the borrower is interacting
+     * @param borrower The address of the borrower to distribute EXA to
+     */
+    function distributeBorrowerExa(
+        RewardsState storage fixedLenderState,
+        address fixedLenderAddress,
+        address borrower
+    ) external {
+        _distributeBorrowerExa(fixedLenderState, fixedLenderAddress, borrower);
+    }
+
+    /**
+     * @notice Claim all EXA accrued by the holders
+     * @param fixedLenderState RewardsState storage in Auditor
+     * @param blockNumber current block number (injected for testing purpuses)
+     * @param markets Valid markets in Auditor
+     * @param holders The addresses to claim EXA for
+     * @param fixedLenderAddresses The list of markets to claim EXA in
+     * @param borrowers Whether or not to claim EXA earned by borrowing
+     * @param suppliers Whether or not to claim EXA earned by supplying
+     */
+    function claimExa(
+        RewardsState storage fixedLenderState,
+        uint blockNumber,
+        mapping(address => MarketsLib.Market) storage markets,
+        address[] memory holders,
+        address[] memory fixedLenderAddresses,
+        bool borrowers,
+        bool suppliers,
+        bool smartSuppliers
+    ) external {
+        for (uint i = 0; i < fixedLenderAddresses.length; i++) {
+            address fixedLender = fixedLenderAddresses[i];
+            MarketsLib.Market storage market = markets[fixedLender];
+
+            if (!market.isListed) {
+                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+            }
+
+            if (borrowers == true) {
+                updateExaBorrowIndex(fixedLenderState, blockNumber, fixedLender);
+                for (uint j = 0; j < holders.length; j++) {
+                    _distributeBorrowerExa(fixedLenderState, fixedLender, holders[j]);
+                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
+                }
+            }
+            if (suppliers == true) {
+                updateExaSupplyIndex(fixedLenderState, blockNumber, fixedLender);
+                for (uint j = 0; j < holders.length; j++) {
+                    _distributeSupplierExa(fixedLenderState, fixedLender, holders[j]);
+                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
+                }
+            }
+
+            if (smartSuppliers == true) {
+                updateExaSmartPoolIndex(fixedLenderState, blockNumber, fixedLender);
+                for (uint j = 0; j < holders.length; j++) {
+                    _distributeSmartPoolExa(fixedLenderState, fixedLender, holders[j]);
+                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
+                }
+            }
+        }
+    }
+
+    /**
+     * @notice Transfer EXA to the user
+     * @param fixedLenderState RewardsState storage in Auditor
+     * @param user The address of the user to transfer EXA to
+     * @param amount The amount of EXA to (possibly) transfer
+     * @return The amount of EXA which was NOT transferred to the user
+     */
+    function grantExa(
+        RewardsState storage fixedLenderState,
+        address user,
+        uint amount
+    ) external returns (uint) {
+        return _grantExa(fixedLenderState, user, amount);
+    }
+
+    /**
+     * @notice Set EXA speed for a single market
+     * @param fixedLenderState RewardsState storage in Auditor
+     * @param blockNumber current block number (injected for testing purpuses)
+     * @param fixedLenderAddress The market whose EXA speed to update
+     * @param exaSpeed New EXA speed for market
+     */
+    function setExaSpeed(
+        RewardsState storage fixedLenderState,
+        uint blockNumber,
+        address fixedLenderAddress,
+        uint256 exaSpeed
+    ) external returns (bool) {
+        ExaState storage state = fixedLenderState.exaState[fixedLenderAddress];
+        uint currentExaSpeed = state.exaSpeed;
+        if (currentExaSpeed != 0) {
+            updateExaSupplyIndex(fixedLenderState, blockNumber, fixedLenderAddress);
+            updateExaBorrowIndex(fixedLenderState, blockNumber, fixedLenderAddress);
+            updateExaSmartPoolIndex(fixedLenderState, blockNumber, fixedLenderAddress);
+        } else if (exaSpeed != 0) {
+            // what happens @ compound.finance if someone doesn't set the exaSpeed
+            // but supply/borrow first? in that case, block number will be updated
+            // hence the market can never be initialized with EXA_INITIAL_INDEX
+            // if (state.exaSupplyState.index == 0 && state.exaSupplyState.block == 0) {
+            if (state.exaSupplyState.index == 0) {
+                state.exaSupplyState = MarketRewardsState({
+                    index: EXA_INITIAL_INDEX,
+                    block: blockNumber.toUint32()
+                });
+            }
+
+            if (state.exaBorrowState.index == 0) {
+                state.exaBorrowState = MarketRewardsState({
+                    index: EXA_INITIAL_INDEX,
+                    block: blockNumber.toUint32()
+                });
+            }
+
+            if (state.exaSmartState.index == 0) {
+                state.exaSmartState = MarketRewardsState({
+                    index: EXA_INITIAL_INDEX,
+                    block: blockNumber.toUint32()
+                });
+            }
+        }
+
+        if (currentExaSpeed != exaSpeed) {
+            state.exaSpeed = exaSpeed;
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -147,20 +311,6 @@ library ExaLib {
     }
 
     /**
-     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
-     * @param fixedLenderState RewardsState storage in Auditor
-     * @param fixedLenderAddress The market in which the supplier is interacting
-     * @param supplier The address of the supplier to distribute EXA to
-     */
-    function distributeSmartPoolExa(
-        RewardsState storage fixedLenderState, 
-        address fixedLenderAddress,
-        address supplier
-    ) external {
-        _distributeSmartPoolExa(fixedLenderState, fixedLenderAddress, supplier);
-    }
-
-    /**
      * @notice INTERNAL Calculate EXA accrued by a supplier and possibly transfer it to them
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
@@ -188,20 +338,6 @@ library ExaLib {
         uint smartSupplierAccrued = fixedLenderState.exaAccruedUser[supplier] + smartSupplierDelta;
         fixedLenderState.exaAccruedUser[supplier] = smartSupplierAccrued;
         emit DistributedSmartPoolExa(fixedLenderAddress, supplier, smartSupplierDelta, smartPoolIndex.value);
-    }
-
-    /**
-     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
-     * @param fixedLenderState RewardsState storage in Auditor
-     * @param fixedLenderAddress The market in which the supplier is interacting
-     * @param supplier The address of the supplier to distribute EXA to
-     */
-    function distributeSupplierExa(
-        RewardsState storage fixedLenderState, 
-        address fixedLenderAddress,
-        address supplier
-    ) external {
-        _distributeSupplierExa(fixedLenderState, fixedLenderAddress, supplier);
     }
 
     /**
@@ -234,21 +370,6 @@ library ExaLib {
         emit DistributedSupplierExa(fixedLenderAddress, supplier, supplierDelta, supplyIndex.value);
     }
 
-
-    /**
-     * @notice Calculate EXA accrued by a borrower
-     * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
-     * @param fixedLenderAddress The market address in which the borrower is interacting
-     * @param borrower The address of the borrower to distribute EXA to
-     */
-    function distributeBorrowerExa(
-        RewardsState storage fixedLenderState,
-        address fixedLenderAddress,
-        address borrower
-    ) external {
-        _distributeBorrowerExa(fixedLenderState, fixedLenderAddress, borrower);
-    }
-
     /**
      * @notice Calculate EXA accrued by a borrower
      * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
@@ -278,76 +399,6 @@ library ExaLib {
     }
 
     /**
-     * @notice Claim all EXA accrued by the holders
-     * @param fixedLenderState RewardsState storage in Auditor
-     * @param blockNumber current block number (injected for testing purpuses)
-     * @param markets Valid markets in Auditor
-     * @param holders The addresses to claim EXA for
-     * @param fixedLenderAddresses The list of markets to claim EXA in
-     * @param borrowers Whether or not to claim EXA earned by borrowing
-     * @param suppliers Whether or not to claim EXA earned by supplying
-     */
-    function claimExa(
-        RewardsState storage fixedLenderState,
-        uint blockNumber,
-        mapping(address => MarketsLib.Market) storage markets,
-        address[] memory holders,
-        address[] memory fixedLenderAddresses,
-        bool borrowers,
-        bool suppliers,
-        bool smartSuppliers
-    ) external {
-
-        for (uint i = 0; i < fixedLenderAddresses.length; i++) {
-            address fixedLender = fixedLenderAddresses[i];
-            MarketsLib.Market storage market = markets[fixedLender];
-
-            if (!market.isListed) {
-                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-            }
-
-            if (borrowers == true) {
-                updateExaBorrowIndex(fixedLenderState, blockNumber, fixedLender);
-                for (uint j = 0; j < holders.length; j++) {
-                    _distributeBorrowerExa(fixedLenderState, fixedLender, holders[j]);
-                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
-                }
-            }
-            if (suppliers == true) {
-                updateExaSupplyIndex(fixedLenderState, blockNumber, fixedLender);
-                for (uint j = 0; j < holders.length; j++) {
-                    _distributeSupplierExa(fixedLenderState, fixedLender, holders[j]);
-                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
-                }
-            }
-
-            if (smartSuppliers == true) {
-                updateExaSmartPoolIndex(fixedLenderState, blockNumber, fixedLender);
-                for (uint j = 0; j < holders.length; j++) {
-                    _distributeSmartPoolExa(fixedLenderState, fixedLender, holders[j]);
-                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
-                }
-            }
-
-        }
-    }
-
-    /**
-     * @notice Transfer EXA to the user
-     * @param fixedLenderState RewardsState storage in Auditor
-     * @param user The address of the user to transfer EXA to
-     * @param amount The amount of EXA to (possibly) transfer
-     * @return The amount of EXA which was NOT transferred to the user
-     */
-    function grantExa(
-        RewardsState storage fixedLenderState,
-        address user,
-        uint amount
-    ) external returns (uint) {
-        return _grantExa(fixedLenderState, user, amount);
-    }
-
-    /**
      * @notice Transfer EXA to the user
      * @param fixedLenderState RewardsState storage in Auditor
      * @param user The address of the user to transfer EXA to
@@ -367,59 +418,4 @@ library ExaLib {
         }
         return amount;
     }
-
-    /**
-     * @notice Set EXA speed for a single market
-     * @param fixedLenderState RewardsState storage in Auditor
-     * @param blockNumber current block number (injected for testing purpuses)
-     * @param fixedLenderAddress The market whose EXA speed to update
-     * @param exaSpeed New EXA speed for market
-     */
-    function setExaSpeed(
-        RewardsState storage fixedLenderState,
-        uint blockNumber,
-        address fixedLenderAddress,
-        uint256 exaSpeed
-    ) external returns (bool) {
-        ExaState storage state = fixedLenderState.exaState[fixedLenderAddress];
-        uint currentExaSpeed = state.exaSpeed;
-        if (currentExaSpeed != 0) {
-            updateExaSupplyIndex(fixedLenderState, blockNumber, fixedLenderAddress);
-            updateExaBorrowIndex(fixedLenderState, blockNumber, fixedLenderAddress);
-            updateExaSmartPoolIndex(fixedLenderState, blockNumber, fixedLenderAddress);
-        } else if (exaSpeed != 0) {
-            // what happens @ compound.finance if someone doesn't set the exaSpeed
-            // but supply/borrow first? in that case, block number will be updated
-            // hence the market can never be initialized with EXA_INITIAL_INDEX
-            // if (state.exaSupplyState.index == 0 && state.exaSupplyState.block == 0) {
-            if (state.exaSupplyState.index == 0) {
-                state.exaSupplyState = MarketRewardsState({
-                    index: EXA_INITIAL_INDEX,
-                    block: blockNumber.toUint32()
-                });
-            }
-
-            if (state.exaBorrowState.index == 0) {
-                state.exaBorrowState = MarketRewardsState({
-                    index: EXA_INITIAL_INDEX,
-                    block: blockNumber.toUint32()
-                });
-            }
-
-            if (state.exaSmartState.index == 0) {
-                state.exaSmartState = MarketRewardsState({
-                    index: EXA_INITIAL_INDEX,
-                    block: blockNumber.toUint32()
-                });
-            }
-        }
-
-        if (currentExaSpeed != exaSpeed) {
-            state.exaSpeed = exaSpeed;
-            return true;
-        }
-
-        return false;
-    }
-
 }

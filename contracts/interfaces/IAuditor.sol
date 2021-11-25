@@ -3,12 +3,6 @@ pragma solidity ^0.8.4;
 import "../utils/TSUtils.sol";
 
 interface IAuditor {
-
-    function getAccountLiquidity(
-        address account,
-        uint256 maturityDate
-    ) external view returns (uint256, uint256);
-
     function beforeSupplySmartPool(
         address fixedLenderAddress,
         address supplier
@@ -43,6 +37,11 @@ interface IAuditor {
         address fixedLenderAddress,
         address borrower
     ) external;
+
+    function getAccountLiquidity(
+        address account,
+        uint256 maturityDate
+    ) external view returns (uint256, uint256);
 
     function liquidateAllowed(
         address fixedLenderBorrowed,

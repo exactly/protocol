@@ -19,6 +19,30 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     using DecimalMath for uint256;
     using PoolLib for PoolLib.MaturityPool;
 
+    mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
+    mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
+    mapping(uint256 => PoolLib.MaturityPool) public pools;
+    mapping(address => uint256[]) public addressPools;
+
+    uint256 private liquidationFee = 2.8e16; //2.8%
+
+    PoolLib.SmartPool public smartPool;
+
+    IERC20 private trustedUnderlying;
+    IEToken public override eToken;
+    string public override underlyingTokenName;
+
+    IAuditor public auditor;
+    IInterestRateModel public interestRateModel;
+
+    // Total deposits in all maturities
+    uint256 public override totalDeposits;
+    mapping(address => uint256) public override totalDepositsUser;
+
+    // Total borrows in all maturities
+    uint256 public override totalBorrows;
+    mapping(address => uint256) public override totalBorrowsUser;
+
     /**
      * @notice Event emitted when a user borrows amount of an asset from a
      *         certain maturity date
@@ -148,30 +172,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount amount withdrawn to the smart pool
      */
     event WithdrawFromSmartPool(address indexed user, uint256 amount);
-
-    mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
-    mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
-    mapping(uint256 => PoolLib.MaturityPool) public pools;
-    mapping(address => uint256[]) public addressPools;
-
-    uint256 private liquidationFee = 2.8e16; //2.8%
-
-    PoolLib.SmartPool public smartPool;
-
-    IERC20 private trustedUnderlying;
-    IEToken public override eToken;
-    string public override underlyingTokenName;
-
-    IAuditor public auditor;
-    IInterestRateModel public interestRateModel;
-
-    // Total deposits in all maturities
-    uint256 public override totalDeposits;
-    mapping(address => uint256) public override totalDepositsUser;
-
-    // Total borrows in all maturities
-    uint256 public override totalBorrows;
-    mapping(address => uint256) public override totalBorrowsUser;
 
     constructor(
         address _tokenAddress,
@@ -407,6 +407,146 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     }
 
     /**
+     * @notice Function to liquidate an uncollaterized position
+     * @dev Msg.sender liquidates a borrower's position and repays a certain amount of collateral
+     *      for a maturity date, seizing a part of borrower's collateral
+     * @param borrower wallet that has an outstanding debt for a certain maturity date
+     * @param repayAmount amount to be repaid by liquidator(msg.sender)
+     * @param fixedLenderCollateral address of fixedLender from which the collateral will be seized to give the liquidator
+     * @param maturityDate maturity date for which the position will be liquidated
+     */
+    function liquidate(
+        address borrower,
+        uint256 repayAmount,
+        IFixedLender fixedLenderCollateral,
+        uint256 maturityDate
+    ) external override nonReentrant returns (uint256) {
+        return
+            _liquidate(
+                msg.sender,
+                borrower,
+                repayAmount,
+                fixedLenderCollateral,
+                maturityDate
+            );
+    }
+
+    /**
+     * @notice Public function to seize a certain amount of tokens
+     * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date.
+     *      This function will only be called from another FixedLender, on `liquidation` calls.
+     *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
+     * @param liquidator address which will receive the seized tokens
+     * @param borrower address from which the tokens will be seized
+     * @param seizeAmount amount to be removed from borrower's posession
+     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
+     */
+    function seize(
+        address liquidator,
+        address borrower,
+        uint256 seizeAmount,
+        uint256 maturityDate
+    ) external override nonReentrant {
+        _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
+    }
+
+    /**
+     * @dev Deposits an `amount` of underlying asset into the smart pool, receiving in return overlying eTokens.
+     * - E.g. User deposits 100 USDC and gets in return 100 eUSDC
+     * @param amount The amount to be deposited
+     */
+    function depositToSmartPool(uint256 amount) external override {
+        auditor.beforeSupplySmartPool(address(this), msg.sender);
+
+        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
+
+        eToken.mint(msg.sender, amount);
+
+        smartPool.supplied += amount;
+        emit DepositToSmartPool(msg.sender, amount);
+    }
+
+    /**
+     * @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned
+     * - E.g. User has 100 eUSDC, calls withdraw() and receives 100 USDC, burning the 100 eUSDC
+     * @param amount The underlying amount to be withdrawn
+     * - Send the value type(uint256).max in order to withdraw the whole eToken balance
+     */
+    function withdrawFromSmartPool(uint256 amount) external override {
+        auditor.beforeWithdrawSmartPool(address(this), msg.sender);
+
+        uint256 userBalance = eToken.balanceOf(msg.sender);
+        uint256 amountToWithdraw = amount;
+        if (amount == type(uint256).max) {
+            amountToWithdraw = userBalance;
+        }
+
+        if (smartPool.supplied - amountToWithdraw < smartPool.borrowed) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
+
+        eToken.burn(msg.sender, amountToWithdraw);
+        trustedUnderlying.safeTransferFrom(
+            address(this),
+            msg.sender,
+            amountToWithdraw
+        );
+
+        smartPool.supplied -= amountToWithdraw;
+        emit WithdrawFromSmartPool(msg.sender, amount);
+    }
+
+    function setLiquidationFee(uint256 _liquidationFee)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        liquidationFee = _liquidationFee;
+    }
+
+    /**
+     * @dev Gets current snapshot for a wallet in a certain maturity
+     * @param who wallet to return status snapshot in the specified maturity date
+     * @param maturityDate maturity date
+     */
+    function getAccountSnapshot(address who, uint256 maturityDate)
+        public
+        view
+        override
+        returns (uint256, uint256)
+    {
+        if (!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
+        return (
+            suppliedAmounts[maturityDate][who],
+            borrowedAmounts[maturityDate][who]
+        );
+    }
+
+    /**
+     * @dev Gets the total amount of borrowed money for a maturityDate
+     * @param maturityDate maturity date
+     */
+    function getTotalBorrows(uint256 maturityDate)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        if (!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
+        return pools[maturityDate].borrowed;
+    }
+
+    /**
+     * @dev Gets the auditor contract interface being used to validate positions
+     */
+    function getAuditor() public view override returns (IAuditor) {
+        return IAuditor(auditor);
+    }
+
+    /**
      * @notice This function allows to partially repay a position on liquidation
      * @dev repay function on liquidation, it allows to partially pay debt, and it
      *      doesn't check `repayAllowed` on the auditor. It should be called after
@@ -445,31 +585,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         totalBorrowsUser[borrower] -= debtCovered;
 
         emit RepayToMaturityPoolLiquidate(payer, borrower, repayAmount, maturityDate);
-    }
-
-    /**
-     * @notice Function to liquidate an uncollaterized position
-     * @dev Msg.sender liquidates a borrower's position and repays a certain amount of collateral
-     *      for a maturity date, seizing a part of borrower's collateral
-     * @param borrower wallet that has an outstanding debt for a certain maturity date
-     * @param repayAmount amount to be repaid by liquidator(msg.sender)
-     * @param fixedLenderCollateral address of fixedLender from which the collateral will be seized to give the liquidator
-     * @param maturityDate maturity date for which the position will be liquidated
-     */
-    function liquidate(
-        address borrower,
-        uint256 repayAmount,
-        IFixedLender fixedLenderCollateral,
-        uint256 maturityDate
-    ) external override nonReentrant returns (uint256) {
-        return
-            _liquidate(
-                msg.sender,
-                borrower,
-                repayAmount,
-                fixedLenderCollateral,
-                maturityDate
-            );
     }
 
     /**
@@ -550,25 +665,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     }
 
     /**
-     * @notice Public function to seize a certain amount of tokens
-     * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date.
-     *      This function will only be called from another FixedLender, on `liquidation` calls.
-     *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
-     * @param liquidator address which will receive the seized tokens
-     * @param borrower address from which the tokens will be seized
-     * @param seizeAmount amount to be removed from borrower's posession
-     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
-     */
-    function seize(
-        address liquidator,
-        address borrower,
-        uint256 seizeAmount,
-        uint256 maturityDate
-    ) external override nonReentrant {
-        _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
-    }
-
-    /**
      * @notice Private function to seize a certain amount of tokens
      * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date.
      *      This function will only be called from this FixedLender, on `liquidation` or through `seize` calls from another FixedLender.
@@ -611,52 +707,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         emit SeizeAsset(liquidator, borrower, seizeAmount, maturityDate);
         emit AddReserves(address(this), protocolAmount);
-    }
-
-    /**
-     * @dev Deposits an `amount` of underlying asset into the smart pool, receiving in return overlying eTokens.
-     * - E.g. User deposits 100 USDC and gets in return 100 eUSDC
-     * @param amount The amount to be deposited
-     */
-    function depositToSmartPool(uint256 amount) external override {
-        auditor.beforeSupplySmartPool(address(this), msg.sender);
-
-        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
-
-        eToken.mint(msg.sender, amount);
-
-        smartPool.supplied += amount;
-        emit DepositToSmartPool(msg.sender, amount);
-    }
-
-    /**
-     * @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned
-     * - E.g. User has 100 eUSDC, calls withdraw() and receives 100 USDC, burning the 100 eUSDC
-     * @param amount The underlying amount to be withdrawn
-     * - Send the value type(uint256).max in order to withdraw the whole eToken balance
-     */
-    function withdrawFromSmartPool(uint256 amount) external override {
-        auditor.beforeWithdrawSmartPool(address(this), msg.sender);
-
-        uint256 userBalance = eToken.balanceOf(msg.sender);
-        uint256 amountToWithdraw = amount;
-        if (amount == type(uint256).max) {
-            amountToWithdraw = userBalance;
-        }
-
-        if (smartPool.supplied - amountToWithdraw < smartPool.borrowed) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-        }
-
-        eToken.burn(msg.sender, amountToWithdraw);
-        trustedUnderlying.safeTransferFrom(
-            address(this),
-            msg.sender,
-            amountToWithdraw
-        );
-
-        smartPool.supplied -= amountToWithdraw;
-        emit WithdrawFromSmartPool(msg.sender, amount);
     }
 
     /**

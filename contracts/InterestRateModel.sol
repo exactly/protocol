@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
+    using DecimalMath for uint256;
 
     // Parameters to the system, expressed with 1e18 decimals
     uint256 public mpSlopeRate;
@@ -17,10 +18,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 public spHighURSlopeRate;
     uint256 public baseRate;
     uint256 public slopeChangeRate;
-
     uint256 public override penaltyRate;
-
-    using DecimalMath for uint256;
 
     constructor(
         uint256 _mpSlopeRate,

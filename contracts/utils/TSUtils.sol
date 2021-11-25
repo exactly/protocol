@@ -2,15 +2,14 @@
 pragma solidity ^0.8.4;
 
 library TSUtils {
-
-    uint32 public constant INTERVAL = 7 days;
-
     enum State {
         INVALID,
         MATURED,
         VALID,
         NOT_READY
     }
+
+    uint32 public constant INTERVAL = 7 days;
 
     /**
      * @notice Function to take a timestamp to it's 00:00 hours (beginning of day)

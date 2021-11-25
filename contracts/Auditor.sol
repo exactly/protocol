@@ -365,30 +365,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Hook function to be called before someone supplies money to a market/maturity.
-     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly. 
-     * @param fixedLenderAddress address of the fixedLender that will deposit money in a maturity
-     * @param supplier address of the user that will supply money to a certain maturity (it can be later on
-     *                 used as collater with _enterMarkets_ functions)
-     * @param maturityDate timestamp for the maturity date that the user wants to supply money. It should
-     *                     be in a VALID state (meaning that is not in the distant future, nor matured)
-     */
-    function supplyAllowed(
-        address fixedLenderAddress,
-        address supplier,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(maturityDate, TSUtils.State.VALID);
-
-        rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSupplierExa(fixedLenderAddress, supplier);
-    }
-
-    /**
      * @dev Hook function to be called before someone wants to repay its debt in a market/maturity.
      *      This function verifies if market is valid, maturity is MATURED and accrues rewards accordingly.
      *      This function is called from fixedLender contracts.
