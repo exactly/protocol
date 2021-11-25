@@ -393,7 +393,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         uint256 penalty = amountOwed - amountBorrowed;
 
-        // TODO can the flashloan when repaying debt to accrue most of the earnings?
         eToken.accrueEarnings(penalty);
 
         delete borrowedAmounts[maturityDate][borrower];
