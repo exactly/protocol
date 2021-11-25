@@ -7,7 +7,6 @@ import {
   ProtocolError,
   ExactlyEnv,
   ExaTime,
-  parseDepositToMaturityPoolEvent,
   errorGeneric,
   DefaultEnv,
   PoolState,
@@ -57,7 +56,7 @@ describe("Auditor from User Space", function () {
 
     [owner, user] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
     nextPoolID = new ExaTime().nextPoolID();
 
@@ -389,11 +388,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    let txDAI = await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID
-    );
-    let borrowDAIEvent = await parseDepositToMaturityPoolEvent(txDAI);
+    await fixedLenderDAI.depositToMaturityPool(amountDAI, nextPoolID);
 
     expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(amountDAI);
 
@@ -406,11 +401,7 @@ describe("Auditor from User Space", function () {
     // we supply Eth to the protocol
     const amountETH = parseUnits("1");
     await eth.approve(fixedLenderETH.address, amountETH);
-    let txETH = await fixedLenderETH.depositToMaturityPool(
-      amountETH,
-      nextPoolID
-    );
-    let borrowETHEvent = await parseDepositToMaturityPoolEvent(txETH);
+    await fixedLenderETH.depositToMaturityPool(amountETH, nextPoolID);
 
     expect(await eth.balanceOf(fixedLenderETH.address)).to.equal(amountETH);
 
@@ -422,14 +413,12 @@ describe("Auditor from User Space", function () {
     )[0];
 
     let collaterDAI = amountDAI
-      .add(borrowDAIEvent.commission)
       .mul(mockedTokens.get("DAI")!.collateralRate)
       .div(parseUnits("1"))
       .mul(mockedTokens.get("DAI")!.usdPrice)
       .div(parseUnits("1"));
 
     let collaterETH = amountETH
-      .add(borrowETHEvent.commission)
       .mul(mockedTokens.get("ETH")!.collateralRate)
       .div(parseUnits("1"))
       .mul(mockedTokens.get("ETH")!.usdPrice)

@@ -7,8 +7,6 @@ import {
   errorUnmatchedPool,
   ExactlyEnv,
   ExaTime,
-  parseBorrowFromMaturityPoolEvent,
-  parseDepositToMaturityPoolEvent,
   PoolState,
   ProtocolError,
 } from "./exactlyUtils";
@@ -56,7 +54,7 @@ describe("FixedLender", function () {
   beforeEach(async () => {
     [owner, mariaUser] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     underlyingTokenETH = exactlyEnv.getUnderlying("ETH");
@@ -96,15 +94,17 @@ describe("FixedLender", function () {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
-    let tx = await fixedLender.depositToMaturityPool(
+    let tx = fixedLender.depositToMaturityPool(
       underlyingAmount,
       exaTime.nextPoolID()
     );
-    let event = await parseDepositToMaturityPoolEvent(tx);
-
-    expect(event.from).to.equal(owner.address);
-    expect(event.amount).to.equal(underlyingAmount);
-    expect(event.maturityDate).to.equal(exaTime.nextPoolID());
+    await tx;
+    await expect(tx).to.emit(fixedLender, "DepositToMaturityPool").withArgs(
+      owner.address,
+      underlyingAmount,
+      parseUnits("0"), // commission, its zero with the mocked rate
+      exaTime.nextPoolID()
+    );
 
     expect(await underlyingToken.balanceOf(fixedLender.address)).to.equal(
       underlyingAmount
@@ -117,7 +117,7 @@ describe("FixedLender", function () {
           exaTime.nextPoolID()
         )
       )[0]
-    ).to.be.equal(underlyingAmount.add(event.commission));
+    ).to.be.equal(underlyingAmount);
   });
 
   it("it doesn't allow you to give money to a pool that matured", async () => {
@@ -171,10 +171,9 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
     expect(tx).to.emit(fixedLenderMaria, "BorrowFromMaturityPool");
-    let event = await parseBorrowFromMaturityPoolEvent(tx);
     expect(
       await fixedLenderMaria.getTotalBorrows(exaTime.nextPoolID())
-    ).to.equal(parseUnits("0.8").add(event.commission));
+    ).to.equal(parseUnits("0.8"));
   });
 
   it("it doesn't allow you to borrow money from a pool that matured", async () => {
@@ -289,17 +288,16 @@ describe("FixedLender", function () {
 
     // deposit some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    let tx = await fixedLenderMaria.depositToMaturityPool(
+    await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let depositEvent = await parseDepositToMaturityPoolEvent(tx);
 
     // try to withdraw before maturity
     await expect(
       fixedLenderMaria.withdrawFromMaturityPool(
         mariaUser.address,
-        depositEvent.amount.add(depositEvent.commission),
+        parseUnits("1"),
         exaTime.nextPoolID()
       )
     ).to.be.revertedWith(
@@ -315,11 +313,11 @@ describe("FixedLender", function () {
     // finally withdraw voucher and we expect maria to have her original amount + the comission earned
     await fixedLenderMaria.withdrawFromMaturityPool(
       mariaUser.address,
-      depositEvent.amount.add(depositEvent.commission),
+      parseUnits("1"),
       exaTime.nextPoolID()
     );
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
-      originalAmount.add(depositEvent.commission)
+      originalAmount
     );
   });
 
@@ -331,13 +329,11 @@ describe("FixedLender", function () {
     let fixedLenderMaria = fixedLender.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
-    // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
-    let txSupply = await fixedLenderMaria.depositToMaturityPool(
+    await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let depositEvent = await parseDepositToMaturityPoolEvent(txSupply);
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
       exaTime.nextPoolID()
@@ -364,7 +360,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.withdrawFromMaturityPool(
         mariaUser.address,
-        depositEvent.amount.add(depositEvent.commission),
+        parseUnits("1"),
         exaTime.nextPoolID()
       )
     ).to.be.revertedWith(
@@ -381,18 +377,15 @@ describe("FixedLender", function () {
     let fixedLenderMaria = fixedLender.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
 
-    // supply some money and parse event
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
-    let txSupply = await fixedLenderMaria.depositToMaturityPool(
+    await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
       exaTime.nextPoolID()
     );
-    let depositEvent = await parseDepositToMaturityPoolEvent(txSupply);
-    let tx = await fixedLenderMaria.borrowFromMaturityPool(
+    await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
       exaTime.nextPoolID()
     );
-    let borrowEvent = await parseBorrowFromMaturityPoolEvent(tx);
 
     // Move in time to maturity
     await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -413,7 +406,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.withdrawFromMaturityPool(
         mariaUser.address,
-        depositEvent.amount.add(depositEvent.commission),
+        parseUnits("1"),
         exaTime.nextPoolID()
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
@@ -429,12 +422,12 @@ describe("FixedLender", function () {
     // finally withdraw voucher and we expect maria to have her original amount + the comission earned - comission paid
     await fixedLenderMaria.withdrawFromMaturityPool(
       mariaUser.address,
-      depositEvent.amount.add(depositEvent.commission),
+      parseUnits("1"),
       exaTime.nextPoolID()
     );
 
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
-      originalAmount.add(depositEvent.commission).sub(borrowEvent.commission)
+      originalAmount
     );
   });
 
