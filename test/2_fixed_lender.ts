@@ -426,14 +426,14 @@ describe("FixedLender", function () {
     await ethers.provider.send("evm_mine", []);
 
     // if baseRate is 0.2 then we multiply for 1.2
-    const amountPaid = borrowEvent.amount
+    const expectedAmountPaid = borrowEvent.amount
       .add(borrowEvent.commission)
       .mul(baseRate.add(parseUnits("1")))
       .div(parseUnits("1"));
     const amountBorrowed = borrowEvent.amount.add(borrowEvent.commission);
 
     // sanity check to make sure he paid more
-    expect(amountBorrowed).not.eq(amountPaid);
+    expect(amountBorrowed).not.eq(expectedAmountPaid);
 
     await expect(
       fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
@@ -442,7 +442,7 @@ describe("FixedLender", function () {
       .withArgs(
         mariaUser.address,
         mariaUser.address,
-        amountPaid.sub(amountBorrowed),
+        expectedAmountPaid.sub(amountBorrowed),
         amountBorrowed,
         exaTime.nextPoolID()
       );
