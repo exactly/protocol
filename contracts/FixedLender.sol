@@ -69,7 +69,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @notice Event emitted when a user repays its borrows after maturity
      * @param payer address which repaid the previously borrowed amount
      * @param borrower address which had the original debt
-     * @param amount of the asset that it was repaid
+     * @param penalty amount paid for penalties
+     * @param amountBorrowed of the asset that it was repaid
      * @param maturityDate poolID where the user repaid its borrowed amounts
      */
     event Repaid(
@@ -80,6 +81,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         uint256 maturityDate
     );
 
+    /**
+     * @notice Event emitted when a liquidator repays a debt in a liquidation
+     * @param payer address which repaid the previously borrowed amount
+     * @param borrower address which had the original debt
+     * @param repayAmount amount paid by the liquidator
+     * @param maturityDate poolID where the user repaid its borrowed amounts
+     */
     event RepaidLiquidate(
         address indexed payer,
         address indexed borrower,
