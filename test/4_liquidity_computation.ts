@@ -105,7 +105,7 @@ describe("Liquidity computations", function () {
         await dai.connect(laura).approve(fixedLenderDAI.address, amount);
         const txDai = await fixedLenderDAI
           .connect(laura)
-          .supply(laura.address, amount, nextPoolID);
+          .supply(amount, nextPoolID);
         supplyEvent = await parseSupplyEvent(txDai);
       });
 
@@ -180,12 +180,12 @@ describe("Liquidity computations", function () {
         await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
         txSupply = await fixedLenderDAI
           .connect(laura)
-          .supply(laura.address, daiAmount, nextPoolID);
+          .supply(daiAmount, nextPoolID);
         const usdcAmount = parseUnits("10000", usdcDecimals);
         await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
         await fixedLenderUSDC
           .connect(bob)
-          .supply(bob.address, usdcAmount, nextPoolID);
+          .supply(usdcAmount, nextPoolID);
       });
       describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
         beforeEach(async () => {
@@ -275,9 +275,7 @@ describe("Liquidity computations", function () {
         // laura supplies wbtc to the protocol to have lendable money in the pool
         const amount = parseUnits("3", 8);
         await wbtc.connect(laura).approve(fixedLenderWBTC.address, amount);
-        await fixedLenderWBTC
-          .connect(laura)
-          .supply(laura.address, amount, nextPoolID);
+        await fixedLenderWBTC.connect(laura).supply(amount, nextPoolID);
       });
 
       describe("AND GIVEN Bob provides 60kdai (18 decimals) as collateral", () => {
@@ -287,7 +285,7 @@ describe("Liquidity computations", function () {
             .approve(fixedLenderDAI.address, parseUnits("60000"));
           await fixedLenderDAI
             .connect(bob)
-            .supply(bob.address, parseUnits("60000"), nextPoolID);
+            .supply(parseUnits("60000"), nextPoolID);
         });
         // Here I'm trying to make sure we use the borrowed token's decimals
         // properly to compute liquidity
@@ -313,13 +311,13 @@ describe("Liquidity computations", function () {
             .approve(fixedLenderDAI.address, parseUnits("20000"));
           await fixedLenderDAI
             .connect(bob)
-            .supply(bob.address, parseUnits("20000"), nextPoolID);
+            .supply(parseUnits("20000"), nextPoolID);
           await usdc
             .connect(bob)
             .approve(fixedLenderUSDC.address, parseUnits("40000", 6));
           await fixedLenderUSDC
             .connect(bob)
-            .supply(bob.address, parseUnits("40000", 6), nextPoolID);
+            .supply(parseUnits("40000", 6), nextPoolID);
         });
         describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
           beforeEach(async () => {
