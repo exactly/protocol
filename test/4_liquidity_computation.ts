@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits, formatUnits } from "@ethersproject/units";
+import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import {
   ProtocolError,
@@ -112,7 +112,7 @@ describe("Liquidity computations", function () {
         );
 
         const expectedLiquidity = 800;
-        expect(parseFloat(formatUnits(liquidity))).to.be.eq(expectedLiquidity);
+        expect(liquidity).to.be.eq(expectedLiquidity);
         expect(shortfall).to.be.eq(parseUnits("0"));
       });
       // TODO: a test where the supply interest is != 0, see if there's an error like the one described in this commit
@@ -181,7 +181,7 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await fixedLenderDAI
             .connect(bob)
-            .borrow(parseUnits("7000"), nextPoolID);
+            .borrowFromMaturityPool(parseUnits("7000"), nextPoolID);
         });
         it("THEN bob has 1kusd liquidity and no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(

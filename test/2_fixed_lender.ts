@@ -401,7 +401,7 @@ describe("FixedLender", function () {
 
     // if baseRate is 0.2 then we multiply for 1.2
     expect(amountOwed).to.equal(
-      parseUnits("0.500527397260273972")
+      parseUnits("0.5")
         .mul(baseRate.add(parseUnits("1")))
         .div(parseUnits("1"))
     );
@@ -443,7 +443,10 @@ describe("FixedLender", function () {
     expect(amountBorrowed).not.eq(expectedAmountPaid);
 
     await expect(
-      fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+      fixedLenderMaria.repayToMaturityPool(
+        mariaUser.address,
+        exaTime.nextPoolID()
+      )
     )
       .to.emit(fixedLenderMaria, "Repaid")
       .withArgs(
