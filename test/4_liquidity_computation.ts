@@ -210,7 +210,7 @@ describe("Liquidity computations", function () {
             ]);
             await ethers.provider.send("evm_mine", []);
           });
-          it("THEN 5 days of *daily* base rate interest is charged, adding 1.02^5 =10% interest to the debt", async () => {
+          it("THEN 5 days of *daily* base rate interest is charged, adding 0.02*5 = 10% interest to the debt", async () => {
             const [liquidity, shortfall] = await auditor.getAccountLiquidity(
               bob.address,
               nextPoolID
