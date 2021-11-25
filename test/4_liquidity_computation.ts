@@ -64,7 +64,7 @@ describe("Liquidity computations", function () {
     // laura the lender
     [bob, laura] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create(mockedTokens);
     auditor = exactlyEnv.auditor;
 
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
