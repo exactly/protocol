@@ -11,7 +11,7 @@ import {
   errorGeneric,
   DefaultEnv,
   PoolState,
-  errorUnmatchedPool
+  errorUnmatchedPool,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -29,25 +29,25 @@ describe("Auditor from User Space", function () {
       {
         decimals: 18,
         collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1")
-      }
+        usdPrice: parseUnits("1"),
+      },
     ],
     [
       "ETH",
       {
         decimals: 18,
         collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3000")
-      }
+        usdPrice: parseUnits("3000"),
+      },
     ],
     [
       "WBTC",
       {
         decimals: 8,
         collateralRate: parseUnits("0.6"),
-        usdPrice: parseUnits("63000")
-      }
-    ]
+        usdPrice: parseUnits("63000"),
+      },
+    ],
   ]);
 
   let snapshot: any;
@@ -465,6 +465,7 @@ describe("Auditor from User Space", function () {
     const [symbol, name, isListed, collateralFactor, decimals] =
       await auditor.getMarketData(fixedLenderDAI.address);
 
+    expect(formatUnits(collateralFactor)).to.be.equal("0.8");
     expect(symbol).to.be.equal("DAI");
     expect(name).to.be.equal("DAI");
     expect(isListed).to.be.equal(true);
