@@ -153,6 +153,22 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
+     * @dev Given a fixedLender address, it returns the corresponding market data
+     * @param fixedLenderAddress Address of the contract where we are getting the data
+     */
+    function getMarketData(address fixedLenderAddress) 
+        external 
+        view
+        returns (string memory,string memory,bool, uint256,uint8) 
+    {
+        if (!book.markets[fixedLenderAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+        MarketsLib.Market storage marketData = book.markets[fixedLenderAddress];
+        return (marketData.symbol, marketData.name, marketData.isListed, marketData.collateralFactor, marketData.decimals);
+    } 
+
+    /**
      * @notice Removes fixedLender from sender's account liquidity calculation
      * @dev Sender must not have an outstanding borrow balance in the asset,
      *      or be providing necessary collateral for an outstanding borrow.

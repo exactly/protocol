@@ -11,7 +11,7 @@ import {
   errorGeneric,
   DefaultEnv,
   PoolState,
-  errorUnmatchedPool,
+  errorUnmatchedPool
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -29,25 +29,25 @@ describe("Auditor from User Space", function () {
       {
         decimals: 18,
         collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
+        usdPrice: parseUnits("1")
+      }
     ],
     [
       "ETH",
       {
         decimals: 18,
         collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3000"),
-      },
+        usdPrice: parseUnits("3000")
+      }
     ],
     [
       "WBTC",
       {
         decimals: 8,
         collateralRate: parseUnits("0.6"),
-        usdPrice: parseUnits("63000"),
-      },
-    ],
+        usdPrice: parseUnits("63000")
+      }
+    ]
   ]);
 
   let snapshot: any;
@@ -458,6 +458,23 @@ describe("Auditor from User Space", function () {
     await expect(
       auditor.getAccountLiquidity(owner.address, nextPoolID)
     ).to.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+  });
+
+  it("Get data from correct market", async () => {
+    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
+    const [symbol, name, isListed, collateralFactor, decimals] =
+      await auditor.getMarketData(fixedLenderDAI.address);
+
+    expect(symbol).to.be.equal("DAI");
+    expect(name).to.be.equal("DAI");
+    expect(isListed).to.be.equal(true);
+    expect(decimals).to.be.equal(18);
+  });
+
+  it("Try to get data from wrong address", async () => {
+    await expect(
+      auditor.getMarketData(exactlyEnv.notAnFixedLenderAddress)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   afterEach(async () => {
