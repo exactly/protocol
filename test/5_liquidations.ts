@@ -97,9 +97,7 @@ describe("Liquidations", function () {
       // bob supplies DAI to the protocol to have money in the pool
       const amountDAI = parseUnits("65000");
       await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
-      await fixedLenderDAI
-        .connect(bob)
-        .supply(amountDAI, nextPoolID);
+      await fixedLenderDAI.connect(bob).supply(amountDAI, nextPoolID);
       await dai
         .connect(bob)
         .approve(fixedLenderDAI.address, parseUnits("200000"));
