@@ -257,7 +257,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to supply money. It should
      *                     be in a VALID state (meaning that is not in the distant future, nor matured)
      */
-    function supplyAllowed(
+    function beforeDepositMaturityPool(
         address fixedLenderAddress,
         address supplier,
         uint256 maturityDate
@@ -282,7 +282,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to borrow money. It should
      *                     be in a VALID state (meaning that is not in the distant future, nor matured)
      */
-    function borrowAllowed(
+    function beforeBorrowMaturityPool(
         address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,

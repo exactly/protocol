@@ -19,13 +19,13 @@ interface IAuditor {
         address supplier
     ) external;
 
-    function supplyAllowed(
+    function beforeDepositMaturityPool(
         address fixedLenderAddress,
         address borrower,
         uint256 maturityDate
     ) external;
 
-    function borrowAllowed(
+    function beforeBorrowMaturityPool(
         address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,

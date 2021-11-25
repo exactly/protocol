@@ -139,7 +139,7 @@ describe("ExaToken", () => {
         await expect(
           fixedLenderDAI
             .connect(mariaUser)
-            .supply(underlyingAmount, exaTime.nextPoolID())
+            .depositToMaturityPool(underlyingAmount, exaTime.nextPoolID())
         ).to.emit(auditor, "DistributedSupplierExa");
 
         await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
@@ -157,36 +157,51 @@ describe("ExaToken", () => {
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
 
         await expect(
-          fixedLenderDAI.supply(underlyingAmount, exaTime.nextPoolID())
+          fixedLenderDAI.depositToMaturityPool(
+            underlyingAmount,
+            exaTime.nextPoolID()
+          )
         ).to.emit(auditor, "DistributedSupplierExa");
       });
 
       it("should DistributedBorrowerExa when borrowing on second interaction", async () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
-        await fixedLenderDAI.supply(underlyingAmount, exaTime.nextPoolID());
+        await fixedLenderDAI.depositToMaturityPool(
+          underlyingAmount,
+          exaTime.nextPoolID()
+        );
 
         await expect(
-          fixedLenderDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
+          fixedLenderDAI.borrowFromMaturityPool(
+            underlyingAmount.div(4),
+            exaTime.nextPoolID()
+          )
         ).to.not.emit(auditor, "DistributedBorrowerExa");
 
         await expect(
-          fixedLenderDAI.borrow(underlyingAmount.div(4), exaTime.nextPoolID())
+          fixedLenderDAI.borrowFromMaturityPool(
+            underlyingAmount.div(4),
+            exaTime.nextPoolID()
+          )
         ).to.emit(auditor, "DistributedBorrowerExa");
       });
 
-      it("should DistributedSupplierExa when redeeming supply", async () => {
+      it("should DistributedSupplierExa when redeeming deposit", async () => {
         // connect through Maria
         let fixedLenderMaria = fixedLenderDAI.connect(mariaUser);
         let underlyingTokenUser = dai.connect(mariaUser);
-        let supplyAmount = parseUnits("1");
+        let depositAmount = parseUnits("1");
 
-        // supply some money and parse event
+        // deposit some money to a maturity and parse event
         await underlyingTokenUser.approve(
           fixedLenderMaria.address,
-          supplyAmount
+          depositAmount
         );
-        await fixedLenderMaria.supply(supplyAmount, exaTime.nextPoolID());
+        await fixedLenderMaria.depositToMaturityPool(
+          depositAmount,
+          exaTime.nextPoolID()
+        );
 
         // Move in time to maturity
         await ethers.provider.send("evm_setNextBlockTimestamp", [
@@ -195,9 +210,9 @@ describe("ExaToken", () => {
         await ethers.provider.send("evm_mine", []);
 
         await expect(
-          fixedLenderMaria.redeem(
+          fixedLenderMaria.withdrawFromMaturityPool(
             mariaUser.address,
-            supplyAmount,
+            depositAmount,
             exaTime.nextPoolID()
           )
         ).to.emit(auditor, "DistributedSupplierExa");
@@ -213,12 +228,12 @@ describe("ExaToken", () => {
           fixedLenderDAI.address,
           underlyingAmount
         );
-        // supply some money and parse event
-        await fixedLenderMaria.supply(
+        // deposit some money and parse event
+        await fixedLenderMaria.depositToMaturityPool(
           underlyingAmount.div(2),
           exaTime.nextPoolID()
         );
-        await fixedLenderMaria.borrow(
+        await fixedLenderMaria.borrowFromMaturityPool(
           underlyingAmount.div(4),
           exaTime.nextPoolID()
         );
@@ -231,7 +246,10 @@ describe("ExaToken", () => {
 
         // repay and succeed
         await expect(
-          fixedLenderMaria.repay(mariaUser.address, exaTime.nextPoolID())
+          fixedLenderMaria.repayToMaturityPool(
+            mariaUser.address,
+            exaTime.nextPoolID()
+          )
         ).to.emit(auditor, "DistributedBorrowerExa");
       });
     });
