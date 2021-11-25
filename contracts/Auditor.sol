@@ -425,7 +425,7 @@ contract Auditor is IAuditor, AccessControl {
         }
     }
 
-     /**
+    /**
      * @dev Function to enable a certain FixedLender market to be used as collateral
      * @param fixedLender address to add to the protocol
      * @param collateralFactor fixedLender's collateral factor for the underlying asset
