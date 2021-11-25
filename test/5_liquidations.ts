@@ -100,7 +100,7 @@ describe("Liquidations", function () {
       await dai.connect(bob).approve(exafinDAI.address, parseUnits("100000"));
     });
 
-    describe("AND GIVEN Alice takes the biggest loan she can (39850 DAI), 50 buffer for interest", () => {
+    describe("AND GIVEN Alice takes the biggest loan she can (39900 DAI)", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
         await auditor.enterMarkets(
@@ -108,8 +108,7 @@ describe("Liquidations", function () {
           nextPoolID
         );
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
-        amountToBorrowDAI = parseUnits("39850");
-
+        amountToBorrowDAI = parseUnits("39900");
         // alice borrows all liquidity
         await exafinDAI.borrowFromMaturityPool(amountToBorrowDAI, nextPoolID);
       });
@@ -218,12 +217,12 @@ describe("Liquidations", function () {
               .to.emit(exafinWBTC, "SeizeAsset")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
           });
-          it("AND 19k DAI of debt has been repaid, making debt ~20900 DAI", async () => {
+          it("AND 19k DAI of debt has been repaid, making debt 20900 DAI", async () => {
             const [, debt] = await exafinDAI.getAccountSnapshot(
               alice.address,
               nextPoolID
             );
-            expect(debt).to.eq(parseUnits("20850"));
+            expect(debt).to.eq(parseUnits("20900"));
           });
           describe("AND WHEN the position is liquidated a second time (39850-19000)/2 == 10400", () => {
             beforeEach(async () => {
@@ -244,20 +243,20 @@ describe("Liquidations", function () {
                 .to.emit(exafinWBTC, "SeizeAsset")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
-            it("AND 10k DAI of debt has been repaid, making debt ~10k DAI", async () => {
+            it("AND 10k DAI of debt has been repaid, making debt 10.5k DAI", async () => {
               const [, debt] = await exafinDAI.getAccountSnapshot(
                 alice.address,
                 nextPoolID
               );
-              expect(debt).to.eq(parseUnits("10450"));
+              expect(debt).to.eq(parseUnits("10500"));
             });
             it("AND the position still has plenty of liquidity", async () => {
               const [liquidity, shortfall] = await auditor.getAccountLiquidity(
                 alice.address,
                 nextPoolID
               );
-              expect(liquidity).to.be.lt(parseUnits("10050"));
-              expect(liquidity).to.be.gt(parseUnits("10040"));
+              expect(liquidity).to.be.lt(parseUnits("10000"));
+              expect(liquidity).to.be.gt(parseUnits("9950"));
               expect(shortfall).to.eq("0");
             });
           });
@@ -269,11 +268,11 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await exactlyEnv.setOracleMockPrice("ETH", "1500");
           });
-          it("THEN alice has a small (1k) liquidity shortfall", async () => {
+          it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
             let shortfall = (
               await auditor.getAccountLiquidity(alice.address, nextPoolID)
             )[1];
-            expect(shortfall).to.eq(parseUnits("1000"));
+            expect(shortfall).to.eq(parseUnits("1050"));
           });
           // The liquidator has an incentive to repay as much of the debt as
           // possible (assuming he has an incentive to repay the debt in the
@@ -305,15 +304,15 @@ describe("Liquidations", function () {
                 .to.emit(exafinWBTC, "SeizeAsset")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
-            // debt: 39850-19000 = 20850
-            // liquidity: (1-.30158730)*0.6*63000+1500*0.7 = 27450
-            // 27450- 20850= 6600
+            // debt: 39900-19000 = 20900
+            // liquidity: (1-0.33174603)*0.6*63000+1500*0.7 = 26310.000066000
+            // 5410
             it("AND she has some liquidity", async () => {
               const liquidity = (
                 await auditor.getAccountLiquidity(alice.address, nextPoolID)
               )[0];
-              expect(liquidity).to.be.gt(parseUnits("5400"));
-              expect(liquidity).to.be.lt(parseUnits("5500"));
+              expect(liquidity).to.be.lt(parseUnits("5410.1"));
+              expect(liquidity).to.be.gt(parseUnits("5410"));
             });
           });
         });
@@ -398,7 +397,7 @@ describe("Liquidations", function () {
                     alice.address,
                     nextPoolID
                   );
-                  expect(debt).to.eq(parseUnits("7578"));
+                  expect(debt).to.eq(parseUnits("7628"));
                 });
               });
             });
@@ -416,7 +415,7 @@ describe("Liquidations", function () {
           let shortfall = (
             await auditor.getAccountLiquidity(alice.address, nextPoolID)
           )[1];
-          expect(shortfall).to.eq(parseUnits("18250"));
+          expect(shortfall).to.eq(parseUnits("18300"));
         });
         it("AND trying to repay an amount of zero fails", async () => {
           // We try to get all the ETH we can
