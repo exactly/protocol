@@ -768,5 +768,4 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
     }
-
 }
