@@ -65,7 +65,7 @@ describe("Liquidations", function () {
   beforeEach(async () => {
     [alice, bob, john] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
 
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");
@@ -76,6 +76,8 @@ describe("Liquidations", function () {
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
     nextPoolID = exaTime.nextPoolID();
+
+    await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
 
     // From alice to bob
     await dai.transfer(bob.address, parseUnits("200000"));
@@ -109,7 +111,7 @@ describe("Liquidations", function () {
         .approve(fixedLenderDAI.address, parseUnits("10000"));
     });
 
-    describe("AND GIVEN Alice takes the biggest loan she can (39850 DAI), 50 buffer for interest", () => {
+    describe("AND GIVEN Alice takes the biggest loan she can (39900 DAI)", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
         await auditor.enterMarkets(
@@ -117,8 +119,7 @@ describe("Liquidations", function () {
           nextPoolID
         );
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
-        amountToBorrowDAI = parseUnits("39850");
-
+        amountToBorrowDAI = parseUnits("39900");
         // alice borrows all liquidity
         await fixedLenderDAI.borrowFromMaturityPool(
           amountToBorrowDAI,
@@ -239,10 +240,12 @@ describe("Liquidations", function () {
               .balanceOf(john.address);
 
             // Borrowed is 39850 + interests
-            const totalBorrowAmount = parseUnits("39898.0828672286617178");
+            const totalBorrowAmount = parseUnits("39900");
             // penalty is 2% * 20 days = 40/100 + 1 = 140/100
-            // so amount owed is 55857.31601412012640492
-            const amountOwed = parseUnits("55857.31601412012640492");
+            // so amount owed is 55860.0
+            const amountOwed = parseUnits("55860.0");
+            // Paid 19000 so we calculate how much of the principal
+            // it would cover
             const debtCovered = parseUnits("19000")
               .mul(totalBorrowAmount)
               .div(amountOwed);
@@ -258,12 +261,12 @@ describe("Liquidations", function () {
               nextPoolID
             );
 
-            // Borrowed is 39850 + interests
-            const totalBorrowAmount = parseUnits("39898.0828672286617178");
+            // Borrowed is 39850
+            const totalBorrowAmount = parseUnits("39900");
 
             // penalty is 2% * 20 days = 40/100 + 1 = 140/100
-            // so amount owed is 55857.31601412012640492
-            const amountOwed = parseUnits("55857.31601412012640492");
+            // so amount owed is 55860
+            const amountOwed = parseUnits("55860");
             const debtCovered = parseUnits("19000")
               .mul(totalBorrowAmount)
               .div(amountOwed);
@@ -311,12 +314,11 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await exactlyEnv.setOracleMockPrice("ETH", "1500");
           });
-          it("THEN alice has a small (1k) liquidity shortfall", async () => {
+          it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
             let shortfall = (
               await auditor.getAccountLiquidity(alice.address, nextPoolID)
             )[1];
-            expect(shortfall).to.be.gt(parseUnits("1000"));
-            expect(shortfall).to.be.lt(parseUnits("1100"));
+            expect(shortfall).to.eq(parseUnits("1050"));
           });
           // The liquidator has an incentive to repay as much of the debt as
           // possible (assuming he has an incentive to repay the debt in the
@@ -348,15 +350,15 @@ describe("Liquidations", function () {
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
-            // debt: 39850-19000 = 20850
-            // liquidity: (1-.30158730)*0.6*63000+1500*0.7 = 27450
-            // 27450- 20850= 6600
+            // debt: 39900-19000 = 20900
+            // liquidity: (1-0.33174603)*0.6*63000+1500*0.7 = 26310.000066000
+            // 5410
             it("AND she has some liquidity", async () => {
               const liquidity = (
                 await auditor.getAccountLiquidity(alice.address, nextPoolID)
               )[0];
-              expect(liquidity).to.be.gt(parseUnits("5400"));
-              expect(liquidity).to.be.lt(parseUnits("5600"));
+              expect(liquidity).to.be.lt(parseUnits("5410.1"));
+              expect(liquidity).to.be.gt(parseUnits("5410"));
             });
           });
         });
@@ -442,7 +444,7 @@ describe("Liquidations", function () {
                     alice.address,
                     nextPoolID
                   );
-                  expect(debt).to.be.gt(parseUnits("7500"));
+                  expect(debt).to.eq(parseUnits("7628"));
                 });
               });
             });
@@ -460,7 +462,7 @@ describe("Liquidations", function () {
           let shortfall = (
             await auditor.getAccountLiquidity(alice.address, nextPoolID)
           )[1];
-          expect(shortfall).to.be.gt(parseUnits("18000"));
+          expect(shortfall).to.eq(parseUnits("18300"));
         });
         it("AND trying to repay an amount of zero fails", async () => {
           // We try to get all the ETH we can

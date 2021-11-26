@@ -64,7 +64,7 @@ describe("Liquidity computations", function () {
     // laura the lender
     [bob, laura] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
 
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
@@ -73,6 +73,8 @@ describe("Liquidity computations", function () {
     usdc = exactlyEnv.getUnderlying("USDC");
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
+
+    await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
 
     // TODO: perhaps pass the addresses to ExactlyEnv.create and do all the
     // transfers in the same place?
@@ -111,8 +113,7 @@ describe("Liquidity computations", function () {
           nextPoolID
         );
 
-        const expectedLiquidity = 800;
-        expect(liquidity).to.be.eq(expectedLiquidity);
+        expect(liquidity).to.be.eq(parseUnits("800"));
         expect(shortfall).to.be.eq(parseUnits("0"));
       });
       // TODO: a test where the supply interest is != 0, see if there's an error like the one described in this commit
@@ -124,14 +125,21 @@ describe("Liquidity computations", function () {
         expect(supplied).to.be.eq(parseUnits("1000"));
         expect(owed).to.be.eq(parseUnits("0"));
       });
-      it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
-        await expect(
-          fixedLenderDAI
-            .connect(laura)
-            .borrowFromMaturityPool(parseUnits("800"), nextPoolID)
-        ).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
-        );
+      describe("AND GIVEN a 1% borrow interest rate", () => {
+        beforeEach(async () => {
+          await exactlyEnv
+            .getInterestRateModel()
+            .setBorrowRate(parseUnits("0.01"));
+        });
+        it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
+          await expect(
+            fixedLenderDAI
+              .connect(laura)
+              .borrowFromMaturityPool(parseUnits("800"), nextPoolID)
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+          );
+        });
       });
 
       describe("AND WHEN laura asks for a 800 DAI loan", () => {
@@ -145,8 +153,8 @@ describe("Liquidity computations", function () {
             laura.address,
             nextPoolID
           );
-          expect(liquidity).to.be.lt(parseUnits("1"));
-          expect(shortfall).to.be.lt(parseUnits("1"));
+          expect(liquidity).to.eq(parseUnits("0"));
+          expect(shortfall).to.eq(parseUnits("0"));
         });
         it("AND she has 799+interest debt and is owed 1000DAI", async () => {
           const [supplied, borrowed] = await fixedLenderDAI.getAccountSnapshot(
@@ -155,8 +163,7 @@ describe("Liquidity computations", function () {
           );
 
           expect(supplied).to.be.eq(parseUnits("1000"));
-          expect(borrowed).to.be.gt(parseUnits("799"));
-          expect(borrowed).to.be.lt(parseUnits("801"));
+          expect(borrowed).to.eq(parseUnits("800"));
         });
       });
     });
@@ -188,8 +195,7 @@ describe("Liquidity computations", function () {
             bob.address,
             nextPoolID
           );
-          expect(liquidity).to.be.lt(parseUnits("1000"));
-          expect(liquidity).to.be.gt(parseUnits("990"));
+          expect(liquidity).to.be.eq(parseUnits("1000"));
           expect(shortfall).to.eq(parseUnits("0"));
         });
         describe("AND WHEN moving to five days after the maturity date", () => {

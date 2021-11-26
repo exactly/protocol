@@ -50,7 +50,7 @@ describe("ExactlyOracle", function () {
 
   before(async () => {
     [, user] = await ethers.getSigners();
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     const ChainlinkFeedRegistryMock = await ethers.getContractFactory(
       "MockedChainlinkFeedRegistry"

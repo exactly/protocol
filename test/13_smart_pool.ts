@@ -41,7 +41,7 @@ describe("Smart Pool", function () {
   beforeEach(async () => {
     [, bob, john] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     eDAI = exactlyEnv.getEToken("DAI");
     underlyingTokenDAI = exactlyEnv.getUnderlying("DAI");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");

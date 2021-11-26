@@ -43,7 +43,7 @@ describe("Auditor Admin", function () {
   beforeEach(async () => {
     [, user] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
 
     // From Owner to User

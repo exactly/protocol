@@ -43,7 +43,7 @@ describe("ExaToken Smart Pool", () => {
   });
 
   beforeEach(async () => {
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
     [, mariaUser] = await ethers.getSigners();
   });

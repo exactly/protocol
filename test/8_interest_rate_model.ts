@@ -81,7 +81,10 @@ describe("InterestRateModel", () => {
     };
     [mariaUser] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create(mockedTokens);
+    exactlyEnv = await ExactlyEnv.create({
+      mockedTokens,
+      useRealInterestRateModel: true,
+    });
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     eth = exactlyEnv.getUnderlying("ETH");
