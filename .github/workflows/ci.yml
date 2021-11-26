@@ -8,7 +8,7 @@ on:
   push:
     branches: main
 
-    # And is tagged with version 0.0.x
+    # And is tagged with version release/*.*.*
     tags:
       - release/*
 
