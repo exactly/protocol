@@ -200,6 +200,134 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
+     * @dev Function to set Oracle's to be used
+     * @param _priceOracleAddress address of the new oracle
+     */
+    function setOracle(address _priceOracleAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        oracle = IOracle(_priceOracleAddress);
+        emit OracleChanged(_priceOracleAddress);
+    }
+
+    /**
+     * @notice Set liquidation incentive for the whole ecosystem
+     * @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18
+     */
+    function setLiquidationIncentive(uint256 _liquidationIncentive)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        liquidationIncentive = _liquidationIncentive;
+    }
+
+    /**
+     * @notice Set EXA speed for a single market
+     * @param fixedLenderAddress The market whose EXA speed to update
+     * @param exaSpeed New EXA speed for market
+     */
+    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        MarketsLib.Market storage market = book.markets[fixedLenderAddress];
+        if (market.isListed == false) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        if (
+            rewardsState.setExaSpeed(block.number, fixedLenderAddress, exaSpeed) ==
+            true
+        ) {
+            emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
+        }
+    }
+
+    /**
+     * @dev Function to enable a certain FixedLender market to be used as collateral
+     * @param fixedLender address to add to the protocol
+     * @param collateralFactor fixedLender's collateral factor for the underlying asset
+     */
+    function enableMarket(
+        address fixedLender,
+        uint256 collateralFactor,
+        string memory symbol,
+        string memory name,
+        uint8 decimals
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        MarketsLib.Market storage market = book.markets[fixedLender];
+
+        if (market.isListed) {
+            revert GenericError(ErrorCode.MARKET_ALREADY_LISTED);
+        }
+
+        if (IFixedLender(fixedLender).getAuditor() != this) {
+            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
+        }
+
+        market.isListed = true;
+        market.collateralFactor = collateralFactor;
+        market.symbol = symbol;
+        market.name = name;
+        market.decimals = decimals;
+
+        marketsAddresses.push(fixedLender);
+
+        emit MarketListed(fixedLender);
+    }
+
+    /**
+     * @dev Function to pause/unpause borrowing on a certain market
+     * @param fixedLender address to pause
+     * @param paused true/false
+     */
+    function pauseBorrow(address fixedLender, bool paused)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        returns (bool)
+    {
+        if (!book.markets[fixedLender].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        book.borrowPaused[address(fixedLender)] = paused;
+        emit ActionPaused(fixedLender, "Borrow", paused);
+        return paused;
+    }
+
+    /**
+     * @notice Set the given borrow caps for the given fixedLender markets. Borrowing that brings total borrows to or above borrow cap will revert.
+     * @param fixedLenders The addresses of the markets (tokens) to change the borrow caps for
+     * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
+     */
+    function setMarketBorrowCaps(
+        address[] calldata fixedLenders,
+        uint256[] calldata newBorrowCaps
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 numMarkets = fixedLenders.length;
+        uint256 numBorrowCaps = newBorrowCaps.length;
+
+        if (numMarkets == 0 || numMarkets != numBorrowCaps) {
+            revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
+        }
+
+        for (uint256 i = 0; i < numMarkets; i++) {
+            if (!book.markets[fixedLenders[i]].isListed) {
+                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+            }
+
+            book.borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
+            emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
+        }
+    }
+
+    /**
+     * @notice Claim all the EXA accrued by holder in all markets
+     * @param holder The address to claim EXA for
+     */
+    function claimExaAll(address holder) external {
+        claimExa(holder, marketsAddresses);
+    }
+
+    /**
      * @dev Hook function to be called before someone supplies money to the smart pool
      *      This function basically checks if the address of the fixed Lender market is
      *      valid and makes sure to accrue EXA tokens to the market and the user.
@@ -356,131 +484,80 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Function to set Oracle's to be used
-     * @param _priceOracleAddress address of the new oracle
+     * @dev Function to allow/reject liquidation of assets. This function can be called
+     *      externally, but only will have effect when called from a fixedLender.
+     * @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol)
+     * @param fixedLenderBorrowed market from where the debt is pending
+     * @param liquidator address that is liquidating the assets
+     * @param borrower address which the assets are being liquidated
+     * @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
+     * @param maturityDate maturity where the position has a shortfall in liquidity
      */
-    function setOracle(address _priceOracleAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        oracle = IOracle(_priceOracleAddress);
-        emit OracleChanged(_priceOracleAddress);
-    }
-
-    /**
-     * @notice Set liquidation incentive for the whole ecosystem
-     * @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18
-     */
-    function setLiquidationIncentive(uint256 _liquidationIncentive)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        liquidationIncentive = _liquidationIncentive;
-    }
-
-    /**
-     * @notice Set EXA speed for a single market
-     * @param fixedLenderAddress The market whose EXA speed to update
-     * @param exaSpeed New EXA speed for market
-     */
-    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        MarketsLib.Market storage market = book.markets[fixedLenderAddress];
-        if (market.isListed == false) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+    function liquidateAllowed(
+        address fixedLenderBorrowed,
+        address fixedLenderCollateral,
+        address liquidator,
+        address borrower,
+        uint256 repayAmount,
+        uint256 maturityDate
+    ) external view override {
+        if (repayAmount == 0) {
+            revert GenericError(ErrorCode.REPAY_ZERO);
         }
 
+        if (borrower == liquidator) {
+            revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
+        }
+
+        // if markets are listed, they have the same auditor
         if (
-            rewardsState.setExaSpeed(block.number, fixedLenderAddress, exaSpeed) ==
-            true
+            !book.markets[fixedLenderBorrowed].isListed ||
+            !book.markets[fixedLenderCollateral].isListed
         ) {
-            emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
-        }
-    }
-
-    /**
-     * @dev Function to enable a certain FixedLender market to be used as collateral
-     * @param fixedLender address to add to the protocol
-     * @param collateralFactor fixedLender's collateral factor for the underlying asset
-     */
-    function enableMarket(
-        address fixedLender,
-        uint256 collateralFactor,
-        string memory symbol,
-        string memory name,
-        uint8 decimals
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        MarketsLib.Market storage market = book.markets[fixedLender];
-
-        if (market.isListed) {
-            revert GenericError(ErrorCode.MARKET_ALREADY_LISTED);
-        }
-
-        if (IFixedLender(fixedLender).getAuditor() != this) {
-            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
-        }
-
-        market.isListed = true;
-        market.collateralFactor = collateralFactor;
-        market.symbol = symbol;
-        market.name = name;
-        market.decimals = decimals;
-
-        marketsAddresses.push(fixedLender);
-
-        emit MarketListed(fixedLender);
-    }
-
-    /**
-     * @dev Function to pause/unpause borrowing on a certain market
-     * @param fixedLender address to pause
-     * @param paused true/false
-     */
-    function pauseBorrow(address fixedLender, bool paused)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        returns (bool)
-    {
-        if (!book.markets[fixedLender].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        book.borrowPaused[address(fixedLender)] = paused;
-        emit ActionPaused(fixedLender, "Borrow", paused);
-        return paused;
-    }
+        /* The borrower must have shortfall in order to be liquidatable */
+        (, uint256 shortfall) = book.accountLiquidity(oracle, borrower, maturityDate, address(0), 0, 0);
 
-    /**
-     * @notice Set the given borrow caps for the given fixedLender markets. Borrowing that brings total borrows to or above borrow cap will revert.
-     * @param fixedLenders The addresses of the markets (tokens) to change the borrow caps for
-     * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
-     */
-    function setMarketBorrowCaps(
-        address[] calldata fixedLenders,
-        uint256[] calldata newBorrowCaps
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 numMarkets = fixedLenders.length;
-        uint256 numBorrowCaps = newBorrowCaps.length;
-
-        if (numMarkets == 0 || numMarkets != numBorrowCaps) {
-            revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
+        if (shortfall == 0) {
+            revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
         }
 
-        for (uint256 i = 0; i < numMarkets; i++) {
-            if (!book.markets[fixedLenders[i]].isListed) {
-                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-            }
-
-            book.borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
-            emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
+        /* The liquidator may not repay more than what is allowed by the closeFactor */
+        (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed)
+            .getAccountSnapshot(borrower, maturityDate);
+        uint256 maxClose = closeFactor.mul_(borrowBalance);
+        if (repayAmount > maxClose) {
+            revert GenericError(ErrorCode.TOO_MUCH_REPAY);
         }
     }
 
     /**
-     * @notice Claim all the EXA accrued by holder in all markets
-     * @param holder The address to claim EXA for
+     * @dev Function to allow/reject seizing of assets. This function can be called
+     *      externally, but only will have effect when called from a fixedLender.
+     * @param fixedLenderCollateral market where the assets will be seized (should be msg.sender on FixedLender.sol)
+     * @param fixedLenderBorrowed market from where the debt will be paid
+     * @param liquidator address to validate where the seized assets will be received
+     * @param borrower address to validate where the assets will be removed
      */
-    function claimExaAll(address holder) external {
-        claimExa(holder, marketsAddresses);
+    function seizeAllowed(
+        address fixedLenderCollateral,
+        address fixedLenderBorrowed,
+        address liquidator,
+        address borrower
+    ) external view override {
+        if (borrower == liquidator) {
+            revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
+        }
+
+        // If markets are listed, they have also the same Auditor
+        if (
+            !book.markets[fixedLenderCollateral].isListed ||
+            !book.markets[fixedLenderBorrowed].isListed
+        ) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
     }
 
     /**
@@ -567,83 +644,6 @@ contract Auditor is IAuditor, AccessControl {
         );
 
         return seizeTokens.mul_(liquidationIncentive);
-    }
-
-    /**
-     * @dev Function to allow/reject liquidation of assets. This function can be called
-     *      externally, but only will have effect when called from a fixedLender.
-     * @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol)
-     * @param fixedLenderBorrowed market from where the debt is pending
-     * @param liquidator address that is liquidating the assets
-     * @param borrower address which the assets are being liquidated
-     * @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
-     * @param maturityDate maturity where the position has a shortfall in liquidity
-     */
-    function liquidateAllowed(
-        address fixedLenderBorrowed,
-        address fixedLenderCollateral,
-        address liquidator,
-        address borrower,
-        uint256 repayAmount,
-        uint256 maturityDate
-    ) external view override {
-        if (repayAmount == 0) {
-            revert GenericError(ErrorCode.REPAY_ZERO);
-        }
-
-        if (borrower == liquidator) {
-            revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
-        }
-
-        // if markets are listed, they have the same auditor
-        if (
-            !book.markets[fixedLenderBorrowed].isListed ||
-            !book.markets[fixedLenderCollateral].isListed
-        ) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) = book.accountLiquidity(oracle, borrower, maturityDate, address(0), 0, 0);
-
-        if (shortfall == 0) {
-            revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
-        }
-
-        /* The liquidator may not repay more than what is allowed by the closeFactor */
-        (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed)
-            .getAccountSnapshot(borrower, maturityDate);
-        uint256 maxClose = closeFactor.mul_(borrowBalance);
-        if (repayAmount > maxClose) {
-            revert GenericError(ErrorCode.TOO_MUCH_REPAY);
-        }
-    }
-
-    /**
-     * @dev Function to allow/reject seizing of assets. This function can be called
-     *      externally, but only will have effect when called from a fixedLender.
-     * @param fixedLenderCollateral market where the assets will be seized (should be msg.sender on FixedLender.sol)
-     * @param fixedLenderBorrowed market from where the debt will be paid
-     * @param liquidator address to validate where the seized assets will be received
-     * @param borrower address to validate where the assets will be removed
-     */
-    function seizeAllowed(
-        address fixedLenderCollateral,
-        address fixedLenderBorrowed,
-        address liquidator,
-        address borrower
-    ) external view override {
-        if (borrower == liquidator) {
-            revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
-        }
-
-        // If markets are listed, they have also the same Auditor
-        if (
-            !book.markets[fixedLenderCollateral].isListed ||
-            !book.markets[fixedLenderBorrowed].isListed
-        ) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
     }
 
     /**
