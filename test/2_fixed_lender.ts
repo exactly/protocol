@@ -42,6 +42,7 @@ describe("FixedLender", function () {
   ]);
 
   let mariaUser: SignerWithAddress;
+  let johnUser: SignerWithAddress;
   let owner: SignerWithAddress;
   let exaTime: ExaTime = new ExaTime();
 
@@ -51,7 +52,7 @@ describe("FixedLender", function () {
   });
 
   beforeEach(async () => {
-    [owner, mariaUser] = await ethers.getSigners();
+    [owner, mariaUser, johnUser] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create({ mockedTokens });
 
@@ -406,16 +407,24 @@ describe("FixedLender", function () {
   });
 
   it("should charge mariaUser penaltyFee when paying her debt one day late", async () => {
-    // give the protocol some solvency
+    // give the protocol and John some solvency
+    let johnBalancePre = parseUnits("1000");
     await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
+    await underlyingToken.transfer(johnUser.address, johnBalancePre);
+    await underlyingToken
+      .connect(johnUser)
+      .approve(fixedLender.address, johnBalancePre);
 
-    // connect through Maria
+    // connect through Maria & John
     const fixedLenderMaria = fixedLender.connect(mariaUser);
-    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const fixedLenderJohn = fixedLender.connect(johnUser);
+    const underlyingTokenMaria = underlyingToken.connect(mariaUser);
     const penaltyRate = await exactlyEnv.interestRateModel.penaltyRate();
 
+    await fixedLenderJohn.depositToSmartPool(johnBalancePre);
+
     // supply some money and parse event
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
+    await underlyingTokenMaria.approve(fixedLender.address, parseUnits("5"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
       exaTime.nextPoolID()
@@ -437,9 +446,6 @@ describe("FixedLender", function () {
       .div(parseUnits("1"));
     const amountBorrowed = parseUnits("0.5");
 
-    // sanity check to make sure he paid more
-    expect(amountBorrowed).not.eq(expectedAmountPaid);
-
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
@@ -454,6 +460,16 @@ describe("FixedLender", function () {
         amountBorrowed,
         exaTime.nextPoolID()
       );
+
+    // sanity check to make sure he paid more
+    expect(amountBorrowed).not.eq(expectedAmountPaid);
+
+    let johnBalancePost = await exactlyEnv
+      .getEToken("DAI")
+      .balanceOf(johnUser.address);
+    expect(johnBalancePre.add(expectedAmountPaid.sub(amountBorrowed))).to.equal(
+      johnBalancePost
+    );
   });
 
   it("it allows the mariaUser to repay her debt at maturity and also withdrawing her collateral", async () => {
