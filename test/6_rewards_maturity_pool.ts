@@ -341,7 +341,7 @@ describe("ExaToken", () => {
       fixedLenderHarness = rewardsLibEnv.fixedLenderHarness;
     });
 
-    it("should calculate EXA supplier index correctly", async () => {
+    it("should calculate EXA maturity supplier index correctly", async () => {
       let amountSupplyWithCommission = parseUnits("10");
       let blocksDelta = 100;
 
@@ -354,7 +354,7 @@ describe("ExaToken", () => {
       await auditorHarness.setBlockNumber(blocksDelta);
       await fixedLenderHarness.setTotalDeposits(amountSupplyWithCommission);
       await auditorHarness.updateExaSupplyIndex(fixedLenderHarness.address);
-      const [newIndex] = await auditorHarness.getSupplyState(
+      const [newIndex] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address
       );
       /*
@@ -372,7 +372,7 @@ describe("ExaToken", () => {
       expect(newIndex).to.be.equal(newIndexCalculated);
     });
 
-    it("should not update index if no blocks passed since last accrual", async () => {
+    it("should not update maturity supplier index if no blocks passed since last accrual", async () => {
       await auditorHarness.setBlockNumber(0);
       await auditorHarness.setExaSpeed(
         fixedLenderHarness.address,
@@ -381,14 +381,14 @@ describe("ExaToken", () => {
       await fixedLenderHarness.setTotalDeposits(parseUnits("10000"));
       await auditorHarness.updateExaSupplyIndex(fixedLenderHarness.address);
 
-      const [newIndex, block] = await auditorHarness.getSupplyState(
+      const [newIndex, block] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address
       );
       expect(newIndex).to.equal(parseUnits("1", 36));
       expect(block).to.equal(0);
     });
 
-    it("should not update index if EXA speed is 0", async () => {
+    it("should not update maturity supplier index if EXA speed is 0", async () => {
       // Update borrows
       await auditorHarness.setBlockNumber(0);
       await auditorHarness.setExaSpeed(
@@ -400,7 +400,7 @@ describe("ExaToken", () => {
       await fixedLenderHarness.setTotalDeposits(parseUnits("10000"));
       await auditorHarness.updateExaSupplyIndex(fixedLenderHarness.address);
 
-      const [newIndex, block] = await auditorHarness.getSupplyState(
+      const [newIndex, block] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address
       );
       expect(newIndex).to.equal(parseUnits("1", 36));
@@ -419,9 +419,9 @@ describe("ExaToken", () => {
       exaToken = rewardsLibEnv.exaToken;
     });
 
-    it("should update borrow index checkpoint but not exaAccrued for first time user", async () => {
+    it("should update maturity borrow index checkpoint but not exaAccrued for first time user", async () => {
       let borrowIndex = parseUnits("6", 36);
-      await auditorHarness.setExaBorrowState(
+      await auditorHarness.setExaMaturityBorrowState(
         fixedLenderHarness.address,
         borrowIndex,
         10
@@ -445,18 +445,18 @@ describe("ExaToken", () => {
       expect(newIndex).to.equal(borrowIndex);
     });
 
-    it("should transfer EXA and update borrow index checkpoint correctly for repeat time user", async () => {
+    it("should transfer EXA and update maturity borrow index checkpoint correctly for repeat time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await fixedLenderHarness.setTotalBorrowsUser(
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaBorrowState(
+      await auditorHarness.setExaMaturityBorrowState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
       );
-      await auditorHarness.setExaBorrowerIndex(
+      await auditorHarness.setExaMaturityBorrowerIndex(
         fixedLenderHarness.address,
         mariaUser.address,
         parseUnits("1", 36)
@@ -493,12 +493,12 @@ describe("ExaToken", () => {
         mariaUser.address,
         parseUnits("0.5")
       );
-      await auditorHarness.setExaBorrowState(
+      await auditorHarness.setExaMaturityBorrowState(
         fixedLenderHarness.address,
         parseUnits("1.0019", 36),
         10
       );
-      await auditorHarness.setExaBorrowerIndex(
+      await auditorHarness.setExaMaturityBorrowerIndex(
         fixedLenderHarness.address,
         mariaUser.address,
         parseUnits("1", 36)
@@ -532,13 +532,13 @@ describe("ExaToken", () => {
       exaToken = rewardsLibEnv.exaToken;
     });
 
-    it("should transfer EXA and update supply index correctly for first time user", async () => {
+    it("should transfer EXA and update maturity supplier index correctly for first time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await fixedLenderHarness.setTotalDepositsUser(
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaSupplyState(
+      await auditorHarness.setExaMaturitySupplyState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
@@ -570,18 +570,18 @@ describe("ExaToken", () => {
         );
     });
 
-    it("should update EXA accrued and supply index for repeat user", async () => {
+    it("should update EXA accrued and maturity supplier index for repeat user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await fixedLenderHarness.setTotalDepositsUser(
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaSupplyState(
+      await auditorHarness.setExaMaturitySupplyState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
       );
-      await auditorHarness.setExaSupplierIndex(
+      await auditorHarness.setExaMaturitySupplierIndex(
         fixedLenderHarness.address,
         mariaUser.address,
         parseUnits("2", 36)
@@ -609,7 +609,7 @@ describe("ExaToken", () => {
         mariaUser.address,
         parseUnits("0.5")
       );
-      await auditorHarness.setExaSupplyState(
+      await auditorHarness.setExaMaturitySupplyState(
         fixedLenderHarness.address,
         parseUnits("1.0019", 36),
         10

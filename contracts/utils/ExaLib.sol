@@ -21,11 +21,11 @@ library ExaLib {
 
     struct ExaState {
         uint256 exaSpeed;
-        MarketRewardsState exaSupplyState;
-        MarketRewardsState exaBorrowState;
-        MarketRewardsState exaSmartState;
-        mapping(address => uint256) exaSupplierIndex;
-        mapping(address => uint256) exaBorrowerIndex;
+        MarketRewardsState exaMaturitySupplyState;
+        MarketRewardsState exaMaturityBorrowState;
+        MarketRewardsState exaSmartSupplyState;
+        mapping(address => uint256) exaMaturitySupplierIndex;
+        mapping(address => uint256) exaMaturityBorrowerIndex;
         mapping(address => uint256) exaSmartSupplierIndex;
     }
 
@@ -190,23 +190,23 @@ library ExaLib {
             // what happens @ compound.finance if someone doesn't set the exaSpeed
             // but supply/borrow first? in that case, block number will be updated
             // hence the market can never be initialized with EXA_INITIAL_INDEX
-            // if (state.exaSupplyState.index == 0 && state.exaSupplyState.block == 0) {
-            if (state.exaSupplyState.index == 0) {
-                state.exaSupplyState = MarketRewardsState({
+            // if (state.exaMaturitySupplyState.index == 0 && state.exaMaturitySupplyState.block == 0) {
+            if (state.exaMaturitySupplyState.index == 0) {
+                state.exaMaturitySupplyState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
                     block: blockNumber.toUint32()
                 });
             }
 
-            if (state.exaBorrowState.index == 0) {
-                state.exaBorrowState = MarketRewardsState({
+            if (state.exaMaturityBorrowState.index == 0) {
+                state.exaMaturityBorrowState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
                     block: blockNumber.toUint32()
                 });
             }
 
-            if (state.exaSmartState.index == 0) {
-                state.exaSmartState = MarketRewardsState({
+            if (state.exaSmartSupplyState.index == 0) {
+                state.exaSmartSupplyState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
                     block: blockNumber.toUint32()
                 });
@@ -233,7 +233,7 @@ library ExaLib {
         address fixedLenderAddress
     ) public {
         ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage smartState = exaState.exaSmartState;
+        MarketRewardsState storage smartState = exaState.exaSmartSupplyState;
         uint supplySpeed = exaState.exaSpeed;
         uint deltaBlocks = (blockNumber - uint(smartState.block));
         if (deltaBlocks > 0 && supplySpeed > 0) {
@@ -241,7 +241,7 @@ library ExaLib {
             uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
             Double memory ratio = smartTokens > 0 ? exaAccruedDelta.fraction(smartTokens) : Double({value: 0});
             Double memory index = Double({value: smartState.index}).add_(ratio);
-            exaState.exaSmartState = MarketRewardsState({
+            exaState.exaSmartSupplyState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
             });
@@ -262,7 +262,7 @@ library ExaLib {
         address fixedLenderAddress
     ) public {
         ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage supplyState = exaState.exaSupplyState;
+        MarketRewardsState storage supplyState = exaState.exaMaturitySupplyState;
         uint supplySpeed = exaState.exaSpeed;
         uint deltaBlocks = (blockNumber - uint(supplyState.block));
         if (deltaBlocks > 0 && supplySpeed > 0) {
@@ -270,7 +270,7 @@ library ExaLib {
             uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
             Double memory ratio = supplyTokens > 0 ? exaAccruedDelta.fraction(supplyTokens) : Double({value: 0});
             Double memory index = Double({value: supplyState.index}).add_(ratio);
-            exaState.exaSupplyState = MarketRewardsState({
+            exaState.exaMaturitySupplyState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
             });
@@ -291,7 +291,7 @@ library ExaLib {
         address fixedLenderAddress
     ) public {
         ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage borrowState = exaState.exaBorrowState;
+        MarketRewardsState storage borrowState = exaState.exaMaturityBorrowState;
         uint borrowSpeed = exaState.exaSpeed;
         uint deltaBlocks = blockNumber - uint(borrowState.block);
         if (deltaBlocks > 0 && borrowSpeed > 0) {
@@ -301,7 +301,7 @@ library ExaLib {
             Double memory ratio = borrowAmount > 0 ? exaAccruedDelta.fraction(borrowAmount) : Double({value: 0});
             Double memory index = Double({value: borrowState.index}).add_(ratio);
 
-            exaState.exaBorrowState = MarketRewardsState({
+            exaState.exaMaturityBorrowState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
             });
@@ -322,7 +322,7 @@ library ExaLib {
         address supplier
     ) internal {
         ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage smartState = exaState.exaSmartState;
+        MarketRewardsState storage smartState = exaState.exaSmartSupplyState;
         Double memory smartPoolIndex = Double({value: smartState.index});
         Double memory smartSupplierIndex = Double({value: exaState.exaSmartSupplierIndex[supplier]});
         exaState.exaSmartSupplierIndex[supplier] = smartPoolIndex.value;
@@ -352,10 +352,10 @@ library ExaLib {
         address supplier
     ) internal {
         ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage supplyState = exaState.exaSupplyState;
+        MarketRewardsState storage supplyState = exaState.exaMaturitySupplyState;
         Double memory supplyIndex = Double({value: supplyState.index});
-        Double memory supplierIndex = Double({value: exaState.exaSupplierIndex[supplier]});
-        exaState.exaSupplierIndex[supplier] = supplyIndex.value;
+        Double memory supplierIndex = Double({value: exaState.exaMaturitySupplierIndex[supplier]});
+        exaState.exaMaturitySupplierIndex[supplier] = supplyIndex.value;
 
         if (supplierIndex.value == 0 && supplyIndex.value > 0) {
             supplierIndex.value = EXA_INITIAL_INDEX;
@@ -382,11 +382,11 @@ library ExaLib {
         address borrower
     ) internal {
         ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage borrowState = exaState.exaBorrowState;
+        MarketRewardsState storage borrowState = exaState.exaMaturityBorrowState;
 
         Double memory borrowIndex = Double({value: borrowState.index});
-        Double memory borrowerIndex = Double({value: exaState.exaBorrowerIndex[borrower]});
-        exaState.exaBorrowerIndex[borrower] = borrowIndex.value;
+        Double memory borrowerIndex = Double({value: exaState.exaMaturityBorrowerIndex[borrower]});
+        exaState.exaMaturityBorrowerIndex[borrower] = borrowIndex.value;
 
         if (borrowerIndex.value > 0) {
             Double memory deltaIndex = borrowIndex.sub_(borrowerIndex);

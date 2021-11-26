@@ -148,7 +148,7 @@ describe("ExaToken Smart Pool", () => {
         amountToDeposit
       );
       await auditorHarness.updateExaSmartPoolIndex(fixedLenderHarness.address);
-      const [newIndex] = await auditorHarness.getSmartState(
+      const [newIndex] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
       );
 
@@ -173,7 +173,7 @@ describe("ExaToken Smart Pool", () => {
       );
       await auditorHarness.updateExaSmartPoolIndex(fixedLenderHarness.address);
 
-      const [newIndex, block] = await auditorHarness.getSmartState(
+      const [newIndex, block] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
       );
       expect(newIndex).to.equal(parseUnits("1", 36));
@@ -195,7 +195,7 @@ describe("ExaToken Smart Pool", () => {
       );
       await auditorHarness.updateExaSmartPoolIndex(fixedLenderHarness.address);
 
-      const [newIndex, block] = await auditorHarness.getSmartState(
+      const [newIndex, block] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
       );
       expect(newIndex).to.equal(parseUnits("1", 36));
@@ -214,13 +214,13 @@ describe("ExaToken Smart Pool", () => {
       exaToken = rewardsLibEnv.exaToken;
     });
 
-    it("should transfer EXA and update smart pool index correctly for first time user", async () => {
+    it("should transfer EXA and update smart pool supply index correctly for first time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await fixedLenderHarness.setTotalSmartPoolDeposits(
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaSmartState(
+      await auditorHarness.setExaSmartSupplyState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
@@ -243,13 +243,13 @@ describe("ExaToken Smart Pool", () => {
         );
     });
 
-    it("should update EXA accrued and smart index for repeat user", async () => {
+    it("should update EXA accrued and smart pool supply index for repeat user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await fixedLenderHarness.setTotalSmartPoolDeposits(
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaSmartState(
+      await auditorHarness.setExaSmartSupplyState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
@@ -282,7 +282,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("0.5")
       );
-      await auditorHarness.setExaSmartState(
+      await auditorHarness.setExaSmartSupplyState(
         fixedLenderHarness.address,
         parseUnits("1.0019", 36),
         10
