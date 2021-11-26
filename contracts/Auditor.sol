@@ -97,7 +97,7 @@ contract Auditor is IAuditor, AccessControl {
     event ExaSpeedUpdated(address fixedLenderAddress, uint256 newSpeed);
 
     /**
-     * @notice Event emitted each time EXA has been distributed to a certain user as a supplier
+     * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool supplier
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param supplier address of the supplier that have received rewards in a given lender space
      * @param supplierDelta delta blocks that have been processed
@@ -111,7 +111,7 @@ contract Auditor is IAuditor, AccessControl {
     );
 
     /**
-     * @notice Event emitted each time EXA has been distributed to a certain user as a borrower
+     * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool borrower
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param borrower address of the borrower that have received rewards in a given fixedLender space
      * @param borrowerDelta delta blocks that have been processed
