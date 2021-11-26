@@ -18,19 +18,19 @@ contract AuditorHarness {
     // Protocol Management
     MarketsLib.Book private book;
 
-    event DistributedSupplierExa(
+    event DistributedMaturitySupplierExa(
         address indexed fixedLender,
         address indexed supplier,
         uint256 supplierDelta,
         uint256 exaSupplyIndex
     );
-    event DistributedBorrowerExa(
+    event DistributedMaturityBorrowerExa(
         address indexed fixedLender,
         address indexed borrower,
         uint256 borrowerDelta,
         uint256 exaSupplyIndex
     );
-    event DistributedSmartPoolExa(
+    event DistributedSmartSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
         uint smartSupplierDelta,

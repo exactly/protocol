@@ -103,7 +103,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param supplierDelta delta blocks that have been processed
      * @param exaSupplyIndex index of the given market that was used to update user rewards
      */
-    event DistributedSupplierExa(
+    event DistributedMaturitySupplierExa(
         address indexed fixedLender,
         address indexed supplier,
         uint256 supplierDelta,
@@ -117,7 +117,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param borrowerDelta delta blocks that have been processed
      * @param exaSupplyIndex index of the given market that was used to update user rewards
      */
-    event DistributedBorrowerExa(
+    event DistributedMaturityBorrowerExa(
         address indexed fixedLender,
         address indexed borrower,
         uint256 borrowerDelta,
@@ -131,7 +131,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param smartSupplierDelta delta blocks that have been processed
      * @param smartPoolIndex index of the given market that was used to update user rewards
      */
-    event DistributedSmartPoolExa(
+    event DistributedSmartSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
         uint256 smartSupplierDelta,

@@ -140,7 +140,7 @@ describe("ExaToken", () => {
           fixedLenderDAI
             .connect(mariaUser)
             .depositToMaturityPool(underlyingAmount, exaTime.nextPoolID())
-        ).to.emit(auditor, "DistributedSupplierExa");
+        ).to.emit(auditor, "DistributedMaturitySupplierExa");
 
         await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
 
@@ -152,7 +152,7 @@ describe("ExaToken", () => {
         expect(balanceUserPost).to.not.equal(0);
       });
 
-      it("should DistributedSupplierExa when supplying", async () => {
+      it("should DistributedMaturitySupplierExa when supplying", async () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
 
@@ -161,10 +161,10 @@ describe("ExaToken", () => {
             underlyingAmount,
             exaTime.nextPoolID()
           )
-        ).to.emit(auditor, "DistributedSupplierExa");
+        ).to.emit(auditor, "DistributedMaturitySupplierExa");
       });
 
-      it("should DistributedBorrowerExa when borrowing on second interaction", async () => {
+      it("should DistributedMaturityBorrowerExa when borrowing on second interaction", async () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
         await fixedLenderDAI.depositToMaturityPool(
@@ -177,17 +177,17 @@ describe("ExaToken", () => {
             underlyingAmount.div(4),
             exaTime.nextPoolID()
           )
-        ).to.not.emit(auditor, "DistributedBorrowerExa");
+        ).to.not.emit(auditor, "DistributedMaturityBorrowerExa");
 
         await expect(
           fixedLenderDAI.borrowFromMaturityPool(
             underlyingAmount.div(4),
             exaTime.nextPoolID()
           )
-        ).to.emit(auditor, "DistributedBorrowerExa");
+        ).to.emit(auditor, "DistributedMaturityBorrowerExa");
       });
 
-      it("should DistributedSupplierExa when redeeming deposit", async () => {
+      it("should DistributedMaturitySupplierExa when redeeming deposit", async () => {
         // connect through Maria
         let fixedLenderMaria = fixedLenderDAI.connect(mariaUser);
         let underlyingTokenUser = dai.connect(mariaUser);
@@ -215,10 +215,10 @@ describe("ExaToken", () => {
             depositAmount,
             exaTime.nextPoolID()
           )
-        ).to.emit(auditor, "DistributedSupplierExa");
+        ).to.emit(auditor, "DistributedMaturitySupplierExa");
       });
 
-      it("should DistributedBorrowerExa when repaying debt", async () => {
+      it("should DistributedMaturityBorrowerExa when repaying debt", async () => {
         // connect through Maria
         let fixedLenderMaria = fixedLenderDAI.connect(mariaUser);
         let underlyingTokenUser = dai.connect(mariaUser);
@@ -250,7 +250,7 @@ describe("ExaToken", () => {
             mariaUser.address,
             exaTime.nextPoolID()
           )
-        ).to.emit(auditor, "DistributedBorrowerExa");
+        ).to.emit(auditor, "DistributedMaturityBorrowerExa");
       });
     });
   });
@@ -478,7 +478,7 @@ describe("ExaToken", () => {
       expect(accrued).to.equal(parseUnits("25"));
       expect(await exaToken.balanceOf(mariaUser.address)).to.equal(0);
       expect(tx)
-        .to.emit(auditorHarness, "DistributedBorrowerExa")
+        .to.emit(auditorHarness, "DistributedMaturityBorrowerExa")
         .withArgs(
           fixedLenderHarness.address,
           mariaUser.address,
@@ -561,7 +561,7 @@ describe("ExaToken", () => {
       expect(accrued).to.equal(0);
       expect(balance).to.equal(parseUnits("25"));
       expect(tx)
-        .to.emit(auditorHarness, "DistributedSupplierExa")
+        .to.emit(auditorHarness, "DistributedMaturitySupplierExa")
         .withArgs(
           fixedLenderHarness.address,
           mariaUser.address,

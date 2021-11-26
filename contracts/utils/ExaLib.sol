@@ -38,19 +38,19 @@ library ExaLib {
     // Double precision
     uint224 public constant EXA_INITIAL_INDEX = 1e36;
 
-    event DistributedSupplierExa(
+    event DistributedMaturitySupplierExa(
         address indexed fixedLender,
         address indexed supplier,
         uint supplierDelta,
         uint exaSupplyIndex
     );
-    event DistributedBorrowerExa(
+    event DistributedMaturityBorrowerExa(
         address indexed fixedLender,
         address indexed borrower,
         uint borrowerDelta,
         uint exaBorrowIndex
     );
-    event DistributedSmartPoolExa(
+    event DistributedSmartSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
         uint smartSupplierDelta,
@@ -337,7 +337,7 @@ library ExaLib {
         uint smartSupplierDelta = smartSupplierTokens.mul_(deltaIndex);
         uint smartSupplierAccrued = fixedLenderState.exaAccruedUser[supplier] + smartSupplierDelta;
         fixedLenderState.exaAccruedUser[supplier] = smartSupplierAccrued;
-        emit DistributedSmartPoolExa(fixedLenderAddress, supplier, smartSupplierDelta, smartPoolIndex.value);
+        emit DistributedSmartSupplierExa(fixedLenderAddress, supplier, smartSupplierDelta, smartPoolIndex.value);
     }
 
     /**
@@ -367,7 +367,7 @@ library ExaLib {
         uint supplierDelta = supplierTokens.mul_(deltaIndex);
         uint supplierAccrued = fixedLenderState.exaAccruedUser[supplier] + supplierDelta;
         fixedLenderState.exaAccruedUser[supplier] = supplierAccrued;
-        emit DistributedSupplierExa(fixedLenderAddress, supplier, supplierDelta, supplyIndex.value);
+        emit DistributedMaturitySupplierExa(fixedLenderAddress, supplier, supplierDelta, supplyIndex.value);
     }
 
     /**
@@ -394,7 +394,7 @@ library ExaLib {
             uint borrowerDelta = borrowerAmount.mul_(deltaIndex);
             uint borrowerAccrued = fixedLenderState.exaAccruedUser[borrower] + borrowerDelta;
             fixedLenderState.exaAccruedUser[borrower] = borrowerAccrued;
-            emit DistributedBorrowerExa(fixedLenderAddress, borrower, borrowerDelta, borrowIndex.value);
+            emit DistributedMaturityBorrowerExa(fixedLenderAddress, borrower, borrowerDelta, borrowIndex.value);
         }
     }
 
