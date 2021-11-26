@@ -496,6 +496,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         emit WithdrawFromSmartPool(msg.sender, amount);
     }
 
+    /**
+     * @dev Sets the protocol's liquidation fee for the underlying asset of this fixedLender
+     * @param _liquidationFee fee that the protocol earns when position is liquidated
+     */
     function setLiquidationFee(uint256 _liquidationFee)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -517,9 +521,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
+
+        uint256 debt = borrowedAmounts[maturityDate][who];
+        uint256 daysDelayed = TSUtils.daysPast(maturityDate);
+        if (daysDelayed > 0) {
+            debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
+        }
+
         return (
             suppliedAmounts[maturityDate][who],
-            borrowedAmounts[maturityDate][who]
+            debt
         );
     }
 
@@ -709,60 +720,4 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         emit AddReserves(address(this), protocolAmount);
     }
 
-    /**
-     * @dev Gets current snapshot for a wallet in a certain maturity
-     * @param who wallet to return status snapshot in the specified maturity date
-     * @param maturityDate maturity date
-     */
-    function getAccountSnapshot(address who, uint256 maturityDate)
-        public
-        view
-        override
-        returns (uint256, uint256)
-    {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        uint256 debt = borrowedAmounts[maturityDate][who];
-        uint256 daysDelayed = TSUtils.daysPast(maturityDate);
-        if (daysDelayed > 0) {
-            debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
-        }
-
-        return (
-            suppliedAmounts[maturityDate][who],
-            debt
-        );
-    }
-
-    function setLiquidationFee(uint256 _liquidationFee)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        liquidationFee = _liquidationFee;
-    }
-
-    /**
-     * @dev Gets the total amount of borrowed money for a maturityDate
-     * @param maturityDate maturity date
-     */
-    function getTotalBorrows(uint256 maturityDate)
-        public
-        view
-        override
-        returns (uint256)
-    {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-        return pools[maturityDate].borrowed;
-    }
-
-    /**
-     * @dev Gets the auditor contract interface being used to validate positions
-     */
-    function getAuditor() public view override returns (IAuditor) {
-        return IAuditor(auditor);
-    }
 }
