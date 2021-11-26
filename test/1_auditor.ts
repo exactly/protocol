@@ -212,9 +212,9 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
-  it("RedeemAllowed should fail for an unlisted market", async () => {
+  it("BeforeWithdrawMaturityPool should fail for an unlisted market", async () => {
     await expect(
-      auditor.redeemAllowed(
+      auditor.beforeWithdrawMaturityPool(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
         100,
@@ -223,9 +223,12 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
-  it("RepayAllowed should fail for an unlisted market", async () => {
+  it("BeforeRepayMaturityPool should fail for an unlisted market", async () => {
     await expect(
-      auditor.repayAllowed(exactlyEnv.notAnFixedLenderAddress, owner.address)
+      auditor.beforeRepayMaturityPool(
+        exactlyEnv.notAnFixedLenderAddress,
+        owner.address
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 

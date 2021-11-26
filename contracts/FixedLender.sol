@@ -345,7 +345,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         }
 
         // reverts on failure
-        auditor.redeemAllowed(
+        auditor.beforeWithdrawMaturityPool(
             address(this),
             redeemer,
             redeemAmount,
@@ -382,12 +382,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         nonReentrant
     {
         // reverts on failure
-        auditor.repayAllowed(address(this), borrower);
+        auditor.beforeRepayMaturityPool(address(this), borrower);
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
         (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
-
 
         trustedUnderlying.safeTransferFrom(
             msg.sender,
@@ -403,7 +402,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit RepayToMaturityPool(msg.sender, borrower, penalty, amountBorrowed, maturityDate);
+        emit RepayToMaturityPool(
+            msg.sender,
+            borrower,
+            penalty,
+            amountBorrowed,
+            maturityDate
+        );
     }
 
     /**
@@ -528,10 +533,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
         }
 
-        return (
-            suppliedAmounts[maturityDate][who],
-            debt
-        );
+        return (suppliedAmounts[maturityDate][who], debt);
     }
 
     /**
@@ -559,11 +561,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
     /**
      * @notice This function allows to partially repay a position on liquidation
-     * @dev repay function on liquidation, it allows to partially pay debt, and it
-     *      doesn't check `repayAllowed` on the auditor. It should be called after
+     * @dev repay function on liquidation, it allows to partially pay debt and it
+     *      doesn't call `beforeRepayMaturityPool` on the auditor. It should be called after
      *      liquidateAllowed
-     * @param payer The address of the account that will pay the debt
-     * @param borrower The address of the account that has the debt
+     * @param payer the address of the account that will pay the debt
+     * @param borrower the address of the account that has the debt
      * @param repayAmount the amount of debt of the pool that should be paid
      * @param maturityDate the maturityDate to access the pool
      */
@@ -595,7 +597,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         totalBorrows -= debtCovered;
         totalBorrowsUser[borrower] -= debtCovered;
 
-        emit RepayToMaturityPoolLiquidate(payer, borrower, repayAmount, maturityDate);
+        emit RepayToMaturityPoolLiquidate(
+            payer,
+            borrower,
+            repayAmount,
+            maturityDate
+        );
     }
 
     /**
@@ -719,5 +726,4 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         emit SeizeAsset(liquidator, borrower, seizeAmount, maturityDate);
         emit AddReserves(address(this), protocolAmount);
     }
-
 }

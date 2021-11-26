@@ -189,7 +189,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        _redeemAllowed(
+        _beforeWithdrawMaturityPool(
             fixedLenderAddress,
             msg.sender,
             amountHeld,
@@ -447,13 +447,13 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
      *                     be in a MATURED state (meaning that the date is VALID + MATURED)
      */
-    function redeemAllowed(
+    function beforeWithdrawMaturityPool(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
     ) external override {
-        _redeemAllowed(
+        _beforeWithdrawMaturityPool(
             fixedLenderAddress,
             redeemer,
             redeemAmount,
@@ -471,7 +471,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenderAddress address of the fixedLender that will collect money in a maturity
      * @param borrower address of the user that wants to repay its debt
      */
-    function repayAllowed(address fixedLenderAddress, address borrower)
+    function beforeRepayMaturityPool(address fixedLenderAddress, address borrower)
         external
         override
     {
@@ -734,7 +734,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
      *                     be in a MATURED state (meaning that the date is VALID + MATURED)
      */
-    function _redeemAllowed(
+    function _beforeWithdrawMaturityPool(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemAmount,

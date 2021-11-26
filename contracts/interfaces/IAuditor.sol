@@ -26,14 +26,14 @@ interface IAuditor {
         uint256 maturityDate
     ) external;
 
-    function redeemAllowed(
+    function beforeWithdrawMaturityPool(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
     ) external;
 
-    function repayAllowed(
+    function beforeRepayMaturityPool(
         address fixedLenderAddress,
         address borrower
     ) external;
