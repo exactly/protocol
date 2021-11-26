@@ -136,48 +136,48 @@ contract AuditorHarness {
         rewardsState.exaState[fixedLenderAddress].exaMaturitySupplierIndex[supplier] = index;
     }
 
-    function distributeBorrowerExa(address fixedLenderAddress, address borrower)
+    function distributeMaturityBorrowerExa(address fixedLenderAddress, address borrower)
         public
     {
-        rewardsState.distributeBorrowerExa(fixedLenderAddress, borrower);
+        rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
     }
 
     function distributeAllBorrowerExa(address fixedLenderAddress, address borrower)
         public
     {
-        rewardsState.distributeBorrowerExa(fixedLenderAddress, borrower);
+        rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
         rewardsState.exaAccruedUser[borrower] = rewardsState.grantExa(
             borrower,
             rewardsState.exaAccruedUser[borrower]
         );
     }
 
-    function distributeSupplierExa(address fixedLenderAddress, address supplier)
+    function distributeMaturitySupplierExa(address fixedLenderAddress, address supplier)
         public
     {
-        rewardsState.distributeSupplierExa(fixedLenderAddress, supplier);
+        rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, supplier);
     }
 
     function distributeAllSupplierExa(address fixedLenderAddress, address supplier)
         public
     {
-        rewardsState.distributeSupplierExa(fixedLenderAddress, supplier);
+        rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, supplier);
         rewardsState.exaAccruedUser[supplier] = rewardsState.grantExa(
             supplier,
             rewardsState.exaAccruedUser[supplier]
         );
     }
 
-    function distributeSmartPoolExa(address fixedLenderAddress, address supplier)
+    function distributeSmartSupplierExa(address fixedLenderAddress, address supplier)
         public
     {
-        rewardsState.distributeSmartPoolExa(fixedLenderAddress, supplier);
+        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
     }
 
     function distributeAllSmartPoolExa(address fixedLenderAddress, address supplier)
         public
     {
-        rewardsState.distributeSmartPoolExa(fixedLenderAddress, supplier);
+        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
         rewardsState.exaAccruedUser[supplier] = rewardsState.grantExa(
             supplier,
             rewardsState.exaAccruedUser[supplier]

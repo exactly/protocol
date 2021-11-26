@@ -58,45 +58,45 @@ library ExaLib {
     );
 
     /**
-     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @notice Calculate EXA accrued by a smart pool supplier and possibly transfer them to him
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function distributeSmartPoolExa(
+    function distributeSmartSupplierExa(
         RewardsState storage fixedLenderState, 
         address fixedLenderAddress,
         address supplier
     ) external {
-        _distributeSmartPoolExa(fixedLenderState, fixedLenderAddress, supplier);
+        _distributeSmartSupplierExa(fixedLenderState, fixedLenderAddress, supplier);
     }
 
     /**
-     * @notice Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @notice Calculate EXA accrued by a maturity pool supplier and possibly transfer them to him
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function distributeSupplierExa(
+    function distributeMaturitySupplierExa(
         RewardsState storage fixedLenderState, 
         address fixedLenderAddress,
         address supplier
     ) external {
-        _distributeSupplierExa(fixedLenderState, fixedLenderAddress, supplier);
+        _distributeMaturitySupplierExa(fixedLenderState, fixedLenderAddress, supplier);
     }
 
     /**
-     * @notice Calculate EXA accrued by a borrower
-     * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
+     * @notice Calculate EXA accrued by a maturity pool borrower
+     * @dev Borrowers will not begin to accrue until the first interaction with the protocol.
      * @param fixedLenderAddress The market address in which the borrower is interacting
      * @param borrower The address of the borrower to distribute EXA to
      */
-    function distributeBorrowerExa(
+    function distributeMaturityBorrowerExa(
         RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address borrower
     ) external {
-        _distributeBorrowerExa(fixedLenderState, fixedLenderAddress, borrower);
+        _distributeMaturityBorrowerExa(fixedLenderState, fixedLenderAddress, borrower);
     }
 
     /**
@@ -130,14 +130,14 @@ library ExaLib {
             if (borrowers == true) {
                 updateExaBorrowIndex(fixedLenderState, blockNumber, fixedLender);
                 for (uint j = 0; j < holders.length; j++) {
-                    _distributeBorrowerExa(fixedLenderState, fixedLender, holders[j]);
+                    _distributeMaturityBorrowerExa(fixedLenderState, fixedLender, holders[j]);
                     fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
                 }
             }
             if (suppliers == true) {
                 updateExaSupplyIndex(fixedLenderState, blockNumber, fixedLender);
                 for (uint j = 0; j < holders.length; j++) {
-                    _distributeSupplierExa(fixedLenderState, fixedLender, holders[j]);
+                    _distributeMaturitySupplierExa(fixedLenderState, fixedLender, holders[j]);
                     fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
                 }
             }
@@ -145,7 +145,7 @@ library ExaLib {
             if (smartSuppliers == true) {
                 updateExaSmartPoolIndex(fixedLenderState, blockNumber, fixedLender);
                 for (uint j = 0; j < holders.length; j++) {
-                    _distributeSmartPoolExa(fixedLenderState, fixedLender, holders[j]);
+                    _distributeSmartSupplierExa(fixedLenderState, fixedLender, holders[j]);
                     fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
                 }
             }
@@ -311,12 +311,12 @@ library ExaLib {
     }
 
     /**
-     * @notice INTERNAL Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @notice INTERNAL Calculate EXA accrued by a smart pool supplier and possibly transfer them to him
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function _distributeSmartPoolExa(
+    function _distributeSmartSupplierExa(
         RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address supplier
@@ -341,12 +341,12 @@ library ExaLib {
     }
 
     /**
-     * @notice INTERNAL Calculate EXA accrued by a supplier and possibly transfer it to them
+     * @notice INTERNAL Calculate EXA accrued by a maturity pool supplier and possibly transfer them to him
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function _distributeSupplierExa(
+    function _distributeMaturitySupplierExa(
         RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address supplier
@@ -371,12 +371,12 @@ library ExaLib {
     }
 
     /**
-     * @notice Calculate EXA accrued by a borrower
+     * @notice INTERNAL Calculate EXA accrued by a maturity pool borrower
      * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
      * @param fixedLenderAddress The market address in which the borrower is interacting
      * @param borrower The address of the borrower to distribute EXA to
      */
-    function _distributeBorrowerExa(
+    function _distributeMaturityBorrowerExa(
         RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address borrower

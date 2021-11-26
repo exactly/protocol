@@ -203,7 +203,7 @@ describe("ExaToken Smart Pool", () => {
     });
   });
 
-  describe("distributeSmartPoolExa", () => {
+  describe("distributeSmartSupplierExa", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
     let exaToken: Contract;
@@ -214,7 +214,7 @@ describe("ExaToken Smart Pool", () => {
       exaToken = rewardsLibEnv.exaToken;
     });
 
-    it("should transfer EXA and update smart pool supply index correctly for first time user", async () => {
+    it("should transfer EXA and update smart pool supplier index correctly for first time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await fixedLenderHarness.setTotalSmartPoolDeposits(
         mariaUser.address,
@@ -243,7 +243,7 @@ describe("ExaToken Smart Pool", () => {
         );
     });
 
-    it("should update EXA accrued and smart pool supply index for repeat user", async () => {
+    it("should update EXA accrued and smart pool supplier index for repeat user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
       await fixedLenderHarness.setTotalSmartPoolDeposits(
         mariaUser.address,
@@ -287,7 +287,7 @@ describe("ExaToken Smart Pool", () => {
         parseUnits("1.0019", 36),
         10
       );
-      await auditorHarness.distributeSmartPoolExa(
+      await auditorHarness.distributeSmartSupplierExa(
         fixedLenderHarness.address,
         mariaUser.address
       );

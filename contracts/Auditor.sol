@@ -344,7 +344,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         rewardsState.updateExaSmartPoolIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSmartPoolExa(fixedLenderAddress, supplier);
+        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -364,7 +364,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         rewardsState.updateExaSmartPoolIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSmartPoolExa(fixedLenderAddress, supplier);
+        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -388,7 +388,7 @@ contract Auditor is IAuditor, AccessControl {
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
         rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSupplierExa(fixedLenderAddress, supplier);
+        rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -434,7 +434,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         rewardsState.updateExaBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeBorrowerExa(fixedLenderAddress, borrower);
+        rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
@@ -461,7 +461,7 @@ contract Auditor is IAuditor, AccessControl {
         );
 
         rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSupplierExa(fixedLenderAddress, redeemer);
+        rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, redeemer);
     }
 
     /**
@@ -480,7 +480,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         rewardsState.updateExaBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeBorrowerExa(fixedLenderAddress, borrower);
+        rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**

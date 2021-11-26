@@ -408,7 +408,7 @@ describe("ExaToken", () => {
     });
   });
 
-  describe("distributeBorrowerExa", () => {
+  describe("distributeMaturityBorrowerExa", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
     let exaToken: Contract;
@@ -433,7 +433,7 @@ describe("ExaToken", () => {
         parseUnits("100")
       );
 
-      await auditorHarness.distributeBorrowerExa(
+      await auditorHarness.distributeMaturityBorrowerExa(
         fixedLenderHarness.address,
         owner.address
       );
@@ -469,7 +469,7 @@ describe("ExaToken", () => {
        * borrowerAccrued= borrowerAmount * deltaIndex / 1e36
        *                = 5e18 * 5e36 / 1e36 = 25e18
        */
-      let tx = await auditorHarness.distributeBorrowerExa(
+      let tx = await auditorHarness.distributeMaturityBorrowerExa(
         fixedLenderHarness.address,
         mariaUser.address
       );
@@ -510,7 +510,7 @@ describe("ExaToken", () => {
        * borrowerAccrued= borrowerAmount * deltaIndex / 1e36
        *                = 5e17 * 0.0019e36 / 1e36 = 0.00095e18
        */
-      await auditorHarness.distributeBorrowerExa(
+      await auditorHarness.distributeMaturityBorrowerExa(
         fixedLenderHarness.address,
         mariaUser.address
       );
@@ -521,7 +521,7 @@ describe("ExaToken", () => {
     });
   });
 
-  describe("distributeSupplierExa", () => {
+  describe("distributeMaturitySupplierExa", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
     let exaToken: Contract;
@@ -621,7 +621,7 @@ describe("ExaToken", () => {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e17 * 0.0019e36 / 1e36 = 0.00095e18
        */
-      await auditorHarness.distributeSupplierExa(
+      await auditorHarness.distributeMaturitySupplierExa(
         fixedLenderHarness.address,
         mariaUser.address
       );
