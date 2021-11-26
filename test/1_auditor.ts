@@ -447,6 +447,24 @@ describe("Auditor from User Space", function () {
     ).to.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
+  it("Get data from correct market", async () => {
+    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
+    const [symbol, name, isListed, collateralFactor, decimals] =
+      await auditor.getMarketData(fixedLenderDAI.address);
+
+    expect(formatUnits(collateralFactor)).to.be.equal("0.8");
+    expect(symbol).to.be.equal("DAI");
+    expect(name).to.be.equal("DAI");
+    expect(isListed).to.be.equal(true);
+    expect(decimals).to.be.equal(18);
+  });
+
+  it("Try to get data from wrong address", async () => {
+    await expect(
+      auditor.getMarketData(exactlyEnv.notAnFixedLenderAddress)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
