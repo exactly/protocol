@@ -23,6 +23,13 @@ contract MockedInterestRateModel is IInterestRateModel {
         return borrowRate;
     }
 
+    function getRateToSupply(
+        uint256 ,
+        PoolLib.MaturityPool memory 
+    ) external view override returns (uint256) {
+        return supplyRate;
+    }
+
     function setSupplyRate(uint256 newRate) public {
         supplyRate = newRate;
     }
@@ -35,10 +42,4 @@ contract MockedInterestRateModel is IInterestRateModel {
         penaltyRate = newRate;
     }
 
-    function getRateToSupply(
-        uint256 ,
-        PoolLib.MaturityPool memory 
-    ) external view override returns (uint256) {
-        return supplyRate;
-    }
 }
