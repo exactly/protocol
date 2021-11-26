@@ -217,7 +217,8 @@ export class ExactlyEnv {
           parseUnits("0.07"), // Smart pool slope rate
           parseUnits("0.4"), // High UR slope rate
           parseUnits("0.8"), // Slope change rate
-          parseUnits("0.02") // Base rate
+          parseUnits("0.02"), // Base rate
+          parseUnits("0.02") // Penalty Rate
         )
       : await MockedInterestRateModelFactory.deploy();
     await interestRateModel.deployed();
@@ -267,6 +268,8 @@ export class ExactlyEnv {
           interestRateModel.address
         );
         await fixedLender.deployed();
+
+        await eToken.setFixedLender(fixedLender.address);
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, usdPrice);
@@ -354,6 +357,7 @@ export class ExactlyEnv {
 
 export class ExaTime {
   timestamp: number;
+  ONE_HOUR: number = 3600;
   ONE_DAY: number = 86400;
   INTERVAL: number = 86400 * 7;
 

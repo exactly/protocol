@@ -69,13 +69,29 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @notice Event emitted when a user repays its borrows after maturity
      * @param payer address which repaid the previously borrowed amount
      * @param borrower address which had the original debt
-     * @param amount of the asset that it was repaid
+     * @param penalty amount paid for penalties
+     * @param amountBorrowed of the asset that it was repaid
      * @param maturityDate poolID where the user repaid its borrowed amounts
      */
     event RepayToMaturityPool(
         address indexed payer,
         address indexed borrower,
-        uint256 amount,
+        uint256 penalty,
+        uint256 amountBorrowed,
+        uint256 maturityDate
+    );
+
+    /**
+     * @notice Event emitted when a liquidator repays a debt in a liquidation
+     * @param payer address which repaid the previously borrowed amount
+     * @param borrower address which had the original debt
+     * @param repayAmount amount paid by the liquidator
+     * @param maturityDate poolID where the user repaid its borrowed amounts
+     */
+    event RepayToMaturityPoolLiquidate(
+        address indexed payer,
+        address indexed borrower,
+        uint256 repayAmount,
         uint256 maturityDate
     );
 
@@ -370,23 +386,24 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         // the commission is included
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
+        (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
+
 
         trustedUnderlying.safeTransferFrom(
             msg.sender,
             address(this),
-            amountBorrowed
+            amountOwed
         );
         totalBorrows -= amountBorrowed;
         totalBorrowsUser[borrower] -= amountBorrowed;
 
+        uint256 penalty = amountOwed - amountBorrowed;
+
+        eToken.accrueEarnings(penalty);
+
         delete borrowedAmounts[maturityDate][borrower];
 
-        emit RepayToMaturityPool(
-            msg.sender,
-            borrower,
-            amountBorrowed,
-            maturityDate
-        );
+        emit RepayToMaturityPool(msg.sender, borrower, penalty, amountBorrowed, maturityDate);
     }
 
     /**
@@ -410,17 +427,24 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
         uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
-        borrowedAmounts[maturityDate][borrower] = amountBorrowed - repayAmount;
+        (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
+
+        // We calculate the amount of the debt this covers, paying proportionally
+        // the amount of interests on the overdue debt. If repay amount = amount owed,
+        // then amountBorrowed is what should be discounted to the users account
+        uint256 debtCovered = (repayAmount * amountBorrowed) / amountOwed;
+        eToken.accrueEarnings(repayAmount - debtCovered);
+        borrowedAmounts[maturityDate][borrower] = amountBorrowed - debtCovered;
 
         // That repayment diminishes debt in the pool
         PoolLib.MaturityPool memory pool = pools[maturityDate];
-        pool.borrowed -= repayAmount;
+        pool.borrowed -= debtCovered;
         pools[maturityDate] = pool;
 
-        totalBorrows -= repayAmount;
-        totalBorrowsUser[borrower] -= repayAmount;
+        totalBorrows -= debtCovered;
+        totalBorrowsUser[borrower] -= debtCovered;
 
-        emit RepayToMaturityPool(payer, borrower, repayAmount, maturityDate);
+        emit RepayToMaturityPoolLiquidate(payer, borrower, repayAmount, maturityDate);
     }
 
     /**
@@ -649,9 +673,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
+
+        uint256 debt = borrowedAmounts[maturityDate][who];
+        uint256 daysDelayed = TSUtils.daysPast(maturityDate);
+        if (daysDelayed > 0) {
+            debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
+        }
+
         return (
             suppliedAmounts[maturityDate][who],
-            borrowedAmounts[maturityDate][who]
+            debt
         );
     }
 

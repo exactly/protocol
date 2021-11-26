@@ -546,30 +546,33 @@ describe("InterestRateModel", () => {
   });
 
   it("should change parameters", async () => {
+    const maturitySlopeRate = parseUnits("0.07"); // Maturity pool slope rate
+    const smartPoolRate = parseUnits("0.07"); // Smart pool slope rate
+    const highURSlopeRate = parseUnits("0.4"); // High UR slope rate
+    const slopeChangeRate = parseUnits("0.8"); // Slope change rate
+    const baseRate = parseUnits("0.02"); // Base rate
+    const penaltyRate = parseUnits("0.022"); // Penalty rate
+
     await interestRateModel.setParameters(
-      parseUnits("0.1"),
-      parseUnits("0.1"),
-      parseUnits("0.1"),
-      parseUnits("0.1"),
-      parseUnits("0.1")
+      maturitySlopeRate,
+      smartPoolRate,
+      highURSlopeRate,
+      slopeChangeRate,
+      baseRate,
+      penaltyRate
     );
-    expect(formatUnits(await interestRateModel.mpSlopeRate())).to.be.equal(
-      "0.1"
+    expect(await interestRateModel.mpSlopeRate()).to.be.equal(
+      maturitySlopeRate
     );
-
-    expect(formatUnits(await interestRateModel.spSlopeRate())).to.be.equal(
-      "0.1"
+    expect(await interestRateModel.spSlopeRate()).to.be.equal(smartPoolRate);
+    expect(await interestRateModel.spHighURSlopeRate()).to.be.equal(
+      highURSlopeRate
     );
-
-    expect(
-      formatUnits(await interestRateModel.spHighURSlopeRate())
-    ).to.be.equal("0.1");
-
-    expect(formatUnits(await interestRateModel.slopeChangeRate())).to.be.equal(
-      "0.1"
+    expect(await interestRateModel.slopeChangeRate()).to.be.equal(
+      slopeChangeRate
     );
-
-    expect(formatUnits(await interestRateModel.baseRate())).to.be.equal("0.1");
+    expect(await interestRateModel.baseRate()).to.be.equal(baseRate);
+    expect(await interestRateModel.penaltyRate()).to.be.equal(penaltyRate);
   });
 
   it("should revert on invalid pool id when trying to borrow", async () => {

@@ -45,12 +45,10 @@ describe("Smart Pool", function () {
     eDAI = exactlyEnv.getEToken("DAI");
     underlyingTokenDAI = exactlyEnv.getUnderlying("DAI");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await eDAI.setFixedLender(fixedLenderDAI.address);
 
     eWBTC = exactlyEnv.getEToken("WBTC");
     underlyingTokenWBTC = exactlyEnv.getUnderlying("WBTC");
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
-    await eWBTC.setFixedLender(fixedLenderWBTC.address);
 
     // From Owner to User
     await underlyingTokenDAI.transfer(bob.address, bobBalancePre);

@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits, formatUnits } from "@ethersproject/units";
+import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import {
   ProtocolError,
@@ -31,7 +31,7 @@ describe("Liquidity computations", function () {
       "DAI",
       {
         decimals: 18,
-        collateralRate: parseUnits("0.8", 18),
+        collateralRate: parseUnits("0.8"),
         usdPrice: parseUnits("1"),
       },
     ],
@@ -39,7 +39,7 @@ describe("Liquidity computations", function () {
       "USDC",
       {
         decimals: 6,
-        collateralRate: parseUnits("0.8", 18),
+        collateralRate: parseUnits("0.8"),
         usdPrice: parseUnits("1"),
       },
     ],
@@ -47,7 +47,7 @@ describe("Liquidity computations", function () {
       "WBTC",
       {
         decimals: 8,
-        collateralRate: parseUnits("0.6", 18),
+        collateralRate: parseUnits("0.6"),
         usdPrice: parseUnits("60000"),
       },
     ],
@@ -73,6 +73,8 @@ describe("Liquidity computations", function () {
     usdc = exactlyEnv.getUnderlying("USDC");
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
+
+    await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
 
     // TODO: perhaps pass the addresses to ExactlyEnv.create and do all the
     // transfers in the same place?
@@ -111,9 +113,7 @@ describe("Liquidity computations", function () {
           nextPoolID
         );
 
-        const expectedLiquidity = 800;
-
-        expect(parseFloat(formatUnits(liquidity))).to.be.eq(expectedLiquidity);
+        expect(liquidity).to.be.eq(parseUnits("800"));
         expect(shortfall).to.be.eq(parseUnits("0"));
       });
       // TODO: a test where the supply interest is != 0, see if there's an error like the one described in this commit
@@ -164,6 +164,90 @@ describe("Liquidity computations", function () {
 
           expect(supplied).to.be.eq(parseUnits("1000"));
           expect(borrowed).to.eq(parseUnits("800"));
+        });
+      });
+    });
+  });
+
+  describe("unpaid debts after maturity", () => {
+    describe("GIVEN a well funded maturity pool (10kdai, laura), AND collateral for the borrower, (10kusdc, bob)", () => {
+      const usdcDecimals = mockedTokens.get("USDC")!.decimals;
+      beforeEach(async () => {
+        const daiAmount = parseUnits("10000");
+        await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
+        await fixedLenderDAI
+          .connect(laura)
+          .depositToMaturityPool(daiAmount, nextPoolID);
+        const usdcAmount = parseUnits("10000", usdcDecimals);
+        await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
+        await fixedLenderUSDC
+          .connect(bob)
+          .depositToMaturityPool(usdcAmount, nextPoolID);
+      });
+      describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
+        beforeEach(async () => {
+          await fixedLenderDAI
+            .connect(bob)
+            .borrowFromMaturityPool(parseUnits("7000"), nextPoolID);
+        });
+        it("THEN bob has 1kusd liquidity and no shortfall", async () => {
+          const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+            bob.address,
+            nextPoolID
+          );
+          expect(liquidity).to.be.eq(parseUnits("1000"));
+          expect(shortfall).to.eq(parseUnits("0"));
+        });
+        describe("AND WHEN moving to five days after the maturity date", () => {
+          beforeEach(async () => {
+            // Move in time to maturity
+            await ethers.provider.send("evm_setNextBlockTimestamp", [
+              nextPoolID + 5 * new ExaTime().ONE_DAY,
+            ]);
+            await ethers.provider.send("evm_mine", []);
+          });
+          it("THEN 5 days of *daily* base rate interest is charged, adding 0.02*5 =10% interest to the debt", async () => {
+            const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+              bob.address,
+              nextPoolID
+            );
+            // Based on the events emitted, we calculate the liquidity
+            // This is because we need to take into account the fixed rates
+            // that the borrow and the lent got at the time of the transaction
+            const totalSupplyAmount = parseUnits("10000");
+            const totalBorrowAmount = parseUnits("7000");
+            const calculatedLiquidity = totalSupplyAmount.sub(
+              totalBorrowAmount.mul(2).mul(5).div(100) // 2% * 5 days
+            );
+            // TODO: this should equal
+            expect(liquidity).to.be.lt(calculatedLiquidity);
+            expect(shortfall).to.eq(parseUnits("0"));
+          });
+          describe("AND WHEN moving to fifteen days after the maturity date", () => {
+            beforeEach(async () => {
+              // Move in time to maturity
+              await ethers.provider.send("evm_setNextBlockTimestamp", [
+                nextPoolID + 15 * new ExaTime().ONE_DAY,
+              ]);
+              await ethers.provider.send("evm_mine", []);
+            });
+            it("THEN 15 days of *daily* base rate interest is charged, adding 0.02*15 =35% interest to the debt, causing a shortfall", async () => {
+              const [liquidity, shortfall] = await auditor.getAccountLiquidity(
+                bob.address,
+                nextPoolID
+              );
+              // Based on the events emitted, we calculate the liquidity
+              // This is because we need to take into account the fixed rates
+              // that the borrow and the lent got at the time of the transaction
+              const totalSupplyAmount = parseUnits("10000");
+              const totalBorrowAmount = parseUnits("7000");
+              const calculatedShortfall = totalSupplyAmount.sub(
+                totalBorrowAmount.mul(2).mul(15).div(100) // 2% * 15 days
+              );
+              expect(shortfall).to.be.lt(calculatedShortfall);
+              expect(liquidity).to.eq(parseUnits("0"));
+            });
+          });
         });
       });
     });

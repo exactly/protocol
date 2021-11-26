@@ -3,40 +3,23 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  ProtocolError,
-  errorGeneric,
-  DefaultEnv,
-  ExactlyEnv,
-} from "./exactlyUtils";
+import { ProtocolError, errorGeneric } from "./exactlyUtils";
 
 describe("EToken accounting (mint, burn & accrueEarnings)", () => {
-  let exactlyEnv: DefaultEnv;
-
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
   let tito: SignerWithAddress;
   let eDAI: Contract;
 
   const { AddressZero } = ethers.constants;
-  const mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-  ]);
 
   beforeEach(async () => {
     [bob, laura, tito] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
-    eDAI = exactlyEnv.getEToken("DAI");
-
-    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contract
+    const MockedEToken = await ethers.getContractFactory("EToken");
+    eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI", 18);
+    await eDAI.deployed();
+    await eDAI.setFixedLender(bob.address);
   });
 
   describe("GIVEN bob mints 1000 eDAI", () => {

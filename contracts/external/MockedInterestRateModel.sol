@@ -12,6 +12,7 @@ contract MockedInterestRateModel is IInterestRateModel {
 
     uint256 public supplyRate;
     uint256 public borrowRate;
+    uint256 public override penaltyRate;
 
     function getRateToBorrow(
         uint256 ,
@@ -28,6 +29,10 @@ contract MockedInterestRateModel is IInterestRateModel {
 
     function setBorrowRate(uint256 newRate) public {
         borrowRate = newRate;
+    }
+
+    function setPenaltyRate(uint256 newRate) public {
+        penaltyRate = newRate;
     }
 
     function getRateToSupply(

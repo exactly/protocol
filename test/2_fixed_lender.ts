@@ -42,9 +42,9 @@ describe("FixedLender", function () {
   ]);
 
   let mariaUser: SignerWithAddress;
+  let johnUser: SignerWithAddress;
   let owner: SignerWithAddress;
   let exaTime: ExaTime = new ExaTime();
-  let eDAI: Contract;
 
   let snapshot: any;
   beforeEach(async () => {
@@ -52,7 +52,7 @@ describe("FixedLender", function () {
   });
 
   beforeEach(async () => {
-    [owner, mariaUser] = await ethers.getSigners();
+    [owner, mariaUser, johnUser] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create({ mockedTokens });
 
@@ -62,12 +62,11 @@ describe("FixedLender", function () {
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");
     auditor = exactlyEnv.auditor;
 
-    eDAI = exactlyEnv.getEToken("DAI");
-    await eDAI.setFixedLender(fixedLender.address);
-
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
     await underlyingTokenETH.transfer(mariaUser.address, parseUnits("10"));
+
+    await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
   });
 
   it("GetAccountSnapshot fails on an invalid pool", async () => {
@@ -365,6 +364,111 @@ describe("FixedLender", function () {
       )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
+    );
+  });
+
+  it("GetAccountSnapshot should reflect BaseRate penaltyFee for mariaUser", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
+
+    // connect through Maria
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const underlyingTokenUser = underlyingToken.connect(mariaUser);
+    const penaltyRate = await exactlyEnv.interestRateModel.penaltyRate();
+
+    // supply some money and parse event
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    await fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
+
+    // Move in time to maturity + 1 day
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      exaTime.nextPoolID() + exaTime.ONE_DAY,
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
+      mariaUser.address,
+      exaTime.nextPoolID()
+    );
+
+    // if penaltyRate is 0.2 then we multiply for 1.2
+    expect(amountOwed).to.equal(
+      parseUnits("0.5")
+        .mul(penaltyRate.add(parseUnits("1")))
+        .div(parseUnits("1"))
+    );
+  });
+
+  it("should charge mariaUser penaltyFee when paying her debt one day late", async () => {
+    // give the protocol and John some solvency
+    let johnBalancePre = parseUnits("1000");
+    await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
+    await underlyingToken.transfer(johnUser.address, johnBalancePre);
+    await underlyingToken
+      .connect(johnUser)
+      .approve(fixedLender.address, johnBalancePre);
+
+    // connect through Maria & John
+    const fixedLenderMaria = fixedLender.connect(mariaUser);
+    const fixedLenderJohn = fixedLender.connect(johnUser);
+    const underlyingTokenMaria = underlyingToken.connect(mariaUser);
+    const penaltyRate = await exactlyEnv.interestRateModel.penaltyRate();
+
+    await fixedLenderJohn.depositToSmartPool(johnBalancePre);
+
+    // supply some money and parse event
+    await underlyingTokenMaria.approve(fixedLender.address, parseUnits("5"));
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    await fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.5"),
+      exaTime.nextPoolID()
+    );
+
+    // Move in time to maturity + 1 day
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      exaTime.nextPoolID() + exaTime.ONE_DAY + 1,
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    // if penaltyRate is 0.02 then we multiply for 1.2
+    const expectedAmountPaid = parseUnits("0.5")
+      .mul(penaltyRate.add(parseUnits("1")))
+      .div(parseUnits("1"));
+    const amountBorrowed = parseUnits("0.5");
+
+    await expect(
+      fixedLenderMaria.repayToMaturityPool(
+        mariaUser.address,
+        exaTime.nextPoolID()
+      )
+    )
+      .to.emit(fixedLenderMaria, "RepayToMaturityPool")
+      .withArgs(
+        mariaUser.address,
+        mariaUser.address,
+        expectedAmountPaid.sub(amountBorrowed),
+        amountBorrowed,
+        exaTime.nextPoolID()
+      );
+
+    // sanity check to make sure he paid more
+    expect(amountBorrowed).not.eq(expectedAmountPaid);
+
+    let johnBalancePost = await exactlyEnv
+      .getEToken("DAI")
+      .balanceOf(johnUser.address);
+    expect(johnBalancePre.add(expectedAmountPaid.sub(amountBorrowed))).to.equal(
+      johnBalancePost
     );
   });
 
