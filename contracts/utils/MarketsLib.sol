@@ -9,11 +9,7 @@ import "../utils/Errors.sol";
 import "../utils/DecimalMath.sol";
 
 library MarketsLib {
-
     using DecimalMath for uint256;
-
-    event MarketEntered(address fixedLender, address account, uint256 maturityDate);
-    event MarketExited(address fixedLender, address account, uint256 maturityDate);
 
     // Struct to avoid stack too deep
     struct AccountLiquidity {
@@ -43,42 +39,8 @@ library MarketsLib {
         mapping(address => mapping(uint256 => bool)) accountMembership;
     }
 
-    /**
-     * @dev Allows a user to start participating in a market
-     * @param book book in which the addMarket function will be applied to
-     * @param fixedLenderAddress address used to retrieve the market data
-     * @param who address of the user that it will start participating in a market/maturity
-     * @param maturityDate poolID in which it will start participating
-     */
-    function addToMarket(Book storage book, address fixedLenderAddress, address who, uint256 maturityDate) public {
-        MarketsLib.Market storage marketToJoin = book.markets[fixedLenderAddress];
-        addToMaturity(marketToJoin, who, maturityDate);
-        book.accountAssets[who][maturityDate].push(IFixedLender(fixedLenderAddress));
-        emit MarketEntered(fixedLenderAddress, who, maturityDate);
-    }
-
-    /**
-     * @dev Allows wallet to enter certain markets (fixedLenderDAI, fixedLenderETH, etc)
-     *      By performing this action, the wallet's money could be used as collateral
-     * @param market Market in which the user will be a added to a certain maturity
-     * @param borrower wallet that wants to enter a market
-     * @param maturityDate poolID in which the wallet will be added to
-     */
-    function addToMaturity(Market storage market, address borrower, uint256 maturityDate) internal {
-        if(!TSUtils.isPoolID(maturityDate)) { 
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        if (!market.isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        if (market.accountMembership[borrower][maturityDate] == true) {
-            return;
-        }
-
-        market.accountMembership[borrower][maturityDate] = true;
-    }
+    event MarketEntered(address fixedLender, address account, uint256 maturityDate);
+    event MarketExited(address fixedLender, address account, uint256 maturityDate);
 
     /**
      * @dev Allows wallet to exit certain markets (fixedLenderDAI, fixedLenderETH, etc)
@@ -117,80 +79,6 @@ library MarketsLib {
         storedList.pop();
 
         emit MarketExited(fixedLenderAddress, who, maturityDate);
-    }
-
-    /**
-     * @dev Function to get account's liquidity for a certain market/maturity pool
-     * @param book account book that it will be used to calculate liquidity
-     * @param oracle oracle used to perform all liquidity calculations
-     * @param account wallet which the liquidity will be calculated
-     * @param maturityDate timestamp to calculate maturity's pool
-     * @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args)
-     * @param withdrawAmount amount to simulate withdraw
-     * @param borrowAmount amount to simulate borrow
-     */
-    function accountLiquidity(
-        Book storage book,
-        IOracle oracle,
-        address account,
-        uint256 maturityDate,
-        address fixedLenderToSimulate,
-        uint256 withdrawAmount,
-        uint256 borrowAmount
-    )
-        external 
-        view
-        returns (
-            uint256,
-            uint256
-        )
-    {
-
-        AccountLiquidity memory vars; // Holds all our calculation results
-
-        // For each asset the account is in
-        IFixedLender[] memory assets = book.accountAssets[account][maturityDate];
-        for (uint256 i = 0; i < assets.length; i++) {
-            IFixedLender asset = assets[i];
-            MarketsLib.Market storage market = book.markets[address(asset)];
-
-            // Read the balances
-            (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
-                account,
-                maturityDate
-            );
-            vars.collateralFactor = book.markets[address(asset)].collateralFactor;
-
-            // Get the normalized price of the asset (18 decimals)
-            vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenName());
-
-            // We sum all the collateral prices
-            vars.sumCollateral += DecimalMath.getTokenAmountInUSD(vars.balance, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
-
-            // We sum all the debt
-            vars.sumDebt += DecimalMath.getTokenAmountInUSD(vars.borrowBalance, vars.oraclePrice, market.decimals);
-
-            // Simulate the effects of borrowing from/lending to a pool
-            if (asset == IFixedLender(fixedLenderToSimulate)) {
-                // Calculate the effects of borrowing fixedLenders
-                if (borrowAmount != 0) {
-                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(borrowAmount, vars.oraclePrice, market.decimals);
-                }
-
-                // Calculate the effects of redeeming fixedLenders
-                // (having less collateral is the same as having more debt for this calculation)
-                if (withdrawAmount != 0) {
-                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(withdrawAmount, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
-                }
-            }
-        }
-
-        // These are safe, as the underflow condition is checked first
-        if (vars.sumCollateral > vars.sumDebt) {
-            return (vars.sumCollateral - vars.sumDebt, 0);
-        } else {
-            return (0, vars.sumDebt - vars.sumCollateral);
-        }
     }
 
     /**
@@ -239,7 +127,116 @@ library MarketsLib {
                 revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
             }
         }
+    }
 
+    /**
+     * @dev Function to get account's liquidity for a certain market/maturity pool
+     * @param book account book that it will be used to calculate liquidity
+     * @param oracle oracle used to perform all liquidity calculations
+     * @param account wallet which the liquidity will be calculated
+     * @param maturityDate timestamp to calculate maturity's pool
+     * @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args)
+     * @param withdrawAmount amount to simulate withdraw
+     * @param borrowAmount amount to simulate borrow
+     */
+    function accountLiquidity(
+        Book storage book,
+        IOracle oracle,
+        address account,
+        uint256 maturityDate,
+        address fixedLenderToSimulate,
+        uint256 withdrawAmount,
+        uint256 borrowAmount
+    )
+        external 
+        view
+        returns (
+            uint256,
+            uint256
+        )
+    {
+        AccountLiquidity memory vars; // Holds all our calculation results
+
+        // For each asset the account is in
+        IFixedLender[] memory assets = book.accountAssets[account][maturityDate];
+        for (uint256 i = 0; i < assets.length; i++) {
+            IFixedLender asset = assets[i];
+            MarketsLib.Market storage market = book.markets[address(asset)];
+
+            // Read the balances
+            (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
+                account,
+                maturityDate
+            );
+            vars.collateralFactor = book.markets[address(asset)].collateralFactor;
+
+            // Get the normalized price of the asset (18 decimals)
+            vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenName());
+
+            // We sum all the collateral prices
+            vars.sumCollateral += DecimalMath.getTokenAmountInUSD(vars.balance, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
+
+            // We sum all the debt
+            vars.sumDebt += DecimalMath.getTokenAmountInUSD(vars.borrowBalance, vars.oraclePrice, market.decimals);
+
+            // Simulate the effects of borrowing from/lending to a pool
+            if (asset == IFixedLender(fixedLenderToSimulate)) {
+                // Calculate the effects of borrowing fixedLenders
+                if (borrowAmount != 0) {
+                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(borrowAmount, vars.oraclePrice, market.decimals);
+                }
+
+                // Calculate the effects of redeeming fixedLenders
+                // (having less collateral is the same as having more debt for this calculation)
+                if (withdrawAmount != 0) {
+                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(withdrawAmount, vars.oraclePrice, market.decimals).mul_(vars.collateralFactor);
+                }
+            }
+        }
+
+        // These are safe, as the underflow condition is checked first
+        if (vars.sumCollateral > vars.sumDebt) {
+            return (vars.sumCollateral - vars.sumDebt, 0);
+        } else {
+            return (0, vars.sumDebt - vars.sumCollateral);
+        }
+    }
+
+    /**
+     * @dev Allows a user to start participating in a market
+     * @param book book in which the addMarket function will be applied to
+     * @param fixedLenderAddress address used to retrieve the market data
+     * @param who address of the user that it will start participating in a market/maturity
+     * @param maturityDate poolID in which it will start participating
+     */
+    function addToMarket(Book storage book, address fixedLenderAddress, address who, uint256 maturityDate) public {
+        MarketsLib.Market storage marketToJoin = book.markets[fixedLenderAddress];
+        addToMaturity(marketToJoin, who, maturityDate);
+        book.accountAssets[who][maturityDate].push(IFixedLender(fixedLenderAddress));
+        emit MarketEntered(fixedLenderAddress, who, maturityDate);
+    }
+
+    /**
+     * @dev Allows wallet to enter certain markets (fixedLenderDAI, fixedLenderETH, etc)
+     *      By performing this action, the wallet's money could be used as collateral
+     * @param market Market in which the user will be a added to a certain maturity
+     * @param borrower wallet that wants to enter a market
+     * @param maturityDate poolID in which the wallet will be added to
+     */
+    function addToMaturity(Market storage market, address borrower, uint256 maturityDate) internal {
+        if(!TSUtils.isPoolID(maturityDate)) { 
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
+
+        if (!market.isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        if (market.accountMembership[borrower][maturityDate] == true) {
+            return;
+        }
+
+        market.accountMembership[borrower][maturityDate] = true;
     }
 
 }

@@ -10,6 +10,14 @@ contract AuditorHarness {
     using ExaLib for ExaLib.RewardsState;
     using MarketsLib for MarketsLib.Book;
 
+    uint256 public blockNumber;
+    address[] public marketAddresses;
+
+    // Rewards Management
+    ExaLib.RewardsState public rewardsState;
+    // Protocol Management
+    MarketsLib.Book private book;
+
     event DistributedSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
@@ -29,20 +37,8 @@ contract AuditorHarness {
         uint smartPoolIndex
     );
 
-    uint256 public blockNumber;
-    address[] public marketAddresses;
-
-    // Rewards Management
-    ExaLib.RewardsState public rewardsState;
-    // Protocol Management
-    MarketsLib.Book private book;
-
     constructor(address _exaToken) {
         rewardsState.exaToken = _exaToken;
-    }
-
-    function setBlockNumber(uint256 _blockNumber) public {
-        blockNumber = _blockNumber;
     }
 
     /**
@@ -58,28 +54,17 @@ contract AuditorHarness {
         );
     }
 
-    function getSmartState(address fixedLenderAddress)
-        public
-        view
-        returns (MarketRewardsState memory)
-    {
-        return rewardsState.exaState[fixedLenderAddress].exaSmartState;
+    function refreshIndexes(address fixedLenderAddress) external {
+        updateExaSupplyIndex(fixedLenderAddress);
+        updateExaBorrowIndex(fixedLenderAddress);
     }
 
-    function getSupplyState(address fixedLenderAddress)
-        public
-        view
-        returns (MarketRewardsState memory)
-    {
-        return rewardsState.exaState[fixedLenderAddress].exaSupplyState;
+    function grantExa(address user, uint256 amount) external returns (uint256) {
+        return rewardsState.grantExa(user, amount);
     }
 
-    function getBorrowState(address fixedLenderAddress)
-        public
-        view
-        returns (MarketRewardsState memory)
-    {
-        return rewardsState.exaState[fixedLenderAddress].exaBorrowState;
+    function setBlockNumber(uint256 _blockNumber) public {
+        blockNumber = _blockNumber;
     }
 
     function updateExaSmartPoolIndex(address fixedLenderAddress) public {
@@ -92,11 +77,6 @@ contract AuditorHarness {
 
     function updateExaSupplyIndex(address fixedLenderAddress) public {
         rewardsState.updateExaSupplyIndex(blockNumber, fixedLenderAddress);
-    }
-
-    function refreshIndexes(address fixedLenderAddress) external {
-        updateExaSupplyIndex(fixedLenderAddress);
-        updateExaBorrowIndex(fixedLenderAddress);
     }
 
     function setExaSmartState(
@@ -204,16 +184,8 @@ contract AuditorHarness {
         );
     }
 
-    function getExaAccrued(address who) public view returns (uint256) {
-        return rewardsState.exaAccruedUser[who];
-    }
-
     function setExaAccrued(address who, uint256 amount) public {
         rewardsState.exaAccruedUser[who] = amount;
-    }
-
-    function grantExa(address user, uint256 amount) external returns (uint256) {
-        return rewardsState.grantExa(user, amount);
     }
 
     function claimExaAll(address holder) public {
@@ -239,5 +211,33 @@ contract AuditorHarness {
         market.isListed = true;
 
         marketAddresses.push(fixedLender);
+    }
+
+    function getSmartState(address fixedLenderAddress)
+        public
+        view
+        returns (MarketRewardsState memory)
+    {
+        return rewardsState.exaState[fixedLenderAddress].exaSmartState;
+    }
+
+    function getSupplyState(address fixedLenderAddress)
+        public
+        view
+        returns (MarketRewardsState memory)
+    {
+        return rewardsState.exaState[fixedLenderAddress].exaSupplyState;
+    }
+
+    function getBorrowState(address fixedLenderAddress)
+        public
+        view
+        returns (MarketRewardsState memory)
+    {
+        return rewardsState.exaState[fixedLenderAddress].exaBorrowState;
+    }
+
+    function getExaAccrued(address who) public view returns (uint256) {
+        return rewardsState.exaAccruedUser[who];
     }
 }

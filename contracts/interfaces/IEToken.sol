@@ -6,6 +6,17 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IEToken is IERC20, IERC20Metadata {
     /**
+     * @dev Emitted when `fixedLender` is set
+     * - The FixedLender is where the eToken is used
+     */
+    event FixedLenderSet(address indexed fixedLender);
+
+    /**
+     * @dev Emitted when `amount` is accrued as earnings
+     */
+    event EarningsAccrued(uint256 amount);
+
+    /**
      * @dev Mints `amount` eTokens to `user`
      * - Only callable by the FixedLender
      * @param user The address receiving the minted tokens
@@ -28,14 +39,4 @@ interface IEToken is IERC20, IERC20Metadata {
      */
     function accrueEarnings(uint256 amount) external;
 
-    /**
-     * @dev Emitted when `fixedLender` is set
-     * - The FixedLender is where the eToken is used
-     */
-    event FixedLenderSet(address indexed fixedLender);
-
-    /**
-     * @dev Emitted when `amount` is accrued as earnings
-     */
-    event EarningsAccrued(uint256 amount);
 }

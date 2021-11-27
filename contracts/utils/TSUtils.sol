@@ -2,14 +2,25 @@
 pragma solidity ^0.8.4;
 
 library TSUtils {
-
-    uint32 public constant INTERVAL = 7 days;
-
     enum State {
         INVALID,
         MATURED,
         VALID,
         NOT_READY
+    }
+
+    uint32 public constant INTERVAL = 7 days;
+
+    /**
+     * @notice Function to calculate how many days have passed since the end of the POOLID
+     * @param timestamp to calculate the day difference
+     */
+    function daysPast(uint256 timestamp) public view returns (uint256) {
+        uint256 trimmedNow = trimmedDay(block.timestamp);
+        if (timestamp >= trimmedNow) {
+            return 0;
+        }
+        return (trimmedNow - timestamp) / 1 days;
     }
 
     /**
@@ -55,18 +66,6 @@ library TSUtils {
     }
 
     /**
-     * @notice Function to calculate how many days have passed since the end of the POOLID
-     * @param timestamp to calculate the day difference
-     */
-    function daysPast(uint256 timestamp) public view returns (uint256) {
-        uint256 trimmedNow = trimmedDay(block.timestamp);
-        if (timestamp >= trimmedNow) {
-            return 0;
-        }
-        return (trimmedNow - timestamp) / 1 days;
-    }
-
-    /**
      * @notice Function to return all the future pool IDs give in a certain time horizon that 
      *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
      *         configured in this library
@@ -83,4 +82,3 @@ library TSUtils {
         return poolIDs;
     }
 }
-
