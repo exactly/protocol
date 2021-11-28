@@ -45,7 +45,7 @@ interface IFixedLender {
         view
         returns (uint256, uint256);
 
-    function getTotalBorrows(uint256 maturityDate)
+    function getTotalMpBorrows(uint256 maturityDate)
         external
         view
         returns (uint256);
@@ -54,11 +54,11 @@ interface IFixedLender {
 
     function eToken() external view returns (IEToken);
 
-    function totalBorrows() external view returns (uint256);
+    function totalMpBorrows() external view returns (uint256);
 
-    function totalDeposits() external view returns (uint256);
+    function totalMpDeposits() external view returns (uint256);
 
-    function totalBorrowsUser(address who) external view returns (uint256);
+    function totalMpBorrowsUser(address who) external view returns (uint256);
 
-    function totalDepositsUser(address who) external view returns (uint256);
+    function totalMpDepositsUser(address who) external view returns (uint256);
 }

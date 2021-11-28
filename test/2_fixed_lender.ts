@@ -84,9 +84,9 @@ describe("FixedLender", function () {
 
   it("GetTotalBorrows fails on an invalid pool", async () => {
     let invalidPoolID = exaTime.nextPoolID() + 3;
-    await expect(fixedLender.getTotalBorrows(invalidPoolID)).to.be.revertedWith(
-      errorGeneric(ProtocolError.INVALID_POOL_ID)
-    );
+    await expect(
+      fixedLender.getTotalMpBorrows(invalidPoolID)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
   it("it allows to give money to a pool", async () => {
@@ -171,7 +171,7 @@ describe("FixedLender", function () {
     );
     expect(tx).to.emit(fixedLenderMaria, "BorrowFromMaturityPool");
     expect(
-      await fixedLenderMaria.getTotalBorrows(exaTime.nextPoolID())
+      await fixedLenderMaria.getTotalMpBorrows(exaTime.nextPoolID())
     ).to.equal(parseUnits("0.8"));
   });
 
@@ -811,7 +811,7 @@ describe("FixedLender", function () {
 
     await expect(borrow).to.not.be.reverted;
 
-    let poolData = await fixedLender.pools(exaTime.nextPoolID());
+    let poolData = await fixedLender.maturityPools(exaTime.nextPoolID());
     let debt = poolData[2];
 
     expect(debt).not.to.be.equal("0");
@@ -821,7 +821,7 @@ describe("FixedLender", function () {
       exaTime.nextPoolID()
     );
 
-    poolData = await fixedLender.pools(exaTime.nextPoolID());
+    poolData = await fixedLender.maturityPools(exaTime.nextPoolID());
     debt = poolData[2];
     expect(debt).to.be.equal("0");
   });

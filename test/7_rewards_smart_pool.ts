@@ -143,7 +143,7 @@ describe("ExaToken Smart Pool", () => {
         parseUnits("0.5")
       );
       await auditorHarness.setBlockNumber(blocksDelta);
-      await fixedLenderHarness.setTotalSmartPoolDeposits(
+      await fixedLenderHarness.setTotalSpDeposits(
         mariaUser.address,
         amountToDeposit
       );
@@ -167,7 +167,7 @@ describe("ExaToken Smart Pool", () => {
         fixedLenderHarness.address,
         parseUnits("0.5")
       );
-      await fixedLenderHarness.setTotalSmartPoolDeposits(
+      await fixedLenderHarness.setTotalSpDeposits(
         mariaUser.address,
         parseUnits("10000")
       );
@@ -189,7 +189,7 @@ describe("ExaToken Smart Pool", () => {
       );
       await auditorHarness.setBlockNumber(100);
       await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
-      await fixedLenderHarness.setTotalSmartPoolDeposits(
+      await fixedLenderHarness.setTotalSpDeposits(
         mariaUser.address,
         parseUnits("10000")
       );
@@ -216,7 +216,7 @@ describe("ExaToken Smart Pool", () => {
 
     it("should transfer EXA and update smart pool index correctly for first time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalSmartPoolDeposits(
+      await fixedLenderHarness.setTotalSpDeposits(
         mariaUser.address,
         parseUnits("5")
       );
@@ -245,7 +245,7 @@ describe("ExaToken Smart Pool", () => {
 
     it("should update EXA accrued and smart index for repeat user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalSmartPoolDeposits(
+      await fixedLenderHarness.setTotalSpDeposits(
         mariaUser.address,
         parseUnits("5")
       );
@@ -278,7 +278,7 @@ describe("ExaToken Smart Pool", () => {
 
     it("should not transfer EXA automatically", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalSmartPoolDeposits(
+      await fixedLenderHarness.setTotalSpDeposits(
         mariaUser.address,
         parseUnits("0.5")
       );
