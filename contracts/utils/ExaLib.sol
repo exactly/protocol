@@ -106,8 +106,9 @@ library ExaLib {
      * @param markets Valid markets in Auditor
      * @param holders The addresses to claim EXA for
      * @param fixedLenderAddresses The list of markets to claim EXA in
-     * @param borrowers Whether or not to claim EXA earned by borrowing
-     * @param suppliers Whether or not to claim EXA earned by supplying
+     * @param maturityBorrowers Whether or not to claim EXA earned by maturity pool borrowing
+     * @param maturitySuppliers Whether or not to claim EXA earned by maturity pool supplying
+     * @param smartSuppliers Whether or not to claim EXA earned by smart pool supplying
      */
     function claimExa(
         RewardsState storage fixedLenderState,
@@ -115,8 +116,8 @@ library ExaLib {
         mapping(address => MarketsLib.Market) storage markets,
         address[] memory holders,
         address[] memory fixedLenderAddresses,
-        bool borrowers,
-        bool suppliers,
+        bool maturityBorrowers,
+        bool maturitySuppliers,
         bool smartSuppliers
     ) external {
         for (uint i = 0; i < fixedLenderAddresses.length; i++) {
@@ -127,14 +128,14 @@ library ExaLib {
                 revert GenericError(ErrorCode.MARKET_NOT_LISTED);
             }
 
-            if (borrowers == true) {
+            if (maturityBorrowers == true) {
                 updateExaBorrowIndex(fixedLenderState, blockNumber, fixedLender);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeMaturityBorrowerExa(fixedLenderState, fixedLender, holders[j]);
                     fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
                 }
             }
-            if (suppliers == true) {
+            if (maturitySuppliers == true) {
                 updateExaSupplyIndex(fixedLenderState, blockNumber, fixedLender);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeMaturitySupplierExa(fixedLenderState, fixedLender, holders[j]);
@@ -198,7 +199,7 @@ library ExaLib {
                 });
             }
 
-            if (state.exaMaturityBorrowState.index == 0) {
+            if (state.exaMaturityBorrowState.index == 0) { 
                 state.exaMaturityBorrowState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
                     block: blockNumber.toUint32()
