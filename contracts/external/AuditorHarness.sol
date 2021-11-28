@@ -55,8 +55,8 @@ contract AuditorHarness {
     }
 
     function refreshIndexes(address fixedLenderAddress) external {
-        updateExaSupplyIndex(fixedLenderAddress);
-        updateExaBorrowIndex(fixedLenderAddress);
+        updateExaMaturitySupplyIndex(fixedLenderAddress);
+        updateExaMaturityBorrowIndex(fixedLenderAddress);
     }
 
     function grantExa(address user, uint256 amount) external returns (uint256) {
@@ -67,16 +67,16 @@ contract AuditorHarness {
         blockNumber = _blockNumber;
     }
 
-    function updateExaSmartPoolIndex(address fixedLenderAddress) public {
-        rewardsState.updateExaSmartPoolIndex(blockNumber, fixedLenderAddress);
+    function updateExaSmartSupplyIndex(address fixedLenderAddress) public {
+        rewardsState.updateExaSmartSupplyIndex(blockNumber, fixedLenderAddress);
     }
 
-    function updateExaBorrowIndex(address fixedLenderAddress) public {
-        rewardsState.updateExaBorrowIndex(blockNumber, fixedLenderAddress);
+    function updateExaMaturityBorrowIndex(address fixedLenderAddress) public {
+        rewardsState.updateExaMaturityBorrowIndex(blockNumber, fixedLenderAddress);
     }
 
-    function updateExaSupplyIndex(address fixedLenderAddress) public {
-        rewardsState.updateExaSupplyIndex(blockNumber, fixedLenderAddress);
+    function updateExaMaturitySupplyIndex(address fixedLenderAddress) public {
+        rewardsState.updateExaMaturitySupplyIndex(blockNumber, fixedLenderAddress);
     }
 
     function setExaSmartSupplyState(

@@ -343,7 +343,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaSmartPoolIndex(block.number, fixedLenderAddress);
+        rewardsState.updateExaSmartSupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
     }
 
@@ -363,7 +363,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaSmartPoolIndex(block.number, fixedLenderAddress);
+        rewardsState.updateExaSmartSupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
     }
 
@@ -387,7 +387,7 @@ contract Auditor is IAuditor, AccessControl {
 
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
-        rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.updateExaMaturitySupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, supplier);
     }
 
@@ -433,7 +433,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
 
-        rewardsState.updateExaBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.updateExaMaturityBorrowIndex(block.number, fixedLenderAddress);
         rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
     }
 
@@ -460,7 +460,7 @@ contract Auditor is IAuditor, AccessControl {
             maturityDate
         );
 
-        rewardsState.updateExaSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.updateExaMaturitySupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, redeemer);
     }
 
@@ -479,7 +479,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.updateExaMaturityBorrowIndex(block.number, fixedLenderAddress);
         rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
     }
 

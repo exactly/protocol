@@ -123,7 +123,7 @@ describe("ExaToken Smart Pool", () => {
     });
   });
 
-  describe("updateExaSmartPoolIndex", () => {
+  describe("updateExaSmartSupplyIndex", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
 
@@ -132,7 +132,7 @@ describe("ExaToken Smart Pool", () => {
       fixedLenderHarness = rewardsLibEnv.fixedLenderHarness;
     });
 
-    it("should calculate EXA smart pool index correctly", async () => {
+    it("should calculate EXA smart pool supply index correctly", async () => {
       let amountToDeposit = parseUnits("10");
       let blocksDelta = 100;
 
@@ -147,7 +147,9 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         amountToDeposit
       );
-      await auditorHarness.updateExaSmartPoolIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaSmartSupplyIndex(
+        fixedLenderHarness.address
+      );
       const [newIndex] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
       );
@@ -161,7 +163,7 @@ describe("ExaToken Smart Pool", () => {
       expect(newIndex).to.be.equal(newIndexCalculated);
     });
 
-    it("should not update index if no blocks passed since last accrual", async () => {
+    it("should not update smart pool supply index if no blocks passed since last accrual", async () => {
       await auditorHarness.setBlockNumber(0);
       await auditorHarness.setExaSpeed(
         fixedLenderHarness.address,
@@ -171,7 +173,9 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("10000")
       );
-      await auditorHarness.updateExaSmartPoolIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaSmartSupplyIndex(
+        fixedLenderHarness.address
+      );
 
       const [newIndex, block] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
@@ -180,7 +184,7 @@ describe("ExaToken Smart Pool", () => {
       expect(block).to.equal(0);
     });
 
-    it("should not update index if EXA speed is 0", async () => {
+    it("should not update smart pool supply index if EXA speed is 0", async () => {
       // Update borrows
       await auditorHarness.setBlockNumber(0);
       await auditorHarness.setExaSpeed(
@@ -193,7 +197,9 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("10000")
       );
-      await auditorHarness.updateExaSmartPoolIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaSmartSupplyIndex(
+        fixedLenderHarness.address
+      );
 
       const [newIndex, block] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address

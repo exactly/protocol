@@ -255,7 +255,7 @@ describe("ExaToken", () => {
     });
   });
 
-  describe("updateExaBorrowIndex", () => {
+  describe("updateExaMaturityBorrowIndex", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
 
@@ -264,7 +264,7 @@ describe("ExaToken", () => {
       fixedLenderHarness = rewardsLibEnv.fixedLenderHarness;
     });
 
-    it("should calculate EXA borrower state index correctly", async () => {
+    it("should calculate EXA maturity pool borrow index correctly", async () => {
       let amountBorrowWithCommission = parseUnits("55");
       let blocksDelta = 2;
 
@@ -277,7 +277,9 @@ describe("ExaToken", () => {
         parseUnits("0.5")
       );
       await auditorHarness.setBlockNumber(blocksDelta);
-      await auditorHarness.updateExaBorrowIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaMaturityBorrowIndex(
+        fixedLenderHarness.address
+      );
       const [newIndex] = await auditorHarness.getBorrowState(
         fixedLenderHarness.address
       );
@@ -296,14 +298,16 @@ describe("ExaToken", () => {
       expect(newIndex).to.be.equal(newIndexCalculated);
     });
 
-    it("should not update index if no blocks passed since last accrual", async () => {
+    it("should not update maturity pool borrow index if no blocks passed since last accrual", async () => {
       await auditorHarness.setBlockNumber(0);
       await auditorHarness.setExaSpeed(
         fixedLenderHarness.address,
         parseUnits("0.5")
       );
       await fixedLenderHarness.setTotalBorrows(parseUnits("10000"));
-      await auditorHarness.updateExaBorrowIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaMaturityBorrowIndex(
+        fixedLenderHarness.address
+      );
 
       const [newIndex, block] = await auditorHarness.getBorrowState(
         fixedLenderHarness.address
@@ -312,7 +316,7 @@ describe("ExaToken", () => {
       expect(block).to.equal(0);
     });
 
-    it("should not update index if EXA speed is 0", async () => {
+    it("should not update maturity pool borrow index if EXA speed is 0", async () => {
       // Update borrows
       await auditorHarness.setBlockNumber(0);
       await auditorHarness.setExaSpeed(
@@ -322,7 +326,9 @@ describe("ExaToken", () => {
       await auditorHarness.setBlockNumber(100);
       await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
       await fixedLenderHarness.setTotalBorrows(parseUnits("10000"));
-      await auditorHarness.updateExaBorrowIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaMaturityBorrowIndex(
+        fixedLenderHarness.address
+      );
 
       const [newIndex, block] = await auditorHarness.getBorrowState(
         fixedLenderHarness.address
@@ -332,7 +338,7 @@ describe("ExaToken", () => {
     });
   });
 
-  describe("updateExaSupplyIndex", () => {
+  describe("updateExaMaturitySupplyIndex", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
 
@@ -341,7 +347,7 @@ describe("ExaToken", () => {
       fixedLenderHarness = rewardsLibEnv.fixedLenderHarness;
     });
 
-    it("should calculate EXA maturity supplier index correctly", async () => {
+    it("should calculate EXA maturity pool supply index correctly", async () => {
       let amountSupplyWithCommission = parseUnits("10");
       let blocksDelta = 100;
 
@@ -353,7 +359,9 @@ describe("ExaToken", () => {
       );
       await auditorHarness.setBlockNumber(blocksDelta);
       await fixedLenderHarness.setTotalDeposits(amountSupplyWithCommission);
-      await auditorHarness.updateExaSupplyIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaMaturitySupplyIndex(
+        fixedLenderHarness.address
+      );
       const [newIndex] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address
       );
@@ -372,14 +380,16 @@ describe("ExaToken", () => {
       expect(newIndex).to.be.equal(newIndexCalculated);
     });
 
-    it("should not update maturity supplier index if no blocks passed since last accrual", async () => {
+    it("should not update maturity pool supply index if no blocks passed since last accrual", async () => {
       await auditorHarness.setBlockNumber(0);
       await auditorHarness.setExaSpeed(
         fixedLenderHarness.address,
         parseUnits("0.5")
       );
       await fixedLenderHarness.setTotalDeposits(parseUnits("10000"));
-      await auditorHarness.updateExaSupplyIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaMaturitySupplyIndex(
+        fixedLenderHarness.address
+      );
 
       const [newIndex, block] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address
@@ -388,7 +398,7 @@ describe("ExaToken", () => {
       expect(block).to.equal(0);
     });
 
-    it("should not update maturity supplier index if EXA speed is 0", async () => {
+    it("should not update maturity pool supply index if EXA speed is 0", async () => {
       // Update borrows
       await auditorHarness.setBlockNumber(0);
       await auditorHarness.setExaSpeed(
@@ -398,7 +408,9 @@ describe("ExaToken", () => {
       await auditorHarness.setBlockNumber(100);
       await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
       await fixedLenderHarness.setTotalDeposits(parseUnits("10000"));
-      await auditorHarness.updateExaSupplyIndex(fixedLenderHarness.address);
+      await auditorHarness.updateExaMaturitySupplyIndex(
+        fixedLenderHarness.address
+      );
 
       const [newIndex, block] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address

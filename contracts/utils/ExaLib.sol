@@ -129,14 +129,14 @@ library ExaLib {
             }
 
             if (maturityBorrowers == true) {
-                updateExaBorrowIndex(fixedLenderState, blockNumber, fixedLender);
+                updateExaMaturityBorrowIndex(fixedLenderState, blockNumber, fixedLender);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeMaturityBorrowerExa(fixedLenderState, fixedLender, holders[j]);
                     fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
                 }
             }
             if (maturitySuppliers == true) {
-                updateExaSupplyIndex(fixedLenderState, blockNumber, fixedLender);
+                updateExaMaturitySupplyIndex(fixedLenderState, blockNumber, fixedLender);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeMaturitySupplierExa(fixedLenderState, fixedLender, holders[j]);
                     fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
@@ -144,7 +144,7 @@ library ExaLib {
             }
 
             if (smartSuppliers == true) {
-                updateExaSmartPoolIndex(fixedLenderState, blockNumber, fixedLender);
+                updateExaSmartSupplyIndex(fixedLenderState, blockNumber, fixedLender);
                 for (uint j = 0; j < holders.length; j++) {
                     _distributeSmartSupplierExa(fixedLenderState, fixedLender, holders[j]);
                     fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
@@ -184,9 +184,9 @@ library ExaLib {
         ExaState storage state = fixedLenderState.exaState[fixedLenderAddress];
         uint currentExaSpeed = state.exaSpeed;
         if (currentExaSpeed != 0) {
-            updateExaSupplyIndex(fixedLenderState, blockNumber, fixedLenderAddress);
-            updateExaBorrowIndex(fixedLenderState, blockNumber, fixedLenderAddress);
-            updateExaSmartPoolIndex(fixedLenderState, blockNumber, fixedLenderAddress);
+            updateExaMaturitySupplyIndex(fixedLenderState, blockNumber, fixedLenderAddress);
+            updateExaMaturityBorrowIndex(fixedLenderState, blockNumber, fixedLenderAddress);
+            updateExaSmartSupplyIndex(fixedLenderState, blockNumber, fixedLenderAddress);
         } else if (exaSpeed != 0) {
             // what happens @ compound.finance if someone doesn't set the exaSpeed
             // but supply/borrow first? in that case, block number will be updated
@@ -223,12 +223,12 @@ library ExaLib {
     }
 
     /**
-     * @notice Accrue EXA to the market by updating the smart index
+     * @notice Accrue EXA to the market by updating the smart pool supply index
      * @param fixedLenderAddress The address of the smart pool
      * @param blockNumber current block number (injected for testing purpuses)
      * @param fixedLenderAddress The market whose supply index to update
      */
-    function updateExaSmartPoolIndex(
+    function updateExaSmartSupplyIndex(
         RewardsState storage fixedLenderState,
         uint blockNumber,
         address fixedLenderAddress
@@ -252,12 +252,12 @@ library ExaLib {
     }
 
     /**
-     * @notice Accrue EXA to the market by updating the supply index
+     * @notice Accrue EXA to the market by updating the maturity pool supply index
      * @param fixedLenderAddress The market whose supply index to update
      * @param blockNumber current block number (injected for testing purpuses)
      * @param fixedLenderAddress The market whose supply index to update
      */
-    function updateExaSupplyIndex(
+    function updateExaMaturitySupplyIndex(
         RewardsState storage fixedLenderState,
         uint blockNumber,
         address fixedLenderAddress
@@ -281,12 +281,12 @@ library ExaLib {
     }
 
     /**
-     * @notice Accrue EXA to the market by updating the supply index
+     * @notice Accrue EXA to the market by updating the maturity pool borrow index
      * @param fixedLenderState RewardsState storage in Auditor
      * @param blockNumber current block number (injected for testing purpuses)
-     * @param fixedLenderAddress The market whose supply index to update
+     * @param fixedLenderAddress The market whose borrow index to update
      */
-    function updateExaBorrowIndex(
+    function updateExaMaturityBorrowIndex(
         RewardsState storage fixedLenderState,
         uint blockNumber,
         address fixedLenderAddress
