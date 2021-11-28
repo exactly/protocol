@@ -267,7 +267,7 @@ library ExaLib {
         uint supplySpeed = exaState.exaSpeed;
         uint deltaBlocks = (blockNumber - uint(supplyState.block));
         if (deltaBlocks > 0 && supplySpeed > 0) {
-            uint256 supplyTokens = IFixedLender(fixedLenderAddress).totalDeposits();
+            uint256 supplyTokens = IFixedLender(fixedLenderAddress).totalMpDeposits();
             uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
             Double memory ratio = supplyTokens > 0 ? exaAccruedDelta.fraction(supplyTokens) : Double({value: 0});
             Double memory index = Double({value: supplyState.index}).add_(ratio);
@@ -296,7 +296,7 @@ library ExaLib {
         uint borrowSpeed = exaState.exaSpeed;
         uint deltaBlocks = blockNumber - uint(borrowState.block);
         if (deltaBlocks > 0 && borrowSpeed > 0) {
-            uint borrowAmount = IFixedLender(fixedLenderAddress).totalBorrows();
+            uint borrowAmount = IFixedLender(fixedLenderAddress).totalMpBorrows();
             uint256 exaAccruedDelta = deltaBlocks * borrowSpeed;
 
             Double memory ratio = borrowAmount > 0 ? exaAccruedDelta.fraction(borrowAmount) : Double({value: 0});
@@ -364,7 +364,7 @@ library ExaLib {
 
         Double memory deltaIndex = supplyIndex.sub_(supplierIndex);
 
-        uint supplierTokens = IFixedLender(fixedLenderAddress).totalDepositsUser(supplier);
+        uint supplierTokens = IFixedLender(fixedLenderAddress).totalMpDepositsUser(supplier);
         uint supplierDelta = supplierTokens.mul_(deltaIndex);
         uint supplierAccrued = fixedLenderState.exaAccruedUser[supplier] + supplierDelta;
         fixedLenderState.exaAccruedUser[supplier] = supplierAccrued;
@@ -391,7 +391,7 @@ library ExaLib {
 
         if (borrowerIndex.value > 0) {
             Double memory deltaIndex = borrowIndex.sub_(borrowerIndex);
-            uint borrowerAmount = IFixedLender(fixedLenderAddress).totalBorrowsUser(borrower);
+            uint borrowerAmount = IFixedLender(fixedLenderAddress).totalMpBorrowsUser(borrower);
             uint borrowerDelta = borrowerAmount.mul_(deltaIndex);
             uint borrowerAccrued = fixedLenderState.exaAccruedUser[borrower] + borrowerDelta;
             fixedLenderState.exaAccruedUser[borrower] = borrowerAccrued;

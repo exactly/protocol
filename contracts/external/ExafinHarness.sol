@@ -5,32 +5,32 @@ import "../utils/DecimalMath.sol";
 import "../utils/ExaLib.sol";
 
 contract FixedLenderHarness {
-    uint256 public totalBorrows;
-    uint256 public totalDeposits;
+    uint256 public totalMpBorrows;
+    uint256 public totalMpDeposits;
 
-    mapping(address => uint256) public totalDepositsUser;
-    mapping(address => uint256) public totalBorrowsUser;
+    mapping(address => uint256) public totalMpDepositsUser;
+    mapping(address => uint256) public totalMpBorrowsUser;
 
     IEToken public eToken;
 
-    function setTotalBorrows(uint256 _totalBorrows) public {
-        totalBorrows = _totalBorrows;
+    function setTotalMpBorrows(uint256 _totalMpBorrows) public {
+        totalMpBorrows = _totalMpBorrows;
     }
 
-    function setTotalDeposits(uint256 _totalDeposits) public {
-        totalDeposits = _totalDeposits;
+    function setTotalMpDeposits(uint256 _totalMpDeposits) public {
+        totalMpDeposits = _totalMpDeposits;
     }
 
-    function setTotalBorrowsUser(address _who, uint256 _amount) public {
-        totalBorrowsUser[_who] = _amount;
+    function setTotalMpBorrowsUser(address _who, uint256 _amount) public {
+        totalMpBorrowsUser[_who] = _amount;
     }
 
-    function setTotalDepositsUser(address _who, uint256 _amount) public {
-        totalDepositsUser[_who] = _amount;
+    function setTotalMpDepositsUser(address _who, uint256 _amount) public {
+        totalMpDepositsUser[_who] = _amount;
     }
 
-    function setTotalSmartPoolDeposits(address _who, uint256 _totalDeposits) public {
-        eToken.mint(_who, _totalDeposits);
+    function setTotalSpDeposits(address _who, uint256 _totalSpDeposits) public {
+        eToken.mint(_who, _totalSpDeposits);
     }
 
     function setEToken(address _eTokenAddress) public {

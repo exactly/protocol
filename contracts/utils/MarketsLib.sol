@@ -119,7 +119,7 @@ library MarketsLib {
         uint256 borrowCap = book.borrowCaps[fixedLenderAddress];
         // Borrow cap of 0 corresponds to unlimited borrowing
         if (borrowCap != 0) {
-            uint256 totalBorrows = IFixedLender(fixedLenderAddress).getTotalBorrows(
+            uint256 totalBorrows = IFixedLender(fixedLenderAddress).getTotalMpBorrows(
                 maturityDate
             );
             uint256 nextTotalBorrows = totalBorrows + borrowAmount;
