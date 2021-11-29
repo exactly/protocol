@@ -527,10 +527,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
         }
 
-        return (
-            mpUserSuppliedAmount[maturityDate][who],
-            debt
-        );
+        return (mpUserSuppliedAmount[maturityDate][who], debt);
     }
 
     /**
@@ -584,7 +581,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         // then amountBorrowed is what should be discounted to the users account
         uint256 debtCovered = (repayAmount * amountBorrowed) / amountOwed;
         eToken.accrueEarnings(repayAmount - debtCovered);
-        mpUserBorrowedAmount[maturityDate][borrower] = amountBorrowed - debtCovered;
+        mpUserBorrowedAmount[maturityDate][borrower] =
+            amountBorrowed -
+            debtCovered;
 
         // That repayment diminishes debt in the pool
         PoolLib.MaturityPool memory pool = maturityPools[maturityDate];

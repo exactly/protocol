@@ -18,11 +18,11 @@ contract AuditorHarness {
     // Protocol Management
     MarketsLib.Book private book;
 
-    event DistributedMaturitySupplierExa(
+    event DistributedMPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint256 supplierDelta,
-        uint256 exaSupplyIndex
+        uint256 mpSupplierDelta,
+        uint256 exaMPSupplyIndex
     );
     event DistributedMaturityBorrowerExa(
         address indexed fixedLender,
@@ -79,61 +79,61 @@ contract AuditorHarness {
         rewardsState.updateExaMaturitySupplyIndex(blockNumber, fixedLenderAddress);
     }
 
-    function setExaSmartSupplyState(
+    function setExaSPSupplyState(
         address fixedLenderAddress,
         uint224 index,
         uint32 _blockNumber
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaSmartSupplyState.index = index;
-        rewardsState.exaState[fixedLenderAddress].exaSmartSupplyState.block = _blockNumber;
+        rewardsState.exaState[fixedLenderAddress].exaSPSupplyState.index = index;
+        rewardsState.exaState[fixedLenderAddress].exaSPSupplyState.block = _blockNumber;
     }
 
-    function setExaMaturitySupplyState(
+    function setExaMPSupplyState(
         address fixedLenderAddress,
         uint224 index,
         uint32 _blockNumber
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaMaturitySupplyState.index = index;
+        rewardsState.exaState[fixedLenderAddress].exaMPSupplyState.index = index;
         rewardsState
             .exaState[fixedLenderAddress]
-            .exaMaturitySupplyState
+            .exaMPSupplyState
             .block = _blockNumber;
     }
 
-    function setExaMaturityBorrowState(
+    function setExaMPBorrowState(
         address fixedLenderAddress,
         uint224 index,
         uint32 _blockNumber
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaMaturityBorrowState.index = index;
+        rewardsState.exaState[fixedLenderAddress].exaMPBorrowState.index = index;
         rewardsState
             .exaState[fixedLenderAddress]
-            .exaMaturityBorrowState
+            .exaMPBorrowState
             .block = _blockNumber;
     }
 
-    function setExaMaturityBorrowerIndex(
+    function setExaMPBorrowerIndex(
         address fixedLenderAddress,
         address borrower,
         uint256 index
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaMaturityBorrowerIndex[borrower] = index;
+        rewardsState.exaState[fixedLenderAddress].exaMPBorrowerIndex[borrower] = index;
     }
 
-    function setExaSmartSupplierIndex(
+    function setExaSPSupplierIndex(
         address fixedLenderAddress,
         address supplier,
         uint256 index
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaSmartSupplierIndex[supplier] = index;
+        rewardsState.exaState[fixedLenderAddress].exaSPSupplierIndex[supplier] = index;
     }
 
-    function setExaMaturitySupplierIndex(
+    function setExaMPSupplierIndex(
         address fixedLenderAddress,
         address supplier,
         uint256 index
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaMaturitySupplierIndex[supplier] = index;
+        rewardsState.exaState[fixedLenderAddress].exaMPSupplierIndex[supplier] = index;
     }
 
     function distributeMaturityBorrowerExa(address fixedLenderAddress, address borrower)
@@ -218,7 +218,7 @@ contract AuditorHarness {
         view
         returns (MarketRewardsState memory)
     {
-        return rewardsState.exaState[fixedLenderAddress].exaSmartSupplyState;
+        return rewardsState.exaState[fixedLenderAddress].exaSPSupplyState;
     }
 
     function getMaturitySupplyState(address fixedLenderAddress)
@@ -226,7 +226,7 @@ contract AuditorHarness {
         view
         returns (MarketRewardsState memory)
     {
-        return rewardsState.exaState[fixedLenderAddress].exaMaturitySupplyState;
+        return rewardsState.exaState[fixedLenderAddress].exaMPSupplyState;
     }
 
     function getBorrowState(address fixedLenderAddress)
@@ -234,7 +234,7 @@ contract AuditorHarness {
         view
         returns (MarketRewardsState memory)
     {
-        return rewardsState.exaState[fixedLenderAddress].exaMaturityBorrowState;
+        return rewardsState.exaState[fixedLenderAddress].exaMPBorrowState;
     }
 
     function getExaAccrued(address who) public view returns (uint256) {

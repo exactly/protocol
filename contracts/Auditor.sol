@@ -100,14 +100,14 @@ contract Auditor is IAuditor, AccessControl {
      * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool supplier
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param supplier address of the supplier that have received rewards in a given lender space
-     * @param supplierDelta delta blocks that have been processed
-     * @param exaSupplyIndex index of the given market that was used to update user rewards
+     * @param mpSupplierDelta delta blocks that have been processed
+     * @param exaMPSupplyIndex index of the given market that was used to update user rewards
      */
-    event DistributedMaturitySupplierExa(
+    event DistributedMPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint256 supplierDelta,
-        uint256 exaSupplyIndex
+        uint256 mpSupplierDelta,
+        uint256 exaMPSupplyIndex
     );
 
     /**

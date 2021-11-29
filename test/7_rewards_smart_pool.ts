@@ -226,7 +226,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaSmartSupplyState(
+      await auditorHarness.setExaSPSupplyState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
@@ -255,12 +255,12 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaSmartSupplyState(
+      await auditorHarness.setExaSPSupplyState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
       );
-      await auditorHarness.setExaSmartSupplierIndex(
+      await auditorHarness.setExaSPSupplierIndex(
         fixedLenderHarness.address,
         mariaUser.address,
         parseUnits("2", 36)
@@ -288,7 +288,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("0.5")
       );
-      await auditorHarness.setExaSmartSupplyState(
+      await auditorHarness.setExaSPSupplyState(
         fixedLenderHarness.address,
         parseUnits("1.0019", 36),
         10
