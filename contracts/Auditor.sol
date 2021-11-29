@@ -114,28 +114,28 @@ contract Auditor is IAuditor, AccessControl {
      * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool borrower
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param borrower address of the borrower that have received rewards in a given fixedLender space
-     * @param borrowerDelta delta blocks that have been processed
-     * @param exaSupplyIndex index of the given market that was used to update user rewards
+     * @param mpBorrowerDelta delta blocks that have been processed
+     * @param exaMPBorrowIndex index of the given market that was used to update user rewards
      */
-    event DistributedMaturityBorrowerExa(
+    event DistributedMPBorrowerExa(
         address indexed fixedLender,
         address indexed borrower,
-        uint256 borrowerDelta,
-        uint256 exaSupplyIndex
+        uint256 mpBorrowerDelta,
+        uint256 exaMPBorrowIndex
     );
 
     /**
      * @notice Event emitted each time EXA has been distributed to a certain user as a smart pool supplier
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param supplier address of the supplier that have received rewards in a given lender space
-     * @param smartSupplierDelta delta blocks that have been processed
-     * @param smartPoolIndex index of the given market that was used to update user rewards
+     * @param spSupplierDelta delta blocks that have been processed
+     * @param exaSPSupplyIndex index of the given market that was used to update user rewards
      */
-    event DistributedSmartSupplierExa(
+    event DistributedSPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint256 smartSupplierDelta,
-        uint256 smartPoolIndex
+        uint256 spSupplierDelta,
+        uint256 exaSPSupplyIndex
     );
 
     constructor(address _priceOracleAddress, address _exaToken) {
@@ -349,11 +349,8 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaSmartSupplyIndex(
-            block.number,
-            fixedLenderAddress
-        );
-        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
+        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -372,11 +369,8 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaSmartSupplyIndex(
-            block.number,
-            fixedLenderAddress
-        );
-        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
+        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -399,14 +393,8 @@ contract Auditor is IAuditor, AccessControl {
 
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
-        rewardsState.updateExaMaturitySupplyIndex(
-            block.number,
-            fixedLenderAddress
-        );
-        rewardsState.distributeMaturitySupplierExa(
-            fixedLenderAddress,
-            supplier
-        );
+        rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -451,14 +439,8 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
 
-        rewardsState.updateExaMaturityBorrowIndex(
-            block.number,
-            fixedLenderAddress
-        );
-        rewardsState.distributeMaturityBorrowerExa(
-            fixedLenderAddress,
-            borrower
-        );
+        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
@@ -484,14 +466,8 @@ contract Auditor is IAuditor, AccessControl {
             maturityDate
         );
 
-        rewardsState.updateExaMaturitySupplyIndex(
-            block.number,
-            fixedLenderAddress
-        );
-        rewardsState.distributeMaturitySupplierExa(
-            fixedLenderAddress,
-            redeemer
-        );
+        rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPSupplierExa(fixedLenderAddress, redeemer);
     }
 
     /**
@@ -509,14 +485,8 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaMaturityBorrowIndex(
-            block.number,
-            fixedLenderAddress
-        );
-        rewardsState.distributeMaturityBorrowerExa(
-            fixedLenderAddress,
-            borrower
-        );
+        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
