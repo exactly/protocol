@@ -17,16 +17,13 @@ import "./utils/Errors.sol";
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     using SafeERC20 for IERC20;
     using DecimalMath for uint256;
-    using PoolLib for PoolLib.MaturityPool;
 
-    mapping(uint256 => mapping(address => uint256)) public suppliedAmounts;
-    mapping(uint256 => mapping(address => uint256)) public borrowedAmounts;
-    mapping(uint256 => PoolLib.MaturityPool) public pools;
-    mapping(address => uint256[]) public addressPools;
+    mapping(uint256 => mapping(address => uint256)) public mpUserSuppliedAmount;
+    mapping(uint256 => mapping(address => uint256)) public mpUserBorrowedAmount;
+    mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
+    PoolLib.SmartPool public smartPool;
 
     uint256 private liquidationFee = 2.8e16; //2.8%
-
-    PoolLib.SmartPool public smartPool;
 
     IERC20 private trustedUnderlying;
     IEToken public override eToken;
@@ -36,12 +33,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     IInterestRateModel public interestRateModel;
 
     // Total deposits in all maturities
-    uint256 public override totalDeposits;
-    mapping(address => uint256) public override totalDepositsUser;
+    uint256 public override totalMpDeposits;
+    mapping(address => uint256) public override totalMpDepositsUser;
 
     // Total borrows in all maturities
-    uint256 public override totalBorrows;
-    mapping(address => uint256) public override totalBorrowsUser;
+    uint256 public override totalMpBorrows;
+    mapping(address => uint256) public override totalMpBorrowsUser;
 
     /**
      * @notice Event emitted when a user borrows amount of an asset from a
@@ -188,9 +185,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         auditor = IAuditor(_auditorAddress);
         eToken = IEToken(_eTokenAddress);
         interestRateModel = IInterestRateModel(_interestRateModelAddress);
-
-        smartPool.borrowed = 0;
-        smartPool.supplied = 0;
     }
 
     /**
@@ -210,7 +204,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         }
 
         auditor.requirePoolState(maturityDate, TSUtils.State.VALID);
-        PoolLib.MaturityPool memory pool = pools[maturityDate];
+        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
 
         pool.borrowed = pool.borrowed + amount;
         if (amount > pool.available) {
@@ -247,13 +241,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         );
 
         pool.borrowed = pool.borrowed + commission;
-        pools[maturityDate] = pool;
+        maturityPools[maturityDate] = pool;
 
         uint256 currentTotalBorrow = amount + commission;
-        borrowedAmounts[maturityDate][msg.sender] += currentTotalBorrow;
+        mpUserBorrowedAmount[maturityDate][msg.sender] += currentTotalBorrow;
 
-        totalBorrows += currentTotalBorrow;
-        totalBorrowsUser[msg.sender] += currentTotalBorrow;
+        totalMpBorrows += currentTotalBorrow;
+        totalMpBorrowsUser[msg.sender] += currentTotalBorrow;
 
         trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
 
@@ -280,7 +274,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        PoolLib.MaturityPool memory pool = pools[maturityDate];
+        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
 
         // reverts on failure
         auditor.beforeDepositMaturityPool(
@@ -303,7 +297,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             pool.available = pool.available + amount;
         }
 
-        pools[maturityDate] = pool;
+        maturityPools[maturityDate] = pool;
 
         uint256 commissionRate = interestRateModel.getRateToSupply(
             maturityDate,
@@ -312,10 +306,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         uint256 commission = amount.mul_(commissionRate);
         uint256 currentTotalDeposit = amount + commission;
-        suppliedAmounts[maturityDate][msg.sender] += currentTotalDeposit;
+        mpUserSuppliedAmount[maturityDate][msg.sender] += currentTotalDeposit;
 
-        totalDeposits += currentTotalDeposit;
-        totalDepositsUser[msg.sender] += currentTotalDeposit;
+        totalMpDeposits += currentTotalDeposit;
+        totalMpDepositsUser[msg.sender] += currentTotalDeposit;
 
         trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -345,16 +339,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         }
 
         // reverts on failure
-        auditor.redeemAllowed(
+        auditor.beforeWithdrawMaturityPool(
             address(this),
             redeemer,
             redeemAmount,
             maturityDate
         );
 
-        suppliedAmounts[maturityDate][redeemer] -= redeemAmount;
-        totalDeposits -= redeemAmount;
-        totalDepositsUser[redeemer] -= redeemAmount;
+        mpUserSuppliedAmount[maturityDate][redeemer] -= redeemAmount;
+        totalMpDeposits -= redeemAmount;
+        totalMpDepositsUser[redeemer] -= redeemAmount;
 
         require(
             trustedUnderlying.balanceOf(address(this)) >= redeemAmount,
@@ -382,28 +376,33 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         nonReentrant
     {
         // reverts on failure
-        auditor.repayAllowed(address(this), borrower);
+        auditor.beforeRepayMaturityPool(address(this), borrower);
 
         // the commission is included
-        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
+        uint256 amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
         (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
-
 
         trustedUnderlying.safeTransferFrom(
             msg.sender,
             address(this),
             amountOwed
         );
-        totalBorrows -= amountBorrowed;
-        totalBorrowsUser[borrower] -= amountBorrowed;
+        totalMpBorrows -= amountBorrowed;
+        totalMpBorrowsUser[borrower] -= amountBorrowed;
 
         uint256 penalty = amountOwed - amountBorrowed;
 
         eToken.accrueEarnings(penalty);
 
-        delete borrowedAmounts[maturityDate][borrower];
+        delete mpUserBorrowedAmount[maturityDate][borrower];
 
-        emit RepayToMaturityPool(msg.sender, borrower, penalty, amountBorrowed, maturityDate);
+        emit RepayToMaturityPool(
+            msg.sender,
+            borrower,
+            penalty,
+            amountBorrowed,
+            maturityDate
+        );
     }
 
     /**
@@ -522,14 +521,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        uint256 debt = borrowedAmounts[maturityDate][who];
+        uint256 debt = mpUserBorrowedAmount[maturityDate][who];
         uint256 daysDelayed = TSUtils.daysPast(maturityDate);
         if (daysDelayed > 0) {
             debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
         }
 
         return (
-            suppliedAmounts[maturityDate][who],
+            mpUserSuppliedAmount[maturityDate][who],
             debt
         );
     }
@@ -538,7 +537,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @dev Gets the total amount of borrowed money for a maturityDate
      * @param maturityDate maturity date
      */
-    function getTotalBorrows(uint256 maturityDate)
+    function getTotalMpBorrows(uint256 maturityDate)
         public
         view
         override
@@ -547,7 +546,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
-        return pools[maturityDate].borrowed;
+        return maturityPools[maturityDate].borrowed;
     }
 
     /**
@@ -559,11 +558,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
     /**
      * @notice This function allows to partially repay a position on liquidation
-     * @dev repay function on liquidation, it allows to partially pay debt, and it
-     *      doesn't check `repayAllowed` on the auditor. It should be called after
+     * @dev repay function on liquidation, it allows to partially pay debt and it
+     *      doesn't call `beforeRepayMaturityPool` on the auditor. It should be called after
      *      liquidateAllowed
-     * @param payer The address of the account that will pay the debt
-     * @param borrower The address of the account that has the debt
+     * @param payer the address of the account that will pay the debt
+     * @param borrower the address of the account that has the debt
      * @param repayAmount the amount of debt of the pool that should be paid
      * @param maturityDate the maturityDate to access the pool
      */
@@ -577,7 +576,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
 
-        uint256 amountBorrowed = borrowedAmounts[maturityDate][borrower];
+        uint256 amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
         (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
 
         // We calculate the amount of the debt this covers, paying proportionally
@@ -585,17 +584,22 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         // then amountBorrowed is what should be discounted to the users account
         uint256 debtCovered = (repayAmount * amountBorrowed) / amountOwed;
         eToken.accrueEarnings(repayAmount - debtCovered);
-        borrowedAmounts[maturityDate][borrower] = amountBorrowed - debtCovered;
+        mpUserBorrowedAmount[maturityDate][borrower] = amountBorrowed - debtCovered;
 
         // That repayment diminishes debt in the pool
-        PoolLib.MaturityPool memory pool = pools[maturityDate];
+        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
         pool.borrowed -= debtCovered;
-        pools[maturityDate] = pool;
+        maturityPools[maturityDate] = pool;
 
-        totalBorrows -= debtCovered;
-        totalBorrowsUser[borrower] -= debtCovered;
+        totalMpBorrows -= debtCovered;
+        totalMpBorrowsUser[borrower] -= debtCovered;
 
-        emit RepayToMaturityPoolLiquidate(payer, borrower, repayAmount, maturityDate);
+        emit RepayToMaturityPoolLiquidate(
+            payer,
+            borrower,
+            repayAmount,
+            maturityDate
+        );
     }
 
     /**
@@ -704,20 +708,19 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         uint256 protocolAmount = seizeAmount.mul_(liquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
 
-        suppliedAmounts[maturityDate][borrower] -= seizeAmount;
+        mpUserSuppliedAmount[maturityDate][borrower] -= seizeAmount;
 
         // That seize amount diminishes liquidity in the pool
-        PoolLib.MaturityPool memory pool = pools[maturityDate];
+        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
         pool.supplied -= seizeAmount;
-        pools[maturityDate] = pool;
+        maturityPools[maturityDate] = pool;
 
-        totalDeposits -= seizeAmount;
-        totalDepositsUser[borrower] -= seizeAmount;
+        totalMpDeposits -= seizeAmount;
+        totalMpDepositsUser[borrower] -= seizeAmount;
 
         trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
 
         emit SeizeAsset(liquidator, borrower, seizeAmount, maturityDate);
         emit AddReserves(address(this), protocolAmount);
     }
-
 }
