@@ -108,6 +108,38 @@ describe("Liquidations", function () {
           ]);
           await ethers.provider.send("evm_mine", []);
         });
+        describe("Alice is a sneaky gal and uses a flash loan to recover her penalty", () => {
+          describe("GIVEN a funded attacker contract and a flash-loaneable token", () => {
+            let attacker: Contract;
+            beforeEach(async () => {
+              const attackerFactory = await ethers.getContractFactory(
+                "FlashLoanAttacker"
+              );
+              attacker = await attackerFactory.deploy();
+              await attacker.deployed();
+              await dai.transfer(attacker.address, parseUnits("100000"));
+            });
+            describe("WHEN alice takes a flash loan to make a big SP deposit AND repays her debt", () => {
+              beforeEach(async () => {
+                await attacker.attack(fixedLenderDAI.address, nextPoolID);
+              });
+              it("THEN john collected the penalty fees for being in the smart pool on the 19K repay", async () => {
+                let johnBalanceEDAI = await exactlyEnv
+                  .getEToken("DAI")
+                  .balanceOf(john.address);
+
+                // penalty is 2% * 20 days = 0.02*20 = 0.4
+                // 39900*0.4 = 15960.0
+                const earnings = parseUnits("15960");
+
+                // John initial balance on the smart pool was 10000
+                expect(johnBalanceEDAI).to.equal(
+                  parseUnits("10000").add(earnings)
+                );
+              });
+            });
+          });
+        });
         describe("AND the liquidation incentive is increased to 15%", () => {
           beforeEach(async () => {
             await auditor.setLiquidationIncentive(parseUnits("1.15"));
