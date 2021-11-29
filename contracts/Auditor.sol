@@ -189,7 +189,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        _beforeWithdrawMaturityPool(
+        _beforeWithdrawMP(
             fixedLenderAddress,
             msg.sender,
             amountHeld,
@@ -341,7 +341,7 @@ contract Auditor is IAuditor, AccessControl {
      *                           it's smart pool
      * @param supplier address of the user that will supply money to the smart pool
      */
-    function beforeSupplySmartPool(address fixedLenderAddress, address supplier)
+    function beforeSupplySP(address fixedLenderAddress, address supplier)
         external
         override
     {
@@ -361,10 +361,10 @@ contract Auditor is IAuditor, AccessControl {
      *                           it's smart pool
      * @param supplier address of the user that will withdraw money from the smart pool
      */
-    function beforeWithdrawSmartPool(
-        address fixedLenderAddress,
-        address supplier
-    ) external override {
+    function beforeWithdrawSP(address fixedLenderAddress, address supplier)
+        external
+        override
+    {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -382,7 +382,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to supply money. It should
      *                     be in a VALID state (meaning that is not in the distant future, nor matured)
      */
-    function beforeDepositMaturityPool(
+    function beforeDepositMP(
         address fixedLenderAddress,
         address supplier,
         uint256 maturityDate
@@ -407,7 +407,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to borrow money. It should
      *                     be in a VALID state (meaning that is not in the distant future, nor matured)
      */
-    function beforeBorrowMaturityPool(
+    function beforeBorrowMP(
         address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,
@@ -453,13 +453,13 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
      *                     be in a MATURED state (meaning that the date is VALID + MATURED)
      */
-    function beforeWithdrawMaturityPool(
+    function beforeWithdrawMP(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
     ) external override {
-        _beforeWithdrawMaturityPool(
+        _beforeWithdrawMP(
             fixedLenderAddress,
             redeemer,
             redeemAmount,
@@ -477,10 +477,10 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenderAddress address of the fixedLender that will collect money in a maturity
      * @param borrower address of the user that wants to repay its debt
      */
-    function beforeRepayMaturityPool(
-        address fixedLenderAddress,
-        address borrower
-    ) external override {
+    function beforeRepayMP(address fixedLenderAddress, address borrower)
+        external
+        override
+    {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
@@ -747,7 +747,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
      *                     be in a MATURED state (meaning that the date is VALID + MATURED)
      */
-    function _beforeWithdrawMaturityPool(
+    function _beforeWithdrawMP(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemAmount,

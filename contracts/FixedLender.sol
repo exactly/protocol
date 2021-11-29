@@ -233,7 +233,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         uint256 commission = amount.mul_(commissionRate);
         uint256 totalBorrow = amount + commission;
         // reverts on failure
-        auditor.beforeBorrowMaturityPool(
+        auditor.beforeBorrowMP(
             address(this),
             msg.sender,
             totalBorrow,
@@ -277,11 +277,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
 
         // reverts on failure
-        auditor.beforeDepositMaturityPool(
-            address(this),
-            msg.sender,
-            maturityDate
-        );
+        auditor.beforeDepositMP(address(this), msg.sender, maturityDate);
 
         if (pool.debt > 0) {
             if (amount >= pool.debt) {
@@ -339,7 +335,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         }
 
         // reverts on failure
-        auditor.beforeWithdrawMaturityPool(
+        auditor.beforeWithdrawMP(
             address(this),
             redeemer,
             redeemAmount,
@@ -376,7 +372,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         nonReentrant
     {
         // reverts on failure
-        auditor.beforeRepayMaturityPool(address(this), borrower);
+        auditor.beforeRepayMP(address(this), borrower);
 
         // the commission is included
         uint256 amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
@@ -455,7 +451,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount The amount to be deposited
      */
     function depositToSmartPool(uint256 amount) external override {
-        auditor.beforeSupplySmartPool(address(this), msg.sender);
+        auditor.beforeSupplySP(address(this), msg.sender);
 
         trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -472,7 +468,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      */
     function withdrawFromSmartPool(uint256 amount) external override {
-        auditor.beforeWithdrawSmartPool(address(this), msg.sender);
+        auditor.beforeWithdrawSP(address(this), msg.sender);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
@@ -556,7 +552,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     /**
      * @notice This function allows to partially repay a position on liquidation
      * @dev repay function on liquidation, it allows to partially pay debt and it
-     *      doesn't call `beforeRepayMaturityPool` on the auditor. It should be called after
+     *      doesn't call `beforeRepayMP` on the auditor. It should be called after
      *      liquidateAllowed
      * @param payer the address of the account that will pay the debt
      * @param borrower the address of the account that has the debt

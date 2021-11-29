@@ -3,38 +3,34 @@ pragma solidity ^0.8.4;
 import "../utils/TSUtils.sol";
 
 interface IAuditor {
-    function beforeSupplySmartPool(address fixedLenderAddress, address supplier)
+    function beforeSupplySP(address fixedLenderAddress, address supplier)
         external;
 
-    function beforeWithdrawSmartPool(
-        address fixedLenderAddress,
-        address supplier
-    ) external;
+    function beforeWithdrawSP(address fixedLenderAddress, address supplier)
+        external;
 
-    function beforeDepositMaturityPool(
+    function beforeDepositMP(
         address fixedLenderAddress,
         address borrower,
         uint256 maturityDate
     ) external;
 
-    function beforeBorrowMaturityPool(
+    function beforeBorrowMP(
         address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,
         uint256 maturityDate
     ) external;
 
-    function beforeWithdrawMaturityPool(
+    function beforeWithdrawMP(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
     ) external;
 
-    function beforeRepayMaturityPool(
-        address fixedLenderAddress,
-        address borrower
-    ) external;
+    function beforeRepayMP(address fixedLenderAddress, address borrower)
+        external;
 
     function getAccountLiquidity(address account, uint256 maturityDate)
         external
