@@ -868,7 +868,7 @@ describe("FixedLender", function () {
     );
   });
 
-  describe.only("Transfers with Commissions", () => {
+  describe("Transfers with Commissions", () => {
     describe("GIVEN an underlying token with 10% comission", () => {
       beforeEach(async () => {
         await underlyingToken.setCommission(parseUnits("0.1"));
@@ -926,6 +926,35 @@ describe("FixedLender", function () {
                 .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
             )[1];
             expect(borrowed).to.eq(0);
+          });
+        });
+
+        describe("AND trying to repay 1100 (too much)", () => {
+          const amountBorrow = parseUnits("900");
+          const amountToTransfer = parseUnits("1100");
+          let tx: any;
+          beforeEach(async () => {
+            await fixedLender
+              .connect(johnUser)
+              .borrowFromMaturityPool(amountBorrow, exaTime.nextPoolID());
+
+            await underlyingToken
+              .connect(johnUser)
+              .approve(fixedLender.address, amountToTransfer);
+
+            tx = fixedLender
+              .connect(johnUser)
+              .repayToMaturityPool(
+                johnUser.address,
+                exaTime.nextPoolID(),
+                amountToTransfer
+              );
+          });
+
+          it("THEN the transaction is reverted TOO_MUCH_REPAY_TRANSFER", async () => {
+            await expect(tx).to.be.revertedWith(
+              errorGeneric(ProtocolError.TOO_MUCH_REPAY_TRANSFER)
+            );
           });
         });
       });

@@ -696,9 +696,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         // Calculate the amount that was *actually* transferred
         uint balanceAfter = trustedUnderlying.balanceOf(address(this));
-        if (balanceAfter < balanceBefore) {
-            revert GenericError(ErrorCode.TRANSFER_IN_OVERFLOW);
-        }
         return balanceAfter - balanceBefore;
     }
 
