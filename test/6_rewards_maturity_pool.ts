@@ -277,9 +277,7 @@ describe("ExaToken", () => {
         parseUnits("0.5")
       );
       await auditorHarness.setBlockNumber(blocksDelta);
-      await auditorHarness.updateExaMPBorrowIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaMPBorrowIndex(fixedLenderHarness.address);
       const [newIndex] = await auditorHarness.getBorrowState(
         fixedLenderHarness.address
       );
@@ -305,9 +303,7 @@ describe("ExaToken", () => {
         parseUnits("0.5")
       );
       await fixedLenderHarness.setTotalMpBorrows(parseUnits("10000"));
-      await auditorHarness.updateExaMPBorrowIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaMPBorrowIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getBorrowState(
         fixedLenderHarness.address
@@ -326,9 +322,7 @@ describe("ExaToken", () => {
       await auditorHarness.setBlockNumber(100);
       await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
       await fixedLenderHarness.setTotalMpBorrows(parseUnits("10000"));
-      await auditorHarness.updateExaMPBorrowIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaMPBorrowIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getBorrowState(
         fixedLenderHarness.address
@@ -359,9 +353,7 @@ describe("ExaToken", () => {
       );
       await auditorHarness.setBlockNumber(blocksDelta);
       await fixedLenderHarness.setTotalMpDeposits(amountSupplyWithCommission);
-      await auditorHarness.updateExaMPSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaMPSupplyIndex(fixedLenderHarness.address);
       const [newIndex] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address
       );
@@ -387,9 +379,7 @@ describe("ExaToken", () => {
         parseUnits("0.5")
       );
       await fixedLenderHarness.setTotalMpDeposits(parseUnits("10000"));
-      await auditorHarness.updateExaMPSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaMPSupplyIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address
@@ -408,9 +398,7 @@ describe("ExaToken", () => {
       await auditorHarness.setBlockNumber(100);
       await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
       await fixedLenderHarness.setTotalMpDeposits(parseUnits("10000"));
-      await auditorHarness.updateExaMPSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaMPSupplyIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address

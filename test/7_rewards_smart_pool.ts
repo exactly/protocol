@@ -147,9 +147,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         amountToDeposit
       );
-      await auditorHarness.updateExaSPSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
       const [newIndex] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
       );
@@ -173,9 +171,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("10000")
       );
-      await auditorHarness.updateExaSPSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
@@ -197,9 +193,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("10000")
       );
-      await auditorHarness.updateExaSPSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
