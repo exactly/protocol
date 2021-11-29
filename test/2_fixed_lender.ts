@@ -868,6 +868,91 @@ describe("FixedLender", function () {
     );
   });
 
+  describe.only("Transfers with Commissions", () => {
+    describe("GIVEN an underlying token with 10% comission", () => {
+      beforeEach(async () => {
+        await underlyingToken.setCommission(parseUnits("0.1"));
+        await underlyingToken.transfer(johnUser.address, parseUnits("10000"));
+      });
+
+      describe("WHEN depositing 2000 DAI on a maturity pool", () => {
+        const amount = parseUnits("2000");
+
+        beforeEach(async () => {
+          await underlyingToken
+            .connect(johnUser)
+            .approve(fixedLender.address, amount);
+          await fixedLender
+            .connect(johnUser)
+            .depositToMaturityPool(amount, exaTime.nextPoolID());
+        });
+
+        it("THEN the user receives 1800 on smart pool deposit", async () => {
+          const supplied = (
+            await fixedLender
+              .connect(johnUser)
+              .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
+          )[0];
+          expect(supplied).to.eq(
+            amount.mul(parseUnits("0.9")).div(parseUnits("1"))
+          );
+        });
+
+        describe("AND borrowing 900 DAI on a maturity pool and repaying with 10% commission", () => {
+          const amountBorrow = parseUnits("900");
+          const amountToTransfer = parseUnits("1000");
+          beforeEach(async () => {
+            await fixedLender
+              .connect(johnUser)
+              .borrowFromMaturityPool(amountBorrow, exaTime.nextPoolID());
+
+            await underlyingToken
+              .connect(johnUser)
+              .approve(fixedLender.address, amountToTransfer);
+
+            await fixedLender
+              .connect(johnUser)
+              .repayToMaturityPool(
+                johnUser.address,
+                exaTime.nextPoolID(),
+                amountToTransfer
+              );
+          });
+
+          it("THEN the user cancel its debt", async () => {
+            const borrowed = (
+              await fixedLender
+                .connect(johnUser.address)
+                .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
+            )[1];
+            expect(borrowed).to.eq(0);
+          });
+        });
+      });
+
+      describe("WHEN depositing 1000 DAI on a smart pool", () => {
+        const amount = parseUnits("1000");
+
+        beforeEach(async () => {
+          await underlyingToken
+            .connect(johnUser)
+            .approve(fixedLender.address, amount);
+          await fixedLender.connect(johnUser).depositToSmartPool(amount);
+        });
+
+        it("THEN the user receives 900 on smart pool deposit", async () => {
+          const supplied = await exactlyEnv
+            .getEToken("DAI")
+            .connect(johnUser)
+            .balanceOf(johnUser.address);
+          expect(supplied).to.eq(
+            amount.mul(parseUnits("0.9")).div(parseUnits("1"))
+          );
+        });
+      });
+    });
+  });
+
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
