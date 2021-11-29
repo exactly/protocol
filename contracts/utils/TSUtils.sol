@@ -33,13 +33,17 @@ library TSUtils {
 
     /**
      * @notice Function to return a pool _time_ state based on the current time,
-     *         maxPools available, and the INTERVALS configured, all to return 
+     *         maxPools available, and the INTERVALS configured, all to return
      *         if a pool is VALID, not yet available(NOT_READY), INVALID or MATURED
      * @param currentTimestamp timestamp of the current time
      * @param timestamp used as POOLID
      * @param maxPools number of pools available in the time horizon to be available
      */
-    function getPoolState(uint256 currentTimestamp, uint256 timestamp, uint8 maxPools) public pure returns (State) {
+    function getPoolState(
+        uint256 currentTimestamp,
+        uint256 timestamp,
+        uint8 maxPools
+    ) public pure returns (State) {
         if (timestamp % INTERVAL != 0) {
             return State.INVALID;
         }
@@ -49,7 +53,12 @@ library TSUtils {
         }
 
         uint256 totalSecondsForEnabledPools = INTERVAL * maxPools;
-        if (timestamp > currentTimestamp - (currentTimestamp % INTERVAL) + totalSecondsForEnabledPools) {
+        if (
+            timestamp >
+            currentTimestamp -
+                (currentTimestamp % INTERVAL) +
+                totalSecondsForEnabledPools
+        ) {
             return State.NOT_READY;
         }
 
@@ -66,16 +75,20 @@ library TSUtils {
     }
 
     /**
-     * @notice Function to return all the future pool IDs give in a certain time horizon that 
+     * @notice Function to return all the future pool IDs give in a certain time horizon that
      *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
      *         configured in this library
      * @param startingTimestamp initialTimestamp to start calculating poolIDs
      * @param maxPools number of pools to return
      */
-    function futurePools(uint256 startingTimestamp, uint8 maxPools) public pure returns (uint256[] memory) {
+    function futurePools(uint256 startingTimestamp, uint8 maxPools)
+        public
+        pure
+        returns (uint256[] memory)
+    {
         uint256[] memory poolIDs = new uint256[](maxPools);
         uint256 timestamp = startingTimestamp - (startingTimestamp % INTERVAL);
-        for (uint256 i=0; i < maxPools; i++) {
+        for (uint256 i = 0; i < maxPools; i++) {
             timestamp += INTERVAL;
             poolIDs[i] = timestamp;
         }

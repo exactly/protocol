@@ -5,9 +5,11 @@ import "../EToken.sol";
 
 // mock class using EToken
 contract ETokenHarness is EToken {
-    constructor(string memory name, string memory symbol, uint8 decimals)
-        EToken(name, symbol, decimals)
-    {}
+    constructor(
+        string memory name,
+        string memory symbol,
+        uint8 decimals
+    ) EToken(name, symbol, decimals) {}
 
     function callInternalTransfer(
         address from,

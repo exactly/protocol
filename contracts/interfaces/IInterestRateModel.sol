@@ -17,5 +17,4 @@ interface IInterestRateModel {
     ) external view returns (uint256);
 
     function penaltyRate() external view returns (uint256);
-
 }

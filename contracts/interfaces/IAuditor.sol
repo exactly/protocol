@@ -3,10 +3,8 @@ pragma solidity ^0.8.4;
 import "../utils/TSUtils.sol";
 
 interface IAuditor {
-    function beforeSupplySmartPool(
-        address fixedLenderAddress,
-        address supplier
-    ) external;
+    function beforeSupplySmartPool(address fixedLenderAddress, address supplier)
+        external;
 
     function beforeWithdrawSmartPool(
         address fixedLenderAddress,
@@ -38,17 +36,17 @@ interface IAuditor {
         address borrower
     ) external;
 
-    function getAccountLiquidity(
-        address account,
-        uint256 maturityDate
-    ) external view returns (uint256, uint256);
+    function getAccountLiquidity(address account, uint256 maturityDate)
+        external
+        view
+        returns (uint256, uint256);
 
     function liquidateAllowed(
         address fixedLenderBorrowed,
         address fixedLenderCollateral,
         address liquidator,
         address borrower,
-        uint256 repayAmount, 
+        uint256 repayAmount,
         uint256 maturityDate
     ) external view;
 
@@ -66,8 +64,10 @@ interface IAuditor {
     ) external view returns (uint256);
 
     function getFuturePools() external view returns (uint256[] memory);
+
     function getMarketAddresses() external view returns (address[] memory);
 
-    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external view;
-
+    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState)
+        external
+        view;
 }

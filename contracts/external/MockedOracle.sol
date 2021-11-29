@@ -5,19 +5,22 @@ import "../interfaces/IOracle.sol";
 import "../utils/Errors.sol";
 
 contract MockedOracle is IOracle {
+    mapping(string => uint256) public prices;
 
-  mapping(string => uint256) public prices;
-
-  function setPrice(string memory symbol, uint256 value) public {
-      prices[symbol] = value;
-  }
-    
-  function getAssetPrice(string memory symbol) override public view returns (uint256) {
-    if (prices[symbol] > 0) {
-      return prices[symbol];
-    } else {
-      revert GenericError(ErrorCode.PRICE_ERROR);
+    function setPrice(string memory symbol, uint256 value) public {
+        prices[symbol] = value;
     }
-  }
 
+    function getAssetPrice(string memory symbol)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        if (prices[symbol] > 0) {
+            return prices[symbol];
+        } else {
+            revert GenericError(ErrorCode.PRICE_ERROR);
+        }
+    }
 }

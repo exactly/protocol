@@ -4,7 +4,6 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 library PoolLib {
-
     struct MaturityPool {
         uint256 borrowed;
         uint256 supplied;

@@ -23,16 +23,28 @@ library DecimalMath {
     function div_(uint256 a, uint256 b) internal pure returns (uint256) {
         return (a * NUMBER_SCALE) / b;
     }
-    
-    function add_(Double memory a, Double memory b) internal pure returns (Double memory) {
+
+    function add_(Double memory a, Double memory b)
+        internal
+        pure
+        returns (Double memory)
+    {
         return Double({value: a.value + b.value});
     }
 
-    function sub_(Double memory a, Double memory b) internal pure returns (Double memory) {
+    function sub_(Double memory a, Double memory b)
+        internal
+        pure
+        returns (Double memory)
+    {
         return Double({value: a.value - b.value});
     }
 
-    function fraction(uint256 a, uint256 b) internal pure returns (Double memory) {
+    function fraction(uint256 a, uint256 b)
+        internal
+        pure
+        returns (Double memory)
+    {
         return Double({value: ((a * DOUBLE_SCALE) / b)});
     }
 
@@ -50,7 +62,8 @@ library DecimalMath {
         uint8 underlyingDecimals
     ) internal pure returns (uint256) {
         uint256 tokenScale = 10**underlyingDecimals;
-        uint256 normalizedTokenAmount = (tokenAmount * NUMBER_SCALE) / tokenScale;
+        uint256 normalizedTokenAmount = (tokenAmount * NUMBER_SCALE) /
+            tokenScale;
         return (normalizedTokenAmount * oraclePrice) / NUMBER_SCALE;
     }
 
@@ -67,6 +80,8 @@ library DecimalMath {
         uint256 oraclePrice,
         uint8 tokenDecimals
     ) internal pure returns (uint256) {
-        return (((usdAmount * NUMBER_SCALE) / oraclePrice) * 10**tokenDecimals) / NUMBER_SCALE;
+        return
+            (((usdAmount * NUMBER_SCALE) / oraclePrice) * 10**tokenDecimals) /
+            NUMBER_SCALE;
     }
 }
