@@ -31,7 +31,11 @@ contract EToken is IEToken, AccessControl {
         _;
     }
 
-    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        uint8 _decimals
+    ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
         name = _name;
@@ -45,7 +49,11 @@ contract EToken is IEToken, AccessControl {
      * @param user The address receiving the minted tokens
      * @param amount The amount of tokens getting minted
      */
-    function mint(address user, uint256 amount) external override onlyFixedLender {
+    function mint(address user, uint256 amount)
+        external
+        override
+        onlyFixedLender
+    {
         require(user != address(0), "ERC20: mint to the zero address");
 
         uint256 scaledBalance = amount;
@@ -76,9 +84,16 @@ contract EToken is IEToken, AccessControl {
      * @param user The owner of the eTokens, getting them burned
      * @param amount The amount being burned
      */
-    function burn(address user, uint256 amount) external override onlyFixedLender {
+    function burn(address user, uint256 amount)
+        external
+        override
+        onlyFixedLender
+    {
         require(user != address(0), "ERC20: burn from the zero address");
-        require(balanceOf(user) >= amount, "ERC20: burn amount exceeds balance");
+        require(
+            balanceOf(user) >= amount,
+            "ERC20: burn amount exceeds balance"
+        );
 
         uint256 scaledWithdrawAmount = (amount * totalScaledBalance) /
             totalSupply;
@@ -113,7 +128,12 @@ contract EToken is IEToken, AccessControl {
      * @param amount The amount of tokens being transferred
      * @return `true` if the transfer succeeds, reverts otherwise
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount)
+        public
+        virtual
+        override
+        returns (bool)
+    {
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -133,7 +153,10 @@ contract EToken is IEToken, AccessControl {
         _transfer(sender, recipient, amount);
 
         uint256 currentAllowance = _allowances[sender][msg.sender];
-        require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
+        require(
+            currentAllowance >= amount,
+            "ERC20: transfer amount exceeds allowance"
+        );
         unchecked {
             _approve(sender, msg.sender, currentAllowance - amount);
         }
@@ -243,11 +266,18 @@ contract EToken is IEToken, AccessControl {
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
         uint256 senderBalance = balanceOf(sender);
-        require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+        require(
+            senderBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
 
         uint256 senderRemainingBalance = senderBalance - amount;
-        userScaledBalance[sender] = (senderRemainingBalance * totalScaledBalance) / totalSupply;
-        userScaledBalance[recipient] = ((balanceOf(recipient) + amount) * totalScaledBalance) / totalSupply;
+        userScaledBalance[sender] =
+            (senderRemainingBalance * totalScaledBalance) /
+            totalSupply;
+        userScaledBalance[recipient] =
+            ((balanceOf(recipient) + amount) * totalScaledBalance) /
+            totalSupply;
 
         emit Transfer(sender, recipient, amount);
     }
@@ -269,5 +299,4 @@ contract EToken is IEToken, AccessControl {
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
     }
-
 }

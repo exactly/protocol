@@ -22,7 +22,7 @@ contract Auditor is IAuditor, AccessControl {
     MarketsLib.Book private book;
 
     uint256 public closeFactor = 5e17;
-    uint256 public liquidationIncentive = 1e18+1e17;
+    uint256 public liquidationIncentive = 1e18 + 1e17;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
 
@@ -100,42 +100,42 @@ contract Auditor is IAuditor, AccessControl {
      * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool supplier
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param supplier address of the supplier that have received rewards in a given lender space
-     * @param supplierDelta delta blocks that have been processed
-     * @param exaSupplyIndex index of the given market that was used to update user rewards
+     * @param mpSupplierDelta delta blocks that have been processed
+     * @param exaMPSupplyIndex index of the given market that was used to update user rewards
      */
-    event DistributedMaturitySupplierExa(
+    event DistributedMPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint256 supplierDelta,
-        uint256 exaSupplyIndex
+        uint256 mpSupplierDelta,
+        uint256 exaMPSupplyIndex
     );
 
     /**
      * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool borrower
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param borrower address of the borrower that have received rewards in a given fixedLender space
-     * @param borrowerDelta delta blocks that have been processed
-     * @param exaSupplyIndex index of the given market that was used to update user rewards
+     * @param mpBorrowerDelta delta blocks that have been processed
+     * @param exaMPBorrowIndex index of the given market that was used to update user rewards
      */
-    event DistributedMaturityBorrowerExa(
+    event DistributedMPBorrowerExa(
         address indexed fixedLender,
         address indexed borrower,
-        uint256 borrowerDelta,
-        uint256 exaSupplyIndex
+        uint256 mpBorrowerDelta,
+        uint256 exaMPBorrowIndex
     );
 
     /**
      * @notice Event emitted each time EXA has been distributed to a certain user as a smart pool supplier
      * @param fixedLender address of the fixed lender market in which a user has received rewards
      * @param supplier address of the supplier that have received rewards in a given lender space
-     * @param smartSupplierDelta delta blocks that have been processed
-     * @param smartPoolIndex index of the given market that was used to update user rewards
+     * @param spSupplierDelta delta blocks that have been processed
+     * @param exaSPSupplyIndex index of the given market that was used to update user rewards
      */
-    event DistributedSmartSupplierExa(
+    event DistributedSPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint256 smartSupplierDelta,
-        uint256 smartPoolIndex
+        uint256 spSupplierDelta,
+        uint256 exaSPSupplyIndex
     );
 
     constructor(address _priceOracleAddress, address _exaToken) {
@@ -189,7 +189,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        _beforeWithdrawMaturityPool(
+        _beforeWithdrawMP(
             fixedLenderAddress,
             msg.sender,
             amountHeld,
@@ -203,7 +203,10 @@ contract Auditor is IAuditor, AccessControl {
      * @dev Function to set Oracle's to be used
      * @param _priceOracleAddress address of the new oracle
      */
-    function setOracle(address _priceOracleAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setOracle(address _priceOracleAddress)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         oracle = IOracle(_priceOracleAddress);
         emit OracleChanged(_priceOracleAddress);
     }
@@ -234,8 +237,11 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         if (
-            rewardsState.setExaSpeed(block.number, fixedLenderAddress, exaSpeed) ==
-            true
+            rewardsState.setExaSpeed(
+                block.number,
+                fixedLenderAddress,
+                exaSpeed
+            ) == true
         ) {
             emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
         }
@@ -335,7 +341,7 @@ contract Auditor is IAuditor, AccessControl {
      *                           it's smart pool
      * @param supplier address of the user that will supply money to the smart pool
      */
-    function beforeSupplySmartPool(address fixedLenderAddress, address supplier)
+    function beforeSupplySP(address fixedLenderAddress, address supplier)
         external
         override
     {
@@ -343,8 +349,8 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaSmartSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
+        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -355,16 +361,16 @@ contract Auditor is IAuditor, AccessControl {
      *                           it's smart pool
      * @param supplier address of the user that will withdraw money from the smart pool
      */
-    function beforeWithdrawSmartPool(
-        address fixedLenderAddress,
-        address supplier
-    ) external override {
+    function beforeWithdrawSP(address fixedLenderAddress, address supplier)
+        external
+        override
+    {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaSmartSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
+        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -376,7 +382,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to supply money. It should
      *                     be in a VALID state (meaning that is not in the distant future, nor matured)
      */
-    function beforeDepositMaturityPool(
+    function beforeDepositMP(
         address fixedLenderAddress,
         address supplier,
         uint256 maturityDate
@@ -387,8 +393,8 @@ contract Auditor is IAuditor, AccessControl {
 
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
-        rewardsState.updateExaMaturitySupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, supplier);
+        rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -401,7 +407,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to borrow money. It should
      *                     be in a VALID state (meaning that is not in the distant future, nor matured)
      */
-    function beforeBorrowMaturityPool(
+    function beforeBorrowMP(
         address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,
@@ -433,8 +439,8 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
 
-        rewardsState.updateExaMaturityBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
+        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
@@ -447,21 +453,21 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
      *                     be in a MATURED state (meaning that the date is VALID + MATURED)
      */
-    function beforeWithdrawMaturityPool(
+    function beforeWithdrawMP(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
     ) external override {
-        _beforeWithdrawMaturityPool(
+        _beforeWithdrawMP(
             fixedLenderAddress,
             redeemer,
             redeemAmount,
             maturityDate
         );
 
-        rewardsState.updateExaMaturitySupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, redeemer);
+        rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPSupplierExa(fixedLenderAddress, redeemer);
     }
 
     /**
@@ -471,7 +477,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenderAddress address of the fixedLender that will collect money in a maturity
      * @param borrower address of the user that wants to repay its debt
      */
-    function beforeRepayMaturityPool(address fixedLenderAddress, address borrower)
+    function beforeRepayMP(address fixedLenderAddress, address borrower)
         external
         override
     {
@@ -479,8 +485,8 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        rewardsState.updateExaMaturityBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
+        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
@@ -518,7 +524,14 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) = book.accountLiquidity(oracle, borrower, maturityDate, address(0), 0, 0);
+        (, uint256 shortfall) = book.accountLiquidity(
+            oracle,
+            borrower,
+            maturityDate,
+            address(0),
+            0,
+            0
+        );
 
         if (shortfall == 0) {
             revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
@@ -734,7 +747,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
      *                     be in a MATURED state (meaning that the date is VALID + MATURED)
      */
-    function _beforeWithdrawMaturityPool(
+    function _beforeWithdrawMP(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemAmount,

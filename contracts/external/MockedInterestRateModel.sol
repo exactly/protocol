@@ -9,24 +9,25 @@ import "../utils/DecimalMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract MockedInterestRateModel is IInterestRateModel {
-
     uint256 public supplyRate;
     uint256 public borrowRate;
     uint256 public override penaltyRate;
 
     function getRateToBorrow(
-        uint256 ,
-        PoolLib.MaturityPool memory ,
-        PoolLib.SmartPool memory ,
-        bool 
+        uint256,
+        PoolLib.MaturityPool memory,
+        PoolLib.SmartPool memory,
+        bool
     ) external view override returns (uint256) {
         return borrowRate;
     }
 
-    function getRateToSupply(
-        uint256 ,
-        PoolLib.MaturityPool memory 
-    ) external view override returns (uint256) {
+    function getRateToSupply(uint256, PoolLib.MaturityPool memory)
+        external
+        view
+        override
+        returns (uint256)
+    {
         return supplyRate;
     }
 
@@ -41,5 +42,4 @@ contract MockedInterestRateModel is IInterestRateModel {
     function setPenaltyRate(uint256 newRate) public {
         penaltyRate = newRate;
     }
-
 }

@@ -3,52 +3,46 @@ pragma solidity ^0.8.4;
 import "../utils/TSUtils.sol";
 
 interface IAuditor {
-    function beforeSupplySmartPool(
-        address fixedLenderAddress,
-        address supplier
-    ) external;
+    function beforeSupplySP(address fixedLenderAddress, address supplier)
+        external;
 
-    function beforeWithdrawSmartPool(
-        address fixedLenderAddress,
-        address supplier
-    ) external;
+    function beforeWithdrawSP(address fixedLenderAddress, address supplier)
+        external;
 
-    function beforeDepositMaturityPool(
+    function beforeDepositMP(
         address fixedLenderAddress,
         address borrower,
         uint256 maturityDate
     ) external;
 
-    function beforeBorrowMaturityPool(
+    function beforeBorrowMP(
         address fixedLenderAddress,
         address borrower,
         uint256 borrowAmount,
         uint256 maturityDate
     ) external;
 
-    function beforeWithdrawMaturityPool(
+    function beforeWithdrawMP(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemTokens,
         uint256 maturityDate
     ) external;
 
-    function beforeRepayMaturityPool(
-        address fixedLenderAddress,
-        address borrower
-    ) external;
+    function beforeRepayMP(address fixedLenderAddress, address borrower)
+        external;
 
-    function getAccountLiquidity(
-        address account,
-        uint256 maturityDate
-    ) external view returns (uint256, uint256);
+    function getAccountLiquidity(address account, uint256 maturityDate)
+        external
+        view
+        returns (uint256, uint256);
 
     function liquidateAllowed(
         address fixedLenderBorrowed,
         address fixedLenderCollateral,
         address liquidator,
         address borrower,
-        uint256 repayAmount, 
+        uint256 repayAmount,
         uint256 maturityDate
     ) external view;
 
@@ -66,8 +60,10 @@ interface IAuditor {
     ) external view returns (uint256);
 
     function getFuturePools() external view returns (uint256[] memory);
+
     function getMarketAddresses() external view returns (address[] memory);
 
-    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState) external view;
-
+    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState)
+        external
+        view;
 }

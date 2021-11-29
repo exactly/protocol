@@ -24,7 +24,7 @@ In this case, the user is trying to borrow DAI from the appropiate FixedLender c
     user -> EXADAI: borrow(100, poolId)
     EXADAI -> EXADAI: pools(poolId)
     EXADAI <-- EXADAI: pool
-    EXADAI -> Auditor: beforeBorrowMaturityPool(EXADAI.address, user.address, 100, poolId)
+    EXADAI -> Auditor: beforeBorrowMP(EXADAI.address, user.address, 100, poolId)
     EXADAI -> InterestRateModel: getRateToBorrow(100, poolId, pool, pool)
     note right: the last parameter should be the pot
     EXADAI <-- InterestRateModel: 10
@@ -53,7 +53,7 @@ Now, let's see the more complex call:
     participant Auditor
     participant Oracle
 
-    FixedLender -> Auditor: beforeBorrowMaturityPool(FixedLender.address, user.address, amount, poolId)
+    FixedLender -> Auditor: beforeBorrowMP(FixedLender.address, user.address, amount, poolId)
 
     loop every enabled FixedLender
     Auditor -> FixedLender: getAccountSnapshot(user.address, poolId)

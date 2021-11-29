@@ -94,16 +94,16 @@ describe("ExaToken Smart Pool", () => {
         expect(balanceUserPost).to.not.equal(0);
       });
 
-      it("should emit DistributedSmartSupplierExa event when depositing to smart pool", async () => {
+      it("should emit DistributedSPSupplierExa event when depositing to smart pool", async () => {
         const underlyingAmount = parseUnits("100");
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
 
         await expect(
           fixedLenderDAI.depositToSmartPool(underlyingAmount)
-        ).to.emit(auditor, "DistributedSmartSupplierExa");
+        ).to.emit(auditor, "DistributedSPSupplierExa");
       });
 
-      it("should DistributedSmartSupplierExa when withdrawing from smart pool", async () => {
+      it("should DistributedSPSupplierExa when withdrawing from smart pool", async () => {
         // connect through Maria
         let fixedLenderMaria = fixedLenderDAI.connect(mariaUser);
         let underlyingTokenUser = dai.connect(mariaUser);
@@ -118,12 +118,12 @@ describe("ExaToken Smart Pool", () => {
 
         await expect(
           fixedLenderMaria.withdrawFromSmartPool(ethers.constants.MaxUint256)
-        ).to.emit(auditor, "DistributedSmartSupplierExa");
+        ).to.emit(auditor, "DistributedSPSupplierExa");
       });
     });
   });
 
-  describe("updateExaSmartSupplyIndex", () => {
+  describe("updateExaSPSupplyIndex", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
 
@@ -147,9 +147,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         amountToDeposit
       );
-      await auditorHarness.updateExaSmartSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
       const [newIndex] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
       );
@@ -173,9 +171,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("10000")
       );
-      await auditorHarness.updateExaSmartSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
@@ -197,9 +193,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("10000")
       );
-      await auditorHarness.updateExaSmartSupplyIndex(
-        fixedLenderHarness.address
-      );
+      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getSmartSupplyState(
         fixedLenderHarness.address
@@ -209,7 +203,7 @@ describe("ExaToken Smart Pool", () => {
     });
   });
 
-  describe("distributeSmartSupplierExa", () => {
+  describe("distributeSPSupplierExa", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
     let exaToken: Contract;
@@ -226,7 +220,7 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaSmartSupplyState(
+      await auditorHarness.setExaSPSupplyState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
@@ -240,7 +234,7 @@ describe("ExaToken Smart Pool", () => {
       expect(accrued).to.equal(0);
       expect(balance).to.equal(parseUnits("25"));
       expect(tx)
-        .to.emit(auditorHarness, "DistributedSmartSupplierExa")
+        .to.emit(auditorHarness, "DistributedSPSupplierExa")
         .withArgs(
           fixedLenderHarness.address,
           mariaUser.address,
@@ -255,12 +249,12 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("5")
       );
-      await auditorHarness.setExaSmartSupplyState(
+      await auditorHarness.setExaSPSupplyState(
         fixedLenderHarness.address,
         parseUnits("6", 36),
         10
       );
-      await auditorHarness.setExaSmartSupplierIndex(
+      await auditorHarness.setExaSPSupplierIndex(
         fixedLenderHarness.address,
         mariaUser.address,
         parseUnits("2", 36)
@@ -288,12 +282,12 @@ describe("ExaToken Smart Pool", () => {
         mariaUser.address,
         parseUnits("0.5")
       );
-      await auditorHarness.setExaSmartSupplyState(
+      await auditorHarness.setExaSPSupplyState(
         fixedLenderHarness.address,
         parseUnits("1.0019", 36),
         10
       );
-      await auditorHarness.distributeSmartSupplierExa(
+      await auditorHarness.distributeSPSupplierExa(
         fixedLenderHarness.address,
         mariaUser.address
       );

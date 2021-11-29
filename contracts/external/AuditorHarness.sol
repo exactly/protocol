@@ -18,23 +18,23 @@ contract AuditorHarness {
     // Protocol Management
     MarketsLib.Book private book;
 
-    event DistributedMaturitySupplierExa(
+    event DistributedMPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint256 supplierDelta,
-        uint256 exaSupplyIndex
+        uint256 mpSupplierDelta,
+        uint256 exaMPSupplyIndex
     );
-    event DistributedMaturityBorrowerExa(
+    event DistributedMPBorrowerExa(
         address indexed fixedLender,
         address indexed borrower,
-        uint256 borrowerDelta,
-        uint256 exaSupplyIndex
+        uint256 mpBorrowerDelta,
+        uint256 exaMPBorrowIndex
     );
-    event DistributedSmartSupplierExa(
+    event DistributedSPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint smartSupplierDelta,
-        uint smartPoolIndex
+        uint256 spSupplierDelta,
+        uint256 exaSPSupplyIndex
     );
 
     constructor(address _exaToken) {
@@ -46,17 +46,22 @@ contract AuditorHarness {
      * @param fixedLenderAddress The market whose EXA speed to update
      * @param exaSpeed New EXA speed for market
      */
-    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed) external {
+    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)
+        external
+    {
         require(
-            rewardsState.setExaSpeed(blockNumber, fixedLenderAddress, exaSpeed) ==
-                true,
+            rewardsState.setExaSpeed(
+                blockNumber,
+                fixedLenderAddress,
+                exaSpeed
+            ) == true,
             "Error setExaSpeed"
         );
     }
 
     function refreshIndexes(address fixedLenderAddress) external {
-        updateExaMaturitySupplyIndex(fixedLenderAddress);
-        updateExaMaturityBorrowIndex(fixedLenderAddress);
+        updateExaMPSupplyIndex(fixedLenderAddress);
+        updateExaMPBorrowIndex(fixedLenderAddress);
     }
 
     function grantExa(address user, uint256 amount) external returns (uint256) {
@@ -67,117 +72,141 @@ contract AuditorHarness {
         blockNumber = _blockNumber;
     }
 
-    function updateExaSmartSupplyIndex(address fixedLenderAddress) public {
-        rewardsState.updateExaSmartSupplyIndex(blockNumber, fixedLenderAddress);
+    function updateExaSPSupplyIndex(address fixedLenderAddress) public {
+        rewardsState.updateExaSPSupplyIndex(blockNumber, fixedLenderAddress);
     }
 
-    function updateExaMaturityBorrowIndex(address fixedLenderAddress) public {
-        rewardsState.updateExaMaturityBorrowIndex(blockNumber, fixedLenderAddress);
+    function updateExaMPBorrowIndex(address fixedLenderAddress) public {
+        rewardsState.updateExaMPBorrowIndex(blockNumber, fixedLenderAddress);
     }
 
-    function updateExaMaturitySupplyIndex(address fixedLenderAddress) public {
-        rewardsState.updateExaMaturitySupplyIndex(blockNumber, fixedLenderAddress);
+    function updateExaMPSupplyIndex(address fixedLenderAddress) public {
+        rewardsState.updateExaMPSupplyIndex(blockNumber, fixedLenderAddress);
     }
 
-    function setExaSmartSupplyState(
+    function setExaSPSupplyState(
         address fixedLenderAddress,
         uint224 index,
         uint32 _blockNumber
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaSmartSupplyState.index = index;
-        rewardsState.exaState[fixedLenderAddress].exaSmartSupplyState.block = _blockNumber;
-    }
-
-    function setExaMaturitySupplyState(
-        address fixedLenderAddress,
-        uint224 index,
-        uint32 _blockNumber
-    ) public {
-        rewardsState.exaState[fixedLenderAddress].exaMaturitySupplyState.index = index;
         rewardsState
             .exaState[fixedLenderAddress]
-            .exaMaturitySupplyState
+            .exaSPSupplyState
+            .index = index;
+        rewardsState
+            .exaState[fixedLenderAddress]
+            .exaSPSupplyState
             .block = _blockNumber;
     }
 
-    function setExaMaturityBorrowState(
+    function setExaMPSupplyState(
         address fixedLenderAddress,
         uint224 index,
         uint32 _blockNumber
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaMaturityBorrowState.index = index;
         rewardsState
             .exaState[fixedLenderAddress]
-            .exaMaturityBorrowState
+            .exaMPSupplyState
+            .index = index;
+        rewardsState
+            .exaState[fixedLenderAddress]
+            .exaMPSupplyState
             .block = _blockNumber;
     }
 
-    function setExaMaturityBorrowerIndex(
+    function setExaMPBorrowState(
+        address fixedLenderAddress,
+        uint224 index,
+        uint32 _blockNumber
+    ) public {
+        rewardsState
+            .exaState[fixedLenderAddress]
+            .exaMPBorrowState
+            .index = index;
+        rewardsState
+            .exaState[fixedLenderAddress]
+            .exaMPBorrowState
+            .block = _blockNumber;
+    }
+
+    function setExaMPBorrowerIndex(
         address fixedLenderAddress,
         address borrower,
         uint256 index
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaMaturityBorrowerIndex[borrower] = index;
+        rewardsState.exaState[fixedLenderAddress].exaMPBorrowerIndex[
+            borrower
+        ] = index;
     }
 
-    function setExaSmartSupplierIndex(
+    function setExaSPSupplierIndex(
         address fixedLenderAddress,
         address supplier,
         uint256 index
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaSmartSupplierIndex[supplier] = index;
+        rewardsState.exaState[fixedLenderAddress].exaSPSupplierIndex[
+            supplier
+        ] = index;
     }
 
-    function setExaMaturitySupplierIndex(
+    function setExaMPSupplierIndex(
         address fixedLenderAddress,
         address supplier,
         uint256 index
     ) public {
-        rewardsState.exaState[fixedLenderAddress].exaMaturitySupplierIndex[supplier] = index;
+        rewardsState.exaState[fixedLenderAddress].exaMPSupplierIndex[
+            supplier
+        ] = index;
     }
 
-    function distributeMaturityBorrowerExa(address fixedLenderAddress, address borrower)
-        public
-    {
-        rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
+    function distributeMPBorrowerExa(
+        address fixedLenderAddress,
+        address borrower
+    ) public {
+        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
-    function distributeAllBorrowerExa(address fixedLenderAddress, address borrower)
-        public
-    {
-        rewardsState.distributeMaturityBorrowerExa(fixedLenderAddress, borrower);
+    function distributeAllBorrowerExa(
+        address fixedLenderAddress,
+        address borrower
+    ) public {
+        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
         rewardsState.exaAccruedUser[borrower] = rewardsState.grantExa(
             borrower,
             rewardsState.exaAccruedUser[borrower]
         );
     }
 
-    function distributeMaturitySupplierExa(address fixedLenderAddress, address supplier)
-        public
-    {
-        rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, supplier);
+    function distributeMPSupplierExa(
+        address fixedLenderAddress,
+        address supplier
+    ) public {
+        rewardsState.distributeMPSupplierExa(fixedLenderAddress, supplier);
     }
 
-    function distributeAllSupplierExa(address fixedLenderAddress, address supplier)
-        public
-    {
-        rewardsState.distributeMaturitySupplierExa(fixedLenderAddress, supplier);
+    function distributeAllSupplierExa(
+        address fixedLenderAddress,
+        address supplier
+    ) public {
+        rewardsState.distributeMPSupplierExa(fixedLenderAddress, supplier);
         rewardsState.exaAccruedUser[supplier] = rewardsState.grantExa(
             supplier,
             rewardsState.exaAccruedUser[supplier]
         );
     }
 
-    function distributeSmartSupplierExa(address fixedLenderAddress, address supplier)
-        public
-    {
-        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
+    function distributeSPSupplierExa(
+        address fixedLenderAddress,
+        address supplier
+    ) public {
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
     }
 
-    function distributeAllSmartPoolExa(address fixedLenderAddress, address supplier)
-        public
-    {
-        rewardsState.distributeSmartSupplierExa(fixedLenderAddress, supplier);
+    function distributeAllSmartPoolExa(
+        address fixedLenderAddress,
+        address supplier
+    ) public {
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
         rewardsState.exaAccruedUser[supplier] = rewardsState.grantExa(
             supplier,
             rewardsState.exaAccruedUser[supplier]
@@ -218,7 +247,7 @@ contract AuditorHarness {
         view
         returns (MarketRewardsState memory)
     {
-        return rewardsState.exaState[fixedLenderAddress].exaSmartSupplyState;
+        return rewardsState.exaState[fixedLenderAddress].exaSPSupplyState;
     }
 
     function getMaturitySupplyState(address fixedLenderAddress)
@@ -226,7 +255,7 @@ contract AuditorHarness {
         view
         returns (MarketRewardsState memory)
     {
-        return rewardsState.exaState[fixedLenderAddress].exaMaturitySupplyState;
+        return rewardsState.exaState[fixedLenderAddress].exaMPSupplyState;
     }
 
     function getBorrowState(address fixedLenderAddress)
@@ -234,7 +263,7 @@ contract AuditorHarness {
         view
         returns (MarketRewardsState memory)
     {
-        return rewardsState.exaState[fixedLenderAddress].exaMaturityBorrowState;
+        return rewardsState.exaState[fixedLenderAddress].exaMPBorrowState;
     }
 
     function getExaAccrued(address who) public view returns (uint256) {

@@ -21,40 +21,40 @@ library ExaLib {
 
     struct ExaState {
         uint256 exaSpeed;
-        MarketRewardsState exaMaturitySupplyState;
-        MarketRewardsState exaMaturityBorrowState;
-        MarketRewardsState exaSmartSupplyState;
-        mapping(address => uint256) exaMaturitySupplierIndex;
-        mapping(address => uint256) exaMaturityBorrowerIndex;
-        mapping(address => uint256) exaSmartSupplierIndex;
+        MarketRewardsState exaMPSupplyState;
+        MarketRewardsState exaMPBorrowState;
+        MarketRewardsState exaSPSupplyState;
+        mapping(address => uint256) exaMPSupplierIndex;
+        mapping(address => uint256) exaMPBorrowerIndex;
+        mapping(address => uint256) exaSPSupplierIndex;
     }
 
     struct RewardsState {
         address exaToken;
         mapping(address => ExaLib.ExaState) exaState;
-        mapping(address => uint) exaAccruedUser;
+        mapping(address => uint256) exaAccruedUser;
     }
 
     // Double precision
     uint224 public constant EXA_INITIAL_INDEX = 1e36;
 
-    event DistributedMaturitySupplierExa(
+    event DistributedMPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint supplierDelta,
-        uint exaSupplyIndex
+        uint256 mpSupplierDelta,
+        uint256 exaMPSupplyIndex
     );
-    event DistributedMaturityBorrowerExa(
+    event DistributedMPBorrowerExa(
         address indexed fixedLender,
         address indexed borrower,
-        uint borrowerDelta,
-        uint exaBorrowIndex
+        uint256 mpBorrowerDelta,
+        uint256 exaMPBorrowIndex
     );
-    event DistributedSmartSupplierExa(
+    event DistributedSPSupplierExa(
         address indexed fixedLender,
         address indexed supplier,
-        uint smartSupplierDelta,
-        uint smartPoolIndex
+        uint256 spSupplierDelta,
+        uint256 exaSPSupplyIndex
     );
 
     /**
@@ -63,12 +63,16 @@ library ExaLib {
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function distributeSmartSupplierExa(
-        RewardsState storage fixedLenderState, 
+    function distributeSPSupplierExa(
+        RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address supplier
     ) external {
-        _distributeSmartSupplierExa(fixedLenderState, fixedLenderAddress, supplier);
+        _distributeSPSupplierExa(
+            fixedLenderState,
+            fixedLenderAddress,
+            supplier
+        );
     }
 
     /**
@@ -77,12 +81,16 @@ library ExaLib {
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function distributeMaturitySupplierExa(
-        RewardsState storage fixedLenderState, 
+    function distributeMPSupplierExa(
+        RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address supplier
     ) external {
-        _distributeMaturitySupplierExa(fixedLenderState, fixedLenderAddress, supplier);
+        _distributeMPSupplierExa(
+            fixedLenderState,
+            fixedLenderAddress,
+            supplier
+        );
     }
 
     /**
@@ -91,12 +99,16 @@ library ExaLib {
      * @param fixedLenderAddress The market address in which the borrower is interacting
      * @param borrower The address of the borrower to distribute EXA to
      */
-    function distributeMaturityBorrowerExa(
+    function distributeMPBorrowerExa(
         RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address borrower
     ) external {
-        _distributeMaturityBorrowerExa(fixedLenderState, fixedLenderAddress, borrower);
+        _distributeMPBorrowerExa(
+            fixedLenderState,
+            fixedLenderAddress,
+            borrower
+        );
     }
 
     /**
@@ -106,21 +118,21 @@ library ExaLib {
      * @param markets Valid markets in Auditor
      * @param holders The addresses to claim EXA for
      * @param fixedLenderAddresses The list of markets to claim EXA in
-     * @param maturityBorrowers Whether or not to claim EXA earned by maturity pool borrowing
-     * @param maturitySuppliers Whether or not to claim EXA earned by maturity pool supplying
-     * @param smartSuppliers Whether or not to claim EXA earned by smart pool supplying
+     * @param mpBorrowers Whether or not to claim EXA earned by maturity pool borrowing
+     * @param mpSuppliers Whether or not to claim EXA earned by maturity pool supplying
+     * @param spSuppliers Whether or not to claim EXA earned by smart pool supplying
      */
     function claimExa(
         RewardsState storage fixedLenderState,
-        uint blockNumber,
+        uint256 blockNumber,
         mapping(address => MarketsLib.Market) storage markets,
         address[] memory holders,
         address[] memory fixedLenderAddresses,
-        bool maturityBorrowers,
-        bool maturitySuppliers,
-        bool smartSuppliers
+        bool mpBorrowers,
+        bool mpSuppliers,
+        bool spSuppliers
     ) external {
-        for (uint i = 0; i < fixedLenderAddresses.length; i++) {
+        for (uint256 i = 0; i < fixedLenderAddresses.length; i++) {
             address fixedLender = fixedLenderAddresses[i];
             MarketsLib.Market storage market = markets[fixedLender];
 
@@ -128,26 +140,62 @@ library ExaLib {
                 revert GenericError(ErrorCode.MARKET_NOT_LISTED);
             }
 
-            if (maturityBorrowers == true) {
-                updateExaMaturityBorrowIndex(fixedLenderState, blockNumber, fixedLender);
-                for (uint j = 0; j < holders.length; j++) {
-                    _distributeMaturityBorrowerExa(fixedLenderState, fixedLender, holders[j]);
-                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
+            if (mpBorrowers == true) {
+                updateExaMPBorrowIndex(
+                    fixedLenderState,
+                    blockNumber,
+                    fixedLender
+                );
+                for (uint256 j = 0; j < holders.length; j++) {
+                    _distributeMPBorrowerExa(
+                        fixedLenderState,
+                        fixedLender,
+                        holders[j]
+                    );
+                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(
+                        fixedLenderState,
+                        holders[j],
+                        fixedLenderState.exaAccruedUser[holders[j]]
+                    );
                 }
             }
-            if (maturitySuppliers == true) {
-                updateExaMaturitySupplyIndex(fixedLenderState, blockNumber, fixedLender);
-                for (uint j = 0; j < holders.length; j++) {
-                    _distributeMaturitySupplierExa(fixedLenderState, fixedLender, holders[j]);
-                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
+            if (mpSuppliers == true) {
+                updateExaMPSupplyIndex(
+                    fixedLenderState,
+                    blockNumber,
+                    fixedLender
+                );
+                for (uint256 j = 0; j < holders.length; j++) {
+                    _distributeMPSupplierExa(
+                        fixedLenderState,
+                        fixedLender,
+                        holders[j]
+                    );
+                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(
+                        fixedLenderState,
+                        holders[j],
+                        fixedLenderState.exaAccruedUser[holders[j]]
+                    );
                 }
             }
 
-            if (smartSuppliers == true) {
-                updateExaSmartSupplyIndex(fixedLenderState, blockNumber, fixedLender);
-                for (uint j = 0; j < holders.length; j++) {
-                    _distributeSmartSupplierExa(fixedLenderState, fixedLender, holders[j]);
-                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(fixedLenderState, holders[j], fixedLenderState.exaAccruedUser[holders[j]]);
+            if (spSuppliers == true) {
+                updateExaSPSupplyIndex(
+                    fixedLenderState,
+                    blockNumber,
+                    fixedLender
+                );
+                for (uint256 j = 0; j < holders.length; j++) {
+                    _distributeSPSupplierExa(
+                        fixedLenderState,
+                        fixedLender,
+                        holders[j]
+                    );
+                    fixedLenderState.exaAccruedUser[holders[j]] = _grantExa(
+                        fixedLenderState,
+                        holders[j],
+                        fixedLenderState.exaAccruedUser[holders[j]]
+                    );
                 }
             }
         }
@@ -163,8 +211,8 @@ library ExaLib {
     function grantExa(
         RewardsState storage fixedLenderState,
         address user,
-        uint amount
-    ) external returns (uint) {
+        uint256 amount
+    ) external returns (uint256) {
         return _grantExa(fixedLenderState, user, amount);
     }
 
@@ -177,37 +225,49 @@ library ExaLib {
      */
     function setExaSpeed(
         RewardsState storage fixedLenderState,
-        uint blockNumber,
+        uint256 blockNumber,
         address fixedLenderAddress,
         uint256 exaSpeed
     ) external returns (bool) {
         ExaState storage state = fixedLenderState.exaState[fixedLenderAddress];
-        uint currentExaSpeed = state.exaSpeed;
+        uint256 currentExaSpeed = state.exaSpeed;
         if (currentExaSpeed != 0) {
-            updateExaMaturitySupplyIndex(fixedLenderState, blockNumber, fixedLenderAddress);
-            updateExaMaturityBorrowIndex(fixedLenderState, blockNumber, fixedLenderAddress);
-            updateExaSmartSupplyIndex(fixedLenderState, blockNumber, fixedLenderAddress);
+            updateExaMPSupplyIndex(
+                fixedLenderState,
+                blockNumber,
+                fixedLenderAddress
+            );
+            updateExaMPBorrowIndex(
+                fixedLenderState,
+                blockNumber,
+                fixedLenderAddress
+            );
+            updateExaSPSupplyIndex(
+                fixedLenderState,
+                blockNumber,
+                fixedLenderAddress
+            );
         } else if (exaSpeed != 0) {
             // what happens @ compound.finance if someone doesn't set the exaSpeed
             // but supply/borrow first? in that case, block number will be updated
             // hence the market can never be initialized with EXA_INITIAL_INDEX
-            // if (state.exaMaturitySupplyState.index == 0 && state.exaMaturitySupplyState.block == 0) {
-            if (state.exaMaturitySupplyState.index == 0) {
-                state.exaMaturitySupplyState = MarketRewardsState({
+            // if (state.exaMPSupplyState.index == 0 && state.exaMPSupplyState.block == 0) {
+            if (state.exaMPSupplyState.index == 0) {
+                state.exaMPSupplyState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
                     block: blockNumber.toUint32()
                 });
             }
 
-            if (state.exaMaturityBorrowState.index == 0) { 
-                state.exaMaturityBorrowState = MarketRewardsState({
+            if (state.exaMPBorrowState.index == 0) {
+                state.exaMPBorrowState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
                     block: blockNumber.toUint32()
                 });
             }
 
-            if (state.exaSmartSupplyState.index == 0) {
-                state.exaSmartSupplyState = MarketRewardsState({
+            if (state.exaSPSupplyState.index == 0) {
+                state.exaSPSupplyState = MarketRewardsState({
                     index: EXA_INITIAL_INDEX,
                     block: blockNumber.toUint32()
                 });
@@ -228,26 +288,34 @@ library ExaLib {
      * @param blockNumber current block number (injected for testing purpuses)
      * @param fixedLenderAddress The market whose supply index to update
      */
-    function updateExaSmartSupplyIndex(
+    function updateExaSPSupplyIndex(
         RewardsState storage fixedLenderState,
-        uint blockNumber,
+        uint256 blockNumber,
         address fixedLenderAddress
     ) public {
-        ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage smartState = exaState.exaSmartSupplyState;
-        uint supplySpeed = exaState.exaSpeed;
-        uint deltaBlocks = (blockNumber - uint(smartState.block));
+        ExaState storage exaState = fixedLenderState.exaState[
+            fixedLenderAddress
+        ];
+        MarketRewardsState storage spSupplyState = exaState.exaSPSupplyState;
+        uint256 supplySpeed = exaState.exaSpeed;
+        uint256 deltaBlocks = (blockNumber - uint256(spSupplyState.block));
         if (deltaBlocks > 0 && supplySpeed > 0) {
-            uint256 smartTokens = IFixedLender(fixedLenderAddress).eToken().totalSupply();
+            uint256 spTokens = IFixedLender(fixedLenderAddress)
+                .eToken()
+                .totalSupply();
             uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
-            Double memory ratio = smartTokens > 0 ? exaAccruedDelta.fraction(smartTokens) : Double({value: 0});
-            Double memory index = Double({value: smartState.index}).add_(ratio);
-            exaState.exaSmartSupplyState = MarketRewardsState({
+            Double memory ratio = spTokens > 0
+                ? exaAccruedDelta.fraction(spTokens)
+                : Double({value: 0});
+            Double memory index = Double({value: spSupplyState.index}).add_(
+                ratio
+            );
+            exaState.exaSPSupplyState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
             });
         } else if (deltaBlocks > 0) {
-            smartState.block = blockNumber.toUint32();
+            spSupplyState.block = blockNumber.toUint32();
         }
     }
 
@@ -257,26 +325,33 @@ library ExaLib {
      * @param blockNumber current block number (injected for testing purpuses)
      * @param fixedLenderAddress The market whose supply index to update
      */
-    function updateExaMaturitySupplyIndex(
+    function updateExaMPSupplyIndex(
         RewardsState storage fixedLenderState,
-        uint blockNumber,
+        uint256 blockNumber,
         address fixedLenderAddress
     ) public {
-        ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage supplyState = exaState.exaMaturitySupplyState;
-        uint supplySpeed = exaState.exaSpeed;
-        uint deltaBlocks = (blockNumber - uint(supplyState.block));
+        ExaState storage exaState = fixedLenderState.exaState[
+            fixedLenderAddress
+        ];
+        MarketRewardsState storage mpSupplyState = exaState.exaMPSupplyState;
+        uint256 supplySpeed = exaState.exaSpeed;
+        uint256 deltaBlocks = (blockNumber - uint256(mpSupplyState.block));
         if (deltaBlocks > 0 && supplySpeed > 0) {
-            uint256 supplyTokens = IFixedLender(fixedLenderAddress).totalMpDeposits();
+            uint256 mpSupplyTokens = IFixedLender(fixedLenderAddress)
+                .totalMpDeposits();
             uint256 exaAccruedDelta = deltaBlocks * supplySpeed;
-            Double memory ratio = supplyTokens > 0 ? exaAccruedDelta.fraction(supplyTokens) : Double({value: 0});
-            Double memory index = Double({value: supplyState.index}).add_(ratio);
-            exaState.exaMaturitySupplyState = MarketRewardsState({
+            Double memory ratio = mpSupplyTokens > 0
+                ? exaAccruedDelta.fraction(mpSupplyTokens)
+                : Double({value: 0});
+            Double memory index = Double({value: mpSupplyState.index}).add_(
+                ratio
+            );
+            exaState.exaMPSupplyState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
             });
         } else if (deltaBlocks > 0) {
-            supplyState.block = blockNumber.toUint32();
+            mpSupplyState.block = blockNumber.toUint32();
         }
     }
 
@@ -286,28 +361,35 @@ library ExaLib {
      * @param blockNumber current block number (injected for testing purpuses)
      * @param fixedLenderAddress The market whose borrow index to update
      */
-    function updateExaMaturityBorrowIndex(
+    function updateExaMPBorrowIndex(
         RewardsState storage fixedLenderState,
-        uint blockNumber,
+        uint256 blockNumber,
         address fixedLenderAddress
     ) public {
-        ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage borrowState = exaState.exaMaturityBorrowState;
-        uint borrowSpeed = exaState.exaSpeed;
-        uint deltaBlocks = blockNumber - uint(borrowState.block);
+        ExaState storage exaState = fixedLenderState.exaState[
+            fixedLenderAddress
+        ];
+        MarketRewardsState storage mpBorrowState = exaState.exaMPBorrowState;
+        uint256 borrowSpeed = exaState.exaSpeed;
+        uint256 deltaBlocks = blockNumber - uint256(mpBorrowState.block);
         if (deltaBlocks > 0 && borrowSpeed > 0) {
-            uint borrowAmount = IFixedLender(fixedLenderAddress).totalMpBorrows();
+            uint256 borrowAmount = IFixedLender(fixedLenderAddress)
+                .totalMpBorrows();
             uint256 exaAccruedDelta = deltaBlocks * borrowSpeed;
 
-            Double memory ratio = borrowAmount > 0 ? exaAccruedDelta.fraction(borrowAmount) : Double({value: 0});
-            Double memory index = Double({value: borrowState.index}).add_(ratio);
+            Double memory ratio = borrowAmount > 0
+                ? exaAccruedDelta.fraction(borrowAmount)
+                : Double({value: 0});
+            Double memory index = Double({value: mpBorrowState.index}).add_(
+                ratio
+            );
 
-            exaState.exaMaturityBorrowState = MarketRewardsState({
+            exaState.exaMPBorrowState = MarketRewardsState({
                 index: index.value.toUint224(),
                 block: blockNumber.toUint32()
             });
         } else if (deltaBlocks > 0) {
-            borrowState.block = blockNumber.toUint32();
+            mpBorrowState.block = blockNumber.toUint32();
         }
     }
 
@@ -317,28 +399,40 @@ library ExaLib {
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function _distributeSmartSupplierExa(
+    function _distributeSPSupplierExa(
         RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address supplier
     ) internal {
-        ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage smartState = exaState.exaSmartSupplyState;
-        Double memory smartPoolIndex = Double({value: smartState.index});
-        Double memory smartSupplierIndex = Double({value: exaState.exaSmartSupplierIndex[supplier]});
-        exaState.exaSmartSupplierIndex[supplier] = smartPoolIndex.value;
+        ExaState storage exaState = fixedLenderState.exaState[
+            fixedLenderAddress
+        ];
+        MarketRewardsState storage spSupplyState = exaState.exaSPSupplyState;
+        Double memory spSupplyIndex = Double({value: spSupplyState.index});
+        Double memory spSupplierIndex = Double({
+            value: exaState.exaSPSupplierIndex[supplier]
+        });
+        exaState.exaSPSupplierIndex[supplier] = spSupplyIndex.value;
 
-        if (smartSupplierIndex.value == 0 && smartPoolIndex.value > 0) {
-            smartSupplierIndex.value = EXA_INITIAL_INDEX;
+        if (spSupplierIndex.value == 0 && spSupplyIndex.value > 0) {
+            spSupplierIndex.value = EXA_INITIAL_INDEX;
         }
 
-        Double memory deltaIndex = smartPoolIndex.sub_(smartSupplierIndex);
+        Double memory deltaIndex = spSupplyIndex.sub_(spSupplierIndex);
 
-        uint smartSupplierTokens = IFixedLender(fixedLenderAddress).eToken().balanceOf(supplier);
-        uint smartSupplierDelta = smartSupplierTokens.mul_(deltaIndex);
-        uint smartSupplierAccrued = fixedLenderState.exaAccruedUser[supplier] + smartSupplierDelta;
-        fixedLenderState.exaAccruedUser[supplier] = smartSupplierAccrued;
-        emit DistributedSmartSupplierExa(fixedLenderAddress, supplier, smartSupplierDelta, smartPoolIndex.value);
+        uint256 spSupplierTokens = IFixedLender(fixedLenderAddress)
+            .eToken()
+            .balanceOf(supplier);
+        uint256 spSupplierDelta = spSupplierTokens.mul_(deltaIndex);
+        uint256 spSupplierAccrued = fixedLenderState.exaAccruedUser[supplier] +
+            spSupplierDelta;
+        fixedLenderState.exaAccruedUser[supplier] = spSupplierAccrued;
+        emit DistributedSPSupplierExa(
+            fixedLenderAddress,
+            supplier,
+            spSupplierDelta,
+            spSupplyIndex.value
+        );
     }
 
     /**
@@ -347,28 +441,39 @@ library ExaLib {
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
      */
-    function _distributeMaturitySupplierExa(
+    function _distributeMPSupplierExa(
         RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address supplier
     ) internal {
-        ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage supplyState = exaState.exaMaturitySupplyState;
-        Double memory supplyIndex = Double({value: supplyState.index});
-        Double memory supplierIndex = Double({value: exaState.exaMaturitySupplierIndex[supplier]});
-        exaState.exaMaturitySupplierIndex[supplier] = supplyIndex.value;
+        ExaState storage exaState = fixedLenderState.exaState[
+            fixedLenderAddress
+        ];
+        MarketRewardsState storage mpSupplyState = exaState.exaMPSupplyState;
+        Double memory mpSupplyIndex = Double({value: mpSupplyState.index});
+        Double memory mpSupplierIndex = Double({
+            value: exaState.exaMPSupplierIndex[supplier]
+        });
+        exaState.exaMPSupplierIndex[supplier] = mpSupplyIndex.value;
 
-        if (supplierIndex.value == 0 && supplyIndex.value > 0) {
-            supplierIndex.value = EXA_INITIAL_INDEX;
+        if (mpSupplierIndex.value == 0 && mpSupplyIndex.value > 0) {
+            mpSupplierIndex.value = EXA_INITIAL_INDEX;
         }
 
-        Double memory deltaIndex = supplyIndex.sub_(supplierIndex);
+        Double memory deltaIndex = mpSupplyIndex.sub_(mpSupplierIndex);
 
-        uint supplierTokens = IFixedLender(fixedLenderAddress).totalMpDepositsUser(supplier);
-        uint supplierDelta = supplierTokens.mul_(deltaIndex);
-        uint supplierAccrued = fixedLenderState.exaAccruedUser[supplier] + supplierDelta;
-        fixedLenderState.exaAccruedUser[supplier] = supplierAccrued;
-        emit DistributedMaturitySupplierExa(fixedLenderAddress, supplier, supplierDelta, supplyIndex.value);
+        uint256 mpSupplierTokens = IFixedLender(fixedLenderAddress)
+            .totalMpDepositsUser(supplier);
+        uint256 mpSupplierDelta = mpSupplierTokens.mul_(deltaIndex);
+        uint256 mpSupplierAccrued = fixedLenderState.exaAccruedUser[supplier] +
+            mpSupplierDelta;
+        fixedLenderState.exaAccruedUser[supplier] = mpSupplierAccrued;
+        emit DistributedMPSupplierExa(
+            fixedLenderAddress,
+            supplier,
+            mpSupplierDelta,
+            mpSupplyIndex.value
+        );
     }
 
     /**
@@ -377,25 +482,37 @@ library ExaLib {
      * @param fixedLenderAddress The market address in which the borrower is interacting
      * @param borrower The address of the borrower to distribute EXA to
      */
-    function _distributeMaturityBorrowerExa(
+    function _distributeMPBorrowerExa(
         RewardsState storage fixedLenderState,
         address fixedLenderAddress,
         address borrower
     ) internal {
-        ExaState storage exaState = fixedLenderState.exaState[fixedLenderAddress];
-        MarketRewardsState storage borrowState = exaState.exaMaturityBorrowState;
+        ExaState storage exaState = fixedLenderState.exaState[
+            fixedLenderAddress
+        ];
+        MarketRewardsState storage mpBorrowState = exaState.exaMPBorrowState;
 
-        Double memory borrowIndex = Double({value: borrowState.index});
-        Double memory borrowerIndex = Double({value: exaState.exaMaturityBorrowerIndex[borrower]});
-        exaState.exaMaturityBorrowerIndex[borrower] = borrowIndex.value;
+        Double memory mpBorrowIndex = Double({value: mpBorrowState.index});
+        Double memory mpBorrowerIndex = Double({
+            value: exaState.exaMPBorrowerIndex[borrower]
+        });
+        exaState.exaMPBorrowerIndex[borrower] = mpBorrowIndex.value;
 
-        if (borrowerIndex.value > 0) {
-            Double memory deltaIndex = borrowIndex.sub_(borrowerIndex);
-            uint borrowerAmount = IFixedLender(fixedLenderAddress).totalMpBorrowsUser(borrower);
-            uint borrowerDelta = borrowerAmount.mul_(deltaIndex);
-            uint borrowerAccrued = fixedLenderState.exaAccruedUser[borrower] + borrowerDelta;
-            fixedLenderState.exaAccruedUser[borrower] = borrowerAccrued;
-            emit DistributedMaturityBorrowerExa(fixedLenderAddress, borrower, borrowerDelta, borrowIndex.value);
+        if (mpBorrowerIndex.value > 0) {
+            Double memory deltaIndex = mpBorrowIndex.sub_(mpBorrowerIndex);
+            uint256 mpBorrowerAmount = IFixedLender(fixedLenderAddress)
+                .totalMpBorrowsUser(borrower);
+            uint256 mpBorrowerDelta = mpBorrowerAmount.mul_(deltaIndex);
+            uint256 mpBorrowerAccrued = fixedLenderState.exaAccruedUser[
+                borrower
+            ] + mpBorrowerDelta;
+            fixedLenderState.exaAccruedUser[borrower] = mpBorrowerAccrued;
+            emit DistributedMPBorrowerExa(
+                fixedLenderAddress,
+                borrower,
+                mpBorrowerDelta,
+                mpBorrowIndex.value
+            );
         }
     }
 
@@ -409,10 +526,10 @@ library ExaLib {
     function _grantExa(
         RewardsState storage fixedLenderState,
         address user,
-        uint amount
-    ) internal returns (uint) {
+        uint256 amount
+    ) internal returns (uint256) {
         ExaToken exa = ExaToken(fixedLenderState.exaToken);
-        uint exaBalance = exa.balanceOf(address(this));
+        uint256 exaBalance = exa.balanceOf(address(this));
         if (amount > 0 && amount <= exaBalance) {
             exa.transfer(user, amount);
             return 0;
