@@ -571,13 +571,14 @@ describe("Liquidations", function () {
               seizedWBTC.sub(fee)
             );
           });
-          it("AND 19000 DAI of debt is repaid", async () => {
+          it("AND 19000 DAI of debt is repaid (debt covered)", async () => {
             const bobDAIBalanceBefore = parseUnits("135000");
             await expect(tx)
-              .to.emit(fixedLenderDAI, "RepayToMaturityPoolLiquidate")
+              .to.emit(fixedLenderDAI, "RepayToMaturityPool")
               .withArgs(
                 bob.address,
                 alice.address,
+                0,
                 parseUnits("19000"),
                 nextPoolID
               );

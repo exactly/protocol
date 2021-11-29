@@ -351,7 +351,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        parseUnits("0.8")
       )
     ).to.not.be.reverted;
 
@@ -449,7 +450,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        expectedAmountPaid
       )
     )
       .to.emit(fixedLenderMaria, "RepayToMaturityPool")
@@ -519,7 +521,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        parseUnits("0.8")
       )
     ).to.not.be.reverted;
 
