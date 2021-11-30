@@ -191,12 +191,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @dev Lends to a wallet for a certain maturity date/pool
      * @param amount amount to send to the msg.sender
      * @param maturityDate maturity date for repayment
+     * @param maxCommissionAllowed maximum amount of commision that
+     *        the user is willing to pay to accept the transaction
      */
-    function borrowFromMaturityPool(uint256 amount, uint256 maturityDate)
-        external
-        override
-        nonReentrant
-    {
+    function borrowFromMaturityPool(
+        uint256 amount,
+        uint256 maturityDate,
+        uint256 maxCommissionAllowed
+    ) external override nonReentrant {
         bool newDebt = false;
 
         if (!TSUtils.isPoolID(maturityDate)) {
@@ -231,6 +233,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             newDebt
         );
         uint256 commission = amount.mul_(commissionRate);
+
+        if (commission > maxCommissionAllowed) {
+            revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
+        }
+
         uint256 totalBorrow = amount + commission;
         // reverts on failure
         auditor.beforeBorrowMP(
@@ -264,12 +271,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      *      a certain maturity date/pool
      * @param amount amount to receive from the msg.sender
      * @param maturityDate maturity date / pool ID
+     * @param minCommissionRequired minimum amount of commission that
+     *        the user requires to accept the transaction
      */
-    function depositToMaturityPool(uint256 amount, uint256 maturityDate)
-        external
-        override
-        nonReentrant
-    {
+    function depositToMaturityPool(
+        uint256 amount,
+        uint256 maturityDate,
+        uint256 minCommissionRequired
+    ) external override nonReentrant {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
@@ -301,6 +310,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         );
 
         uint256 commission = amount.mul_(commissionRate);
+
+        if (commission < minCommissionRequired) {
+            revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
+        }
+
         uint256 currentTotalDeposit = amount + commission;
         mpUserSuppliedAmount[maturityDate][msg.sender] += currentTotalDeposit;
 

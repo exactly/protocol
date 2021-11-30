@@ -8,6 +8,8 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
+  defaultMinCommission,
+  defaultMaxCommission,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -104,7 +106,11 @@ describe("Liquidity computations", function () {
         await dai.connect(laura).approve(fixedLenderDAI.address, amount);
         await fixedLenderDAI
           .connect(laura)
-          .depositToMaturityPool(amount, nextPoolID);
+          .depositToMaturityPool(
+            amount,
+            nextPoolID,
+            defaultMinCommission(amount)
+          );
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -135,7 +141,11 @@ describe("Liquidity computations", function () {
           await expect(
             fixedLenderDAI
               .connect(laura)
-              .borrowFromMaturityPool(parseUnits("800"), nextPoolID)
+              .borrowFromMaturityPool(
+                parseUnits("800"),
+                nextPoolID,
+                defaultMaxCommission(parseUnits("800"))
+              )
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
@@ -146,7 +156,11 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await fixedLenderDAI
             .connect(laura)
-            .borrowFromMaturityPool(parseUnits("800"), nextPoolID);
+            .borrowFromMaturityPool(
+              parseUnits("800"),
+              nextPoolID,
+              defaultMaxCommission(parseUnits("800"))
+            );
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
@@ -177,18 +191,30 @@ describe("Liquidity computations", function () {
         await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
         await fixedLenderDAI
           .connect(laura)
-          .depositToMaturityPool(daiAmount, nextPoolID);
+          .depositToMaturityPool(
+            daiAmount,
+            nextPoolID,
+            defaultMinCommission(daiAmount)
+          );
         const usdcAmount = parseUnits("10000", usdcDecimals);
         await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
         await fixedLenderUSDC
           .connect(bob)
-          .depositToMaturityPool(usdcAmount, nextPoolID);
+          .depositToMaturityPool(
+            usdcAmount,
+            nextPoolID,
+            defaultMinCommission(usdcAmount)
+          );
       });
       describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
         beforeEach(async () => {
           await fixedLenderDAI
             .connect(bob)
-            .borrowFromMaturityPool(parseUnits("7000"), nextPoolID);
+            .borrowFromMaturityPool(
+              parseUnits("7000"),
+              nextPoolID,
+              defaultMaxCommission(parseUnits("7000"))
+            );
         });
         it("THEN bob has 1kusd liquidity and no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
@@ -261,7 +287,11 @@ describe("Liquidity computations", function () {
         await wbtc.connect(laura).approve(fixedLenderWBTC.address, amount);
         await fixedLenderWBTC
           .connect(laura)
-          .depositToMaturityPool(amount, nextPoolID);
+          .depositToMaturityPool(
+            amount,
+            nextPoolID,
+            defaultMinCommission(amount)
+          );
       });
 
       describe("AND GIVEN Bob provides 60kdai (18 decimals) as collateral", () => {
@@ -271,7 +301,11 @@ describe("Liquidity computations", function () {
             .approve(fixedLenderDAI.address, parseUnits("60000"));
           await fixedLenderDAI
             .connect(bob)
-            .depositToMaturityPool(parseUnits("60000"), nextPoolID);
+            .depositToMaturityPool(
+              parseUnits("60000"),
+              nextPoolID,
+              defaultMinCommission(parseUnits("60000"))
+            );
         });
         // Here I'm trying to make sure we use the borrowed token's decimals
         // properly to compute liquidity
@@ -285,7 +319,11 @@ describe("Liquidity computations", function () {
           await expect(
             fixedLenderWBTC
               .connect(bob)
-              .borrowFromMaturityPool(parseUnits("1", 8), nextPoolID)
+              .borrowFromMaturityPool(
+                parseUnits("1", 8),
+                nextPoolID,
+                defaultMaxCommission(parseUnits("1", 8))
+              )
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
@@ -299,19 +337,31 @@ describe("Liquidity computations", function () {
             .approve(fixedLenderDAI.address, parseUnits("20000"));
           await fixedLenderDAI
             .connect(bob)
-            .depositToMaturityPool(parseUnits("20000"), nextPoolID);
+            .depositToMaturityPool(
+              parseUnits("20000"),
+              nextPoolID,
+              defaultMinCommission(parseUnits("20000"))
+            );
           await usdc
             .connect(bob)
             .approve(fixedLenderUSDC.address, parseUnits("40000", 6));
           await fixedLenderUSDC
             .connect(bob)
-            .depositToMaturityPool(parseUnits("40000", 6), nextPoolID);
+            .depositToMaturityPool(
+              parseUnits("40000", 6),
+              nextPoolID,
+              defaultMinCommission(parseUnits("40000", 6))
+            );
         });
         describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
           beforeEach(async () => {
             await fixedLenderWBTC
               .connect(bob)
-              .borrowFromMaturityPool(parseUnits("0.5", 8), nextPoolID);
+              .borrowFromMaturityPool(
+                parseUnits("0.5", 8),
+                nextPoolID,
+                defaultMaxCommission(parseUnits("0.5", 8))
+              );
           });
           describe("AND GIVEN the pool matures", () => {
             beforeEach(async () => {

@@ -3,6 +3,8 @@ import { expect } from "chai";
 import { Contract } from "ethers";
 import {
   DefaultEnv,
+  defaultMaxCommission,
+  defaultMinCommission,
   errorGeneric,
   ExactlyEnv,
   ExaTime,
@@ -139,7 +141,11 @@ describe("ExaToken", () => {
         await expect(
           fixedLenderDAI
             .connect(mariaUser)
-            .depositToMaturityPool(underlyingAmount, exaTime.nextPoolID())
+            .depositToMaturityPool(
+              underlyingAmount,
+              exaTime.nextPoolID(),
+              defaultMinCommission(underlyingAmount)
+            )
         ).to.emit(auditor, "DistributedMPSupplierExa");
 
         await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
@@ -159,7 +165,8 @@ describe("ExaToken", () => {
         await expect(
           fixedLenderDAI.depositToMaturityPool(
             underlyingAmount,
-            exaTime.nextPoolID()
+            exaTime.nextPoolID(),
+            defaultMinCommission(underlyingAmount)
           )
         ).to.emit(auditor, "DistributedMPSupplierExa");
       });
@@ -169,20 +176,23 @@ describe("ExaToken", () => {
         await dai.approve(fixedLenderDAI.address, underlyingAmount);
         await fixedLenderDAI.depositToMaturityPool(
           underlyingAmount,
-          exaTime.nextPoolID()
+          exaTime.nextPoolID(),
+          defaultMinCommission(underlyingAmount)
         );
 
         await expect(
           fixedLenderDAI.borrowFromMaturityPool(
             underlyingAmount.div(4),
-            exaTime.nextPoolID()
+            exaTime.nextPoolID(),
+            defaultMaxCommission(underlyingAmount.div(4))
           )
         ).to.not.emit(auditor, "DistributedMPBorrowerExa");
 
         await expect(
           fixedLenderDAI.borrowFromMaturityPool(
             underlyingAmount.div(4),
-            exaTime.nextPoolID()
+            exaTime.nextPoolID(),
+            defaultMaxCommission(underlyingAmount.div(4))
           )
         ).to.emit(auditor, "DistributedMPBorrowerExa");
       });
@@ -200,7 +210,8 @@ describe("ExaToken", () => {
         );
         await fixedLenderMaria.depositToMaturityPool(
           depositAmount,
-          exaTime.nextPoolID()
+          exaTime.nextPoolID(),
+          defaultMinCommission(depositAmount)
         );
 
         // Move in time to maturity
@@ -231,11 +242,13 @@ describe("ExaToken", () => {
         // deposit some money and parse event
         await fixedLenderMaria.depositToMaturityPool(
           underlyingAmount.div(2),
-          exaTime.nextPoolID()
+          exaTime.nextPoolID(),
+          defaultMinCommission(underlyingAmount.div(2))
         );
         await fixedLenderMaria.borrowFromMaturityPool(
           underlyingAmount.div(4),
-          exaTime.nextPoolID()
+          exaTime.nextPoolID(),
+          defaultMaxCommission(underlyingAmount.div(4))
         );
 
         // Move in time to maturity

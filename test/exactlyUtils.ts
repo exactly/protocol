@@ -27,6 +27,14 @@ export function errorGeneric(errorCode: ProtocolError): string {
   return "GenericError(" + errorCode + ")";
 }
 
+export function defaultMaxCommission(amount: BigNumber): BigNumber {
+  return amount.div(10); // 10%
+}
+
+export function defaultMinCommission(amount: BigNumber): BigNumber {
+  return amount.mul(0);
+}
+
 export enum PoolState {
   INVALID,
   MATURED,
@@ -59,6 +67,7 @@ export enum ProtocolError {
   CALLER_MUST_BE_FIXED_LENDER,
   FIXED_LENDER_ALREADY_SET,
   INSUFFICIENT_PROTOCOL_LIQUIDITY,
+  TOO_MUCH_SLIPPAGE,
 }
 
 export type EnvConfig = {
