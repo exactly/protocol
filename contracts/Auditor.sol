@@ -23,6 +23,7 @@ contract Auditor is IAuditor, AccessControl {
 
     uint256 public closeFactor = 5e17;
     uint256 public liquidationIncentive = 1e18 + 1e17;
+    address private liquidationInProcess;
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
 
@@ -506,7 +507,7 @@ contract Auditor is IAuditor, AccessControl {
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
-    ) external view override {
+    ) external override {
         if (repayAmount == 0) {
             revert GenericError(ErrorCode.REPAY_ZERO);
         }
@@ -544,6 +545,8 @@ contract Auditor is IAuditor, AccessControl {
         if (repayAmount > maxClose) {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
         }
+
+        liquidationInProcess = borrower;
     }
 
     /**
@@ -559,7 +562,7 @@ contract Auditor is IAuditor, AccessControl {
         address fixedLenderBorrowed,
         address liquidator,
         address borrower
-    ) external view override {
+    ) external override {
         if (borrower == liquidator) {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
         }
@@ -571,6 +574,13 @@ contract Auditor is IAuditor, AccessControl {
         ) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
+
+        /* The borrower be in a liquidatation process */
+        if (borrower != liquidationInProcess) {
+            revert GenericError(ErrorCode.NOT_LIQUIDATION_STATE);
+        }
+
+        delete liquidationInProcess;
     }
 
     /**

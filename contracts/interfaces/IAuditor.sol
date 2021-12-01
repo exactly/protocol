@@ -32,11 +32,6 @@ interface IAuditor {
     function beforeRepayMP(address fixedLenderAddress, address borrower)
         external;
 
-    function getAccountLiquidity(address account, uint256 maturityDate)
-        external
-        view
-        returns (uint256, uint256);
-
     function liquidateAllowed(
         address fixedLenderBorrowed,
         address fixedLenderCollateral,
@@ -44,14 +39,14 @@ interface IAuditor {
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
-    ) external view;
+    ) external;
 
     function seizeAllowed(
         address fixedLenderCollateral,
         address fixedLenderBorrowed,
         address liquidator,
         address borrower
-    ) external view;
+    ) external;
 
     function liquidateCalculateSeizeAmount(
         address fixedLenderBorrowed,
@@ -62,6 +57,11 @@ interface IAuditor {
     function getFuturePools() external view returns (uint256[] memory);
 
     function getMarketAddresses() external view returns (address[] memory);
+
+    function getAccountLiquidity(address account, uint256 maturityDate)
+        external
+        view
+        returns (uint256, uint256);
 
     function requirePoolState(uint256 maturityDate, TSUtils.State requiredState)
         external

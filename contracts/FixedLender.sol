@@ -442,7 +442,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         uint256 seizeAmount,
         uint256 maturityDate
     ) external override nonReentrant {
-        _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
+        // reverts on failure
+        auditor.seizeAllowed(address(this), msg.sender, liquidator, borrower);
+
+        _seize(liquidator, borrower, seizeAmount, maturityDate);
     }
 
     /**
@@ -645,13 +648,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
         // both revert on failure
         if (address(fixedLenderCollateral) == address(this)) {
-            _seize(
-                address(this),
-                liquidator,
-                borrower,
-                seizeTokens,
-                maturityDate
-            );
+            _seize(liquidator, borrower, seizeTokens, maturityDate);
         } else {
             fixedLenderCollateral.seize(
                 liquidator,
@@ -677,29 +674,19 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     /**
      * @notice Private function to seize a certain amount of tokens
      * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date.
-     *      This function will only be called from this FixedLender, on `liquidation` or through `seize` calls from another FixedLender.
-     *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
-     * @param seizerFixedLender address which is calling the seize function (see `seize` public function)
+     *      This function will only be called from this FixedLender, on `liquidation` or through `seize`
+     *      calls from another FixedLender.
      * @param liquidator address which will receive the seized tokens
      * @param borrower address from which the tokens will be seized
      * @param seizeAmount amount to be removed from borrower's posession
      * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function _seize(
-        address seizerFixedLender,
         address liquidator,
         address borrower,
         uint256 seizeAmount,
         uint256 maturityDate
     ) internal {
-        // reverts on failure
-        auditor.seizeAllowed(
-            address(this),
-            seizerFixedLender,
-            liquidator,
-            borrower
-        );
-
         uint256 protocolAmount = seizeAmount.mul_(liquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
 
