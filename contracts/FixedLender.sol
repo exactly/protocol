@@ -443,7 +443,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         uint256 maturityDate
     ) external override nonReentrant {
         // reverts on failure
-        auditor.seizeAllowed(address(this), msg.sender, liquidator, borrower);
+        auditor.seizeAllowed(address(this), msg.sender, liquidator, borrower, maturityDate);
 
         _seize(liquidator, borrower, seizeAmount, maturityDate);
     }

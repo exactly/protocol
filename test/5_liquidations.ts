@@ -590,6 +590,49 @@ describe("Liquidations", function () {
     });
   });
 
+  describe("GIVEN bob has a 15000 of DAI", () => {
+    beforeEach(async () => {
+      // bob deposits DAI
+      const amountDAI = parseUnits("15000");
+      await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
+      await fixedLenderDAI
+        .connect(bob)
+        .depositToMaturityPool(amountDAI, nextPoolID);
+    });
+
+    describe("AND a malicius FixedLender is added", () => {
+      let evilFixedLender: Contract;
+      beforeEach(async () => {
+        const EvilFixedLender = await ethers.getContractFactory(
+          "EvilFixedLender"
+        );
+        evilFixedLender = await EvilFixedLender.deploy(
+          exactlyEnv.auditor.address
+        );
+        await evilFixedLender.deployed();
+        await auditor.enableMarket(
+          evilFixedLender.address,
+          0,
+          "FAKE COIN",
+          "FAKE COIN",
+          0
+        );
+      });
+
+      it("THEN it reverts when it tries to seize 100", async () => {
+        const tx = evilFixedLender.evilLiquidate(
+          fixedLenderDAI.address,
+          bob.address,
+          parseUnits("100"),
+          nextPoolID
+        );
+        await expect(tx).to.be.revertedWith(
+          errorGeneric(ProtocolError.NOT_LIQUIDATION_STATE)
+        );
+      });
+    });
+  });
+
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);

@@ -233,7 +233,8 @@ describe("Auditor from User Space", function () {
         exactlyEnv.notAnFixedLenderAddress,
         fixedLenderDAI.address,
         owner.address,
-        user.address
+        user.address,
+        nextPoolID
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
@@ -245,7 +246,8 @@ describe("Auditor from User Space", function () {
         fixedLenderDAI.address,
         fixedLenderDAI.address,
         owner.address,
-        owner.address
+        owner.address,
+        nextPoolID
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER));
   });

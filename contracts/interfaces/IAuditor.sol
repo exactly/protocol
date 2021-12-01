@@ -45,7 +45,8 @@ interface IAuditor {
         address fixedLenderCollateral,
         address fixedLenderBorrowed,
         address liquidator,
-        address borrower
+        address borrower,
+        uint256 maturityDate
     ) external;
 
     function liquidateCalculateSeizeAmount(

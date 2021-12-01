@@ -18,12 +18,18 @@ contract Auditor is IAuditor, AccessControl {
     using ExaLib for ExaLib.RewardsState;
     using MarketsLib for MarketsLib.Book;
 
+    struct LiquidationInProgress {
+        address borrower;
+        uint256 maturityDate;
+    }
+
     // Protocol Management
     MarketsLib.Book private book;
 
     uint256 public closeFactor = 5e17;
     uint256 public liquidationIncentive = 1e18 + 1e17;
-    address private liquidationInProcess;
+    LiquidationInProgress private liquidationInProgress;
+
     uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
 
@@ -546,7 +552,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
         }
 
-        liquidationInProcess = borrower;
+        liquidationInProgress = LiquidationInProgress(borrower, maturityDate);
     }
 
     /**
@@ -561,7 +567,8 @@ contract Auditor is IAuditor, AccessControl {
         address fixedLenderCollateral,
         address fixedLenderBorrowed,
         address liquidator,
-        address borrower
+        address borrower,
+        uint256 maturityDate
     ) external override {
         if (borrower == liquidator) {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
@@ -575,12 +582,16 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        /* The borrower be in a liquidatation process */
-        if (borrower != liquidationInProcess) {
+        // this prevents a malicius exafin to seize tokens
+        // without going through a liquidation process
+        if (
+            borrower != liquidationInProgress.borrower &&
+            maturityDate != liquidationInProgress.maturityDate
+        ) {
             revert GenericError(ErrorCode.NOT_LIQUIDATION_STATE);
         }
 
-        delete liquidationInProcess;
+        delete liquidationInProgress;
     }
 
     /**
