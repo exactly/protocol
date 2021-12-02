@@ -518,13 +518,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param borrower the address of the account that has the debt
      * @param repayAmount the amount of debt of the pool that should be paid
      * @param maturityDate the maturityDate to access the pool
+     * @return the actual amount that it was transferred in to the protocol
      */
     function _repay(
         address payer,
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
-    ) internal {
+    ) internal returns (uint256) {
         if (repayAmount == 0) {
             revert GenericError(ErrorCode.REPAY_ZERO);
         }
@@ -563,6 +564,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             debtCovered,
             maturityDate
         );
+
+        return repayAmount;
     }
 
     /**
@@ -591,7 +594,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             maturityDate
         );
 
-        _repay(liquidator, borrower, repayAmount, maturityDate);
+        repayAmount = _repay(liquidator, borrower, repayAmount, maturityDate);
 
         // reverts on failure
         uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(

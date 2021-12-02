@@ -362,6 +362,63 @@ describe("Liquidations", function () {
             });
           });
         });
+
+        describe("AND WHEN ETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850) and transfer fees are 10%", () => {
+          beforeEach(async () => {
+            await exactlyEnv.setOracleMockPrice("ETH", "1500");
+            await exactlyEnv
+              .getUnderlying("DAI")
+              .setCommission(parseUnits("0.1"));
+          });
+          it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
+            let shortfall = (
+              await auditor.getAccountLiquidity(alice.address, nextPoolID)
+            )[1];
+            expect(shortfall).to.eq(parseUnits("1050"));
+          });
+          // The liquidator has an incentive to repay as much of the debt as
+          // possible (assuming he has an incentive to repay the debt in the
+          // first place, see below), since _as soon as the position is
+          // undercollateralized_, liquidators can repay half of its debt,
+          // regardless of the user's shortfall
+          describe("AND WHEN a liquidator repays the max amount (19kDAI - 10% fee)", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = await fixedLenderDAI
+                .connect(bob)
+                .liquidate(
+                  alice.address,
+                  parseUnits("19000"),
+                  fixedLenderWBTC.address,
+                  nextPoolID
+                );
+            });
+            it("THEN alice no longer has a liquidity shortfall", async () => {
+              const shortfall = (
+                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+              )[1];
+              expect(shortfall).to.eq(0);
+            });
+            it("AND the liquidator seized (19k * 0.9) + 10% = 18810 of collateral (WBTC)", async () => {
+              // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+              // minus 10% fee of the underlying token
+              const seizedWBTC = parseUnits("29857142", 0);
+              await expect(tx)
+                .to.emit(fixedLenderWBTC, "SeizeAsset")
+                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+            });
+            // debt: 39900-17100 = 22800
+            // liquidity: (1-0.29857142)*0.6*63000+1500*0.7 = 27564.000324000
+            // diff =>> 4764.000324000
+            it("AND she has some liquidity", async () => {
+              const liquidity = (
+                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+              )[0];
+              expect(liquidity).to.be.lt(parseUnits("4765"));
+              expect(liquidity).to.be.gt(parseUnits("4764"));
+            });
+          });
+        });
       });
 
       describe("AND WHEN WBTC price halves (Alices liquidity is 32.5k*0.6+3k*0.7=21.6k)", () => {
