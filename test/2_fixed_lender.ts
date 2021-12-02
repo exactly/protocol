@@ -898,7 +898,7 @@ describe("FixedLender", function () {
           );
         });
 
-        describe("AND borrowing 900 DAI on a maturity pool and repaying with 10% commission", () => {
+        describe("AND WHEN borrowing 900 DAI on a maturity pool and repaying with 10% commission", () => {
           const amountBorrow = parseUnits("900");
           const amountToTransfer = parseUnits("1000");
           beforeEach(async () => {
