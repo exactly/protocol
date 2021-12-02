@@ -21,7 +21,7 @@ describe("ExaToken Smart Pool", () => {
     [, mariaUser] = await ethers.getSigners();
   });
 
-  describe("Integration", () => {
+  describe("FixedLender-Auditor-ExaLib integration", () => {
     let dai: Contract;
     let fixedLenderDAI: Contract;
     let auditor: Contract;
@@ -37,61 +37,79 @@ describe("ExaToken Smart Pool", () => {
       await dai.transfer(mariaUser.address, parseUnits("1000"));
     });
 
-    describe("FixedLender-Auditor-ExaLib integration", () => {
+    describe("GIVEN maria has DAI in her balance", () => {
       beforeEach(async () => {
         await auditor.setExaSpeed(fixedLenderDAI.address, parseUnits("0.5"));
         await dai.transfer(mariaUser.address, parseUnits("1000"));
         await exaToken.transfer(auditor.address, parseUnits("50"));
       });
 
-      it("should retrieve all rewards when calling claimExaAll", async () => {
-        const underlyingAmount = parseUnits("100");
-        await dai
-          .connect(mariaUser)
-          .approve(fixedLenderDAI.address, underlyingAmount);
-
+      it("THEN maria's EXA balance should be 0", async () => {
         let balanceUserPre = await exaToken
           .connect(mariaUser)
           .balanceOf(mariaUser.address);
 
-        await fixedLenderDAI
-          .connect(mariaUser)
-          .depositToSmartPool(underlyingAmount);
-        await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
-
-        let balanceUserPost = await exaToken
-          .connect(mariaUser)
-          .balanceOf(mariaUser.address);
-
         expect(balanceUserPre).to.equal(0);
-        expect(balanceUserPost).to.not.equal(0);
       });
+      describe("AND GIVEN maria deposits DAI to the smart pool AND claims all rewards", () => {
+        beforeEach(async () => {
+          await dai
+            .connect(mariaUser)
+            .approve(fixedLenderDAI.address, parseUnits("1000"));
+          await fixedLenderDAI
+            .connect(mariaUser)
+            .depositToSmartPool(parseUnits("100"));
+          await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
+        });
 
-      it("should emit DistributedSPSupplierExa event when depositing to smart pool", async () => {
-        const underlyingAmount = parseUnits("100");
-        await dai.approve(fixedLenderDAI.address, underlyingAmount);
+        it("THEN maria's EXA balance should be 0.5", async () => {
+          let balanceUserPost = await exaToken
+            .connect(mariaUser)
+            .balanceOf(mariaUser.address);
 
-        await expect(
-          fixedLenderDAI.depositToSmartPool(underlyingAmount)
-        ).to.emit(auditor, "DistributedSPSupplierExa");
-      });
+          expect(balanceUserPost).to.equal(parseUnits("0.5"));
+        });
+        it("AND WHEN maria deposits more DAI, THEN event DistributedSPSupplierExa is emitted", async () => {
+          await expect(
+            fixedLenderDAI
+              .connect(mariaUser)
+              .depositToSmartPool(parseUnits("100"))
+          ).to.emit(auditor, "DistributedSPSupplierExa");
+        });
+        describe("AND GIVEN maria withdraws DAI from the smart pool AND claims all rewards", () => {
+          beforeEach(async () => {
+            await fixedLenderDAI
+              .connect(mariaUser)
+              .withdrawFromSmartPool(parseUnits("100"));
+            await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
+          });
 
-      it("should DistributedSPSupplierExa when withdrawing from smart pool", async () => {
-        // connect through Maria
-        let fixedLenderMaria = fixedLenderDAI.connect(mariaUser);
-        let underlyingTokenUser = dai.connect(mariaUser);
-        let depositAmount = parseUnits("1");
+          it("THEN maria's EXA balance should still be 1", async () => {
+            let balanceUserPost = await exaToken
+              .connect(mariaUser)
+              .balanceOf(mariaUser.address);
 
-        // supply some money and parse event
-        await underlyingTokenUser.approve(
-          fixedLenderMaria.address,
-          depositAmount
-        );
-        await fixedLenderMaria.depositToSmartPool(depositAmount);
+            expect(balanceUserPost).to.equal(parseUnits("1"));
+          });
+          it("AND WHEN maria claims rewards once again, she still has 1", async () => {
+            let balanceUserPost = await exaToken
+              .connect(mariaUser)
+              .balanceOf(mariaUser.address);
 
-        await expect(
-          fixedLenderMaria.withdrawFromSmartPool(ethers.constants.MaxUint256)
-        ).to.emit(auditor, "DistributedSPSupplierExa");
+            expect(balanceUserPost).to.equal(parseUnits("1"));
+          });
+          it("AND WHEN maria withdraws more DAI from the smart pool, THEN event DistributedSPSupplierExa is emitted", async () => {
+            await fixedLenderDAI
+              .connect(mariaUser)
+              .depositToSmartPool(parseUnits("100"));
+
+            await expect(
+              fixedLenderDAI
+                .connect(mariaUser)
+                .withdrawFromSmartPool(parseUnits("100"))
+            ).to.emit(auditor, "DistributedSPSupplierExa");
+          });
+        });
       });
     });
   });
