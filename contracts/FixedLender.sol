@@ -191,13 +191,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @dev Lends to a wallet for a certain maturity date/pool
      * @param amount amount to send to the msg.sender
      * @param maturityDate maturity date for repayment
-     * @param maxCommissionAllowed maximum amount of commision that
-     *        the user is willing to pay to accept the transaction
+     * @param maxAmountAllowed maximum amount of debt that
+     *        the user is willing to accept for the transaction
+     *        to go through
      */
     function borrowFromMaturityPool(
         uint256 amount,
         uint256 maturityDate,
-        uint256 maxCommissionAllowed
+        uint256 maxAmountAllowed
     ) external override nonReentrant {
         bool newDebt = false;
 
@@ -234,7 +235,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         );
         uint256 commission = amount.mul_(commissionRate);
 
-        if (commission > maxCommissionAllowed) {
+        if (amount + commission > maxAmountAllowed) {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
@@ -271,13 +272,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      *      a certain maturity date/pool
      * @param amount amount to receive from the msg.sender
      * @param maturityDate maturity date / pool ID
-     * @param minCommissionRequired minimum amount of commission that
-     *        the user requires to accept the transaction
+     * @param minAmountRequired minimum amount of capital required
+     *        by the depositor for the transaction to be accepted
      */
     function depositToMaturityPool(
         uint256 amount,
         uint256 maturityDate,
-        uint256 minCommissionRequired
+        uint256 minAmountRequired
     ) external override nonReentrant {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
@@ -311,7 +312,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         uint256 commission = amount.mul_(commissionRate);
 
-        if (commission < minCommissionRequired) {
+        if (amount + commission < minAmountRequired) {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 

@@ -8,8 +8,8 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
-  defaultMaxCommission,
-  defaultMinCommission,
+  applyMaxFee,
+  applyMinFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -94,7 +94,7 @@ describe("Liquidations", function () {
       await fixedLenderETH.depositToMaturityPool(
         amountETH,
         nextPoolID,
-        defaultMinCommission(amountETH)
+        applyMinFee(amountETH)
       );
 
       // we deposit WBTC to the protocol
@@ -103,7 +103,7 @@ describe("Liquidations", function () {
       await fixedLenderWBTC.depositToMaturityPool(
         amountWBTC,
         nextPoolID,
-        defaultMinCommission(amountWBTC)
+        applyMinFee(amountWBTC)
       );
 
       // bob deposits DAI to the protocol to have money in the pool
@@ -112,11 +112,7 @@ describe("Liquidations", function () {
       await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
       await fixedLenderDAI
         .connect(bob)
-        .depositToMaturityPool(
-          amountDAI,
-          nextPoolID,
-          defaultMinCommission(amountDAI)
-        );
+        .depositToMaturityPool(amountDAI, nextPoolID, applyMinFee(amountDAI));
       await dai
         .connect(bob)
         .approve(fixedLenderDAI.address, parseUnits("200000"));
@@ -138,7 +134,7 @@ describe("Liquidations", function () {
         await fixedLenderDAI.borrowFromMaturityPool(
           amountToBorrowDAI,
           nextPoolID,
-          defaultMaxCommission(amountToBorrowDAI)
+          applyMaxFee(amountToBorrowDAI)
         );
       });
 

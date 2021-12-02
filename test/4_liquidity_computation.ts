@@ -8,8 +8,8 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
-  defaultMinCommission,
-  defaultMaxCommission,
+  applyMinFee,
+  applyMaxFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -106,11 +106,7 @@ describe("Liquidity computations", function () {
         await dai.connect(laura).approve(fixedLenderDAI.address, amount);
         await fixedLenderDAI
           .connect(laura)
-          .depositToMaturityPool(
-            amount,
-            nextPoolID,
-            defaultMinCommission(amount)
-          );
+          .depositToMaturityPool(amount, nextPoolID, applyMinFee(amount));
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -144,7 +140,7 @@ describe("Liquidity computations", function () {
               .borrowFromMaturityPool(
                 parseUnits("800"),
                 nextPoolID,
-                defaultMaxCommission(parseUnits("800"))
+                applyMaxFee(parseUnits("800"))
               )
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
@@ -159,7 +155,7 @@ describe("Liquidity computations", function () {
             .borrowFromMaturityPool(
               parseUnits("800"),
               nextPoolID,
-              defaultMaxCommission(parseUnits("800"))
+              applyMaxFee(parseUnits("800"))
             );
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
@@ -191,11 +187,7 @@ describe("Liquidity computations", function () {
         await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
         await fixedLenderDAI
           .connect(laura)
-          .depositToMaturityPool(
-            daiAmount,
-            nextPoolID,
-            defaultMinCommission(daiAmount)
-          );
+          .depositToMaturityPool(daiAmount, nextPoolID, applyMinFee(daiAmount));
         const usdcAmount = parseUnits("10000", usdcDecimals);
         await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
         await fixedLenderUSDC
@@ -203,7 +195,7 @@ describe("Liquidity computations", function () {
           .depositToMaturityPool(
             usdcAmount,
             nextPoolID,
-            defaultMinCommission(usdcAmount)
+            applyMinFee(usdcAmount)
           );
       });
       describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
@@ -213,7 +205,7 @@ describe("Liquidity computations", function () {
             .borrowFromMaturityPool(
               parseUnits("7000"),
               nextPoolID,
-              defaultMaxCommission(parseUnits("7000"))
+              applyMaxFee(parseUnits("7000"))
             );
         });
         it("THEN bob has 1kusd liquidity and no shortfall", async () => {
@@ -287,11 +279,7 @@ describe("Liquidity computations", function () {
         await wbtc.connect(laura).approve(fixedLenderWBTC.address, amount);
         await fixedLenderWBTC
           .connect(laura)
-          .depositToMaturityPool(
-            amount,
-            nextPoolID,
-            defaultMinCommission(amount)
-          );
+          .depositToMaturityPool(amount, nextPoolID, applyMinFee(amount));
       });
 
       describe("AND GIVEN Bob provides 60kdai (18 decimals) as collateral", () => {
@@ -304,7 +292,7 @@ describe("Liquidity computations", function () {
             .depositToMaturityPool(
               parseUnits("60000"),
               nextPoolID,
-              defaultMinCommission(parseUnits("60000"))
+              applyMinFee(parseUnits("60000"))
             );
         });
         // Here I'm trying to make sure we use the borrowed token's decimals
@@ -322,7 +310,7 @@ describe("Liquidity computations", function () {
               .borrowFromMaturityPool(
                 parseUnits("1", 8),
                 nextPoolID,
-                defaultMaxCommission(parseUnits("1", 8))
+                applyMaxFee(parseUnits("1", 8))
               )
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
@@ -340,7 +328,7 @@ describe("Liquidity computations", function () {
             .depositToMaturityPool(
               parseUnits("20000"),
               nextPoolID,
-              defaultMinCommission(parseUnits("20000"))
+              applyMinFee(parseUnits("20000"))
             );
           await usdc
             .connect(bob)
@@ -350,7 +338,7 @@ describe("Liquidity computations", function () {
             .depositToMaturityPool(
               parseUnits("40000", 6),
               nextPoolID,
-              defaultMinCommission(parseUnits("40000", 6))
+              applyMinFee(parseUnits("40000", 6))
             );
         });
         describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
@@ -360,7 +348,7 @@ describe("Liquidity computations", function () {
               .borrowFromMaturityPool(
                 parseUnits("0.5", 8),
                 nextPoolID,
-                defaultMaxCommission(parseUnits("0.5", 8))
+                applyMaxFee(parseUnits("0.5", 8))
               );
           });
           describe("AND GIVEN the pool matures", () => {

@@ -11,8 +11,8 @@ import {
   DefaultEnv,
   PoolState,
   errorUnmatchedPool,
-  defaultMinCommission,
-  defaultMaxCommission,
+  applyMinFee,
+  applyMaxFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -111,7 +111,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
 
     // we make it count as collateral (DAI)
@@ -132,7 +132,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
 
     // we make it count as collateral (DAI)
@@ -152,12 +152,12 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
     await fixedLenderDAI.borrowFromMaturityPool(
       amountDAI.div(2),
       nextPoolID,
-      defaultMaxCommission(amountDAI.div(2))
+      applyMaxFee(amountDAI.div(2))
     );
 
     // we make it count as collateral (DAI)
@@ -215,7 +215,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
 
     await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
@@ -330,7 +330,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
 
     // we make it count as collateral (DAI)
@@ -340,7 +340,7 @@ describe("Auditor from User Space", function () {
       fixedLenderDAI.borrowFromMaturityPool(
         amountDAI.div(2),
         nextPoolID,
-        defaultMaxCommission(amountDAI.div(2))
+        applyMaxFee(amountDAI.div(2))
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.BORROW_PAUSED));
   });
@@ -355,7 +355,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
 
     // we make it count as collateral (DAI)
@@ -386,7 +386,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
 
     await expect(
@@ -394,7 +394,7 @@ describe("Auditor from User Space", function () {
       fixedLenderDAI.borrowFromMaturityPool(
         20,
         nextPoolID,
-        defaultMaxCommission(BigNumber.from(20))
+        applyMaxFee(BigNumber.from(20))
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_BORROW_CAP_REACHED));
   });
@@ -430,7 +430,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
 
     expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(amountDAI);
@@ -447,7 +447,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderETH.depositToMaturityPool(
       amountETH,
       nextPoolID,
-      defaultMinCommission(amountETH)
+      applyMinFee(amountETH)
     );
 
     expect(await eth.balanceOf(fixedLenderETH.address)).to.equal(amountETH);
@@ -486,7 +486,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToMaturityPool(
       amountDAI,
       nextPoolID,
-      defaultMinCommission(amountDAI)
+      applyMinFee(amountDAI)
     );
 
     // we make it count as collateral (DAI)

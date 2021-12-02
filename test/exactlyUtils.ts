@@ -27,12 +27,12 @@ export function errorGeneric(errorCode: ProtocolError): string {
   return "GenericError(" + errorCode + ")";
 }
 
-export function defaultMaxCommission(amount: BigNumber): BigNumber {
-  return amount.div(10); // 10%
+export function applyMaxFee(amount: BigNumber): BigNumber {
+  return amount.add(amount.div(10)); // 10%
 }
 
-export function defaultMinCommission(amount: BigNumber): BigNumber {
-  return amount.mul(0);
+export function applyMinFee(amount: BigNumber): BigNumber {
+  return amount; // 0%
 }
 
 export enum PoolState {
