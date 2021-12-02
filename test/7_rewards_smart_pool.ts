@@ -9,16 +9,10 @@ describe("ExaToken Smart Pool", () => {
   let exactlyEnv: DefaultEnv;
   let rewardsLibEnv: RewardsLibEnv;
   let snapshot: any;
-
   let mariaUser: SignerWithAddress;
+
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
-  });
-
-  beforeEach(async () => {
-    exactlyEnv = await ExactlyEnv.create({});
-    rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
-    [, mariaUser] = await ethers.getSigners();
   });
 
   describe("FixedLender-Auditor-ExaLib integration", () => {
@@ -27,11 +21,13 @@ describe("ExaToken Smart Pool", () => {
     let auditor: Contract;
     let exaToken: Contract;
 
-    beforeEach(async () => {
+    before(async () => {
+      exactlyEnv = await ExactlyEnv.create({});
       dai = exactlyEnv.getUnderlying("DAI");
       fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
       auditor = exactlyEnv.auditor;
       exaToken = exactlyEnv.exaToken;
+      [, mariaUser] = await ethers.getSigners();
 
       // From Owner to User
       await dai.transfer(mariaUser.address, parseUnits("1000"));
@@ -114,178 +110,193 @@ describe("ExaToken Smart Pool", () => {
     });
   });
 
-  describe("updateExaSPSupplyIndex", () => {
-    let auditorHarness: Contract;
-    let fixedLenderHarness: Contract;
-
-    beforeEach(async () => {
-      auditorHarness = rewardsLibEnv.auditorHarness;
-      fixedLenderHarness = rewardsLibEnv.fixedLenderHarness;
-    });
-
-    it("should calculate EXA smart pool supply index correctly", async () => {
-      let amountToDeposit = parseUnits("10");
-      let blocksDelta = 100;
-
-      // Call exaSpeed and jump blocksDelta
-      await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        fixedLenderHarness.address,
-        parseUnits("0.5")
-      );
-      await auditorHarness.setBlockNumber(blocksDelta);
-      await fixedLenderHarness.setTotalSpDeposits(
-        mariaUser.address,
-        amountToDeposit
-      );
-      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
-      const [newIndex] = await auditorHarness.getSmartSupplyState(
-        fixedLenderHarness.address
-      );
-
-      let exaAccruedDelta = parseUnits("0.5").mul(blocksDelta);
-      let ratioDelta = exaAccruedDelta
-        .mul(parseUnits("1", 36))
-        .div(amountToDeposit);
-
-      let newIndexCalculated = parseUnits("1", 36).add(ratioDelta);
-      expect(newIndex).to.be.equal(newIndexCalculated);
-    });
-
-    it("should not update smart pool supply index if no blocks passed since last accrual", async () => {
-      await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        fixedLenderHarness.address,
-        parseUnits("0.5")
-      );
-      await fixedLenderHarness.setTotalSpDeposits(
-        mariaUser.address,
-        parseUnits("10000")
-      );
-      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
-
-      const [newIndex, block] = await auditorHarness.getSmartSupplyState(
-        fixedLenderHarness.address
-      );
-      expect(newIndex).to.equal(parseUnits("1", 36));
-      expect(block).to.equal(0);
-    });
-
-    it("should not update smart pool supply index if EXA speed is 0", async () => {
-      // Update borrows
-      await auditorHarness.setBlockNumber(0);
-      await auditorHarness.setExaSpeed(
-        fixedLenderHarness.address,
-        parseUnits("0.5")
-      );
-      await auditorHarness.setBlockNumber(100);
-      await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
-      await fixedLenderHarness.setTotalSpDeposits(
-        mariaUser.address,
-        parseUnits("10000")
-      );
-      await auditorHarness.updateExaSPSupplyIndex(fixedLenderHarness.address);
-
-      const [newIndex, block] = await auditorHarness.getSmartSupplyState(
-        fixedLenderHarness.address
-      );
-      expect(newIndex).to.equal(parseUnits("1", 36));
-      expect(block).to.equal(100);
-    });
-  });
-
-  describe("distributeSPSupplierExa", () => {
+  describe("ExaLib", () => {
     let auditorHarness: Contract;
     let fixedLenderHarness: Contract;
     let exaToken: Contract;
-
-    beforeEach(async () => {
+    before(async () => {
+      rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
       auditorHarness = rewardsLibEnv.auditorHarness;
       fixedLenderHarness = rewardsLibEnv.fixedLenderHarness;
       exaToken = rewardsLibEnv.exaToken;
+      [, mariaUser] = await ethers.getSigners();
     });
+    describe("updateExaSPSupplyIndex", () => {
+      describe("GIVEN a jump in blocks, AND an update in the Exa Smart Pool Supply Index", () => {
+        let amountToDeposit = parseUnits("10");
+        let blocksDelta = 100;
+        beforeEach(async () => {
+          // Call exaSpeed and jump blocksDelta
+          await auditorHarness.setBlockNumber(0);
+          await auditorHarness.setExaSpeed(
+            fixedLenderHarness.address,
+            parseUnits("0.5")
+          );
+          await auditorHarness.setBlockNumber(blocksDelta);
+          await fixedLenderHarness.setTotalSpDeposits(
+            mariaUser.address,
+            amountToDeposit
+          );
+          await auditorHarness.updateExaSPSupplyIndex(
+            fixedLenderHarness.address
+          );
+        });
+        it("THEN it should calculate EXA smart pool supply index correctly", async () => {
+          const [newIndex] = await auditorHarness.getSmartSupplyState(
+            fixedLenderHarness.address
+          );
 
-    it("should transfer EXA and update smart pool supplier index correctly for first time user", async () => {
-      await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalSpDeposits(
-        mariaUser.address,
-        parseUnits("5")
-      );
-      await auditorHarness.setExaSPSupplyState(
-        fixedLenderHarness.address,
-        parseUnits("6", 36),
-        10
-      );
-      let tx = await auditorHarness.distributeAllSmartPoolExa(
-        fixedLenderHarness.address,
-        mariaUser.address
-      );
-      let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
-      let balance = await exaToken.balanceOf(mariaUser.address);
-      expect(accrued).to.equal(0);
-      expect(balance).to.equal(parseUnits("25"));
-      expect(tx)
-        .to.emit(auditorHarness, "DistributedSPSupplierExa")
-        .withArgs(
-          fixedLenderHarness.address,
-          mariaUser.address,
-          parseUnits("25"),
-          parseUnits("6", 36)
-        );
+          let exaAccruedDelta = parseUnits("0.5").mul(blocksDelta);
+          let ratioDelta = exaAccruedDelta
+            .mul(parseUnits("1", 36))
+            .div(amountToDeposit);
+
+          let newIndexCalculated = parseUnits("1", 36).add(ratioDelta);
+          expect(newIndex).to.be.equal(newIndexCalculated);
+        });
+      });
+      describe("GIVEN no blocks passed since last accrual, AND an update in the Exa Smart Pool Supply Index", () => {
+        beforeEach(async () => {
+          await auditorHarness.setBlockNumber(0);
+          await auditorHarness.setExaSpeed(
+            fixedLenderHarness.address,
+            parseUnits("0.5")
+          );
+          await fixedLenderHarness.setTotalSpDeposits(
+            mariaUser.address,
+            parseUnits("10000")
+          );
+          await auditorHarness.updateExaSPSupplyIndex(
+            fixedLenderHarness.address
+          );
+        });
+        it("THEN it should not update smart pool supply index", async () => {
+          const [newIndex, block] = await auditorHarness.getSmartSupplyState(
+            fixedLenderHarness.address
+          );
+          expect(newIndex).to.equal(parseUnits("1", 36));
+          expect(block).to.equal(0);
+        });
+      });
+      describe("GIVEN an EXA speed of 0", () => {
+        beforeEach(async () => {
+          // Update borrows
+          await auditorHarness.setBlockNumber(0);
+          await auditorHarness.setExaSpeed(
+            fixedLenderHarness.address,
+            parseUnits("0.5")
+          );
+          await auditorHarness.setBlockNumber(100);
+          await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
+          await fixedLenderHarness.setTotalSpDeposits(
+            mariaUser.address,
+            parseUnits("10000")
+          );
+          await auditorHarness.updateExaSPSupplyIndex(
+            fixedLenderHarness.address
+          );
+        });
+        it("THEN it should not update smart pool supply index", async () => {
+          const [newIndex, block] = await auditorHarness.getSmartSupplyState(
+            fixedLenderHarness.address
+          );
+          expect(newIndex).to.equal(parseUnits("1", 36));
+          expect(block).to.equal(100);
+        });
+      });
     });
+    describe("distributeSPSupplierExa", () => {
+      describe("GIVEN a first time user deposit and distribution of rewards", () => {
+        beforeEach(async () => {
+          await exaToken.transfer(auditorHarness.address, parseUnits("50"));
+          await fixedLenderHarness.setTotalSpDeposits(
+            mariaUser.address,
+            parseUnits("5")
+          );
+          await auditorHarness.setExaSPSupplyState(
+            fixedLenderHarness.address,
+            parseUnits("6", 36),
+            10
+          );
+        });
 
-    it("should update EXA accrued and smart pool supplier index for repeat user", async () => {
-      await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalSpDeposits(
-        mariaUser.address,
-        parseUnits("5")
-      );
-      await auditorHarness.setExaSPSupplyState(
-        fixedLenderHarness.address,
-        parseUnits("6", 36),
-        10
-      );
-      await auditorHarness.setExaSPSupplierIndex(
-        fixedLenderHarness.address,
-        mariaUser.address,
-        parseUnits("2", 36)
-      );
-      /**
-       * supplierAmount  = 5e18
-       * deltaIndex      = marketStoredIndex - userStoredIndex
-       *                 = 6e36 - 2e36 = 4e36
-       * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
-       *                 = 5e18 * 4e36 / 1e36 = 20e18
-       */
-      await auditorHarness.distributeAllSmartPoolExa(
-        fixedLenderHarness.address,
-        mariaUser.address
-      );
-      let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
-      let balance = await exaToken.balanceOf(mariaUser.address);
-      expect(accrued).to.equal(0);
-      expect(balance).to.equal(parseUnits("20"));
-    });
+        it("THEN it should transfer EXA and update smart pool supplier index correctly", async () => {
+          let tx = await auditorHarness.distributeAllSmartPoolExa(
+            fixedLenderHarness.address,
+            mariaUser.address
+          );
+          let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
+          let balance = await exaToken.balanceOf(mariaUser.address);
+          expect(accrued).to.equal(0);
+          expect(balance).to.equal(parseUnits("25"));
+          expect(tx)
+            .to.emit(auditorHarness, "DistributedSPSupplierExa")
+            .withArgs(
+              fixedLenderHarness.address,
+              mariaUser.address,
+              parseUnits("25"),
+              parseUnits("6", 36)
+            );
+        });
+        describe("AND GIVEN a first time user deposit and distribution of rewards", () => {
+          beforeEach(async () => {
+            await auditorHarness.setExaSPSupplierIndex(
+              fixedLenderHarness.address,
+              mariaUser.address,
+              parseUnits("2", 36)
+            );
+            await auditorHarness.distributeAllSmartPoolExa(
+              fixedLenderHarness.address,
+              mariaUser.address
+            );
+          });
+          it("THEN it should update EXA accrued and smart pool supplier index for repeat user", async () => {
+            /**
+             * supplierAmount  = 5e18
+             * deltaIndex      = marketStoredIndex - userStoredIndex
+             *                 = 6e36 - 2e36 = 4e36
+             * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
+             *                 = 5e18 * 4e36 / 1e36 = 20e18
+             */
 
-    it("should not transfer EXA automatically", async () => {
-      await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalSpDeposits(
-        mariaUser.address,
-        parseUnits("0.5")
-      );
-      await auditorHarness.setExaSPSupplyState(
-        fixedLenderHarness.address,
-        parseUnits("1.0019", 36),
-        10
-      );
-      await auditorHarness.distributeSPSupplierExa(
-        fixedLenderHarness.address,
-        mariaUser.address
-      );
-      let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
-      let balance = await exaToken.balanceOf(mariaUser.address);
-      expect(accrued).to.equal(parseUnits("0.00095"));
-      expect(balance).to.equal(0);
+            let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
+            let balance = await exaToken.balanceOf(mariaUser.address);
+            expect(accrued).to.equal(0);
+            expect(balance).to.equal(parseUnits("20"));
+          });
+        });
+      });
+      describe("GIVEN a deposit without EXA distribution", () => {
+        beforeEach(async () => {
+          await exaToken.transfer(auditorHarness.address, parseUnits("50"));
+          await fixedLenderHarness.setTotalSpDeposits(
+            mariaUser.address,
+            parseUnits("0.5")
+          );
+          await auditorHarness.setExaSPSupplyState(
+            fixedLenderHarness.address,
+            parseUnits("1.0019", 36),
+            10
+          );
+        });
+        it("THEN it should not transfer EXA automatically", async () => {
+          /**
+           * supplierAmount  = 5e17
+           * deltaIndex      = marketStoredIndex - userStoredIndex
+           *                 = 1.0019e36 - 1e36 = 0.0019e36
+           * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
+           *                 = 5e17 * 0.0019e36 / 1e36 = 0.00095e18
+           */
+          await auditorHarness.distributeSPSupplierExa(
+            fixedLenderHarness.address,
+            mariaUser.address
+          );
+          let accrued = await auditorHarness.getExaAccrued(mariaUser.address);
+          let balance = await exaToken.balanceOf(mariaUser.address);
+          expect(accrued).to.equal(parseUnits("0.00095"));
+          expect(balance).to.equal(0);
+        });
+      });
     });
   });
 
