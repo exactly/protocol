@@ -122,7 +122,7 @@ describe("FixedLender", function () {
     ).to.be.equal(underlyingAmount);
   });
 
-  it("blocks to give money to a pool when not enough commission", async () => {
+  it("When depositing 100 to a maturity pool with 100, expecting 110, then it reverts with TOO_MUCH_SLIPPAGE", async () => {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
