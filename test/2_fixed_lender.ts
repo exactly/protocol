@@ -958,27 +958,6 @@ describe("FixedLender", function () {
           });
         });
       });
-
-      describe("WHEN depositing 1000 DAI on a smart pool", () => {
-        const amount = parseUnits("1000");
-
-        beforeEach(async () => {
-          await underlyingToken
-            .connect(johnUser)
-            .approve(fixedLender.address, amount);
-          await fixedLender.connect(johnUser).depositToSmartPool(amount);
-        });
-
-        it("THEN the user receives 900 on smart pool deposit", async () => {
-          const supplied = await exactlyEnv
-            .getEToken("DAI")
-            .connect(johnUser)
-            .balanceOf(johnUser.address);
-          expect(supplied).to.eq(
-            amount.mul(parseUnits("0.9")).div(parseUnits("1"))
-          );
-        });
-      });
     });
   });
 

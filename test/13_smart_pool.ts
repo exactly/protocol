@@ -148,4 +148,32 @@ describe("Smart Pool", function () {
       expect(balanceOfETokenInUserAddress).to.equal(parseUnits("1", 8));
     });
   });
+
+  describe("GIVEN an underlying token with 10% comission", () => {
+    beforeEach(async () => {
+      await underlyingTokenDAI.setCommission(parseUnits("0.1"));
+      await underlyingTokenDAI.transfer(john.address, parseUnits("10000"));
+    });
+
+    describe("WHEN depositing 1000 DAI on a smart pool", () => {
+      const amount = parseUnits("1000");
+
+      beforeEach(async () => {
+        await underlyingTokenDAI
+          .connect(john)
+          .approve(fixedLenderDAI.address, amount);
+        await fixedLenderDAI.connect(john).depositToSmartPool(amount);
+      });
+
+      it("THEN the user receives 900 on smart pool deposit", async () => {
+        const supplied = await exactlyEnv
+          .getEToken("DAI")
+          .connect(john)
+          .balanceOf(john.address);
+        expect(supplied).to.eq(
+          amount.mul(parseUnits("0.9")).div(parseUnits("1"))
+        );
+      });
+    });
+  });
 });
