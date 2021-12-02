@@ -15,6 +15,7 @@ git clone git@github.com:exactly-finance/protocol.git
 ```bash
 npm install
 ```
+also, run `npm run prepare` so git hooks are configured
 
 ## Add Environment Variables
 

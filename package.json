@@ -30,6 +30,7 @@
     "hardhat-deploy-ethers": "*",
     "hardhat-ethernal": "^0.3.10",
     "hardhat-gas-reporter": "^1.0.4",
+    "husky": "^7.0.4",
     "prettier": "^2.5.0",
     "prettier-plugin-solidity": "^1.0.0-beta.19",
     "solhint": "^3.3.6",
@@ -41,7 +42,6 @@
   },
   "engines": {
     "node": "=16"
-  },
-  "dependencies": {
   }
+  
 }
