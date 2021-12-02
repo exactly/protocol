@@ -368,6 +368,42 @@ describe("FixedLender", function () {
     );
   });
 
+  it("it allows mariaUser to repay her debt partially before maturity", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
+
+    // connect through Maria
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    await fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.8"),
+      exaTime.nextPoolID()
+    );
+
+    // repay half of her debt and succeed
+    await expect(
+      fixedLenderMaria.repayToMaturityPool(
+        mariaUser.address,
+        exaTime.nextPoolID(),
+        parseUnits("0.4")
+      )
+    ).to.not.be.reverted;
+
+    // ... the other half is still pending
+    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
+      mariaUser.address,
+      exaTime.nextPoolID()
+    );
+
+    expect(amountOwed).to.equal(parseUnits("0.4"));
+  });
+
   it("GetAccountSnapshot should reflect BaseRate penaltyFee for mariaUser", async () => {
     // give the protocol some solvency
     await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
