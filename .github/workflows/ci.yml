@@ -48,6 +48,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
           aws_bucket: ${{ secrets.AWS_BUCKET }}
           source_dir: 'abi'
+          destination_dir: 'latest'
           
       #- name: Run Deploy
       #  env:
