@@ -21,8 +21,11 @@ interface IFixedLender {
         uint256 maturityDate
     ) external;
 
-    function repayToMaturityPool(address borrower, uint256 maturityDate)
-        external;
+    function repayToMaturityPool(
+        address borrower,
+        uint256 maturityDate,
+        uint256 repayAmount
+    ) external;
 
     function seize(
         address liquidator,

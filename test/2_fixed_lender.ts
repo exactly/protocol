@@ -351,7 +351,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        parseUnits("0.8")
       )
     ).to.not.be.reverted;
 
@@ -365,6 +366,92 @@ describe("FixedLender", function () {
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
     );
+  });
+
+  it("it allows mariaUser to repay her debt partially before maturity", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
+
+    // connect through Maria
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    await fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.8"),
+      exaTime.nextPoolID()
+    );
+
+    // repay half of her debt and succeed
+    await expect(
+      fixedLenderMaria.repayToMaturityPool(
+        mariaUser.address,
+        exaTime.nextPoolID(),
+        parseUnits("0.4")
+      )
+    ).to.not.be.reverted;
+
+    // ... the other half is still pending
+    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
+      mariaUser.address,
+      exaTime.nextPoolID()
+    );
+
+    expect(amountOwed).to.equal(parseUnits("0.4"));
+  });
+
+  it("it allows mariaUser to repay her debt partially before maturity, repay full with the rest 1 day after (1 day penalty)", async () => {
+    // give the protocol some solvency
+    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
+
+    // connect through Maria
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID()
+    );
+    await fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.8"),
+      exaTime.nextPoolID()
+    );
+
+    // repay half of her debt and succeed
+    await expect(
+      fixedLenderMaria.repayToMaturityPool(
+        mariaUser.address,
+        exaTime.nextPoolID(),
+        parseUnits("0.4")
+      )
+    ).to.not.be.reverted;
+
+    // Move in time to maturity + 1 day
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      exaTime.nextPoolID() + exaTime.ONE_DAY,
+    ]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(
+      fixedLenderMaria.repayToMaturityPool(
+        mariaUser.address,
+        exaTime.nextPoolID(),
+        parseUnits("0.4").mul(102).div(100)
+      )
+    ).to.not.be.reverted;
+
+    // ... the other half is still pending
+    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
+      mariaUser.address,
+      exaTime.nextPoolID()
+    );
+
+    expect(amountOwed).to.equal(0);
   });
 
   it("GetAccountSnapshot should reflect BaseRate penaltyFee for mariaUser", async () => {
@@ -449,7 +536,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        expectedAmountPaid
       )
     )
       .to.emit(fixedLenderMaria, "RepayToMaturityPool")
@@ -519,7 +607,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        parseUnits("0.8")
       )
     ).to.not.be.reverted;
 
@@ -863,6 +952,99 @@ describe("FixedLender", function () {
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
     );
+  });
+
+  describe("Transfers with Commissions", () => {
+    describe("GIVEN an underlying token with 10% comission", () => {
+      beforeEach(async () => {
+        await underlyingToken.setCommission(parseUnits("0.1"));
+        await underlyingToken.transfer(johnUser.address, parseUnits("10000"));
+      });
+
+      describe("WHEN depositing 2000 DAI on a maturity pool", () => {
+        const amount = parseUnits("2000");
+
+        beforeEach(async () => {
+          await underlyingToken
+            .connect(johnUser)
+            .approve(fixedLender.address, amount);
+          await fixedLender
+            .connect(johnUser)
+            .depositToMaturityPool(amount, exaTime.nextPoolID());
+        });
+
+        it("THEN the user receives 1800 on smart pool deposit", async () => {
+          const supplied = (
+            await fixedLender
+              .connect(johnUser)
+              .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
+          )[0];
+          expect(supplied).to.eq(
+            amount.mul(parseUnits("0.9")).div(parseUnits("1"))
+          );
+        });
+
+        describe("AND WHEN borrowing 900 DAI on a maturity pool and repaying with 10% commission", () => {
+          const amountBorrow = parseUnits("900");
+          const amountToTransfer = parseUnits("1000");
+          beforeEach(async () => {
+            await fixedLender
+              .connect(johnUser)
+              .borrowFromMaturityPool(amountBorrow, exaTime.nextPoolID());
+
+            await underlyingToken
+              .connect(johnUser)
+              .approve(fixedLender.address, amountToTransfer);
+
+            await fixedLender
+              .connect(johnUser)
+              .repayToMaturityPool(
+                johnUser.address,
+                exaTime.nextPoolID(),
+                amountToTransfer
+              );
+          });
+
+          it("THEN the user cancel its debt", async () => {
+            const borrowed = (
+              await fixedLender
+                .connect(johnUser.address)
+                .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
+            )[1];
+            expect(borrowed).to.eq(0);
+          });
+        });
+
+        describe("AND trying to repay 1100 (too much)", () => {
+          const amountBorrow = parseUnits("900");
+          const amountToTransfer = parseUnits("1100");
+          let tx: any;
+          beforeEach(async () => {
+            await fixedLender
+              .connect(johnUser)
+              .borrowFromMaturityPool(amountBorrow, exaTime.nextPoolID());
+
+            await underlyingToken
+              .connect(johnUser)
+              .approve(fixedLender.address, amountToTransfer);
+
+            tx = fixedLender
+              .connect(johnUser)
+              .repayToMaturityPool(
+                johnUser.address,
+                exaTime.nextPoolID(),
+                amountToTransfer
+              );
+          });
+
+          it("THEN the transaction is reverted TOO_MUCH_REPAY_TRANSFER", async () => {
+            await expect(tx).to.be.revertedWith(
+              errorGeneric(ProtocolError.TOO_MUCH_REPAY_TRANSFER)
+            );
+          });
+        });
+      });
+    });
   });
 
   afterEach(async () => {
