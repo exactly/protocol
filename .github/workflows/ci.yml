@@ -42,11 +42,11 @@ jobs:
             abi/contracts/Auditor.sol
             abi/contracts/FixedLender.sol
           
-      - name: Run Deploy
-        env:
-          MNEMONIC: ${{ secrets.MNEMONIC }}
-          FORKING: false
-          ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
+      #- name: Run Deploy
+      #  env:
+      #    MNEMONIC: ${{ secrets.MNEMONIC }}
+      #    FORKING: false
+      #    ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
 
       #  run: |
       #    npx hardhat deploy --network kovan
