@@ -13,6 +13,7 @@ cache
 artifacts
 coverage/
 coverage.json
+abi
 
 *.code-workspace
 
