@@ -42,7 +42,6 @@ jobs:
           npx hardhat compile
       
       - name: Upload to S3
-        uses: actions/checkout@master
         uses: shallwefootball/s3-upload-action@master
         with:
           aws_key_id: ${{ secrets.AWS_KEY_ID }}
