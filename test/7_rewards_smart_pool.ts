@@ -10,6 +10,7 @@ describe("ExaToken Smart Pool", () => {
   let rewardsLibEnv: RewardsLibEnv;
   let snapshot: any;
   let mariaUser: SignerWithAddress;
+  let marioUser: SignerWithAddress;
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -17,6 +18,7 @@ describe("ExaToken Smart Pool", () => {
 
   describe("FixedLender-Auditor-ExaLib integration", () => {
     let dai: Contract;
+    let eDAI: Contract;
     let fixedLenderDAI: Contract;
     let auditor: Contract;
     let exaToken: Contract;
@@ -24,10 +26,11 @@ describe("ExaToken Smart Pool", () => {
     before(async () => {
       exactlyEnv = await ExactlyEnv.create({});
       dai = exactlyEnv.getUnderlying("DAI");
+      eDAI = exactlyEnv.getEToken("DAI");
       fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
       auditor = exactlyEnv.auditor;
       exaToken = exactlyEnv.exaToken;
-      [, mariaUser] = await ethers.getSigners();
+      [, mariaUser, marioUser] = await ethers.getSigners();
 
       // From Owner to User
       await dai.transfer(mariaUser.address, parseUnits("1000"));
@@ -44,6 +47,13 @@ describe("ExaToken Smart Pool", () => {
         let balanceUserPre = await exaToken
           .connect(mariaUser)
           .balanceOf(mariaUser.address);
+
+        expect(balanceUserPre).to.equal(0);
+      });
+      it("THEN mario's EXA balance should be 0", async () => {
+        let balanceUserPre = await exaToken
+          .connect(marioUser)
+          .balanceOf(marioUser.address);
 
         expect(balanceUserPre).to.equal(0);
       });
@@ -71,6 +81,33 @@ describe("ExaToken Smart Pool", () => {
               .connect(mariaUser)
               .depositToSmartPool(parseUnits("100"))
           ).to.emit(auditor, "DistributedSPSupplierExa");
+        });
+        describe("AND GIVEN maria transfers her whole smart pool deposit voucher to mario", () => {
+          beforeEach(async () => {
+            await eDAI
+              .connect(mariaUser)
+              .transfer(marioUser.address, parseUnits("100"));
+          });
+          it("THEN maria's EXA rewards does not increase after some blocks", async () => {
+            await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
+            let balanceMariaPre = await exaToken.balanceOf(mariaUser.address);
+            await ethers.provider.send("evm_mine", []);
+            await ethers.provider.send("evm_mine", []);
+
+            await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
+            let balanceMariaPost = await exaToken.balanceOf(mariaUser.address);
+            expect(balanceMariaPre).to.equal(balanceMariaPost);
+          });
+          it("THEN mario's EXA rewards increase after some blocks", async () => {
+            await auditor.connect(marioUser).claimExaAll(marioUser.address);
+            let balanceMarioPre = await exaToken.balanceOf(marioUser.address);
+            await ethers.provider.send("evm_mine", []);
+            await ethers.provider.send("evm_mine", []);
+
+            await auditor.connect(marioUser).claimExaAll(marioUser.address);
+            let balanceMarioPost = await exaToken.balanceOf(marioUser.address);
+            expect(balanceMarioPre).to.be.lt(balanceMarioPost);
+          });
         });
         describe("AND GIVEN maria withdraws DAI from the smart pool AND claims all rewards", () => {
           beforeEach(async () => {

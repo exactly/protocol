@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IFixedLender.sol";
+import "./interfaces/IAuditor.sol";
 import "./utils/Errors.sol";
 import "./utils/DecimalMath.sol";
 
@@ -24,6 +25,7 @@ contract EToken is IEToken, AccessControl {
     uint8 public override decimals;
 
     IFixedLender private fixedLender;
+    IAuditor private auditor;
 
     modifier onlyFixedLender() {
         if (msg.sender != address(fixedLender)) {
@@ -113,20 +115,25 @@ contract EToken is IEToken, AccessControl {
     }
 
     /**
-     * @dev Sets the FixedLender where this eToken is used
-     * - Only able to set the FixedLender once
+     * @dev Initializes the eToken setting the FixedLender and Auditor addresses
+     * - Only able to initialize once
      * @param fixedLenderAddress The address of the FixedLender that uses this eToken
+     * @param auditorAddress The address of the Auditor
      */
-    function setFixedLender(address fixedLenderAddress)
+    function initialize(address fixedLenderAddress, address auditorAddress)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        if (address(fixedLender) != address(0)) {
-            revert GenericError(ErrorCode.FIXED_LENDER_ALREADY_SET);
+        if (
+            address(fixedLender) != address(0) &&
+            address(auditorAddress) != address(0)
+        ) {
+            revert GenericError(ErrorCode.ETOKEN_ALREADY_INITIALIZED);
         }
         fixedLender = IFixedLender(fixedLenderAddress);
+        auditor = IAuditor(auditorAddress);
 
-        emit FixedLenderSet(fixedLenderAddress);
+        emit Initialized(fixedLenderAddress, auditorAddress);
     }
 
     /**
@@ -278,6 +285,7 @@ contract EToken is IEToken, AccessControl {
             "ERC20: transfer amount exceeds balance"
         );
 
+        auditor.beforeTransferSP(address(fixedLender), sender, recipient);
         uint256 senderRemainingBalance = senderBalance - amount;
         userScaledBalance[sender] =
             (senderRemainingBalance * totalScaledBalance) /

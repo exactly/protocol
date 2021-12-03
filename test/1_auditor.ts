@@ -168,6 +168,16 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
+  it("BeforeTransferSP should fail for an unlisted market", async () => {
+    await expect(
+      auditor.beforeTransferSP(
+        exactlyEnv.notAnFixedLenderAddress,
+        owner.address,
+        owner.address
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
   it("BorrowAllowed should fail for an unlisted market", async () => {
     await expect(
       auditor.beforeBorrowMP(

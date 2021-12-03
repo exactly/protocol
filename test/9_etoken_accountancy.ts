@@ -19,7 +19,8 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
     const MockedEToken = await ethers.getContractFactory("EToken");
     eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI", 18);
     await eDAI.deployed();
-    await eDAI.setFixedLender(bob.address);
+    // We simulate that the address of user bob is the fixedLender, auditor is not necessary to be set since we are not testing transfers here
+    await eDAI.initialize(bob.address, AddressZero);
   });
 
   describe("GIVEN bob mints 1000 eDAI", () => {
@@ -217,14 +218,16 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
   });
 
   describe("GIVEN fixedLender address already set", () => {
-    it("AND trying to set again, THEN it should revert with FIXED_LENDER_ALREADY_SET error", async () => {
-      await expect(eDAI.setFixedLender(laura.address)).to.be.revertedWith(
-        errorGeneric(ProtocolError.FIXED_LENDER_ALREADY_SET)
+    it("AND trying to set again, THEN it should revert with ETOKEN_ALREADY_INITIALIZED error", async () => {
+      await expect(
+        eDAI.initialize(laura.address, laura.address)
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.ETOKEN_ALREADY_INITIALIZED)
       );
     });
     it("AND called from third parties, THEN it should revert with AccessControl error", async () => {
       await expect(
-        eDAI.connect(laura).setFixedLender(laura.address)
+        eDAI.connect(laura).initialize(laura.address, AddressZero)
       ).to.be.revertedWith("AccessControl");
     });
   });

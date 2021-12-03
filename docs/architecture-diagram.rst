@@ -29,18 +29,19 @@ Contracts' UML diagram
     class EToken {
     }
 
-    IAuditor <|-- Auditor
-    IEToken <|-- EToken
-    IInterestRateModel <|-- InterestRateModel
-    IOracle <|-- ExactlyOracle
-    IERC20 <|-- IEToken
-    IERC20Metadata <|-- IEToken
-    IFixedLender <|-- FixedLender
-    FixedLender o-- Auditor
-    FixedLender o-- InterestRateModel
-    FixedLender o-- EToken
-    EToken o-- FixedLender
-    Auditor o-- ExactlyOracle
+    Auditor ..|> IAuditor
+    EToken ..|> IEToken
+    InterestRateModel ..|> IInterestRateModel
+    ExactlyOracle ..|> IOracle
+    IEToken ..|> IERC20
+    IEToken ..|> IERC20Metadata
+    FixedLender ..|> IFixedLender
+    FixedLender --> Auditor
+    FixedLender --> InterestRateModel
+    FixedLender --> EToken
+    EToken --> FixedLender
+    EToken --> Auditor
+    Auditor --> ExactlyOracle
 
     @enduml
 

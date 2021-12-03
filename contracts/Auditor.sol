@@ -398,6 +398,28 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
+     * @dev Hook function to be called before someone wants to transfer its eTokens.
+     *      This function updates rewards accordingly.
+     *      This function is called from eToken contract.
+     * @param fixedLenderAddress address of the fixedLender where this eToken is used
+     * @param sender address of the user that wants to repay its debt
+     * @param recipient address of the user that wants to repay its debt
+     */
+    function beforeTransferSP(
+        address fixedLenderAddress,
+        address sender,
+        address recipient
+    ) external override {
+        if (!book.markets[fixedLenderAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
+
+        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, sender);
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, recipient);
+    }
+
+    /**
      * @dev Hook function to be called before someone borrows money to a market/maturity.
      *      This function verifies if market is valid, maturity is valid, checks if the user has enough collateral
      *      and accrues rewards accordingly.

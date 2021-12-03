@@ -15,6 +15,12 @@ interface IAuditor {
         uint256 maturityDate
     ) external;
 
+    function beforeTransferSP(
+        address fixedLenderAddress,
+        address sender,
+        address recipient
+    ) external;
+
     function beforeBorrowMP(
         address fixedLenderAddress,
         address borrower,
