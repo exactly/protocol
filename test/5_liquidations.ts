@@ -388,17 +388,14 @@ describe("Liquidations", function () {
           beforeEach(async () => {
             await exactlyEnv.setOracleMockPrice("ETH", "1500");
           });
+
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
             let shortfall = (
               await auditor.getAccountLiquidity(alice.address, nextPoolID)
             )[1];
             expect(shortfall).to.eq(parseUnits("1050"));
           });
-          // The liquidator has an incentive to repay as much of the debt as
-          // possible (assuming he has an incentive to repay the debt in the
-          // first place, see below), since _as soon as the position is
-          // undercollateralized_, liquidators can repay half of its debt,
-          // regardless of the user's shortfall
+
           describe("AND WHEN a liquidator repays the max amount (19kDAI)", () => {
             let tx: any;
             beforeEach(async () => {
@@ -411,12 +408,14 @@ describe("Liquidations", function () {
                   nextPoolID
                 );
             });
+
             it("THEN alice no longer has a liquidity shortfall", async () => {
               const shortfall = (
                 await auditor.getAccountLiquidity(alice.address, nextPoolID)
               )[1];
               expect(shortfall).to.eq(0);
             });
+
             it("AND the liquidator seized 19k + 10% = 20900 of collateral (WBTC)", async () => {
               // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
               const seizedWBTC = parseUnits("33174603", 0);
@@ -424,6 +423,7 @@ describe("Liquidations", function () {
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
                 .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
             });
+
             // debt: 39900-19000 = 20900
             // liquidity: (1-0.33174603)*0.6*63000+1500*0.7 = 26310.000066000
             // 5410
