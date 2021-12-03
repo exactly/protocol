@@ -32,6 +32,10 @@ jobs:
 
       # Runs a set of commands using the runners shell
       - name: Run compile
+        env:
+          MNEMONIC: ${{ secrets.MNEMONIC }}
+          FORKING: false
+          ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
         run: |
           npx hardhat compile
       
