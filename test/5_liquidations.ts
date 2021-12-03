@@ -129,7 +129,9 @@ describe("Liquidations", function () {
 
       describe("WHEN john supplies to the smart pool & the pool matures (prices stay the same) and 20 days goes by without payment", () => {
         beforeEach(async () => {
-          fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("10000"));
+          await fixedLenderDAI
+            .connect(john)
+            .depositToSmartPool(parseUnits("10000"));
           await ethers.provider.send("evm_setNextBlockTimestamp", [
             nextPoolID + exaTime.ONE_DAY * 20 + exaTime.ONE_HOUR * 10,
           ]);
@@ -278,6 +280,7 @@ describe("Liquidations", function () {
             // debt should be approximately 36857
             expect(debt).to.be.closeTo(newDebtCalculated, 10000);
           });
+
           describe("AND WHEN the position is liquidated a second time (55818-19000)/2 ~== 18000", () => {
             beforeEach(async () => {
               tx = fixedLenderDAI
@@ -305,6 +308,77 @@ describe("Liquidations", function () {
               expect(debt).to.be.lt(parseUnits("19000"));
               expect(debt).to.be.gt(parseUnits("18000"));
             });
+          });
+        });
+
+        describe("AND the position is liquidated a first time (19kdai) with 10% commission in the underlying token", () => {
+          let tx: any;
+          beforeEach(async () => {
+            await exactlyEnv
+              .getUnderlying("DAI")
+              .setCommission(parseUnits("0.1"));
+            tx = fixedLenderDAI
+              .connect(bob)
+              .liquidate(
+                alice.address,
+                parseUnits("19000"),
+                fixedLenderWBTC.address,
+                nextPoolID
+              );
+            await tx;
+          });
+          it("THEN the liquidator seizes (19k - 10% of fee) +10% of collateral (WBTC)", async () => {
+            // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+            const seizedWBTC = parseUnits("29857142", 0);
+            await expect(tx)
+              .to.emit(fixedLenderWBTC, "SeizeAsset")
+              .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+          });
+
+          it("THEN john collected the penalty fees for being in the smart pool on the 17100 repay", async () => {
+            let johnBalanceEDAI = await exactlyEnv
+              .getEToken("DAI")
+              .balanceOf(john.address);
+
+            // Borrowed is 39850 + interests
+            const totalBorrowAmount = parseUnits("39900");
+            // penalty is 2% * 20 days = 40/100 + 1 = 140/100
+            // so amount owed is 55860.0
+            const amountOwed = parseUnits("55860.0");
+            // Paying 19000 - fee is equal to 17100
+            // Using 17100 we calculate how much of the principal
+            // it would cover
+            const debtCovered = parseUnits("17100")
+              .mul(totalBorrowAmount)
+              .div(amountOwed);
+            const earnings = parseUnits("17100").sub(debtCovered);
+
+            // John initial balance on the smart pool was 10000
+            expect(johnBalanceEDAI).to.equal(parseUnits("10000").add(earnings));
+          });
+
+          it("AND 19k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
+            const [, debt] = await fixedLenderDAI.getAccountSnapshot(
+              alice.address,
+              nextPoolID
+            );
+
+            // Borrowed is 39850
+            const totalBorrowAmount = parseUnits("39900");
+
+            // penalty is 2% * 20 days = 40/100 + 1 = 140/100
+            // so amount owed is 55860
+            const amountOwed = parseUnits("55860");
+            const debtCovered = parseUnits("17100")
+              .mul(totalBorrowAmount)
+              .div(amountOwed);
+            const newDebtCalculated = totalBorrowAmount
+              .sub(debtCovered)
+              .mul(140)
+              .div(100);
+
+            // debt should be approximately 36857
+            expect(debt).to.be.closeTo(newDebtCalculated, 10000);
           });
         });
       });
@@ -363,7 +437,7 @@ describe("Liquidations", function () {
           });
         });
 
-        describe("AND WHEN ETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850) and transfer fees are 10%", () => {
+        describe("AND WHEN ETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850) and transfer comission are 10%", () => {
           beforeEach(async () => {
             await exactlyEnv.setOracleMockPrice("ETH", "1500");
             await exactlyEnv
