@@ -3,11 +3,10 @@ pragma solidity ^0.8.4;
 import "../utils/TSUtils.sol";
 
 interface IAuditor {
-    function beforeSupplySP(address fixedLenderAddress, address supplier)
-        external;
-
-    function beforeWithdrawSP(address fixedLenderAddress, address supplier)
-        external;
+    function beforeSupplyOrWithdrawSP(
+        address fixedLenderAddress,
+        address interactor
+    ) external;
 
     function beforeDepositMP(
         address fixedLenderAddress,

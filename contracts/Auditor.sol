@@ -334,43 +334,22 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Hook function to be called before someone supplies money to the smart pool
-     *      This function basically checks if the address of the fixed Lender market is
+     * @dev Hook function to be called before someone supplies or withdraws money from the smart pool
+     *      This function basically checks if the address of the fixedLender market is
      *      valid and makes sure to accrue EXA tokens to the market and the user.
-     * @param fixedLenderAddress address of the fixed lender that will receive money in
-     *                           it's smart pool
-     * @param supplier address of the user that will supply money to the smart pool
+     * @param fixedLenderAddress address of the fixedLender that has the smart pool that is going to be interacted with
+     * @param interactor address of the user that will supply or withdraw money from the smart pool
      */
-    function beforeSupplySP(address fixedLenderAddress, address supplier)
-        external
-        override
-    {
+    function beforeSupplyOrWithdrawSP(
+        address fixedLenderAddress,
+        address interactor
+    ) external override {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
         rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
-    }
-
-    /**
-     * @dev Hook function to be called before someone withdraws money from the smart pool
-     *      This function basically checks if the address of the fixed Lender market is
-     *      valid and makes sure to accrue EXA tokens to the market and the user.
-     * @param fixedLenderAddress address of the fixed lender that will receive money in
-     *                           it's smart pool
-     * @param supplier address of the user that will withdraw money from the smart pool
-     */
-    function beforeWithdrawSP(address fixedLenderAddress, address supplier)
-        external
-        override
-    {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
+        rewardsState.distributeSPSupplierExa(fixedLenderAddress, interactor);
     }
 
     /**
