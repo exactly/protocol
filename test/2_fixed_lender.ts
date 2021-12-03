@@ -984,9 +984,9 @@ describe("FixedLender", function () {
           );
         });
 
-        describe("AND WHEN borrowing 900 DAI on a maturity pool and repaying with 10% commission", () => {
+        describe("AND GIVEN john has a 900 DAI borrows on a maturity pool", () => {
           const amountBorrow = parseUnits("900");
-          const amountToTransfer = parseUnits("1000");
+          const maxAllowance = parseUnits("2000");
           beforeEach(async () => {
             await fixedLender
               .connect(johnUser)
@@ -994,53 +994,49 @@ describe("FixedLender", function () {
 
             await underlyingToken
               .connect(johnUser)
-              .approve(fixedLender.address, amountToTransfer);
-
-            await fixedLender
-              .connect(johnUser)
-              .repayToMaturityPool(
-                johnUser.address,
-                exaTime.nextPoolID(),
-                amountToTransfer
-              );
+              .approve(fixedLender.address, maxAllowance);
           });
 
-          it("THEN the user cancel its debt", async () => {
-            const borrowed = (
+          describe("AND trying to repay 1100 (too much)", () => {
+            const amountToTransfer = parseUnits("1100");
+            let tx: any;
+            beforeEach(async () => {
+              tx = fixedLender
+                .connect(johnUser)
+                .repayToMaturityPool(
+                  johnUser.address,
+                  exaTime.nextPoolID(),
+                  amountToTransfer
+                );
+            });
+
+            it("THEN the transaction is reverted TOO_MUCH_REPAY_TRANSFER", async () => {
+              await expect(tx).to.be.revertedWith(
+                errorGeneric(ProtocolError.TOO_MUCH_REPAY_TRANSFER)
+              );
+            });
+          });
+
+          describe("AND WHEN repaying with 10% commission", () => {
+            const amountToTransfer = parseUnits("1000");
+            beforeEach(async () => {
               await fixedLender
-                .connect(johnUser.address)
-                .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
-            )[1];
-            expect(borrowed).to.eq(0);
-          });
-        });
+                .connect(johnUser)
+                .repayToMaturityPool(
+                  johnUser.address,
+                  exaTime.nextPoolID(),
+                  amountToTransfer
+                );
+            });
 
-        describe("AND trying to repay 1100 (too much)", () => {
-          const amountBorrow = parseUnits("900");
-          const amountToTransfer = parseUnits("1100");
-          let tx: any;
-          beforeEach(async () => {
-            await fixedLender
-              .connect(johnUser)
-              .borrowFromMaturityPool(amountBorrow, exaTime.nextPoolID());
-
-            await underlyingToken
-              .connect(johnUser)
-              .approve(fixedLender.address, amountToTransfer);
-
-            tx = fixedLender
-              .connect(johnUser)
-              .repayToMaturityPool(
-                johnUser.address,
-                exaTime.nextPoolID(),
-                amountToTransfer
-              );
-          });
-
-          it("THEN the transaction is reverted TOO_MUCH_REPAY_TRANSFER", async () => {
-            await expect(tx).to.be.revertedWith(
-              errorGeneric(ProtocolError.TOO_MUCH_REPAY_TRANSFER)
-            );
+            it("THEN the user cancel its debt and succeeds", async () => {
+              const borrowed = (
+                await fixedLender
+                  .connect(johnUser.address)
+                  .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
+              )[1];
+              expect(borrowed).to.eq(0);
+            });
           });
         });
       });
