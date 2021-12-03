@@ -19,8 +19,8 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
     const MockedEToken = await ethers.getContractFactory("EToken");
     eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI", 18);
     await eDAI.deployed();
-    // We simulate that the address of user bob is the fixedLender, auditor is not necessary to be set since we are not testing transfers here
-    await eDAI.initialize(bob.address, AddressZero);
+    // We simulate that the address of user bob is the fixedLender and the auditor contract (auditor is not relevant because we are not testing transfers here)
+    await eDAI.initialize(bob.address, bob.address);
   });
 
   describe("GIVEN bob mints 1000 eDAI", () => {

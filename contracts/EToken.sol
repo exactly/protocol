@@ -125,8 +125,7 @@ contract EToken is IEToken, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         if (
-            address(fixedLender) != address(0) &&
-            address(auditorAddress) != address(0)
+            address(fixedLender) != address(0) && address(auditor) != address(0)
         ) {
             revert GenericError(ErrorCode.ETOKEN_ALREADY_INITIALIZED);
         }
