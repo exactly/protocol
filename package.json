@@ -1,5 +1,5 @@
 {
-  "name": "hardhat-project",
+  "name": "@exactly-finance/protocol",
   "scripts": {
     "lint:ts": "eslint test/* deploy/* hardhat.config.ts",
     "lint:sol": "find contracts  -regex \".*\\.sol\" | xargs solhint",
