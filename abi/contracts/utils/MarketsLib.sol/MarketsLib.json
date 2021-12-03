@@ -1,0 +1,63 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "enum ErrorCode",
+        "name": "error",
+        "type": "uint8"
+      }
+    ],
+    "name": "GenericError",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "fixedLender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "maturityDate",
+        "type": "uint256"
+      }
+    ],
+    "name": "MarketEntered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "fixedLender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "maturityDate",
+        "type": "uint256"
+      }
+    ],
+    "name": "MarketExited",
+    "type": "event"
+  }
+]

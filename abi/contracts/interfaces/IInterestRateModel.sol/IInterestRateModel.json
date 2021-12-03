@@ -1,0 +1,129 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "maturityDate",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "borrowed",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "supplied",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "debt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "available",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct PoolLib.MaturityPool",
+        "name": "poolMaturity",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "borrowed",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "supplied",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct PoolLib.SmartPool",
+        "name": "smartPool",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bool",
+        "name": "newDebt",
+        "type": "bool"
+      }
+    ],
+    "name": "getRateToBorrow",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "maturityDate",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "borrowed",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "supplied",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "debt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "available",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct PoolLib.MaturityPool",
+        "name": "poolMaturity",
+        "type": "tuple"
+      }
+    ],
+    "name": "getRateToSupply",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "penaltyRate",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
