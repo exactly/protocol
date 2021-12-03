@@ -62,7 +62,7 @@ export enum ProtocolError {
 }
 
 export type EnvConfig = {
-  mockedTokens: Map<string, MockedTokenSpec>;
+  mockedTokens?: Map<string, MockedTokenSpec>;
   useRealInterestRateModel?: boolean;
 };
 
@@ -86,6 +86,7 @@ export class DefaultEnv {
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
+  mockedTokens: Map<string, MockedTokenSpec>;
   notAnFixedLenderAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
   usdAddress: string;
 
@@ -99,7 +100,8 @@ export class DefaultEnv {
     _exaToken: Contract,
     _fixedLenderContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
-    _eTokenContracts: Map<string, Contract>
+    _eTokenContracts: Map<string, Contract>,
+    _mockedTokens: Map<string, MockedTokenSpec>
   ) {
     this.oracle = _oracle;
     this.auditor = _auditor;
@@ -109,6 +111,7 @@ export class DefaultEnv {
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
     this.exaLib = _exaLib;
+    this.mockedTokens = _mockedTokens;
     this.marketsLib = _marketsLib;
     this.exaToken = _exaToken;
     this.baseRate = parseUnits("0.02");
@@ -164,12 +167,49 @@ export class RewardsLibEnv {
     this.eToken = _eToken;
   }
 }
+const defaultMockedTokens: Map<string, MockedTokenSpec> = new Map([
+  [
+    "DAI",
+    {
+      decimals: 18,
+      collateralRate: parseUnits("0.8"),
+      usdPrice: parseUnits("1"),
+    },
+  ],
+  [
+    "ETH",
+    {
+      decimals: 18,
+      collateralRate: parseUnits("0.7"),
+      usdPrice: parseUnits("3000"),
+    },
+  ],
+  [
+    "WBTC",
+    {
+      decimals: 8,
+      collateralRate: parseUnits("0.6"),
+      usdPrice: parseUnits("63000"),
+    },
+  ],
+  [
+    "USDC",
+    {
+      decimals: 6,
+      collateralRate: parseUnits("0.8"),
+      usdPrice: parseUnits("1"),
+    },
+  ],
+]);
 
 export class ExactlyEnv {
   static async create({
     mockedTokens,
     useRealInterestRateModel,
   }: EnvConfig): Promise<DefaultEnv> {
+    if (mockedTokens === undefined) {
+      mockedTokens = defaultMockedTokens;
+    }
     let fixedLenderContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
     let eTokenContracts = new Map<string, Contract>();
@@ -237,7 +277,7 @@ export class ExactlyEnv {
     await Promise.all(
       Array.from(mockedTokens.keys()).map(async (tokenName) => {
         const { decimals, collateralRate, usdPrice } =
-          mockedTokens.get(tokenName)!;
+          mockedTokens!.get(tokenName)!;
         const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
         const MockedToken = await ethers.getContractFactory("MockedToken");
         const underlyingToken = await MockedToken.deploy(
@@ -301,7 +341,8 @@ export class ExactlyEnv {
           exaToken,
           fixedLenderContracts,
           underlyingContracts,
-          eTokenContracts
+          eTokenContracts,
+          mockedTokens!
         )
       );
     });

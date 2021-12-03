@@ -24,25 +24,6 @@ describe("InterestRateModel", () => {
     return Math.floor(inputNumber * fact) / fact;
   }
 
-  const mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "ETH",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3100"),
-      },
-    ],
-  ]);
-
   let mariaUser: SignerWithAddress;
   let exaTime: ExaTime;
 
@@ -82,7 +63,6 @@ describe("InterestRateModel", () => {
     [mariaUser] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create({
-      mockedTokens,
       useRealInterestRateModel: true,
     });
 

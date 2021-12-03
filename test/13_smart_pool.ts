@@ -19,29 +19,10 @@ describe("Smart Pool", function () {
   let bobBalancePre = parseUnits("2000");
   let johnBalancePre = parseUnits("2000");
 
-  const mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "WBTC",
-      {
-        decimals: 8,
-        collateralRate: parseUnits("0.6", 18),
-        usdPrice: parseUnits("60000"),
-      },
-    ],
-  ]);
-
   beforeEach(async () => {
     [, bob, john] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
     eDAI = exactlyEnv.getEToken("DAI");
     underlyingTokenDAI = exactlyEnv.getUnderlying("DAI");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");

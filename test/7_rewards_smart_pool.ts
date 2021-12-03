@@ -10,40 +10,13 @@ describe("ExaToken Smart Pool", () => {
   let rewardsLibEnv: RewardsLibEnv;
   let snapshot: any;
 
-  let mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "ETH",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3000"),
-      },
-    ],
-    [
-      "WBTC",
-      {
-        decimals: 8,
-        collateralRate: parseUnits("0.6"),
-        usdPrice: parseUnits("63000"),
-      },
-    ],
-  ]);
-
   let mariaUser: SignerWithAddress;
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
   beforeEach(async () => {
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
     rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
     [, mariaUser] = await ethers.getSigners();
   });
