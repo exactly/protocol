@@ -248,8 +248,7 @@ describe("ExaToken", () => {
         await expect(
           fixedLenderMaria.repayToMaturityPool(
             mariaUser.address,
-            exaTime.nextPoolID(),
-            underlyingAmount.div(4)
+            exaTime.nextPoolID()
           )
         ).to.emit(auditor, "DistributedMPBorrowerExa");
       });
