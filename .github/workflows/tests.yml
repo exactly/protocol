@@ -38,6 +38,6 @@ jobs:
           ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
           
         run: |
-          npx hardhat test
-          npx hardhat coverage
+          npm run test
+          npm run coverage
           bash <(curl -s https://codecov.io/bash) -Z
