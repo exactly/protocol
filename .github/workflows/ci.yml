@@ -6,11 +6,11 @@ name: Deploy testnet
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [feature/abi-in-release]
+    branches: main
 
-    # And is tagged with version release/*.*.*
-    #tags:
-    #  - release/*
+    # And is tagged with version release/*
+    tags:
+     - 'release/*'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -41,8 +41,9 @@ jobs:
         run: |
           npx hardhat compile
       
-      - uses: actions/checkout@master
-      - uses: shallwefootball/s3-upload-action@master
+      - name: Upload to S3
+        uses: actions/checkout@master
+        uses: shallwefootball/s3-upload-action@master
         with:
           aws_key_id: ${{ secrets.AWS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
@@ -50,11 +51,13 @@ jobs:
           source_dir: 'abi'
           destination_dir: 'latest'
           
-      #- name: Run Deploy
-      #  env:
-      #    MNEMONIC: ${{ secrets.MNEMONIC }}
-      #    FORKING: false
-      #    ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
+      - name: Run Deploy
+        env:
+          MNEMONIC: ${{ secrets.MNEMONIC }}
+          FORKING: false
+          ALCHEMY_RINKEBY_API_KEY: ${{ secrets.ALCHEMY_RINKEBY_API_KEY }}
+          ALCHEMY_MAINNET_API_KEY: ${{ secrets.ALCHEMY_MAINNET_API_KEY }}
+          ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
 
-      #  run: |
-      #    npx hardhat deploy --network kovan
+       run: |
+         npx hardhat deploy --network kovan
