@@ -59,4 +59,4 @@ jobs:
           ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
 
         run: |
-          npx hardhat deploy --network kovan
+          npm run deploy:kovan
