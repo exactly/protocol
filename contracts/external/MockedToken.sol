@@ -21,6 +21,12 @@ contract MockedToken is ERC20 {
         storedDecimals = _decimals;
     }
 
+    function flashLoan(uint256 amount) external {
+        _mint(msg.sender, amount);
+        IFlashBorrower(msg.sender).doThingsWithFlashLoan();
+        _burn(msg.sender, amount);
+    }
+
     function setCommission(uint256 _transferCommission) public {
         transferCommission = _transferCommission;
     }
@@ -41,11 +47,5 @@ contract MockedToken is ERC20 {
     {
         amount = ((amount * (1e18 - transferCommission)) / 1e18);
         return super.transfer(recipient, amount);
-    }
-
-    function flashLoan(uint256 amount) external {
-        _mint(msg.sender, amount);
-        IFlashBorrower(msg.sender).doThingsWithFlashLoan();
-        _burn(msg.sender, amount);
     }
 }

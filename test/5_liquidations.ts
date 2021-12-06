@@ -123,7 +123,11 @@ describe("Liquidations", function () {
             });
             it("WHEN alice takes a flash loan to make a big SP deposit AND repay her debt, THEN it reverts with a timelock error", async () => {
               await expect(
-                attacker.attack(fixedLenderDAI.address, nextPoolID)
+                attacker.attack(
+                  fixedLenderDAI.address,
+                  nextPoolID,
+                  amountToBorrowDAI
+                )
               ).to.be.revertedWith(
                 errorGeneric(ProtocolError.SMART_POOL_FUNDS_LOCKED)
               );
