@@ -32,4 +32,13 @@ contract MockedToken is ERC20 {
         amount = ((amount * (1e18 - transferCommission)) / 1e18);
         return super.transferFrom(sender, recipient, amount);
     }
+
+    function transfer(address recipient, uint256 amount)
+        public
+        override
+        returns (bool)
+    {
+        amount = ((amount * (1e18 - transferCommission)) / 1e18);
+        return super.transfer(recipient, amount);
+    }
 }

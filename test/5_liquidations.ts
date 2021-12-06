@@ -313,9 +313,17 @@ describe("Liquidations", function () {
 
         describe("AND the position is liquidated a first time (19kdai minus 10% commission in the underlying token) = 17.1kdai", () => {
           let tx: any;
+          let balancePreBTC: BigNumber;
           beforeEach(async () => {
+            balancePreBTC = await exactlyEnv
+              .getUnderlying("WBTC")
+              .connect(bob)
+              .balanceOf(bob.address);
             await exactlyEnv
               .getUnderlying("DAI")
+              .setCommission(parseUnits("0.1"));
+            await exactlyEnv
+              .getUnderlying("WBTC")
               .setCommission(parseUnits("0.1"));
             tx = fixedLenderDAI
               .connect(bob)
@@ -327,6 +335,7 @@ describe("Liquidations", function () {
               );
             await tx;
           });
+
           it("THEN the liquidator seizes (19k - 10% of fee) +10% of collateral (WBTC)", async () => {
             // 19000 - 10% underlying fee = 17100 usd
             // 17100 + 10% liquidation incentive = 18810.00 usd
@@ -335,6 +344,20 @@ describe("Liquidations", function () {
             await expect(tx)
               .to.emit(fixedLenderWBTC, "SeizeAsset")
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+          });
+
+          it("THEN liquidator receives WBTC minus 10% commission of the underlying", async () => {
+            // 19000 - 10% underlying fee = 17100 usd
+            // 17100 + 10% liquidation incentive = 18810.00 usd
+            // 18810.00 USD / 63000 USD/BTC = 0.29857142 BTC (or 29857142*10^18)
+            // 0.29857142 - 10% underlying fee = 0.26871427 btc
+            // 0.26871427 - 2.8% liquidation fee = 26119028 btc
+            const receivedBTC = parseUnits("26119028", 0);
+            const balancePostBTC = await exactlyEnv
+              .getUnderlying("WBTC")
+              .connect(bob)
+              .balanceOf(bob.address);
+            expect(balancePostBTC.sub(balancePreBTC)).to.equal(receivedBTC);
           });
 
           it("THEN john collected the penalty fees for being in the smart pool on the 17100 repay", async () => {
