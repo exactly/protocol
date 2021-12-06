@@ -311,7 +311,7 @@ describe("Liquidations", function () {
           });
         });
 
-        describe("AND the position is liquidated a first time (19kdai) with 10% commission in the underlying token", () => {
+        describe("AND the position is liquidated a first time (19kdai minus 10% commission in the underlying token) = 17.1kdai", () => {
           let tx: any;
           beforeEach(async () => {
             await exactlyEnv
@@ -359,7 +359,7 @@ describe("Liquidations", function () {
             expect(johnBalanceEDAI).to.equal(parseUnits("10000").add(earnings));
           });
 
-          it("AND 19k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
+          it("AND 17.1k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
               nextPoolID
