@@ -26,33 +26,6 @@ describe("Liquidity computations", function () {
   let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
-  let mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "USDC",
-      {
-        decimals: 6,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "WBTC",
-      {
-        decimals: 8,
-        collateralRate: parseUnits("0.6"),
-        usdPrice: parseUnits("60000"),
-      },
-    ],
-  ]);
-
   let snapshot: any;
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -64,7 +37,7 @@ describe("Liquidity computations", function () {
     // laura the lender
     [bob, laura] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
     auditor = exactlyEnv.auditor;
 
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
@@ -171,8 +144,8 @@ describe("Liquidity computations", function () {
 
   describe("unpaid debts after maturity", () => {
     describe("GIVEN a well funded maturity pool (10kdai, laura), AND collateral for the borrower, (10kusdc, bob)", () => {
-      const usdcDecimals = mockedTokens.get("USDC")!.decimals;
       beforeEach(async () => {
+        const usdcDecimals = exactlyEnv.mockedTokens.get("USDC")!.decimals;
         const daiAmount = parseUnits("10000");
         await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
         await fixedLenderDAI

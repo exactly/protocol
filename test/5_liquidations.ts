@@ -28,33 +28,6 @@ describe("Liquidations", function () {
   let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
-  let mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "ETH",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3000"),
-      },
-    ],
-    [
-      "WBTC",
-      {
-        decimals: 8,
-        collateralRate: parseUnits("0.6"),
-        usdPrice: parseUnits("63000"),
-      },
-    ],
-  ]);
-
   let amountToBorrowDAI: BigNumber;
 
   let snapshot: any;
@@ -65,7 +38,7 @@ describe("Liquidations", function () {
   beforeEach(async () => {
     [alice, bob, john] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
     auditor = exactlyEnv.auditor;
 
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");

@@ -22,25 +22,6 @@ describe("FixedLender", function () {
   let fixedLenderETH: Contract;
   let auditor: Contract;
 
-  const mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.85"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "ETH",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3100"),
-      },
-    ],
-  ]);
-
   let mariaUser: SignerWithAddress;
   let johnUser: SignerWithAddress;
   let owner: SignerWithAddress;
@@ -54,7 +35,7 @@ describe("FixedLender", function () {
   beforeEach(async () => {
     [owner, mariaUser, johnUser] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     underlyingTokenETH = exactlyEnv.getUnderlying("ETH");
