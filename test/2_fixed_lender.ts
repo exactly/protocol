@@ -996,7 +996,7 @@ describe("FixedLender", function () {
               .approve(fixedLender.address, maxAllowance);
           });
 
-          describe("AND trying to repay 1100 (too much)", () => {
+          describe("AND WHEN trying to repay 1100 (too much)", () => {
             const amountToTransfer = parseUnits("1100");
             let tx: any;
             beforeEach(async () => {
