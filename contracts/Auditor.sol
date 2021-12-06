@@ -507,10 +507,6 @@ contract Auditor is IAuditor, AccessControl {
         uint256 repayAmount,
         uint256 maturityDate
     ) external view override {
-        if (repayAmount == 0) {
-            revert GenericError(ErrorCode.REPAY_ZERO);
-        }
-
         if (borrower == liquidator) {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
         }
