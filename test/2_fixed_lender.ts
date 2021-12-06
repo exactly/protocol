@@ -972,7 +972,7 @@ describe("FixedLender", function () {
             .depositToMaturityPool(amount, exaTime.nextPoolID());
         });
 
-        it("THEN the user receives 1800 on smart pool deposit", async () => {
+        it("THEN the user receives 1800 on the maturity pool deposit", async () => {
           const supplied = (
             await fixedLender
               .connect(johnUser)
