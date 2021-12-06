@@ -445,7 +445,6 @@ describe("FixedLender", function () {
       )
     ).to.not.be.reverted;
 
-    // ... the other half is still pending
     const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
       mariaUser.address,
       exaTime.nextPoolID()
