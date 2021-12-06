@@ -108,6 +108,26 @@ describe("Liquidations", function () {
           ]);
           await ethers.provider.send("evm_mine", []);
         });
+        describe("Alice is a sneaky gal and uses a flash loan to recover her penalty", () => {
+          describe("GIVEN a funded attacker contract and a flash-loaneable token", () => {
+            let attacker: Contract;
+            beforeEach(async () => {
+              const attackerFactory = await ethers.getContractFactory(
+                "FlashLoanAttacker"
+              );
+              attacker = await attackerFactory.deploy();
+              await attacker.deployed();
+              await dai.transfer(attacker.address, parseUnits("100000"));
+            });
+            it("WHEN alice takes a flash loan to make a big SP deposit AND repay her debt, THEN it reverts with a timelock error", async () => {
+              await expect(
+                attacker.attack(fixedLenderDAI.address, nextPoolID)
+              ).to.be.revertedWith(
+                errorGeneric(ProtocolError.SMART_POOL_FUNDS_LOCKED)
+              );
+            });
+          });
+        });
         describe("AND the liquidation incentive is increased to 15%", () => {
           beforeEach(async () => {
             await auditor.setLiquidationIncentive(parseUnits("1.15"));
