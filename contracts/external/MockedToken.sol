@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./IFlashBorrower.sol";
 
 contract MockedToken is ERC20 {
     uint8 private immutable storedDecimals;
@@ -40,5 +41,11 @@ contract MockedToken is ERC20 {
     {
         amount = ((amount * (1e18 - transferCommission)) / 1e18);
         return super.transfer(recipient, amount);
+    }
+
+    function flashLoan(uint256 amount) external {
+        _mint(msg.sender, amount);
+        IFlashBorrower(msg.sender).doThingsWithFlashLoan();
+        _burn(msg.sender, amount);
     }
 }

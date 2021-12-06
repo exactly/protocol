@@ -28,33 +28,6 @@ describe("Liquidations", function () {
   let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
-  let mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "ETH",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3000"),
-      },
-    ],
-    [
-      "WBTC",
-      {
-        decimals: 8,
-        collateralRate: parseUnits("0.6"),
-        usdPrice: parseUnits("63000"),
-      },
-    ],
-  ]);
-
   let amountToBorrowDAI: BigNumber;
 
   let snapshot: any;
@@ -65,7 +38,7 @@ describe("Liquidations", function () {
   beforeEach(async () => {
     [alice, bob, john] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
     auditor = exactlyEnv.auditor;
 
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");
@@ -136,6 +109,26 @@ describe("Liquidations", function () {
             nextPoolID + exaTime.ONE_DAY * 20 + exaTime.ONE_HOUR * 10,
           ]);
           await ethers.provider.send("evm_mine", []);
+        });
+        describe("Alice is a sneaky gal and uses a flash loan to recover her penalty", () => {
+          describe("GIVEN a funded attacker contract and a flash-loaneable token", () => {
+            let attacker: Contract;
+            beforeEach(async () => {
+              const attackerFactory = await ethers.getContractFactory(
+                "FlashLoanAttacker"
+              );
+              attacker = await attackerFactory.deploy();
+              await attacker.deployed();
+              await dai.transfer(attacker.address, parseUnits("100000"));
+            });
+            it("WHEN alice takes a flash loan to make a big SP deposit AND repay her debt, THEN it reverts with a timelock error", async () => {
+              await expect(
+                attacker.attack(fixedLenderDAI.address, nextPoolID)
+              ).to.be.revertedWith(
+                errorGeneric(ProtocolError.SMART_POOL_FUNDS_LOCKED)
+              );
+            });
+          });
         });
         describe("AND the liquidation incentive is increased to 15%", () => {
           beforeEach(async () => {

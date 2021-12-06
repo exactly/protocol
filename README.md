@@ -28,13 +28,13 @@ cp .env.example .env
 You will then need to set the following keys there:
 
 * `MNEMONIC`: a valid bip39 mnemonic from which accounts will be generated. To get a new one you can do it with `npx mnemonics`, taking into account that this mnemonic is only for development and testing.
-* `ALCHEMY_RINKEBY_API_KEY`: API key linked to a rinkeby alchemy project, used to directly connect to the network
-* `ALCHEMY_KOVAN_API_KEY`: API key linked to a kovan alchemy project, used to directly connect to the network
+* `RINKEBY_NODE`: RPC URL of an ethereum node to connect to rinkeby network
+* `KOVAN_NODE`: RPC URL of an ethereum node to connect to kovan network
 * `FORKING`: `true` if you want to work by forking a mainnet node
-* `ALCHEMY_MAINNET_API_KEY`: API key linked to a mainnet alchemy project, used when forking a mainnet node
+* `MAINNET_NODE`: RPC URL of an ethereum node to connect to main network
 * `PUBLIC_ADDRESS`: where tokens will be sent so you can play around when in forking mode
 
-For the Alchemy API keys you can create a free account in: `https://alchemyapi.io` and create both MAINNET and RINKEBY accounts.
+For the nodes you can create a free account in: `https://alchemyapi.io` and create both MAINNET and RINKEBY accounts. They have the upside of also being archive nodes so mainnet forking is possible
 
 ## Run Tests
 

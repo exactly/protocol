@@ -25,7 +25,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
     uint256 private liquidationFee = 2.8e16; //2.8%
 
-    IERC20 private trustedUnderlying;
+    IERC20 public override trustedUnderlying;
     IEToken public override eToken;
     string public override underlyingTokenName;
 

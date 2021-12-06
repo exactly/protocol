@@ -18,23 +18,10 @@ dotnev.config();
 
 chai.use(solidity);
 
-assert(process.env.MNEMONIC, "include a valid mnemonic in your .env file");
-assert(
-  process.env.FORKING,
-  "specify wether to fork mainnet or not in your .env file"
-);
-assert(
-  process.env.ALCHEMY_RINKEBY_API_KEY,
-  "specify an alchemy api key for rinkeby access in your .env file"
-);
-assert(
-  process.env.ALCHEMY_KOVAN_API_KEY,
-  "specify an alchemy api key for kovan access in your .env file"
-);
 if (process.env.FORKING) {
   assert(
-    process.env.ALCHEMY_MAINNET_API_KEY,
-    "specify an alchemy api key for mainnet forking in your .env file"
+    process.env.MAINNET_NODE,
+    "specify a mainnet node for mainnet forking in your .env file"
   );
 }
 
@@ -49,7 +36,7 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
 const forkingHardhatConfig = {
   initialBaseFeePerGas: 0,
   forking: {
-    url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_MAINNET_API_KEY}`,
+    url: `${process.env.MAINNET_NODE}`,
   },
   accounts: {
     mnemonic: process.env.MNEMONIC,
@@ -78,20 +65,6 @@ let config: HardhatUserConfig = {
       process.env.FORKING === "true"
         ? forkingHardhatConfig
         : standaloneHardhatConfig,
-    rinkeby: {
-      url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY_API_KEY}`,
-      gasPrice: 5000000000,
-      accounts: {
-        mnemonic: process.env.MNEMONIC,
-      },
-    },
-    kovan: {
-      url: `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN_API_KEY}`,
-      gasPrice: 5000000000,
-      accounts: {
-        mnemonic: process.env.MNEMONIC,
-      },
-    },
   },
   gasReporter: {
     currency: "USD",
@@ -99,5 +72,23 @@ let config: HardhatUserConfig = {
     enabled: process.env.REPORT_GAS ? true : false,
   },
 };
+if (process.env.RINKEBY_NODE) {
+  config.networks!["rinkeby"] = {
+    url: `${process.env.RINKEBY_NODE}`,
+    gasPrice: 5000000000,
+    accounts: {
+      mnemonic: process.env.MNEMONIC,
+    },
+  };
+}
+if (process.env.KOVAN_NODE) {
+  config.networks!["kovan"] = {
+    url: `${process.env.KOVAN_NODE}`,
+    gasPrice: 5000000000,
+    accounts: {
+      mnemonic: process.env.MNEMONIC,
+    },
+  };
+}
 
 export default config;

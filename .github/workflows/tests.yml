@@ -30,14 +30,7 @@ jobs:
 
       # Runs a set of commands using the runners shell
       - name: Run Tests
-        env:
-          MNEMONIC: ${{ secrets.MNEMONIC }}
-          FORKING: false
-          ALCHEMY_RINKEBY_API_KEY: ${{ secrets.ALCHEMY_RINKEBY_API_KEY }}
-          ALCHEMY_MAINNET_API_KEY: ${{ secrets.ALCHEMY_MAINNET_API_KEY }}
-          ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
-          
         run: |
-          npx hardhat test
-          npx hardhat coverage
+          npm run test
+          npm run coverage
           bash <(curl -s https://codecov.io/bash) -Z

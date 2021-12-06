@@ -581,7 +581,8 @@ contract Auditor is IAuditor, AccessControl {
             string memory,
             bool,
             uint256,
-            uint8
+            uint8,
+            address
         )
     {
         if (!book.markets[fixedLenderAddress].isListed) {
@@ -593,7 +594,8 @@ contract Auditor is IAuditor, AccessControl {
             marketData.name,
             marketData.isListed,
             marketData.collateralFactor,
-            marketData.decimals
+            marketData.decimals,
+            fixedLenderAddress
         );
     }
 
