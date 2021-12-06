@@ -595,18 +595,17 @@ describe("Liquidations", function () {
           )[1];
           expect(shortfall).to.eq(parseUnits("18300"));
         });
+
         it("AND trying to repay an amount of zero fails", async () => {
           // We try to get all the ETH we can
           // We expect trying to repay zero to fail
           await expect(
-            fixedLenderDAI.liquidate(
-              alice.address,
-              0,
-              fixedLenderETH.address,
-              nextPoolID
-            )
+            fixedLenderDAI
+              .connect(bob)
+              .liquidate(alice.address, 0, fixedLenderETH.address, nextPoolID)
           ).to.be.revertedWith(errorGeneric(ProtocolError.REPAY_ZERO));
         });
+
         it("AND the position cant be liquidated by the borrower", async () => {
           // We expect self liquidation to fail
           await expect(
