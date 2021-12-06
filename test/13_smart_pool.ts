@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
+import { BigNumber, Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv, ExactlyEnv } from "./exactlyUtils";
@@ -173,6 +173,24 @@ describe("Smart Pool", function () {
         expect(supplied).to.eq(
           amount.mul(parseUnits("0.9")).div(parseUnits("1"))
         );
+      });
+
+      describe("AND WHEN withdrawing 900 DAI from a smart pool", () => {
+        const amount = parseUnits("900");
+        let balancePre: BigNumber;
+        beforeEach(async () => {
+          balancePre = await underlyingTokenDAI
+            .connect(john)
+            .balanceOf(john.address);
+          await fixedLenderDAI.connect(john).withdrawFromSmartPool(amount);
+        });
+
+        it("THEN the user receives 810 on his wallet", async () => {
+          const balancePost = await underlyingTokenDAI
+            .connect(john)
+            .balanceOf(john.address);
+          expect(balancePost.sub(balancePre)).to.eq(parseUnits("810"));
+        });
       });
     });
   });
