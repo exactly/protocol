@@ -539,7 +539,7 @@ describe("ExaToken", () => {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e18 * 5e36 / 1e36 = 25e18
        */
-      let tx = await auditorHarness.distributeAllSupplierExa(
+      let tx = await auditorHarness.distributeAllMPSupplierExa(
         fixedLenderHarness.address,
         mariaUser.address
       );
@@ -580,7 +580,7 @@ describe("ExaToken", () => {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e18 * 4e36 / 1e36 = 20e18
        */
-      await auditorHarness.distributeAllSupplierExa(
+      await auditorHarness.distributeAllMPSupplierExa(
         fixedLenderHarness.address,
         mariaUser.address
       );

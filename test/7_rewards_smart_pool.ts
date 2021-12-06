@@ -298,7 +298,7 @@ describe("ExaToken Smart Pool", () => {
         });
 
         it("THEN it should transfer EXA and update smart pool supplier index correctly", async () => {
-          let tx = await auditorHarness.distributeAllSmartPoolExa(
+          let tx = await auditorHarness.distributeAllSPSupplierExa(
             fixedLenderHarness.address,
             mariaUser.address
           );
@@ -322,7 +322,7 @@ describe("ExaToken Smart Pool", () => {
               mariaUser.address,
               parseUnits("2", 36)
             );
-            await auditorHarness.distributeAllSmartPoolExa(
+            await auditorHarness.distributeAllSPSupplierExa(
               fixedLenderHarness.address,
               mariaUser.address
             );
