@@ -10,7 +10,7 @@ describe("ExaToken Smart Pool", () => {
   let rewardsLibEnv: RewardsLibEnv;
   let snapshot: any;
   let mariaUser: SignerWithAddress;
-  let marioUser: SignerWithAddress;
+  let bobUser: SignerWithAddress;
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -30,7 +30,7 @@ describe("ExaToken Smart Pool", () => {
       fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
       auditor = exactlyEnv.auditor;
       exaToken = exactlyEnv.exaToken;
-      [, mariaUser, marioUser] = await ethers.getSigners();
+      [, mariaUser, bobUser] = await ethers.getSigners();
 
       // From Owner to User
       await dai.transfer(mariaUser.address, parseUnits("1000"));
@@ -50,10 +50,10 @@ describe("ExaToken Smart Pool", () => {
 
         expect(balanceUserPre).to.equal(0);
       });
-      it("THEN mario's EXA balance should be 0", async () => {
+      it("THEN bob's EXA balance should be 0", async () => {
         let balanceUserPre = await exaToken
-          .connect(marioUser)
-          .balanceOf(marioUser.address);
+          .connect(bobUser)
+          .balanceOf(bobUser.address);
 
         expect(balanceUserPre).to.equal(0);
       });
@@ -82,17 +82,17 @@ describe("ExaToken Smart Pool", () => {
               .depositToSmartPool(parseUnits("100"))
           ).to.emit(auditor, "DistributedSPSupplierExa");
         });
-        describe("AND GIVEN maria transfers 1/4 of her smart pool deposit voucher to mario", () => {
+        describe("AND GIVEN maria transfers 1/4 of her smart pool deposit voucher to bob", () => {
           let exaBalanceMariaPost: BigNumber;
           beforeEach(async () => {
             await eDAI
               .connect(mariaUser)
-              .transfer(marioUser.address, parseUnits("25"));
+              .transfer(bobUser.address, parseUnits("25"));
           });
           it("THEN maria's EXA rewards accordingly increases after some blocks", async () => {
             await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
             let balanceMariaPre = await exaToken.balanceOf(mariaUser.address);
-            exaToken
+            await exaToken
               .connect(mariaUser)
               .transfer(exaToken.address, balanceMariaPre);
             await ethers.provider.send("evm_mine", []);
@@ -103,25 +103,25 @@ describe("ExaToken Smart Pool", () => {
             expect(exaBalanceMariaPost).to.be.gt(balanceMariaPre);
             expect(exaBalanceMariaPost).to.be.eq(parseUnits("1.5"));
           });
-          it("THEN mario's EXA rewards accordingly increases after some blocks (1/4 of maria's exa balance)", async () => {
-            let balanceMarioPre = await exaToken.balanceOf(marioUser.address);
-            exaToken
-              .connect(marioUser)
-              .transfer(exaToken.address, balanceMarioPre);
+          it("THEN bob's EXA rewards accordingly increases after some blocks (1/4 of maria's exa balance)", async () => {
+            let balanceBobPre = await exaToken.balanceOf(bobUser.address);
+            await exaToken
+              .connect(bobUser)
+              .transfer(exaToken.address, balanceBobPre);
             await ethers.provider.send("evm_mine", []);
             await ethers.provider.send("evm_mine", []);
-            await auditor.connect(marioUser).claimExaAll(marioUser.address);
-            let balanceMarioPost = await exaToken.balanceOf(marioUser.address);
+            await auditor.connect(bobUser).claimExaAll(bobUser.address);
+            let balanceBobPost = await exaToken.balanceOf(bobUser.address);
 
-            expect(balanceMarioPre).to.be.eq(0);
-            expect(balanceMarioPost).to.be.eq(parseUnits("0.5"));
-            expect(balanceMarioPost).to.be.eq(exaBalanceMariaPost.div(3));
+            expect(balanceBobPre).to.be.eq(0);
+            expect(balanceBobPost).to.be.eq(parseUnits("0.5"));
+            expect(balanceBobPost).to.be.eq(exaBalanceMariaPost.div(3));
           });
-          describe("AND GIVEN maria transfers the rest of the smart pool deposit voucher to mario", () => {
+          describe("AND GIVEN maria transfers the rest of the smart pool deposit voucher to bob", () => {
             beforeEach(async () => {
               await eDAI
                 .connect(mariaUser)
-                .transfer(marioUser.address, parseUnits("75"));
+                .transfer(bobUser.address, parseUnits("75"));
             });
             it("THEN maria's EXA rewards does not increase after some blocks", async () => {
               await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
@@ -136,17 +136,15 @@ describe("ExaToken Smart Pool", () => {
               expect(balanceMariaPre).to.be.gt(0);
               expect(balanceMariaPre).to.equal(balanceMariaPost);
             });
-            it("THEN mario's EXA rewards keeps increasing after some blocks", async () => {
-              await auditor.connect(marioUser).claimExaAll(marioUser.address);
-              let balanceMarioPre = await exaToken.balanceOf(marioUser.address);
+            it("THEN bob's EXA rewards keeps increasing after some blocks", async () => {
+              await auditor.connect(bobUser).claimExaAll(bobUser.address);
+              let balanceBobPre = await exaToken.balanceOf(bobUser.address);
               await ethers.provider.send("evm_mine", []);
               await ethers.provider.send("evm_mine", []);
 
-              await auditor.connect(marioUser).claimExaAll(marioUser.address);
-              let balanceMarioPost = await exaToken.balanceOf(
-                marioUser.address
-              );
-              expect(balanceMarioPre).to.be.lt(balanceMarioPost);
+              await auditor.connect(bobUser).claimExaAll(bobUser.address);
+              let balanceBobPost = await exaToken.balanceOf(bobUser.address);
+              expect(balanceBobPre).to.be.lt(balanceBobPost);
             });
           });
         });
@@ -158,7 +156,7 @@ describe("ExaToken Smart Pool", () => {
             await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
           });
 
-          it("THEN maria's EXA balance should still be 1", async () => {
+          it("THEN maria's EXA balance should be 1", async () => {
             let balanceUserPost = await exaToken
               .connect(mariaUser)
               .balanceOf(mariaUser.address);
@@ -166,6 +164,7 @@ describe("ExaToken Smart Pool", () => {
             expect(balanceUserPost).to.equal(parseUnits("1"));
           });
           it("AND WHEN maria claims rewards once again, she still has 1", async () => {
+            await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
             let balanceUserPost = await exaToken
               .connect(mariaUser)
               .balanceOf(mariaUser.address);
@@ -211,7 +210,7 @@ describe("ExaToken Smart Pool", () => {
             parseUnits("0.5")
           );
           await auditorHarness.setBlockNumber(blocksDelta);
-          await fixedLenderHarness.setTotalSpDeposits(
+          await fixedLenderHarness.setTotalSPDeposits(
             mariaUser.address,
             amountToDeposit
           );
@@ -240,7 +239,7 @@ describe("ExaToken Smart Pool", () => {
             fixedLenderHarness.address,
             parseUnits("0.5")
           );
-          await fixedLenderHarness.setTotalSpDeposits(
+          await fixedLenderHarness.setTotalSPDeposits(
             mariaUser.address,
             parseUnits("10000")
           );
@@ -266,7 +265,7 @@ describe("ExaToken Smart Pool", () => {
           );
           await auditorHarness.setBlockNumber(100);
           await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
-          await fixedLenderHarness.setTotalSpDeposits(
+          await fixedLenderHarness.setTotalSPDeposits(
             mariaUser.address,
             parseUnits("10000")
           );
@@ -287,7 +286,7 @@ describe("ExaToken Smart Pool", () => {
       describe("GIVEN a first time user deposit and distribution of rewards", () => {
         beforeEach(async () => {
           await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-          await fixedLenderHarness.setTotalSpDeposits(
+          await fixedLenderHarness.setTotalSPDeposits(
             mariaUser.address,
             parseUnits("5")
           );
@@ -347,7 +346,7 @@ describe("ExaToken Smart Pool", () => {
       describe("GIVEN a deposit without EXA distribution", () => {
         beforeEach(async () => {
           await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-          await fixedLenderHarness.setTotalSpDeposits(
+          await fixedLenderHarness.setTotalSPDeposits(
             mariaUser.address,
             parseUnits("0.5")
           );

@@ -17,19 +17,19 @@ contract FixedLenderHarness {
         totalMpBorrows = _totalMpBorrows;
     }
 
-    function setTotalMpDeposits(uint256 _totalMpDeposits) public {
+    function setTotalMPDeposits(uint256 _totalMpDeposits) public {
         totalMpDeposits = _totalMpDeposits;
     }
 
-    function setTotalMpBorrowsUser(address _who, uint256 _amount) public {
+    function setTotalMPBorrowsUser(address _who, uint256 _amount) public {
         totalMpBorrowsUser[_who] = _amount;
     }
 
-    function setTotalMpDepositsUser(address _who, uint256 _amount) public {
+    function setTotalMPDepositsUser(address _who, uint256 _amount) public {
         totalMpDepositsUser[_who] = _amount;
     }
 
-    function setTotalSpDeposits(address _who, uint256 _totalSpDeposits) public {
+    function setTotalSPDeposits(address _who, uint256 _totalSpDeposits) public {
         eToken.mint(_who, _totalSpDeposits);
     }
 
