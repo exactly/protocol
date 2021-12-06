@@ -328,7 +328,9 @@ describe("Liquidations", function () {
             await tx;
           });
           it("THEN the liquidator seizes (19k - 10% of fee) +10% of collateral (WBTC)", async () => {
-            // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+            // 19000 - 10% underlying fee = 17100 usd
+            // 17100 + 10% liquidation incentive = 18810.00 usd
+            // 18810.00 USD / 63000 USD/BTC = 0.29857142 BTC (or 29857142*10^18)
             const seizedWBTC = parseUnits("29857142", 0);
             await expect(tx)
               .to.emit(fixedLenderWBTC, "SeizeAsset")
