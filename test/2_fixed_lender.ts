@@ -430,11 +430,13 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.8"))
     );
 
     // repay half of her debt and succeed
@@ -466,11 +468,13 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.8"))
     );
 
     // repay half of her debt and succeed
@@ -1048,7 +1052,11 @@ describe("FixedLender", function () {
             .approve(fixedLender.address, amount);
           await fixedLender
             .connect(johnUser)
-            .depositToMaturityPool(amount, exaTime.nextPoolID());
+            .depositToMaturityPool(
+              amount,
+              exaTime.nextPoolID(),
+              applyMinFee(parseUnits("1800"))
+            );
         });
 
         it("THEN the user receives 1800 on the maturity pool deposit", async () => {
@@ -1068,7 +1076,11 @@ describe("FixedLender", function () {
           beforeEach(async () => {
             await fixedLender
               .connect(johnUser)
-              .borrowFromMaturityPool(amountBorrow, exaTime.nextPoolID());
+              .borrowFromMaturityPool(
+                amountBorrow,
+                exaTime.nextPoolID(),
+                applyMinFee(amountBorrow)
+              );
 
             await underlyingToken
               .connect(johnUser)
