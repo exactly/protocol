@@ -46,8 +46,8 @@ describe("FixedLender", function () {
     auditor = exactlyEnv.auditor;
 
     // From Owner to User
-    await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
-    await underlyingTokenETH.transfer(mariaUser.address, parseUnits("10"));
+    await underlyingToken.transfer(mariaUser.address, parseUnits("100000"));
+    await underlyingTokenETH.transfer(mariaUser.address, parseUnits("100000"));
 
     await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
   });
@@ -893,6 +893,145 @@ describe("FixedLender", function () {
     );
 
     await expect(borrow).to.not.be.reverted;
+  });
+
+  describe("GIVEN maria has plenty of ETH collateral", () => {
+    let fixedLenderMaria: Contract;
+    let underlyingTokenMaria: Contract;
+    let underlyingTokenMariaETH: Contract;
+    let fixedLenderMariaETH: Contract;
+    beforeEach(async () => {
+      fixedLenderMaria = fixedLender.connect(mariaUser);
+      underlyingTokenMaria = underlyingToken.connect(mariaUser);
+      fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
+      underlyingTokenMariaETH = underlyingTokenETH.connect(mariaUser);
+      await underlyingTokenMariaETH.approve(
+        fixedLenderMariaETH.address,
+        parseUnits("5")
+      );
+      await fixedLenderMariaETH.depositToMaturityPool(
+        parseUnits("2"),
+        exaTime.nextPoolID(),
+        applyMinFee(parseUnits("2"))
+      );
+      await auditor
+        .connect(mariaUser)
+        .enterMarkets(
+          [fixedLenderMaria.address, fixedLenderMariaETH.address],
+          exaTime.nextPoolID()
+        );
+    });
+    describe("AND GIVEN she deposits 1000DAI into the maturity pool AND 500 into the smart pool", () => {
+      beforeEach(async () => {
+        await underlyingTokenMaria.approve(
+          fixedLender.address,
+          parseUnits("5000")
+        );
+        await fixedLenderMaria.depositToMaturityPool(
+          parseUnits("1000"),
+          exaTime.nextPoolID(),
+          applyMinFee(parseUnits("1000"))
+        );
+        await fixedLenderMaria.depositToSmartPool(parseUnits("500"));
+      });
+      describe("WHEN borrowing 1200", () => {
+        let maturityPool: any;
+        let smartPool: any;
+        beforeEach(async () => {
+          await fixedLenderMaria.borrowFromMaturityPool(
+            parseUnits("1200"),
+            exaTime.nextPoolID(),
+            applyMaxFee(parseUnits("1200"))
+          );
+          maturityPool = await fixedLenderMaria.maturityPools(
+            exaTime.nextPoolID()
+          );
+          smartPool = await fixedLenderMaria.smartPool();
+        });
+        it("THEN all of the maturity pools funds are in use", async () => {
+          expect(maturityPool.available).to.eq(parseUnits("0"));
+        });
+        it("AND 200 are borrowed from the smart pool", async () => {
+          expect(smartPool.borrowed).to.eq(parseUnits("200"));
+          expect(maturityPool.debt).to.eq(parseUnits("200"));
+        });
+        describe("AND WHEN repaying 100 DAI", () => {
+          beforeEach(async () => {
+            await fixedLenderMaria.repayToMaturityPool(
+              mariaUser.address,
+              exaTime.nextPoolID(),
+              parseUnits("100")
+            );
+            maturityPool = await fixedLenderMaria.maturityPools(
+              exaTime.nextPoolID()
+            );
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN only 1100 DAI are borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("1100"));
+          });
+          it("AND the maturity pool doesnt have funds available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("0"));
+          });
+          it("AND the maturity pool owes 100 to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("100"));
+          });
+          it("AND the smart pool was repaid the other 100 (is owed only 100)", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("100"));
+          });
+        });
+        describe("AND WHEN repaying 300 DAI", () => {
+          beforeEach(async () => {
+            await fixedLenderMaria.repayToMaturityPool(
+              mariaUser.address,
+              exaTime.nextPoolID(),
+              parseUnits("300")
+            );
+            maturityPool = await fixedLenderMaria.maturityPools(
+              exaTime.nextPoolID()
+            );
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN only 900 DAI are borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("900"));
+          });
+          it("AND the maturity pool has 100 DAI available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("100"));
+          });
+          it("AND the maturity pool owes nothing to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("0"));
+          });
+          it("AND the smart pool was fully repaid", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("0"));
+          });
+        });
+        describe("AND WHEN repaying in full (1200 DAI)", () => {
+          beforeEach(async () => {
+            await fixedLenderMaria.repayToMaturityPool(
+              mariaUser.address,
+              exaTime.nextPoolID(),
+              parseUnits("1200")
+            );
+            maturityPool = await fixedLenderMaria.maturityPools(
+              exaTime.nextPoolID()
+            );
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN zero DAI are borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("0"));
+          });
+          it("AND the maturity pool has 1000 DAI available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("1000"));
+          });
+          it("AND the maturity pool owes nothing to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("0"));
+          });
+          it("AND the smart pool was fully repaid", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("0"));
+          });
+        });
+      });
+    });
   });
 
   it("it allows you to borrow when the sum of the available amount in the smart and the maturity is exact what is asked", async () => {
