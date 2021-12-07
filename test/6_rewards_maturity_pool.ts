@@ -20,33 +20,6 @@ describe("ExaToken", () => {
   let exaTime: ExaTime = new ExaTime();
   let snapshot: any;
 
-  let mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "ETH",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3000"),
-      },
-    ],
-    [
-      "WBTC",
-      {
-        decimals: 8,
-        collateralRate: parseUnits("0.6"),
-        usdPrice: parseUnits("63000"),
-      },
-    ],
-  ]);
-
   let mariaUser: SignerWithAddress;
   let bobUser: SignerWithAddress;
   let owner: SignerWithAddress;
@@ -55,7 +28,7 @@ describe("ExaToken", () => {
   });
 
   beforeEach(async () => {
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
     rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
     [owner, mariaUser, bobUser] = await ethers.getSigners();
   });
@@ -261,7 +234,8 @@ describe("ExaToken", () => {
         await expect(
           fixedLenderMaria.repayToMaturityPool(
             mariaUser.address,
-            exaTime.nextPoolID()
+            exaTime.nextPoolID(),
+            underlyingAmount.div(4)
           )
         ).to.emit(auditor, "DistributedMPBorrowerExa");
       });

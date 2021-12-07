@@ -507,10 +507,6 @@ contract Auditor is IAuditor, AccessControl {
         uint256 repayAmount,
         uint256 maturityDate
     ) external view override {
-        if (repayAmount == 0) {
-            revert GenericError(ErrorCode.REPAY_ZERO);
-        }
-
         if (borrower == liquidator) {
             revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
         }
@@ -585,7 +581,8 @@ contract Auditor is IAuditor, AccessControl {
             string memory,
             bool,
             uint256,
-            uint8
+            uint8,
+            address
         )
     {
         if (!book.markets[fixedLenderAddress].isListed) {
@@ -597,7 +594,8 @@ contract Auditor is IAuditor, AccessControl {
             marketData.name,
             marketData.isListed,
             marketData.collateralFactor,
-            marketData.decimals
+            marketData.decimals,
+            fixedLenderAddress
         );
     }
 

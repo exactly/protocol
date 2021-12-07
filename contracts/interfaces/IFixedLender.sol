@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IAuditor.sol";
 import "./IEToken.sol";
 
@@ -27,8 +28,11 @@ interface IFixedLender {
         uint256 maturityDate
     ) external;
 
-    function repayToMaturityPool(address borrower, uint256 maturityDate)
-        external;
+    function repayToMaturityPool(
+        address borrower,
+        uint256 maturityDate,
+        uint256 repayAmount
+    ) external;
 
     function seize(
         address liquidator,
@@ -45,6 +49,8 @@ interface IFixedLender {
     ) external returns (uint256);
 
     function underlyingTokenName() external view returns (string calldata);
+
+    function trustedUnderlying() external view returns (IERC20);
 
     function getAccountSnapshot(address who, uint256 timestamp)
         external

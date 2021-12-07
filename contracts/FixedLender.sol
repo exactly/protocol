@@ -25,7 +25,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
     uint256 private liquidationFee = 2.8e16; //2.8%
 
-    IERC20 private trustedUnderlying;
+    IERC20 public override trustedUnderlying;
     IEToken public override eToken;
     string public override underlyingTokenName;
 
@@ -91,28 +91,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param payer address which repaid the previously borrowed amount
      * @param borrower address which had the original debt
      * @param penalty amount paid for penalties
-     * @param amountBorrowed of the asset that it was repaid
+     * @param debtCovered amount of the debt that it was covered in this repayment
      * @param maturityDate poolID where the user repaid its borrowed amounts
      */
     event RepayToMaturityPool(
         address indexed payer,
         address indexed borrower,
         uint256 penalty,
-        uint256 amountBorrowed,
-        uint256 maturityDate
-    );
-
-    /**
-     * @notice Event emitted when a liquidator repays a debt in a liquidation
-     * @param payer address which repaid the previously borrowed amount
-     * @param borrower address which had the original debt
-     * @param repayAmount amount paid by the liquidator
-     * @param maturityDate poolID where the user repaid its borrowed amounts
-     */
-    event RepayToMaturityPoolLiquidate(
-        address indexed payer,
-        address indexed borrower,
-        uint256 repayAmount,
+        uint256 debtCovered,
         uint256 maturityDate
     );
 
@@ -284,6 +270,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
+        amount = doTransferIn(msg.sender, amount);
+
         PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
 
         // reverts on failure
@@ -321,8 +309,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         totalMpDeposits += currentTotalDeposit;
         totalMpDepositsUser[msg.sender] += currentTotalDeposit;
-
-        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
 
         emit DepositToMaturityPool(
             msg.sender,
@@ -376,44 +362,21 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     }
 
     /**
-     * @notice Sender repays borrower's debt for a maturity date
+     * @notice Sender repays an amount of borrower's debt for a maturity date
      * @dev The pool that the user is trying to repay to should be matured
      * @param borrower The address of the account that has the debt
      * @param maturityDate The matured date where the debt is located
+     * @param repayAmount amount to be paid for the borrower's debt
      */
-    function repayToMaturityPool(address borrower, uint256 maturityDate)
-        external
-        override
-        nonReentrant
-    {
+    function repayToMaturityPool(
+        address borrower,
+        uint256 maturityDate,
+        uint256 repayAmount
+    ) external override nonReentrant {
         // reverts on failure
         auditor.beforeRepayMP(address(this), borrower);
 
-        // the commission is included
-        uint256 amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
-        (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
-
-        trustedUnderlying.safeTransferFrom(
-            msg.sender,
-            address(this),
-            amountOwed
-        );
-        totalMpBorrows -= amountBorrowed;
-        totalMpBorrowsUser[borrower] -= amountBorrowed;
-
-        uint256 penalty = amountOwed - amountBorrowed;
-
-        eToken.accrueEarnings(penalty);
-
-        delete mpUserBorrowedAmount[maturityDate][borrower];
-
-        emit RepayToMaturityPool(
-            msg.sender,
-            borrower,
-            penalty,
-            amountBorrowed,
-            maturityDate
-        );
+        _repay(msg.sender, borrower, repayAmount, maturityDate);
     }
 
     /**
@@ -467,11 +430,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      */
     function depositToSmartPool(uint256 amount) external override {
         auditor.beforeSupplySP(address(this), msg.sender);
-
-        trustedUnderlying.safeTransferFrom(msg.sender, address(this), amount);
-
+        amount = doTransferIn(msg.sender, amount);
         eToken.mint(msg.sender, amount);
-
         smartPool.supplied += amount;
         emit DepositToSmartPool(msg.sender, amount);
     }
@@ -565,33 +525,41 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     }
 
     /**
-     * @notice This function allows to partially repay a position on liquidation
-     * @dev repay function on liquidation, it allows to partially pay debt and it
-     *      doesn't call `beforeRepayMP` on the auditor. It should be called after
-     *      liquidateAllowed
+     * @notice This function allows to (partially) repay a position
+     * @dev Internal repay function, it allows to partially pay debt and it
+     *      should be called after `beforeRepayMP` or `liquidateAllowed`
+     *      on the auditor
      * @param payer the address of the account that will pay the debt
      * @param borrower the address of the account that has the debt
      * @param repayAmount the amount of debt of the pool that should be paid
      * @param maturityDate the maturityDate to access the pool
+     * @return the actual amount that it was transferred in to the protocol
      */
-    function _repayLiquidate(
+    function _repay(
         address payer,
         address borrower,
         uint256 repayAmount,
         uint256 maturityDate
-    ) internal {
-        require(repayAmount != 0, "You can't repay zero");
+    ) internal returns (uint256) {
+        if (repayAmount == 0) {
+            revert GenericError(ErrorCode.REPAY_ZERO);
+        }
 
-        trustedUnderlying.safeTransferFrom(payer, address(this), repayAmount);
+        repayAmount = doTransferIn(payer, repayAmount);
+        (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
+
+        if (repayAmount > amountOwed) {
+            revert GenericError(ErrorCode.TOO_MUCH_REPAY_TRANSFER);
+        }
 
         uint256 amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
-        (, uint256 amountOwed) = getAccountSnapshot(borrower, maturityDate);
 
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
         // then amountBorrowed is what should be discounted to the users account
         uint256 debtCovered = (repayAmount * amountBorrowed) / amountOwed;
-        eToken.accrueEarnings(repayAmount - debtCovered);
+        uint256 penalties = repayAmount - debtCovered;
+        eToken.accrueEarnings(penalties);
         mpUserBorrowedAmount[maturityDate][borrower] =
             amountBorrowed -
             debtCovered;
@@ -604,12 +572,15 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         totalMpBorrows -= debtCovered;
         totalMpBorrowsUser[borrower] -= debtCovered;
 
-        emit RepayToMaturityPoolLiquidate(
+        emit RepayToMaturityPool(
             payer,
             borrower,
-            repayAmount,
+            penalties,
+            debtCovered,
             maturityDate
         );
+
+        return repayAmount;
     }
 
     /**
@@ -638,7 +609,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             maturityDate
         );
 
-        _repayLiquidate(liquidator, borrower, repayAmount, maturityDate);
+        repayAmount = _repay(liquidator, borrower, repayAmount, maturityDate);
 
         // reverts on failure
         uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(
@@ -732,5 +703,26 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         emit SeizeAsset(liquidator, borrower, seizeAmount, maturityDate);
         emit AddReserves(address(this), protocolAmount);
+    }
+
+    /**
+     * @notice Private function to safely transfer funds into this contract
+     * @dev Some underlying token implementations can alter the transfer function to
+     *      transfer less of the initial amount (ie: take a commission out).
+     *      This function takes into account this scenario
+     * @param from address which will transfer funds in (approve needed on underlying token)
+     * @param amount amount to be transfered
+     * @return amount actually transferred by the protocol
+     */
+    function doTransferIn(address from, uint256 amount)
+        internal
+        returns (uint256)
+    {
+        uint256 balanceBefore = trustedUnderlying.balanceOf(address(this));
+        trustedUnderlying.safeTransferFrom(from, address(this), amount);
+
+        // Calculate the amount that was *actually* transferred
+        uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
+        return balanceAfter - balanceBefore;
     }
 }

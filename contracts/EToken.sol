@@ -16,6 +16,7 @@ contract EToken is IEToken, AccessControl {
     uint256 private totalScaledBalance;
     // userBalance = userScaledBalance * index
     mapping(address => uint256) private userScaledBalance;
+    mapping(address => uint256) private lastBalanceIncrease;
 
     mapping(address => mapping(address => uint256)) private _allowances;
     string public override name;
@@ -64,6 +65,7 @@ contract EToken is IEToken, AccessControl {
         userScaledBalance[user] += scaledBalance;
         totalScaledBalance += scaledBalance;
         totalSupply += amount;
+        lastBalanceIncrease[user] = block.number;
 
         emit Transfer(address(0), user, amount);
     }
@@ -90,6 +92,11 @@ contract EToken is IEToken, AccessControl {
         onlyFixedLender
     {
         require(user != address(0), "ERC20: burn from the zero address");
+
+        if (lastBalanceIncrease[user] >= block.number) {
+            revert GenericError(ErrorCode.SMART_POOL_FUNDS_LOCKED);
+        }
+
         require(
             balanceOf(user) >= amount,
             "ERC20: burn amount exceeds balance"
@@ -278,6 +285,7 @@ contract EToken is IEToken, AccessControl {
         userScaledBalance[recipient] =
             ((balanceOf(recipient) + amount) * totalScaledBalance) /
             totalSupply;
+        lastBalanceIncrease[recipient] = block.number;
 
         emit Transfer(sender, recipient, amount);
     }

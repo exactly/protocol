@@ -1,9 +1,14 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
+import { BigNumber, Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { DefaultEnv, ExactlyEnv } from "./exactlyUtils";
+import {
+  DefaultEnv,
+  ExactlyEnv,
+  errorGeneric,
+  ProtocolError,
+} from "./exactlyUtils";
 
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;
@@ -19,29 +24,10 @@ describe("Smart Pool", function () {
   let bobBalancePre = parseUnits("2000");
   let johnBalancePre = parseUnits("2000");
 
-  const mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "WBTC",
-      {
-        decimals: 8,
-        collateralRate: parseUnits("0.6", 18),
-        usdPrice: parseUnits("60000"),
-      },
-    ],
-  ]);
-
   beforeEach(async () => {
     [, bob, john] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
     eDAI = exactlyEnv.getEToken("DAI");
     underlyingTokenDAI = exactlyEnv.getUnderlying("DAI");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
@@ -54,6 +40,70 @@ describe("Smart Pool", function () {
     await underlyingTokenDAI.transfer(bob.address, bobBalancePre);
     await underlyingTokenWBTC.transfer(bob.address, parseUnits("1", 8));
     await underlyingTokenDAI.transfer(john.address, johnBalancePre);
+  });
+  describe("timelock", () => {
+    describe("GIVEN bob has 2000DAI in balance", () => {
+      beforeEach(async () => {
+        await underlyingTokenDAI
+          .connect(bob)
+          .approve(fixedLenderDAI.address, bobBalancePre);
+      });
+
+      describe("AND GIVEN a pending tx for a deposit", () => {
+        beforeEach(async () => {
+          await ethers.provider.send("evm_setAutomine", [false]);
+          await ethers.provider.send("evm_mine", []);
+          await fixedLenderDAI
+            .connect(bob)
+            .depositToSmartPool(parseUnits("1000"));
+        });
+        it("WHEN also withdrawing in the same block, THEN it reverts because the tokens are locked", async () => {
+          await ethers.provider.send("evm_setAutomine", [true]);
+          const tx = fixedLenderDAI
+            .connect(bob)
+            .withdrawFromSmartPool(parseUnits("1000"));
+          await expect(tx).to.be.revertedWith(
+            errorGeneric(ProtocolError.SMART_POOL_FUNDS_LOCKED)
+          );
+          const balanceOfETokenInUserAddress = await eDAI.balanceOf(
+            bob.address
+          );
+          // ensure the deposit tx went through
+          expect(balanceOfETokenInUserAddress).to.eq(parseUnits("1000"));
+        });
+        afterEach(async () => {
+          await ethers.provider.send("evm_setAutomine", [true]);
+        });
+      });
+
+      describe("AND GIVEN a pending tx for a transfer to john", () => {
+        beforeEach(async () => {
+          await fixedLenderDAI
+            .connect(bob)
+            .depositToSmartPool(parseUnits("1000"));
+          await ethers.provider.send("evm_setAutomine", [false]);
+          await ethers.provider.send("evm_mine", []);
+          await eDAI.connect(bob).transfer(john.address, parseUnits("1000"));
+        });
+        it("WHEN john wants to withdraw in the same block, THEN it reverts because the tokens are locked", async () => {
+          await ethers.provider.send("evm_setAutomine", [true]);
+          const tx = fixedLenderDAI
+            .connect(john)
+            .withdrawFromSmartPool(parseUnits("1000"));
+          await expect(tx).to.be.revertedWith(
+            errorGeneric(ProtocolError.SMART_POOL_FUNDS_LOCKED)
+          );
+          const balanceOfETokenInUserAddress = await eDAI.balanceOf(
+            john.address
+          );
+          // ensure the deposit tx went through
+          expect(balanceOfETokenInUserAddress).to.eq(parseUnits("1000"));
+        });
+        afterEach(async () => {
+          await ethers.provider.send("evm_setAutomine", [true]);
+        });
+      });
+    });
   });
 
   describe("GIVEN bob and jhon have 2000DAI in balance, AND deposit 1000DAI each", () => {
@@ -146,6 +196,52 @@ describe("Smart Pool", function () {
       let balanceOfETokenInUserAddress = await eWBTC.balanceOf(bob.address);
 
       expect(balanceOfETokenInUserAddress).to.equal(parseUnits("1", 8));
+    });
+  });
+
+  describe("GIVEN an underlying token with 10% comission", () => {
+    beforeEach(async () => {
+      await underlyingTokenDAI.setCommission(parseUnits("0.1"));
+      await underlyingTokenDAI.transfer(john.address, parseUnits("10000"));
+    });
+
+    describe("WHEN depositing 1000 DAI on a smart pool", () => {
+      const amount = parseUnits("1000");
+
+      beforeEach(async () => {
+        await underlyingTokenDAI
+          .connect(john)
+          .approve(fixedLenderDAI.address, amount);
+        await fixedLenderDAI.connect(john).depositToSmartPool(amount);
+      });
+
+      it("THEN the user receives 900 on smart pool deposit", async () => {
+        const supplied = await exactlyEnv
+          .getEToken("DAI")
+          .connect(john)
+          .balanceOf(john.address);
+        expect(supplied).to.eq(
+          amount.mul(parseUnits("0.9")).div(parseUnits("1"))
+        );
+      });
+
+      describe("AND WHEN withdrawing 900 DAI from a smart pool", () => {
+        const amount = parseUnits("900");
+        let balancePre: BigNumber;
+        beforeEach(async () => {
+          balancePre = await underlyingTokenDAI
+            .connect(john)
+            .balanceOf(john.address);
+          await fixedLenderDAI.connect(john).withdrawFromSmartPool(amount);
+        });
+
+        it("THEN the user receives 810 on his wallet", async () => {
+          const balancePost = await underlyingTokenDAI
+            .connect(john)
+            .balanceOf(john.address);
+          expect(balancePost.sub(balancePre)).to.eq(parseUnits("810"));
+        });
+      });
     });
   });
 });

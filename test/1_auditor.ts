@@ -24,33 +24,6 @@ describe("Auditor from User Space", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
 
-  let mockedTokens = new Map([
-    [
-      "DAI",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
-      },
-    ],
-    [
-      "ETH",
-      {
-        decimals: 18,
-        collateralRate: parseUnits("0.7"),
-        usdPrice: parseUnits("3000"),
-      },
-    ],
-    [
-      "WBTC",
-      {
-        decimals: 8,
-        collateralRate: parseUnits("0.6"),
-        usdPrice: parseUnits("63000"),
-      },
-    ],
-  ]);
-
   let snapshot: any;
 
   beforeEach(async () => {
@@ -58,7 +31,7 @@ describe("Auditor from User Space", function () {
 
     [owner, user] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await ExactlyEnv.create({});
     auditor = exactlyEnv.auditor;
     nextPoolID = new ExaTime().nextPoolID();
 
@@ -460,15 +433,15 @@ describe("Auditor from User Space", function () {
     )[0];
 
     let collaterDAI = amountDAI
-      .mul(mockedTokens.get("DAI")!.collateralRate)
+      .mul(exactlyEnv.mockedTokens.get("DAI")!.collateralRate)
       .div(parseUnits("1"))
-      .mul(mockedTokens.get("DAI")!.usdPrice)
+      .mul(exactlyEnv.mockedTokens.get("DAI")!.usdPrice)
       .div(parseUnits("1"));
 
     let collaterETH = amountETH
-      .mul(mockedTokens.get("ETH")!.collateralRate)
+      .mul(exactlyEnv.mockedTokens.get("ETH")!.collateralRate)
       .div(parseUnits("1"))
-      .mul(mockedTokens.get("ETH")!.usdPrice)
+      .mul(exactlyEnv.mockedTokens.get("ETH")!.usdPrice)
       .div(parseUnits("1"));
 
     expect(parseFloat(await formatUnits(liquidity))).to.be.equal(
