@@ -187,7 +187,7 @@ describe("FixedLender", function () {
     ).to.equal(parseUnits("0.8"));
   });
 
-  it("WHEN borrowing 0.8 DAI and expecting to repay 0.8 DAI, then it reverts with TOO_MUCH_SLIPPAGE", async () => {
+  it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, but receiving more than 0.8 DAI of debt THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
     let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
