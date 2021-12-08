@@ -191,6 +191,7 @@ describe("FixedLender", function () {
     let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
+    await exactlyEnv.interestRateModel.setBorrowRate(parseUnits("0.02"));
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
@@ -207,7 +208,7 @@ describe("FixedLender", function () {
       exaTime.nextPoolID(),
       applyMinFee(parseUnits("0.8"))
     );
-    expect(tx).to.be.revertedWith(
+    await expect(tx).to.be.revertedWith(
       errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
     );
   });
