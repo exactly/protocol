@@ -9,13 +9,13 @@ interface IFixedLender {
     function borrowFromMaturityPool(
         uint256 amount,
         uint256 maturityDate,
-        uint256 maxCommission
+        uint256 maxAmountAllowed
     ) external;
 
     function depositToMaturityPool(
         uint256 amount,
         uint256 maturityDate,
-        uint256 minCommission
+        uint256 minAmountRequired
     ) external;
 
     function depositToSmartPool(uint256 amount) external;
