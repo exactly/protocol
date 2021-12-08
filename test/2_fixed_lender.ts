@@ -103,7 +103,7 @@ describe("FixedLender", function () {
     ).to.be.equal(underlyingAmount);
   });
 
-  it("When depositing 100 to a maturity pool with 100, expecting 110, then it reverts with TOO_MUCH_SLIPPAGE", async () => {
+  it("When trying to deposit 100 DAI with a minimum required amount to be received of 110, but receiving 100 instead then it reverts with TOO_MUCH_SLIPPAGE", async () => {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
