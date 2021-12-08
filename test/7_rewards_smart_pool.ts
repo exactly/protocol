@@ -1,9 +1,10 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { Contract, BigNumber } from "ethers";
-import { DefaultEnv, ExactlyEnv, RewardsLibEnv } from "./exactlyUtils";
+import { ExactlyEnv, RewardsLibEnv } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("ExaToken Smart Pool", () => {
   let exactlyEnv: DefaultEnv;

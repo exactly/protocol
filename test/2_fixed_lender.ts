@@ -2,7 +2,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import {
-  DefaultEnv,
   errorGeneric,
   errorUnmatchedPool,
   applyMinFee,
@@ -14,6 +13,7 @@ import {
 } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("FixedLender", function () {
   let exactlyEnv: DefaultEnv;
@@ -116,93 +116,56 @@ describe("FixedLender", function () {
   });
 
   it("it doesn't allow you to give money to a pool that matured", async () => {
-    const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(fixedLender.address, underlyingAmount);
-
     await expect(
-      fixedLender.depositToMaturityPool(
-        underlyingAmount,
-        exaTime.pastPoolID(),
-        applyMinFee(underlyingAmount)
-      )
+      exactlyEnv.depositMP("DAI", exaTime.pastPoolID(), "100")
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
     );
   });
 
   it("it doesn't allow you to give money to a pool that hasn't been enabled yet", async () => {
-    const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(fixedLender.address, underlyingAmount);
-    const notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
-
     await expect(
-      fixedLender.depositToMaturityPool(
-        underlyingAmount,
-        notYetEnabledPoolID,
-        applyMinFee(underlyingAmount)
-      )
+      exactlyEnv.depositMP("DAI", exaTime.distantFuturePoolID(), "100")
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
     );
   });
 
   it("it doesn't allow you to give money to a pool that is invalid", async () => {
-    const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(fixedLender.address, underlyingAmount);
-    const invalidPoolID = exaTime.pastPoolID() + 666;
     await expect(
-      fixedLender.depositToMaturityPool(
-        underlyingAmount,
-        invalidPoolID,
-        applyMinFee(underlyingAmount)
-      )
+      exactlyEnv.depositMP("DAI", exaTime.invalidPoolID(), "100")
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
   it("allows you to borrow money from a maturity pool", async () => {
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+    exactlyEnv.switchWallet(mariaUser);
 
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
-    let tx = await fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.8"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.8"))
-    );
-    expect(tx).to.emit(fixedLenderMaria, "BorrowFromMaturityPool");
-    expect(await fixedLenderMaria.getTotalMpBorrows(nextPoolId)).to.equal(
-      parseUnits("0.8")
-    );
+    await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "1");
+    await exactlyEnv.enterMarkets(["DAI"], exaTime.nextPoolID());
+    await expect(
+      exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "0.8")
+    ).to.emit(exactlyEnv.getFixedLender("DAI"), "BorrowFromMaturityPool");
+    expect(
+      await exactlyEnv
+        .getFixedLender("DAI")
+        .getTotalMpBorrows(exaTime.nextPoolID())
+    ).to.equal(parseUnits("0.8"));
   });
 
   it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, but receiving more than 0.8 DAI of debt THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    await exactlyEnv.interestRateModel.setBorrowRate(parseUnits("0.02"));
+    exactlyEnv.switchWallet(mariaUser);
+    await exactlyEnv.setBorrowRate("0.02");
 
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
-    let tx = fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.8"),
-      nextPoolId,
-      applyMinFee(parseUnits("0.8"))
-    );
-    await expect(tx).to.be.revertedWith(
-      errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
-    );
+    await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "1");
+    await exactlyEnv.enterMarkets(["DAI"], exaTime.nextPoolID());
+    await expect(
+      exactlyEnv.borrowMP(
+        "DAI",
+        exaTime.nextPoolID(),
+        "0.8",
+        applyMinFee(parseUnits("0.8"))
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE));
   });
 
   it("it doesn't allow you to borrow money from a pool that matured", async () => {

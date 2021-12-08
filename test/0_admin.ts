@@ -2,13 +2,9 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import {
-  ProtocolError,
-  ExactlyEnv,
-  errorGeneric,
-  DefaultEnv,
-} from "./exactlyUtils";
+import { ProtocolError, ExactlyEnv, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("Auditor Admin", function () {
   let auditor: Contract;

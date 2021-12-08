@@ -8,13 +8,13 @@ import {
   ExactlyEnv,
   ExaTime,
   errorGeneric,
-  DefaultEnv,
   PoolState,
   errorUnmatchedPool,
   applyMinFee,
   applyMaxFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("Auditor from User Space", function () {
   let auditor: Contract;
