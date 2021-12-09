@@ -5,6 +5,8 @@ import {
   DefaultEnv,
   errorGeneric,
   errorUnmatchedPool,
+  applyMinFee,
+  applyMaxFee,
   ExactlyEnv,
   ExaTime,
   PoolState,
@@ -76,7 +78,8 @@ describe("FixedLender", function () {
 
     let tx = fixedLender.depositToMaturityPool(
       underlyingAmount,
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(underlyingAmount)
     );
     await tx;
     await expect(tx).to.emit(fixedLender, "DepositToMaturityPool").withArgs(
@@ -100,12 +103,30 @@ describe("FixedLender", function () {
     ).to.be.equal(underlyingAmount);
   });
 
+  it("When trying to deposit 100 DAI with a minimum required amount to be received of 110, but receiving 100 instead then it reverts with TOO_MUCH_SLIPPAGE", async () => {
+    const underlyingAmount = parseUnits("100");
+    await underlyingToken.approve(fixedLender.address, underlyingAmount);
+
+    let tx = fixedLender.depositToMaturityPool(
+      underlyingAmount,
+      exaTime.nextPoolID(),
+      applyMaxFee(underlyingAmount)
+    );
+    await expect(tx).to.be.revertedWith(
+      errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
+    );
+  });
+
   it("it doesn't allow you to give money to a pool that matured", async () => {
     const underlyingAmount = parseUnits("100");
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
 
     await expect(
-      fixedLender.depositToMaturityPool(underlyingAmount, exaTime.pastPoolID())
+      fixedLender.depositToMaturityPool(
+        underlyingAmount,
+        exaTime.pastPoolID(),
+        applyMinFee(underlyingAmount)
+      )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
     );
@@ -117,7 +138,11 @@ describe("FixedLender", function () {
     const notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
 
     await expect(
-      fixedLender.depositToMaturityPool(underlyingAmount, notYetEnabledPoolID)
+      fixedLender.depositToMaturityPool(
+        underlyingAmount,
+        notYetEnabledPoolID,
+        applyMinFee(underlyingAmount)
+      )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
     );
@@ -128,11 +153,15 @@ describe("FixedLender", function () {
     await underlyingToken.approve(fixedLender.address, underlyingAmount);
     const invalidPoolID = exaTime.pastPoolID() + 666;
     await expect(
-      fixedLender.depositToMaturityPool(underlyingAmount, invalidPoolID)
+      fixedLender.depositToMaturityPool(
+        underlyingAmount,
+        invalidPoolID,
+        applyMinFee(underlyingAmount)
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
-  it("it allows you to borrow money from a maturity pool", async () => {
+  it("allows you to borrow money from a maturity pool", async () => {
     let fixedLenderMaria = fixedLender.connect(mariaUser);
     let auditorUser = auditor.connect(mariaUser);
     let underlyingTokenUser = underlyingToken.connect(mariaUser);
@@ -140,7 +169,8 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
@@ -148,12 +178,39 @@ describe("FixedLender", function () {
     );
     let tx = await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.8"))
     );
     expect(tx).to.emit(fixedLenderMaria, "BorrowFromMaturityPool");
     expect(
       await fixedLenderMaria.getTotalMpBorrows(exaTime.nextPoolID())
     ).to.equal(parseUnits("0.8"));
+  });
+
+  it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, but receiving more than 0.8 DAI of debt THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
+    let fixedLenderMaria = fixedLender.connect(mariaUser);
+    let auditorUser = auditor.connect(mariaUser);
+    let underlyingTokenUser = underlyingToken.connect(mariaUser);
+    await exactlyEnv.interestRateModel.setBorrowRate(parseUnits("0.02"));
+
+    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
+    await fixedLenderMaria.depositToMaturityPool(
+      parseUnits("1"),
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
+    );
+    await auditorUser.enterMarkets(
+      [fixedLenderMaria.address],
+      exaTime.nextPoolID()
+    );
+    let tx = fixedLenderMaria.borrowFromMaturityPool(
+      parseUnits("0.8"),
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("0.8"))
+    );
+    await expect(tx).to.be.revertedWith(
+      errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
+    );
   });
 
   it("it doesn't allow you to borrow money from a pool that matured", async () => {
@@ -164,7 +221,8 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
@@ -173,7 +231,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.pastPoolID()
+        exaTime.pastPoolID(),
+        applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
@@ -188,7 +247,8 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
@@ -197,7 +257,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        notYetEnabledPoolID
+        notYetEnabledPoolID,
+        applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
@@ -213,14 +274,19 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
       exaTime.nextPoolID()
     );
     await expect(
-      fixedLenderMaria.borrowFromMaturityPool(parseUnits("0.8"), invalidPoolID)
+      fixedLenderMaria.borrowFromMaturityPool(
+        parseUnits("0.8"),
+        invalidPoolID,
+        applyMaxFee(parseUnits("0.8"))
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 
@@ -243,7 +309,8 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address],
@@ -252,7 +319,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.9"),
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        applyMaxFee(parseUnits("0.9"))
       )
     ).to.be.reverted;
   });
@@ -270,7 +338,8 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
 
     // try to withdraw before maturity
@@ -312,11 +381,13 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.8"))
     );
 
     // try to withdraw without paying debt and fail
@@ -360,11 +431,13 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.8"))
     );
 
     // repay half of her debt and succeed
@@ -396,11 +469,13 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.8"))
     );
 
     // repay half of her debt and succeed
@@ -447,11 +522,13 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.5"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.5"))
     );
 
     // Move in time to maturity + 1 day
@@ -494,11 +571,13 @@ describe("FixedLender", function () {
     await underlyingTokenMaria.approve(fixedLender.address, parseUnits("5"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.5"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.5"))
     );
 
     // Move in time to maturity + 1 day
@@ -552,11 +631,13 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.8"))
     );
 
     // Move in time to maturity
@@ -619,7 +700,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
@@ -632,7 +714,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
@@ -657,12 +740,14 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
@@ -675,7 +760,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
@@ -700,12 +786,14 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
@@ -716,7 +804,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
@@ -741,7 +830,8 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
 
     await auditorUser.enterMarkets(
@@ -754,7 +844,8 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID()
+        exaTime.nextPoolID(),
+        applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
       errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
@@ -778,12 +869,14 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
@@ -795,7 +888,8 @@ describe("FixedLender", function () {
 
     const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.3"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.3"))
     );
 
     await expect(borrow).to.not.be.reverted;
@@ -818,12 +912,14 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
@@ -835,7 +931,8 @@ describe("FixedLender", function () {
 
     const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.4"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.4"))
     );
 
     await expect(borrow).to.not.be.reverted;
@@ -858,12 +955,14 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
@@ -875,7 +974,8 @@ describe("FixedLender", function () {
 
     const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.4"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.4"))
     );
 
     await expect(borrow).to.not.be.reverted;
@@ -887,7 +987,8 @@ describe("FixedLender", function () {
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.5"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("0.5"))
     );
 
     poolData = await fixedLender.maturityPools(exaTime.nextPoolID());
@@ -913,7 +1014,8 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMinFee(parseUnits("1"))
     );
 
     await auditorUser.enterMarkets(
@@ -924,7 +1026,8 @@ describe("FixedLender", function () {
     await fixedLender.depositToSmartPool(parseUnits("1"));
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID()
+      exaTime.nextPoolID(),
+      applyMaxFee(parseUnits("0.8"))
     );
 
     await expect(
@@ -950,7 +1053,11 @@ describe("FixedLender", function () {
             .approve(fixedLender.address, amount);
           await fixedLender
             .connect(johnUser)
-            .depositToMaturityPool(amount, exaTime.nextPoolID());
+            .depositToMaturityPool(
+              amount,
+              exaTime.nextPoolID(),
+              applyMinFee(parseUnits("1800"))
+            );
         });
 
         it("THEN the user receives 1800 on the maturity pool deposit", async () => {
@@ -970,7 +1077,11 @@ describe("FixedLender", function () {
           beforeEach(async () => {
             await fixedLender
               .connect(johnUser)
-              .borrowFromMaturityPool(amountBorrow, exaTime.nextPoolID());
+              .borrowFromMaturityPool(
+                amountBorrow,
+                exaTime.nextPoolID(),
+                applyMinFee(amountBorrow)
+              );
 
             await underlyingToken
               .connect(johnUser)

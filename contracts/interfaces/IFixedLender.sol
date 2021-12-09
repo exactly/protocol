@@ -6,11 +6,17 @@ import "./IAuditor.sol";
 import "./IEToken.sol";
 
 interface IFixedLender {
-    function borrowFromMaturityPool(uint256 amount, uint256 maturityDate)
-        external;
+    function borrowFromMaturityPool(
+        uint256 amount,
+        uint256 maturityDate,
+        uint256 maxAmountAllowed
+    ) external;
 
-    function depositToMaturityPool(uint256 amount, uint256 maturityDate)
-        external;
+    function depositToMaturityPool(
+        uint256 amount,
+        uint256 maturityDate,
+        uint256 minAmountRequired
+    ) external;
 
     function depositToSmartPool(uint256 amount) external;
 

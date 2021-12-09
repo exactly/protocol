@@ -8,6 +8,8 @@ import {
   ExaTime,
   errorGeneric,
   DefaultEnv,
+  applyMaxFee,
+  applyMinFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -62,12 +64,20 @@ describe("Liquidations", function () {
       // we deposit Eth to the protocol
       const amountETH = parseUnits("1");
       await eth.approve(fixedLenderETH.address, amountETH);
-      await fixedLenderETH.depositToMaturityPool(amountETH, nextPoolID);
+      await fixedLenderETH.depositToMaturityPool(
+        amountETH,
+        nextPoolID,
+        applyMinFee(amountETH)
+      );
 
       // we deposit WBTC to the protocol
       const amountWBTC = parseUnits("1", 8);
       await wbtc.approve(fixedLenderWBTC.address, amountWBTC);
-      await fixedLenderWBTC.depositToMaturityPool(amountWBTC, nextPoolID);
+      await fixedLenderWBTC.depositToMaturityPool(
+        amountWBTC,
+        nextPoolID,
+        applyMinFee(amountWBTC)
+      );
 
       // bob deposits DAI to the protocol to have money in the pool
       const amountDAI = parseUnits("65000");
@@ -75,7 +85,7 @@ describe("Liquidations", function () {
       await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
       await fixedLenderDAI
         .connect(bob)
-        .depositToMaturityPool(amountDAI, nextPoolID);
+        .depositToMaturityPool(amountDAI, nextPoolID, applyMinFee(amountDAI));
       await dai
         .connect(bob)
         .approve(fixedLenderDAI.address, parseUnits("200000"));
@@ -96,7 +106,8 @@ describe("Liquidations", function () {
         // alice borrows all liquidity
         await fixedLenderDAI.borrowFromMaturityPool(
           amountToBorrowDAI,
-          nextPoolID
+          nextPoolID,
+          applyMaxFee(amountToBorrowDAI)
         );
       });
 
