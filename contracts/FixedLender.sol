@@ -277,17 +277,22 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         // reverts on failure
         auditor.beforeDepositMP(address(this), msg.sender, maturityDate);
 
+        pool.supplied += amount;
         if (pool.debt > 0) {
+            // pay all debt to smart pool
             if (amount >= pool.debt) {
+                uint256 changeAfterRepay = amount - pool.debt;
+                pool.available = changeAfterRepay;
                 pool.debt = 0;
-                pool.supplied = pool.supplied + amount;
-                pool.available = amount;
+                // this is likely a problem for more than one maturity, but I
+                // want to have the test for that
+                smartPool.borrowed = 0;
+                // pay a fraction of debt to smart pool
             } else {
-                pool.debt = pool.debt - amount;
-                smartPool.supplied = smartPool.supplied + amount;
+                pool.debt -= amount;
+                smartPool.borrowed -= amount;
             }
         } else {
-            pool.supplied = pool.supplied + amount;
             pool.available = pool.available + amount;
         }
 
