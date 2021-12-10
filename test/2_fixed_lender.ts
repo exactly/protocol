@@ -48,6 +48,7 @@ describe("FixedLender", function () {
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("100000"));
     await underlyingTokenETH.transfer(mariaUser.address, parseUnits("100000"));
+    await underlyingToken.transfer(johnUser.address, parseUnits("100000"));
 
     await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
   });
@@ -909,6 +910,9 @@ describe("FixedLender", function () {
         fixedLenderMariaETH.address,
         parseUnits("5")
       );
+      await underlyingToken
+        .connect(johnUser)
+        .approve(fixedLender.address, parseUnits("10000"));
       await fixedLenderMariaETH.depositToMaturityPool(
         parseUnits("2"),
         exaTime.nextPoolID(),
@@ -954,6 +958,60 @@ describe("FixedLender", function () {
         it("AND 200 are borrowed from the smart pool", async () => {
           expect(smartPool.borrowed).to.eq(parseUnits("200"));
           expect(maturityPool.debt).to.eq(parseUnits("200"));
+        });
+        describe("AND WHEN john deposits 100 to the same maturity", () => {
+          beforeEach(async () => {
+            await fixedLender
+              .connect(johnUser)
+              .depositToMaturityPool(
+                parseUnits("100"),
+                exaTime.nextPoolID(),
+                applyMinFee(parseUnits("100"))
+              );
+            maturityPool = await fixedLenderMaria.maturityPools(
+              exaTime.nextPoolID()
+            );
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN 1200 DAI are still borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("1200"));
+          });
+          it("AND the maturity pool still doesnt have funds available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("0"));
+          });
+          it("AND the maturity pool owes 100 to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("100"));
+          });
+          it("AND the smart pool was repaid the other 100 (is owed only 100)", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("100"));
+          });
+        });
+        describe("AND WHEN john deposits 300 to the same maturity", () => {
+          beforeEach(async () => {
+            await fixedLender
+              .connect(johnUser)
+              .depositToMaturityPool(
+                parseUnits("300"),
+                exaTime.nextPoolID(),
+                applyMinFee(parseUnits("300"))
+              );
+            maturityPool = await fixedLenderMaria.maturityPools(
+              exaTime.nextPoolID()
+            );
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN 1200 DAI are still borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("1200"));
+          });
+          it("AND the maturity pool has 100 DAI available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("100"));
+          });
+          it("AND the maturity pool owes nothing to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("0"));
+          });
+          it("AND the smart pool was fully repaid", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("0"));
+          });
         });
         describe("AND WHEN repaying 100 DAI", () => {
           beforeEach(async () => {
