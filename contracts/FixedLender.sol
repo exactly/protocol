@@ -571,6 +571,23 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         // That repayment diminishes debt in the pool
         PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
+        if (pool.debt > 0) {
+            // pay all debt to smart pool
+            if (repayAmount >= pool.debt) {
+                uint256 changeAfterRepay = repayAmount - pool.debt;
+                pool.available = changeAfterRepay;
+                pool.debt = 0;
+                // this is likely a problem for more than one maturity, but I
+                // want to have the test for that
+                smartPool.borrowed = 0;
+                // pay a fraction of debt to smart pool
+            } else {
+                pool.debt -= repayAmount;
+                smartPool.borrowed -= repayAmount;
+            }
+        } else {
+            pool.available = pool.available + repayAmount;
+        }
         pool.borrowed -= debtCovered;
         maturityPools[maturityDate] = pool;
 
