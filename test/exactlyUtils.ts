@@ -89,6 +89,7 @@ export class DefaultEnv {
   interestRateModel: Contract;
   tsUtils: Contract;
   exaLib: Contract;
+  poolLib: Contract;
   marketsLib: Contract;
   exaToken: Contract;
   fixedLenderContracts: Map<string, Contract>;
@@ -107,6 +108,7 @@ export class DefaultEnv {
     _interestRateModel: Contract,
     _tsUtils: Contract,
     _exaLib: Contract,
+    _poolLib: Contract,
     _marketsLib: Contract,
     _exaToken: Contract,
     _fixedLenderContracts: Map<string, Contract>,
@@ -122,6 +124,7 @@ export class DefaultEnv {
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
     this.exaLib = _exaLib;
+    this.poolLib = _poolLib;
     this.mockedTokens = _mockedTokens;
     this.marketsLib = _marketsLib;
     this.exaToken = _exaToken;
@@ -233,6 +236,10 @@ export class ExactlyEnv {
     let exaLib = await ExaLib.deploy();
     await exaLib.deployed();
 
+    const PoolLib = await ethers.getContractFactory("PoolLib");
+    const poolLib = await PoolLib.deploy();
+    await poolLib.deployed();
+
     const MarketsLib = await ethers.getContractFactory("MarketsLib", {
       libraries: {
         TSUtils: tsUtils.address,
@@ -309,6 +316,7 @@ export class ExactlyEnv {
         const FixedLender = await ethers.getContractFactory("FixedLender", {
           libraries: {
             TSUtils: tsUtils.address,
+            PoolLib: poolLib.address,
           },
         });
         const fixedLender = await FixedLender.deploy(
@@ -340,23 +348,20 @@ export class ExactlyEnv {
       })
     );
 
-    return new Promise<DefaultEnv>((resolve) => {
-      resolve(
-        new DefaultEnv(
-          oracle,
-          auditor,
-          interestRateModel,
-          tsUtils,
-          exaLib,
-          marketsLib,
-          exaToken,
-          fixedLenderContracts,
-          underlyingContracts,
-          eTokenContracts,
-          mockedTokens!
-        )
-      );
-    });
+    return new DefaultEnv(
+      oracle,
+      auditor,
+      interestRateModel,
+      tsUtils,
+      exaLib,
+      poolLib,
+      marketsLib,
+      exaToken,
+      fixedLenderContracts,
+      underlyingContracts,
+      eTokenContracts,
+      mockedTokens!
+    );
   }
 
   static async createRewardsEnv(): Promise<RewardsLibEnv> {

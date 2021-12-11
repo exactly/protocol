@@ -101,6 +101,7 @@ describe("Auditor Admin", function () {
     const FixedLender = await ethers.getContractFactory("FixedLender", {
       libraries: {
         TSUtils: exactlyEnv.tsUtils.address,
+        PoolLib: exactlyEnv.poolLib.address,
       },
     });
 
@@ -136,6 +137,7 @@ describe("Auditor Admin", function () {
     const FixedLender = await ethers.getContractFactory("FixedLender", {
       libraries: {
         TSUtils: tsUtils.address,
+        PoolLib: exactlyEnv.poolLib.address,
       },
     });
 

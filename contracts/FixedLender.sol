@@ -16,6 +16,7 @@ import "./utils/Errors.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     using SafeERC20 for IERC20;
+    using PoolLib for PoolLib.MaturityPool;
     using DecimalMath for uint256;
 
     mapping(uint256 => mapping(address => uint256)) public mpUserSuppliedAmount;
@@ -272,31 +273,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         amount = doTransferIn(msg.sender, amount);
 
-        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
         // reverts on failure
         auditor.beforeDepositMP(address(this), msg.sender, maturityDate);
 
         pool.supplied += amount;
-        if (pool.debt > 0) {
-            // pay all debt to smart pool
-            if (amount >= pool.debt) {
-                uint256 changeAfterRepay = amount - pool.debt;
-                pool.available = changeAfterRepay;
-                pool.debt = 0;
-                // this is likely a problem for more than one maturity, but I
-                // want to have the test for that
-                smartPool.borrowed = 0;
-                // pay a fraction of debt to smart pool
-            } else {
-                pool.debt -= amount;
-                smartPool.borrowed -= amount;
-            }
-        } else {
-            pool.available = pool.available + amount;
-        }
-
-        maturityPools[maturityDate] = pool;
+        pool.repayToSmartPool(smartPool, amount);
 
         uint256 commissionRate = interestRateModel.getRateToSupply(
             maturityDate,
@@ -570,26 +553,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             debtCovered;
 
         // That repayment diminishes debt in the pool
-        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
-        if (pool.debt > 0) {
-            // pay all debt to smart pool
-            if (repayAmount >= pool.debt) {
-                uint256 changeAfterRepay = repayAmount - pool.debt;
-                pool.available = changeAfterRepay;
-                pool.debt = 0;
-                // this is likely a problem for more than one maturity, but I
-                // want to have the test for that
-                smartPool.borrowed = 0;
-                // pay a fraction of debt to smart pool
-            } else {
-                pool.debt -= repayAmount;
-                smartPool.borrowed -= repayAmount;
-            }
-        } else {
-            pool.available = pool.available + repayAmount;
-        }
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+        pool.repayToSmartPool(smartPool, repayAmount);
         pool.borrowed -= debtCovered;
-        maturityPools[maturityDate] = pool;
 
         totalMpBorrows -= debtCovered;
         totalMpBorrowsUser[borrower] -= debtCovered;
