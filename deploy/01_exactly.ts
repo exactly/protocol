@@ -5,6 +5,16 @@ import { ethers } from "hardhat";
 import fs from "fs";
 import assert from "assert";
 import YAML from "yaml";
+import * as AWS from "aws-sdk";
+
+const IAM_USER_KEY = process.env.AWS_USER_KEY;
+const IAM_USER_SECRET = process.env.AWS_USER_SECRET;
+
+const s3bucket = new AWS.S3({
+  accessKeyId: IAM_USER_KEY,
+  secretAccessKey: IAM_USER_SECRET,
+  region: "us-east-1",
+});
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const file = fs.readFileSync("./config.yml", "utf8");
@@ -34,6 +44,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   );
 
   let exactlyOracle;
+  const addresses: { [id: string]: string } = {};
+
   if (hre.network.name === "rinkeby") {
     exactlyOracle = (await ethers.getContractFactory("MockedOracle")).attach(
       config.tokenAddresses[hre.network.name].mockedExactlyOracle
@@ -55,11 +67,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         TSUtils: tsUtils.address,
       },
     });
+
+    addresses.exactlyOracle = exactlyOracle.address;
   }
 
   const exaToken = await hre.deployments.deploy("ExaToken", {
     from: deployer,
   });
+
+  addresses.exaToken = exaToken.address;
 
   const auditor = await hre.deployments.deploy("Auditor", {
     from: deployer,
@@ -72,6 +88,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       MarketsLib: marketsLib.address,
     },
   });
+
+  addresses.auditor = auditor.address;
 
   const interestRateModel = await hre.deployments.deploy("InterestRateModel", {
     from: deployer,
@@ -89,6 +107,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     },
   });
 
+  addresses.interestRateModel = interestRateModel.address;
+
   for (const symbol of Object.keys(tokensForNetwork)) {
     const { name, address, whale, collateralRate, oracleName, decimals } =
       tokensForNetwork[symbol];
@@ -99,6 +119,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       args: ["e" + name, "e" + oracleName, decimals],
       log: true,
     });
+
+    addresses[`e${oracleName}`] = eToken.address;
     console.log("eToken e%s deployed", oracleName);
 
     const fixedLender = await hre.deployments.deploy("FixedLender", {
@@ -115,6 +137,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         TSUtils: tsUtils.address,
       },
     });
+
+    addresses[`fixedLender${symbol}`] = fixedLender.address;
     console.log(
       "FixedLender for %s uses underlying asset address: %s, etoken address: %s, and auditor address: %s",
       symbol,
@@ -122,6 +146,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       eToken.address,
       auditor.address
     );
+
+    await uploadToS3(addresses);
 
     // We set the FixedLender where the eToken is used
     await hre.deployments.execute(
@@ -155,6 +181,28 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
   }
 };
+
+export function uploadToS3(data: { [id: string]: string }) {
+  const BUCKET_NAME = "abi-versions";
+
+  return new Promise((resolve, reject) => {
+    fs.writeFileSync("/tmp/addresses.json", JSON.stringify(data));
+
+    const params = {
+      Bucket: BUCKET_NAME,
+      Key: `latest/addresses.json`,
+      Body: fs.readFileSync("/tmp/addresses.json", "utf8"),
+    };
+
+    s3bucket.upload(params, (err: Error, data: any) => {
+      if (err) {
+        return reject(err);
+      }
+
+      return resolve(data);
+    });
+  });
+}
 
 async function deployLibraries(deployer: any, hardhatRuntimeEnvironment: any) {
   const tsUtils = await hardhatRuntimeEnvironment.deployments.deploy(

@@ -33,6 +33,8 @@ You will then need to set the following keys there:
 * `FORKING`: `true` if you want to work by forking a mainnet node
 * `MAINNET_NODE`: RPC URL of an ethereum node to connect to main network
 * `PUBLIC_ADDRESS`: where tokens will be sent so you can play around when in forking mode
+* `AWS_USER_KEY=`(optional): For uploading addresses on deploy. To get the key you can ask @juanigallo for an AWS user
+* `AWS_USER_SECRET=`(optional): For uploading addresses on deploy. To get the key you can ask @juanigallo for an AWS user
 
 For the nodes you can create a free account in: `https://alchemyapi.io` and create both MAINNET and RINKEBY accounts. They have the upside of also being archive nodes so mainnet forking is possible
 
