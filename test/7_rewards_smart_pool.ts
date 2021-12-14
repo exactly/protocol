@@ -121,9 +121,7 @@ describe("ExaToken Smart Pool", () => {
               await ethers.provider.send("evm_mine", []); // + 0 EXA for Maria
 
               await auditor.connect(mariaUser).claimExaAll(mariaUser.address); // + 0 EXA for Maria
-              let balanceMaria = await exaToken.balanceOf(
-                mariaUser.address
-              );
+              let balanceMaria = await exaToken.balanceOf(mariaUser.address);
 
               expect(balanceMaria).to.be.eq(parseUnits("1.375"));
             });

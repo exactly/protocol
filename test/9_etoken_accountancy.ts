@@ -241,11 +241,13 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
     });
     it("WHEN initialized with only a fixedLender address it should be able to be called again", async () => {
       await eDAI.initialize(bob.address, AddressZero);
-      await expect(eDAI.initialize(bob.address, bob.address)).to.not.be.reverted;
+      await expect(eDAI.initialize(bob.address, bob.address)).to.not.be
+        .reverted;
     });
     it("WHEN initialized with only an auditor address it should be able to be called again", async () => {
       await eDAI.initialize(AddressZero, bob.address);
-      await expect(eDAI.initialize(bob.address, bob.address)).to.not.be.reverted;
+      await expect(eDAI.initialize(bob.address, bob.address)).to.not.be
+        .reverted;
     });
   });
 
