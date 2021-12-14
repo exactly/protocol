@@ -38,10 +38,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     );
   }
 
-  const { tsUtils, decimalMath, marketsLib, exaLib } = await deployLibraries(
-    deployer,
-    hre
-  );
+  const { tsUtils, decimalMath, marketsLib, exaLib, poolLib } =
+    await deployLibraries(deployer, hre);
 
   let exactlyOracle;
   const addresses: { [id: string]: string } = {};
@@ -135,6 +133,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       log: true,
       libraries: {
         TSUtils: tsUtils.address,
+        PoolLib: poolLib.address,
       },
     });
 
@@ -211,6 +210,12 @@ async function deployLibraries(deployer: any, hardhatRuntimeEnvironment: any) {
       from: deployer,
     }
   );
+  const poolLib = await hardhatRuntimeEnvironment.deployments.deploy(
+    "PoolLib",
+    {
+      from: deployer,
+    }
+  );
   const decimalMath = await hardhatRuntimeEnvironment.deployments.deploy(
     "DecimalMath",
     {
@@ -235,7 +240,7 @@ async function deployLibraries(deployer: any, hardhatRuntimeEnvironment: any) {
     },
   });
 
-  return { tsUtils, decimalMath, marketsLib, exaLib };
+  return { tsUtils, decimalMath, marketsLib, exaLib, poolLib };
 }
 
 async function getTokenParameters(tokensForNetwork: any) {

@@ -27,7 +27,9 @@ describe("FixedLender", function () {
   let mariaUser: SignerWithAddress;
   let johnUser: SignerWithAddress;
   let owner: SignerWithAddress;
-  let exaTime: ExaTime = new ExaTime();
+  const exaTime: ExaTime = new ExaTime();
+  const nextPoolId: number = exaTime.nextPoolID();
+  const laterPoolId: number = nextPoolId + exaTime.INTERVAL;
 
   let snapshot: any;
   beforeEach(async () => {
@@ -46,14 +48,15 @@ describe("FixedLender", function () {
     auditor = exactlyEnv.auditor;
 
     // From Owner to User
-    await underlyingToken.transfer(mariaUser.address, parseUnits("10"));
-    await underlyingTokenETH.transfer(mariaUser.address, parseUnits("10"));
+    await underlyingToken.transfer(mariaUser.address, parseUnits("100000"));
+    await underlyingTokenETH.transfer(mariaUser.address, parseUnits("100000"));
+    await underlyingToken.transfer(johnUser.address, parseUnits("100000"));
 
     await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
   });
 
   it("GetAccountSnapshot fails on an invalid pool", async () => {
-    let invalidPoolID = exaTime.nextPoolID() + 3;
+    let invalidPoolID = nextPoolId + 3;
     await expect(
       fixedLender.getAccountSnapshot(owner.address, invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
@@ -66,7 +69,7 @@ describe("FixedLender", function () {
   });
 
   it("GetTotalBorrows fails on an invalid pool", async () => {
-    let invalidPoolID = exaTime.nextPoolID() + 3;
+    let invalidPoolID = nextPoolId + 3;
     await expect(
       fixedLender.getTotalMpBorrows(invalidPoolID)
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
@@ -78,7 +81,7 @@ describe("FixedLender", function () {
 
     let tx = fixedLender.depositToMaturityPool(
       underlyingAmount,
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(underlyingAmount)
     );
     await tx;
@@ -86,7 +89,7 @@ describe("FixedLender", function () {
       owner.address,
       underlyingAmount,
       parseUnits("0"), // commission, its zero with the mocked rate
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     expect(await underlyingToken.balanceOf(fixedLender.address)).to.equal(
@@ -94,12 +97,7 @@ describe("FixedLender", function () {
     );
 
     expect(
-      (
-        await fixedLender.getAccountSnapshot(
-          owner.address,
-          exaTime.nextPoolID()
-        )
-      )[0]
+      (await fixedLender.getAccountSnapshot(owner.address, nextPoolId))[0]
     ).to.be.equal(underlyingAmount);
   });
 
@@ -109,7 +107,7 @@ describe("FixedLender", function () {
 
     let tx = fixedLender.depositToMaturityPool(
       underlyingAmount,
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(underlyingAmount)
     );
     await expect(tx).to.be.revertedWith(
@@ -169,22 +167,19 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
-    await auditorUser.enterMarkets(
-      [fixedLenderMaria.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
     let tx = await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.8"))
     );
     expect(tx).to.emit(fixedLenderMaria, "BorrowFromMaturityPool");
-    expect(
-      await fixedLenderMaria.getTotalMpBorrows(exaTime.nextPoolID())
-    ).to.equal(parseUnits("0.8"));
+    expect(await fixedLenderMaria.getTotalMpBorrows(nextPoolId)).to.equal(
+      parseUnits("0.8")
+    );
   });
 
   it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, but receiving more than 0.8 DAI of debt THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
@@ -196,16 +191,13 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
-    await auditorUser.enterMarkets(
-      [fixedLenderMaria.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
     let tx = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("0.8"))
     );
     await expect(tx).to.be.revertedWith(
@@ -221,13 +213,10 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
-    await auditorUser.enterMarkets(
-      [fixedLenderMaria.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
@@ -247,13 +236,10 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
-    await auditorUser.enterMarkets(
-      [fixedLenderMaria.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
@@ -274,13 +260,10 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
-    await auditorUser.enterMarkets(
-      [fixedLenderMaria.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
@@ -309,17 +292,14 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
-    await auditorUser.enterMarkets(
-      [fixedLenderMaria.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.9"),
-        exaTime.nextPoolID(),
+        nextPoolId,
         applyMaxFee(parseUnits("0.9"))
       )
     ).to.be.reverted;
@@ -338,7 +318,7 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
 
@@ -347,23 +327,21 @@ describe("FixedLender", function () {
       fixedLenderMaria.withdrawFromMaturityPool(
         mariaUser.address,
         parseUnits("1"),
-        exaTime.nextPoolID()
+        nextPoolId
       )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
     );
 
     // Move in time to maturity
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      exaTime.nextPoolID(),
-    ]);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolId]);
     await ethers.provider.send("evm_mine", []);
 
     // finally withdraw voucher and we expect maria to have her original amount + the comission earned
     await fixedLenderMaria.withdrawFromMaturityPool(
       mariaUser.address,
       parseUnits("1"),
-      exaTime.nextPoolID()
+      nextPoolId
     );
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
       originalAmount
@@ -381,12 +359,12 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.8"))
     );
 
@@ -395,7 +373,7 @@ describe("FixedLender", function () {
       fixedLenderMaria.withdrawFromMaturityPool(
         mariaUser.address,
         0,
-        exaTime.nextPoolID()
+        nextPoolId
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
 
@@ -403,7 +381,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID(),
+        nextPoolId,
         parseUnits("0.8")
       )
     ).to.not.be.reverted;
@@ -413,7 +391,7 @@ describe("FixedLender", function () {
       fixedLenderMaria.withdrawFromMaturityPool(
         mariaUser.address,
         parseUnits("1"),
-        exaTime.nextPoolID()
+        nextPoolId
       )
     ).to.be.revertedWith(
       errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
@@ -431,12 +409,12 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.8"))
     );
 
@@ -444,7 +422,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID(),
+        nextPoolId,
         parseUnits("0.4")
       )
     ).to.not.be.reverted;
@@ -452,7 +430,7 @@ describe("FixedLender", function () {
     // ... the other half is still pending
     const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
       mariaUser.address,
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     expect(amountOwed).to.equal(parseUnits("0.4"));
@@ -469,12 +447,12 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.8"))
     );
 
@@ -482,28 +460,28 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID(),
+        nextPoolId,
         parseUnits("0.4")
       )
     ).to.not.be.reverted;
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      exaTime.nextPoolID() + exaTime.ONE_DAY,
+      nextPoolId + exaTime.ONE_DAY,
     ]);
     await ethers.provider.send("evm_mine", []);
 
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID(),
+        nextPoolId,
         parseUnits("0.4").mul(102).div(100)
       )
     ).to.not.be.reverted;
 
     const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
       mariaUser.address,
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     expect(amountOwed).to.equal(0);
@@ -522,24 +500,24 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.5"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.5"))
     );
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      exaTime.nextPoolID() + exaTime.ONE_DAY,
+      nextPoolId + exaTime.ONE_DAY,
     ]);
     await ethers.provider.send("evm_mine", []);
 
     const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
       mariaUser.address,
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     // if penaltyRate is 0.2 then we multiply for 1.2
@@ -571,18 +549,18 @@ describe("FixedLender", function () {
     await underlyingTokenMaria.approve(fixedLender.address, parseUnits("5"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.5"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.5"))
     );
 
     // Move in time to maturity + 1 day
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      exaTime.nextPoolID() + exaTime.ONE_DAY + 1,
+      nextPoolId + exaTime.ONE_DAY + 1,
     ]);
     await ethers.provider.send("evm_mine", []);
 
@@ -595,7 +573,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID(),
+        nextPoolId,
         expectedAmountPaid
       )
     )
@@ -605,7 +583,7 @@ describe("FixedLender", function () {
         mariaUser.address,
         expectedAmountPaid.sub(amountBorrowed),
         amountBorrowed,
-        exaTime.nextPoolID()
+        nextPoolId
       );
 
     // sanity check to make sure he paid more
@@ -631,19 +609,17 @@ describe("FixedLender", function () {
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.8"))
     );
 
     // Move in time to maturity
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      exaTime.nextPoolID(),
-    ]);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolId]);
     await ethers.provider.send("evm_mine", []);
 
     // try to withdraw without paying debt and fail
@@ -651,7 +627,7 @@ describe("FixedLender", function () {
       fixedLenderMaria.withdrawFromMaturityPool(
         mariaUser.address,
         0,
-        exaTime.nextPoolID()
+        nextPoolId
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
 
@@ -660,7 +636,7 @@ describe("FixedLender", function () {
       fixedLenderMaria.withdrawFromMaturityPool(
         mariaUser.address,
         parseUnits("1"),
-        exaTime.nextPoolID()
+        nextPoolId
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
 
@@ -668,7 +644,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.repayToMaturityPool(
         mariaUser.address,
-        exaTime.nextPoolID(),
+        nextPoolId,
         parseUnits("0.8")
       )
     ).to.not.be.reverted;
@@ -677,7 +653,7 @@ describe("FixedLender", function () {
     await fixedLenderMaria.withdrawFromMaturityPool(
       mariaUser.address,
       parseUnits("1"),
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
@@ -692,15 +668,12 @@ describe("FixedLender", function () {
 
     await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
 
-    await auditorUser.enterMarkets(
-      [fixedLenderMaria.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
 
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID(),
+        nextPoolId,
         applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
@@ -714,7 +687,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID(),
+        nextPoolId,
         applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
@@ -740,19 +713,19 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     await fixedLender.depositToSmartPool(parseUnits("0.2"));
@@ -760,7 +733,7 @@ describe("FixedLender", function () {
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID(),
+        nextPoolId,
         applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
@@ -786,25 +759,25 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID(),
+        nextPoolId,
         applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
@@ -830,21 +803,18 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
 
-    await auditorUser.enterMarkets(
-      [fixedLenderMariaETH.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMariaETH.address], nextPoolId);
 
     await fixedLender.depositToSmartPool(parseUnits("0.2"));
 
     await expect(
       fixedLenderMaria.borrowFromMaturityPool(
         parseUnits("0.8"),
-        exaTime.nextPoolID(),
+        nextPoolId,
         applyMaxFee(parseUnits("0.8"))
       )
     ).to.be.revertedWith(
@@ -869,30 +839,298 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
 
     const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.3"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.3"))
     );
 
     await expect(borrow).to.not.be.reverted;
+  });
+
+  describe("GIVEN maria has plenty of ETH collateral", () => {
+    let fixedLenderMaria: Contract;
+    let underlyingTokenMaria: Contract;
+    let underlyingTokenMariaETH: Contract;
+    let fixedLenderMariaETH: Contract;
+    beforeEach(async () => {
+      fixedLenderMaria = fixedLender.connect(mariaUser);
+      underlyingTokenMaria = underlyingToken.connect(mariaUser);
+      fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
+      underlyingTokenMariaETH = underlyingTokenETH.connect(mariaUser);
+      await underlyingTokenMariaETH.approve(
+        fixedLenderMariaETH.address,
+        parseUnits("5")
+      );
+      await underlyingToken
+        .connect(johnUser)
+        .approve(fixedLender.address, parseUnits("10000"));
+      await fixedLenderMariaETH.depositToMaturityPool(
+        parseUnits("2"),
+        nextPoolId,
+        applyMinFee(parseUnits("2"))
+      );
+      await fixedLenderMariaETH.depositToMaturityPool(
+        parseUnits("2"),
+        laterPoolId,
+        applyMinFee(parseUnits("2"))
+      );
+      await auditor
+        .connect(mariaUser)
+        .enterMarkets(
+          [fixedLenderMaria.address, fixedLenderMariaETH.address],
+          nextPoolId
+        );
+      await auditor
+        .connect(mariaUser)
+        .enterMarkets(
+          [fixedLenderMaria.address, fixedLenderMariaETH.address],
+          laterPoolId
+        );
+    });
+    describe("AND GIVEN she deposits 1000DAI into the next two maturity pools AND 500 into the smart pool", () => {
+      beforeEach(async () => {
+        await underlyingTokenMaria.approve(
+          fixedLender.address,
+          parseUnits("5000")
+        );
+        await fixedLenderMaria.depositToMaturityPool(
+          parseUnits("1000"),
+          nextPoolId,
+          applyMinFee(parseUnits("1000"))
+        );
+        await fixedLenderMaria.depositToMaturityPool(
+          parseUnits("1000"),
+          laterPoolId,
+          applyMinFee(parseUnits("1000"))
+        );
+        await fixedLenderMaria.depositToSmartPool(parseUnits("500"));
+      });
+      describe("WHEN borrowing 1200 in the current maturity", () => {
+        let maturityPool: any;
+        let smartPool: any;
+        beforeEach(async () => {
+          await fixedLenderMaria.borrowFromMaturityPool(
+            parseUnits("1200"),
+            nextPoolId,
+            applyMaxFee(parseUnits("1200"))
+          );
+          maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
+          smartPool = await fixedLenderMaria.smartPool();
+        });
+        it("THEN all of the maturity pools funds are in use", async () => {
+          expect(maturityPool.available).to.eq(parseUnits("0"));
+        });
+        it("AND 200 are borrowed from the smart pool", async () => {
+          expect(smartPool.borrowed).to.eq(parseUnits("200"));
+          expect(maturityPool.debt).to.eq(parseUnits("200"));
+        });
+        describe("AND borrowing 1100 in a later maturity ", () => {
+          beforeEach(async () => {
+            await fixedLenderMaria.borrowFromMaturityPool(
+              parseUnits("1100"),
+              laterPoolId,
+              applyMaxFee(parseUnits("1100"))
+            );
+            maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN all of the maturity pools funds are in use", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("0"));
+          });
+          it("AND the later maturity owes 100 to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("100"));
+          });
+          it("AND the smart pool has lent 300 (100 from the later maturity one, 200 from the first one)", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("300"));
+          });
+          describe("AND WHEN repaying 50 DAI in the later maturity", () => {
+            beforeEach(async () => {
+              await fixedLenderMaria.repayToMaturityPool(
+                mariaUser.address,
+                laterPoolId,
+                parseUnits("50")
+              );
+              maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
+              smartPool = await fixedLenderMaria.smartPool();
+            });
+            it("THEN only 1050 DAI are borrowed", async () => {
+              expect(maturityPool.borrowed).to.eq(parseUnits("1050"));
+            });
+            it("AND the maturity pool doesnt have funds available", async () => {
+              expect(maturityPool.available).to.eq(parseUnits("0"));
+            });
+            it("AND the maturity pool owes 50 to the smart pool", async () => {
+              expect(maturityPool.debt).to.eq(parseUnits("50"));
+            });
+            it("AND the smart pool was repaid 50 DAI", async () => {
+              expect(smartPool.borrowed).to.eq(parseUnits("250"));
+            });
+          });
+          describe("AND WHEN john deposits 800 to the later maturity", () => {
+            beforeEach(async () => {
+              await fixedLender
+                .connect(johnUser)
+                .depositToMaturityPool(
+                  parseUnits("800"),
+                  laterPoolId,
+                  applyMinFee(parseUnits("800"))
+                );
+              maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
+              smartPool = await fixedLenderMaria.smartPool();
+            });
+            it("THEN 1100 DAI are still borrowed", async () => {
+              expect(maturityPool.borrowed).to.eq(parseUnits("1100"));
+            });
+            it("AND the later maturity has 700 DAI available for borrowing", async () => {
+              expect(maturityPool.available).to.eq(parseUnits("700"));
+            });
+            it("AND the later maturity owes nothing to the smart pool", async () => {
+              expect(maturityPool.debt).to.eq(parseUnits("0"));
+            });
+            it("AND the smart pool was repaid 100 DAI from the later maturity, and is still owed 200 from the current one", async () => {
+              expect(smartPool.borrowed).to.eq(parseUnits("200"));
+            });
+          });
+        });
+        describe("AND WHEN john deposits 100 to the same maturity", () => {
+          beforeEach(async () => {
+            await fixedLender
+              .connect(johnUser)
+              .depositToMaturityPool(
+                parseUnits("100"),
+                nextPoolId,
+                applyMinFee(parseUnits("100"))
+              );
+            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN 1200 DAI are still borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("1200"));
+          });
+          it("AND the maturity pool still doesnt have funds available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("0"));
+          });
+          it("AND the maturity pool owes 100 to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("100"));
+          });
+          it("AND the smart pool was repaid the other 100 (is owed only 100)", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("100"));
+          });
+        });
+        describe("AND WHEN john deposits 300 to the same maturity", () => {
+          beforeEach(async () => {
+            await fixedLender
+              .connect(johnUser)
+              .depositToMaturityPool(
+                parseUnits("300"),
+                nextPoolId,
+                applyMinFee(parseUnits("300"))
+              );
+            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN 1200 DAI are still borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("1200"));
+          });
+          it("AND the maturity pool has 100 DAI available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("100"));
+          });
+          it("AND the maturity pool owes nothing to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("0"));
+          });
+          it("AND the smart pool was fully repaid", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("0"));
+          });
+        });
+        describe("AND WHEN repaying 100 DAI", () => {
+          beforeEach(async () => {
+            await fixedLenderMaria.repayToMaturityPool(
+              mariaUser.address,
+              nextPoolId,
+              parseUnits("100")
+            );
+            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN only 1100 DAI are borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("1100"));
+          });
+          it("AND the maturity pool doesnt have funds available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("0"));
+          });
+          it("AND the maturity pool owes 100 to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("100"));
+          });
+          it("AND the smart pool was repaid the other 100 (is owed only 100)", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("100"));
+          });
+        });
+        describe("AND WHEN repaying 300 DAI", () => {
+          beforeEach(async () => {
+            await fixedLenderMaria.repayToMaturityPool(
+              mariaUser.address,
+              nextPoolId,
+              parseUnits("300")
+            );
+            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN only 900 DAI are borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("900"));
+          });
+          it("AND the maturity pool has 100 DAI available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("100"));
+          });
+          it("AND the maturity pool owes nothing to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("0"));
+          });
+          it("AND the smart pool was fully repaid", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("0"));
+          });
+        });
+        describe("AND WHEN repaying in full (1200 DAI)", () => {
+          beforeEach(async () => {
+            await fixedLenderMaria.repayToMaturityPool(
+              mariaUser.address,
+              nextPoolId,
+              parseUnits("1200")
+            );
+            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
+            smartPool = await fixedLenderMaria.smartPool();
+          });
+          it("THEN zero DAI are borrowed", async () => {
+            expect(maturityPool.borrowed).to.eq(parseUnits("0"));
+          });
+          it("AND the maturity pool has 1000 DAI available", async () => {
+            expect(maturityPool.available).to.eq(parseUnits("1000"));
+          });
+          it("AND the maturity pool owes nothing to the smart pool", async () => {
+            expect(maturityPool.debt).to.eq(parseUnits("0"));
+          });
+          it("AND the smart pool was fully repaid", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("0"));
+          });
+        });
+      });
+    });
   });
 
   it("it allows you to borrow when the sum of the available amount in the smart and the maturity is exact what is asked", async () => {
@@ -912,26 +1150,26 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
 
     const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.4"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.4"))
     );
 
@@ -955,43 +1193,43 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.2"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("0.2"))
     );
 
     await auditorUser.enterMarkets(
       [fixedLenderMaria.address, fixedLenderMariaETH.address],
-      exaTime.nextPoolID()
+      nextPoolId
     );
 
     await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
 
     const borrow = fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.4"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.4"))
     );
 
     await expect(borrow).to.not.be.reverted;
 
-    let poolData = await fixedLender.maturityPools(exaTime.nextPoolID());
+    let poolData = await fixedLender.maturityPools(nextPoolId);
     let debt = poolData[2];
 
     expect(debt).not.to.be.equal("0");
 
     await fixedLenderMaria.depositToMaturityPool(
       parseUnits("0.5"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("0.5"))
     );
 
-    poolData = await fixedLender.maturityPools(exaTime.nextPoolID());
+    poolData = await fixedLender.maturityPools(nextPoolId);
     debt = poolData[2];
     expect(debt).to.be.equal("0");
   });
@@ -1014,19 +1252,16 @@ describe("FixedLender", function () {
 
     await fixedLenderMariaETH.depositToMaturityPool(
       parseUnits("1"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMinFee(parseUnits("1"))
     );
 
-    await auditorUser.enterMarkets(
-      [fixedLenderMariaETH.address],
-      exaTime.nextPoolID()
-    );
+    await auditorUser.enterMarkets([fixedLenderMariaETH.address], nextPoolId);
 
     await fixedLender.depositToSmartPool(parseUnits("1"));
     await fixedLenderMaria.borrowFromMaturityPool(
       parseUnits("0.8"),
-      exaTime.nextPoolID(),
+      nextPoolId,
       applyMaxFee(parseUnits("0.8"))
     );
 
@@ -1055,7 +1290,7 @@ describe("FixedLender", function () {
             .connect(johnUser)
             .depositToMaturityPool(
               amount,
-              exaTime.nextPoolID(),
+              nextPoolId,
               applyMinFee(parseUnits("1800"))
             );
         });
@@ -1064,7 +1299,7 @@ describe("FixedLender", function () {
           const supplied = (
             await fixedLender
               .connect(johnUser)
-              .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
+              .getAccountSnapshot(johnUser.address, nextPoolId)
           )[0];
           expect(supplied).to.eq(
             amount.mul(parseUnits("0.9")).div(parseUnits("1"))
@@ -1079,7 +1314,7 @@ describe("FixedLender", function () {
               .connect(johnUser)
               .borrowFromMaturityPool(
                 amountBorrow,
-                exaTime.nextPoolID(),
+                nextPoolId,
                 applyMinFee(amountBorrow)
               );
 
@@ -1096,7 +1331,7 @@ describe("FixedLender", function () {
                 .connect(johnUser)
                 .repayToMaturityPool(
                   johnUser.address,
-                  exaTime.nextPoolID(),
+                  nextPoolId,
                   amountToTransfer
                 );
             });
@@ -1115,7 +1350,7 @@ describe("FixedLender", function () {
                 .connect(johnUser)
                 .repayToMaturityPool(
                   johnUser.address,
-                  exaTime.nextPoolID(),
+                  nextPoolId,
                   amountToTransfer
                 );
             });
@@ -1124,7 +1359,7 @@ describe("FixedLender", function () {
               const borrowed = (
                 await fixedLender
                   .connect(johnUser.address)
-                  .getAccountSnapshot(johnUser.address, exaTime.nextPoolID())
+                  .getAccountSnapshot(johnUser.address, nextPoolId)
               )[1];
               expect(borrowed).to.eq(0);
             });

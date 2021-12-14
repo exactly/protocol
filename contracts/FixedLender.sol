@@ -16,6 +16,7 @@ import "./utils/Errors.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     using SafeERC20 for IERC20;
+    using PoolLib for PoolLib.MaturityPool;
     using DecimalMath for uint256;
 
     mapping(uint256 => mapping(address => uint256)) public mpUserSuppliedAmount;
@@ -272,26 +273,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
 
         amount = doTransferIn(msg.sender, amount);
 
-        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
         // reverts on failure
         auditor.beforeDepositMP(address(this), msg.sender, maturityDate);
 
-        if (pool.debt > 0) {
-            if (amount >= pool.debt) {
-                pool.debt = 0;
-                pool.supplied = pool.supplied + amount;
-                pool.available = amount;
-            } else {
-                pool.debt = pool.debt - amount;
-                smartPool.supplied = smartPool.supplied + amount;
-            }
-        } else {
-            pool.supplied = pool.supplied + amount;
-            pool.available = pool.available + amount;
-        }
-
-        maturityPools[maturityDate] = pool;
+        pool.supplied += amount;
+        pool.repayToSmartPool(smartPool, amount);
 
         uint256 commissionRate = interestRateModel.getRateToSupply(
             maturityDate,
@@ -565,9 +553,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
             debtCovered;
 
         // That repayment diminishes debt in the pool
-        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+        pool.repayToSmartPool(smartPool, repayAmount);
         pool.borrowed -= debtCovered;
-        maturityPools[maturityDate] = pool;
 
         totalMpBorrows -= debtCovered;
         totalMpBorrowsUser[borrower] -= debtCovered;
