@@ -101,3 +101,5 @@ See contracts’ UML diagram to follow up.
 2. Since EToken already has the FixedLender's address, it calls a FixedLender's function and that function finally calls beforeTransferSP() from Auditor contract.
     - **Pros**: cleaner design solution, we do not have to add aditional logic to EToken's contract.
     - **Cons**: more gas impact on transfer, we also increase FixedLender's bytecode.
+
+We ended up going for the first one.

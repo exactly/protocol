@@ -65,7 +65,7 @@ describe("ExaToken Smart Pool", () => {
           await fixedLenderDAI
             .connect(mariaUser)
             .depositToSmartPool(parseUnits("100"));
-          await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
+          await auditor.connect(mariaUser).claimExaAll(mariaUser.address); // + 0.5 EXA for Maria
         });
 
         it("THEN maria's EXA balance should be 0.5", async () => {
@@ -87,64 +87,55 @@ describe("ExaToken Smart Pool", () => {
           beforeEach(async () => {
             await eDAI
               .connect(mariaUser)
-              .transfer(bobUser.address, parseUnits("25"));
+              .transfer(bobUser.address, parseUnits("25")); // + 0.5 EXA for Maria
           });
-          it("THEN maria's EXA rewards accordingly increases after some blocks", async () => {
-            await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
-            let balanceMariaPre = await exaToken.balanceOf(mariaUser.address);
-            await exaToken
-              .connect(mariaUser)
-              .transfer(exaToken.address, balanceMariaPre);
-            await ethers.provider.send("evm_mine", []);
-            await ethers.provider.send("evm_mine", []);
-            await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
+          it("THEN maria's EXA rewards increases 0.375 every block", async () => {
+            await ethers.provider.send("evm_mine", []); // + 0.375 EXA for Maria
+            await ethers.provider.send("evm_mine", []); // + 0.375 EXA for Maria
+            await ethers.provider.send("evm_mine", []); // + 0.375 EXA for Maria
+
+            await auditor.connect(mariaUser).claimExaAll(mariaUser.address); // + 0.375 EXA for Maria
             exaBalanceMariaPost = await exaToken.balanceOf(mariaUser.address);
 
-            expect(exaBalanceMariaPost).to.be.gt(balanceMariaPre);
-            expect(exaBalanceMariaPost).to.be.eq(parseUnits("1.5"));
+            expect(exaBalanceMariaPost).to.be.eq(parseUnits("2.5"));
           });
-          it("THEN bob's EXA rewards accordingly increases after some blocks (1/4 of maria's exa balance)", async () => {
-            let balanceBobPre = await exaToken.balanceOf(bobUser.address);
-            await exaToken
-              .connect(bobUser)
-              .transfer(exaToken.address, balanceBobPre);
-            await ethers.provider.send("evm_mine", []);
-            await ethers.provider.send("evm_mine", []);
-            await auditor.connect(bobUser).claimExaAll(bobUser.address);
+          it("THEN bob's EXA rewards increases 0.125 every block", async () => {
+            await ethers.provider.send("evm_mine", []); // + 0.125 EXA for Bob
+            await ethers.provider.send("evm_mine", []); // + 0.125 EXA for Bob
+            await ethers.provider.send("evm_mine", []); // + 0.125 EXA for Bob
+
+            await auditor.connect(bobUser).claimExaAll(bobUser.address); // + 0.125 EXA for Bob
             let balanceBobPost = await exaToken.balanceOf(bobUser.address);
 
-            expect(balanceBobPre).to.be.eq(0);
             expect(balanceBobPost).to.be.eq(parseUnits("0.5"));
-            expect(balanceBobPost).to.be.eq(exaBalanceMariaPost.div(3));
           });
           describe("AND GIVEN maria transfers the rest of the smart pool deposit voucher to bob", () => {
             beforeEach(async () => {
               await eDAI
                 .connect(mariaUser)
-                .transfer(bobUser.address, parseUnits("75"));
+                .transfer(bobUser.address, parseUnits("75")); // + 0.375 EXA for Maria & + 0.125 EXA for Bob
             });
             it("THEN maria's EXA rewards does not increase after some blocks", async () => {
-              await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
-              let balanceMariaPre = await exaToken.balanceOf(mariaUser.address);
-              await ethers.provider.send("evm_mine", []);
-              await ethers.provider.send("evm_mine", []);
+              await ethers.provider.send("evm_mine", []); // + 0 EXA for Maria
+              await ethers.provider.send("evm_mine", []); // + 0 EXA for Maria
+              await ethers.provider.send("evm_mine", []); // + 0 EXA for Maria
 
-              await auditor.connect(mariaUser).claimExaAll(mariaUser.address);
-              let balanceMariaPost = await exaToken.balanceOf(
+              await auditor.connect(mariaUser).claimExaAll(mariaUser.address); // + 0 EXA for Maria
+              let balanceMaria = await exaToken.balanceOf(
                 mariaUser.address
               );
-              expect(balanceMariaPre).to.be.gt(0);
-              expect(balanceMariaPre).to.equal(balanceMariaPost);
-            });
-            it("THEN bob's EXA rewards keeps increasing after some blocks", async () => {
-              await auditor.connect(bobUser).claimExaAll(bobUser.address);
-              let balanceBobPre = await exaToken.balanceOf(bobUser.address);
-              await ethers.provider.send("evm_mine", []);
-              await ethers.provider.send("evm_mine", []);
 
-              await auditor.connect(bobUser).claimExaAll(bobUser.address);
-              let balanceBobPost = await exaToken.balanceOf(bobUser.address);
-              expect(balanceBobPre).to.be.lt(balanceBobPost);
+              expect(balanceMaria).to.be.eq(parseUnits("1.375"));
+            });
+            it("THEN bob's EXA rewards increases 0.5 every block", async () => {
+              await ethers.provider.send("evm_mine", []); // + 0.5 EXA for Bob
+              await ethers.provider.send("evm_mine", []); // + 0.5 EXA for Bob
+              await ethers.provider.send("evm_mine", []); // + 0.5 EXA for Bob
+
+              await auditor.connect(bobUser).claimExaAll(bobUser.address); // + 0.5 EXA for Bob
+              let balanceBob = await exaToken.balanceOf(bobUser.address);
+
+              expect(balanceBob).to.be.eq(parseUnits("2.125"));
             });
           });
         });

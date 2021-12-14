@@ -34,7 +34,6 @@ Contracts' UML diagram
     InterestRateModel ..|> IInterestRateModel
     ExactlyOracle ..|> IOracle
     IEToken ..|> IERC20
-    IEToken ..|> IERC20Metadata
     FixedLender ..|> IFixedLender
     FixedLender --> Auditor
     FixedLender --> InterestRateModel
