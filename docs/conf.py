@@ -31,6 +31,7 @@ release = '1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'matplotlib.sphinxext.plot_directive',
     'sphinxcontrib.plantuml',
     'sphinx.ext.autodoc',
     'sphinx.ext.imgmath',

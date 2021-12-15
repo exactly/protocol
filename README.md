@@ -79,3 +79,11 @@ dependencies for this:
 resources:
 - [ ] documentation of [sphinx.ext.imgmath](https://www.sphinx-doc.org/en/1.5.1/ext/math.html) (the thing that ends up invoking `pdflatex`). `.. math::` directive is spec'd there
 - [ ] quick LaTex math refresher: https://en.wikibooks.org/wiki/LaTeX/Mathematics#Operators
+
+### matplotlib plots
+
+generated using good ol' matplotlib and numpy, with the help of `matplotlib.sphinxext`
+
+resources
+- [ ] [the integration with sphinx](https://matplotlib.org/sampledoc/extensions.html)
+- [ ] [matplotlib](https://matplotlib.org/2.0.2/gallery.html)
