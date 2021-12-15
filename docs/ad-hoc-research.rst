@@ -172,3 +172,19 @@ See contracts’ UML diagram to follow up.
     - **Cons**: more gas impact on transfer, we also increase FixedLender's bytecode.
 
 We ended up going for the first one.
+
+Using OZ's TimelockController contract as owner of Exactly's contracts
+======================================================================
+
+The idea of using a timelock is to add a delay of administrative actions and it's generally considered a strong indicator that a project is legitimate and demonstrates commitment by the team.
+We have two possible approaches to implement this mechanism:
+
+- [] Using a custom-simple made Timelock solution. This requires more testing and it could require more gas costs for normal transactions if logic is coupled to common function calls.
+- [x] Using OZ's Compound-based TimelockController solution. Does not require more testing and since it's a separated contract and module, no interaction is needed from common function calls. Only disadvantage involves contract's bytecode syze when deploying once (gas).
+
+We also have two different strategies when implementing ownership in contracts:
+
+- [] Using OZ's Ownable. There’s an account that is the owner of a contract and can do administrative tasks on it.
+- [x] Using OZ's AccessControl. While the simplicity of ownership can be useful for simple systems or quick prototyping, different levels of authorization are often needed.
+
+This would be our case when having pausable functions and modifiers. Our idea then is to implement a timelock for contracts' setters but to have another role for being able to pause actions (borrows, deposits, withdrawals, etc) at any moment in case of emergency.
