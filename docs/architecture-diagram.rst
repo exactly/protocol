@@ -16,8 +16,6 @@ Contracts' UML diagram
     }
     interface IERC20 {
     }
-    interface IERC20Metadata {
-    }
     interface IOracle {
     }
     class Auditor {
