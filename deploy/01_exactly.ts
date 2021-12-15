@@ -107,6 +107,24 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   addresses.interestRateModel = interestRateModel.address;
 
+  const timelockController = await hre.deployments.deploy(
+    "TimelockController",
+    {
+      from: deployer,
+      args: [
+        60, // minDelay (in seconds)
+        [deployer], // proposers addresses
+        [deployer], // executors addresses
+      ],
+      log: true,
+    }
+  );
+  const ADMIN_ROLE = await hre.deployments.read(
+    "Auditor",
+    { from: deployer },
+    "DEFAULT_ADMIN_ROLE"
+  );
+
   for (const symbol of Object.keys(tokensForNetwork)) {
     const { name, address, whale, collateralRate, oracleName, decimals } =
       tokensForNetwork[symbol];
@@ -136,6 +154,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         PoolLib: poolLib.address,
       },
     });
+
+    transferOwnershipToTimelock(
+      "FixedLender",
+      deployer,
+      timelockController.address,
+      ADMIN_ROLE,
+      hre
+    );
 
     addresses[`fixedLender${symbol}`] = fixedLender.address;
     console.log(
@@ -180,6 +206,27 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       }
     }
   }
+  transferOwnershipToTimelock(
+    "Auditor",
+    deployer,
+    timelockController.address,
+    ADMIN_ROLE,
+    hre
+  );
+  transferOwnershipToTimelock(
+    "InterestRateModel",
+    deployer,
+    timelockController.address,
+    ADMIN_ROLE,
+    hre
+  );
+  transferOwnershipToTimelock(
+    "ExactlyOracle",
+    deployer,
+    timelockController.address,
+    ADMIN_ROLE,
+    hre
+  );
 };
 
 export function uploadToS3(data: { [id: string]: string }) {
@@ -242,6 +289,29 @@ async function deployLibraries(deployer: any, hardhatRuntimeEnvironment: any) {
   });
 
   return { tsUtils, decimalMath, marketsLib, exaLib, poolLib };
+}
+
+async function transferOwnershipToTimelock(
+  contractName: any,
+  deployer: any,
+  timelockAddress: any,
+  adminRole: any,
+  hardhatRuntimeEnvironment: any
+) {
+  await hardhatRuntimeEnvironment.deployments.execute(
+    contractName,
+    { from: deployer, log: true },
+    "grantRole",
+    adminRole,
+    timelockAddress
+  );
+  await hardhatRuntimeEnvironment.deployments.execute(
+    contractName,
+    { from: deployer, log: true },
+    "revokeRole",
+    adminRole,
+    deployer
+  );
 }
 
 async function getTokenParameters(tokensForNetwork: any) {
