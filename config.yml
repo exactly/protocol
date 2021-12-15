@@ -31,7 +31,6 @@ tokenAddresses:
         name: "Wrapped ETH"
         address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
         oracleAddress: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
-        whale: "0xa5d07e978398eb1715056d3ca5cb31035c02fdad"
         collateralRate: "0.8"
         oracleName: "ETH"
         decimals: 18
