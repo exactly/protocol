@@ -7,6 +7,7 @@ describe("Timelock - AccessControl", function () {
   let exactlyOracle: Contract;
   let timelockController: Contract;
   let owner: SignerWithAddress;
+  let user: SignerWithAddress;
 
   const { AddressZero, HashZero } = ethers.constants;
 
@@ -15,7 +16,7 @@ describe("Timelock - AccessControl", function () {
 
   describe("GIVEN a deployed ExactlyOracle contract", () => {
     beforeEach(async () => {
-      [owner] = await ethers.getSigners();
+      [owner, user] = await ethers.getSigners();
 
       const ExactlyOracle = await ethers.getContractFactory("ExactlyOracle");
       exactlyOracle = await ExactlyOracle.deploy(
@@ -42,6 +43,15 @@ describe("Timelock - AccessControl", function () {
         );
         await timelockController.deployed();
       });
+      it("THEN owner address has TIMELOCK_ADMIN role for Timelock contract", async () => {
+        const TIMELOCK_ADMIN_ROLE =
+          await timelockController.TIMELOCK_ADMIN_ROLE();
+        const ownerHasTimelockAdminRole = await timelockController.hasRole(
+          TIMELOCK_ADMIN_ROLE,
+          owner.address
+        );
+        expect(ownerHasTimelockAdminRole).to.equal(true);
+      });
       describe("AND GIVEN a grant in the ADMIN role to the Timelock contract address", () => {
         let ADMIN_ROLE: any;
         beforeEach(async () => {
@@ -53,7 +63,7 @@ describe("Timelock - AccessControl", function () {
             exactlyOracle.setAssetSources([assetSymbol], [assetAddress])
           ).to.not.be.reverted;
         });
-        describe("AND GIVEN a schedule with 3 seconds delay to set new asset sources through the Timelock", () => {
+        describe("AND GIVEN a schedule by owner with 3 seconds delay to set new asset sources through the Timelock", () => {
           let txData: any;
           beforeEach(async () => {
             let tx = await exactlyOracle.setAssetSources(
@@ -96,15 +106,88 @@ describe("Timelock - AccessControl", function () {
               )
             ).to.not.be.reverted;
           });
-          describe("AND GIVEN a revoke in the ADMIN role of the owner's address", () => {
-            beforeEach(async () => {
-              await exactlyOracle.revokeRole(ADMIN_ROLE, owner.address);
-            });
-            it("THEN it should revert when trying to set new asset sources with owner address", async () => {
-              await expect(
-                exactlyOracle.setAssetSources([assetSymbol], [assetAddress])
-              ).to.be.reverted;
-            });
+        });
+        it("AND WHEN user tries to schedule a set of new asset sources through the Timelock, THEN it should revert", async () => {
+          let tx = await exactlyOracle.setAssetSources(
+            [assetSymbol],
+            [AddressZero]
+          );
+          const txData = tx.data;
+
+          await expect(
+            timelockController
+              .connect(user)
+              .schedule(exactlyOracle.address, 0, txData, HashZero, HashZero, 3)
+          ).to.be.reverted;
+        });
+        describe("AND GIVEN a revoke in the ADMIN role of the owner's address", () => {
+          beforeEach(async () => {
+            await exactlyOracle.revokeRole(ADMIN_ROLE, owner.address);
+          });
+          it("THEN it should revert when trying to set new asset sources with owner address", async () => {
+            await expect(
+              exactlyOracle.setAssetSources([assetSymbol], [assetAddress])
+            ).to.be.reverted;
+          });
+        });
+        describe("AND GIVEN the owner address grants another user PROPOSER and EXECUTOR roles for Timelock contract", () => {
+          let PROPOSER_ROLE: any;
+          let EXECUTOR_ROLE: any;
+          beforeEach(async () => {
+            PROPOSER_ROLE = await timelockController.PROPOSER_ROLE();
+            EXECUTOR_ROLE = await timelockController.EXECUTOR_ROLE();
+            await timelockController.grantRole(PROPOSER_ROLE, user.address);
+            await timelockController.grantRole(EXECUTOR_ROLE, user.address);
+          });
+          it("THEN user has roles", async () => {
+            const userHasProposerRole = await timelockController.hasRole(
+              PROPOSER_ROLE,
+              user.address
+            );
+            const userHasExecutorRole = await timelockController.hasRole(
+              EXECUTOR_ROLE,
+              user.address
+            );
+            expect(userHasExecutorRole).to.equal(true);
+            expect(userHasProposerRole).to.equal(true);
+          });
+          it("THEN user can schedule and execute transactions through the Timelock", async () => {
+            let tx = await exactlyOracle.setAssetSources(
+              [assetSymbol],
+              [AddressZero]
+            );
+            const txData = tx.data;
+
+            await expect(
+              timelockController
+                .connect(user)
+                .schedule(
+                  exactlyOracle.address,
+                  0,
+                  txData,
+                  HashZero,
+                  HashZero,
+                  1
+                )
+            ).to.not.be.reverted;
+            await expect(
+              timelockController
+                .connect(user)
+                .execute(exactlyOracle.address, 0, txData, HashZero, HashZero)
+            ).to.not.be.reverted;
+          });
+          it("THEN it should revert when user tries to grant another address PROPOSER and EXECUTOR roles for Timelock contract", async () => {
+            // Only addresses with TIMELOCK_ADMIN_ROLE can grant these roles
+            await expect(
+              timelockController
+                .connect(user)
+                .grantRole(PROPOSER_ROLE, AddressZero)
+            ).to.be.reverted;
+            await expect(
+              timelockController
+                .connect(user)
+                .grantRole(EXECUTOR_ROLE, AddressZero)
+            ).to.be.reverted;
           });
         });
       });
