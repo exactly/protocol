@@ -33,6 +33,7 @@ release = '1'
 extensions = [
     'sphinxcontrib.plantuml',
     'sphinx.ext.autodoc',
+    'sphinx.ext.imgmath',
     'sphinxcontrib.soliditydomain'
 ]
 master_doc = 'index'
