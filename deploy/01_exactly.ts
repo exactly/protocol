@@ -112,7 +112,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     {
       from: deployer,
       args: [
-        60, // minDelay (in seconds)
+        config.minTimelockDelay, // in seconds
         [deployer], // proposers addresses
         [deployer], // executors addresses
       ],
@@ -155,7 +155,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       },
     });
 
-    transferOwnershipToTimelock(
+    await transferOwnershipToTimelock(
       "FixedLender",
       deployer,
       timelockController.address,
@@ -206,21 +206,21 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       }
     }
   }
-  transferOwnershipToTimelock(
+  await transferOwnershipToTimelock(
     "Auditor",
     deployer,
     timelockController.address,
     ADMIN_ROLE,
     hre
   );
-  transferOwnershipToTimelock(
+  await transferOwnershipToTimelock(
     "InterestRateModel",
     deployer,
     timelockController.address,
     ADMIN_ROLE,
     hre
   );
-  transferOwnershipToTimelock(
+  await transferOwnershipToTimelock(
     "ExactlyOracle",
     deployer,
     timelockController.address,
