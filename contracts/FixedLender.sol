@@ -417,10 +417,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount The amount to be deposited
      */
     function depositToSmartPool(uint256 amount) external override {
-        auditor.beforeSupplySP(address(this), msg.sender);
+        auditor.beforeSupplyOrWithdrawSP(address(this), msg.sender);
         amount = doTransferIn(msg.sender, amount);
         eToken.mint(msg.sender, amount);
         smartPool.supplied += amount;
+
         emit DepositToSmartPool(msg.sender, amount);
     }
 
@@ -431,7 +432,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      */
     function withdrawFromSmartPool(uint256 amount) external override {
-        auditor.beforeWithdrawSP(address(this), msg.sender);
+        auditor.beforeSupplyOrWithdrawSP(address(this), msg.sender);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;

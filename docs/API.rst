@@ -6,17 +6,16 @@ Contracts' API
 .. soliditydomain doesnt support only showing entities which include a docstring, so for now I'll add them manually
 
 .. autosolcontract:: FixedLender
-    :members: constructor, getRateToSupply, getRateToBorrow, borrowFromMaturityPool, supplyToMaturityPool, withdrawFromMaturityPool, 
-    repayToMaturityPool, seize, depositToSmartPool, withdrawFromSmartPool, _repayLiquidate, _liquidate, _seize
+    :members: constructor, borrowFromMaturityPool, depositToMaturityPool, withdrawFromMaturityPool, repayToMaturityPool, liquidate, seize, depositToSmartPool, withdrawFromSmartPool, setLiquidationFee, getAccountSnapshot, getTotalMpBorrows, getAuditor, _repayLiquidate, _liquidate, _seize
 
 .. autosolcontract:: InterestRateModel
-    :members: constructor, getRateToBorrow, getRateToSupply
+    :members: constructor, setParameters, getRateToBorrow, getRateToSupply
 
 .. autosolcontract:: Auditor
-    :members: enterMarkets, getAccountLiquidity, liquidateCalculateSeizeAmount, liquidateAllowed, seizeAllowed, enableMarket, pauseBorrow, _accountLiquidity
+    :members: constructor, enterMarkets, exitMarket, setOracle, setLiquidationIncentive, setExaSpeed, enableMarket, pauseBorrow, setMarketBorrowCaps, claimExaAll, beforeSupplyOrWithdrawSP, beforeDepositMP, beforeBorrowMP, beforeWithdrawMP, beforeRepayMP, liquidateAllowed, seizeAllowed, getMarketData, getAccountLiquidity, liquidateCalculateSeizeAmount, requirePoolState, getFuturePools, getMarketAddresses, claimExa, _requirePoolState, _beforeWithdrawMP
 
 .. autosolcontract:: ExactlyOracle
-    :members: constructor, getAssetPrice, setAssetSources, _setAssetsSources
+    :members: constructor, setAssetSources, getAssetPrice, _setAssetsSources, _scaleOraclePriceByDigits
 
 .. autosolinterface:: IChainlinkFeedRegistry
     :members: latestRoundData

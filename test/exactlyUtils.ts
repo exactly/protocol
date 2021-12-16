@@ -65,7 +65,7 @@ export enum ProtocolError {
   REDEEM_CANT_BE_ZERO,
   EXIT_MARKET_BALANCE_OWED,
   CALLER_MUST_BE_FIXED_LENDER,
-  FIXED_LENDER_ALREADY_SET,
+  ETOKEN_ALREADY_INITIALIZED,
   INSUFFICIENT_PROTOCOL_LIQUIDITY,
   TOO_MUCH_SLIPPAGE,
   TOO_MUCH_REPAY_TRANSFER,
@@ -328,7 +328,7 @@ export class ExactlyEnv {
         );
         await fixedLender.deployed();
 
-        await eToken.setFixedLender(fixedLender.address);
+        await eToken.initialize(fixedLender.address, auditor.address);
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, usdPrice);
@@ -387,7 +387,6 @@ export class ExactlyEnv {
     let fixedLenderHarness = await FixedLenderHarness.deploy();
     await fixedLenderHarness.deployed();
     await fixedLenderHarness.setEToken(eToken.address);
-    eToken.setFixedLender(fixedLenderHarness.address);
 
     const AuditorHarness = await ethers.getContractFactory("AuditorHarness", {
       libraries: {
@@ -397,6 +396,7 @@ export class ExactlyEnv {
     let auditorHarness = await AuditorHarness.deploy(exaToken.address);
     await auditorHarness.deployed();
     await auditorHarness.enableMarket(fixedLenderHarness.address);
+    eToken.initialize(fixedLenderHarness.address, auditorHarness.address);
 
     return new Promise<RewardsLibEnv>((resolve) => {
       resolve(

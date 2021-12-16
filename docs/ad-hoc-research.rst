@@ -89,4 +89,17 @@ Conclusions
 
 We chose to not implement any of these alternatives.
 
+Correctly account exa rewards for sender & recipient when etokens are transferred 
+=================================================================================
 
+So we have two possible solutions for calling Auditor from eTokens' transfers and updating users' Exa rewards index.
+See contracts’ UML diagram to follow up.
+
+1. EToken has Auditor address as state variable and directly calls beforeTransferSP() function.
+    - **Pros**: less gas impact for eTokens' transfers.
+    - **Cons**: we couple EToken's contract with Auditor's contract. We make EToken contract more extense, having to initialize Auditor's address in constructor, maybe also adding a onlyRole(ADMIN) setter for that Auditor.
+2. Since EToken already has the FixedLender's address, it calls a FixedLender's function and that function finally calls beforeTransferSP() from Auditor contract.
+    - **Pros**: cleaner design solution, we do not have to add aditional logic to EToken's contract.
+    - **Cons**: more gas impact on transfer, we also increase FixedLender's bytecode.
+
+We ended up going for the first one.

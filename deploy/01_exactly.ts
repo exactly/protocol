@@ -148,12 +148,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     await uploadToS3(addresses);
 
-    // We set the FixedLender where the eToken is used
+    // We set the FixedLender where the eToken is used and we set the Auditor that is called in every transfer
     await hre.deployments.execute(
       "EToken",
       { from: deployer },
       "setFixedLender",
-      fixedLender.address
+      fixedLender.address,
+      auditor.address
     );
 
     // We enable this FixedLender Market on Auditor

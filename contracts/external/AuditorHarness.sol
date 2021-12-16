@@ -166,7 +166,7 @@ contract AuditorHarness {
         rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
-    function distributeAllBorrowerExa(
+    function distributeAllMPBorrowerExa(
         address fixedLenderAddress,
         address borrower
     ) public {
@@ -184,7 +184,7 @@ contract AuditorHarness {
         rewardsState.distributeMPSupplierExa(fixedLenderAddress, supplier);
     }
 
-    function distributeAllSupplierExa(
+    function distributeAllMPSupplierExa(
         address fixedLenderAddress,
         address supplier
     ) public {
@@ -202,7 +202,7 @@ contract AuditorHarness {
         rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
     }
 
-    function distributeAllSmartPoolExa(
+    function distributeAllSPSupplierExa(
         address fixedLenderAddress,
         address supplier
     ) public {

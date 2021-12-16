@@ -339,7 +339,7 @@ describe("ExaToken", () => {
         parseUnits("0.5")
       );
       await auditorHarness.setBlockNumber(blocksDelta);
-      await fixedLenderHarness.setTotalMpDeposits(amountSupplyWithCommission);
+      await fixedLenderHarness.setTotalMPDeposits(amountSupplyWithCommission);
       await auditorHarness.updateExaMPSupplyIndex(fixedLenderHarness.address);
       const [newIndex] = await auditorHarness.getMaturitySupplyState(
         fixedLenderHarness.address
@@ -365,7 +365,7 @@ describe("ExaToken", () => {
         fixedLenderHarness.address,
         parseUnits("0.5")
       );
-      await fixedLenderHarness.setTotalMpDeposits(parseUnits("10000"));
+      await fixedLenderHarness.setTotalMPDeposits(parseUnits("10000"));
       await auditorHarness.updateExaMPSupplyIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getMaturitySupplyState(
@@ -384,7 +384,7 @@ describe("ExaToken", () => {
       );
       await auditorHarness.setBlockNumber(100);
       await auditorHarness.setExaSpeed(fixedLenderHarness.address, 0);
-      await fixedLenderHarness.setTotalMpDeposits(parseUnits("10000"));
+      await fixedLenderHarness.setTotalMPDeposits(parseUnits("10000"));
       await auditorHarness.updateExaMPSupplyIndex(fixedLenderHarness.address);
 
       const [newIndex, block] = await auditorHarness.getMaturitySupplyState(
@@ -415,7 +415,7 @@ describe("ExaToken", () => {
       );
 
       await fixedLenderHarness.setTotalMpBorrows(parseUnits("10000"));
-      await fixedLenderHarness.setTotalMpBorrowsUser(
+      await fixedLenderHarness.setTotalMPBorrowsUser(
         owner.address,
         parseUnits("100")
       );
@@ -434,7 +434,7 @@ describe("ExaToken", () => {
 
     it("should transfer EXA and update maturity borrow index checkpoint correctly for repeat time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalMpBorrowsUser(
+      await fixedLenderHarness.setTotalMPBorrowsUser(
         mariaUser.address,
         parseUnits("5")
       );
@@ -476,7 +476,7 @@ describe("ExaToken", () => {
 
     it("should not transfer EXA automatically", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalMpBorrowsUser(
+      await fixedLenderHarness.setTotalMPBorrowsUser(
         mariaUser.address,
         parseUnits("0.5")
       );
@@ -521,7 +521,7 @@ describe("ExaToken", () => {
 
     it("should transfer EXA and update maturity supplier index correctly for first time user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalMpDepositsUser(
+      await fixedLenderHarness.setTotalMPDepositsUser(
         mariaUser.address,
         parseUnits("5")
       );
@@ -539,7 +539,7 @@ describe("ExaToken", () => {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e18 * 5e36 / 1e36 = 25e18
        */
-      let tx = await auditorHarness.distributeAllSupplierExa(
+      let tx = await auditorHarness.distributeAllMPSupplierExa(
         fixedLenderHarness.address,
         mariaUser.address
       );
@@ -559,7 +559,7 @@ describe("ExaToken", () => {
 
     it("should update EXA accrued and maturity supplier index for repeat user", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalMpDepositsUser(
+      await fixedLenderHarness.setTotalMPDepositsUser(
         mariaUser.address,
         parseUnits("5")
       );
@@ -580,7 +580,7 @@ describe("ExaToken", () => {
        * suppliedAccrued+= supplierTokens * deltaIndex / 1e36
        *                 = 5e18 * 4e36 / 1e36 = 20e18
        */
-      await auditorHarness.distributeAllSupplierExa(
+      await auditorHarness.distributeAllMPSupplierExa(
         fixedLenderHarness.address,
         mariaUser.address
       );
@@ -592,7 +592,7 @@ describe("ExaToken", () => {
 
     it("should not transfer EXA automatically", async () => {
       await exaToken.transfer(auditorHarness.address, parseUnits("50"));
-      await fixedLenderHarness.setTotalMpDepositsUser(
+      await fixedLenderHarness.setTotalMPDepositsUser(
         mariaUser.address,
         parseUnits("0.5")
       );
@@ -704,8 +704,8 @@ describe("ExaToken", () => {
       );
       const bobBalancePre = await exaToken.balanceOf(bobUser.address);
 
-      await fixedLenderHarness.setTotalMpDeposits(mintAmount);
-      await fixedLenderHarness.setTotalMpDepositsUser(
+      await fixedLenderHarness.setTotalMPDeposits(mintAmount);
+      await fixedLenderHarness.setTotalMPDepositsUser(
         bobUser.address,
         mintAmount
       );
