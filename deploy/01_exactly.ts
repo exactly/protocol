@@ -139,7 +139,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     addresses[`e${oracleName}`] = eToken.address;
     console.log("eToken e%s deployed", oracleName);
 
-    const fixedLender = await hre.deployments.deploy("FixedLender", {
+    const fixedLender = await hre.deployments.deploy("FixedLender" + symbol, {
+      contract: "FixedLender",
       from: deployer,
       args: [
         address,
@@ -156,7 +157,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
 
     await transferOwnershipToTimelock(
-      "FixedLender",
+      "FixedLender" + symbol,
       deployer,
       timelockController.address,
       ADMIN_ROLE,
