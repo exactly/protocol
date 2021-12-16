@@ -118,7 +118,7 @@ describe("Timelock - AccessControl", function () {
             timelockController
               .connect(user)
               .schedule(exactlyOracle.address, 0, txData, HashZero, HashZero, 3)
-          ).to.be.reverted;
+          ).to.be.revertedWith("AccessControl");
         });
         describe("AND GIVEN a revoke in the ADMIN role of the owner's address", () => {
           beforeEach(async () => {
@@ -127,7 +127,7 @@ describe("Timelock - AccessControl", function () {
           it("THEN it should revert when trying to set new asset sources with owner address", async () => {
             await expect(
               exactlyOracle.setAssetSources([assetSymbol], [assetAddress])
-            ).to.be.reverted;
+            ).to.be.revertedWith("AccessControl");
           });
         });
         describe("AND GIVEN the owner address grants another user PROPOSER and EXECUTOR roles for Timelock contract", () => {
@@ -182,12 +182,12 @@ describe("Timelock - AccessControl", function () {
               timelockController
                 .connect(user)
                 .grantRole(PROPOSER_ROLE, AddressZero)
-            ).to.be.reverted;
+            ).to.be.revertedWith("AccessControl");
             await expect(
               timelockController
                 .connect(user)
                 .grantRole(EXECUTOR_ROLE, AddressZero)
-            ).to.be.reverted;
+            ).to.be.revertedWith("AccessControl");
           });
         });
       });
