@@ -251,6 +251,4 @@ export class DefaultEnv {
     await fixedLender.deployed();
     return fixedLender;
   }
-
-  // TODO: Verify Functions
 }
