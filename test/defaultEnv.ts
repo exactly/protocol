@@ -157,12 +157,7 @@ export class DefaultEnv {
   }
 
   public digitsForAsset(assetString: string) {
-    switch (assetString) {
-      case "WBTC":
-        return 8;
-      default:
-        return 18;
-    }
+    return this.mockedTokens.get(assetString)!.decimals;
   }
 
   public async enableMarket(
