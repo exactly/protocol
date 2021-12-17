@@ -202,7 +202,7 @@ export class DefaultEnv {
       .setExaSpeed(this.getFixedLender(asset).address, parseUnits(speed));
   }
 
-  public async createDeployDuplicatedAuditor() {
+  public async deployDuplicatedAuditor() {
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
         TSUtils: this.tsUtils.address,
@@ -219,18 +219,14 @@ export class DefaultEnv {
     return newAuditor;
   }
 
-  public async createDeployNewEToken(
-    name: string,
-    symbol: string,
-    decimals: number
-  ) {
+  public async deployNewEToken(name: string, symbol: string, decimals: number) {
     const EToken = await ethers.getContractFactory("EToken");
     const eToken = await EToken.deploy(name, symbol, decimals);
     await eToken.deployed();
     return eToken;
   }
 
-  public async createDeployNewFixedLender(
+  public async deployNewFixedLender(
     eTokenAddress: string,
     newAuditorAddress: string,
     interestRateModelAddress: string,

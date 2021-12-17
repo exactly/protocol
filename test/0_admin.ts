@@ -125,14 +125,10 @@ describe("Auditor Admin", function () {
     describe("WHEN trying to set a new fixedLender with a different auditor", async () => {
       let tx: any;
       beforeEach(async () => {
-        const newAuditor = await exactlyEnv.createDeployDuplicatedAuditor();
-        const eToken = await exactlyEnv.createDeployNewEToken(
-          "eDAI",
-          "Exa DAI",
-          18
-        );
+        const newAuditor = await exactlyEnv.deployDuplicatedAuditor();
+        const eToken = await exactlyEnv.deployNewEToken("eDAI", "Exa DAI", 18);
 
-        const fixedLender = await exactlyEnv.createDeployNewFixedLender(
+        const fixedLender = await exactlyEnv.deployNewFixedLender(
           eToken.address,
           newAuditor.address,
           exactlyEnv.interestRateModel.address,
@@ -204,12 +200,8 @@ describe("Auditor Admin", function () {
       let tx: any;
       let fixedLenderAddress: string;
       beforeEach(async () => {
-        const eToken = await exactlyEnv.createDeployNewEToken(
-          "eETH",
-          "eETH",
-          18
-        );
-        const fixedLender = await exactlyEnv.createDeployNewFixedLender(
+        const eToken = await exactlyEnv.deployNewEToken("eETH", "eETH", 18);
+        const fixedLender = await exactlyEnv.deployNewFixedLender(
           eToken.address,
           exactlyEnv.auditor.address,
           exactlyEnv.interestRateModel.address,
