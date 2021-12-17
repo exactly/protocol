@@ -73,6 +73,17 @@ describe("Auditor Admin", function () {
       let tx = exactlyEnv.setBorrowCaps(["DAI"], ["1000000"]);
       await expect(tx).to.be.revertedWith("AccessControl");
     });
+
+    describe("WHEN trying to set exa speed", async () => {
+      let tx: any;
+      beforeEach(async () => {
+        tx = exactlyEnv.setExaSpeed("DAI", "3000");
+      });
+
+      it("THEN the transaction should revert with Access Control", async () => {
+        await expect(tx).to.be.revertedWith("AccessControl");
+      });
+    });
   });
 
   describe("GIVEN the ADMIN/owner user", () => {
@@ -181,6 +192,34 @@ describe("Auditor Admin", function () {
     it("WHEN setting exa speed, THEN the auditor should emit ExaSpeedUpdated event", async () => {
       let tx = await exactlyEnv.setExaSpeed("DAI", "10000");
       await expect(tx).to.emit(exactlyEnv.auditor, "ExaSpeedUpdated");
+    });
+
+    describe("WHEN setting exa speed and the previous value doesn't change", async () => {
+      let tx: any;
+      beforeEach(async () => {
+        await exactlyEnv.setExaSpeed("DAI", "10000");
+        tx = await exactlyEnv.setExaSpeed("DAI", "10000");
+      });
+
+      it("THEN the auditor should NOT emit ExaSpeedUpdated event", async () => {
+        await expect(tx).to.not.emit(exactlyEnv.auditor, "ExaSpeedUpdated");
+      });
+    });
+
+    describe("WHEN setting exa speed on an invalid fixedLender address", async () => {
+      let tx: any;
+      beforeEach(async () => {
+        tx = exactlyEnv.auditor.setExaSpeed(
+          exactlyEnv.notAnFixedLenderAddress,
+          parseUnits("1")
+        );
+      });
+
+      it("THEN the auditor should NOT emit ExaSpeedUpdated event", async () => {
+        await expect(tx).to.be.revertedWith(
+          errorGeneric(ProtocolError.MARKET_NOT_LISTED)
+        );
+      });
     });
   });
 
