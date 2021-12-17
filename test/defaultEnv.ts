@@ -98,6 +98,16 @@ export class DefaultEnv {
     await ethers.provider.send("evm_mine", []);
   }
 
+  public async takeSnapshot() {
+    const id = await ethers.provider.send("evm_snapshot", []);
+    return id;
+  }
+
+  public async revertSnapshot(snapshot: any) {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
+  }
+
   public async depositMP(
     assetString: string,
     maturityPool: number,
@@ -128,6 +138,38 @@ export class DefaultEnv {
     return fixedLender
       .connect(this.currentWallet)
       .borrowFromMaturityPool(amount, maturityPool, expectedAmount);
+  }
+
+  public async withdrawMP(
+    assetString: string,
+    maturityPool: number,
+    units: string
+  ) {
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawFromMaturityPool(
+        this.currentWallet.address,
+        amount,
+        maturityPool
+      );
+  }
+
+  public async repayMP(
+    assetString: string,
+    maturityPool: number,
+    units: string
+  ) {
+    const asset = this.getUnderlying(assetString);
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    await asset
+      .connect(this.currentWallet)
+      .approve(fixedLender.address, amount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .repayToMaturityPool(this.currentWallet.address, maturityPool, amount);
   }
 
   public async enterMarkets(assets: string[], maturityPool: number) {
@@ -195,6 +237,10 @@ export class DefaultEnv {
     return this.auditor
       .connect(this.currentWallet)
       .setExaSpeed(this.getFixedLender(asset).address, parseUnits(speed));
+  }
+
+  public async claimAllEXA(addressToSend: string) {
+    return this.auditor.connect(this.currentWallet).claimExaAll(addressToSend);
   }
 
   public async deployDuplicatedAuditor() {
