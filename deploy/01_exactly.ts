@@ -179,7 +179,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     await hre.deployments.execute(
       "EToken",
       { from: deployer },
-      "setFixedLender",
+      "initialize",
       fixedLender.address,
       auditor.address
     );
