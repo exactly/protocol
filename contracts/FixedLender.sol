@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+
 import "./EToken.sol";
 import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
@@ -14,7 +16,7 @@ import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 
-contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
+contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using SafeERC20 for IERC20;
     using PoolLib for PoolLib.MaturityPool;
     using DecimalMath for uint256;
@@ -25,6 +27,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
     PoolLib.SmartPool public smartPool;
 
     uint256 private liquidationFee = 2.8e16; //2.8%
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     IERC20 public override trustedUnderlying;
     IEToken public override eToken;
@@ -186,7 +189,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         uint256 amount,
         uint256 maturityDate,
         uint256 maxAmountAllowed
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         bool newDebt = false;
 
         if (!TSUtils.isPoolID(maturityDate)) {
@@ -266,7 +269,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         uint256 amount,
         uint256 maturityDate,
         uint256 minAmountRequired
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         if (!TSUtils.isPoolID(maturityDate)) {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
@@ -318,7 +321,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         if (redeemAmount == 0) {
             revert GenericError(ErrorCode.REDEEM_CANT_BE_ZERO);
         }
@@ -360,7 +363,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         address borrower,
         uint256 maturityDate,
         uint256 repayAmount
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         // reverts on failure
         auditor.beforeRepayMP(address(this), borrower);
 
@@ -381,7 +384,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         uint256 repayAmount,
         IFixedLender fixedLenderCollateral,
         uint256 maturityDate
-    ) external override nonReentrant returns (uint256) {
+    ) external override nonReentrant whenNotPaused returns (uint256) {
         return
             _liquidate(
                 msg.sender,
@@ -416,7 +419,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * - E.g. User deposits 100 USDC and gets in return 100 eUSDC
      * @param amount The amount to be deposited
      */
-    function depositToSmartPool(uint256 amount) external override {
+    function depositToSmartPool(uint256 amount)
+        external
+        override
+        whenNotPaused
+    {
         auditor.beforeSupplyOrWithdrawSP(address(this), msg.sender);
         amount = doTransferIn(msg.sender, amount);
         eToken.mint(msg.sender, amount);
@@ -431,7 +438,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
      * @param amount The underlying amount to be withdrawn
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      */
-    function withdrawFromSmartPool(uint256 amount) external override {
+    function withdrawFromSmartPool(uint256 amount)
+        external
+        override
+        whenNotPaused
+    {
         auditor.beforeSupplyOrWithdrawSP(address(this), msg.sender);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
@@ -464,6 +475,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         liquidationFee = _liquidationFee;
+    }
+
+    /**
+     * @dev Set the _pause state in case of emergency, triggered by an authorized account
+     * @param value `true` to pause protocol core actions, `false` to un-pause them
+     */
+    function setPause(bool value) external onlyRole(PAUSER_ROLE) {
+        value ? _pause() : _unpause();
     }
 
     /**
