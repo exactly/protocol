@@ -479,7 +479,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     /**
      * @dev Set the _pause state in case of emergency, triggered by an authorized account
-     * @param value `true` to pause protocol core actions, `false` to un-pause them
+     * @param value `true` to pause protocol's core actions, `false` to un-pause them
      */
     function setPause(bool value) external onlyRole(PAUSER_ROLE) {
         value ? _pause() : _unpause();
