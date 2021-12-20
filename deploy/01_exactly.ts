@@ -162,6 +162,20 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         },
       }
     );
+    const PAUSER_ROLE = await hre.deployments.read(
+      fixedLenderDeploymentName,
+      { from: deployer },
+      "PAUSER_ROLE"
+    );
+
+    // We grant the PAUSER_ROLE to the deployer, we'll later grant this role to the Multisig address
+    await hre.deployments.execute(
+      fixedLenderDeploymentName,
+      { from: deployer },
+      "grantRole",
+      PAUSER_ROLE,
+      deployer
+    );
 
     await transferOwnershipToTimelock(
       fixedLenderDeploymentName,
