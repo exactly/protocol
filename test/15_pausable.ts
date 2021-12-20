@@ -30,17 +30,22 @@ describe("FixedLender - Pausable", function () {
       fixedLender.grantRole(PAUSER_ROLE, owner.address);
     });
     it("AND GIVEN a pause called from third parties, THEN it should revert with AccessControl error", async () => {
-      await expect(fixedLender.connect(user).setPause(true)).to.be.revertedWith(
+      await expect(fixedLender.connect(user).pause()).to.be.revertedWith(
+        "AccessControl"
+      );
+    });
+    it("AND GIVEN an unpause called from third parties, THEN it should revert with AccessControl error", async () => {
+      await expect(fixedLender.connect(user).unpause()).to.be.revertedWith(
         "AccessControl"
       );
     });
     it("AND GIVEN a grant in the PAUSER role to another user, THEN it should NOT revert when user pauses actions", async () => {
       fixedLender.grantRole(PAUSER_ROLE, user.address);
-      await expect(fixedLender.connect(user).setPause(true)).to.not.be.reverted;
+      await expect(fixedLender.connect(user).pause()).to.not.be.reverted;
     });
     describe("AND GIVEN a pause for all actions that have whenNotPaused modifier", () => {
       beforeEach(async () => {
-        fixedLender.setPause(true);
+        fixedLender.pause();
       });
       it("THEN it should revert when trying to deposit to a smart pool", async () => {
         await expect(fixedLender.depositToSmartPool("0")).to.be.revertedWith(
@@ -87,7 +92,7 @@ describe("FixedLender - Pausable", function () {
       });
       describe("AND GIVEN an unpause for all actions that have whenNotPaused modifier", () => {
         beforeEach(async () => {
-          fixedLender.setPause(false);
+          fixedLender.unpause();
         });
         it("THEN it should NOT revert when trying to call one of them", async () => {
           await underlyingToken.approve(fixedLender.address, "100");
