@@ -2,6 +2,75 @@
 Ad-hoc research
 ===============
 
+Solidity math libraries
+=======================
+
+PRB-math checklist:
+-------------------
+
+- can we only deploy the functionality we need and not bother with the rest?
+    - IMO it's not worth it to modify the lib since only functions we use will be inlined into the calling contracts (see below)
+- how do the tests look like?
+    - most of the tests are comparing the output of the smart contracts vs a js implementation. Looks sufficient, but didn't blow me out of the water
+    - (red flag) I can't get the tests to fail 
+- is it actively maintained? - Yes
+- can I find some project that uses it?
+    - https://www.npmjs.com/package/@hifi/amm - in beta, didn't find an audit, it's also a fixed rate protocol, and the one for which the library was developed
+    - https://www.npmjs.com/package/synths-sdk - it's an sdk, no audit
+    - https://www.npmjs.com/package/@paulrberg/contracts - off-the-shelf contracts. No audit
+    - https://www.npmjs.com/package/@tracer-protocol/contracts - the audit mentions ABDKMath but not this library.
+    - did it have a good audit? -- no, no audit yet
+- any notes about the implementation?
+    - between the bitwise operation optimizations and the use of inline assembly, it gives strong DOOM codebase vibes
+    - due to the functions being internal, they don't end up in the library's bytecode, but instead on the calling contract. This means if we're only going to use 1-2 functions, we wouldn't have to deploy the 10kbytes of the entire library. Using only ``log2``, for example, only adds 537 bytes to the code size
+- gas costs
+    - the highest-costing test of the ``ln`` function consumes 4029 gas. For reference, writing to storage consumes 20k gas, and a bare multiplication consumes only 5 gas
+    - the ``log2`` (used by ``ln``) function iterates without a set bound, we should check it converges fast enough
+        - in the tests, it iterates quite a lot, for example ``✔ takes 6.277101735386681e+75 and 1e+18 and returns the correct value (304ms)`` iterates 59 times
+        - ultimately we could reduce the desired precision
+
+ABDK-math
+---------
+
+- uses fixed 64.64 bit number (only 128 bits, and 64 bits precision)
+    - this has a way bigger behind-the-point precision (the 18 decimals (radix 10) that we use right now uses roughly 15 bits behind the point)
+- provides also IEEE754 libraries
+- tests aren't provided
+- it's not actively maintained
+
+Conclusions
+-----------
+
+- The PRB-math library will increase the audit's scope, since it wasn't audited independently and has no 'reputation' unlike the ones from OpenZeppelin.
+    - The functionality required to do a natural logarithm would add ~100 (intense) SLOC 
+- We can add the PRB-math library without greatly increasing code size
+- Gas costs are not prohibitive, but we should research a bit more to ensure it can't enable block gas limit attacks
+- The healthiest thing to do would be to add the PRB-math library to the project's dependencies and let the compiler inline the functions we actually use
+- I (capu) advise against using ABDK-math for the reasons described above.
+- TL;DR if computing logarithms is a requirement, it's sensible to include PRB-math, after taking the cautions described above
+- As defined in the meeting with Francisco on 17/12/2021, it's not necessary to compute logarithms and instead we will go with a fixed amount of riemann sums
+
+contract sizes for PRB-Math
+---------------------------
+
+.. code:: 
+
+    PRBMathSD59x18Mock
+    18491/2 - 4
+    9241
+    PRBMathSD59x18TypedMock
+    21773/2 - 4
+    10882
+    PRBMathUD60x18Mock
+    16335/2 - 4
+    8163
+    PRBMathUD60x18TypedMock
+    19179/2 - 4
+    9585
+    PRBMathUD60x18Mock -- with only doLog2
+    1083/2 - 4
+    537
+
 Representing supply/borrow positions via a standard token
 =========================================================
 
