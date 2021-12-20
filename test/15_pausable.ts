@@ -2,7 +2,8 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ExactlyEnv, DefaultEnv, ExaTime } from "./exactlyUtils";
+import { ExactlyEnv, ExaTime } from "./exactlyUtils";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("FixedLender - Pausable", function () {
   let exactlyEnv: DefaultEnv;
