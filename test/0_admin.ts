@@ -2,19 +2,15 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import {
-  ProtocolError,
-  ExactlyEnv,
-  errorGeneric,
-  DefaultEnv,
-} from "./exactlyUtils";
+import { ProtocolError, ExactlyEnv, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("Auditor Admin", function () {
   let auditor: Contract;
   let exactlyEnv: DefaultEnv;
-
-  let user: SignerWithAddress;
+  let laura: SignerWithAddress;
+  let owner: SignerWithAddress;
 
   let mockedTokens = new Map([
     [
@@ -34,197 +30,158 @@ describe("Auditor Admin", function () {
       },
     ],
   ]);
-
   let snapshot: any;
-  beforeEach(async () => {
-    snapshot = await ethers.provider.send("evm_snapshot", []);
-  });
-
-  beforeEach(async () => {
-    [, user] = await ethers.getSigners();
+  before(async () => {
+    [owner, laura] = await ethers.getSigners();
 
     exactlyEnv = await ExactlyEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
 
-    // From Owner to User
-    await exactlyEnv
-      .getUnderlying("DAI")
-      .transfer(user.address, parseUnits("10000"));
+    await exactlyEnv.transfer("DAI", laura, "10000");
+
+    snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
-  it("EnableMarket should fail when called from third parties", async () => {
-    await expect(
-      auditor
-        .connect(user)
-        .enableMarket(
-          exactlyEnv.getFixedLender("DAI").address,
-          0,
-          "DAI",
-          "DAI",
-          mockedTokens.get("DAI")!.decimals
-        )
-    ).to.be.revertedWith("AccessControl");
-  });
+  describe("GIVEN a regular user", () => {
+    beforeEach(async () => {
+      exactlyEnv.switchWallet(laura);
+    });
 
-  it("setLiquidationFee should fail from third parties", async () => {
-    await expect(
-      auditor.connect(user).setLiquidationIncentive(parseUnits("1.01"))
-    ).to.be.revertedWith("AccessControl");
-  });
-
-  it("It reverts when trying to list a market twice", async () => {
-    await expect(
-      auditor.enableMarket(
+    it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
+      let tx = exactlyEnv.enableMarket(
         exactlyEnv.getFixedLender("DAI").address,
-        0,
+        parseUnits("0"),
         "DAI",
         "DAI",
         mockedTokens.get("DAI")!.decimals
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_ALREADY_LISTED));
+      );
+
+      await expect(tx).to.be.revertedWith("AccessControl");
+    });
+
+    it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
+      let tx = exactlyEnv.setLiquidationIncentive("1.01");
+      await expect(tx).to.be.revertedWith("AccessControl");
+    });
+
+    it("WHEN trying to set a new oracle, THEN the transaction should revert with Access Control", async () => {
+      let tx = exactlyEnv.setOracle(exactlyEnv.oracle.address);
+      await expect(tx).to.be.revertedWith("AccessControl");
+    });
+
+    it("WHEN trying to set borrow caps, THEN the transaction should revert with Access Control", async () => {
+      let tx = exactlyEnv.setBorrowCaps(["DAI"], ["1000000"]);
+      await expect(tx).to.be.revertedWith("AccessControl");
+    });
   });
 
-  it("It reverts when trying to set a fixedLender with different auditor", async () => {
-    const Auditor = await ethers.getContractFactory("Auditor", {
-      libraries: {
-        TSUtils: exactlyEnv.tsUtils.address,
-        ExaLib: exactlyEnv.exaLib.address,
-        MarketsLib: exactlyEnv.marketsLib.address,
-      },
-    });
-    let newAuditor = await Auditor.deploy(
-      exactlyEnv.oracle.address,
-      exactlyEnv.exaToken.address
-    );
-    await newAuditor.deployed();
-
-    const FixedLender = await ethers.getContractFactory("FixedLender", {
-      libraries: {
-        TSUtils: exactlyEnv.tsUtils.address,
-        PoolLib: exactlyEnv.poolLib.address,
-      },
+  describe("GIVEN the ADMIN/owner user", () => {
+    beforeEach(async () => {
+      exactlyEnv.switchWallet(owner);
     });
 
-    const EToken = await ethers.getContractFactory("EToken");
-    const eToken = await EToken.deploy("aExa", "aEXA", 18);
-    await eToken.deployed();
+    it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MARKET_ALREADY_LISTED", async () => {
+      let tx = exactlyEnv.enableMarket(
+        exactlyEnv.getFixedLender("DAI").address,
+        parseUnits("0"),
+        "DAI",
+        "DAI",
+        mockedTokens.get("DAI")!.decimals
+      );
+      await expect(tx).to.be.revertedWith(
+        errorGeneric(ProtocolError.MARKET_ALREADY_LISTED)
+      );
+    });
 
-    const fixedLender = await FixedLender.deploy(
-      exactlyEnv.getUnderlying("DAI").address,
-      "DAI",
-      eToken.address,
-      newAuditor.address,
-      exactlyEnv.interestRateModel.address
-    );
-    await fixedLender.deployed();
+    it("WHEN trying to set a new fixedLender with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
+      const newAuditor = await exactlyEnv.deployDuplicatedAuditor();
+      const eToken = await exactlyEnv.deployNewEToken("eDAI", "Exa DAI", 18);
 
-    await expect(
-      auditor.enableMarket(
+      const fixedLender = await exactlyEnv.deployNewFixedLender(
+        eToken.address,
+        newAuditor.address,
+        exactlyEnv.interestRateModel.address,
+        exactlyEnv.getUnderlying("DAI").address,
+        "DAI"
+      );
+
+      let tx = exactlyEnv.enableMarket(
         fixedLender.address,
-        0,
-        "DAI",
-        "DAI",
+        parseUnits("0"),
+        "Parallel DAI",
+        "Parallel DAI",
         mockedTokens.get("DAI")!.decimals
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.AUDITOR_MISMATCH));
-  });
+      );
 
-  it("It should emit an event when listing a new market", async () => {
-    const TSUtilsLib = await ethers.getContractFactory("TSUtils");
-    let tsUtils = await TSUtilsLib.deploy();
-    await tsUtils.deployed();
-
-    const FixedLender = await ethers.getContractFactory("FixedLender", {
-      libraries: {
-        TSUtils: tsUtils.address,
-        PoolLib: exactlyEnv.poolLib.address,
-      },
+      await expect(tx).to.be.revertedWith(
+        errorGeneric(ProtocolError.AUDITOR_MISMATCH)
+      );
     });
 
-    const EToken = await ethers.getContractFactory("EToken");
-    const eToken = await EToken.deploy("aExa", "aEXA", 18);
-    await eToken.deployed();
-
-    const fixedLender = await FixedLender.deploy(
-      exactlyEnv.getUnderlying("DAI").address,
-      "DAI2",
-      eToken.address,
-      auditor.address,
-      exactlyEnv.interestRateModel.address
-    );
-    await fixedLender.deployed();
-
-    await expect(
-      auditor.enableMarket(
-        fixedLender.address,
-        parseUnits("0.5"),
-        "DAI2",
-        "DAI2",
-        mockedTokens.get("DAI")!.decimals
-      )
-    )
-      .to.emit(auditor, "MarketListed")
-      .withArgs(fixedLender.address);
-  });
-
-  it("SetOracle should fail from third parties", async () => {
-    await expect(
-      auditor.connect(user).setOracle(exactlyEnv.oracle.address)
-    ).to.be.revertedWith("AccessControl");
-  });
-
-  it("SetOracle should emit event", async () => {
-    await expect(auditor.setOracle(exactlyEnv.oracle.address)).to.emit(
-      auditor,
-      "OracleChanged"
-    );
-  });
-
-  it("GetMarketAddresses should return all markets", async () => {
-    let addresses = await auditor.getMarketAddresses();
-
-    expect(addresses[0]).to.equal(exactlyEnv.getFixedLender("DAI").address);
-    expect(addresses[1]).to.equal(exactlyEnv.getFixedLender("ETH").address);
-  });
-
-  it("SetMarketBorrowCaps should fail from third parties", async () => {
-    let fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(
-      auditor.connect(user).setMarketBorrowCaps([fixedLenderDAI.address], [0])
-    ).to.be.revertedWith("AccessControl");
-  });
-
-  it("SetMarketBorrowCaps should fail when wrong arguments", async () => {
-    let fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(
-      auditor.setMarketBorrowCaps([fixedLenderDAI.address], [])
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_SET_BORROW_CAP));
-  });
-
-  it("SetMarketBorrowCaps should fail when wrong market", async () => {
-    await expect(
-      auditor.setMarketBorrowCaps(
+    it("WHEN trying to set borrow caps on an unlisted market, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
+      let tx = exactlyEnv.auditor.setMarketBorrowCaps(
         [exactlyEnv.notAnFixedLenderAddress],
         [parseUnits("1000")]
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
+      );
+      await expect(tx).to.be.revertedWith(
+        errorGeneric(ProtocolError.MARKET_NOT_LISTED)
+      );
+    });
 
-  it("SetMarketBorrowCaps should emit events", async () => {
-    let fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(
-      auditor.setMarketBorrowCaps(
-        [fixedLenderDAI.address],
-        [parseUnits("1000")]
-      )
-    ).to.emit(auditor, "NewBorrowCap");
-  });
+    it("WHEN trying to set borrow caps with arguments mismatch, THEN the transaction should revert with INVALID_SET_BORROW_CAP", async () => {
+      let tx = exactlyEnv.auditor.setMarketBorrowCaps(
+        [exactlyEnv.getFixedLender("DAI").address],
+        []
+      );
+      await expect(tx).to.be.revertedWith(
+        errorGeneric(ProtocolError.INVALID_SET_BORROW_CAP)
+      );
+    });
 
-  it("SetExaSpeed should emit events", async () => {
-    let fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(
-      auditor.setExaSpeed(fixedLenderDAI.address, parseUnits("3000"))
-    ).to.emit(auditor, "ExaSpeedUpdated");
+    it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
+      let addresses = await auditor.getMarketAddresses();
+      expect(addresses[0]).to.equal(exactlyEnv.getFixedLender("DAI").address);
+      expect(addresses[1]).to.equal(exactlyEnv.getFixedLender("ETH").address);
+    });
+
+    it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
+      const eToken = await exactlyEnv.deployNewEToken("eETH", "eETH", 18);
+      const fixedLender = await exactlyEnv.deployNewFixedLender(
+        eToken.address,
+        exactlyEnv.auditor.address,
+        exactlyEnv.interestRateModel.address,
+        exactlyEnv.getUnderlying("ETH").address,
+        "ETH"
+      );
+
+      let fixedLenderAddress = fixedLender.address;
+      let tx = exactlyEnv.enableMarket(
+        fixedLender.address,
+        parseUnits("0.5"),
+        "ETH",
+        "ETH",
+        18
+      );
+
+      await expect(tx)
+        .to.emit(exactlyEnv.auditor, "MarketListed")
+        .withArgs(fixedLenderAddress);
+    });
+
+    it("WHEN setting new oracle, THEN the auditor should emit OracleChanged event", async () => {
+      let tx = await exactlyEnv.setOracle(exactlyEnv.oracle.address);
+      await expect(tx).to.emit(exactlyEnv.auditor, "OracleChanged");
+    });
+
+    it("WHEN setting max borrow caps, THEN the auditor should emit NewBorrowCap event", async () => {
+      let tx = await exactlyEnv.setBorrowCaps(["DAI"], ["10000"]);
+      await expect(tx).to.emit(exactlyEnv.auditor, "NewBorrowCap");
+    });
+
+    it("WHEN setting exa speed, THEN the auditor should emit ExaSpeedUpdated event", async () => {
+      let tx = await exactlyEnv.setExaSpeed("DAI", "10000");
+      await expect(tx).to.emit(exactlyEnv.auditor, "ExaSpeedUpdated");
+    });
   });
 
   afterEach(async () => {

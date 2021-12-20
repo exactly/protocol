@@ -2,7 +2,6 @@ import { ethers } from "hardhat";
 import { expect } from "chai";
 import { Contract } from "ethers";
 import {
-  DefaultEnv,
   applyMaxFee,
   applyMinFee,
   errorGeneric,
@@ -13,6 +12,7 @@ import {
 } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("ExaToken", () => {
   let exactlyEnv: DefaultEnv;

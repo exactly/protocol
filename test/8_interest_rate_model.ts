@@ -5,12 +5,12 @@ import { Contract } from "ethers";
 import {
   ExactlyEnv,
   ExaTime,
-  DefaultEnv,
   errorGeneric,
   ProtocolError,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("InterestRateModel", () => {
   let exactlyEnv: DefaultEnv;

@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import { Contract, BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
+import { DefaultEnv, MockedTokenSpec } from "./defaultEnv";
 
 export interface BorrowFromMaturityPoolEventInterface {
   to: string;
@@ -76,88 +77,6 @@ export type EnvConfig = {
   mockedTokens?: Map<string, MockedTokenSpec>;
   useRealInterestRateModel?: boolean;
 };
-
-export type MockedTokenSpec = {
-  decimals: BigNumber | number;
-  collateralRate: BigNumber;
-  usdPrice: BigNumber;
-};
-
-export class DefaultEnv {
-  oracle: Contract;
-  auditor: Contract;
-  interestRateModel: Contract;
-  tsUtils: Contract;
-  exaLib: Contract;
-  poolLib: Contract;
-  marketsLib: Contract;
-  exaToken: Contract;
-  fixedLenderContracts: Map<string, Contract>;
-  underlyingContracts: Map<string, Contract>;
-  eTokenContracts: Map<string, Contract>;
-  baseRate: BigNumber;
-  marginRate: BigNumber;
-  slopeRate: BigNumber;
-  mockedTokens: Map<string, MockedTokenSpec>;
-  notAnFixedLenderAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
-  usdAddress: string;
-
-  constructor(
-    _oracle: Contract,
-    _auditor: Contract,
-    _interestRateModel: Contract,
-    _tsUtils: Contract,
-    _exaLib: Contract,
-    _poolLib: Contract,
-    _marketsLib: Contract,
-    _exaToken: Contract,
-    _fixedLenderContracts: Map<string, Contract>,
-    _underlyingContracts: Map<string, Contract>,
-    _eTokenContracts: Map<string, Contract>,
-    _mockedTokens: Map<string, MockedTokenSpec>
-  ) {
-    this.oracle = _oracle;
-    this.auditor = _auditor;
-    this.fixedLenderContracts = _fixedLenderContracts;
-    this.underlyingContracts = _underlyingContracts;
-    this.eTokenContracts = _eTokenContracts;
-    this.interestRateModel = _interestRateModel;
-    this.tsUtils = _tsUtils;
-    this.exaLib = _exaLib;
-    this.poolLib = _poolLib;
-    this.mockedTokens = _mockedTokens;
-    this.marketsLib = _marketsLib;
-    this.exaToken = _exaToken;
-    this.baseRate = parseUnits("0.02");
-    this.marginRate = parseUnits("0.01");
-    this.slopeRate = parseUnits("0.07");
-    this.usdAddress = "0x0000000000000000000000000000000000000348";
-  }
-
-  public getFixedLender(key: string): Contract {
-    return this.fixedLenderContracts.get(key)!;
-  }
-
-  public getUnderlying(key: string): Contract {
-    return this.underlyingContracts.get(key)!;
-  }
-
-  public getInterestRateModel(): Contract {
-    return this.interestRateModel;
-  }
-
-  public getEToken(key: string): Contract {
-    return this.eTokenContracts.get(key)!;
-  }
-
-  public async setOracle(oracleAddress: string) {
-    await this.auditor.setOracle(oracleAddress);
-  }
-
-  public async setOracleMockPrice(assetSymbol: string, valueString: string) {
-    await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 18));
-  }
-}
 
 export class RewardsLibEnv {
   auditorHarness: Contract;
@@ -348,6 +267,8 @@ export class ExactlyEnv {
       })
     );
 
+    const [owner] = await ethers.getSigners();
+
     return new DefaultEnv(
       oracle,
       auditor,
@@ -360,7 +281,8 @@ export class ExactlyEnv {
       fixedLenderContracts,
       underlyingContracts,
       eTokenContracts,
-      mockedTokens!
+      mockedTokens!,
+      owner
     );
   }
 
@@ -432,6 +354,16 @@ export class ExaTime {
 
   public pastPoolID(): number {
     return this.timestamp - (this.timestamp % this.INTERVAL) - this.INTERVAL;
+  }
+
+  public invalidPoolID(): number {
+    return (
+      this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL + 33
+    );
+  }
+
+  public distantFuturePoolID(): number {
+    return this.futurePools(12).pop()! + 86400 * 7;
   }
 
   public trimmedDay(): number {
