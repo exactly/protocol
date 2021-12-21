@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "../utils/DecimalMath.sol";
 import "../utils/ExaLib.sol";
 import "../utils/MarketsLib.sol";
+import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 contract AuditorHarness {
     using DecimalMath for uint256;

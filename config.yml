@@ -69,3 +69,4 @@ tokenAddresses:
           collateralRate: "0.8"
           oracleName: "ETH"
           decimals: 18
+minTimelockDelay: 60
