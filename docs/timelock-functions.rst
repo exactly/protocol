@@ -26,6 +26,5 @@ In this way, these are the contracts where we should grant the timelock the ADMI
     - ``setAssetSources(string[] calldata symbols, address[] calldata sources)``
 - **EToken** -> [**NOT** necessary to transfer ownership] [It has only one admin function and it's going to be called only once in initialization]
     - ``setFixedLender(address fixedLenderAddress)``
-- **ExaToken** -> [**NOT** necessary to transfer ownership **YET**] [It extends from **AccessControl** but not currently implementing an admin function]
 
 
