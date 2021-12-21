@@ -31,13 +31,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     );
   }
 
-  if (hre.network.name === "hardhat") {
-    assert(
-      process.env.FORKING === "true",
-      "deploying the ecosystem on a loner node not supported (yet?)"
-    );
-  }
-
   const { tsUtils, decimalMath, marketsLib, exaLib, poolLib } =
     await deployLibraries(deployer, hre);
 
@@ -126,9 +119,24 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   );
 
   for (const symbol of Object.keys(tokensForNetwork)) {
-    const { name, address, whale, collateralRate, decimals, oracleName } =
+    const { name, whale, collateralRate, decimals, oracleName } =
       tokensForNetwork[symbol];
     console.log("------");
+    let address: string;
+    if (hre.network.name === "hardhat" && process.env.FORKING !== "true") {
+      const MockedToken = await ethers.getContractFactory("MockedToken");
+      const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
+      const underlyingToken = await MockedToken.deploy(
+        "Fake " + symbol,
+        "F" + symbol,
+        decimals,
+        totalSupply.toString()
+      );
+      await underlyingToken.deployed();
+      address = underlyingToken.address;
+    } else {
+      ({ address } = tokensForNetwork[symbol]);
+    }
 
     const fixedLenderDeploymentName = "FixedLender" + symbol;
     const eTokenDeploymentName = "EToken" + symbol;
