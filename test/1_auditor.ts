@@ -283,45 +283,6 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.UNSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
   });
 
-  it("PauseBorrow should fail for an unlisted market", async () => {
-    await expect(
-      auditor.pauseBorrow(exactlyEnv.notAnFixedLenderAddress, true)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
-  it("PauseBorrow should emit event", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(auditor.pauseBorrow(fixedLenderDAI.address, true)).to.emit(
-      auditor,
-      "ActionPaused"
-    );
-  });
-
-  it("PauseBorrow should block borrowing on a listed market", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const dai = exactlyEnv.getUnderlying("DAI");
-    await auditor.pauseBorrow(fixedLenderDAI.address, true);
-    // we supply Dai to the protocol
-    const amountDAI = parseUnits("100");
-    await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID,
-      applyMinFee(amountDAI)
-    );
-
-    // we make it count as collateral (DAI)
-    await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
-    await expect(
-      // user borrows half of it's collateral
-      fixedLenderDAI.borrowFromMaturityPool(
-        amountDAI.div(2),
-        nextPoolID,
-        applyMaxFee(amountDAI.div(2))
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.BORROW_PAUSED));
-  });
-
   it("Autoadding a market should only be allowed from a fixedLender", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     const dai = exactlyEnv.getUnderlying("DAI");

@@ -16,7 +16,6 @@ In this way, these are the contracts where we should grant the timelock the ADMI
     - ``setLiquidationIncentive(uint256 _liquidationIncentive)``
     - ``setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)``
     - ``enableMarket(address fixedLender, uint256 collateralFactor, string memory symbol, string memory name, uint8 decimals)``
-    - ``pauseBorrow(address fixedLender, bool paused)``
     - ``setMarketBorrowCaps(address[] calldata fixedLenders, uint256[] calldata newBorrowCaps)``
 - **FixedLender** -> [Necessary to transfer ownership]
     - ``setLiquidationFee(uint256 _liquidationFee)``
