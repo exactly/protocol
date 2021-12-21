@@ -53,262 +53,196 @@ describe("FixedLender", function () {
     await underlyingToken.transfer(johnUser.address, parseUnits("100000"));
 
     await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
-  });
-
-  it("GetAccountSnapshot fails on an invalid pool", async () => {
-    let invalidPoolID = nextPoolId + 3;
-    await expect(
-      fixedLender.getAccountSnapshot(owner.address, invalidPoolID)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-  });
-
-  it("setLiquidationFee fails from third parties", async () => {
-    await expect(
-      fixedLender.connect(mariaUser).setLiquidationFee(parseUnits("0.04"))
-    ).to.be.revertedWith("AccessControl");
-  });
-
-  it("GetTotalBorrows fails on an invalid pool", async () => {
-    let invalidPoolID = nextPoolId + 3;
-    await expect(
-      fixedLender.getTotalMpBorrows(invalidPoolID)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-  });
-
-  it("it allows to give money to a pool", async () => {
-    const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(fixedLender.address, underlyingAmount);
-
-    let tx = fixedLender.depositToMaturityPool(
-      underlyingAmount,
-      nextPoolId,
-      applyMinFee(underlyingAmount)
-    );
-    await tx;
-    await expect(tx).to.emit(fixedLender, "DepositToMaturityPool").withArgs(
-      owner.address,
-      underlyingAmount,
-      parseUnits("0"), // commission, its zero with the mocked rate
-      nextPoolId
-    );
-
-    expect(await underlyingToken.balanceOf(fixedLender.address)).to.equal(
-      underlyingAmount
-    );
-
-    expect(
-      (await fixedLender.getAccountSnapshot(owner.address, nextPoolId))[0]
-    ).to.be.equal(underlyingAmount);
-  });
-
-  it("When trying to deposit 100 DAI with a minimum required amount to be received of 110, but receiving 100 instead then it reverts with TOO_MUCH_SLIPPAGE", async () => {
-    const underlyingAmount = parseUnits("100");
-    await underlyingToken.approve(fixedLender.address, underlyingAmount);
-
-    let tx = fixedLender.depositToMaturityPool(
-      underlyingAmount,
-      nextPoolId,
-      applyMaxFee(underlyingAmount)
-    );
-    await expect(tx).to.be.revertedWith(
-      errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
-    );
-  });
-
-  it("it doesn't allow you to give money to a pool that matured", async () => {
-    await expect(
-      exactlyEnv.depositMP("DAI", exaTime.pastPoolID(), "100")
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
-    );
-  });
-
-  it("it doesn't allow you to give money to a pool that hasn't been enabled yet", async () => {
-    await expect(
-      exactlyEnv.depositMP("DAI", exaTime.distantFuturePoolID(), "100")
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
-    );
-  });
-
-  it("it doesn't allow you to give money to a pool that is invalid", async () => {
-    await expect(
-      exactlyEnv.depositMP("DAI", exaTime.invalidPoolID(), "100")
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-  });
-
-  it("allows you to borrow money from a maturity pool", async () => {
     exactlyEnv.switchWallet(mariaUser);
-
-    await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "1");
-    await exactlyEnv.enterMarkets(["DAI"], exaTime.nextPoolID());
-    await expect(
-      exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "0.8")
-    ).to.emit(exactlyEnv.getFixedLender("DAI"), "BorrowFromMaturityPool");
-    expect(
-      await exactlyEnv
-        .getFixedLender("DAI")
-        .getTotalMpBorrows(exaTime.nextPoolID())
-    ).to.equal(parseUnits("0.8"));
   });
 
-  it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, but receiving more than 0.8 DAI of debt THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
-    exactlyEnv.switchWallet(mariaUser);
-    await exactlyEnv.setBorrowRate("0.02");
-
-    await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "1");
-    await exactlyEnv.enterMarkets(["DAI"], exaTime.nextPoolID());
-    await expect(
-      exactlyEnv.borrowMP(
-        "DAI",
-        exaTime.nextPoolID(),
-        "0.8",
-        applyMinFee(parseUnits("0.8"))
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE));
-  });
-
-  it("it doesn't allow you to borrow money from a pool that matured", async () => {
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
-    await expect(
-      fixedLenderMaria.borrowFromMaturityPool(
-        parseUnits("0.8"),
-        exaTime.pastPoolID(),
-        applyMaxFee(parseUnits("0.8"))
-      )
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
-    );
-  });
-
-  it("it doesn't allow you to borrow money from a pool that hasn't been enabled yet", async () => {
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    let notYetEnabledPoolID = exaTime.futurePools(12).pop()! + 86400 * 7; // 1 week after the last pool
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
-    await expect(
-      fixedLenderMaria.borrowFromMaturityPool(
-        parseUnits("0.8"),
-        notYetEnabledPoolID,
-        applyMaxFee(parseUnits("0.8"))
-      )
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
-    );
-  });
-
-  it("it doesn't allow you to borrow money from a pool that is invalid", async () => {
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-    const invalidPoolID = exaTime.pastPoolID() + 666;
-
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
-    await expect(
-      fixedLenderMaria.borrowFromMaturityPool(
-        parseUnits("0.8"),
-        invalidPoolID,
-        applyMaxFee(parseUnits("0.8"))
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-  });
-
-  it("Check if requirePoolState returns INVALID", async () => {
-    let auditorUser = auditor.connect(mariaUser);
-    const invalidPoolID = exaTime.pastPoolID() + 666;
-
-    await expect(
-      auditorUser.requirePoolState(invalidPoolID, PoolState.VALID)
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
-    );
-  });
-
-  it("it doesnt allow mariaUser to borrow money because not collateralized enough", async () => {
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let auditorUser = auditor.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await auditorUser.enterMarkets([fixedLenderMaria.address], nextPoolId);
-    await expect(
-      fixedLenderMaria.borrowFromMaturityPool(
-        parseUnits("0.9"),
-        nextPoolId,
-        applyMaxFee(parseUnits("0.9"))
-      )
-    ).to.be.reverted;
-  });
-
-  it("it allows the mariaUser to withdraw money only after maturity", async () => {
-    // give the protocol some solvency
-    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
-    let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
-
-    // connect through Maria
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-
-    // deposit some money and parse event
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-
-    // try to withdraw before maturity
-    await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
+  describe("WHEN depositing 100 DAI to a maturity pool (with a collateralization rate of 80%)", () => {
+    let tx: any;
+    beforeEach(async () => {
+      tx = exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "100");
+      await tx;
+    });
+    it("THEN a DepositToMaturityPool event is emitted", async () => {
+      await expect(tx).to.emit(fixedLender, "DepositToMaturityPool").withArgs(
         mariaUser.address,
-        parseUnits("1"),
+        parseUnits("100"),
+        parseUnits("0"), // commission, its zero with the mocked rate
         nextPoolId
-      )
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
-    );
+      );
+    });
+    it("AND the FixedLender contract has a balance of 100 DAI", async () => {
+      expect(await underlyingToken.balanceOf(fixedLender.address)).to.equal(
+        parseUnits("100")
+      );
+    });
+    it("AND the FixedLender registers a supply of 100 DAI for the user (exposed via getAccountSnapshot)", async () => {
+      expect(
+        (await fixedLender.getAccountSnapshot(mariaUser.address, nextPoolId))[0]
+      ).to.be.equal(parseUnits("100"));
+    });
+    it("AND WHEN trying to withdraw before the pool matures, THEN it reverts", async () => {
+      // try to withdraw before maturity
+      await expect(
+        exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100")
+      ).to.be.revertedWith(
+        errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
+      );
+    });
+    it("WHEN trying to borrow 90 DAI THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+      await expect(
+        exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "90")
+      ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+    });
 
-    // Move in time to maturity
-    await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolId]);
-    await ethers.provider.send("evm_mine", []);
+    describe("WHEN borrowing 80 DAI from the same maturity", () => {
+      let tx: any;
+      beforeEach(async () => {
+        tx = exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "80");
+        await tx;
+      });
+      it("THEN a BorrowFromMaturityPool event is emmitted", async () => {
+        await expect(tx)
+          .to.emit(exactlyEnv.getFixedLender("DAI"), "BorrowFromMaturityPool")
+          .withArgs(
+            mariaUser.address,
+            parseUnits("80"),
+            parseUnits("0"),
+            nextPoolId
+          );
+      });
+      it("AND a 80DAI borrow is registered", async () => {
+        expect(
+          await exactlyEnv
+            .getFixedLender("DAI")
+            .getTotalMpBorrows(exaTime.nextPoolID())
+        ).to.equal(parseUnits("80"));
+      });
+    });
 
-    // finally withdraw voucher and we expect maria to have her original amount + the comission earned
-    await fixedLenderMaria.withdrawFromMaturityPool(
-      mariaUser.address,
-      parseUnits("1"),
-      nextPoolId
-    );
-    expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
-      originalAmount
-    );
+    describe("AND WHEN moving in time to maturity AND withdrawing from the maturity pool", () => {
+      let tx: any;
+      beforeEach(async () => {
+        await exactlyEnv.moveInTime(exaTime.nextPoolID());
+        tx = await exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100");
+      });
+      it("THEN 100 DAI are returned to Maria", async () => {
+        expect(await underlyingToken.balanceOf(mariaUser.address)).to.eq(
+          parseUnits("100000")
+        );
+        expect(await underlyingToken.balanceOf(fixedLender.address)).to.eq(
+          parseUnits("0")
+        );
+      });
+      it("AND a WithdrawFromMaturityPool event is emitted", async () => {
+        await expect(tx)
+          .to.emit(fixedLender, "WithdrawFromMaturityPool")
+          .withArgs(mariaUser.address, parseUnits("100"), exaTime.nextPoolID());
+      });
+    });
+  });
+
+  describe("simple validations:", () => {
+    describe("invalid pool ids", () => {
+      it("WHEN calling auditor.requirePoolState directly with an invalid pool id, THEN it reverts", async () => {
+        let auditorUser = auditor.connect(mariaUser);
+        const invalidPoolID = exaTime.pastPoolID() + 666;
+
+        await expect(
+          auditorUser.requirePoolState(invalidPoolID, PoolState.VALID)
+        ).to.be.revertedWith(
+          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
+        );
+      });
+      it("WHEN calling getAccountSnapshot on an invalid pool, THEN it reverts with INVALID_POOL_ID", async () => {
+        let invalidPoolID = nextPoolId + 3;
+        await expect(
+          fixedLender.getAccountSnapshot(owner.address, invalidPoolID)
+        ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+      });
+
+      it("WHEN calling getTotalMpBorrows on an invalid pool, THEN it reverts with INVALID_POOL_ID", async () => {
+        let invalidPoolID = nextPoolId + 3;
+        await expect(
+          fixedLender.getTotalMpBorrows(invalidPoolID)
+        ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+      });
+
+      it("WHEN trying to deposit to an invalid pool THEN it reverts with INVALID_POOL_ID", async () => {
+        await expect(
+          exactlyEnv.depositMP("DAI", exaTime.invalidPoolID(), "100")
+        ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+      });
+      it("WHEN trying to borrow to an invalid pool THEN it reverts ", async () => {
+        await expect(
+          exactlyEnv.borrowMP("DAI", exaTime.invalidPoolID(), "3", "3")
+        ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+      });
+    });
+    describe("actions enabled/disabled at different pool stages", () => {
+      it("WHEN trying to deposit to an already-matured pool, THEN it reverts", async () => {
+        await expect(
+          exactlyEnv.depositMP("DAI", exaTime.pastPoolID(), "100")
+        ).to.be.revertedWith(
+          errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
+        );
+      });
+
+      it("WHEN depositing into a maturity very far into the future THEN it reverts", async () => {
+        await expect(
+          exactlyEnv.depositMP("DAI", exaTime.distantFuturePoolID(), "100")
+        ).to.be.revertedWith(
+          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
+        );
+      });
+
+      it("WHEN trying to borrow from an already-matured pool THEN it reverts ", async () => {
+        await expect(
+          exactlyEnv.borrowMP("DAI", exaTime.pastPoolID(), "2", "2")
+        ).to.be.revertedWith(
+          errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
+        );
+      });
+
+      it("WHEN trying to borrow from a not-yet-enabled pool THEN it reverts ", async () => {
+        await expect(
+          exactlyEnv.borrowMP("DAI", exaTime.distantFuturePoolID(), "2", "2")
+        ).to.be.revertedWith(
+          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
+        );
+      });
+    });
+    it("WHEN calling setLiquidationFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        fixedLender.connect(mariaUser).setLiquidationFee(parseUnits("0.04"))
+      ).to.be.revertedWith("AccessControl");
+    });
+  });
+
+  describe("GIVEN an interest rate of 2%", () => {
+    beforeEach(async () => {
+      await exactlyEnv.setBorrowRate("0.02");
+
+      await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "1");
+      await exactlyEnv.enterMarkets(["DAI"], exaTime.nextPoolID());
+    });
+    it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
+      await expect(
+        exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "0.8", "0.8")
+      ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE));
+    });
+
+    it("WHEN trying to deposit 100 DAI with a minimum required amount to be received of 103, THEN 102 are received instead AND the transaction reverts with TOO_MUCH_SLIPPAGE", async () => {
+      await underlyingToken.approve(fixedLender.address, parseUnits("100"));
+
+      let tx = fixedLender.depositToMaturityPool(
+        parseUnits("100"),
+        nextPoolId,
+        parseUnits("103")
+      );
+      await expect(tx).to.be.revertedWith(
+        errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
+      );
+    });
   });
 
   it("it allows the mariaUser to repay her debt before maturity, but not withdrawing her collateral", async () => {

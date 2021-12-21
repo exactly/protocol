@@ -138,15 +138,39 @@ export class DefaultEnv {
       .depositToMaturityPool(amount, maturityPool, expectedAmount);
   }
 
+  public async withdrawMP(
+    assetString: string,
+    maturityPool: number,
+    units: string
+  ) {
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawFromMaturityPool(
+        this.currentWallet.address,
+        amount,
+        maturityPool
+      );
+  }
+
   public async borrowMP(
     assetString: string,
     maturityPool: number,
     units: string,
-    expectedAtMaturity?: BigNumber
+    expectedAtMaturity?: string
   ) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    const expectedAmount = expectedAtMaturity || applyMaxFee(amount);
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = applyMaxFee(amount);
+    }
     return fixedLender
       .connect(this.currentWallet)
       .borrowFromMaturityPool(amount, maturityPool, expectedAmount);
