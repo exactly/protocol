@@ -20,6 +20,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const file = fs.readFileSync("./config.yml", "utf8");
   const config = YAML.parse(file);
   const [deployer] = await hre.getUnnamedAccounts();
+  console.log("deployer: ", deployer);
+  console.log(
+    "deployer balance",
+    (await hre.ethers.provider.getBalance(deployer)).toString()
+  );
   const tokensForNetwork = config.tokenAddresses[hre.network.name].assets;
   assert(process.env.MNEMONIC, "include a valid mnemonic in your .env file");
   assert(process.env.RINKEBY_NODE, "specify a rinkeby node in your .env file");
@@ -137,6 +142,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     } else {
       ({ address } = tokensForNetwork[symbol]);
     }
+    console.log(
+      "deployer balance",
+      (await hre.ethers.provider.getBalance(deployer)).toString()
+    );
 
     const fixedLenderDeploymentName = "FixedLender" + symbol;
     const eTokenDeploymentName = "EToken" + symbol;
@@ -150,6 +159,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     addresses[`e${symbol}`] = eToken.address;
     console.log("eToken e%s deployed", symbol);
+    console.log(
+      "deployer balance",
+      (await hre.ethers.provider.getBalance(deployer)).toString()
+    );
 
     const fixedLender = await hre.deployments.deploy(
       fixedLenderDeploymentName,
@@ -170,6 +183,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         },
       }
     );
+    console.log(
+      "deployer balance",
+      (await hre.ethers.provider.getBalance(deployer)).toString()
+    );
 
     await transferOwnershipToTimelock(
       fixedLenderDeploymentName,
@@ -188,7 +205,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       auditor.address
     );
 
-    await uploadToS3(addresses);
+    // await uploadToS3(addresses);
 
     // We set the FixedLender where the eToken is used and we set the Auditor that is called in every transfer
     await hre.deployments.execute(
@@ -222,6 +239,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       }
     }
   }
+  console.log(
+    "deployer balance",
+    (await hre.ethers.provider.getBalance(deployer)).toString()
+  );
   await transferOwnershipToTimelock(
     "Auditor",
     deployer,
