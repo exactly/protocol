@@ -126,7 +126,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   );
 
   for (const symbol of Object.keys(tokensForNetwork)) {
-    const { name, address, whale, collateralRate, decimals } =
+    const { name, address, whale, collateralRate, decimals, oracleName } =
       tokensForNetwork[symbol];
     console.log("------");
 
@@ -150,7 +150,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         from: deployer,
         args: [
           address,
-          symbol,
+          oracleName,
           eToken.address,
           auditor.address,
           interestRateModel.address,
@@ -180,7 +180,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       auditor.address
     );
 
-    await uploadToS3(addresses);
+    // await uploadToS3(addresses);
 
     // We set the FixedLender where the eToken is used and we set the Auditor that is called in every transfer
     await hre.deployments.execute(
