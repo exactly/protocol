@@ -126,45 +126,52 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   );
 
   for (const symbol of Object.keys(tokensForNetwork)) {
-    const { name, address, whale, collateralRate, oracleName, decimals } =
+    const { name, address, whale, collateralRate, decimals } =
       tokensForNetwork[symbol];
     console.log("------");
 
-    const eToken = await hre.deployments.deploy("EToken", {
+    const fixedLenderDeploymentName = "FixedLender" + symbol;
+    const eTokenDeploymentName = "EToken" + symbol;
+
+    const eToken = await hre.deployments.deploy(eTokenDeploymentName, {
+      contract: "EToken",
       from: deployer,
-      args: ["e" + name, "e" + oracleName, decimals],
+      args: ["e" + name, "e" + symbol, decimals],
       log: true,
     });
 
-    addresses[`e${oracleName}`] = eToken.address;
-    console.log("eToken e%s deployed", oracleName);
+    addresses[`e${symbol}`] = eToken.address;
+    console.log("eToken e%s deployed", symbol);
 
-    const fixedLender = await hre.deployments.deploy("FixedLender" + symbol, {
-      contract: "FixedLender",
-      from: deployer,
-      args: [
-        address,
-        oracleName,
-        eToken.address,
-        auditor.address,
-        interestRateModel.address,
-      ],
-      log: true,
-      libraries: {
-        TSUtils: tsUtils.address,
-        PoolLib: poolLib.address,
-      },
-    });
+    const fixedLender = await hre.deployments.deploy(
+      fixedLenderDeploymentName,
+      {
+        contract: "FixedLender",
+        from: deployer,
+        args: [
+          address,
+          symbol,
+          eToken.address,
+          auditor.address,
+          interestRateModel.address,
+        ],
+        log: true,
+        libraries: {
+          TSUtils: tsUtils.address,
+          PoolLib: poolLib.address,
+        },
+      }
+    );
 
     await transferOwnershipToTimelock(
-      "FixedLender" + symbol,
+      fixedLenderDeploymentName,
       deployer,
       timelockController.address,
       ADMIN_ROLE,
       hre
     );
 
-    addresses[`fixedLender${symbol}`] = fixedLender.address;
+    addresses[fixedLenderDeploymentName] = fixedLender.address;
     console.log(
       "FixedLender for %s uses underlying asset address: %s, etoken address: %s, and auditor address: %s",
       symbol,
@@ -173,11 +180,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       auditor.address
     );
 
-    await uploadToS3(addresses);
+    // await uploadToS3(addresses);
 
     // We set the FixedLender where the eToken is used and we set the Auditor that is called in every transfer
     await hre.deployments.execute(
-      "EToken",
+      eTokenDeploymentName,
       { from: deployer },
       "initialize",
       fixedLender.address,
@@ -252,7 +259,10 @@ export function uploadToS3(data: { [id: string]: string }) {
   });
 }
 
-async function deployLibraries(deployer: any, hardhatRuntimeEnvironment: any) {
+async function deployLibraries(
+  deployer: string,
+  hardhatRuntimeEnvironment: any
+) {
   const tsUtils = await hardhatRuntimeEnvironment.deployments.deploy(
     "TSUtils",
     {
@@ -293,10 +303,10 @@ async function deployLibraries(deployer: any, hardhatRuntimeEnvironment: any) {
 }
 
 async function transferOwnershipToTimelock(
-  contractName: any,
-  deployer: any,
-  timelockAddress: any,
-  adminRole: any,
+  contractName: string,
+  deployer: string,
+  timelockAddress: string,
+  adminRole: string,
   hardhatRuntimeEnvironment: any
 ) {
   await hardhatRuntimeEnvironment.deployments.execute(

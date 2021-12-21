@@ -52,7 +52,7 @@ describe("Timelock - AccessControl", function () {
         );
         expect(ownerHasTimelockAdminRole).to.equal(true);
       });
-      describe("AND GIVEN a grant in the ADMIN role to the Timelock contract address", () => {
+      describe("AND WHEN the owner grants the ADMIN role to the Timelock contract address", () => {
         let ADMIN_ROLE: any;
         beforeEach(async () => {
           ADMIN_ROLE = await exactlyOracle.DEFAULT_ADMIN_ROLE();
@@ -63,7 +63,7 @@ describe("Timelock - AccessControl", function () {
             exactlyOracle.setAssetSources([assetSymbol], [assetAddress])
           ).to.not.be.reverted;
         });
-        describe("AND GIVEN a schedule by owner with 3 seconds delay to set new asset sources through the Timelock", () => {
+        describe("AND WHEN the owner schedules a new asset source with a 3 second delay in the Timelock", () => {
           let txData: any;
           beforeEach(async () => {
             let tx = await exactlyOracle.setAssetSources(
@@ -120,7 +120,7 @@ describe("Timelock - AccessControl", function () {
               .schedule(exactlyOracle.address, 0, txData, HashZero, HashZero, 3)
           ).to.be.revertedWith("AccessControl");
         });
-        describe("AND GIVEN a revoke in the ADMIN role of the owner's address", () => {
+        describe("AND WHEN the owner revokes his ADMIN role", () => {
           beforeEach(async () => {
             await exactlyOracle.revokeRole(ADMIN_ROLE, owner.address);
           });
@@ -130,7 +130,7 @@ describe("Timelock - AccessControl", function () {
             ).to.be.revertedWith("AccessControl");
           });
         });
-        describe("AND GIVEN the owner address grants another user PROPOSER and EXECUTOR roles for Timelock contract", () => {
+        describe("AND WHEN the owner address grants another user PROPOSER and EXECUTOR roles for Timelock contract", () => {
           let PROPOSER_ROLE: any;
           let EXECUTOR_ROLE: any;
           beforeEach(async () => {
