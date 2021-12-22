@@ -41,7 +41,7 @@ describe("ExaToken", () => {
         exactlyEnv.switchWallet(mariaUser);
       });
 
-      describe("WHEN maria deposits to a Maturity Pool and later claiming all her EXA", async () => {
+      describe("WHEN maria deposits to a Maturity Pool", async () => {
         let balanceMariaPre: BigNumber;
         let tx: any;
         beforeEach(async () => {
