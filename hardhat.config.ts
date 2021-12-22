@@ -46,6 +46,7 @@ const forkingHardhatConfig = {
 
 const standaloneHardhatConfig = {
   initialBaseFeePerGas: 0,
+  gasPrice: 5000000000,
   accounts: {
     mnemonic: process.env.MNEMONIC,
   },
