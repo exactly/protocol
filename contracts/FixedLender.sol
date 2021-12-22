@@ -321,7 +321,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
-    ) external override nonReentrant whenNotPaused {
+    ) external override nonReentrant {
         if (redeemAmount == 0) {
             revert GenericError(ErrorCode.REDEEM_CANT_BE_ZERO);
         }
@@ -438,11 +438,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param amount The underlying amount to be withdrawn
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      */
-    function withdrawFromSmartPool(uint256 amount)
-        external
-        override
-        whenNotPaused
-    {
+    function withdrawFromSmartPool(uint256 amount) external override {
         auditor.beforeSupplyOrWithdrawSP(address(this), msg.sender);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);

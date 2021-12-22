@@ -58,16 +58,6 @@ describe("FixedLender - Pausable", function () {
           fixedLender.depositToMaturityPool("0", nextPoolId, "0")
         ).to.be.revertedWith("Pausable: paused");
       });
-      it("THEN it should revert when trying to withdraw from a smart pool", async () => {
-        await expect(fixedLender.withdrawFromSmartPool("0")).to.be.revertedWith(
-          "Pausable: paused"
-        );
-      });
-      it("THEN it should revert when trying to withdraw from a maturity pool", async () => {
-        await expect(
-          fixedLender.withdrawFromMaturityPool(owner.address, "0", nextPoolId)
-        ).to.be.revertedWith("Pausable: paused");
-      });
       it("THEN it should revert when trying to borrow from a maturity pool", async () => {
         await expect(
           fixedLender.borrowFromMaturityPool("0", nextPoolId, "0")

@@ -13,10 +13,8 @@ Since it's only relevant to block the logic with which users interact and persis
 
 - ``borrowFromMaturityPool``
 - ``depositToMaturityPool``
-- ``withdrawFromMaturityPool``
 - ``repayToMaturityPool``
 - ``liquidate``
-- ``withdrawFromSmartPool``
 - ``borrowFromMaturityPool``
 
 
