@@ -32,7 +32,7 @@ describe("ExaToken", () => {
   });
 
   describe("FixedLender-Auditor-ExaLib integration", () => {
-    describe("GIVEN a 0.5 EXA distribution per block and Auditor having 50 EXA in their power", () => {
+    describe("GIVEN a 0.5 EXA distribution per block and Auditor having 5000 EXA in their power", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(owner);
         await exactlyEnv.transfer("DAI", mariaUser, "10000");
