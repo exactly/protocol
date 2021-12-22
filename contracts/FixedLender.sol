@@ -410,7 +410,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         address borrower,
         uint256 seizeAmount,
         uint256 maturityDate
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
     }
 
