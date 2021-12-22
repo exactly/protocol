@@ -194,15 +194,19 @@ describe("Auditor Admin", function () {
       await expect(tx).to.emit(exactlyEnv.auditor, "ExaSpeedUpdated");
     });
 
-    describe("WHEN setting exa speed and the previous value doesn't change", async () => {
-      let tx: any;
+    describe("GIVEN Exa speed is 10000 for fixedLender for DAI", async () => {
       beforeEach(async () => {
         await exactlyEnv.setExaSpeed("DAI", "10000");
-        tx = await exactlyEnv.setExaSpeed("DAI", "10000");
       });
+      describe("WHEN setting exa speed to 10000 for fixedLender for DAI again", async () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = await exactlyEnv.setExaSpeed("DAI", "10000");
+        });
 
-      it("THEN the auditor should NOT emit ExaSpeedUpdated event", async () => {
-        await expect(tx).to.not.emit(exactlyEnv.auditor, "ExaSpeedUpdated");
+        it("THEN an ExaSpeedEvent is not emitted", async () => {
+          await expect(tx).to.not.emit(exactlyEnv.auditor, "ExaSpeedUpdated");
+        });
       });
     });
 
