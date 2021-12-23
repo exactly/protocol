@@ -230,7 +230,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     if (!process.env.PUBLIC_ADDRESS) {
       console.log("Add PUBLIC_ADDRESS key to your .env file");
-    } else {
+    } else if (process.env.FORKING == "1") {
       if (whale) {
         sendTokens(hre, address, whale, decimals);
         console.log(`Added 100 ${symbol} to ${process.env.PUBLIC_ADDRESS}`);
