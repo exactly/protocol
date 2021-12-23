@@ -36,6 +36,7 @@ tokenAddresses:
         decimals: 18
   rinkeby:
     mockedExactlyOracle: "0x05cCA0e6b4C53eC73B28313745641940E5634842"
+    multisigAddress: "0x0820289Cb202DbF23B709D4AC1a346331cd590c4"
     assets:
       DAI:
         name: "Dai"

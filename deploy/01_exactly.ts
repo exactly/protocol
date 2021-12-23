@@ -162,20 +162,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         },
       }
     );
-    const PAUSER_ROLE = await hre.deployments.read(
-      fixedLenderDeploymentName,
-      { from: deployer },
-      "PAUSER_ROLE"
-    );
-
-    // We grant the PAUSER_ROLE to the deployer, we'll later grant this role to the Multisig address
-    await hre.deployments.execute(
-      fixedLenderDeploymentName,
-      { from: deployer },
-      "grantRole",
-      PAUSER_ROLE,
-      deployer
-    );
+    await grantPauserRole(fixedLenderDeploymentName, deployer, hre, config);
 
     await transferOwnershipToTimelock(
       fixedLenderDeploymentName,
@@ -242,13 +229,16 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     ADMIN_ROLE,
     hre
   );
-  await transferOwnershipToTimelock(
-    "ExactlyOracle",
-    deployer,
-    timelockController.address,
-    ADMIN_ROLE,
-    hre
-  );
+  // If network is rinkeby we don't need to transfer ownership of oracle since it's mocked
+  if (hre.network.name !== "rinkeby") {
+    await transferOwnershipToTimelock(
+      "ExactlyOracle",
+      deployer,
+      timelockController.address,
+      ADMIN_ROLE,
+      hre
+    );
+  }
 };
 
 export function uploadToS3(data: { [id: string]: string }) {
@@ -337,6 +327,42 @@ async function transferOwnershipToTimelock(
     adminRole,
     deployer
   );
+}
+
+async function grantPauserRole(
+  fixedLenderDeploymentName: string,
+  deployer: string,
+  hardhatRuntimeEnvironment: any,
+  config: any
+) {
+  const PAUSER_ROLE = await hardhatRuntimeEnvironment.deployments.read(
+    fixedLenderDeploymentName,
+    { from: deployer },
+    "PAUSER_ROLE"
+  );
+  console.log("pause role " + PAUSER_ROLE);
+
+  // We grant the PAUSER_ROLE to the multisig if network is rinkeby, else to the deployer
+  if (hardhatRuntimeEnvironment.network.name === "rinkeby") {
+    const multisigAddress =
+      config.tokenAddresses[hardhatRuntimeEnvironment.network.name]
+        .multisigAddress;
+    await hardhatRuntimeEnvironment.deployments.execute(
+      fixedLenderDeploymentName,
+      { from: deployer },
+      "grantRole",
+      PAUSER_ROLE,
+      multisigAddress
+    );
+  } else {
+    await hardhatRuntimeEnvironment.deployments.execute(
+      fixedLenderDeploymentName,
+      { from: deployer },
+      "grantRole",
+      PAUSER_ROLE,
+      deployer
+    );
+  }
 }
 
 async function getTokenParameters(tokensForNetwork: any) {
