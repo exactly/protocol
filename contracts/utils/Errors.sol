@@ -5,6 +5,11 @@ import "./TSUtils.sol";
 
 error GenericError(ErrorCode error);
 error UnmatchedPoolState(TSUtils.State state, TSUtils.State requiredState);
+error UnmatchedPoolStateMultiple(
+    TSUtils.State state,
+    TSUtils.State requiredState,
+    TSUtils.State alternativeState
+);
 
 enum ErrorCode {
     NO_ERROR,

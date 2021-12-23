@@ -178,6 +178,10 @@ export class DefaultEnv {
       .setLiquidationIncentive(parseUnits(incentive));
   }
 
+  public async smartPoolBorrowed(asset: string) {
+    return this.getFixedLender(asset).smartPoolBorrowed();
+  }
+
   public async setBorrowCaps(assets: string[], borrowCaps: string[]) {
     assert(assets.length == borrowCaps.length);
 

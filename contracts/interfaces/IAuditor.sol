@@ -34,8 +34,11 @@ interface IAuditor {
         uint256 maturityDate
     ) external;
 
-    function beforeRepayMP(address fixedLenderAddress, address borrower)
-        external;
+    function beforeRepayMP(
+        address fixedLenderAddress,
+        address borrower,
+        uint256 maturityDate
+    ) external;
 
     function getAccountLiquidity(address account, uint256 maturityDate)
         external

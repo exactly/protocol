@@ -273,6 +273,9 @@ async function deployLibraries(
     "PoolLib",
     {
       from: deployer,
+      libraries: {
+        TSUtils: tsUtils.address,
+      },
     }
   );
   const decimalMath = await hardhatRuntimeEnvironment.deployments.deploy(

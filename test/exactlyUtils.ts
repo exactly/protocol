@@ -37,6 +37,7 @@ export function applyMinFee(amount: BigNumber): BigNumber {
 }
 
 export enum PoolState {
+  NONE,
   INVALID,
   MATURED,
   VALID,
@@ -155,7 +156,11 @@ export class ExactlyEnv {
     let exaLib = await ExaLib.deploy();
     await exaLib.deployed();
 
-    const PoolLib = await ethers.getContractFactory("PoolLib");
+    const PoolLib = await ethers.getContractFactory("PoolLib", {
+      libraries: {
+        TSUtils: tsUtils.address,
+      },
+    });
     const poolLib = await PoolLib.deploy();
     await poolLib.deployed();
 
@@ -342,6 +347,10 @@ export class ExaTime {
 
   constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
     this.timestamp = timestamp;
+  }
+
+  public day(dayNumber: number): number {
+    return this.timestamp + this.ONE_DAY * dayNumber;
   }
 
   public nextPoolID(): number {

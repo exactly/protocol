@@ -477,14 +477,22 @@ contract Auditor is IAuditor, AccessControl {
      *      This function is called from fixedLender contracts.
      * @param fixedLenderAddress address of the fixedLender that will collect money in a maturity
      * @param borrower address of the user that wants to repay its debt
+     * @param maturityDate pool ID in which the user is trying to repay debt
      */
-    function beforeRepayMP(address fixedLenderAddress, address borrower)
-        external
-        override
-    {
+    function beforeRepayMP(
+        address fixedLenderAddress,
+        address borrower,
+        uint256 maturityDate
+    ) external override {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
+
+        _requirePoolState(
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.MATURED
+        );
 
         rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
         rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
@@ -723,16 +731,32 @@ contract Auditor is IAuditor, AccessControl {
      */
     function _requirePoolState(
         uint256 maturityDate,
-        TSUtils.State requiredState
+        TSUtils.State requiredState,
+        TSUtils.State alternativeState
     ) internal view {
         TSUtils.State poolState = TSUtils.getPoolState(
             block.timestamp,
             maturityDate,
             maxFuturePools
         );
-        if (poolState != requiredState) {
-            revert UnmatchedPoolState(poolState, requiredState);
+
+        if (poolState != requiredState && poolState != alternativeState) {
+            if (alternativeState == TSUtils.State.NONE) {
+                revert UnmatchedPoolState(poolState, requiredState);
+            }
+            revert UnmatchedPoolStateMultiple(
+                poolState,
+                requiredState,
+                alternativeState
+            );
         }
+    }
+
+    function _requirePoolState(
+        uint256 maturityDate,
+        TSUtils.State requiredState
+    ) internal view {
+        _requirePoolState(maturityDate, requiredState, TSUtils.State.NONE);
     }
 
     /**
@@ -756,7 +780,11 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        _requirePoolState(maturityDate, TSUtils.State.MATURED);
+        _requirePoolState(
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.MATURED
+        );
 
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
         if (

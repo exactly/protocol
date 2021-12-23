@@ -221,7 +221,11 @@ describe("Auditor from User Space", function () {
 
   it("BeforeRepayMP should fail for an unlisted market", async () => {
     await expect(
-      auditor.beforeRepayMP(exactlyEnv.notAnFixedLenderAddress, owner.address)
+      auditor.beforeRepayMP(
+        exactlyEnv.notAnFixedLenderAddress,
+        owner.address,
+        nextPoolID
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 

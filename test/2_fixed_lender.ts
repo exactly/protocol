@@ -134,7 +134,9 @@ describe("FixedLender", function () {
   it("it doesn't allow you to give money to a pool that is invalid", async () => {
     await expect(
       exactlyEnv.depositMP("DAI", exaTime.invalidPoolID(), "100")
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
+    ).to.be.revertedWith(
+      errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
+    );
   });
 
   it("allows you to borrow money from a maturity pool", async () => {
