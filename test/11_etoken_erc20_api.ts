@@ -9,6 +9,7 @@ describe("EToken ERC20 API", () => {
   let account: SignerWithAddress;
   let token: Contract;
   let tokenHarness: Contract;
+  let mockedAuditor: Contract;
 
   const { AddressZero } = ethers.constants;
   const name = "eToken DAI";
@@ -23,7 +24,11 @@ describe("EToken ERC20 API", () => {
     const EToken = await ethers.getContractFactory("EToken");
     token = await EToken.deploy(name, symbol, decimals);
     await token.deployed();
-    await token.setFixedLender(initialHolder.address); // We simulate that the address of user initialHolder is the fixedLender contract
+
+    const MockedAuditor = await ethers.getContractFactory("MockedAuditor");
+    mockedAuditor = await MockedAuditor.deploy();
+
+    await token.initialize(initialHolder.address, mockedAuditor.address); // We simulate that the address of user bob is the fixedLender
     await token.mint(initialHolder.address, initialSupply);
   });
 

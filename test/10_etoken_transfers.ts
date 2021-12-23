@@ -9,6 +9,7 @@ describe("EToken transfers", () => {
   let laura: SignerWithAddress;
   let tito: SignerWithAddress;
   let eDAI: Contract;
+  let mockedAuditor: Contract;
 
   const { AddressZero } = ethers.constants;
   beforeEach(async () => {
@@ -18,7 +19,10 @@ describe("EToken transfers", () => {
     eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI", 18);
     await eDAI.deployed();
 
-    await eDAI.setFixedLender(bob.address); // We simulate that the address of user bob is the fixedLender contract
+    const MockedAuditor = await ethers.getContractFactory("MockedAuditor");
+    mockedAuditor = await MockedAuditor.deploy();
+
+    await eDAI.initialize(bob.address, mockedAuditor.address); // We simulate that the address of user bob is the fixedLender
   });
 
   describe("GIVEN bob has 1000 eDAI AND transfers 500 eDAI to laura", () => {

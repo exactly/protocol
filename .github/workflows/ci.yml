@@ -31,9 +31,9 @@ jobs:
         env:
           MNEMONIC: ${{ secrets.MNEMONIC }}
           FORKING: false
-          ALCHEMY_RINKEBY_API_KEY: ${{ secrets.ALCHEMY_RINKEBY_API_KEY }}
-          ALCHEMY_MAINNET_API_KEY: ${{ secrets.ALCHEMY_MAINNET_API_KEY }}
-          ALCHEMY_KOVAN_API_KEY: ${{ secrets.ALCHEMY_KOVAN_API_KEY }}
+          RINKEBY_NODE: https://eth-rinkeby.alchemyapi.io/v2/${{ secrets.ALCHEMY_RINKEBY_API_KEY }}
+          MAINNET_NODE: https://eth-mainnet.alchemyapi.io/v2/${{ secrets.ALCHEMY_MAINNET_API_KEY }}
+          KOVAN_NODE: https://eth-kovan.alchemyapi.io/v2/${{ secrets.ALCHEMY_KOVAN_API_KEY }}
         run: |
           npx hardhat compile
       

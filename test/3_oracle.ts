@@ -6,10 +6,10 @@ import {
   ExactlyEnv,
   ExaTime,
   ProtocolError,
-  DefaultEnv,
 } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("ExactlyOracle", function () {
   let exactlyEnv: DefaultEnv;

@@ -6,10 +6,11 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IEToken is IERC20, IERC20Metadata {
     /**
-     * @dev Emitted when `fixedLender` is set
+     * @dev Emitted when `fixedLender` and `auditor` are set
      * - The FixedLender is where the eToken is used
+     * - The Auditor is called in every transfer
      */
-    event FixedLenderSet(address indexed fixedLender);
+    event Initialized(address indexed fixedLender, address indexed auditor);
 
     /**
      * @dev Emitted when `amount` is accrued as earnings

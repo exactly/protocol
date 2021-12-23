@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "../utils/DecimalMath.sol";
 import "../utils/ExaLib.sol";
 import "../utils/MarketsLib.sol";
+import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 contract AuditorHarness {
     using DecimalMath for uint256;
@@ -166,7 +167,7 @@ contract AuditorHarness {
         rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
-    function distributeAllBorrowerExa(
+    function distributeAllMPBorrowerExa(
         address fixedLenderAddress,
         address borrower
     ) public {
@@ -184,7 +185,7 @@ contract AuditorHarness {
         rewardsState.distributeMPSupplierExa(fixedLenderAddress, supplier);
     }
 
-    function distributeAllSupplierExa(
+    function distributeAllMPSupplierExa(
         address fixedLenderAddress,
         address supplier
     ) public {
@@ -202,7 +203,7 @@ contract AuditorHarness {
         rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
     }
 
-    function distributeAllSmartPoolExa(
+    function distributeAllSPSupplierExa(
         address fixedLenderAddress,
         address supplier
     ) public {

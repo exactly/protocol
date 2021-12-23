@@ -3,12 +3,8 @@ import { ethers } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  DefaultEnv,
-  ExactlyEnv,
-  errorGeneric,
-  ProtocolError,
-} from "./exactlyUtils";
+import { ExactlyEnv, errorGeneric, ProtocolError } from "./exactlyUtils";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;

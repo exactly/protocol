@@ -7,11 +7,11 @@ import {
   ExactlyEnv,
   ExaTime,
   errorGeneric,
-  DefaultEnv,
   applyMinFee,
   applyMaxFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { DefaultEnv } from "./defaultEnv";
 
 describe("Liquidity computations", function () {
   let auditor: Contract;

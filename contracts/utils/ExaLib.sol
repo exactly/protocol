@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IFixedLender.sol";
 import "../interfaces/IEToken.sol";
 import "../utils/DecimalMath.sol";
@@ -58,7 +57,7 @@ library ExaLib {
     );
 
     /**
-     * @notice Calculate EXA accrued by a smart pool supplier and possibly transfer them to him
+     * @notice Calculate EXA accrued by a smart pool supplier
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
@@ -76,7 +75,7 @@ library ExaLib {
     }
 
     /**
-     * @notice Calculate EXA accrued by a maturity pool supplier and possibly transfer them to him
+     * @notice Calculate EXA accrued by a maturity pool supplier
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
@@ -394,7 +393,7 @@ library ExaLib {
     }
 
     /**
-     * @notice INTERNAL Calculate EXA accrued by a smart pool supplier and possibly transfer them to him
+     * @notice INTERNAL Calculate EXA accrued by a smart pool supplier
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
@@ -436,7 +435,7 @@ library ExaLib {
     }
 
     /**
-     * @notice INTERNAL Calculate EXA accrued by a maturity pool supplier and possibly transfer them to him
+     * @notice INTERNAL Calculate EXA accrued by a maturity pool supplier
      * @param fixedLenderState RewardsState storage in Auditor
      * @param fixedLenderAddress The market in which the supplier is interacting
      * @param supplier The address of the supplier to distribute EXA to
