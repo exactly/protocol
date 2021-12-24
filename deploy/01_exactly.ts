@@ -133,6 +133,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         totalSupply.toString()
       );
       await underlyingToken.deployed();
+      if (process.env.PUBLIC_ADDRESS) {
+        await underlyingToken.transfer(process.env.PUBLIC_ADDRESS, totalSupply);
+      }
       address = underlyingToken.address;
     } else {
       ({ address } = tokensForNetwork[symbol]);
@@ -188,7 +191,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       auditor.address
     );
 
-    await uploadToS3(addresses);
+    if (process.env.AWS_KEY_ID) {
+      await uploadToS3(addresses);
+    } else {
+      console.log("skipping address upload");
+    }
 
     // We set the FixedLender where the eToken is used and we set the Auditor that is called in every transfer
     await hre.deployments.execute(
@@ -214,11 +221,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     if (!process.env.PUBLIC_ADDRESS) {
       console.log("Add PUBLIC_ADDRESS key to your .env file");
     } else {
-      if (whale) {
-        sendTokens(hre, address, whale, decimals);
-        console.log(`Added 100 ${symbol} to ${process.env.PUBLIC_ADDRESS}`);
-      } else {
-        console.log(`There is no whale added for ${symbol}`);
+      if (process.env.FORKING === "true") {
+        if (whale) {
+          sendTokens(hre, address, whale, decimals);
+          console.log(`Added 100 ${symbol} to ${process.env.PUBLIC_ADDRESS}`);
+        } else {
+          console.log(`There is no whale added for ${symbol}`);
+        }
       }
     }
   }
