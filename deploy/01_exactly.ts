@@ -21,9 +21,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const config = YAML.parse(file);
   const [deployer] = await hre.getUnnamedAccounts();
   const tokensForNetwork = config.tokenAddresses[hre.network.name].assets;
-  assert(process.env.MNEMONIC, "include a valid mnemonic in your .env file");
-  assert(process.env.RINKEBY_NODE, "specify a rinkeby node in your .env file");
-  assert(process.env.KOVAN_NODE, "specify a kovan noden your .env file");
+  if (hre.network.name !== "hardhat") {
+    assert(process.env.MNEMONIC, "include a valid mnemonic in your .env file");
+  }
+  if (hre.network.name === "rinkeby") {
+    assert(
+      process.env.RINKEBY_NODE,
+      "specify a rinkeby node in your .env file"
+    );
+  }
+  if (hre.network.name === "kovan") {
+    assert(process.env.KOVAN_NODE, "specify a kovan noden your .env file");
+  }
   if (process.env.FORKING) {
     assert(
       process.env.MAINNET_NODE,
