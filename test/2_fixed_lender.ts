@@ -141,6 +141,21 @@ describe("FixedLender", function () {
             errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
           );
         });
+        describe("AND WHEN moving in time to maturity AND withdrawing the collateral", () => {
+          beforeEach(async () => {
+            await exactlyEnv.moveInTime(nextPoolId);
+            await exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100");
+          });
+          // TODO tests for partial/excessive withdrawal?
+          it("THEN the collateral is returned to Maria", async () => {
+            expect(await underlyingToken.balanceOf(mariaUser.address)).to.eq(
+              parseUnits("100000")
+            );
+            expect(await underlyingToken.balanceOf(fixedLender.address)).to.eq(
+              parseUnits("0")
+            );
+          });
+        });
       });
 
       describe("AND WHEN partially (40DAI, 50%) repaying the debt", () => {
@@ -166,6 +181,31 @@ describe("FixedLender", function () {
             .getAccountSnapshot(mariaUser.address, nextPoolId);
 
           expect(amountOwed).to.equal(parseUnits("40"));
+        });
+
+        describe("AND WHEN moving in time to 1 day after maturity", () => {
+          beforeEach(async () => {
+            await exactlyEnv.moveInTime(nextPoolId + exaTime.ONE_DAY);
+          });
+          it("THEN Maria owes (getAccountSnapshot) 40 DAI of principal + (40*0.02 == 0.08 ) DAI of late payment penalties", async () => {
+            const [, amountOwed] = await exactlyEnv
+              .getFixedLender("DAI")
+              .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+            expect(amountOwed).to.equal(parseUnits("40.8"));
+          });
+          describe("AND WHEN repaying the rest of the 40.8 owed DAI", () => {
+            beforeEach(async () => {
+              await exactlyEnv.repayMP("DAI", nextPoolId, "40.8");
+            });
+            it("THEN all debt is repaid", async () => {
+              const [, amountOwed] = await exactlyEnv
+                .getFixedLender("DAI")
+                .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+              expect(amountOwed).to.equal(0);
+            });
+          });
         });
       });
     });
@@ -294,231 +334,6 @@ describe("FixedLender", function () {
         errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
       );
     });
-  });
-
-  it("it allows mariaUser to repay her debt partially before maturity, repay full with the rest 1 day after (1 day penalty)", async () => {
-    // give the protocol some solvency
-    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
-
-    // connect through Maria
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.8"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.8"))
-    );
-
-    // repay half of her debt and succeed
-    await expect(
-      fixedLenderMaria.repayToMaturityPool(
-        mariaUser.address,
-        nextPoolId,
-        parseUnits("0.4")
-      )
-    ).to.not.be.reverted;
-
-    // Move in time to maturity + 1 day
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      nextPoolId + exaTime.ONE_DAY,
-    ]);
-    await ethers.provider.send("evm_mine", []);
-
-    await expect(
-      fixedLenderMaria.repayToMaturityPool(
-        mariaUser.address,
-        nextPoolId,
-        parseUnits("0.4").mul(102).div(100)
-      )
-    ).to.not.be.reverted;
-
-    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
-      mariaUser.address,
-      nextPoolId
-    );
-
-    expect(amountOwed).to.equal(0);
-  });
-
-  it("GetAccountSnapshot should reflect BaseRate penaltyFee for mariaUser", async () => {
-    // give the protocol some solvency
-    await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
-
-    // connect through Maria
-    const fixedLenderMaria = fixedLender.connect(mariaUser);
-    const underlyingTokenUser = underlyingToken.connect(mariaUser);
-    const penaltyRate = await exactlyEnv.interestRateModel.penaltyRate();
-
-    // supply some money and parse event
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.5"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.5"))
-    );
-
-    // Move in time to maturity + 1 day
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      nextPoolId + exaTime.ONE_DAY,
-    ]);
-    await ethers.provider.send("evm_mine", []);
-
-    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
-      mariaUser.address,
-      nextPoolId
-    );
-
-    // if penaltyRate is 0.2 then we multiply for 1.2
-    expect(amountOwed).to.equal(
-      parseUnits("0.5")
-        .mul(penaltyRate.add(parseUnits("1")))
-        .div(parseUnits("1"))
-    );
-  });
-
-  it("should charge mariaUser penaltyFee when paying her debt one day late", async () => {
-    // give the protocol and John some solvency
-    let johnBalancePre = parseUnits("1000");
-    await underlyingToken.transfer(fixedLender.address, parseUnits("1000"));
-    await underlyingToken.transfer(johnUser.address, johnBalancePre);
-    await underlyingToken
-      .connect(johnUser)
-      .approve(fixedLender.address, johnBalancePre);
-
-    // connect through Maria & John
-    const fixedLenderMaria = fixedLender.connect(mariaUser);
-    const fixedLenderJohn = fixedLender.connect(johnUser);
-    const underlyingTokenMaria = underlyingToken.connect(mariaUser);
-    const penaltyRate = await exactlyEnv.interestRateModel.penaltyRate();
-
-    await fixedLenderJohn.depositToSmartPool(johnBalancePre);
-
-    // supply some money and parse event
-    await underlyingTokenMaria.approve(fixedLender.address, parseUnits("5"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.5"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.5"))
-    );
-
-    // Move in time to maturity + 1 day
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      nextPoolId + exaTime.ONE_DAY + 1,
-    ]);
-    await ethers.provider.send("evm_mine", []);
-
-    // if penaltyRate is 0.02 then we multiply for 1.2
-    const expectedAmountPaid = parseUnits("0.5")
-      .mul(penaltyRate.add(parseUnits("1")))
-      .div(parseUnits("1"));
-    const amountBorrowed = parseUnits("0.5");
-
-    await expect(
-      fixedLenderMaria.repayToMaturityPool(
-        mariaUser.address,
-        nextPoolId,
-        expectedAmountPaid
-      )
-    )
-      .to.emit(fixedLenderMaria, "RepayToMaturityPool")
-      .withArgs(
-        mariaUser.address,
-        mariaUser.address,
-        expectedAmountPaid.sub(amountBorrowed),
-        amountBorrowed,
-        nextPoolId
-      );
-
-    // sanity check to make sure he paid more
-    expect(amountBorrowed).not.eq(expectedAmountPaid);
-
-    let johnBalancePost = await exactlyEnv
-      .getEToken("DAI")
-      .balanceOf(johnUser.address);
-    expect(johnBalancePre.add(expectedAmountPaid.sub(amountBorrowed))).to.equal(
-      johnBalancePost
-    );
-  });
-
-  it("it allows the mariaUser to repay her debt at maturity and also withdrawing her collateral", async () => {
-    // give the protocol some solvency
-    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
-
-    // connect through Maria
-    let originalAmount = await underlyingToken.balanceOf(mariaUser.address);
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.8"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.8"))
-    );
-
-    // Move in time to maturity
-    await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolId]);
-    await ethers.provider.send("evm_mine", []);
-
-    // try to withdraw without paying debt and fail
-    await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
-        mariaUser.address,
-        0,
-        nextPoolId
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
-
-    // try to withdraw without paying debt and fail
-    await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
-        mariaUser.address,
-        parseUnits("1"),
-        nextPoolId
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
-
-    // repay and succeed
-    await expect(
-      fixedLenderMaria.repayToMaturityPool(
-        mariaUser.address,
-        nextPoolId,
-        parseUnits("0.8")
-      )
-    ).to.not.be.reverted;
-
-    // finally withdraw voucher and we expect maria to have her original amount + the comission earned - comission paid
-    await fixedLenderMaria.withdrawFromMaturityPool(
-      mariaUser.address,
-      parseUnits("1"),
-      nextPoolId
-    );
-
-    expect(await underlyingToken.balanceOf(mariaUser.address)).to.be.equal(
-      originalAmount
-    );
   });
 
   it("it doesn't allow you to borrow more money than the available", async () => {
