@@ -672,64 +672,6 @@ describe("FixedLender", function () {
     });
   });
 
-  it("supply enough money to a maturity pool that owes money so it is repaid", async () => {
-    const fixedLenderMaria = fixedLender.connect(mariaUser);
-    const fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
-
-    const underlyingTokenUser = underlyingToken.connect(mariaUser);
-    const underlyingTokenUserETH = underlyingTokenETH.connect(mariaUser);
-
-    const auditorUser = auditor.connect(mariaUser);
-
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("1"));
-    await underlyingTokenUserETH.approve(
-      fixedLenderETH.address,
-      parseUnits("1")
-    );
-
-    await fixedLenderMariaETH.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("0.2"),
-      nextPoolId,
-      applyMinFee(parseUnits("0.2"))
-    );
-
-    await auditorUser.enterMarkets(
-      [fixedLenderMaria.address, fixedLenderMariaETH.address],
-      nextPoolId
-    );
-
-    await fixedLenderMaria.depositToSmartPool(parseUnits("0.2"));
-
-    const borrow = fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.4"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.4"))
-    );
-
-    await expect(borrow).to.not.be.reverted;
-
-    let poolData = await fixedLender.maturityPools(nextPoolId);
-    let debt = poolData[2];
-
-    expect(debt).not.to.be.equal("0");
-
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("0.5"),
-      nextPoolId,
-      applyMinFee(parseUnits("0.5"))
-    );
-
-    poolData = await fixedLender.maturityPools(nextPoolId);
-    debt = poolData[2];
-    expect(debt).to.be.equal("0");
-  });
-
   it("it doesn't allow you to borrow from smart pool if not enough liquidity", async () => {
     const fixedLenderMaria = fixedLender.connect(mariaUser);
     const fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
