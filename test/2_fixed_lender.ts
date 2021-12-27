@@ -481,6 +481,14 @@ describe("FixedLender", function () {
           expect(smartPool.borrowed).to.eq(parseUnits("200"));
           expect(maturityPool.debt).to.eq(parseUnits("200"));
         });
+        it("AND WHEN trying to withdraw 300 ==(500 total, 200 borrowed to MP) from the smart pool, THEN it succeeds", async () => {
+          await expect(exactlyEnv.withdrawSP("DAI", "300")).to.not.be.reverted;
+        });
+        it("AND WHEN trying to withdraw 400 >(500 total, 200 borrowed to MP) from the smart pool, THEN it reverts because 100 of those 400 are still lent to the maturity pool", async () => {
+          await expect(exactlyEnv.withdrawSP("DAI", "400")).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+          );
+        });
         describe("AND borrowing 1100 in a later maturity ", () => {
           beforeEach(async () => {
             await fixedLenderMaria.borrowFromMaturityPool(
@@ -670,44 +678,6 @@ describe("FixedLender", function () {
         });
       });
     });
-  });
-
-  it("it doesn't allow you to borrow from smart pool if not enough liquidity", async () => {
-    const fixedLenderMaria = fixedLender.connect(mariaUser);
-    const fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
-
-    const underlyingTokenUser = underlyingToken.connect(mariaUser);
-    const underlyingTokenUserETH = underlyingTokenETH.connect(mariaUser);
-
-    const auditorUser = auditor.connect(mariaUser);
-
-    await underlyingToken.approve(fixedLender.address, parseUnits("10"));
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("10"));
-    await underlyingTokenUserETH.approve(
-      fixedLenderETH.address,
-      parseUnits("1")
-    );
-
-    await fixedLenderMariaETH.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-
-    await auditorUser.enterMarkets([fixedLenderMariaETH.address], nextPoolId);
-
-    await fixedLender.depositToSmartPool(parseUnits("1"));
-    await fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.8"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.8"))
-    );
-
-    await expect(
-      fixedLender.withdrawFromSmartPool(parseUnits("1"))
-    ).to.be.revertedWith(
-      errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-    );
   });
 
   describe("Transfers with Commissions", () => {
