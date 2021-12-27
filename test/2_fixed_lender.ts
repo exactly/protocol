@@ -117,7 +117,7 @@ describe("FixedLender", function () {
             .getTotalMpBorrows(exaTime.nextPoolID())
         ).to.equal(parseUnits("80"));
       });
-      describe("AND WHEN repaying the debt", () => {
+      describe("AND WHEN fully repaying the debt", () => {
         let tx: any;
         beforeEach(async () => {
           tx = exactlyEnv.repayMP("DAI", exaTime.nextPoolID(), "80");
@@ -140,6 +140,32 @@ describe("FixedLender", function () {
           ).to.be.revertedWith(
             errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
           );
+        });
+      });
+
+      describe("AND WHEN partially (40DAI, 50%) repaying the debt", () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = exactlyEnv.repayMP("DAI", exaTime.nextPoolID(), "40");
+          await tx;
+        });
+        it("THEN a RepayToMaturityPool event is emitted", async () => {
+          await expect(tx)
+            .to.emit(exactlyEnv.getFixedLender("DAI"), "RepayToMaturityPool")
+            .withArgs(
+              mariaUser.address,
+              mariaUser.address,
+              parseUnits("0"),
+              parseUnits("40"),
+              nextPoolId
+            );
+        });
+        it("AND Maria still owes 40 DAI", async () => {
+          const [, amountOwed] = await exactlyEnv
+            .getFixedLender("DAI")
+            .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+          expect(amountOwed).to.equal(parseUnits("40"));
         });
       });
     });
@@ -268,44 +294,6 @@ describe("FixedLender", function () {
         errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
       );
     });
-  });
-
-  it("it allows mariaUser to repay her debt partially before maturity", async () => {
-    // give the protocol some solvency
-    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
-
-    // connect through Maria
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.8"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.8"))
-    );
-
-    // repay half of her debt and succeed
-    await expect(
-      fixedLenderMaria.repayToMaturityPool(
-        mariaUser.address,
-        nextPoolId,
-        parseUnits("0.4")
-      )
-    ).to.not.be.reverted;
-
-    // ... the other half is still pending
-    const [, amountOwed] = await fixedLenderMaria.getAccountSnapshot(
-      mariaUser.address,
-      nextPoolId
-    );
-
-    expect(amountOwed).to.equal(parseUnits("0.4"));
   });
 
   it("it allows mariaUser to repay her debt partially before maturity, repay full with the rest 1 day after (1 day penalty)", async () => {
