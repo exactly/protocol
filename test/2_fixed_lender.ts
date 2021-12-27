@@ -117,6 +117,31 @@ describe("FixedLender", function () {
             .getTotalMpBorrows(exaTime.nextPoolID())
         ).to.equal(parseUnits("80"));
       });
+      describe("AND WHEN repaying the debt", () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = exactlyEnv.repayMP("DAI", exaTime.nextPoolID(), "80");
+          await tx;
+        });
+        it("THEN a RepayToMaturityPool event is emitted", async () => {
+          await expect(tx)
+            .to.emit(exactlyEnv.getFixedLender("DAI"), "RepayToMaturityPool")
+            .withArgs(
+              mariaUser.address,
+              mariaUser.address,
+              parseUnits("0"),
+              parseUnits("80"),
+              nextPoolId
+            );
+        });
+        it("AND WHEN withdrawing the collateral, THEN it reverts because the pool isnt mature yet", async () => {
+          await expect(
+            exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100")
+          ).to.be.revertedWith(
+            errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
+          );
+        });
+      });
     });
 
     describe("AND WHEN moving in time to maturity AND withdrawing from the maturity pool", () => {
@@ -243,56 +268,6 @@ describe("FixedLender", function () {
         errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
       );
     });
-  });
-
-  it("it allows the mariaUser to repay her debt before maturity, but not withdrawing her collateral", async () => {
-    // give the protocol some solvency
-    await underlyingToken.transfer(fixedLender.address, parseUnits("100"));
-
-    // connect through Maria
-    let fixedLenderMaria = fixedLender.connect(mariaUser);
-    let underlyingTokenUser = underlyingToken.connect(mariaUser);
-
-    await underlyingTokenUser.approve(fixedLender.address, parseUnits("5.0"));
-    await fixedLenderMaria.depositToMaturityPool(
-      parseUnits("1"),
-      nextPoolId,
-      applyMinFee(parseUnits("1"))
-    );
-    await fixedLenderMaria.borrowFromMaturityPool(
-      parseUnits("0.8"),
-      nextPoolId,
-      applyMaxFee(parseUnits("0.8"))
-    );
-
-    // try to withdraw without paying debt and fail
-    await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
-        mariaUser.address,
-        0,
-        nextPoolId
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
-
-    // repay and succeed
-    await expect(
-      fixedLenderMaria.repayToMaturityPool(
-        mariaUser.address,
-        nextPoolId,
-        parseUnits("0.8")
-      )
-    ).to.not.be.reverted;
-
-    // try to withdraw without paying debt and fail
-    await expect(
-      fixedLenderMaria.withdrawFromMaturityPool(
-        mariaUser.address,
-        parseUnits("1"),
-        nextPoolId
-      )
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
-    );
   });
 
   it("it allows mariaUser to repay her debt partially before maturity", async () => {
