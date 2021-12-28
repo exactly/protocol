@@ -68,3 +68,22 @@ you can view them by:
 - installing the dependencies with `pip3 install -r requirements.txt`
 - calling sphinx: `make singlehtml`
 - opening it in `yourbrowser _build/singlehtml/index.html`
+
+### LaTeX math
+some of the math of the protocol is documented in the sphinx project, with help of `sphinx.ext.imgmath`
+
+dependencies for this:
+- [ ] dvipng
+- [ ] texlive-latex-extra (or whatever provides utf8x.def in your latex installation)
+
+resources:
+- [ ] documentation of [sphinx.ext.imgmath](https://www.sphinx-doc.org/en/1.5.1/ext/math.html) (the thing that ends up invoking `pdflatex`). `.. math::` directive is spec'd there
+- [ ] quick LaTex math refresher: https://en.wikibooks.org/wiki/LaTeX/Mathematics#Operators
+
+### matplotlib plots
+
+generated using good ol' matplotlib and numpy, with the help of `matplotlib.sphinxext`
+
+resources
+- [ ] [the integration with sphinx](https://matplotlib.org/sampledoc/extensions.html)
+- [ ] [matplotlib](https://matplotlib.org/2.0.2/gallery.html)

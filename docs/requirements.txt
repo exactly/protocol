@@ -1,5 +1,6 @@
 docutils<0.18
 Sphinx==1.8.2
+matplotlib==3.3.4
 sphinx-a4doc==1.2.1
 sphinxcontrib-applehelp==1.0.1
 sphinxcontrib-devhelp==1.0.1
