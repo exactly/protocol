@@ -152,6 +152,23 @@ describe("FixedLender", function () {
           });
         });
       });
+      describe("GIVEN the pool matures", () => {
+        beforeEach(async () => {
+          await exactlyEnv.moveInTime(nextPoolId);
+        });
+        it("WHEN trying to withdraw an amount of zero THEN it reverts", async () => {
+          await expect(
+            exactlyEnv.withdrawMP("DAI", nextPoolId, "0")
+          ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
+        });
+        it("WHEN trying to withdraw without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+          await expect(
+            exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+          );
+        });
+      });
 
       describe("AND WHEN partially (40DAI, 50%) repaying the debt", () => {
         let tx: any;

@@ -115,9 +115,7 @@ export class DefaultEnv {
     await asset
       .connect(this.currentWallet)
       .approve(fixedLender.address, amount);
-    return fixedLender
-      .connect(this.currentWallet)
-      .depositToSmartPoolPool(amount);
+    return fixedLender.connect(this.currentWallet).depositToSmartPool(amount);
   }
 
   public async depositMP(
