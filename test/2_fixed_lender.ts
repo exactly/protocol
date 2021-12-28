@@ -59,7 +59,7 @@ describe("FixedLender", function () {
   describe("WHEN depositing 100 DAI to a maturity pool (with a collateralization rate of 80%)", () => {
     let tx: any;
     beforeEach(async () => {
-      tx = exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "100");
+      tx = exactlyEnv.depositMP("DAI", nextPoolId, "100");
       await tx;
     });
     it("THEN a DepositToMaturityPool event is emitted", async () => {
@@ -83,21 +83,21 @@ describe("FixedLender", function () {
     it("AND WHEN trying to withdraw before the pool matures, THEN it reverts", async () => {
       // try to withdraw before maturity
       await expect(
-        exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100")
+        exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
       ).to.be.revertedWith(
         errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
       );
     });
     it("WHEN trying to borrow 90 DAI THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
       await expect(
-        exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "90")
+        exactlyEnv.borrowMP("DAI", nextPoolId, "90")
       ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
     });
 
     describe("WHEN borrowing 80 DAI from the same maturity", () => {
       let tx: any;
       beforeEach(async () => {
-        tx = exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "80");
+        tx = exactlyEnv.borrowMP("DAI", nextPoolId, "80");
         await tx;
       });
       it("THEN a BorrowFromMaturityPool event is emmitted", async () => {
@@ -112,15 +112,13 @@ describe("FixedLender", function () {
       });
       it("AND a 80DAI borrow is registered", async () => {
         expect(
-          await exactlyEnv
-            .getFixedLender("DAI")
-            .getTotalMpBorrows(exaTime.nextPoolID())
+          await exactlyEnv.getFixedLender("DAI").getTotalMpBorrows(nextPoolId)
         ).to.equal(parseUnits("80"));
       });
       describe("AND WHEN fully repaying the debt", () => {
         let tx: any;
         beforeEach(async () => {
-          tx = exactlyEnv.repayMP("DAI", exaTime.nextPoolID(), "80");
+          tx = exactlyEnv.repayMP("DAI", nextPoolId, "80");
           await tx;
         });
         it("THEN a RepayToMaturityPool event is emitted", async () => {
@@ -136,7 +134,7 @@ describe("FixedLender", function () {
         });
         it("AND WHEN withdrawing the collateral, THEN it reverts because the pool isnt mature yet", async () => {
           await expect(
-            exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100")
+            exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
           ).to.be.revertedWith(
             errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
           );
@@ -144,7 +142,7 @@ describe("FixedLender", function () {
         describe("AND WHEN moving in time to maturity AND withdrawing the collateral", () => {
           beforeEach(async () => {
             await exactlyEnv.moveInTime(nextPoolId);
-            await exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100");
+            await exactlyEnv.withdrawMP("DAI", nextPoolId, "100");
           });
           // TODO tests for partial/excessive withdrawal?
           it("THEN the collateral is returned to Maria", async () => {
@@ -161,7 +159,7 @@ describe("FixedLender", function () {
       describe("AND WHEN partially (40DAI, 50%) repaying the debt", () => {
         let tx: any;
         beforeEach(async () => {
-          tx = exactlyEnv.repayMP("DAI", exaTime.nextPoolID(), "40");
+          tx = exactlyEnv.repayMP("DAI", nextPoolId, "40");
           await tx;
         });
         it("THEN a RepayToMaturityPool event is emitted", async () => {
@@ -213,8 +211,8 @@ describe("FixedLender", function () {
     describe("AND WHEN moving in time to maturity AND withdrawing from the maturity pool", () => {
       let tx: any;
       beforeEach(async () => {
-        await exactlyEnv.moveInTime(exaTime.nextPoolID());
-        tx = await exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100");
+        await exactlyEnv.moveInTime(nextPoolId);
+        tx = await exactlyEnv.withdrawMP("DAI", nextPoolId, "100");
       });
       it("THEN 100 DAI are returned to Maria", async () => {
         expect(await underlyingToken.balanceOf(mariaUser.address)).to.eq(
@@ -227,7 +225,7 @@ describe("FixedLender", function () {
       it("AND a WithdrawFromMaturityPool event is emitted", async () => {
         await expect(tx)
           .to.emit(fixedLender, "WithdrawFromMaturityPool")
-          .withArgs(mariaUser.address, parseUnits("100"), exaTime.nextPoolID());
+          .withArgs(mariaUser.address, parseUnits("100"), nextPoolId);
       });
     });
   });
@@ -313,12 +311,12 @@ describe("FixedLender", function () {
     beforeEach(async () => {
       await exactlyEnv.setBorrowRate("0.02");
 
-      await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "1");
-      await exactlyEnv.enterMarkets(["DAI"], exaTime.nextPoolID());
+      await exactlyEnv.depositMP("DAI", nextPoolId, "1");
+      await exactlyEnv.enterMarkets(["DAI"], nextPoolId);
     });
     it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
       await expect(
-        exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "0.8", "0.8")
+        exactlyEnv.borrowMP("DAI", nextPoolId, "0.8", "0.8")
       ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE));
     });
 
