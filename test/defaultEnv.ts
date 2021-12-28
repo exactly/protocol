@@ -124,12 +124,15 @@ export class DefaultEnv {
     assetString: string,
     maturityPool: number,
     units: string,
-    expectedAtMaturity?: BigNumber
+    expectedAtMaturity?: string
   ) {
     const asset = this.getUnderlying(assetString);
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    const expectedAmount = expectedAtMaturity || applyMinFee(amount);
+    const expectedAmount =
+      (expectedAtMaturity &&
+        parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) ||
+      applyMinFee(amount);
     await asset
       .connect(this.currentWallet)
       .approve(fixedLender.address, amount);

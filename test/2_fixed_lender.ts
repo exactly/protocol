@@ -5,7 +5,6 @@ import {
   errorGeneric,
   errorUnmatchedPool,
   applyMinFee,
-  applyMaxFee,
   ExactlyEnv,
   ExaTime,
   PoolState,
@@ -21,7 +20,6 @@ describe("FixedLender", function () {
   let underlyingToken: Contract;
   let underlyingTokenETH: Contract;
   let fixedLender: Contract;
-  let fixedLenderETH: Contract;
   let auditor: Contract;
 
   let mariaUser: SignerWithAddress;
@@ -44,7 +42,6 @@ describe("FixedLender", function () {
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     underlyingTokenETH = exactlyEnv.getUnderlying("ETH");
     fixedLender = exactlyEnv.getFixedLender("DAI");
-    fixedLenderETH = exactlyEnv.getFixedLender("ETH");
     auditor = exactlyEnv.auditor;
 
     // From Owner to User
@@ -321,13 +318,7 @@ describe("FixedLender", function () {
     });
 
     it("WHEN trying to deposit 100 DAI with a minimum required amount to be received of 103, THEN 102 are received instead AND the transaction reverts with TOO_MUCH_SLIPPAGE", async () => {
-      await underlyingToken.approve(fixedLender.address, parseUnits("100"));
-
-      let tx = fixedLender.depositToMaturityPool(
-        parseUnits("100"),
-        nextPoolId,
-        parseUnits("103")
-      );
+      let tx = exactlyEnv.depositMP("DAI", nextPoolId, "100", "103");
       await expect(tx).to.be.revertedWith(
         errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
       );
@@ -404,71 +395,24 @@ describe("FixedLender", function () {
 
   describe("GIVEN maria has plenty of ETH collateral", () => {
     let fixedLenderMaria: Contract;
-    let underlyingTokenMaria: Contract;
-    let underlyingTokenMariaETH: Contract;
-    let fixedLenderMariaETH: Contract;
     beforeEach(async () => {
       fixedLenderMaria = fixedLender.connect(mariaUser);
-      underlyingTokenMaria = underlyingToken.connect(mariaUser);
-      fixedLenderMariaETH = fixedLenderETH.connect(mariaUser);
-      underlyingTokenMariaETH = underlyingTokenETH.connect(mariaUser);
-      await underlyingTokenMariaETH.approve(
-        fixedLenderMariaETH.address,
-        parseUnits("5")
-      );
-      await underlyingToken
-        .connect(johnUser)
-        .approve(fixedLender.address, parseUnits("10000"));
-      await fixedLenderMariaETH.depositToMaturityPool(
-        parseUnits("2"),
-        nextPoolId,
-        applyMinFee(parseUnits("2"))
-      );
-      await fixedLenderMariaETH.depositToMaturityPool(
-        parseUnits("2"),
-        laterPoolId,
-        applyMinFee(parseUnits("2"))
-      );
-      await auditor
-        .connect(mariaUser)
-        .enterMarkets(
-          [fixedLenderMaria.address, fixedLenderMariaETH.address],
-          nextPoolId
-        );
-      await auditor
-        .connect(mariaUser)
-        .enterMarkets(
-          [fixedLenderMaria.address, fixedLenderMariaETH.address],
-          laterPoolId
-        );
+      await exactlyEnv.depositMP("ETH", nextPoolId, "2");
+      await exactlyEnv.depositMP("ETH", laterPoolId, "2");
+      await exactlyEnv.enterMarkets(["DAI", "ETH"], nextPoolId);
+      await exactlyEnv.enterMarkets(["DAI", "ETH"], laterPoolId);
     });
     describe("AND GIVEN she deposits 1000DAI into the next two maturity pools AND 500 into the smart pool", () => {
       beforeEach(async () => {
-        await underlyingTokenMaria.approve(
-          fixedLender.address,
-          parseUnits("5000")
-        );
-        await fixedLenderMaria.depositToMaturityPool(
-          parseUnits("1000"),
-          nextPoolId,
-          applyMinFee(parseUnits("1000"))
-        );
-        await fixedLenderMaria.depositToMaturityPool(
-          parseUnits("1000"),
-          laterPoolId,
-          applyMinFee(parseUnits("1000"))
-        );
-        await fixedLenderMaria.depositToSmartPool(parseUnits("500"));
+        await exactlyEnv.depositMP("DAI", nextPoolId, "1000");
+        await exactlyEnv.depositMP("DAI", laterPoolId, "1000");
+        await exactlyEnv.depositSP("DAI", "500");
       });
       describe("WHEN borrowing 1200 in the current maturity", () => {
         let maturityPool: any;
         let smartPool: any;
         beforeEach(async () => {
-          await fixedLenderMaria.borrowFromMaturityPool(
-            parseUnits("1200"),
-            nextPoolId,
-            applyMaxFee(parseUnits("1200"))
-          );
+          await exactlyEnv.borrowMP("DAI", nextPoolId, "1200");
           maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
           smartPool = await fixedLenderMaria.smartPool();
         });
@@ -489,11 +433,7 @@ describe("FixedLender", function () {
         });
         describe("AND borrowing 1100 in a later maturity ", () => {
           beforeEach(async () => {
-            await fixedLenderMaria.borrowFromMaturityPool(
-              parseUnits("1100"),
-              laterPoolId,
-              applyMaxFee(parseUnits("1100"))
-            );
+            await exactlyEnv.borrowMP("DAI", laterPoolId, "1100");
             maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
             smartPool = await fixedLenderMaria.smartPool();
           });
@@ -508,11 +448,7 @@ describe("FixedLender", function () {
           });
           describe("AND WHEN repaying 50 DAI in the later maturity", () => {
             beforeEach(async () => {
-              await fixedLenderMaria.repayToMaturityPool(
-                mariaUser.address,
-                laterPoolId,
-                parseUnits("50")
-              );
+              await exactlyEnv.repayMP("DAI", laterPoolId, "50");
               maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
               smartPool = await fixedLenderMaria.smartPool();
             });
@@ -531,13 +467,8 @@ describe("FixedLender", function () {
           });
           describe("AND WHEN john deposits 800 to the later maturity", () => {
             beforeEach(async () => {
-              await fixedLender
-                .connect(johnUser)
-                .depositToMaturityPool(
-                  parseUnits("800"),
-                  laterPoolId,
-                  applyMinFee(parseUnits("800"))
-                );
+              exactlyEnv.switchWallet(johnUser);
+              await exactlyEnv.depositMP("DAI", laterPoolId, "800");
               maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
               smartPool = await fixedLenderMaria.smartPool();
             });
@@ -557,13 +488,8 @@ describe("FixedLender", function () {
         });
         describe("AND WHEN john deposits 100 to the same maturity", () => {
           beforeEach(async () => {
-            await fixedLender
-              .connect(johnUser)
-              .depositToMaturityPool(
-                parseUnits("100"),
-                nextPoolId,
-                applyMinFee(parseUnits("100"))
-              );
+            exactlyEnv.switchWallet(johnUser);
+            await exactlyEnv.depositMP("DAI", nextPoolId, "100");
             maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
             smartPool = await fixedLenderMaria.smartPool();
           });
@@ -582,13 +508,8 @@ describe("FixedLender", function () {
         });
         describe("AND WHEN john deposits 300 to the same maturity", () => {
           beforeEach(async () => {
-            await fixedLender
-              .connect(johnUser)
-              .depositToMaturityPool(
-                parseUnits("300"),
-                nextPoolId,
-                applyMinFee(parseUnits("300"))
-              );
+            exactlyEnv.switchWallet(johnUser);
+            await exactlyEnv.depositMP("DAI", nextPoolId, "300");
             maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
             smartPool = await fixedLenderMaria.smartPool();
           });
@@ -607,11 +528,7 @@ describe("FixedLender", function () {
         });
         describe("AND WHEN repaying 100 DAI", () => {
           beforeEach(async () => {
-            await fixedLenderMaria.repayToMaturityPool(
-              mariaUser.address,
-              nextPoolId,
-              parseUnits("100")
-            );
+            await exactlyEnv.repayMP("DAI", nextPoolId, "100");
             maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
             smartPool = await fixedLenderMaria.smartPool();
           });
@@ -630,11 +547,7 @@ describe("FixedLender", function () {
         });
         describe("AND WHEN repaying 300 DAI", () => {
           beforeEach(async () => {
-            await fixedLenderMaria.repayToMaturityPool(
-              mariaUser.address,
-              nextPoolId,
-              parseUnits("300")
-            );
+            await exactlyEnv.repayMP("DAI", nextPoolId, "300");
             maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
             smartPool = await fixedLenderMaria.smartPool();
           });
@@ -653,11 +566,7 @@ describe("FixedLender", function () {
         });
         describe("AND WHEN repaying in full (1200 DAI)", () => {
           beforeEach(async () => {
-            await fixedLenderMaria.repayToMaturityPool(
-              mariaUser.address,
-              nextPoolId,
-              parseUnits("1200")
-            );
+            await exactlyEnv.repayMP("DAI", nextPoolId, "1200");
             maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
             smartPool = await fixedLenderMaria.smartPool();
           });
@@ -686,19 +595,10 @@ describe("FixedLender", function () {
       });
 
       describe("WHEN depositing 2000 DAI on a maturity pool", () => {
-        const amount = parseUnits("2000");
-
         beforeEach(async () => {
-          await underlyingToken
-            .connect(johnUser)
-            .approve(fixedLender.address, amount);
-          await fixedLender
-            .connect(johnUser)
-            .depositToMaturityPool(
-              amount,
-              nextPoolId,
-              applyMinFee(parseUnits("1800"))
-            );
+          exactlyEnv.switchWallet(johnUser);
+          await exactlyEnv.depositMP("DAI", nextPoolId, "2000", "1800");
+          exactlyEnv.switchWallet(mariaUser);
         });
 
         it("THEN the user receives 1800 on the maturity pool deposit", async () => {
@@ -707,9 +607,7 @@ describe("FixedLender", function () {
               .connect(johnUser)
               .getAccountSnapshot(johnUser.address, nextPoolId)
           )[0];
-          expect(supplied).to.eq(
-            amount.mul(parseUnits("0.9")).div(parseUnits("1"))
-          );
+          expect(supplied).to.eq(parseUnits("1800"));
         });
 
         describe("AND GIVEN john has a 900 DAI borrows on a maturity pool", () => {
@@ -730,16 +628,10 @@ describe("FixedLender", function () {
           });
 
           describe("AND WHEN trying to repay 1100 (too much)", () => {
-            const amountToTransfer = parseUnits("1100");
             let tx: any;
             beforeEach(async () => {
-              tx = fixedLender
-                .connect(johnUser)
-                .repayToMaturityPool(
-                  johnUser.address,
-                  nextPoolId,
-                  amountToTransfer
-                );
+              exactlyEnv.switchWallet(johnUser);
+              tx = exactlyEnv.repayMP("DAI", nextPoolId, "1100");
             });
 
             it("THEN the transaction is reverted TOO_MUCH_REPAY_TRANSFER", async () => {
@@ -750,15 +642,9 @@ describe("FixedLender", function () {
           });
 
           describe("AND WHEN repaying with 10% commission", () => {
-            const amountToTransfer = parseUnits("1000");
             beforeEach(async () => {
-              await fixedLender
-                .connect(johnUser)
-                .repayToMaturityPool(
-                  johnUser.address,
-                  nextPoolId,
-                  amountToTransfer
-                );
+              exactlyEnv.switchWallet(johnUser);
+              await exactlyEnv.repayMP("DAI", nextPoolId, "1000");
             });
 
             it("THEN the user cancel its debt and succeeds", async () => {
