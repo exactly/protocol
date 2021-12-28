@@ -394,9 +394,7 @@ describe("FixedLender", function () {
   });
 
   describe("GIVEN maria has plenty of ETH collateral", () => {
-    let fixedLenderMaria: Contract;
     beforeEach(async () => {
-      fixedLenderMaria = fixedLender.connect(mariaUser);
       await exactlyEnv.depositMP("ETH", nextPoolId, "2");
       await exactlyEnv.depositMP("ETH", laterPoolId, "2");
       await exactlyEnv.enterMarkets(["DAI", "ETH"], nextPoolId);
@@ -413,8 +411,8 @@ describe("FixedLender", function () {
         let smartPool: any;
         beforeEach(async () => {
           await exactlyEnv.borrowMP("DAI", nextPoolId, "1200");
-          maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
-          smartPool = await fixedLenderMaria.smartPool();
+          maturityPool = await fixedLender.maturityPools(nextPoolId);
+          smartPool = await fixedLender.smartPool();
         });
         it("THEN all of the maturity pools funds are in use", async () => {
           expect(maturityPool.available).to.eq(parseUnits("0"));
@@ -434,8 +432,8 @@ describe("FixedLender", function () {
         describe("AND borrowing 1100 in a later maturity ", () => {
           beforeEach(async () => {
             await exactlyEnv.borrowMP("DAI", laterPoolId, "1100");
-            maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
-            smartPool = await fixedLenderMaria.smartPool();
+            maturityPool = await fixedLender.maturityPools(laterPoolId);
+            smartPool = await fixedLender.smartPool();
           });
           it("THEN all of the maturity pools funds are in use", async () => {
             expect(maturityPool.available).to.eq(parseUnits("0"));
@@ -449,8 +447,8 @@ describe("FixedLender", function () {
           describe("AND WHEN repaying 50 DAI in the later maturity", () => {
             beforeEach(async () => {
               await exactlyEnv.repayMP("DAI", laterPoolId, "50");
-              maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
-              smartPool = await fixedLenderMaria.smartPool();
+              maturityPool = await fixedLender.maturityPools(laterPoolId);
+              smartPool = await fixedLender.smartPool();
             });
             it("THEN only 1050 DAI are borrowed", async () => {
               expect(maturityPool.borrowed).to.eq(parseUnits("1050"));
@@ -469,8 +467,8 @@ describe("FixedLender", function () {
             beforeEach(async () => {
               exactlyEnv.switchWallet(johnUser);
               await exactlyEnv.depositMP("DAI", laterPoolId, "800");
-              maturityPool = await fixedLenderMaria.maturityPools(laterPoolId);
-              smartPool = await fixedLenderMaria.smartPool();
+              maturityPool = await fixedLender.maturityPools(laterPoolId);
+              smartPool = await fixedLender.smartPool();
             });
             it("THEN 1100 DAI are still borrowed", async () => {
               expect(maturityPool.borrowed).to.eq(parseUnits("1100"));
@@ -490,8 +488,8 @@ describe("FixedLender", function () {
           beforeEach(async () => {
             exactlyEnv.switchWallet(johnUser);
             await exactlyEnv.depositMP("DAI", nextPoolId, "100");
-            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
-            smartPool = await fixedLenderMaria.smartPool();
+            maturityPool = await fixedLender.maturityPools(nextPoolId);
+            smartPool = await fixedLender.smartPool();
           });
           it("THEN 1200 DAI are still borrowed", async () => {
             expect(maturityPool.borrowed).to.eq(parseUnits("1200"));
@@ -510,8 +508,8 @@ describe("FixedLender", function () {
           beforeEach(async () => {
             exactlyEnv.switchWallet(johnUser);
             await exactlyEnv.depositMP("DAI", nextPoolId, "300");
-            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
-            smartPool = await fixedLenderMaria.smartPool();
+            maturityPool = await fixedLender.maturityPools(nextPoolId);
+            smartPool = await fixedLender.smartPool();
           });
           it("THEN 1200 DAI are still borrowed", async () => {
             expect(maturityPool.borrowed).to.eq(parseUnits("1200"));
@@ -529,8 +527,8 @@ describe("FixedLender", function () {
         describe("AND WHEN repaying 100 DAI", () => {
           beforeEach(async () => {
             await exactlyEnv.repayMP("DAI", nextPoolId, "100");
-            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
-            smartPool = await fixedLenderMaria.smartPool();
+            maturityPool = await fixedLender.maturityPools(nextPoolId);
+            smartPool = await fixedLender.smartPool();
           });
           it("THEN only 1100 DAI are borrowed", async () => {
             expect(maturityPool.borrowed).to.eq(parseUnits("1100"));
@@ -548,8 +546,8 @@ describe("FixedLender", function () {
         describe("AND WHEN repaying 300 DAI", () => {
           beforeEach(async () => {
             await exactlyEnv.repayMP("DAI", nextPoolId, "300");
-            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
-            smartPool = await fixedLenderMaria.smartPool();
+            maturityPool = await fixedLender.maturityPools(nextPoolId);
+            smartPool = await fixedLender.smartPool();
           });
           it("THEN only 900 DAI are borrowed", async () => {
             expect(maturityPool.borrowed).to.eq(parseUnits("900"));
@@ -567,8 +565,8 @@ describe("FixedLender", function () {
         describe("AND WHEN repaying in full (1200 DAI)", () => {
           beforeEach(async () => {
             await exactlyEnv.repayMP("DAI", nextPoolId, "1200");
-            maturityPool = await fixedLenderMaria.maturityPools(nextPoolId);
-            smartPool = await fixedLenderMaria.smartPool();
+            maturityPool = await fixedLender.maturityPools(nextPoolId);
+            smartPool = await fixedLender.smartPool();
           });
           it("THEN zero DAI are borrowed", async () => {
             expect(maturityPool.borrowed).to.eq(parseUnits("0"));
