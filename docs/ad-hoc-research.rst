@@ -213,3 +213,101 @@ liquidators will want to liquidate as much as possible and as soon as possible, 
 2. Liquidators choose a maturity to repay, they can send one tx at a time. If the user still has shortfall, then they'll have to send another one an point to another maturity.
 
 As discussed with Lucas, will go for the second one. Bear in mind that it might not be so useful/efficient from a liquidator's point of view. I'm also opened here for other approaches.
+
+Accepting bare ETH
+==================
+So far we have two ideas for accepting eth deposits:
+
+Wrapper contract
+----------------
+
+.. uml::
+    :caption: depositMP
+
+    actor user
+    participant ETHFixedLender
+    participant FixedLender
+    participant WETH
+
+    user -> ETHFixedLender: depositMP(poolId, {value: 100})
+    ETHFixedLender -> WETH: wrap({value: 100})
+    ETHFixedLender <-- WETH
+    ETHFixedLender -> FixedLender: depositMP(poolId, 100)
+    ETHFixedLender <-- FixedLender
+    ETHFixedLender -> ETHFixedLender: ...registers the user has a deposit
+    user <--ETHFixedLender
+
+.. uml::
+    :caption: withdrawMP
+
+    actor user
+    participant ETHFixedLender
+    participant FixedLender
+    participant WETH
+
+    user -> ETHFixedLender: withdrawMP(poolId, 100)
+    ETHFixedLender -> ETHFixedLender: ...checks the user has a deposit
+    ETHFixedLender -> FixedLender: withdrawMP(poolId, 100)
+    ETHFixedLender <-- FixedLender
+    ETHFixedLender -> WETH: unwrap(100)
+    ETHFixedLender <-- WETH
+    ETHFixedLender -> user: .send("", {value: 100})
+    note right: this is where a reentrancy attack could happen
+    ETHFixedLender <-- user
+    user <--ETHFixedLender
+
+.. uml::
+    :caption: depositSP
+
+    actor user
+    participant ETHFixedLender
+    participant FixedLender
+    participant WETH
+    participant EWETH
+
+    user -> ETHFixedLender: depositSP({value: 100})
+    ETHFixedLender -> WETH: wrap({value: 100})
+    ETHFixedLender <-- WETH
+    ETHFixedLender -> FixedLender: depositSP(100)
+    FixedLender -> EWETH: mint(ETHFixedLender, 100)
+    FixedLender <-- EWETH
+    ETHFixedLender <-- FixedLender
+    ETHFixedLender -> EWETH: transfer(user, 100)
+    user <--ETHFixedLender
+
+Another possible alternative is to leave the tokens under ETHFixedLender's
+custody but set an allowance for the user so they can withdrawn them if needed,
+and don't have to set an allowance to the ETHFixedLender when they want to
+withdraw from the smart pool
+
+.. uml::
+    :caption: withdrawSP
+
+    actor user
+    participant ETHFixedLender
+    participant FixedLender
+    participant WETH
+    participant EWETH
+
+    user -> ETHFixedLender: withdrawSP({value: 100})
+    ETHFixedLender -> EWETH: transferFrom(user, ETHFixedLender, 100)
+    ETHFixedLender <-- EWETH:
+    ETHFixedLender -> FixedLender: withdrawSP(100)
+    FixedLender -> EWETH: burn(ETHFixedLender, 100)
+    FixedLender <-- EWETH
+    ETHFixedLender <-- FixedLender
+    ETHFixedLender -> user: .send("", {value: 100})
+    note right: this is where a reentrancy attack could happen
+    ETHFixedLender <-- user
+    user <--ETHFixedLender
+
+Notes
+^^^^^
+
+- [ ] edge case: what happens when doing a second deposit to the same maturity. We should replicate FixedLender's behaviour ...which I think isn't spec'd?
+- [ ] we might have to do minor modifications to the deposit/withdraw methods in order to be able to easily track the amount that was actually deposited/withdrawn
+- [ ] We'll have to look into reentrancy issues on withdrawals, since we'll call the user back with an eth transfer (which might be a contract)
+- [ ] It's necessary to add a ``from`` argument to the ``FixedLender`` and have it track position ownership instead of having a custodial ``ETHFixedLender``, because otherwise all of the positions created via the ``ETHFixedLender`` would share a liquidity computation.
+
+Extension by inheritance to the WETH FixedLender contract
+---------------------------------------------------------
