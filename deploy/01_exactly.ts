@@ -21,20 +21,22 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const config = YAML.parse(file);
   const [deployer] = await hre.getUnnamedAccounts();
   const tokensForNetwork = config.tokenAddresses[hre.network.name].assets;
-  assert(process.env.MNEMONIC, "include a valid mnemonic in your .env file");
-  assert(process.env.RINKEBY_NODE, "specify a rinkeby node in your .env file");
-  assert(process.env.KOVAN_NODE, "specify a kovan noden your .env file");
+  if (hre.network.name !== "hardhat") {
+    assert(process.env.MNEMONIC, "include a valid mnemonic in your .env file");
+  }
+  if (hre.network.name === "rinkeby") {
+    assert(
+      process.env.RINKEBY_NODE,
+      "specify a rinkeby node in your .env file"
+    );
+  }
+  if (hre.network.name === "kovan") {
+    assert(process.env.KOVAN_NODE, "specify a kovan noden your .env file");
+  }
   if (process.env.FORKING) {
     assert(
       process.env.MAINNET_NODE,
       "specify a mainnet nodeg in your .env file"
-    );
-  }
-
-  if (hre.network.name === "hardhat") {
-    assert(
-      process.env.FORKING === "true",
-      "deploying the ecosystem on a loner node not supported (yet?)"
     );
   }
 
@@ -126,9 +128,27 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   );
 
   for (const symbol of Object.keys(tokensForNetwork)) {
-    const { name, address, whale, collateralRate, decimals, oracleName } =
+    const { name, whale, collateralRate, decimals, oracleName } =
       tokensForNetwork[symbol];
     console.log("------");
+    let address: string;
+    if (hre.network.name === "hardhat" && process.env.FORKING !== "true") {
+      const MockedToken = await ethers.getContractFactory("MockedToken");
+      const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
+      const underlyingToken = await MockedToken.deploy(
+        `Fake ${symbol}`,
+        `F${symbol}`,
+        decimals,
+        totalSupply.toString()
+      );
+      await underlyingToken.deployed();
+      if (process.env.PUBLIC_ADDRESS) {
+        await underlyingToken.transfer(process.env.PUBLIC_ADDRESS, totalSupply);
+      }
+      address = underlyingToken.address;
+    } else {
+      ({ address } = tokensForNetwork[symbol]);
+    }
 
     const fixedLenderDeploymentName = "FixedLender" + symbol;
     const eTokenDeploymentName = "EToken" + symbol;
@@ -180,7 +200,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       auditor.address
     );
 
-    await uploadToS3(addresses);
+    if (process.env.AWS_KEY_ID) {
+      await uploadToS3(addresses);
+    } else {
+      console.log("skipping address upload");
+    }
 
     // We set the FixedLender where the eToken is used and we set the Auditor that is called in every transfer
     await hre.deployments.execute(
@@ -206,11 +230,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     if (!process.env.PUBLIC_ADDRESS) {
       console.log("Add PUBLIC_ADDRESS key to your .env file");
     } else {
-      if (whale) {
-        sendTokens(hre, address, whale, decimals);
-        console.log(`Added 100 ${symbol} to ${process.env.PUBLIC_ADDRESS}`);
-      } else {
-        console.log(`There is no whale added for ${symbol}`);
+      if (process.env.FORKING === "true") {
+        if (whale) {
+          sendTokens(hre, address, whale, decimals);
+          console.log(`Added 100 ${symbol} to ${process.env.PUBLIC_ADDRESS}`);
+        } else {
+          console.log(`There is no whale added for ${symbol}`);
+        }
       }
     }
   }

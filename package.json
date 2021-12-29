@@ -8,6 +8,7 @@
     "test": "hardhat test",
     "coverage": "hardhat coverage",
     "deploy:kovan": "hardhat --network kovan deploy",
+    "deploy:hardhat": "hardhat --network hardhat deploy",
     "prepare": "husky install"
   },
   "devDependencies": {
