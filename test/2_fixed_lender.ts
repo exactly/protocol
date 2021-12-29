@@ -91,10 +91,10 @@ describe("FixedLender", function () {
       ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
     });
 
-    describe("WHEN borrowing 80 DAI from the same maturity", () => {
+    describe("WHEN borrowing 60 DAI from the same maturity", () => {
       let tx: any;
       beforeEach(async () => {
-        tx = exactlyEnv.borrowMP("DAI", nextPoolId, "80");
+        tx = exactlyEnv.borrowMP("DAI", nextPoolId, "60");
         await tx;
       });
       it("THEN a BorrowFromMaturityPool event is emmitted", async () => {
@@ -102,20 +102,20 @@ describe("FixedLender", function () {
           .to.emit(exactlyEnv.getFixedLender("DAI"), "BorrowFromMaturityPool")
           .withArgs(
             mariaUser.address,
-            parseUnits("80"),
+            parseUnits("60"),
             parseUnits("0"),
             nextPoolId
           );
       });
-      it("AND a 80DAI borrow is registered", async () => {
+      it("AND a 60 DAI borrow is registered", async () => {
         expect(
           await exactlyEnv.getFixedLender("DAI").getTotalMpBorrows(nextPoolId)
-        ).to.equal(parseUnits("80"));
+        ).to.equal(parseUnits("60"));
       });
       describe("AND WHEN fully repaying the debt", () => {
         let tx: any;
         beforeEach(async () => {
-          tx = exactlyEnv.repayMP("DAI", nextPoolId, "80");
+          tx = exactlyEnv.repayMP("DAI", nextPoolId, "60");
           await tx;
         });
         it("THEN a RepayToMaturityPool event is emitted", async () => {
@@ -125,7 +125,7 @@ describe("FixedLender", function () {
               mariaUser.address,
               mariaUser.address,
               parseUnits("0"),
-              parseUnits("80"),
+              parseUnits("60"),
               nextPoolId
             );
         });
@@ -161,16 +161,20 @@ describe("FixedLender", function () {
             exactlyEnv.withdrawMP("DAI", nextPoolId, "0")
           ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
         });
-        it("WHEN trying to withdraw without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+        it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
           await expect(
             exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
         });
+        it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (10 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
+          await expect(exactlyEnv.withdrawMP("DAI", nextPoolId, "10")).to.not.be
+            .reverted;
+        });
       });
 
-      describe("AND WHEN partially (40DAI, 50%) repaying the debt", () => {
+      describe("AND WHEN partially (40DAI, 66%) repaying the debt", () => {
         let tx: any;
         beforeEach(async () => {
           tx = exactlyEnv.repayMP("DAI", nextPoolId, "40");
@@ -187,28 +191,28 @@ describe("FixedLender", function () {
               nextPoolId
             );
         });
-        it("AND Maria still owes 40 DAI", async () => {
+        it("AND Maria still owes 20 DAI", async () => {
           const [, amountOwed] = await exactlyEnv
             .getFixedLender("DAI")
             .getAccountSnapshot(mariaUser.address, nextPoolId);
 
-          expect(amountOwed).to.equal(parseUnits("40"));
+          expect(amountOwed).to.equal(parseUnits("20"));
         });
 
         describe("AND WHEN moving in time to 1 day after maturity", () => {
           beforeEach(async () => {
             await exactlyEnv.moveInTime(nextPoolId + exaTime.ONE_DAY);
           });
-          it("THEN Maria owes (getAccountSnapshot) 40 DAI of principal + (40*0.02 == 0.08 ) DAI of late payment penalties", async () => {
+          it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 == 0.04 ) DAI of late payment penalties", async () => {
             const [, amountOwed] = await exactlyEnv
               .getFixedLender("DAI")
               .getAccountSnapshot(mariaUser.address, nextPoolId);
 
-            expect(amountOwed).to.equal(parseUnits("40.8"));
+            expect(amountOwed).to.equal(parseUnits("20.4"));
           });
-          describe("AND WHEN repaying the rest of the 40.8 owed DAI", () => {
+          describe("AND WHEN repaying the rest of the 20.4 owed DAI", () => {
             beforeEach(async () => {
-              await exactlyEnv.repayMP("DAI", nextPoolId, "40.8");
+              await exactlyEnv.repayMP("DAI", nextPoolId, "20.4");
             });
             it("THEN all debt is repaid", async () => {
               const [, amountOwed] = await exactlyEnv
