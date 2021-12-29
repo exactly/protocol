@@ -115,21 +115,22 @@ export class DefaultEnv {
     await asset
       .connect(this.currentWallet)
       .approve(fixedLender.address, amount);
-    return fixedLender
-      .connect(this.currentWallet)
-      .depositToSmartPoolPool(amount);
+    return fixedLender.connect(this.currentWallet).depositToSmartPool(amount);
   }
 
   public async depositMP(
     assetString: string,
     maturityPool: number,
     units: string,
-    expectedAtMaturity?: BigNumber
+    expectedAtMaturity?: string
   ) {
     const asset = this.getUnderlying(assetString);
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    const expectedAmount = expectedAtMaturity || applyMinFee(amount);
+    const expectedAmount =
+      (expectedAtMaturity &&
+        parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) ||
+      applyMinFee(amount);
     await asset
       .connect(this.currentWallet)
       .approve(fixedLender.address, amount);
@@ -138,18 +139,12 @@ export class DefaultEnv {
       .depositToMaturityPool(amount, maturityPool, expectedAmount);
   }
 
-  public async borrowMP(
-    assetString: string,
-    maturityPool: number,
-    units: string,
-    expectedAtMaturity?: BigNumber
-  ) {
+  public async withdrawSP(assetString: string, units: string) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    const expectedAmount = expectedAtMaturity || applyMaxFee(amount);
     return fixedLender
       .connect(this.currentWallet)
-      .borrowFromMaturityPool(amount, maturityPool, expectedAmount);
+      .withdrawFromSmartPool(amount);
   }
 
   public async withdrawMP(
@@ -166,6 +161,28 @@ export class DefaultEnv {
         amount,
         maturityPool
       );
+  }
+
+  public async borrowMP(
+    assetString: string,
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = applyMaxFee(amount);
+    }
+    return fixedLender
+      .connect(this.currentWallet)
+      .borrowFromMaturityPool(amount, maturityPool, expectedAmount);
   }
 
   public async repayMP(
