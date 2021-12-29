@@ -64,14 +64,6 @@ contract Auditor is IAuditor, AccessControl {
     );
 
     /**
-     * @notice Event emitted when a certain action has been paused by the protocol
-     * @param fixedLender address of the market that a certain feature has been paused/re-enabled
-     * @param action string describing the action that has been paused/re-enabled
-     * @param paused boolean describing if the action has been paused or re-enabled
-     */
-    event ActionPaused(address fixedLender, string action, bool paused);
-
-    /**
      * @notice Event emitted when a new Oracle has been set
      * @param newOracle address of the new oracle that is used to calculate liquidity
      */
@@ -281,25 +273,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Function to pause/unpause borrowing on a certain market
-     * @param fixedLender address to pause
-     * @param paused true/false
-     */
-    function pauseBorrow(address fixedLender, bool paused)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        returns (bool)
-    {
-        if (!book.markets[fixedLender].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        book.borrowPaused[address(fixedLender)] = paused;
-        emit ActionPaused(fixedLender, "Borrow", paused);
-        return paused;
-    }
-
-    /**
      * @notice Set the given borrow caps for the given fixedLender markets. Borrowing that brings total borrows to or above borrow cap will revert.
      * @param fixedLenders The addresses of the markets (tokens) to change the borrow caps for
      * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
@@ -414,10 +387,6 @@ contract Auditor is IAuditor, AccessControl {
         uint256 borrowAmount,
         uint256 maturityDate
     ) external override {
-        if (book.borrowPaused[fixedLenderAddress]) {
-            revert GenericError(ErrorCode.BORROW_PAUSED);
-        }
-
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
         book.validateBorrow(

@@ -182,6 +182,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         },
       }
     );
+    await grantPauserRole(fixedLenderDeploymentName, deployer, hre, config);
 
     await transferOwnershipToTimelock(
       fixedLenderDeploymentName,
@@ -254,13 +255,16 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     ADMIN_ROLE,
     hre
   );
-  await transferOwnershipToTimelock(
-    "ExactlyOracle",
-    deployer,
-    timelockController.address,
-    ADMIN_ROLE,
-    hre
-  );
+  // If network is rinkeby we don't need to transfer ownership of oracle since it's mocked
+  if (hre.network.name !== "rinkeby") {
+    await transferOwnershipToTimelock(
+      "ExactlyOracle",
+      deployer,
+      timelockController.address,
+      ADMIN_ROLE,
+      hre
+    );
+  }
 };
 
 export function uploadToS3(data: { [id: string]: string }) {
@@ -348,6 +352,32 @@ async function transferOwnershipToTimelock(
     "revokeRole",
     adminRole,
     deployer
+  );
+}
+
+async function grantPauserRole(
+  fixedLenderDeploymentName: string,
+  deployer: string,
+  hardhatRuntimeEnvironment: any,
+  config: any
+) {
+  const PAUSER_ROLE = await hardhatRuntimeEnvironment.deployments.read(
+    fixedLenderDeploymentName,
+    { from: deployer },
+    "PAUSER_ROLE"
+  );
+
+  // We grant the PAUSER_ROLE to the multisig if defined in config, else to the deployer
+  const multisigAddress =
+    config.tokenAddresses[hardhatRuntimeEnvironment.network.name]
+      .multisigAddress;
+  const granteeAddress = multisigAddress ? multisigAddress : deployer;
+  await hardhatRuntimeEnvironment.deployments.execute(
+    fixedLenderDeploymentName,
+    { from: deployer },
+    "grantRole",
+    PAUSER_ROLE,
+    granteeAddress
   );
 }
 

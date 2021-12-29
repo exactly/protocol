@@ -108,6 +108,18 @@ export class DefaultEnv {
     await ethers.provider.send("evm_mine", []);
   }
 
+  public async depositSP(assetString: string, units: string) {
+    const asset = this.getUnderlying(assetString);
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    await asset
+      .connect(this.currentWallet)
+      .approve(fixedLender.address, amount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .depositToSmartPoolPool(amount);
+  }
+
   public async depositMP(
     assetString: string,
     maturityPool: number,
