@@ -340,29 +340,19 @@ async function grantPauserRole(
     { from: deployer },
     "PAUSER_ROLE"
   );
-  console.log("pause role " + PAUSER_ROLE);
 
-  // We grant the PAUSER_ROLE to the multisig if network is rinkeby, else to the deployer
-  if (hardhatRuntimeEnvironment.network.name === "rinkeby") {
-    const multisigAddress =
-      config.tokenAddresses[hardhatRuntimeEnvironment.network.name]
-        .multisigAddress;
-    await hardhatRuntimeEnvironment.deployments.execute(
-      fixedLenderDeploymentName,
-      { from: deployer },
-      "grantRole",
-      PAUSER_ROLE,
-      multisigAddress
-    );
-  } else {
-    await hardhatRuntimeEnvironment.deployments.execute(
-      fixedLenderDeploymentName,
-      { from: deployer },
-      "grantRole",
-      PAUSER_ROLE,
-      deployer
-    );
-  }
+  // We grant the PAUSER_ROLE to the multisig if defined in config, else to the deployer
+  const multisigAddress =
+    config.tokenAddresses[hardhatRuntimeEnvironment.network.name]
+      .multisigAddress;
+  const granteeAddress = multisigAddress ? multisigAddress : deployer;
+  await hardhatRuntimeEnvironment.deployments.execute(
+    fixedLenderDeploymentName,
+    { from: deployer },
+    "grantRole",
+    PAUSER_ROLE,
+    granteeAddress
+  );
 }
 
 async function getTokenParameters(tokensForNetwork: any) {

@@ -39,7 +39,7 @@ describe("FixedLender - Pausable", function () {
     });
     describe("AND GIVEN a grant in the PAUSER role to another user", () => {
       beforeEach(async () => {
-        fixedLender.grantRole(PAUSER_ROLE, user.address);
+        await fixedLender.grantRole(PAUSER_ROLE, user.address);
       });
       it("THEN it should NOT revert when user pauses actions", async () => {
         await expect(fixedLender.connect(user).pause()).to.not.be.reverted;
@@ -51,7 +51,7 @@ describe("FixedLender - Pausable", function () {
     });
     describe("AND GIVEN a pause for all actions that have whenNotPaused modifier", () => {
       beforeEach(async () => {
-        fixedLender.pause();
+        await fixedLender.pause();
       });
       it("THEN it should revert when trying to deposit to a smart pool", async () => {
         await expect(fixedLender.depositToSmartPool("0")).to.be.revertedWith(
@@ -91,12 +91,22 @@ describe("FixedLender - Pausable", function () {
       it("THEN it should NOT revert when calling a function that doesn't have whenNotPaused modifier", async () => {
         await expect(fixedLender.setLiquidationFee("0")).to.not.be.reverted;
       });
+      it("AND WHEN a pause is called again, THEN it should revert with Pausable error", async () => {
+        await expect(fixedLender.pause()).to.be.revertedWith(
+          "Pausable: paused"
+        );
+      });
       describe("AND GIVEN an unpause for all actions that have whenNotPaused modifier", () => {
         beforeEach(async () => {
-          fixedLender.unpause();
+          await fixedLender.unpause();
         });
         it("THEN it should NOT revert when trying to call one of them", async () => {
           await expect(exactlyEnv.depositSP("DAI", "100")).to.not.be.reverted;
+        });
+        it("AND WHEN an unpause is called again, THEN it should revert with Pausable error", async () => {
+          await expect(fixedLender.unpause()).to.be.revertedWith(
+            "Pausable: not paused"
+          );
         });
       });
     });
