@@ -98,16 +98,39 @@ export class DefaultEnv {
     await ethers.provider.send("evm_mine", []);
   }
 
+  public async takeSnapshot() {
+    const id = await ethers.provider.send("evm_snapshot", []);
+    return id;
+  }
+
+  public async revertSnapshot(snapshot: any) {
+    await ethers.provider.send("evm_revert", [snapshot]);
+    await ethers.provider.send("evm_mine", []);
+  }
+
+  public async depositSP(assetString: string, units: string) {
+    const asset = this.getUnderlying(assetString);
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    await asset
+      .connect(this.currentWallet)
+      .approve(fixedLender.address, amount);
+    return fixedLender.connect(this.currentWallet).depositToSmartPool(amount);
+  }
+
   public async depositMP(
     assetString: string,
     maturityPool: number,
     units: string,
-    expectedAtMaturity?: BigNumber
+    expectedAtMaturity?: string
   ) {
     const asset = this.getUnderlying(assetString);
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    const expectedAmount = expectedAtMaturity || applyMinFee(amount);
+    const expectedAmount =
+      (expectedAtMaturity &&
+        parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) ||
+      applyMinFee(amount);
     await asset
       .connect(this.currentWallet)
       .approve(fixedLender.address, amount);
@@ -116,18 +139,66 @@ export class DefaultEnv {
       .depositToMaturityPool(amount, maturityPool, expectedAmount);
   }
 
+  public async withdrawSP(assetString: string, units: string) {
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawFromSmartPool(amount);
+  }
+
+  public async withdrawMP(
+    assetString: string,
+    maturityPool: number,
+    units: string
+  ) {
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawFromMaturityPool(
+        this.currentWallet.address,
+        amount,
+        maturityPool
+      );
+  }
+
   public async borrowMP(
     assetString: string,
     maturityPool: number,
     units: string,
-    expectedAtMaturity?: BigNumber
+    expectedAtMaturity?: string
   ) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    const expectedAmount = expectedAtMaturity || applyMaxFee(amount);
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = applyMaxFee(amount);
+    }
     return fixedLender
       .connect(this.currentWallet)
       .borrowFromMaturityPool(amount, maturityPool, expectedAmount);
+  }
+
+  public async repayMP(
+    assetString: string,
+    maturityPool: number,
+    units: string
+  ) {
+    const asset = this.getUnderlying(assetString);
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    await asset
+      .connect(this.currentWallet)
+      .approve(fixedLender.address, amount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .repayToMaturityPool(this.currentWallet.address, maturityPool, amount);
   }
 
   public async enterMarkets(assets: string[], maturityPool: number) {
@@ -199,6 +270,10 @@ export class DefaultEnv {
     return this.auditor
       .connect(this.currentWallet)
       .setExaSpeed(this.getFixedLender(asset).address, parseUnits(speed));
+  }
+
+  public async claimAllEXA(addressToSend: string) {
+    return this.auditor.connect(this.currentWallet).claimExaAll(addressToSend);
   }
 
   public async deployDuplicatedAuditor() {

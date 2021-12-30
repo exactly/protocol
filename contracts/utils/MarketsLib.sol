@@ -24,7 +24,6 @@ library MarketsLib {
     // Book-keeping
     struct Book {
         mapping(address => MarketsLib.Market) markets;
-        mapping(address => bool) borrowPaused;
         mapping(address => uint256) borrowCaps;
         mapping(address => mapping(uint256 => IFixedLender[])) accountAssets;
     }
