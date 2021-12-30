@@ -8,8 +8,6 @@ import {
   ExactlyEnv,
   ExaTime,
   errorGeneric,
-  PoolState,
-  errorUnmatchedPool,
   applyMinFee,
   applyMaxFee,
 } from "./exactlyUtils";
@@ -43,78 +41,21 @@ describe("Auditor from User Space", function () {
 
   it("We try to enter an unlisted market and fail", async () => {
     await expect(
-      auditor.enterMarkets([exactlyEnv.notAnFixedLenderAddress], nextPoolID)
+      auditor.enterMarkets([exactlyEnv.notAnFixedLenderAddress])
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
-  it("We try to enter an invalid market and fail", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(
-      auditor.enterMarkets([fixedLenderDAI.address], nextPoolID + 333)
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
-    );
   });
 
   it("We enter market twice without failing", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
-    await expect(auditor.enterMarkets([fixedLenderDAI.address], nextPoolID)).to
-      .not.be.reverted;
+    await auditor.enterMarkets([fixedLenderDAI.address]);
+    await expect(auditor.enterMarkets([fixedLenderDAI.address])).to.not.be
+      .reverted;
   });
 
   it("We try to exit an unlisted market and fail", async () => {
     await expect(
-      auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress, nextPoolID)
+      auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress)
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
-  it("We try to exit an invalid market", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(
-      auditor.exitMarket(fixedLenderDAI.address, nextPoolID + 333)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-  });
-
-  it("We can't exit a market until maturity", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const dai = exactlyEnv.getUnderlying("DAI");
-    const amountDAI = parseUnits("100");
-    await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID,
-      applyMinFee(amountDAI)
-    );
-
-    // we make it count as collateral (DAI)
-    await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
-    // Move in time to maturity
-    await expect(
-      auditor.exitMarket(fixedLenderDAI.address, nextPoolID)
-    ).to.be.revertedWith(
-      errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
-    );
-  });
-
-  it("We exit a market after maturity", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const dai = exactlyEnv.getUnderlying("DAI");
-    const amountDAI = parseUnits("100");
-    await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID,
-      applyMinFee(amountDAI)
-    );
-
-    // we make it count as collateral (DAI)
-    await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
-    // Move in time to maturity
-    await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
-    await ethers.provider.send("evm_mine", []);
-    await expect(auditor.exitMarket(fixedLenderDAI.address, nextPoolID)).to.not
-      .be.reverted;
   });
 
   it("shouldn't allow to leave a market if there's debt", async () => {
@@ -122,32 +63,30 @@ describe("Auditor from User Space", function () {
     const dai = exactlyEnv.getUnderlying("DAI");
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID,
-      applyMinFee(amountDAI)
-    );
+    await fixedLenderDAI.depositToSmartPool(amountDAI);
     await fixedLenderDAI.borrowFromMaturityPool(
       amountDAI.div(2),
       nextPoolID,
       applyMaxFee(amountDAI.div(2))
     );
 
-    // we make it count as collateral (DAI)
-    await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
-    // Move in time to maturity
-    await ethers.provider.send("evm_setNextBlockTimestamp", [nextPoolID]);
-    await ethers.provider.send("evm_mine", []);
-    await expect(
-      auditor.exitMarket(fixedLenderDAI.address, nextPoolID)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED));
+    await expect(auditor.exitMarket(fixedLenderDAI.address)).to.be.revertedWith(
+      errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED)
+    );
   });
 
-  it("BeforeSupplyOrWithdrawSP should fail for an unlisted market", async () => {
+  it("BeforeDepositSP should fail for an unlisted market", async () => {
     await expect(
-      auditor.beforeSupplyOrWithdrawSP(
+      auditor.beforeDepositSP(exactlyEnv.notAnFixedLenderAddress, owner.address)
+    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+  });
+
+  it("BeforeWithdrawSP should fail for an unlisted market", async () => {
+    await expect(
+      auditor.beforeWithdrawSP(
         exactlyEnv.notAnFixedLenderAddress,
-        owner.address
+        owner.address,
+        "0"
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
@@ -195,7 +134,7 @@ describe("Auditor from User Space", function () {
       applyMinFee(amountDAI)
     );
 
-    await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
+    await auditor.enterMarkets([fixedLenderDAI.address]);
 
     await exactlyEnv.oracle.setPrice("DAI", 0);
     await expect(
@@ -213,7 +152,6 @@ describe("Auditor from User Space", function () {
       auditor.beforeWithdrawMP(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
-        100,
         nextPoolID
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
@@ -261,8 +199,7 @@ describe("Auditor from User Space", function () {
         fixedLenderDAI.address,
         owner.address,
         user.address,
-        100,
-        nextPoolID
+        100
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     await expect(
@@ -271,8 +208,7 @@ describe("Auditor from User Space", function () {
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
         user.address,
-        100,
-        nextPoolID
+        100
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     await expect(
@@ -281,8 +217,7 @@ describe("Auditor from User Space", function () {
         fixedLenderDAI.address,
         owner.address,
         user.address,
-        100,
-        nextPoolID
+        100
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
   });
@@ -294,11 +229,7 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID,
-      applyMinFee(amountDAI)
-    );
+    await fixedLenderDAI.depositToSmartPool(amountDAI);
 
     // we make it count as collateral (DAI)
     await expect(
@@ -369,16 +300,12 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID,
-      applyMinFee(amountDAI)
-    );
+    await fixedLenderDAI.depositToSmartPool(amountDAI);
 
     expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(amountDAI);
 
     // we make it count as collateral (DAI)
-    await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
+    await auditor.enterMarkets([fixedLenderDAI.address]);
 
     const fixedLenderETH = exactlyEnv.getFixedLender("ETH");
     const eth = exactlyEnv.getUnderlying("ETH");
@@ -386,20 +313,14 @@ describe("Auditor from User Space", function () {
     // we supply Eth to the protocol
     const amountETH = parseUnits("1");
     await eth.approve(fixedLenderETH.address, amountETH);
-    await fixedLenderETH.depositToMaturityPool(
-      amountETH,
-      nextPoolID,
-      applyMinFee(amountETH)
-    );
+    await fixedLenderETH.depositToSmartPool(amountETH);
 
     expect(await eth.balanceOf(fixedLenderETH.address)).to.equal(amountETH);
 
     // we make it count as collateral (ETH)
-    await auditor.enterMarkets([fixedLenderETH.address], nextPoolID);
+    await auditor.enterMarkets([fixedLenderETH.address]);
 
-    let liquidity = (
-      await auditor.getAccountLiquidity(owner.address, nextPoolID)
-    )[0];
+    let liquidity = (await auditor.getAccountLiquidity(owner.address))[0];
 
     let collaterDAI = amountDAI
       .mul(exactlyEnv.mockedTokens.get("DAI")!.collateralRate)
@@ -432,12 +353,12 @@ describe("Auditor from User Space", function () {
     );
 
     // we make it count as collateral (DAI)
-    await auditor.enterMarkets([fixedLenderDAI.address], nextPoolID);
+    await auditor.enterMarkets([fixedLenderDAI.address]);
 
     await exactlyEnv.oracle.setPrice("DAI", 0);
-    await expect(
-      auditor.getAccountLiquidity(owner.address, nextPoolID)
-    ).to.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
+    await expect(auditor.getAccountLiquidity(owner.address)).to.revertedWith(
+      errorGeneric(ProtocolError.PRICE_ERROR)
+    );
   });
 
   it("Get data from correct market", async () => {
