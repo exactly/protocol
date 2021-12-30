@@ -73,11 +73,12 @@ describe("ExaToken", () => {
         });
       });
 
-      describe("AND GIVEN that maria makes a second deposit of 100 DAI and also borrows 25 DAI two times", () => {
+      describe("AND GIVEN that maria borrows 25 DAI two times", () => {
         let txBorrow1: any;
         let txBorrow2: any;
         beforeEach(async () => {
-          await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "100");
+          // We first deposit to the smart pool to be able to borrow
+          await exactlyEnv.depositSP("DAI", "100");
           txBorrow1 = exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "25");
           txBorrow2 = exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "25");
         });
@@ -116,7 +117,8 @@ describe("ExaToken", () => {
       describe("AND GIVEN that maria borrows 100 DAI and repays at maturity the 100 DAI", () => {
         let tx: any;
         beforeEach(async () => {
-          await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "150");
+          // We first deposit to the smart pool to be able to borrow
+          await exactlyEnv.depositSP("DAI", "150");
           await exactlyEnv.borrowMP("DAI", exaTime.nextPoolID(), "100");
           await exactlyEnv.moveInTime(exaTime.nextPoolID());
           tx = exactlyEnv.repayMP("DAI", exaTime.nextPoolID(), "100");
