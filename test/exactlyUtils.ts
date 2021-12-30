@@ -163,11 +163,7 @@ export class ExactlyEnv {
     const poolLib = await PoolLib.deploy();
     await poolLib.deployed();
 
-    const MarketsLib = await ethers.getContractFactory("MarketsLib", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
+    const MarketsLib = await ethers.getContractFactory("MarketsLib");
     let marketsLib = await MarketsLib.deploy();
     await marketsLib.deployed();
 
