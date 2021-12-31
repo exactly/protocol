@@ -13,25 +13,6 @@ library TSUtils {
     uint32 public constant INTERVAL = 7 days;
 
     /**
-     * @notice Function to calculate how many days have passed between the two dates
-     * @param timestampFrom to calculate the day difference
-     * @param timestampTo to calculate the day difference
-     */
-    function daysPast(uint256 timestampFrom, uint256 timestampTo)
-        public
-        pure
-        returns (uint256)
-    {
-        uint256 trimmedFrom = trimmedDay(timestampFrom);
-        uint256 trimmedTo = trimmedDay(timestampTo);
-        if (trimmedFrom > trimmedTo) {
-            return (trimmedFrom - trimmedTo) / 1 days;
-        } else {
-            return 0;
-        }
-    }
-
-    /**
      * @notice Function to calculate how many days are left to a certain date
      * @param timestampFrom to calculate the day difference
      * @param timestampTo to calculate the day difference

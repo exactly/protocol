@@ -475,7 +475,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         }
 
         uint256 debt = mpUserBorrowedAmount[maturityDate][who];
-        uint256 daysDelayed = TSUtils.daysPast(block.timestamp, maturityDate);
+        uint256 daysDelayed = TSUtils.daysPre(maturityDate, block.timestamp);
         if (daysDelayed > 0) {
             debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
         }
