@@ -7,8 +7,6 @@ import {
   ExactlyEnv,
   ExaTime,
   errorGeneric,
-  applyMaxFee,
-  applyMinFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
@@ -24,13 +22,12 @@ describe("Liquidations", function () {
   let john: SignerWithAddress;
 
   let fixedLenderETH: Contract;
-  let eth: Contract;
   let fixedLenderDAI: Contract;
   let dai: Contract;
   let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
-  let amountToBorrowDAI: BigNumber;
+  let amountToBorrowDAI: string;
 
   let snapshot: any;
   beforeEach(async () => {
@@ -44,7 +41,6 @@ describe("Liquidations", function () {
     auditor = exactlyEnv.auditor;
 
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");
-    eth = exactlyEnv.getUnderlying("ETH");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
@@ -62,30 +58,14 @@ describe("Liquidations", function () {
   describe("GIVEN alice deposits USD63k worth of WBTC, USD3k worth of ETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob deposits 65kDAI", () => {
     beforeEach(async () => {
       // we deposit Eth to the protocol
-      const amountETH = parseUnits("1");
-      await eth.approve(fixedLenderETH.address, amountETH);
-      await fixedLenderETH.depositToMaturityPool(
-        amountETH,
-        nextPoolID,
-        applyMinFee(amountETH)
-      );
+      await exactlyEnv.depositSP("ETH", "1");
 
       // we deposit WBTC to the protocol
-      const amountWBTC = parseUnits("1", 8);
-      await wbtc.approve(fixedLenderWBTC.address, amountWBTC);
-      await fixedLenderWBTC.depositToMaturityPool(
-        amountWBTC,
-        nextPoolID,
-        applyMinFee(amountWBTC)
-      );
+      await exactlyEnv.depositSP("WBTC", "1");
 
       // bob deposits DAI to the protocol to have money in the pool
-      const amountDAI = parseUnits("65000");
-
-      await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
-      await fixedLenderDAI
-        .connect(bob)
-        .depositToMaturityPool(amountDAI, nextPoolID, applyMinFee(amountDAI));
+      exactlyEnv.switchWallet(bob);
+      await exactlyEnv.depositMP("DAI", nextPoolID, "65000");
       await dai
         .connect(bob)
         .approve(fixedLenderDAI.address, parseUnits("200000"));
@@ -97,29 +77,25 @@ describe("Liquidations", function () {
     describe("AND GIVEN Alice takes the biggest loan she can (39900 DAI)", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
-        await auditor.enterMarkets(
-          [fixedLenderETH.address, fixedLenderWBTC.address],
-          nextPoolID
-        );
+        await auditor.enterMarkets([
+          fixedLenderETH.address,
+          fixedLenderWBTC.address,
+        ]);
+
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
-        amountToBorrowDAI = parseUnits("39900");
+        amountToBorrowDAI = "39900";
         // alice borrows all liquidity
-        await fixedLenderDAI.borrowFromMaturityPool(
-          amountToBorrowDAI,
-          nextPoolID,
-          applyMaxFee(amountToBorrowDAI)
-        );
+        exactlyEnv.switchWallet(alice);
+        await exactlyEnv.borrowMP("DAI", nextPoolID, amountToBorrowDAI);
       });
 
       describe("WHEN john supplies to the smart pool & the pool matures (prices stay the same) and 20 days goes by without payment", () => {
         beforeEach(async () => {
-          await fixedLenderDAI
-            .connect(john)
-            .depositToSmartPool(parseUnits("10000"));
-          await ethers.provider.send("evm_setNextBlockTimestamp", [
-            nextPoolID + exaTime.ONE_DAY * 20 + exaTime.ONE_HOUR * 10,
-          ]);
-          await ethers.provider.send("evm_mine", []);
+          exactlyEnv.switchWallet(john);
+          await exactlyEnv.depositSP("DAI", "10000");
+          await exactlyEnv.moveInTime(
+            nextPoolID + exaTime.ONE_DAY * 20 + exaTime.ONE_HOUR * 10
+          );
         });
         describe("Alice is a sneaky gal and uses a flash loan to recover her penalty", () => {
           describe("GIVEN a funded attacker contract and a flash-loaneable token", () => {
@@ -268,7 +244,7 @@ describe("Liquidations", function () {
           it("AND 19k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
-              nextPoolID
+              [nextPoolID]
             );
 
             // Borrowed is 39850
@@ -311,7 +287,7 @@ describe("Liquidations", function () {
             it("AND 18k DAI of debt has been repaid, making debt ~18k DAI", async () => {
               const [, debt] = await fixedLenderDAI.getAccountSnapshot(
                 alice.address,
-                nextPoolID
+                [nextPoolID]
               );
               expect(debt).to.be.lt(parseUnits("19000"));
               expect(debt).to.be.gt(parseUnits("18000"));
@@ -393,7 +369,7 @@ describe("Liquidations", function () {
           it("AND 17.1k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
-              nextPoolID
+              [nextPoolID]
             );
 
             // Borrowed is 39850
@@ -424,7 +400,7 @@ describe("Liquidations", function () {
 
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
             let shortfall = (
-              await auditor.getAccountLiquidity(alice.address, nextPoolID)
+              await auditor.getAccountLiquidity(alice.address)
             )[1];
             expect(shortfall).to.eq(parseUnits("1050"));
           });
@@ -444,7 +420,7 @@ describe("Liquidations", function () {
 
             it("THEN alice no longer has a liquidity shortfall", async () => {
               const shortfall = (
-                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+                await auditor.getAccountLiquidity(alice.address)
               )[1];
               expect(shortfall).to.eq(0);
             });
@@ -462,7 +438,7 @@ describe("Liquidations", function () {
             // 5410
             it("AND she has some liquidity", async () => {
               const liquidity = (
-                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+                await auditor.getAccountLiquidity(alice.address)
               )[0];
               expect(liquidity).to.be.lt(parseUnits("5410.1"));
               expect(liquidity).to.be.gt(parseUnits("5410"));
@@ -479,7 +455,7 @@ describe("Liquidations", function () {
           });
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
             let shortfall = (
-              await auditor.getAccountLiquidity(alice.address, nextPoolID)
+              await auditor.getAccountLiquidity(alice.address)
             )[1];
             expect(shortfall).to.eq(parseUnits("1050"));
           });
@@ -502,7 +478,7 @@ describe("Liquidations", function () {
             });
             it("THEN alice no longer has a liquidity shortfall", async () => {
               const shortfall = (
-                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+                await auditor.getAccountLiquidity(alice.address)
               )[1];
               expect(shortfall).to.eq(0);
             });
@@ -519,7 +495,7 @@ describe("Liquidations", function () {
             // diff =>> 4764.000324000
             it("AND she has some liquidity", async () => {
               const liquidity = (
-                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+                await auditor.getAccountLiquidity(alice.address)
               )[0];
               expect(liquidity).to.be.lt(parseUnits("4765"));
               expect(liquidity).to.be.gt(parseUnits("4764"));
@@ -546,7 +522,7 @@ describe("Liquidations", function () {
             it("THEN theres nearly no ETH supplied by Alice", async () => {
               const [depositedETH] = await fixedLenderETH.getAccountSnapshot(
                 alice.address,
-                nextPoolID
+                [nextPoolID]
               );
               expect(depositedETH).to.be.lt(parseUnits("0.001"));
             });
@@ -596,17 +572,16 @@ describe("Liquidations", function () {
                 });
                 it("THEN the Alice has zero WBTC deposited", async () => {
                   const [depositedWBTC] =
-                    await fixedLenderWBTC.getAccountSnapshot(
-                      alice.address,
-                      nextPoolID
-                    );
+                    await fixedLenderWBTC.getAccountSnapshot(alice.address, [
+                      nextPoolID,
+                    ]);
                   expect(depositedWBTC).to.be.lt(parseUnits("0.0005", 8));
                 });
                 // now theres no incentive to liquidate those 7500 dai
                 it("AND alice still has some DAI debt", async () => {
                   const [, debt] = await fixedLenderDAI.getAccountSnapshot(
                     alice.address,
-                    nextPoolID
+                    [nextPoolID]
                   );
                   expect(debt).to.eq(parseUnits("7628"));
                 });
@@ -618,14 +593,12 @@ describe("Liquidations", function () {
         it("THEN alices liquidity is zero", async () => {
           // We expect liquidity to be equal to zero
           let liquidityAfterOracleChange = (
-            await auditor.getAccountLiquidity(alice.address, nextPoolID)
+            await auditor.getAccountLiquidity(alice.address)
           )[0];
           expect(liquidityAfterOracleChange).to.be.lt("1");
         });
         it("AND alice has a big (18k) liquidity shortfall", async () => {
-          let shortfall = (
-            await auditor.getAccountLiquidity(alice.address, nextPoolID)
-          )[1];
+          let shortfall = (await auditor.getAccountLiquidity(alice.address))[1];
           expect(shortfall).to.eq(parseUnits("18300"));
         });
 
