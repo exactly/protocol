@@ -37,8 +37,7 @@ interface IFixedLender {
     function seize(
         address liquidator,
         address borrower,
-        uint256 seizeTokens,
-        uint256 maturityDate
+        uint256 seizeTokens
     ) external;
 
     function liquidate(

@@ -144,7 +144,7 @@ describe("Liquidations", function () {
 
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 0.028% in fee is charged (971111 sats)", async () => {
               const seizedWBTC = parseUnits("34682539", 0);
@@ -183,7 +183,7 @@ describe("Liquidations", function () {
 
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 0.4% in fee is charged (1326984 sats)", async () => {
               const seizedWBTC = parseUnits("33174603", 0);
@@ -217,7 +217,7 @@ describe("Liquidations", function () {
             const seizedWBTC = parseUnits("33174603", 0);
             await expect(tx)
               .to.emit(fixedLenderWBTC, "SeizeAsset")
-              .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+              .withArgs(bob.address, alice.address, seizedWBTC);
           });
 
           it("THEN john collected the penalty fees for being in the smart pool on the 19K repay", async () => {
@@ -282,7 +282,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("31428570", 0);
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 18k DAI of debt has been repaid, making debt ~18k DAI", async () => {
               const [, debt] = await fixedLenderDAI.getAccountSnapshot(
@@ -327,7 +327,7 @@ describe("Liquidations", function () {
             const seizedWBTC = parseUnits("29857142", 0);
             await expect(tx)
               .to.emit(fixedLenderWBTC, "SeizeAsset")
-              .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+              .withArgs(bob.address, alice.address, seizedWBTC);
           });
 
           it("THEN liquidator receives WBTC minus 10% commission of the underlying", async () => {
@@ -430,7 +430,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("33174603", 0);
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
 
             // debt: 39900-19000 = 20900
@@ -488,7 +488,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("29857142", 0);
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
             // debt: 39900-17100 = 22800
             // liquidity: (1-0.29857142)*0.6*63000+1500*0.7 = 27564.000324000
@@ -701,7 +701,7 @@ describe("Liquidations", function () {
             const seizedWBTC = parseUnits("64307691", 0);
             await expect(tx)
               .to.emit(fixedLenderWBTC, "SeizeAsset")
-              .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+              .withArgs(bob.address, alice.address, seizedWBTC);
             const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
             expect(await wbtc.balanceOf(bob.address)).to.eq(
               seizedWBTC.sub(fee)

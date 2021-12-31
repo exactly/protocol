@@ -85,7 +85,7 @@ describe("FixedLender - Pausable", function () {
       });
       it("THEN it should revert when trying to seize a maturity pool position", async () => {
         await expect(
-          fixedLender.seize(owner.address, owner.address, "0", nextPoolId)
+          fixedLender.seize(owner.address, owner.address, "0")
         ).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should NOT revert when calling a function that doesn't have whenNotPaused modifier", async () => {

@@ -130,13 +130,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param liquidator address which seized this collateral
      * @param borrower address which had the original debt
      * @param seizedAmount amount seized of the collateral
-     * @param maturityDate poolID where the borrower lost the amount of collateral
      */
     event SeizeAsset(
         address liquidator,
         address borrower,
-        uint256 seizedAmount,
-        uint256 maturityDate
+        uint256 seizedAmount
     );
 
     /**
@@ -343,7 +341,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     /**
      * @notice Function to liquidate an uncollaterized position
-     * @dev Msg.sender liquidates a borrower's position and repays a certain amount of collateral
+     * @dev Msg.sender liquidates a borrower's position and repays a certain amount of debt
      *      for a maturity date, seizing a part of borrower's collateral
      * @param borrower wallet that has an outstanding debt for a certain maturity date
      * @param repayAmount amount to be repaid by liquidator(msg.sender)
@@ -368,21 +366,19 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     /**
      * @notice Public function to seize a certain amount of tokens
-     * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date.
+     * @dev Public function for liquidator to seize borrowers tokens in the smart pool.
      *      This function will only be called from another FixedLender, on `liquidation` calls.
      *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
      * @param liquidator address which will receive the seized tokens
      * @param borrower address from which the tokens will be seized
      * @param seizeAmount amount to be removed from borrower's posession
-     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function seize(
         address liquidator,
         address borrower,
-        uint256 seizeAmount,
-        uint256 maturityDate
+        uint256 seizeAmount
     ) external override nonReentrant whenNotPaused {
-        _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
+        _seize(msg.sender, liquidator, borrower, seizeAmount);
     }
 
     /**
@@ -455,6 +451,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         _unpause();
     }
 
+    /**
+     * @dev Gets the maturity dates where the user still owes money
+     * @param who the address of the user
+     * @return the array of the maturity dates where the user borrowed money
+     */
     function getUserMaturitiesOwed(address who)
         external
         view
@@ -465,8 +466,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @dev Gets current snapshot for a wallet in a certain maturity
-     * @param who wallet to return status snapshot in the specified maturity date
+     * @dev Gets current snapshot for a wallet in certain maturities
+     * @param who wallet to return status snapshot in the specified maturity dates
+     * @return the amount the user deposited to the smart pool and the total money he owes from maturities
      */
     function getAccountSnapshot(address who, uint256[] memory maturities)
         public
@@ -526,7 +528,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param borrower the address of the account that has the debt
      * @param repayAmount the amount of debt of the pool that should be paid
      * @param maturityDate the maturityDate to access the pool
-     * @return the actual amount that it was transferred in to the protocol
+     * @return the actual amount that it was transferred into the protocol
      */
     function _repay(
         address payer,
@@ -643,20 +645,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
         // both revert on failure
         if (address(fixedLenderCollateral) == address(this)) {
-            _seize(
-                address(this),
-                liquidator,
-                borrower,
-                seizeTokens,
-                maturityDate
-            );
+            _seize(address(this), liquidator, borrower, seizeTokens);
         } else {
-            fixedLenderCollateral.seize(
-                liquidator,
-                borrower,
-                seizeTokens,
-                maturityDate
-            );
+            fixedLenderCollateral.seize(liquidator, borrower, seizeTokens);
         }
 
         /* We emit a LiquidateBorrow event */
@@ -674,21 +665,19 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     /**
      * @notice Private function to seize a certain amount of tokens
-     * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date.
+     * @dev Private function for liquidator to seize borrowers tokens in the smart pool.
      *      This function will only be called from this FixedLender, on `liquidation` or through `seize` calls from another FixedLender.
      *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
      * @param seizerFixedLender address which is calling the seize function (see `seize` public function)
      * @param liquidator address which will receive the seized tokens
      * @param borrower address from which the tokens will be seized
      * @param seizeAmount amount to be removed from borrower's posession
-     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function _seize(
         address seizerFixedLender,
         address liquidator,
         address borrower,
-        uint256 seizeAmount,
-        uint256 maturityDate
+        uint256 seizeAmount
     ) internal {
         // reverts on failure
         auditor.seizeAllowed(
@@ -715,7 +704,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             amountToTransfer
         );
 
-        emit SeizeAsset(liquidator, borrower, seizeAmount, maturityDate);
+        emit SeizeAsset(liquidator, borrower, seizeAmount);
         emit AddReserves(address(this), protocolAmount);
     }
 

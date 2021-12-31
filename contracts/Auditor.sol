@@ -139,7 +139,7 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @dev Allows wallet to enter certain markets (fixedLenderDAI, fixedLenderETH, etc)
      *      By performing this action, the wallet's money could be used as collateral
-     * @param fixedLenders contracts addresses to enable for `msg.sender` for a certain maturity
+     * @param fixedLenders contracts addresses to enable for `msg.sender`
      */
     function enterMarkets(address[] calldata fixedLenders) external {
         uint256 len = fixedLenders.length;
@@ -226,9 +226,12 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Function to enable a certain FixedLender market to be used as collateral
+     * @dev Function to enable a certain FixedLender market
      * @param fixedLender address to add to the protocol
      * @param collateralFactor fixedLender's collateral factor for the underlying asset
+     * @param symbol symbol of the market's underlying asset
+     * @param name name of the market's underlying asset
+     * @param decimals decimals of the market's underlying asset
      */
     function enableMarket(
         address fixedLender,
@@ -293,9 +296,9 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Hook function to be called before someone supplies money from the smart pool
+     * @dev Hook function to be called before someone supplies money to the smart pool
      *      This function basically checks if the address of the fixedLender market is
-     *      valid and makes sure to accrue EXA tokens to the market and the user.
+     *      valid and updates EXA rewards accordingly.
      * @param fixedLenderAddress address of the fixedLender that has the smart pool that is going to be interacted with
      * @param supplier address of the user that will supply to the smart pool
      */
@@ -313,24 +316,22 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Hook function to be called before someone withdraws money from the smart pool
-     *      This function basically checks if the address of the fixedLender market is
-     *      valid and makes sure to accrue EXA tokens to the market and the user.
+     *      This function checks if the address of the fixedLender market is
+     *      valid and updates EXA rewards accordingly.
+     *      Also checks if the user has no outstanding debt.
      * @param fixedLenderAddress address of the fixedLender that has the smart pool that is going to be interacted with
      * @param redeemer address of the user that will withdraw money from the smart pool
-     * @param redeemAmount amount that will be lent out to the borrower (expressed with same precision as underlying)
+     * @param redeemAmount amount that will be withdrawn (expressed with same precision as underlying)
      */
     function beforeWithdrawSP(
         address fixedLenderAddress,
         address redeemer,
         uint256 redeemAmount
     ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        _beforeWithdrawSP(fixedLenderAddress, redeemer, redeemAmount);
 
         rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeSPSupplierExa(fixedLenderAddress, redeemer);
-        _beforeWithdrawSP(fixedLenderAddress, redeemer, redeemAmount);
     }
 
     /**
@@ -362,8 +363,8 @@ contract Auditor is IAuditor, AccessControl {
      *      This function updates rewards accordingly.
      *      This function is called from eToken contract.
      * @param fixedLenderAddress address of the fixedLender where this eToken is used
-     * @param sender address of the user that wants to repay its debt
-     * @param recipient address of the user that wants to repay its debt
+     * @param sender address of the sender of the tokens
+     * @param recipient address of the recipient of the tokens
      */
     function beforeTransferSP(
         address fixedLenderAddress,
@@ -474,8 +475,8 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @dev Function to allow/reject liquidation of assets. This function can be called
      *      externally, but only will have effect when called from a fixedLender.
-     * @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol)
      * @param fixedLenderBorrowed market from where the debt is pending
+     * @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol)
      * @param liquidator address that is liquidating the assets
      * @param borrower address which the assets are being liquidated
      * @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
@@ -584,8 +585,8 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Function to get account's liquidity for a certain maturity pool
-     * @param account wallet to retrieve liquidity for a certain maturity date
+     * @dev Function to get account's liquidity
+     * @param account wallet to retrieve liquidity
      */
     function getAccountLiquidity(address account)
         external
@@ -730,9 +731,9 @@ contract Auditor is IAuditor, AccessControl {
      *      This function verifies if market is valid, maturity is MATURED, checks if the user has no outstanding
      *      debts. This function is called indirectly from fixedLender contracts(redeem) and directly from this
      *      when the user wants to exit a market.
-     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
+     * @param fixedLenderAddress address of the fixedLender where the money will be withdrawn
      * @param redeemer address of the user that wants to withdraw it's money
-     * @param redeemAmount amount that the user wants to withdraw from the maturity
+     * @param redeemAmount amount that the user wants to withdraw from the smart pool
      */
     function _beforeWithdrawSP(
         address fixedLenderAddress,
