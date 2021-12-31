@@ -3,14 +3,18 @@ pragma solidity ^0.8.4;
 import "../utils/TSUtils.sol";
 
 interface IAuditor {
-    function beforeSupplyOrWithdrawSP(
+    function beforeDepositSP(address fixedLenderAddress, address supplier)
+        external;
+
+    function beforeWithdrawSP(
         address fixedLenderAddress,
-        address interactor
+        address redeemer,
+        uint256 redeemAmount
     ) external;
 
     function beforeDepositMP(
         address fixedLenderAddress,
-        address borrower,
+        address supplier,
         uint256 maturityDate
     ) external;
 
@@ -30,7 +34,6 @@ interface IAuditor {
     function beforeWithdrawMP(
         address fixedLenderAddress,
         address redeemer,
-        uint256 redeemTokens,
         uint256 maturityDate
     ) external;
 
@@ -40,7 +43,7 @@ interface IAuditor {
         uint256 maturityDate
     ) external;
 
-    function getAccountLiquidity(address account, uint256 maturityDate)
+    function getAccountLiquidity(address account)
         external
         view
         returns (uint256, uint256);
@@ -50,8 +53,7 @@ interface IAuditor {
         address fixedLenderCollateral,
         address liquidator,
         address borrower,
-        uint256 repayAmount,
-        uint256 maturityDate
+        uint256 repayAmount
     ) external view;
 
     function seizeAllowed(
