@@ -23,7 +23,7 @@ contract Auditor is IAuditor, AccessControl {
 
     uint256 public closeFactor = 5e17;
     uint256 public liquidationIncentive = 1e18 + 1e17;
-    uint8 public maxFuturePools = 12; // if every 14 days, then 6 months
+    uint8 public override maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
 
     // Rewards Management
@@ -749,11 +749,7 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        _requirePoolState(
-            maturityDate,
-            TSUtils.State.VALID,
-            TSUtils.State.MATURED
-        );
+        _requirePoolState(maturityDate, TSUtils.State.MATURED);
 
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
         if (

@@ -193,7 +193,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        maturityPools[maturityDate].takeMoney(smartPoolBorrowed, amount);
+        smartPoolBorrowed = maturityPools[maturityDate].takeMoney(
+            smartPoolBorrowed,
+            amount
+        );
+
+        if (
+            smartPoolBorrowed > eToken.totalSupply() / auditor.maxFuturePools()
+        ) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
 
         PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
 

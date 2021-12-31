@@ -69,6 +69,8 @@ interface IAuditor {
 
     function getFuturePools() external view returns (uint256[] memory);
 
+    function maxFuturePools() external view returns (uint8);
+
     function getMarketAddresses() external view returns (address[] memory);
 
     function requirePoolState(uint256 maturityDate, TSUtils.State requiredState)

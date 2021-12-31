@@ -19,13 +19,10 @@ describe("InterestRateModel", () => {
   let maturityPool = {
     borrowed: 0,
     supplied: 0,
-    debt: 0,
-    available: 0,
-  };
-
-  let smartPool = {
-    borrowed: 0,
-    supplied: 0,
+    suppliedSP: 0,
+    earnings: 0,
+    earningsSP: 0,
+    lastAccrue: 0,
   };
 
   beforeEach(async () => {
@@ -85,7 +82,13 @@ describe("InterestRateModel", () => {
 
   it("should revert on invalid pool id when trying to borrow", async () => {
     await expect(
-      interestRateModel.getRateToBorrow("123", maturityPool, smartPool, false)
+      interestRateModel.getRateToBorrow(
+        parseUnits("123", 0),
+        maturityPool,
+        parseUnits("1000"),
+        parseUnits("1000000"),
+        false
+      )
     ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
   });
 });
