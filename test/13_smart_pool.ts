@@ -3,7 +3,12 @@ import { ethers } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ExactlyEnv, errorGeneric, ProtocolError } from "./exactlyUtils";
+import {
+  ExactlyEnv,
+  ExaTime,
+  errorGeneric,
+  ProtocolError,
+} from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
 
 describe("Smart Pool", function () {
@@ -17,8 +22,10 @@ describe("Smart Pool", function () {
   let eWBTC: Contract;
   let bob: SignerWithAddress;
   let john: SignerWithAddress;
-  let bobBalancePre = parseUnits("2000");
-  let johnBalancePre = parseUnits("2000");
+  const bobBalancePre = parseUnits("2000");
+  const johnBalancePre = parseUnits("2000");
+  const exaTime: ExaTime = new ExaTime();
+  const nextPoolId: number = exaTime.nextPoolID();
 
   beforeEach(async () => {
     [, bob, john] = await ethers.getSigners();
@@ -192,6 +199,22 @@ describe("Smart Pool", function () {
       let balanceOfETokenInUserAddress = await eWBTC.balanceOf(bob.address);
 
       expect(balanceOfETokenInUserAddress).to.equal(parseUnits("1", 8));
+    });
+  });
+
+  describe("GIVEN bob deposits 100 DAI (collateralization rate 80%) AND borrows 60 DAI from a maturity", () => {
+    beforeEach(async () => {
+      exactlyEnv.switchWallet(bob);
+      await exactlyEnv.depositSP("DAI", "100");
+      await exactlyEnv.borrowMP("DAI", nextPoolId, "60");
+    });
+    it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+      await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith(
+        errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+      );
+    });
+    it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (10 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
+      await expect(exactlyEnv.withdrawSP("DAI", "10")).to.not.be.reverted;
     });
   });
 
