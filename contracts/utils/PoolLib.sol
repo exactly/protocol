@@ -15,6 +15,14 @@ library PoolLib {
         uint256 lastAccrue;
     }
 
+    /**
+     * @notice function that registers an operation to add money to
+     *         maturity pool that returns how much earnings will be shared
+     *         for that amount supplied
+     * @param pool maturity pool where money will be added
+     * @param maturityID timestamp in which maturity pool matures
+     * @param amount amount to be added to the maturity pool
+     */
     function addMoney(
         MaturityPool storage pool,
         uint256 maturityID,
@@ -36,30 +44,45 @@ library PoolLib {
         return earningsShare;
     }
 
-    function takeMoney(
-        MaturityPool storage pool,
-        uint256 smartPoolTotalDebt,
-        uint256 amountBorrow
-    ) external returns (uint256) {
+    /**
+     * @notice function that registers an operation to take money out of the
+     *         maturity pool that returns if there's new debt to be taken out
+     *         of the smart pool
+     * @param pool maturity pool where money needs to be taken out
+     * @param amount amount to be taken out of the pool before it matures
+     */
+    function takeMoney(MaturityPool storage pool, uint256 amount)
+        external
+        returns (uint256)
+    {
         uint256 oldBorrowed = pool.borrowed;
         uint256 supplied = pool.supplied;
-        uint256 newBorrowed = pool.borrowed + amountBorrow;
+        uint256 newBorrowed = pool.borrowed + amount;
+        uint256 newDebtSP = 0;
 
         pool.borrowed = newBorrowed;
 
         if (oldBorrowed > supplied) {
-            smartPoolTotalDebt += amountBorrow;
-            pool.suppliedSP += amountBorrow;
+            newDebtSP = amount;
+            pool.suppliedSP += amount;
         } else if (newBorrowed > supplied) {
             // this means that it's not "if (newBorrow <= supplied)" in this
             // case we take a little part from smart pool
-            smartPoolTotalDebt += amountBorrow - supplied - oldBorrowed;
-            pool.suppliedSP += amountBorrow - supplied - oldBorrowed;
+            newDebtSP = amount - supplied - oldBorrowed;
+            pool.suppliedSP += amount - supplied - oldBorrowed;
         }
 
-        return smartPoolTotalDebt;
+        return newDebtSP;
     }
 
+    /**
+     * @notice External function to accrue Smart Pool earnings and (possibly)
+     *         add more earnings to the pool to be collected at maturity
+     * @param pool maturity pool that needs to be updated
+     * @param maturityID timestamp in which maturity pool matures
+     * @param commission (optional) commission to be added to the earnings for
+     *                   the pool at maturity
+     */
     function addFee(
         MaturityPool storage pool,
         uint256 maturityID,
@@ -68,6 +91,14 @@ library PoolLib {
         _accrueAndAddFee(pool, maturityID, commission);
     }
 
+    /**
+     * @notice Internal function to accrue Smart Pool earnings and (possibly)
+     *         add more earnings to the pool to be collected at maturity
+     * @param pool maturity pool that needs to be updated
+     * @param maturityID timestamp in which maturity pool matures
+     * @param commission (optional) commission to be added to the earnings for
+     *                   the pool at maturity
+     */
     function _accrueAndAddFee(
         MaturityPool storage pool,
         uint256 maturityID,

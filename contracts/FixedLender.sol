@@ -193,10 +193,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        smartPoolBorrowed = maturityPools[maturityDate].takeMoney(
-            smartPoolBorrowed,
-            amount
-        );
+        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(amount);
 
         if (
             smartPoolBorrowed > eToken.totalSupply() / auditor.maxFuturePools()

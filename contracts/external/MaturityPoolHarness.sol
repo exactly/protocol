@@ -29,10 +29,7 @@ contract MaturityPoolHarness {
     }
 
     function takeMoneyMP(uint256 _amount) external {
-        smartPoolTotalDebt = maturityPool.takeMoney(
-            smartPoolTotalDebt,
-            _amount
-        );
+        smartPoolTotalDebt += maturityPool.takeMoney(_amount);
     }
 
     function addFeeMP(uint256 _maturityID, uint256 _amount) external {
