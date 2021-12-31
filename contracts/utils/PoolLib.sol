@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./TSUtils.sol";
-import "hardhat/console.sol";
 
 library PoolLib {
     struct MaturityPool {
