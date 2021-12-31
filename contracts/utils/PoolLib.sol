@@ -56,11 +56,11 @@ library PoolLib {
         returns (uint256)
     {
         uint256 oldBorrowed = pool.borrowed;
-        uint256 supplied = pool.supplied;
         uint256 newBorrowed = pool.borrowed + amount;
-        uint256 newDebtSP = 0;
-
         pool.borrowed = newBorrowed;
+
+        uint256 supplied = pool.supplied + pool.suppliedSP;
+        uint256 newDebtSP = 0;
 
         if (oldBorrowed > supplied) {
             newDebtSP = amount;
@@ -68,8 +68,8 @@ library PoolLib {
         } else if (newBorrowed > supplied) {
             // this means that it's not "if (newBorrow <= supplied)" in this
             // case we take a little part from smart pool
-            newDebtSP = amount - supplied - oldBorrowed;
-            pool.suppliedSP += amount - supplied - oldBorrowed;
+            newDebtSP = newBorrowed - supplied;
+            pool.suppliedSP += newBorrowed - supplied;
         }
 
         return newDebtSP;
