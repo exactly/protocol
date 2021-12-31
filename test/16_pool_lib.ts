@@ -229,7 +229,7 @@ describe("Pool Management Library", () => {
           expect(mp.earningsSP).to.equal(parseUnits("4"));
         });
 
-        it("THEN the pool 'earnings' at maturity are 2", async () => {
+        it("THEN the pool 'earnings' at maturity are 0.666", async () => {
           let mp = await poolEnv.mpHarness.maturityPool();
           expect(mp.earnings).to.closeTo(
             parseUnits("0.6666"),
@@ -237,7 +237,7 @@ describe("Pool Management Library", () => {
           );
         });
 
-        it("THEN the pool 'lastCommission' is 2", async () => {
+        it("THEN the pool 'lastCommission' is 1.3333", async () => {
           expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
             parseUnits("1.3333"),
             parseUnits("0.0001").toNumber()
