@@ -39,6 +39,11 @@ describe("Pool Management Library", () => {
         expect(mp.earnings).to.equal(parseUnits("0"));
       });
 
+      it("THEN the pool 'earningsSP' are 0", async () => {
+        let mp = await poolEnv.mpHarness.maturityPool();
+        expect(mp.earningsSP).to.equal(parseUnits("0"));
+      });
+
       it("THEN the smart pool total debt is 0", async () => {
         let smartPoolTotalDebt = await poolEnv.mpHarness.smartPoolTotalDebt();
         expect(smartPoolTotalDebt).to.equal(parseUnits("0"));
@@ -71,6 +76,11 @@ describe("Pool Management Library", () => {
           expect(mp.earnings).to.equal(parseUnits("10"));
         });
 
+        it("THEN the pool 'earningsSP' are 0", async () => {
+          let mp = await poolEnv.mpHarness.maturityPool();
+          expect(mp.earningsSP).to.equal(parseUnits("0"));
+        });
+
         it("THEN the smart pool total debt is 0", async () => {
           let smartPoolTotalDebt = await poolEnv.mpHarness.smartPoolTotalDebt();
           expect(smartPoolTotalDebt).to.equal(parseUnits("0"));
@@ -97,10 +107,61 @@ describe("Pool Management Library", () => {
             expect(mp.earnings).to.equal(parseUnits("18"));
           });
 
+          it("THEN the pool 'earningsSP' are 0", async () => {
+            let mp = await poolEnv.mpHarness.maturityPool();
+            expect(mp.earningsSP).to.equal(parseUnits("0"));
+          });
+
           it("THEN the smart pool total debt is 50", async () => {
             let smartPoolTotalDebt =
               await poolEnv.mpHarness.smartPoolTotalDebt();
             expect(smartPoolTotalDebt).to.equal(parseUnits("50"));
+          });
+
+          describe("AND WHEN we reach maturity and go over 1 day", async () => {
+            beforeEach(async () => {
+              await poolEnv.moveInTime(exaTime.day(11));
+              // adding a 0 fee forces accruing
+              await poolEnv.addFee(exaTime.nextPoolID(), "0");
+            });
+
+            it("THEN the pool 'earnings' at maturity are 0", async () => {
+              let mp = await poolEnv.mpHarness.maturityPool();
+              expect(mp.earnings).to.equal(parseUnits("0"));
+            });
+
+            it("THEN the pool 'earningsSP' are 18", async () => {
+              let mp = await poolEnv.mpHarness.maturityPool();
+              expect(mp.earningsSP).to.equal(parseUnits("18"));
+            });
+
+            it("THEN the 'lastAccrue' is equal to the maturity date", async () => {
+              let mp = await poolEnv.mpHarness.maturityPool();
+              expect(mp.lastAccrue).to.equal(exaTime.nextPoolID());
+            });
+
+            describe("AND WHEN one more day goes by, nothing changes", async () => {
+              beforeEach(async () => {
+                await poolEnv.moveInTime(exaTime.day(12));
+                // adding a 0 fee forces accruing
+                await poolEnv.addFee(exaTime.nextPoolID(), "0");
+              });
+
+              it("THEN the pool 'earnings' at maturity are 0", async () => {
+                let mp = await poolEnv.mpHarness.maturityPool();
+                expect(mp.earnings).to.equal(parseUnits("0"));
+              });
+
+              it("THEN the pool 'earningsSP' are 18", async () => {
+                let mp = await poolEnv.mpHarness.maturityPool();
+                expect(mp.earningsSP).to.equal(parseUnits("18"));
+              });
+
+              it("THEN the 'lastAccrue' is equal to the maturity date", async () => {
+                let mp = await poolEnv.mpHarness.maturityPool();
+                expect(mp.lastAccrue).to.equal(exaTime.nextPoolID());
+              });
+            });
           });
         });
       });
@@ -211,8 +272,6 @@ describe("Pool Management Library", () => {
       });
 
       it("THEN the pool 'lastCommission' is 5", async () => {
-        // fees were split between the fixed deposit and the rest
-        // will be for smart pool at maturity
         expect(await poolEnv.mpHarness.lastCommission()).to.equal(
           parseUnits("5")
         );
