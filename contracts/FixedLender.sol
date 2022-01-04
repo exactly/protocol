@@ -306,6 +306,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             maturityDate
         );
 
+        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
+            redeemAmount
+        );
+
         mpUserSuppliedAmount[maturityDate][redeemer] -= redeemAmount;
         totalMpDeposits -= redeemAmount;
         totalMpDepositsUser[redeemer] -= redeemAmount;
@@ -538,17 +542,20 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // then amountBorrowed is what should be discounted to the users account
         uint256 debtCovered = (repayAmount * amountBorrowed) / amountOwed;
         uint256 penalties = repayAmount - debtCovered;
-        eToken.accrueEarnings(penalties);
+
         mpUserBorrowedAmount[maturityDate][borrower] =
             amountBorrowed -
             debtCovered;
 
-        // That repayment diminishes debt in the pool
-        // TODO: Check what happens after maturity
-        uint256 commission = maturityPools[maturityDate].addMoney(
-            maturityDate,
-            debtCovered
-        );
+        // Pays: 1) Maturity Pool Depositors
+        //       2) Smart Pool Debt
+        //       3) Earnings Smart Pool the rest
+        (uint256 smartPoolDebtReduction, uint256 earningsRepay) = maturityPools[
+            maturityDate
+        ].repay(maturityDate, debtCovered);
+        eToken.accrueEarnings(earningsRepay);
+
+        smartPoolBorrowed -= smartPoolDebtReduction;
         totalMpBorrows -= debtCovered;
         totalMpBorrowsUser[borrower] -= debtCovered;
 

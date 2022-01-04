@@ -37,6 +37,10 @@ export class PoolEnv {
     return this.mpHarness.addMoneyMP(timestamp, parseUnits(amount));
   }
 
+  public async repay(timestamp: number, amount: string) {
+    return this.mpHarness.repayMP(timestamp, parseUnits(amount));
+  }
+
   static async create(): Promise<PoolEnv> {
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();

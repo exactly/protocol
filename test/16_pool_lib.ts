@@ -1,14 +1,20 @@
 import { expect } from "chai";
 import { parseUnits } from "ethers/lib/utils";
 import { ethers } from "hardhat";
-import { ExaTime } from "./exactlyUtils";
+import { ExactlyEnv, ExaTime } from "./exactlyUtils";
 import { PoolEnv } from "./poolEnv";
+import { DefaultEnv } from "./defaultEnv";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Pool Management Library", () => {
   const exaTime = new ExaTime();
 
   let poolEnv: PoolEnv;
+  let defaultEnv: DefaultEnv;
   let snapshot: any;
+  let juana: SignerWithAddress;
+  let walter: SignerWithAddress;
+  let cindy: SignerWithAddress;
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -406,6 +412,283 @@ describe("Pool Management Library", () => {
             parseUnits("1.3333"),
             parseUnits("0.0001").toNumber()
           );
+        });
+
+        describe("AND GIVEN that maturity arrives and someone repays", () => {
+          beforeEach(async () => {
+            await poolEnv.moveInTime(exaTime.day(10));
+            await poolEnv.repay(fakeMaturityPool, "200");
+          });
+
+          it("THEN the pool 'earningsSP' is 4.666", async () => {
+            let mp = await poolEnv.mpHarness.maturityPool();
+            expect(mp.earningsSP).to.closeTo(
+              parseUnits("4.6666"),
+              parseUnits("0.0001").toNumber()
+            );
+          });
+
+          it("THEN the pool 'earnings' at maturity are 0", async () => {
+            let mp = await poolEnv.mpHarness.maturityPool();
+            expect(mp.earnings).to.eq(0);
+          });
+
+          it("THEN the pool 'lastEarningsSP' is 0", async () => {
+            expect(await poolEnv.mpHarness.lastEarningsSP()).to.eq(0);
+          });
+
+          it("THEN the pool still owes 100 to the Smart Pool ('suppliedSP')", async () => {
+            let mp = await poolEnv.mpHarness.maturityPool();
+            expect(mp.suppliedSP).to.eq(parseUnits("100"));
+          });
+
+          it("THEN the pool have deposits to be repaid for 100", async () => {
+            let mp = await poolEnv.mpHarness.maturityPool();
+            expect(mp.supplied).to.eq(parseUnits("100"));
+          });
+
+          describe("AND GIVEN that someone repays again for 150", () => {
+            beforeEach(async () => {
+              await poolEnv.repay(fakeMaturityPool, "150");
+            });
+
+            it("THEN the pool 'earningsSP' is 4.666", async () => {
+              let mp = await poolEnv.mpHarness.maturityPool();
+              expect(mp.earningsSP).to.closeTo(
+                parseUnits("4.6666"),
+                parseUnits("0.0001").toNumber()
+              );
+            });
+
+            it("THEN the pool 'earnings' at maturity are 0", async () => {
+              let mp = await poolEnv.mpHarness.maturityPool();
+              expect(mp.earnings).to.eq(0);
+            });
+
+            it("THEN the pool 'lastEarningsSP' is 0", async () => {
+              expect(await poolEnv.mpHarness.lastEarningsSP()).to.eq(0);
+            });
+
+            it("THEN the pool 'suppliedSP' is 0", async () => {
+              let mp = await poolEnv.mpHarness.maturityPool();
+              expect(mp.suppliedSP).to.eq(parseUnits("50"));
+            });
+
+            it("THEN the pool have no more deposits", async () => {
+              let mp = await poolEnv.mpHarness.maturityPool();
+              expect(mp.supplied).to.eq(parseUnits("0"));
+            });
+
+            describe("AND GIVEN that someone repays again for 150", () => {
+              beforeEach(async () => {
+                await poolEnv.repay(fakeMaturityPool, "150");
+              });
+
+              it("THEN the pool 'earningsSP' is 0", async () => {
+                let mp = await poolEnv.mpHarness.maturityPool();
+                expect(mp.earningsSP).to.eq(0);
+              });
+
+              it("THEN the pool 'earnings' at maturity are 0", async () => {
+                let mp = await poolEnv.mpHarness.maturityPool();
+                expect(mp.earnings).to.eq(0);
+              });
+
+              it("THEN the pool 'lastEarningsSP' is 0", async () => {
+                expect(await poolEnv.mpHarness.lastEarningsSP()).to.eq(
+                  parseUnits("100") // SP receives the rest
+                  // (150 - 50SP Debt + 4.666 earnings + (100-4.666))
+                );
+              });
+
+              it("THEN the pool 'suppliedSP' is 0", async () => {
+                let mp = await poolEnv.mpHarness.maturityPool();
+                expect(mp.suppliedSP).to.eq(parseUnits("0"));
+              });
+
+              it("THEN the pool have no more deposits", async () => {
+                let mp = await poolEnv.mpHarness.maturityPool();
+                expect(mp.supplied).to.eq(parseUnits("0"));
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+
+  describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool", () => {
+    beforeEach(async () => {
+      defaultEnv = await ExactlyEnv.create({});
+      [, juana, cindy, walter] = await ethers.getSigners();
+      await defaultEnv.transfer("ETH", juana, "200");
+      await defaultEnv.transfer("DAI", juana, "200");
+      await defaultEnv.transfer("DAI", cindy, "3000");
+      await defaultEnv.transfer("DAI", walter, "60000");
+
+      defaultEnv.switchWallet(walter);
+      await defaultEnv.depositSP("DAI", "60000");
+      defaultEnv.switchWallet(juana);
+      await defaultEnv.depositMP("ETH", exaTime.nextPoolID(), "100");
+      await defaultEnv.enterMarkets(["ETH"], exaTime.nextPoolID());
+    });
+
+    describe("WHEN Juana borrows 4000 DAI in the next maturity pool", () => {
+      beforeEach(async () => {
+        defaultEnv.switchWallet(juana);
+        await defaultEnv.borrowMP("DAI", exaTime.nextPoolID(), "4000");
+      });
+
+      it("THEN the debt of the smart pool is 4000", async () => {
+        const mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
+        const borrowSP = await defaultEnv
+          .getFixedLender("DAI")
+          .smartPoolBorrowed();
+        expect(mp.suppliedSP).to.equal(parseUnits("4000"));
+        expect(borrowSP).to.equal(parseUnits("4000"));
+      });
+
+      describe("AND WHEN Cindy deposits 3000", () => {
+        beforeEach(async () => {
+          defaultEnv.switchWallet(cindy);
+          await defaultEnv.depositMP("DAI", exaTime.nextPoolID(), "3000");
+        });
+
+        describe("AND WHEN Juana repays 4000 at maturity", () => {
+          beforeEach(async () => {
+            defaultEnv.switchWallet(juana);
+            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "4000");
+          });
+
+          it("THEN the debt of the smart pool is back to 0", async () => {
+            const mp = await defaultEnv.maturityPool(
+              "DAI",
+              exaTime.nextPoolID()
+            );
+            const borrowSP = await defaultEnv
+              .getFixedLender("DAI")
+              .smartPoolBorrowed();
+            expect(mp.suppliedSP).to.equal(0);
+            expect(borrowSP).to.equal(0);
+          });
+        });
+
+        describe("AND Juana repays 2000 at maturity", () => {
+          beforeEach(async () => {
+            defaultEnv.switchWallet(juana);
+            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "2000");
+          });
+
+          it("THEN the debt of the smart pool is 2000", async () => {
+            const mp = await defaultEnv.maturityPool(
+              "DAI",
+              exaTime.nextPoolID()
+            );
+            const borrowSP = await defaultEnv
+              .getFixedLender("DAI")
+              .smartPoolBorrowed();
+            expect(mp.suppliedSP).to.equal(parseUnits("2000"));
+            expect(borrowSP).to.equal(parseUnits("2000"));
+          });
+
+          describe("AND Juana repays another 2000 at maturity", () => {
+            beforeEach(async () => {
+              defaultEnv.switchWallet(juana);
+              await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "2000");
+            });
+
+            it("THEN the debt of the smart pool is 0", async () => {
+              const mp = await defaultEnv.maturityPool(
+                "DAI",
+                exaTime.nextPoolID()
+              );
+              expect(mp.suppliedSP).to.equal(0);
+            });
+          });
+        });
+      });
+    });
+
+    describe("WHEN Cindy deposits 3000", () => {
+      beforeEach(async () => {
+        defaultEnv.switchWallet(cindy);
+        await defaultEnv.depositMP("DAI", exaTime.nextPoolID(), "3000");
+      });
+
+      describe("AND Juana borrows 4000 at maturity", () => {
+        beforeEach(async () => {
+          defaultEnv.switchWallet(juana);
+          await defaultEnv.borrowMP("DAI", exaTime.nextPoolID(), "4000");
+        });
+
+        it("THEN the debt of the smart pool is to 1000", async () => {
+          const mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
+          expect(mp.suppliedSP).to.equal(parseUnits("1000"));
+        });
+
+        describe("AND Cindy withdraws 3000 at maturity", () => {
+          beforeEach(async () => {
+            defaultEnv.switchWallet(cindy);
+            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await defaultEnv.withdrawMP("DAI", exaTime.nextPoolID(), "3000");
+          });
+
+          it("THEN the debt of the smart pool is to 4000", async () => {
+            const mp = await defaultEnv.maturityPool(
+              "DAI",
+              exaTime.nextPoolID()
+            );
+            expect(mp.suppliedSP).to.equal(parseUnits("4000"));
+          });
+        });
+
+        describe("AND Juana repays 4000 at maturity", () => {
+          beforeEach(async () => {
+            defaultEnv.switchWallet(juana);
+            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "4000");
+          });
+
+          it("THEN the debt of the smart pool is back to 0", async () => {
+            const mp = await defaultEnv.maturityPool(
+              "DAI",
+              exaTime.nextPoolID()
+            );
+            expect(mp.suppliedSP).to.equal(0);
+          });
+        });
+
+        describe("AND Juana repays 3000 at maturity", () => {
+          beforeEach(async () => {
+            defaultEnv.switchWallet(juana);
+            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "3000");
+          });
+
+          it("THEN the debt of the smart pool is still 1000", async () => {
+            const mp = await defaultEnv.maturityPool(
+              "DAI",
+              exaTime.nextPoolID()
+            );
+            expect(mp.suppliedSP).to.equal(parseUnits("1000"));
+          });
+
+          describe("AND Juana repays another 1000 at maturity", () => {
+            beforeEach(async () => {
+              defaultEnv.switchWallet(juana);
+              await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "1000");
+            });
+
+            it("THEN the debt of the smart pool is 0", async () => {
+              const mp = await defaultEnv.maturityPool(
+                "DAI",
+                exaTime.nextPoolID()
+              );
+              expect(mp.suppliedSP).to.equal(0);
+            });
+          });
         });
       });
     });

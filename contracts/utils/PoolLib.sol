@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./TSUtils.sol";
+import "hardhat/console.sol";
 
 library PoolLib {
     struct MaturityPool {
@@ -30,10 +31,7 @@ library PoolLib {
         // we use this function to accrue only
         // by passing 0 fees
         _accrueAndAddFee(pool, maturityID, 0);
-
-        uint256 oldSupplied = pool.supplied;
-        uint256 newSupplied = oldSupplied + amount;
-        pool.supplied = newSupplied;
+        pool.supplied += amount;
 
         // from now on, it's earnings calculations
         uint256 supply = pool.suppliedSP + amount;
@@ -72,6 +70,58 @@ library PoolLib {
         }
 
         return newDebtSP;
+    }
+
+    /**
+     * @notice function that registers an operation to repay to
+     *         maturity pool. Reduces the amount of supplied amount by
+     *         MP depositors, after that reduces SP debt, and finally
+     *         returns the amount of earnings to pay to SP
+     * @param pool maturity pool where money will be added
+     * @param maturityID timestamp in which maturity pool matures
+     * @param amount amount to be added to the maturity pool
+     */
+    function repay(
+        MaturityPool storage pool,
+        uint256 maturityID,
+        uint256 amount
+    ) external returns (uint256, uint256) {
+        // we use this function to accrue only
+        // by passing 0 fees
+        _accrueAndAddFee(pool, maturityID, 0);
+
+        uint256 borrowMP = pool.borrowed;
+        uint256 supplySP = pool.suppliedSP;
+        uint256 earningsSP = pool.earningsSP;
+
+        pool.borrowed = borrowMP - amount;
+
+        // This is the amount that is being lent out by the protocol
+        // that belongs to the MP depositors
+        uint256 depositsBorrowed = borrowMP - supplySP;
+        if (depositsBorrowed < amount) {
+            // if its more than the amount being repaid, then it should
+            // take a little part of the SP debt
+            uint256 extra = amount - depositsBorrowed;
+            if (extra < supplySP) {
+                // Covered part of the supply SP
+                pool.suppliedSP -= extra;
+                return (amount - depositsBorrowed, 0);
+            } else if (extra < supplySP + earningsSP) {
+                // Covered the supply SP and part of the earningsSP
+                pool.suppliedSP = 0;
+                uint256 comissionEarned = earningsSP + supplySP - extra;
+                pool.earningsSP -= comissionEarned;
+                return (supplySP, comissionEarned);
+            } else {
+                // Covered the supply SP and the earnings SP
+                pool.suppliedSP = 0;
+                pool.earningsSP = 0;
+                return (supplySP, amount - supplySP);
+            }
+        }
+
+        return (0, 0);
     }
 
     /**
