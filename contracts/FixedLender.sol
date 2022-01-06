@@ -543,12 +543,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             amountBorrowed -
             debtCovered;
 
-        // That repayment diminishes debt in the pool
-        // TODO: Check what happens after maturity
-        uint256 commission = maturityPools[maturityDate].addMoney(
-            maturityDate,
-            debtCovered
-        );
+        maturityPools[maturityDate].addMoney(maturityDate, debtCovered);
         totalMpBorrows -= debtCovered;
         totalMpBorrowsUser[borrower] -= debtCovered;
 
