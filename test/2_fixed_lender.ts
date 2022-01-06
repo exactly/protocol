@@ -287,9 +287,12 @@ describe("FixedLender", function () {
         ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
       });
     });
-    describe("actions enabled/disabled at different pool stages", () => {
+    describe("actions enabled/disabled at different pool stages when Smart Pool has liquidity", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(owner);
+        // We add liquidity to the smart pool for the maturity pool
+        // to be able to borrow from it. It can borrow up to 1/12
+        // of the total supply of the Smart Pool
         await exactlyEnv.depositSP("DAI", "100000");
         exactlyEnv.switchWallet(mariaUser);
       });
