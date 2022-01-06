@@ -5,6 +5,28 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./TSUtils.sol";
 
 library PoolLib {
+    /**
+     * @notice struct that helps manage the maturity pools and also keep
+     * @param borrowed total amount borrowed at the MP
+     * @param supplied total amount supplied to the MP
+     * @param suppliedSP total amount borrowed over time from the SP.
+     *        It's worth noticing that it only increases, and it's the last
+     *        debt to be repaid at maturity
+     * @param earnings total amount of earnings to be collected at maturity.
+     *        This earnings haven't accrued yet (see: lastAccrue). Each interaction
+     *        with the MP, some of these earnings are accrued to earningsSP. This is
+     *        done by doing:
+     *             EARNINGSSP += DAYS(NOW - LAST_ACCRUE) * EARNINGS /
+     *                              DAYS(MATURITY_DATE - LAST_ACCRUE)
+     *        If there's a new deposit to the MP, the commission for that deposit comes
+     *        out of the future earnings:
+     *              NEWCOMMISSION = DEPOSIT * EARNINGS / (SUPPLIEDSP + DEPOSIT);
+     *              EARNINGS -= NEWCOMMISSION;
+     * @param earningsSP total amount of earnings that already belong to the SP
+     * @param lastAccrue timestamp for the last time that some of the earnings
+     *        have been transferred to earningsSP (SP gained some earnings for having
+     *        supported the loans)
+     */
     struct MaturityPool {
         uint256 borrowed;
         uint256 supplied;
