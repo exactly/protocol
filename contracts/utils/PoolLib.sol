@@ -53,9 +53,7 @@ library PoolLib {
         // by passing 0 fees
         _accrueAndAddFee(pool, maturityID, 0);
 
-        uint256 oldSupplied = pool.supplied;
-        uint256 newSupplied = oldSupplied + amount;
-        pool.supplied = newSupplied;
+        pool.supplied += amount;
 
         // from now on, it's earnings calculations
         uint256 supply = pool.suppliedSP + amount;
