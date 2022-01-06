@@ -90,6 +90,33 @@ describe("FixedLender", function () {
         exactlyEnv.borrowMP("DAI", nextPoolId, "90")
       ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
     });
+    describe("AND WHEN depositing 50 DAI to the same maturity, as the same user", () => {
+      let tx: any;
+      beforeEach(async () => {
+        tx = exactlyEnv.depositMP("DAI", nextPoolId, "50");
+        await tx;
+      });
+      it("THEN a DepositToMaturityPool event is emitted", async () => {
+        await expect(tx).to.emit(fixedLender, "DepositToMaturityPool").withArgs(
+          mariaUser.address,
+          parseUnits("50"),
+          parseUnits("0"), // commission, its zero with the mocked rate
+          nextPoolId
+        );
+      });
+      it("AND the FixedLender contract has a balance of 150 DAI", async () => {
+        expect(await underlyingToken.balanceOf(fixedLender.address)).to.equal(
+          parseUnits("150")
+        );
+      });
+      it("AND the FixedLender registers a supply of 150 DAI for the user (exposed via getAccountSnapshot)", async () => {
+        expect(
+          (
+            await fixedLender.getAccountSnapshot(mariaUser.address, nextPoolId)
+          )[0]
+        ).to.be.equal(parseUnits("150"));
+      });
+    });
 
     describe("WHEN borrowing 60 DAI from the same maturity", () => {
       let tx: any;
