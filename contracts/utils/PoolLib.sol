@@ -74,19 +74,15 @@ library PoolLib {
         external
         returns (uint256)
     {
-        uint256 oldBorrowed = pool.borrowed;
         uint256 newBorrowed = pool.borrowed + amount;
         pool.borrowed = newBorrowed;
 
         uint256 supplied = pool.supplied + pool.suppliedSP;
         uint256 newDebtSP = 0;
 
-        if (oldBorrowed > supplied) {
-            newDebtSP = amount;
-            pool.suppliedSP += amount;
-        } else if (newBorrowed > supplied) {
-            // this means that it's not "if (newBorrow <= supplied)" in this
-            // case we take a little part from smart pool
+        if (newBorrowed > supplied) {
+            // We take money out from the Smart Pool
+            // because there's not enough in the MP
             newDebtSP = newBorrowed - supplied;
             pool.suppliedSP += newBorrowed - supplied;
         }
