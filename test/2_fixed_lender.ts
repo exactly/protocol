@@ -453,7 +453,7 @@ describe("FixedLender", function () {
           expect(smartPool.borrowed).to.eq(parseUnits("200"));
           expect(maturityPool.suppliedSP).to.eq(parseUnits("200"));
         });
-        it("AND WHEN trying to withdraw 300 ==(6000 total, 200 borrowed to MP) from the smart pool, THEN it succeeds", async () => {
+        it("AND WHEN trying to withdraw 300 ==(500 available, 200 borrowed to MP) from the smart pool, THEN it succeeds", async () => {
           await expect(exactlyEnv.withdrawSP("DAI", "300")).to.not.be.reverted;
         });
         it("AND WHEN trying to withdraw 5900 >(6000 total, 200 borrowed to MP) from the smart pool, THEN it reverts because 100 of those 5900 are still lent to the maturity pool", async () => {
