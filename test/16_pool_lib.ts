@@ -61,7 +61,7 @@ describe("Pool Management Library", () => {
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
-        it("THEN the pool 'borrowed' is 100", async () => {
+        it("THEN the pool 'borrowed' is 80", async () => {
           expect(mp.borrowed).to.equal(parseUnits("80"));
         });
 
