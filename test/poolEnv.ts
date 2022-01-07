@@ -70,8 +70,6 @@ export class PoolEnv {
     let maturityPoolHarness = await MaturityPoolHarness.deploy(eToken.address);
     await maturityPoolHarness.deployed();
 
-    return new Promise<PoolEnv>((resolve) => {
-      resolve(new PoolEnv(tsUtils, poolLib, eToken, maturityPoolHarness));
-    });
+    return new PoolEnv(tsUtils, poolLib, eToken, maturityPoolHarness);
   }
 }
