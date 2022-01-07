@@ -181,31 +181,6 @@ describe("Pool Management Library", () => {
       });
     });
 
-    describe("WHEN 100 token are deposited, with no previous borrows (none deposited)", async () => {
-      let mp: any;
-      beforeEach(async () => {
-        await poolEnv.addMoney(exaTime.nextPoolID(), "100");
-        mp = await poolEnv.mpHarness.maturityPool();
-      });
-
-      it("THEN the pool 'borrowed' is 0", async () => {
-        expect(mp.borrowed).to.equal(parseUnits("0"));
-      });
-
-      it("THEN the pool 'unassignedEarnings' are 0", async () => {
-        expect(mp.unassignedEarnings).to.equal(parseUnits("0"));
-      });
-
-      it("THEN the pool 'supplied' is 100", async () => {
-        expect(mp.supplied).to.equal(parseUnits("100"));
-      });
-
-      it("THEN the smart pool total debt is 0", async () => {
-        let smartPoolTotalDebt = await poolEnv.mpHarness.smartPoolTotalDebt();
-        expect(smartPoolTotalDebt).to.equal(parseUnits("0"));
-      });
-    });
-
     describe("WHEN 100 tokens are borrowed, 10 tokens are fees, and 100 token are deposited (same deposited)", async () => {
       let mp: any;
       beforeEach(async () => {
