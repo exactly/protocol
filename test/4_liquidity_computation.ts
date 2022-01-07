@@ -54,14 +54,19 @@ describe("Liquidity computations", function () {
     // TODO: perhaps pass the addresses to ExactlyEnv.create and do all the
     // transfers in the same place?
     // wbtc laura will provide liquidity on
-    await wbtc.transfer(laura.address, parseUnits("100000", 8));
+    await wbtc.transfer(laura.address, parseUnits("90000", 8));
+    await usdc.transfer(laura.address, parseUnits("5", 6));
     await dai.transfer(laura.address, parseUnits("100000"));
     // dai & usdc bob will use as collateral
     await dai.transfer(bob.address, parseUnits("100000"));
     await usdc.transfer(bob.address, parseUnits("100000", 6));
     // we make DAI & USDC count as collateral
     await auditor.enterMarkets(
-      [fixedLenderDAI.address, fixedLenderUSDC.address],
+      [
+        fixedLenderDAI.address,
+        fixedLenderUSDC.address,
+        fixedLenderWBTC.address,
+      ],
       nextPoolID
     );
     await auditor
@@ -245,6 +250,52 @@ describe("Liquidity computations", function () {
   });
 
   describe("support for tokens with different decimals", () => {
+    describe("GIVEN liquidity on the USDC pool ", () => {
+      beforeEach(async () => {
+        const amount = parseUnits("3", 6);
+        await usdc.connect(laura).approve(fixedLenderUSDC.address, amount);
+        await fixedLenderUSDC
+          .connect(laura)
+          .depositToMaturityPool(amount, nextPoolID, amount);
+      });
+      describe("WHEN bob does a 1 sat deposit", () => {
+        beforeEach(async () => {
+          await wbtc.connect(bob).approve(fixedLenderWBTC.address, "10000000");
+          await fixedLenderWBTC.depositToMaturityPool("1", nextPoolID, "1");
+        });
+        it("THEN bobs liquidity is 63000 * 0.6 * 10 ^ - 8 usd == 3.78*10^14 minimal usd units", async () => {
+          const [liquidity] = await auditor.getAccountLiquidity(
+            bob.address,
+            nextPoolID
+          );
+          expect(liquidity).to.eq(parseUnits("3.78", 14));
+        });
+        it("AND WHEN he tries to take a 4*10^14 usd USDC loan, THEN it reverts", async () => {
+          // We expect liquidity to be equal to zero
+          await expect(
+            fixedLenderUSDC
+              .connect(bob)
+              .borrowFromMaturityPool("400", nextPoolID, "400")
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+          );
+        });
+        describe("AND WHEN he takes a 3*10^14 USDC loan", () => {
+          beforeEach(async () => {
+            await fixedLenderUSDC
+              .connect(bob)
+              .borrowFromMaturityPool("300", nextPoolID, "300");
+          });
+          it("THEN he has 7.8*10^13 usd left of liquidity", async () => {
+            const [liquidity] = await auditor.getAccountLiquidity(
+              bob.address,
+              nextPoolID
+            );
+            expect(liquidity).to.eq(parseUnits("7.8", 13));
+          });
+        });
+      });
+    });
     describe("GIVEN theres liquidity on the btc fixedLender", () => {
       beforeEach(async () => {
         // laura supplies wbtc to the protocol to have lendable money in the pool
