@@ -34,8 +34,8 @@ describe("Pool Management Library", () => {
         expect(mp.supplied).to.equal(parseUnits("100"));
       });
 
-      it("THEN the pool 'earnings' at maturity are 0", async () => {
-        expect(mp.earnings).to.equal(parseUnits("0"));
+      it("THEN the pool 'unassignedEarnings' are 0", async () => {
+        expect(mp.unassignedEarnings).to.equal(parseUnits("0"));
       });
 
       it("THEN the pool 'earningsSP' are 0", async () => {
@@ -69,8 +69,8 @@ describe("Pool Management Library", () => {
           expect(mp.supplied).to.equal(parseUnits("100"));
         });
 
-        it("THEN the pool 'earnings' at maturity are 10", async () => {
-          expect(mp.earnings).to.equal(parseUnits("10"));
+        it("THEN the pool 'unassignedEarnings' are 10", async () => {
+          expect(mp.unassignedEarnings).to.equal(parseUnits("10"));
         });
 
         it("THEN the pool 'earningsSP' are 0", async () => {
@@ -99,7 +99,7 @@ describe("Pool Management Library", () => {
           });
 
           it("THEN the pool 'earnings' at maturity are 18", async () => {
-            expect(mp.earnings).to.equal(parseUnits("18"));
+            expect(mp.unassignedEarnings).to.equal(parseUnits("18"));
           });
 
           it("THEN the pool 'earningsSP' are 0", async () => {
@@ -122,7 +122,7 @@ describe("Pool Management Library", () => {
             });
 
             it("THEN the pool 'earnings' at maturity are 0", async () => {
-              expect(mp.earnings).to.equal(parseUnits("0"));
+              expect(mp.unassignedEarnings).to.equal(parseUnits("0"));
             });
 
             it("THEN the pool 'earningsSP' are 18", async () => {
@@ -143,7 +143,7 @@ describe("Pool Management Library", () => {
               });
 
               it("THEN the pool 'earnings' at maturity are 0", async () => {
-                expect(mp.earnings).to.equal(parseUnits("0"));
+                expect(mp.unassignedEarnings).to.equal(parseUnits("0"));
               });
 
               it("THEN the pool 'earningsSP' are 18", async () => {
@@ -171,8 +171,8 @@ describe("Pool Management Library", () => {
         expect(mp.borrowed).to.equal(parseUnits("100"));
       });
 
-      it("THEN the pool 'earnings' at maturity are 10", async () => {
-        expect(mp.earnings).to.equal(parseUnits("10"));
+      it("THEN the pool 'unassignedEarnings' are 10", async () => {
+        expect(mp.unassignedEarnings).to.equal(parseUnits("10"));
       });
 
       it("THEN the smart pool total debt is 100", async () => {
@@ -192,8 +192,8 @@ describe("Pool Management Library", () => {
         expect(mp.borrowed).to.equal(parseUnits("0"));
       });
 
-      it("THEN the pool 'earnings' at maturity are 0", async () => {
-        expect(mp.earnings).to.equal(parseUnits("0"));
+      it("THEN the pool 'unassignedEarnings' are 0", async () => {
+        expect(mp.unassignedEarnings).to.equal(parseUnits("0"));
       });
 
       it("THEN the pool 'supplied' is 100", async () => {
@@ -219,8 +219,8 @@ describe("Pool Management Library", () => {
         expect(mp.borrowed).to.equal(parseUnits("100"));
       });
 
-      it("THEN the pool 'earnings' at maturity are 5", async () => {
-        expect(mp.earnings).to.equal(parseUnits("5"));
+      it("THEN the pool 'unassignedEarnings' are 5", async () => {
+        expect(mp.unassignedEarnings).to.equal(parseUnits("5"));
       });
 
       it("THEN the pool 'lastCommission' is 5", async () => {
@@ -256,8 +256,8 @@ describe("Pool Management Library", () => {
         expect(mp.borrowed).to.equal(parseUnits("100"));
       });
 
-      it("THEN the pool 'earnings' at maturity are 10", async () => {
-        expect(mp.earnings).to.equal(parseUnits("10"));
+      it("THEN the pool 'unassignedEarnings' are 10", async () => {
+        expect(mp.unassignedEarnings).to.equal(parseUnits("10"));
       });
 
       it("THEN the pool 'lastCommission' is 5", async () => {
@@ -293,8 +293,8 @@ describe("Pool Management Library", () => {
         expect(mp.borrowed).to.equal(parseUnits("100"));
       });
 
-      it("THEN the pool 'earnings' at maturity is 10", async () => {
-        expect(mp.earnings).to.equal(parseUnits("10"));
+      it("THEN the pool 'unassignedEarnings' are 10", async () => {
+        expect(mp.unassignedEarnings).to.equal(parseUnits("10"));
       });
 
       it("THEN the pool 'lastCommission' is 50", async () => {
@@ -339,8 +339,8 @@ describe("Pool Management Library", () => {
         expect(mp.earningsSP).to.equal(parseUnits("2"));
       });
 
-      it("THEN the pool 'earnings' at maturity are 4", async () => {
-        expect(mp.earnings).to.equal(parseUnits("4"));
+      it("THEN the pool 'unassignedEarnings' are 4", async () => {
+        expect(mp.unassignedEarnings).to.equal(parseUnits("4"));
       });
 
       it("THEN the pool 'lastCommission' is 4", async () => {
@@ -362,8 +362,8 @@ describe("Pool Management Library", () => {
           expect(mp.earningsSP).to.equal(parseUnits("4"));
         });
 
-        it("THEN the pool 'earnings' at maturity are 12", async () => {
-          expect(mp.earnings).to.eq(parseUnits("12"));
+        it("THEN the pool 'unassignedEarnings' are 12", async () => {
+          expect(mp.unassignedEarnings).to.eq(parseUnits("12"));
         });
       });
 
@@ -379,8 +379,8 @@ describe("Pool Management Library", () => {
           expect(mp.earningsSP).to.equal(parseUnits("4"));
         });
 
-        it("THEN the pool 'earnings' at maturity are 0.666", async () => {
-          expect(mp.earnings).to.closeTo(
+        it("THEN the pool 'unassignedEarnings' are 0.666", async () => {
+          expect(mp.unassignedEarnings).to.closeTo(
             parseUnits("0.6666"),
             parseUnits("0.0001").toNumber()
           );

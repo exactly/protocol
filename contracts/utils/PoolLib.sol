@@ -31,7 +31,7 @@ library PoolLib {
         uint256 borrowed;
         uint256 supplied;
         uint256 suppliedSP;
-        uint256 earnings;
+        uint256 unassignedEarnings;
         uint256 earningsSP;
         uint256 lastAccrue;
     }
@@ -57,9 +57,11 @@ library PoolLib {
 
         // from now on, it's earnings calculations
         uint256 supply = pool.suppliedSP + amount;
-        uint256 earnings = pool.earnings;
-        uint256 earningsShare = supply == 0 ? 0 : (amount * earnings) / supply;
-        pool.earnings -= earningsShare;
+        uint256 unassignedEarnings = pool.unassignedEarnings;
+        uint256 earningsShare = supply == 0
+            ? 0
+            : (amount * unassignedEarnings) / supply;
+        pool.unassignedEarnings -= earningsShare;
         return earningsShare;
     }
 
@@ -138,14 +140,17 @@ library PoolLib {
             pool.lastAccrue,
             maturityID
         );
-        uint256 earnings = pool.earnings;
+        uint256 unassignedEarnings = pool.unassignedEarnings;
 
         // assign some of the earnings to be collected at maturity
         uint256 earningsToAccrue = daysTotalToMaturity == 0
             ? 0
-            : (earnings * daysSinceLastAccrue) / daysTotalToMaturity;
+            : (unassignedEarnings * daysSinceLastAccrue) / daysTotalToMaturity;
         pool.earningsSP += earningsToAccrue;
-        pool.earnings = earnings - earningsToAccrue + commission;
+        pool.unassignedEarnings =
+            unassignedEarnings -
+            earningsToAccrue +
+            commission;
         pool.lastAccrue = Math.min(maturityID, block.timestamp);
     }
 }
