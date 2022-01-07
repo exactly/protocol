@@ -67,13 +67,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      *      in the smart pool
      * @param maturityDate maturity date for calculating days left to maturity
      * @param maturityPool supply/demand values for the maturity pool
-     * @param smartPool supply/demand values for the smartPool
+     * @param smartPoolTotalDebt demand values for the smart pool
+     * @param smartPoolTotalSupply supply values for the smart pool
      * @param newDebt checks if the maturity pool borrows money from the smart pool in this borrow
      */
     function getRateToBorrow(
         uint256 maturityDate,
         PoolLib.MaturityPool memory maturityPool,
-        PoolLib.SmartPool memory smartPool,
+        uint256 smartPoolTotalDebt,
+        uint256 smartPoolTotalSupply,
         bool newDebt
     ) external view override returns (uint256) {
         if (!TSUtils.isPoolID(maturityDate)) {
@@ -91,19 +93,19 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
                     (mpSlopeRate * maturityPool.borrowed) /
                     maturityPool.supplied;
         } else {
-            if (smartPool.supplied == 0) {
+            if (smartPoolTotalSupply == 0) {
                 revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
             }
-            uint256 smartPoolUtilizationRate = smartPool.borrowed.div_(
-                smartPool.supplied
+            uint256 smartPoolUtilizationRate = smartPoolTotalDebt.div_(
+                smartPoolTotalSupply
             );
             uint256 spCurrentSlopeRate = smartPoolUtilizationRate >=
                 slopeChangeRate
                 ? spHighURSlopeRate
                 : spSlopeRate;
 
-            uint256 smartPoolRate = (spCurrentSlopeRate * smartPool.borrowed) /
-                smartPool.supplied;
+            uint256 smartPoolRate = (spCurrentSlopeRate * smartPoolTotalDebt) /
+                smartPoolTotalSupply;
             uint256 maturityPoolRate = maturityPool.supplied == 0
                 ? 0
                 : baseRate +
@@ -114,31 +116,5 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         }
 
         return ((yearlyRate * daysDifference) / 365);
-    }
-
-    /**
-     * @dev Get current rate for supplying a certain amount in a certain maturity
-     *      with supply/demand values in the maturity pool and supply demand values
-     *      in the smart pool
-     * @param maturityDate maturity date for calculating days left to maturity
-     * @param maturityPool supply/demand values for the maturity pool
-     */
-    function getRateToSupply(
-        uint256 maturityDate,
-        PoolLib.MaturityPool memory maturityPool
-    ) external view override returns (uint256) {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        uint256 maturityPoolYearlyRate = maturityPool.supplied == 0
-            ? 0
-            : baseRate +
-                ((mpSlopeRate * maturityPool.borrowed) / maturityPool.supplied);
-
-        uint256 daysDifference = (maturityDate -
-            TSUtils.trimmedDay(block.timestamp)) / 1 days;
-
-        return (maturityPoolYearlyRate * daysDifference) / (365);
     }
 }

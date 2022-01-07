@@ -11,6 +11,15 @@ export type MockedTokenSpec = {
   usdPrice: BigNumber;
 };
 
+export class SmartPoolState {
+  supplied: BigNumber;
+  borrowed: BigNumber;
+  constructor(_supplied: BigNumber, _borrowed: BigNumber) {
+    this.supplied = _supplied;
+    this.borrowed = _borrowed;
+  }
+}
+
 export class DefaultEnv {
   oracle: Contract;
   auditor: Contract;
@@ -249,6 +258,10 @@ export class DefaultEnv {
       .setLiquidationIncentive(parseUnits(incentive));
   }
 
+  public async smartPoolBorrowed(asset: string) {
+    return this.getFixedLender(asset).smartPoolBorrowed();
+  }
+
   public async setBorrowCaps(assets: string[], borrowCaps: string[]) {
     assert(assets.length == borrowCaps.length);
 
@@ -320,5 +333,14 @@ export class DefaultEnv {
 
     await fixedLender.deployed();
     return fixedLender;
+  }
+
+  public async smartPoolState(assetString: string) {
+    const fixedLender = this.getFixedLender(assetString);
+    const eToken = this.getEToken(assetString);
+    return new SmartPoolState(
+      await eToken.totalSupply(),
+      await fixedLender.smartPoolBorrowed()
+    );
   }
 }
