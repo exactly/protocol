@@ -121,12 +121,12 @@ library PoolLib {
         uint256 maturityID,
         uint256 commission
     ) internal {
-        if (pool.lastAccrue == 0) {
-            pool.lastAccrue = Math.min(maturityID, block.timestamp);
-        }
-
         if (pool.lastAccrue == maturityID) {
             return;
+        }
+
+        if (pool.lastAccrue == 0) {
+            pool.lastAccrue = Math.min(maturityID, block.timestamp);
         }
 
         // days from last accrual to the closest:
