@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./TSUtils.sol";
-import "hardhat/console.sol";
 
 library PoolLib {
     /**
@@ -115,7 +114,9 @@ library PoolLib {
         uint256 supplySP = pool.suppliedSP;
         uint256 earningsSP = pool.earningsSP;
 
-        pool.borrowed = borrowMP - amount;
+        // You can't have repayments bigger than the borrowed amount
+        // but amount might contain the penalties
+        pool.borrowed = borrowMP - Math.min(borrowMP, amount);
 
         // This is the amount that is being lent out by the protocol
         // that belongs to the MP depositors
@@ -124,10 +125,10 @@ library PoolLib {
             // if its more than the amount being repaid, then it should
             // take a little part of the SP debt
             uint256 extra = amount - depositsBorrowed;
-            if (extra < supplySP) {
+            if (extra <= supplySP) {
                 // Covered part of the supply SP
                 pool.suppliedSP -= extra;
-                return (amount - depositsBorrowed, 0);
+                return (extra, 0);
             } else if (extra < supplySP + earningsSP) {
                 // Covered the supply SP and part of the earningsSP
                 pool.suppliedSP = 0;
