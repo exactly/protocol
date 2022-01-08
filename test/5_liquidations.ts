@@ -244,7 +244,7 @@ describe("Liquidations", function () {
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
           });
 
-          it("THEN john DID NOT collected the penalty fees for being in the smart pool on the 19K repay", async () => {
+          it("THEN john DID NOT collected the penalty fees because there's still SP debt", async () => {
             let johnBalanceEDAI = await exactlyEnv
               .getEToken("DAI")
               .balanceOf(john.address);
@@ -356,7 +356,7 @@ describe("Liquidations", function () {
             expect(balancePostBTC.sub(balancePreBTC)).to.equal(receivedBTC);
           });
 
-          it("THEN john collected the penalty fees for being in the smart pool on the 17100 repay", async () => {
+          it("THEN john DID NOT collect the penalty fees because there's still debt", async () => {
             let johnBalanceEDAI = await exactlyEnv
               .getEToken("DAI")
               .balanceOf(john.address);
