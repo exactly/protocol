@@ -552,7 +552,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         //       3) Earnings Smart Pool the rest
         (uint256 smartPoolDebtReduction, uint256 earningsRepay) = maturityPools[
             maturityDate
-        ].repay(maturityDate, debtCovered);
+        ].repay(maturityDate, repayAmount);
         eToken.accrueEarnings(earningsRepay);
 
         smartPoolBorrowed -= smartPoolDebtReduction;

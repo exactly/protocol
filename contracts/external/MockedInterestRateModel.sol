@@ -22,10 +22,6 @@ contract MockedInterestRateModel is IInterestRateModel {
         return borrowRate;
     }
 
-    function setSupplyRate(uint256 newRate) public {
-        supplyRate = newRate;
-    }
-
     function setBorrowRate(uint256 newRate) public {
         borrowRate = newRate;
     }
