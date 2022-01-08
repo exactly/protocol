@@ -15,7 +15,6 @@ import "./interfaces/IInterestRateModel.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
-import "hardhat/console.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using SafeERC20 for IERC20;
