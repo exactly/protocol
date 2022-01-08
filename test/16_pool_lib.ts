@@ -658,12 +658,12 @@ describe("Pool Management Library", () => {
                 .withArgs(0);
             });
 
-            describe("AND Juana repays another 100 one(1) day after maturity for penalties", () => {
+            describe("AND Juana repays another 60 one(1) day after maturity for penalties", () => {
               let tx2: any;
               beforeEach(async () => {
                 await tx;
                 defaultEnv.switchWallet(juana);
-                tx2 = defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "100");
+                tx2 = defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "60");
               });
 
               it("THEN the debt of the smart pool is 0", async () => {
@@ -678,7 +678,7 @@ describe("Pool Management Library", () => {
               it("THEN Juana got to cover her penalties", async () => {
                 await expect(tx2)
                   .to.emit(defaultEnv.getEToken("DAI"), "EarningsAccrued")
-                  .withArgs(parseUnits("100"));
+                  .withArgs(parseUnits("60"));
               });
             });
           });

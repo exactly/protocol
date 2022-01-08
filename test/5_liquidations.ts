@@ -244,25 +244,13 @@ describe("Liquidations", function () {
               .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
           });
 
-          it("THEN john collected the penalty fees for being in the smart pool on the 19K repay", async () => {
+          it("THEN john DID NOT collected the penalty fees for being in the smart pool on the 19K repay", async () => {
             let johnBalanceEDAI = await exactlyEnv
               .getEToken("DAI")
               .balanceOf(john.address);
 
-            // Borrowed is 39850 + interests
-            const totalBorrowAmount = parseUnits("39900");
-            // penalty is 2% * 20 days = 40/100 + 1 = 140/100
-            // so amount owed is 55860.0
-            const amountOwed = parseUnits("55860.0");
-            // Paid 19000 so we calculate how much of the principal
-            // it would cover
-            const debtCovered = parseUnits("19000")
-              .mul(totalBorrowAmount)
-              .div(amountOwed);
-            const earnings = parseUnits("19000").sub(debtCovered);
-
             // John initial balance on the smart pool was 10000
-            expect(johnBalanceEDAI).to.equal(parseUnits("10000").add(earnings));
+            expect(johnBalanceEDAI).to.equal(parseUnits("10000"));
           });
 
           it("AND 19k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
@@ -373,21 +361,8 @@ describe("Liquidations", function () {
               .getEToken("DAI")
               .balanceOf(john.address);
 
-            // Borrowed is 39850 + interests
-            const totalBorrowAmount = parseUnits("39900");
-            // penalty is 2% * 20 days = 40/100 + 1 = 140/100
-            // so amount owed is 55860.0
-            const amountOwed = parseUnits("55860.0");
-            // Paying 19000 - fee is equal to 17100
-            // Using 17100 we calculate how much of the principal
-            // it would cover
-            const debtCovered = parseUnits("17100")
-              .mul(totalBorrowAmount)
-              .div(amountOwed);
-            const earnings = parseUnits("17100").sub(debtCovered);
-
             // John initial balance on the smart pool was 10000
-            expect(johnBalanceEDAI).to.equal(parseUnits("10000").add(earnings));
+            expect(johnBalanceEDAI).to.equal(parseUnits("10000"));
           });
 
           it("AND 17.1k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
