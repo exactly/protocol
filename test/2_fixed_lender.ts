@@ -52,6 +52,57 @@ describe("FixedLender", function () {
     await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
     exactlyEnv.switchWallet(mariaUser);
   });
+  describe("small positions", () => {
+    describe("WHEN depositing 2wei of a dai", () => {
+      beforeEach(async () => {
+        await exactlyEnv
+          .getUnderlying("DAI")
+          .connect(mariaUser)
+          .approve(fixedLender.address, "10000");
+        await exactlyEnv
+          .getFixedLender("DAI")
+          .connect(mariaUser)
+          .depositToMaturityPool("2", nextPoolId, "0");
+      });
+      it("THEN the FixedLender registers a supply of 2 wei DAI for the user (exposed via getAccountSnapshot)", async () => {
+        expect(
+          (
+            await fixedLender.getAccountSnapshot(mariaUser.address, nextPoolId)
+          )[0]
+        ).to.be.equal("2");
+      });
+      it("AND its not possible to borrow 2 wei of a dai", async () => {
+        await expect(
+          exactlyEnv
+            .getFixedLender("DAI")
+            .connect(mariaUser)
+            .borrowFromMaturityPool("2", nextPoolId, "2")
+        ).to.be.revertedWith(
+          errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+        );
+      });
+      describe("AND WHEN borrowing 1 wei of DAI", () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = exactlyEnv
+            .getFixedLender("DAI")
+            .connect(mariaUser)
+            .borrowFromMaturityPool("1", nextPoolId, "1");
+          await tx;
+        });
+        it("THEN a BorrowFromMaturityPool event is emmitted", async () => {
+          await expect(tx)
+            .to.emit(exactlyEnv.getFixedLender("DAI"), "BorrowFromMaturityPool")
+            .withArgs(mariaUser.address, "1", "0", nextPoolId);
+        });
+        it("AND a 1 wei of DAI borrow is registered", async () => {
+          expect(
+            await exactlyEnv.getFixedLender("DAI").getTotalMpBorrows(nextPoolId)
+          ).to.equal("1");
+        });
+      });
+    });
+  });
 
   describe("WHEN depositing 100 DAI to a maturity pool (with a collateralization rate of 80%)", () => {
     let tx: any;
@@ -89,6 +140,33 @@ describe("FixedLender", function () {
       await expect(
         exactlyEnv.borrowMP("DAI", nextPoolId, "90")
       ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
+    });
+    describe("AND WHEN depositing 50 DAI to the same maturity, as the same user", () => {
+      let tx: any;
+      beforeEach(async () => {
+        tx = exactlyEnv.depositMP("DAI", nextPoolId, "50");
+        await tx;
+      });
+      it("THEN a DepositToMaturityPool event is emitted", async () => {
+        await expect(tx).to.emit(fixedLender, "DepositToMaturityPool").withArgs(
+          mariaUser.address,
+          parseUnits("50"),
+          parseUnits("0"), // commission, its zero with the mocked rate
+          nextPoolId
+        );
+      });
+      it("AND the FixedLender contract has a balance of 150 DAI", async () => {
+        expect(await underlyingToken.balanceOf(fixedLender.address)).to.equal(
+          parseUnits("150")
+        );
+      });
+      it("AND the FixedLender registers a supply of 150 DAI for the user (exposed via getAccountSnapshot)", async () => {
+        expect(
+          (
+            await fixedLender.getAccountSnapshot(mariaUser.address, nextPoolId)
+          )[0]
+        ).to.be.equal(parseUnits("150"));
+      });
     });
 
     describe("WHEN borrowing 60 DAI from the same maturity", () => {
