@@ -58,57 +58,6 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
-  it("shouldn't allow to leave a market if there's debt", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const dai = exactlyEnv.getUnderlying("DAI");
-    const amountDAI = parseUnits("100");
-    await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToSmartPool(amountDAI);
-    await fixedLenderDAI.borrowFromMaturityPool(
-      amountDAI.div(2),
-      nextPoolID,
-      applyMaxFee(amountDAI.div(2))
-    );
-
-    await expect(auditor.exitMarket(fixedLenderDAI.address)).to.be.revertedWith(
-      errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED)
-    );
-  });
-
-  it("should allow to leave market if there's no debt", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const amountDAI = parseUnits("100");
-    await exactlyEnv
-      .getUnderlying("DAI")
-      .approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToSmartPool(amountDAI);
-
-    await expect(auditor.exitMarket(fixedLenderDAI.address)).to.not.be.reverted;
-  });
-
-  it("should allow to leave market if there's enough debt in another market", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const fixedLenderETH = exactlyEnv.getFixedLender("ETH");
-    const amountDAI = parseUnits("100");
-    const amountETH = parseUnits("10");
-    await exactlyEnv
-      .getUnderlying("DAI")
-      .approve(fixedLenderDAI.address, amountDAI);
-    await exactlyEnv
-      .getUnderlying("ETH")
-      .approve(fixedLenderETH.address, amountETH);
-
-    await fixedLenderDAI.depositToSmartPool(amountDAI);
-    await fixedLenderETH.depositToSmartPool(amountETH);
-    await fixedLenderDAI.borrowFromMaturityPool(
-      amountDAI.div(2),
-      nextPoolID,
-      applyMaxFee(amountDAI.div(2))
-    );
-
-    await expect(auditor.exitMarket(fixedLenderETH.address)).to.not.be.reverted;
-  });
-
   it("BeforeDepositSP should fail for an unlisted market", async () => {
     await expect(
       auditor.beforeDepositSP(exactlyEnv.notAnFixedLenderAddress, owner.address)

@@ -20,8 +20,10 @@ describe("Liquidity computations", function () {
   let laura: SignerWithAddress;
 
   let fixedLenderDAI: Contract;
-  let dai: Contract;
+  let fixedLenderETH: Contract;
+  let fixedLenderWBTC: Contract;
   let fixedLenderUSDC: Contract;
+  let dai: Contract;
   let usdc: Contract;
   let fixedLenderWBTC: Contract;
   let wbtc: Contract;
@@ -126,6 +128,42 @@ describe("Liquidity computations", function () {
           expect(supplied).to.be.eq(parseUnits("1000"));
           expect(borrowed).to.eq(parseUnits("800"));
         });
+        it("AND WHEN laura tries to exit her collateral DAI market it reverts since there's unpayed debt", async () => {
+          await expect(
+            auditor.connect(laura).exitMarket(fixedLenderDAI.address)
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED)
+          );
+        });
+        it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
+          await exactlyEnv.repayMP("DAI", nextPoolID, "800");
+
+          await expect(
+            auditor.connect(laura).exitMarket(fixedLenderDAI.address)
+          ).to.not.be.reverted;
+        });
+        describe("AND GIVEN laura deposits more collateral for another asset", () => {
+          beforeEach(async () => {
+            await exactlyEnv
+              .getUnderlying("ETH")
+              .transfer(laura.address, parseUnits("1"));
+            await exactlyEnv.depositSP("ETH", "1");
+            await exactlyEnv.enterMarkets(["ETH"]);
+          });
+          it("THEN it does not revert when she tries to exit her collateral ETH market", async () => {
+            fixedLenderETH = exactlyEnv.getFixedLender("ETH");
+            await expect(
+              auditor.connect(laura).exitMarket(fixedLenderETH.address)
+            ).to.not.be.reverted;
+          });
+          it("THEN it reverts when she tries to exit her collateral DAI market since it's the same that she borrowed from", async () => {
+            await expect(
+              auditor.connect(laura).exitMarket(fixedLenderDAI.address)
+            ).to.be.revertedWith(
+              errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED)
+            );
+          });
+        });
       });
     });
   });
@@ -194,6 +232,15 @@ describe("Liquidity computations", function () {
           });
         });
       });
+    });
+    it("should allow to leave market if there's no debt", async () => {
+      await expect(auditor.exitMarket(fixedLenderDAI.address)).to.not.be
+        .reverted;
+    });
+    it("should not revert when trying to exit a market that was not interacted with", async () => {
+      fixedLenderWBTC = exactlyEnv.getFixedLender("ETH");
+      await expect(auditor.exitMarket(fixedLenderWBTC.address)).to.not.be
+        .reverted;
     });
   });
 
