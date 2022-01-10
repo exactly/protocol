@@ -244,7 +244,7 @@ describe("Liquidations", function () {
           it("AND 19k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
-              [nextPoolID]
+              nextPoolID
             );
 
             // Borrowed is 39850
@@ -287,7 +287,7 @@ describe("Liquidations", function () {
             it("AND 18k DAI of debt has been repaid, making debt ~18k DAI", async () => {
               const [, debt] = await fixedLenderDAI.getAccountSnapshot(
                 alice.address,
-                [nextPoolID]
+                nextPoolID
               );
               expect(debt).to.be.lt(parseUnits("19000"));
               expect(debt).to.be.gt(parseUnits("18000"));
@@ -369,7 +369,7 @@ describe("Liquidations", function () {
           it("AND 17.1k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
-              [nextPoolID]
+              nextPoolID
             );
 
             // Borrowed is 39850
@@ -522,7 +522,7 @@ describe("Liquidations", function () {
             it("THEN theres nearly no ETH supplied by Alice", async () => {
               const [depositedETH] = await fixedLenderETH.getAccountSnapshot(
                 alice.address,
-                [nextPoolID]
+                nextPoolID
               );
               expect(depositedETH).to.be.lt(parseUnits("0.001"));
             });
@@ -572,16 +572,17 @@ describe("Liquidations", function () {
                 });
                 it("THEN the Alice has zero WBTC deposited", async () => {
                   const [depositedWBTC] =
-                    await fixedLenderWBTC.getAccountSnapshot(alice.address, [
-                      nextPoolID,
-                    ]);
+                    await fixedLenderWBTC.getAccountSnapshot(
+                      alice.address,
+                      nextPoolID
+                    );
                   expect(depositedWBTC).to.be.lt(parseUnits("0.0005", 8));
                 });
                 // now theres no incentive to liquidate those 7500 dai
                 it("AND alice still has some DAI debt", async () => {
                   const [, debt] = await fixedLenderDAI.getAccountSnapshot(
                     alice.address,
-                    [nextPoolID]
+                    nextPoolID
                   );
                   expect(debt).to.eq(parseUnits("7628"));
                 });

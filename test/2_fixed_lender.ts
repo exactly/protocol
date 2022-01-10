@@ -256,7 +256,7 @@ describe("FixedLender", function () {
         it("AND Maria still owes 20 DAI", async () => {
           const [, amountOwed] = await exactlyEnv
             .getFixedLender("DAI")
-            .getAccountSnapshot(mariaUser.address, [nextPoolId]);
+            .getAccountSnapshot(mariaUser.address, nextPoolId);
 
           expect(amountOwed).to.equal(parseUnits("20"));
         });
@@ -268,7 +268,7 @@ describe("FixedLender", function () {
           it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 == 0.04 ) DAI of late payment penalties", async () => {
             const [, amountOwed] = await exactlyEnv
               .getFixedLender("DAI")
-              .getAccountSnapshot(mariaUser.address, [nextPoolId]);
+              .getAccountSnapshot(mariaUser.address, nextPoolId);
 
             expect(amountOwed).to.equal(parseUnits("20.4"));
           });
@@ -279,7 +279,7 @@ describe("FixedLender", function () {
             it("THEN all debt is repaid", async () => {
               const [, amountOwed] = await exactlyEnv
                 .getFixedLender("DAI")
-                .getAccountSnapshot(mariaUser.address, [nextPoolId]);
+                .getAccountSnapshot(mariaUser.address, nextPoolId);
 
               expect(amountOwed).to.equal(0);
             });
@@ -325,7 +325,7 @@ describe("FixedLender", function () {
       it("WHEN calling getAccountSnapshot on an invalid pool, THEN it reverts with INVALID_POOL_ID", async () => {
         let invalidPoolID = nextPoolId + 3;
         await expect(
-          fixedLender.getAccountSnapshot(owner.address, [invalidPoolID])
+          fixedLender.getAccountSnapshot(owner.address, invalidPoolID)
         ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
       });
 
@@ -729,7 +729,7 @@ describe("FixedLender", function () {
               const borrowed = (
                 await fixedLender
                   .connect(johnUser.address)
-                  .getAccountSnapshot(johnUser.address, [nextPoolId])
+                  .getAccountSnapshot(johnUser.address, nextPoolId)
               )[1];
               expect(borrowed).to.eq(0);
             });

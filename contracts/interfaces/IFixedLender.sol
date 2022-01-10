@@ -51,7 +51,7 @@ interface IFixedLender {
 
     function trustedUnderlying() external view returns (IERC20);
 
-    function getAccountSnapshot(address who, uint256[] memory maturities)
+    function getAccountSnapshot(address who, uint256 maturityDate)
         external
         view
         returns (uint256, uint256);
@@ -72,9 +72,4 @@ interface IFixedLender {
     function totalMpBorrowsUser(address who) external view returns (uint256);
 
     function totalMpDepositsUser(address who) external view returns (uint256);
-
-    function getUserMaturitiesOwed(address who)
-        external
-        view
-        returns (uint256[] memory);
 }

@@ -86,7 +86,7 @@ describe("Liquidity computations", function () {
       it("AND she has zero debt and is owed 1000DAI", async () => {
         const [supplied, owed] = await fixedLenderDAI.getAccountSnapshot(
           laura.address,
-          [nextPoolID]
+          nextPoolID
         );
         expect(supplied).to.be.eq(parseUnits("1000"));
         expect(owed).to.be.eq(parseUnits("0"));
@@ -120,7 +120,7 @@ describe("Liquidity computations", function () {
         it("AND she has 799+interest debt and is owed 1000DAI", async () => {
           const [supplied, borrowed] = await fixedLenderDAI.getAccountSnapshot(
             laura.address,
-            [nextPoolID]
+            nextPoolID
           );
 
           expect(supplied).to.be.eq(parseUnits("1000"));

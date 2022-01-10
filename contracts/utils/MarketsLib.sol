@@ -160,10 +160,9 @@ library MarketsLib {
             MarketsLib.Market storage market = book.markets[address(asset)];
 
             // Read the balances
-            uint256[] memory maturities = asset.getUserMaturitiesOwed(account);
             (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
                 account,
-                maturities
+                0
             );
 
             vars.collateralFactor = book
