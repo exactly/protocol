@@ -232,7 +232,7 @@ Wrapper contract
     user -> ETHFixedLender: depositMP(poolId, {value: 100})
     ETHFixedLender -> WETH: wrap({value: 100})
     ETHFixedLender <-- WETH
-    ETHFixedLender -> FixedLender: depositMP(poolId, 100)
+    ETHFixedLender -> FixedLender: depositMP(user, poolId, 100)
     ETHFixedLender <-- FixedLender
     ETHFixedLender -> ETHFixedLender: ...registers the user has a deposit
     user <--ETHFixedLender
@@ -245,9 +245,8 @@ Wrapper contract
     participant FixedLender
     participant WETH
 
-    user -> ETHFixedLender: withdrawMP(poolId, 100)
-    ETHFixedLender -> ETHFixedLender: ...checks the user has a deposit
-    ETHFixedLender -> FixedLender: withdrawMP(poolId, 100)
+    user -> ETHFixedLender: withdrawMP(poolId, 100, v, r, s)
+    ETHFixedLender -> FixedLender: withdrawMP(user, poolId, 100, v, r, s)
     ETHFixedLender <-- FixedLender
     ETHFixedLender -> WETH: unwrap(100)
     ETHFixedLender <-- WETH
@@ -268,11 +267,10 @@ Wrapper contract
     user -> ETHFixedLender: depositSP({value: 100})
     ETHFixedLender -> WETH: wrap({value: 100})
     ETHFixedLender <-- WETH
-    ETHFixedLender -> FixedLender: depositSP(100)
-    FixedLender -> EWETH: mint(ETHFixedLender, 100)
+    ETHFixedLender -> FixedLender: depositSP(user, 100)
+    FixedLender -> EWETH: mint(user, 100)
     FixedLender <-- EWETH
     ETHFixedLender <-- FixedLender
-    ETHFixedLender -> EWETH: transfer(user, 100)
     user <--ETHFixedLender
 
 Another possible alternative is to leave the tokens under ETHFixedLender's
@@ -289,10 +287,10 @@ withdraw from the smart pool
     participant WETH
     participant EWETH
 
-    user -> ETHFixedLender: withdrawSP({value: 100})
+    user -> ETHFixedLender: withdrawSP(100, v,r,s)
     ETHFixedLender -> EWETH: transferFrom(user, ETHFixedLender, 100)
     ETHFixedLender <-- EWETH:
-    ETHFixedLender -> FixedLender: withdrawSP(100)
+    ETHFixedLender -> FixedLender: withdrawSP(user, 100, v, r, s)
     FixedLender -> EWETH: burn(ETHFixedLender, 100)
     FixedLender <-- EWETH
     ETHFixedLender <-- FixedLender
@@ -304,10 +302,12 @@ withdraw from the smart pool
 Notes
 ^^^^^
 
-- [ ] edge case: what happens when doing a second deposit to the same maturity. We should replicate FixedLender's behaviour ...which I think isn't spec'd?
 - [ ] we might have to do minor modifications to the deposit/withdraw methods in order to be able to easily track the amount that was actually deposited/withdrawn
 - [ ] We'll have to look into reentrancy issues on withdrawals, since we'll call the user back with an eth transfer (which might be a contract)
 - [ ] It's necessary to add a ``from`` argument to the ``FixedLender`` and have it track position ownership instead of having a custodial ``ETHFixedLender``, because otherwise all of the positions created via the ``ETHFixedLender`` would share a liquidity computation.
+- [ ] when handling withdrawals, we should decide if we want the ``FixedLender`` to transfer the tokens to the caller (``ETHFixedLender`` in this case) or the user.
+- [ ] verifying the signatures (``v,r,s`` values) is not trivial, the correct thing to do would be to do a ERC-712 signature verification. However, `OZ's implementation <https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/cryptography/draft-EIP712.sol>`_ is still in draft status. We should decide if we want to use it regardless or import some other implementation
+- [ ] with a working ERC-712 implementation, doing the signature check shouldn't be too hard, but review from someone who actually knows their crypto would be of great value.
 
 Extension by inheritance to the WETH FixedLender contract
 ---------------------------------------------------------
