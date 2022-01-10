@@ -24,6 +24,7 @@ describe("Liquidations", function () {
   let fixedLenderETH: Contract;
   let fixedLenderDAI: Contract;
   let dai: Contract;
+  let eth: Contract;
   let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
@@ -43,6 +44,7 @@ describe("Liquidations", function () {
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
+    eth = exactlyEnv.getUnderlying("ETH");
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
@@ -723,6 +725,49 @@ describe("Liquidations", function () {
               bobDAIBalanceBefore.sub(parseUnits("19000"))
             );
           });
+        });
+      });
+    });
+  });
+
+  describe("GIVEN john funds the ETH smart pool", () => {
+    beforeEach(async () => {
+      exactlyEnv.switchWallet(john);
+      await eth.transfer(john.address, parseUnits("11"));
+      await exactlyEnv.depositSP("ETH", "10");
+    });
+    describe("AND GIVEN alice deposits 10k DAI to the smart pool AND borrows USD8k worth of ETH (80% collateralization rate)", () => {
+      beforeEach(async () => {
+        exactlyEnv.switchWallet(alice);
+        await exactlyEnv.depositSP("DAI", "10000");
+        await exactlyEnv.enterMarkets(["DAI"]);
+
+        await exactlyEnv.borrowMP("ETH", nextPoolID, "2.5");
+      });
+      describe("AND GIVEN john deposits a lot of collateral and borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
+        beforeEach(async () => {
+          exactlyEnv.switchWallet(john);
+          await exactlyEnv.enterMarkets(["ETH"]);
+          await exactlyEnv.borrowMP("DAI", nextPoolID, "10000");
+        });
+        it("WHEN eth price doubles and alice's position is undercollateralized, then it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY when trying to liquidate", async () => {
+          await exactlyEnv.oracle.setPrice("ETH", parseUnits("8000"));
+          await eth
+            .connect(john)
+            .approve(fixedLenderETH.address, parseUnits("1"));
+
+          await expect(
+            fixedLenderETH
+              .connect(john)
+              .liquidate(
+                alice.address,
+                parseUnits("1"),
+                fixedLenderDAI.address,
+                nextPoolID
+              )
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+          );
         });
       });
     });
