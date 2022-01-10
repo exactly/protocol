@@ -466,6 +466,19 @@ describe("Pool Management Library", () => {
                 expect(mp.supplied).to.eq(parseUnits("300"));
               });
             });
+
+            describe("AND GIVEN that someone withdraws 300", () => {
+              let mp: any;
+              beforeEach(async () => {
+                await poolEnv.takeMoney("300");
+                mp = await poolEnv.mpHarness.maturityPool();
+              });
+
+              it("THEN the pool 'supplied' - 'borrowed' equals 0 (everything is 0)", async () => {
+                expect(mp.supplied - mp.borrowed).to.eq(0);
+                expect(mp.suppliedSP).to.eq(0);
+              });
+            });
           });
         });
       });
