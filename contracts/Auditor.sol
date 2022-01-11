@@ -508,7 +508,7 @@ contract Auditor is IAuditor, AccessControl {
         );
 
         if (shortfall == 0) {
-            revert GenericError(ErrorCode.UNSUFFICIENT_SHORTFALL);
+            revert GenericError(ErrorCode.INSUFFICIENT_SHORTFALL);
         }
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */

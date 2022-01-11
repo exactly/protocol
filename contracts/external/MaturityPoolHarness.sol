@@ -16,6 +16,11 @@ contract MaturityPoolHarness {
         eToken = IEToken(_eTokenAddress);
     }
 
+    function maxMintEToken() external {
+        // it has all the liquidity possible
+        eToken.mint(address(this), type(uint256).max);
+    }
+
     function fakeDepositToSP(uint256 _amount) external {
         eToken.mint(msg.sender, _amount);
     }
@@ -29,7 +34,8 @@ contract MaturityPoolHarness {
     }
 
     function takeMoneyMP(uint256 _amount) external {
-        smartPoolTotalDebt += maturityPool.takeMoney(_amount);
+        uint256 maxDebt = eToken.totalSupply();
+        smartPoolTotalDebt += maturityPool.takeMoney(_amount, maxDebt);
     }
 
     function addFeeMP(uint256 _maturityID, uint256 _amount) external {

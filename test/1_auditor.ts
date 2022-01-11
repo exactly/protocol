@@ -284,7 +284,7 @@ describe("Auditor from User Space", function () {
         100,
         nextPoolID
       )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.UNSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
   });
 
   it("Autoadding a market should only be allowed from a fixedLender", async () => {

@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./TSUtils.sol";
+import "./Errors.sol";
 
 library PoolLib {
     /**
@@ -72,21 +73,30 @@ library PoolLib {
      * @param pool maturity pool where money needs to be taken out
      * @param amount amount to be taken out of the pool before it matures
      */
-    function takeMoney(MaturityPool storage pool, uint256 amount)
-        external
-        returns (uint256)
-    {
+    function takeMoney(
+        MaturityPool storage pool,
+        uint256 amount,
+        uint256 maxDebt
+    ) external returns (uint256) {
         uint256 newBorrowed = pool.borrowed + amount;
         pool.borrowed = newBorrowed;
 
-        uint256 supplied = pool.supplied + pool.suppliedSP;
+        uint256 suppliedSP = pool.suppliedSP;
+        uint256 suppliedMP = pool.supplied;
+        uint256 supplied = suppliedSP + suppliedMP;
         uint256 newDebtSP = 0;
 
         if (newBorrowed > supplied) {
+            uint256 newSupplySP = newBorrowed - suppliedMP;
+
+            if (newSupplySP > maxDebt) {
+                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+            }
+
             // We take money out from the Smart Pool
             // because there's not enough in the MP
             newDebtSP = newBorrowed - supplied;
-            pool.suppliedSP += newBorrowed - supplied;
+            pool.suppliedSP = newSupplySP;
         }
 
         return newDebtSP;
