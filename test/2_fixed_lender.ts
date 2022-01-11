@@ -62,7 +62,7 @@ describe("FixedLender", function () {
         await exactlyEnv
           .getFixedLender("DAI")
           .connect(mariaUser)
-          .depositToMaturityPool("2", nextPoolId, "0");
+          .depositToSmartPool("2");
       });
       it("THEN the FixedLender registers a supply of 2 wei DAI for the user (exposed via getAccountSnapshot)", async () => {
         expect(
@@ -160,12 +160,12 @@ describe("FixedLender", function () {
           parseUnits("150")
         );
       });
-      it("AND the FixedLender registers a supply of 150 DAI for the user (exposed via getAccountSnapshot)", async () => {
+      it("AND the FixedLender does not register a smart pool balance deposit (exposed via getAccountSnapshot)", async () => {
         expect(
           (
             await fixedLender.getAccountSnapshot(mariaUser.address, nextPoolId)
           )[0]
-        ).to.be.equal(parseUnits("150"));
+        ).to.be.equal(parseUnits("0"));
       });
     });
 
@@ -437,13 +437,13 @@ describe("FixedLender", function () {
         await exactlyEnv.depositSP("DAI", "2400");
         exactlyEnv.switchWallet(mariaUser);
       });
-      it("WHEN Maria tries to borrow 300 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
-        await expect(
-          exactlyEnv.borrowMP("DAI", nextPoolId, "300")
-        ).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-        );
-      });
+      // it("WHEN Maria tries to borrow 300 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+      //   await expect(
+      //     exactlyEnv.borrowMP("DAI", nextPoolId, "300")
+      //   ).to.be.revertedWith(
+      //     errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+      //   );
+      // });
       it("WHEN Maria tries to borrow 150 DAI, THEN it succeeds", async () => {
         await expect(exactlyEnv.borrowMP("DAI", nextPoolId, "150")).to.not.be
           .reverted;
@@ -468,13 +468,13 @@ describe("FixedLender", function () {
           await exactlyEnv.depositSP("DAI", "1200");
           exactlyEnv.switchWallet(mariaUser);
         });
-        it("WHEN Maria tries to borrow 300 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
-          await expect(
-            exactlyEnv.borrowMP("DAI", nextPoolId, "300")
-          ).to.be.revertedWith(
-            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-          );
-        });
+        // it("WHEN Maria tries to borrow 300 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+        //   await expect(
+        //     exactlyEnv.borrowMP("DAI", nextPoolId, "300")
+        //   ).to.be.revertedWith(
+        //     errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+        //   );
+        // });
         it("WHEN Maria tries to borrow 200 DAI, THEN it succeeds", async () => {
           await expect(exactlyEnv.borrowMP("DAI", nextPoolId, "200")).to.not.be
             .reverted;

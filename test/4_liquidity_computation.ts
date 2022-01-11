@@ -25,7 +25,6 @@ describe("Liquidity computations", function () {
   let fixedLenderUSDC: Contract;
   let dai: Contract;
   let usdc: Contract;
-  let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
   let snapshot: any;
@@ -46,6 +45,7 @@ describe("Liquidity computations", function () {
     dai = exactlyEnv.getUnderlying("DAI");
     fixedLenderUSDC = exactlyEnv.getFixedLender("USDC");
     usdc = exactlyEnv.getUnderlying("USDC");
+    fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
     await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
@@ -238,7 +238,6 @@ describe("Liquidity computations", function () {
         .reverted;
     });
     it("should not revert when trying to exit a market that was not interacted with", async () => {
-      fixedLenderWBTC = exactlyEnv.getFixedLender("ETH");
       await expect(auditor.exitMarket(fixedLenderWBTC.address)).to.not.be
         .reverted;
     });
@@ -256,13 +255,11 @@ describe("Liquidity computations", function () {
       describe("WHEN bob does a 1 sat deposit", () => {
         beforeEach(async () => {
           await wbtc.connect(bob).approve(fixedLenderWBTC.address, "10000000");
-          await fixedLenderWBTC.depositToMaturityPool("1", nextPoolID, "1");
+          await fixedLenderWBTC.connect(bob).depositToSmartPool("1");
+          await auditor.connect(bob).enterMarkets([fixedLenderWBTC.address]);
         });
         it("THEN bobs liquidity is 63000 * 0.6 * 10 ^ - 8 usd == 3.78*10^14 minimal usd units", async () => {
-          const [liquidity] = await auditor.getAccountLiquidity(
-            bob.address,
-            nextPoolID
-          );
+          const [liquidity] = await auditor.getAccountLiquidity(bob.address);
           expect(liquidity).to.eq(parseUnits("3.78", 14));
         });
         it("AND WHEN he tries to take a 4*10^14 usd USDC loan, THEN it reverts", async () => {
@@ -282,10 +279,7 @@ describe("Liquidity computations", function () {
               .borrowFromMaturityPool("300", nextPoolID, "300");
           });
           it("THEN he has 7.8*10^13 usd left of liquidity", async () => {
-            const [liquidity] = await auditor.getAccountLiquidity(
-              bob.address,
-              nextPoolID
-            );
+            const [liquidity] = await auditor.getAccountLiquidity(bob.address);
             expect(liquidity).to.eq(parseUnits("7.8", 13));
           });
         });
