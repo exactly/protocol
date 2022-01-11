@@ -66,6 +66,15 @@ export class PoolEnv {
     let maturityPoolHarness = await MaturityPoolHarness.deploy(eToken.address);
     await maturityPoolHarness.deployed();
 
+    // This is just for testing purposes of the poollib management
+    // since the MaturityPoolHarness needs to be able to mint etokens
+    // to have liquiditity to pass the check of Max SP Debt per pool
+    await eToken.initialize(
+      maturityPoolHarness.address,
+      maturityPoolHarness.address
+    );
+    await maturityPoolHarness.maxMintEToken();
+
     return new PoolEnv(tsUtils, poolLib, eToken, maturityPoolHarness);
   }
 }

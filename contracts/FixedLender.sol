@@ -193,13 +193,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             revert GenericError(ErrorCode.INVALID_POOL_ID);
         }
 
-        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(amount);
+        uint256 smartPoolSupply = eToken.totalSupply();
+        uint256 maxDebt = smartPoolSupply / auditor.maxFuturePools();
 
-        if (
-            smartPoolBorrowed > eToken.totalSupply() / auditor.maxFuturePools()
-        ) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-        }
+        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
+            amount,
+            maxDebt
+        );
 
         PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
 
@@ -207,7 +207,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             maturityDate,
             pool,
             smartPoolBorrowed,
-            eToken.totalSupply(),
+            smartPoolSupply,
             true
         );
         uint256 commission = amount.mul_(commissionRate);
