@@ -206,6 +206,7 @@ describe("Smart Pool", function () {
     beforeEach(async () => {
       exactlyEnv.switchWallet(bob);
       await exactlyEnv.depositSP("DAI", "100");
+      await exactlyEnv.depositMP("DAI", nextPoolId, "60");
       await exactlyEnv.borrowMP("DAI", nextPoolId, "60");
     });
     it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {

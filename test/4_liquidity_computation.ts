@@ -98,6 +98,8 @@ describe("Liquidity computations", function () {
           await exactlyEnv
             .getInterestRateModel()
             .setBorrowRate(parseUnits("0.01"));
+          // we add liquidity to the maturity
+          await exactlyEnv.depositMP("DAI", nextPoolID, "800");
         });
         it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
           await expect(
@@ -110,6 +112,8 @@ describe("Liquidity computations", function () {
 
       describe("AND WHEN laura asks for a 800 DAI loan", () => {
         beforeEach(async () => {
+          // we add liquidity to the maturity
+          await exactlyEnv.depositMP("DAI", nextPoolID, "800");
           await exactlyEnv.borrowMP("DAI", nextPoolID, "800");
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
