@@ -81,11 +81,13 @@ library PoolLib {
         uint256 newBorrowed = pool.borrowed + amount;
         pool.borrowed = newBorrowed;
 
-        uint256 supplied = pool.supplied + pool.suppliedSP;
+        uint256 suppliedSP = pool.suppliedSP;
+        uint256 suppliedMP = pool.supplied;
+        uint256 supplied = suppliedSP + suppliedMP;
         uint256 newDebtSP = 0;
 
         if (newBorrowed > supplied) {
-            uint256 newSupplySP = pool.suppliedSP + newBorrowed - supplied;
+            uint256 newSupplySP = newBorrowed - suppliedMP;
 
             if (newSupplySP > maxDebt) {
                 revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
