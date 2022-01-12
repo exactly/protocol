@@ -733,9 +733,18 @@ describe("Liquidations", function () {
   describe("GIVEN john funds the ETH maturity pool and deposits collateral to the smart pool", () => {
     beforeEach(async () => {
       exactlyEnv.switchWallet(john);
-      await eth.transfer(john.address, parseUnits("13.5"));
+      await eth.transfer(john.address, parseUnits("20"));
       // we add ETH liquidity to the maturity
-      await exactlyEnv.depositMP("ETH", nextPoolID, "2.5");
+      await exactlyEnv.depositMP(
+        "ETH",
+        exaTime.poolIDByNumberOfWeek(1),
+        "1.25"
+      );
+      await exactlyEnv.depositMP(
+        "ETH",
+        exaTime.poolIDByNumberOfWeek(2),
+        "1.25"
+      );
 
       await exactlyEnv.depositSP("ETH", "10");
       await exactlyEnv.enterMarkets(["ETH"]);
@@ -746,13 +755,23 @@ describe("Liquidations", function () {
         await exactlyEnv.depositSP("DAI", "10000");
         await exactlyEnv.enterMarkets(["DAI"]);
 
-        await exactlyEnv.borrowMP("ETH", nextPoolID, "2.5");
+        await exactlyEnv.borrowMP(
+          "ETH",
+          exaTime.poolIDByNumberOfWeek(1),
+          "1.25"
+        );
+        await exactlyEnv.borrowMP(
+          "ETH",
+          exaTime.poolIDByNumberOfWeek(2),
+          "1.25"
+        );
       });
-      describe("AND GIVEN john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
+      describe("WHEN ETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
         beforeEach(async () => {
-          exactlyEnv.switchWallet(john);
+          await exactlyEnv.oracle.setPrice("ETH", parseUnits("8000"));
           // We borrow 10k DAI from 12 maturities since we can't borrow too much from the smart pool with only one maturity
           // We can't deposit DAI liquidity to a maturity as a workaround since we are trying to test a seize without underlying liquidity
+          exactlyEnv.switchWallet(john);
           for (let i = 1; i < exaTime.MAX_POOLS + 1; i++) {
             await exactlyEnv.borrowMP(
               "DAI",
@@ -761,8 +780,7 @@ describe("Liquidations", function () {
             );
           }
         });
-        it("WHEN eth price doubles and alice's position is undercollateralized, then it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY when trying to liquidate", async () => {
-          await exactlyEnv.oracle.setPrice("ETH", parseUnits("8000"));
+        it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY when trying to liquidate one of alice's positions", async () => {
           await eth
             .connect(john)
             .approve(fixedLenderETH.address, parseUnits("1"));
@@ -779,6 +797,39 @@ describe("Liquidations", function () {
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
           );
+        });
+        describe("AND GIVEN a DAI liquidity deposit to the smart pool", () => {
+          beforeEach(async () => {
+            exactlyEnv.switchWallet(john);
+            await dai.transfer(john.address, parseUnits("10000"));
+            await exactlyEnv.depositSP("DAI", "10000");
+          });
+          it("WHEN both of alice's positions are liquidated THEN it doesn't revert", async () => {
+            await eth
+              .connect(john)
+              .approve(fixedLenderETH.address, parseUnits("2"));
+
+            await expect(
+              fixedLenderETH
+                .connect(john)
+                .liquidate(
+                  alice.address,
+                  parseUnits("0.5"),
+                  fixedLenderDAI.address,
+                  exaTime.poolIDByNumberOfWeek(1)
+                )
+            ).to.not.be.reverted;
+            await expect(
+              fixedLenderETH
+                .connect(john)
+                .liquidate(
+                  alice.address,
+                  parseUnits("0.5"),
+                  fixedLenderDAI.address,
+                  exaTime.poolIDByNumberOfWeek(2)
+                )
+            ).to.not.be.reverted;
+          });
         });
       });
     });
