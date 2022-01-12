@@ -72,6 +72,7 @@ library PoolLib {
      *         of the smart pool
      * @param pool maturity pool where money needs to be taken out
      * @param amount amount to be taken out of the pool before it matures
+     * @return amount of new debt that needs to be taken out of the SP
      */
     function takeMoney(
         MaturityPool storage pool,
@@ -110,12 +111,22 @@ library PoolLib {
      * @param pool maturity pool where money will be added
      * @param maturityID timestamp in which maturity pool matures
      * @param amount amount to be added to the maturity pool
+     * @return 1: amount to reduce the SP debt
+     *         2: amount to distribute as earnings to the SP (revenue share with protocol)
+     *         3: amount to distribute as earnings to the SP - extras (penalties, not shared with anyone)
      */
     function repay(
         MaturityPool storage pool,
         uint256 maturityID,
         uint256 amount
-    ) external returns (uint256, uint256) {
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
         // we use this function to accrue only
         // by passing 0 fees
         _accrueAndAddFee(pool, maturityID, 0);
@@ -138,22 +149,30 @@ library PoolLib {
             if (extra <= supplySP) {
                 // Covered part of the supply SP
                 pool.suppliedSP -= extra;
-                return (extra, 0);
+                return (extra, 0, 0);
             } else if (extra < supplySP + earningsSP) {
                 // Covered the supply SP and part of the earningsSP
                 pool.suppliedSP = 0;
-                uint256 comissionEarned = earningsSP + supplySP - extra;
-                pool.earningsSP -= comissionEarned;
-                return (supplySP, comissionEarned);
+                extra -= supplySP;
+                pool.earningsSP -= extra;
+                return (supplySP, extra, 0);
             } else {
-                // Covered the supply SP and the earnings SP
+                // Covered the supply SP and the earnings SP and extras SP
+                uint256 earningsToShare = pool.earningsSP;
                 pool.suppliedSP = 0;
                 pool.earningsSP = 0;
-                return (supplySP, amount - supplySP);
+                return (
+                    supplySP,
+                    earningsToShare,
+                    amount - supplySP - earningsToShare
+                );
             }
         }
 
-        return (0, 0);
+        // No smart pool debt reduction
+        // No revenue for smart pool and protocol
+        // No extras for smart pool
+        return (0, 0, 0);
     }
 
     /**

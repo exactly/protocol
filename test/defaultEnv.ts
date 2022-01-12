@@ -348,4 +348,12 @@ export class DefaultEnv {
     const fixedLender = this.getFixedLender(assetString);
     return fixedLender.maturityPools(maturityPoolID);
   }
+
+  public async accountSnapshot(assetString: string, maturityPoolID: number) {
+    const fixedLender = this.getFixedLender(assetString);
+    return fixedLender.getAccountSnapshot(
+      this.currentWallet.address,
+      maturityPoolID
+    );
+  }
 }

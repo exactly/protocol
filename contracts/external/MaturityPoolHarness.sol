@@ -12,6 +12,7 @@ contract MaturityPoolHarness {
     IEToken public eToken;
     uint256 public lastCommission;
     uint256 public lastEarningsSP;
+    uint256 public lastExtrasSP;
 
     constructor(address _eTokenAddress) {
         eToken = IEToken(_eTokenAddress);
@@ -48,9 +49,13 @@ contract MaturityPoolHarness {
     }
 
     function repayMP(uint256 _maturityID, uint256 _amount) external {
-        (uint256 smartPoolDebtReduction, uint256 earningsSP) = maturityPool
-            .repay(_maturityID, _amount);
+        (
+            uint256 smartPoolDebtReduction,
+            uint256 earningsSP,
+            uint256 extrasSP
+        ) = maturityPool.repay(_maturityID, _amount);
         smartPoolTotalDebt -= smartPoolDebtReduction;
         lastEarningsSP = earningsSP;
+        lastExtrasSP = extrasSP;
     }
 }

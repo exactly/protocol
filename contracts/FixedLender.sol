@@ -25,7 +25,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     mapping(uint256 => mapping(address => uint256)) public mpUserBorrowedAmount;
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
     uint256 public smartPoolBorrowed;
+    uint256 public protocolAccumulatedEarnings;
     uint256 private liquidationFee = 2.8e16; //2.8%
+    uint256 private protocolFee; // 0%
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     IERC20 public override trustedUnderlying;
@@ -225,7 +227,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             maturityDate
         );
 
-        maturityPools[maturityDate].addFee(commission, maturityDate);
+        maturityPools[maturityDate].addFee(maturityDate, commission);
 
         mpUserBorrowedAmount[maturityDate][msg.sender] += totalBorrow;
         totalMpBorrows += totalBorrow;
@@ -306,8 +308,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             maturityDate
         );
 
+        uint256 maxDebt = eToken.totalSupply() / auditor.maxFuturePools();
         smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
-            redeemAmount
+            redeemAmount,
+            maxDebt
         );
 
         mpUserSuppliedAmount[maturityDate][redeemer] -= redeemAmount;
@@ -447,6 +451,17 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
+     * @dev Sets the protocol's fee for revenues
+     * @param _protocolFee that the protocol earns when position is liquidated
+     */
+    function setProtocolFee(uint256 _protocolFee)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        protocolFee = _protocolFee;
+    }
+
+    /**
      * @dev Sets the _pause state to true in case of emergency, triggered by an authorized account
      */
     function pause() external onlyRole(PAUSER_ROLE) {
@@ -547,13 +562,20 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             amountBorrowed -
             debtCovered;
 
-        // Pays: 1) Maturity Pool Depositors
+        // Pays back in the following order:
+        //       1) Maturity Pool Depositors
         //       2) Smart Pool Debt
         //       3) Earnings Smart Pool the rest
-        (uint256 smartPoolDebtReduction, uint256 earningsRepay) = maturityPools[
-            maturityDate
-        ].repay(maturityDate, repayAmount);
-        eToken.accrueEarnings(earningsRepay);
+        (
+            uint256 smartPoolDebtReduction,
+            uint256 fee,
+            uint256 earningsRepay
+        ) = maturityPools[maturityDate].repay(maturityDate, repayAmount);
+
+        // We take a share of the spread of the protocol
+        uint256 protocolShare = fee.mul_(protocolFee);
+        protocolAccumulatedEarnings += protocolShare;
+        eToken.accrueEarnings(fee - protocolShare + earningsRepay);
 
         smartPoolBorrowed -= smartPoolDebtReduction;
         totalMpBorrows -= debtCovered;
