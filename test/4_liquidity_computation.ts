@@ -148,9 +148,9 @@ describe("Liquidity computations", function () {
         });
         describe("AND GIVEN laura deposits more collateral for another asset", () => {
           beforeEach(async () => {
-            await exactlyEnv
-              .getUnderlying("ETH")
-              .transfer(laura.address, parseUnits("1"));
+            exactlyEnv.switchWallet(bob);
+            await exactlyEnv.transfer("ETH", laura, "1");
+            exactlyEnv.switchWallet(laura);
             await exactlyEnv.depositSP("ETH", "1");
             await exactlyEnv.enterMarkets(["ETH"]);
           });
