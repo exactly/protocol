@@ -89,7 +89,8 @@ describe("Auditor from User Space", function () {
       auditor.beforeTransferSP(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
-        owner.address
+        owner.address,
+        "0"
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });

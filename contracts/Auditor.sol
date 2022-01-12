@@ -169,7 +169,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        _beforeWithdrawSP(fixedLenderAddress, msg.sender, amountHeld);
+        _validateAccountShortfall(fixedLenderAddress, msg.sender, amountHeld);
 
         book.exitMarket(fixedLenderAddress, msg.sender);
     }
@@ -325,7 +325,7 @@ contract Auditor is IAuditor, AccessControl {
         address redeemer,
         uint256 redeemAmount
     ) external override {
-        _beforeWithdrawSP(fixedLenderAddress, redeemer, redeemAmount);
+        _validateAccountShortfall(fixedLenderAddress, redeemer, redeemAmount);
 
         rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeSPSupplierExa(fixedLenderAddress, redeemer);
@@ -362,15 +362,15 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenderAddress address of the fixedLender where this eToken is used
      * @param sender address of the sender of the tokens
      * @param recipient address of the recipient of the tokens
+     * @param amount amount of tokens to be transferred
      */
     function beforeTransferSP(
         address fixedLenderAddress,
         address sender,
-        address recipient
+        address recipient,
+        uint256 amount
     ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        _validateAccountShortfall(fixedLenderAddress, sender, amount);
 
         rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeSPSupplierExa(fixedLenderAddress, sender);
@@ -719,34 +719,34 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Internal function to be called before someone wants to receive its money back from a smart pool.
+     * @dev Internal function to be called before someone wants to interact with its smart pool position.
      *      This function verifies if market is valid, maturity is MATURED, checks if the user has no outstanding
-     *      debts. This function is called indirectly from fixedLender contracts(redeem) and directly from this
-     *      when the user wants to exit a market.
-     * @param fixedLenderAddress address of the fixedLender where the money will be withdrawn
-     * @param redeemer address of the user that wants to withdraw it's money
-     * @param redeemAmount amount that the user wants to withdraw from the smart pool
+     *      debts. This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
+     *      this contract when the user wants to exit a market.
+     * @param fixedLenderAddress address of the fixedLender where the smart pool belongs
+     * @param account address of the user to check for possible shortfall
+     * @param amount amount that the user wants to withdraw or transfer
      */
-    function _beforeWithdrawSP(
+    function _validateAccountShortfall(
         address fixedLenderAddress,
-        address redeemer,
-        uint256 redeemAmount
+        address account,
+        uint256 amount
     ) internal view {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
-        if (!book.markets[fixedLenderAddress].accountMembership[redeemer]) {
+        /* If the user is not 'in' the market, then we can bypass the liquidity check */
+        if (!book.markets[fixedLenderAddress].accountMembership[account]) {
             return;
         }
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
         (, uint256 shortfall) = book.accountLiquidity(
             oracle,
-            redeemer,
+            account,
             fixedLenderAddress,
-            redeemAmount,
+            amount,
             0
         );
         if (shortfall > 0) {

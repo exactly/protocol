@@ -202,20 +202,40 @@ describe("Smart Pool", function () {
     });
   });
 
-  describe("GIVEN bob deposits 100 DAI (collateralization rate 80%) AND borrows 60 DAI from a maturity", () => {
+  describe("GIVEN bob deposits 100 DAI (collateralization rate 80%)", () => {
     beforeEach(async () => {
       exactlyEnv.switchWallet(bob);
       await exactlyEnv.depositSP("DAI", "100");
+      // we add liquidity to the maturity
       await exactlyEnv.depositMP("DAI", nextPoolId, "60");
-      await exactlyEnv.borrowMP("DAI", nextPoolId, "60");
     });
-    it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
-      await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith(
-        errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
-      );
+    it("WHEN trying to transfer to another user the entire position (100 eDAI) THEN it should not revert", async () => {
+      await expect(eDAI.connect(bob).transfer(john.address, parseUnits("100")))
+        .to.not.be.reverted;
     });
-    it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (10 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
-      await expect(exactlyEnv.withdrawSP("DAI", "10")).to.not.be.reverted;
+    describe("AND GIVEN bob borrows 60 DAI from a maturity", () => {
+      beforeEach(async () => {
+        await exactlyEnv.borrowMP("DAI", nextPoolId, "60");
+      });
+      it("WHEN trying to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+        await expect(
+          eDAI.connect(bob).transfer(john.address, parseUnits("100"))
+        ).to.be.revertedWith(
+          errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+        );
+      });
+      it("AND WHEN trying to transfer a small amount that doesnt cause a shortfall (10 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
+        await expect(eDAI.connect(bob).transfer(john.address, parseUnits("10")))
+          .to.not.be.reverted;
+      });
+      it("WHEN trying to withdraw the entire pos  ition (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+        await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith(
+          errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+        );
+      });
+      it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (10 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
+        await expect(exactlyEnv.withdrawSP("DAI", "10")).to.not.be.reverted;
+      });
     });
   });
 

@@ -21,7 +21,8 @@ interface IAuditor {
     function beforeTransferSP(
         address fixedLenderAddress,
         address sender,
-        address recipient
+        address recipient,
+        uint256 amount
     ) external;
 
     function beforeBorrowMP(

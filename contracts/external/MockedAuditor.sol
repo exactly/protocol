@@ -7,6 +7,7 @@ contract MockedAuditor {
     function beforeTransferSP(
         address,
         address,
-        address
+        address,
+        uint256
     ) external {}
 }
