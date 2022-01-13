@@ -52,6 +52,23 @@ describe("Auditor from User Space", function () {
       .reverted;
   });
 
+  it("EnterMarkets should emit event", async () => {
+    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
+
+    await expect(auditor.enterMarkets([fixedLenderDAI.address]))
+      .to.emit(auditor, "MarketEntered")
+      .withArgs(fixedLenderDAI.address, owner.address);
+  });
+
+  it("ExitMarket should emit event", async () => {
+    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
+    await auditor.enterMarkets([fixedLenderDAI.address]);
+
+    await expect(auditor.exitMarket(fixedLenderDAI.address))
+      .to.emit(auditor, "MarketExited")
+      .withArgs(fixedLenderDAI.address, owner.address);
+  });
+
   it("We try to exit an unlisted market and fail", async () => {
     await expect(
       auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress)

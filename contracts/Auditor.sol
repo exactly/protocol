@@ -39,29 +39,19 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @notice Event emitted when a user enters a market to use his deposit as collateral
-     *         for a loan. Notice that the market entered is the pair fixedLender/maturityDate
+     *         for a loan
      * @param fixedLender address of the market that the user entered
      * @param account address of the user that just entered a market
-     * @param maturityDate dateID/poolID/maturity that the user just entered
      */
-    event MarketEntered(
-        address fixedLender,
-        address account,
-        uint256 maturityDate
-    );
+    event MarketEntered(address fixedLender, address account);
 
     /**
      * @notice Event emitted when a user leaves a market. This means that he would stop using
      *         his deposit as collateral and it won't ask for any loans in this market
      * @param fixedLender address of the market that the user just left
      * @param account address of the user that just left a market
-     * @param maturityDate dateID/poolID/maturity that the user just left
      */
-    event MarketExited(
-        address fixedLender,
-        address account,
-        uint256 maturityDate
-    );
+    event MarketExited(address fixedLender, address account);
 
     /**
      * @notice Event emitted when a new Oracle has been set
