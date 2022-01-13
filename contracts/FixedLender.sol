@@ -709,7 +709,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @notice Internal function to get the debt + penalties of an account for a certain maturityDate
      * @param who wallet to return debt status for the specified maturityDate
      * @param maturityDate amount to be transfered
-     * @return the total money owed
+     * @return the total owed denominated in number of tokens
      */
     function getAccountDebt(address who, uint256 maturityDate)
         internal

@@ -37,6 +37,8 @@ library MarketsLib {
         mapping(address => bool) accountMembership;
     }
 
+    uint256 internal constant ALL_MATURITIES = 0;
+
     event MarketEntered(address fixedLender, address account);
     event MarketExited(address fixedLender, address account);
 
@@ -162,7 +164,7 @@ library MarketsLib {
             // Read the balances
             (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
                 account,
-                0
+                ALL_MATURITIES
             );
 
             vars.collateralFactor = book

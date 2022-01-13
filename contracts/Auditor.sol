@@ -161,7 +161,7 @@ contract Auditor is IAuditor, AccessControl {
 
         IFixedLender fixedLender = IFixedLender(fixedLenderAddress);
         (uint256 amountHeld, uint256 borrowBalance) = fixedLender
-            .getAccountSnapshot(msg.sender, 0);
+            .getAccountSnapshot(msg.sender, MarketsLib.ALL_MATURITIES);
 
         /* Fail if the sender has a borrow balance */
         if (borrowBalance != 0) {
@@ -512,7 +512,7 @@ contract Auditor is IAuditor, AccessControl {
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
         (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed)
-            .getAccountSnapshot(borrower, 0);
+            .getAccountSnapshot(borrower, MarketsLib.ALL_MATURITIES);
         uint256 maxClose = closeFactor.mul_(borrowBalance);
         if (repayAmount > maxClose) {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
