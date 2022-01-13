@@ -48,8 +48,10 @@ describe("Auditor from User Space", function () {
   it("We enter market twice without failing", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     await auditor.enterMarkets([fixedLenderDAI.address]);
-    await expect(auditor.enterMarkets([fixedLenderDAI.address])).to.not.be
-      .reverted;
+    let tx = auditor.enterMarkets([fixedLenderDAI.address]);
+
+    await expect(tx).to.not.to.emit(auditor, "MarketEntered");
+    await expect(tx).to.not.be.reverted;
   });
 
   it("EnterMarkets should emit event", async () => {
