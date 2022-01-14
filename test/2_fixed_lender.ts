@@ -196,6 +196,13 @@ describe("FixedLender", function () {
           await exactlyEnv.getFixedLender("DAI").getTotalMpBorrows(nextPoolId)
         ).to.equal(parseUnits("60"));
       });
+      it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
+        expect(
+          await exactlyEnv
+            .getFixedLender("DAI")
+            .userMpBorrowed(mariaUser.address, 0)
+        ).to.equal(nextPoolId);
+      });
       describe("AND WHEN fully repaying the debt", () => {
         let tx: any;
         beforeEach(async () => {
@@ -212,6 +219,13 @@ describe("FixedLender", function () {
               parseUnits("60"),
               nextPoolId
             );
+        });
+        it("AND contract's state variable userMpBorrowed does not register the maturity where the user borrowed from anymore", async () => {
+          await expect(
+            exactlyEnv
+              .getFixedLender("DAI")
+              .userMpBorrowed(mariaUser.address, 0)
+          ).to.be.reverted;
         });
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {
