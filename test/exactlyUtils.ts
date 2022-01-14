@@ -163,11 +163,7 @@ export class ExactlyEnv {
     const poolLib = await PoolLib.deploy();
     await poolLib.deployed();
 
-    const MarketsLib = await ethers.getContractFactory("MarketsLib", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
+    const MarketsLib = await ethers.getContractFactory("MarketsLib");
     let marketsLib = await MarketsLib.deploy();
     await marketsLib.deployed();
 
@@ -343,6 +339,7 @@ export class ExaTime {
   ONE_HOUR: number = 3600;
   ONE_DAY: number = 86400;
   INTERVAL: number = 86400 * 7;
+  MAX_POOLS: number = 12;
 
   constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
     this.timestamp = timestamp;
@@ -354,6 +351,14 @@ export class ExaTime {
 
   public nextPoolID(): number {
     return this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL;
+  }
+
+  public poolIDByNumberOfWeek(weekNumber: number): number {
+    return (
+      this.timestamp -
+      (this.timestamp % this.INTERVAL) +
+      this.INTERVAL * weekNumber
+    );
   }
 
   public isPoolID(): boolean {
@@ -371,7 +376,7 @@ export class ExaTime {
   }
 
   public distantFuturePoolID(): number {
-    return this.futurePools(12).pop()! + 86400 * 7;
+    return this.futurePools().pop()! + 86400 * 7;
   }
 
   public trimmedDay(): number {
@@ -382,10 +387,10 @@ export class ExaTime {
     return (anotherTimestamp - this.trimmedDay()) / this.ONE_DAY;
   }
 
-  public futurePools(maxPools: number): number[] {
+  public futurePools(): number[] {
     let nextPoolID = this.nextPoolID();
     var allPools: number[] = [];
-    for (let i = 0; i < maxPools; i++) {
+    for (let i = 0; i < this.MAX_POOLS; i++) {
       allPools.push(nextPoolID);
       nextPoolID += this.INTERVAL;
     }

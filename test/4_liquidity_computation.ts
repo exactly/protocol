@@ -7,8 +7,6 @@ import {
   ExactlyEnv,
   ExaTime,
   errorGeneric,
-  applyMinFee,
-  applyMaxFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
@@ -22,10 +20,11 @@ describe("Liquidity computations", function () {
   let laura: SignerWithAddress;
 
   let fixedLenderDAI: Contract;
-  let dai: Contract;
-  let fixedLenderUSDC: Contract;
-  let usdc: Contract;
+  let fixedLenderETH: Contract;
   let fixedLenderWBTC: Contract;
+  let fixedLenderUSDC: Contract;
+  let dai: Contract;
+  let usdc: Contract;
   let wbtc: Contract;
 
   let snapshot: any;
@@ -61,36 +60,25 @@ describe("Liquidity computations", function () {
     await dai.transfer(bob.address, parseUnits("100000"));
     await usdc.transfer(bob.address, parseUnits("100000", 6));
     // we make DAI & USDC count as collateral
-    await auditor.enterMarkets(
-      [
-        fixedLenderDAI.address,
-        fixedLenderUSDC.address,
-        fixedLenderWBTC.address,
-      ],
-      nextPoolID
-    );
+    await auditor.enterMarkets([
+      fixedLenderDAI.address,
+      fixedLenderUSDC.address,
+    ]);
     await auditor
       .connect(laura)
-      .enterMarkets(
-        [fixedLenderDAI.address, fixedLenderUSDC.address],
-        nextPoolID
-      );
+      .enterMarkets([fixedLenderDAI.address, fixedLenderUSDC.address]);
   });
 
   describe("positions arent immediately liquidateable", () => {
-    describe("GIVEN laura deposits 1kdai to a maturity pool", () => {
+    describe("GIVEN laura deposits 1kdai to a smart pool", () => {
       beforeEach(async () => {
-        const amount = parseUnits("1000");
-        await dai.connect(laura).approve(fixedLenderDAI.address, amount);
-        await fixedLenderDAI
-          .connect(laura)
-          .depositToMaturityPool(amount, nextPoolID, applyMinFee(amount));
+        exactlyEnv.switchWallet(laura);
+        await exactlyEnv.depositSP("DAI", "1000");
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
         const [liquidity, shortfall] = await auditor.getAccountLiquidity(
-          laura.address,
-          nextPoolID
+          laura.address
         );
 
         expect(liquidity).to.be.eq(parseUnits("800"));
@@ -110,16 +98,12 @@ describe("Liquidity computations", function () {
           await exactlyEnv
             .getInterestRateModel()
             .setBorrowRate(parseUnits("0.01"));
+          // we add liquidity to the maturity
+          await exactlyEnv.depositMP("DAI", nextPoolID, "800");
         });
         it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
           await expect(
-            fixedLenderDAI
-              .connect(laura)
-              .borrowFromMaturityPool(
-                parseUnits("800"),
-                nextPoolID,
-                applyMaxFee(parseUnits("800"))
-              )
+            exactlyEnv.borrowMP("DAI", nextPoolID, "800")
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
@@ -128,18 +112,13 @@ describe("Liquidity computations", function () {
 
       describe("AND WHEN laura asks for a 800 DAI loan", () => {
         beforeEach(async () => {
-          await fixedLenderDAI
-            .connect(laura)
-            .borrowFromMaturityPool(
-              parseUnits("800"),
-              nextPoolID,
-              applyMaxFee(parseUnits("800"))
-            );
+          // we add liquidity to the maturity
+          await exactlyEnv.depositMP("DAI", nextPoolID, "800");
+          await exactlyEnv.borrowMP("DAI", nextPoolID, "800");
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
-            laura.address,
-            nextPoolID
+            laura.address
           );
           expect(liquidity).to.eq(parseUnits("0"));
           expect(shortfall).to.eq(parseUnits("0"));
@@ -153,6 +132,42 @@ describe("Liquidity computations", function () {
           expect(supplied).to.be.eq(parseUnits("1000"));
           expect(borrowed).to.eq(parseUnits("800"));
         });
+        it("AND WHEN laura tries to exit her collateral DAI market it reverts since there's unpayed debt", async () => {
+          await expect(
+            auditor.connect(laura).exitMarket(fixedLenderDAI.address)
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED)
+          );
+        });
+        it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
+          await exactlyEnv.repayMP("DAI", nextPoolID, "800");
+
+          await expect(
+            auditor.connect(laura).exitMarket(fixedLenderDAI.address)
+          ).to.not.be.reverted;
+        });
+        describe("AND GIVEN laura deposits more collateral for another asset", () => {
+          beforeEach(async () => {
+            exactlyEnv.switchWallet(bob);
+            await exactlyEnv.transfer("ETH", laura, "1");
+            exactlyEnv.switchWallet(laura);
+            await exactlyEnv.depositSP("ETH", "1");
+            await exactlyEnv.enterMarkets(["ETH"]);
+          });
+          it("THEN it does not revert when she tries to exit her collateral ETH market", async () => {
+            fixedLenderETH = exactlyEnv.getFixedLender("ETH");
+            await expect(
+              auditor.connect(laura).exitMarket(fixedLenderETH.address)
+            ).to.not.be.reverted;
+          });
+          it("THEN it reverts when she tries to exit her collateral DAI market since it's the same that she borrowed from", async () => {
+            await expect(
+              auditor.connect(laura).exitMarket(fixedLenderDAI.address)
+            ).to.be.revertedWith(
+              errorGeneric(ProtocolError.EXIT_MARKET_BALANCE_OWED)
+            );
+          });
+        });
       });
     });
   });
@@ -160,36 +175,17 @@ describe("Liquidity computations", function () {
   describe("unpaid debts after maturity", () => {
     describe("GIVEN a well funded maturity pool (10kdai, laura), AND collateral for the borrower, (10kusdc, bob)", () => {
       beforeEach(async () => {
-        const usdcDecimals = exactlyEnv.mockedTokens.get("USDC")!.decimals;
-        const daiAmount = parseUnits("10000");
-        await dai.connect(laura).approve(fixedLenderDAI.address, daiAmount);
-        await fixedLenderDAI
-          .connect(laura)
-          .depositToMaturityPool(daiAmount, nextPoolID, applyMinFee(daiAmount));
-        const usdcAmount = parseUnits("10000", usdcDecimals);
-        await usdc.connect(bob).approve(fixedLenderUSDC.address, usdcAmount);
-        await fixedLenderUSDC
-          .connect(bob)
-          .depositToMaturityPool(
-            usdcAmount,
-            nextPoolID,
-            applyMinFee(usdcAmount)
-          );
+        await exactlyEnv.depositMP("DAI", nextPoolID, "10000");
+        exactlyEnv.switchWallet(bob);
+        await exactlyEnv.depositSP("USDC", "10000");
       });
       describe("WHEN bob asks for a 7kdai loan (10kusdc should give him 8kusd liquidity)", () => {
         beforeEach(async () => {
-          await fixedLenderDAI
-            .connect(bob)
-            .borrowFromMaturityPool(
-              parseUnits("7000"),
-              nextPoolID,
-              applyMaxFee(parseUnits("7000"))
-            );
+          await exactlyEnv.borrowMP("DAI", nextPoolID, "7000");
         });
         it("THEN bob has 1kusd liquidity and no shortfall", async () => {
           const [liquidity, shortfall] = await auditor.getAccountLiquidity(
-            bob.address,
-            nextPoolID
+            bob.address
           );
           expect(liquidity).to.be.eq(parseUnits("1000"));
           expect(shortfall).to.eq(parseUnits("0"));
@@ -197,15 +193,11 @@ describe("Liquidity computations", function () {
         describe("AND WHEN moving to five days after the maturity date", () => {
           beforeEach(async () => {
             // Move in time to maturity
-            await ethers.provider.send("evm_setNextBlockTimestamp", [
-              nextPoolID + 5 * new ExaTime().ONE_DAY,
-            ]);
-            await ethers.provider.send("evm_mine", []);
+            await exactlyEnv.moveInTime(nextPoolID + 5 * new ExaTime().ONE_DAY);
           });
           it("THEN 5 days of *daily* base rate interest is charged, adding 0.02*5 =10% interest to the debt", async () => {
             const [liquidity, shortfall] = await auditor.getAccountLiquidity(
-              bob.address,
-              nextPoolID
+              bob.address
             );
             // Based on the events emitted, we calculate the liquidity
             // This is because we need to take into account the fixed rates
@@ -222,15 +214,13 @@ describe("Liquidity computations", function () {
           describe("AND WHEN moving to fifteen days after the maturity date", () => {
             beforeEach(async () => {
               // Move in time to maturity
-              await ethers.provider.send("evm_setNextBlockTimestamp", [
-                nextPoolID + 15 * new ExaTime().ONE_DAY,
-              ]);
-              await ethers.provider.send("evm_mine", []);
+              await exactlyEnv.moveInTime(
+                nextPoolID + 15 * new ExaTime().ONE_DAY
+              );
             });
             it("THEN 15 days of *daily* base rate interest is charged, adding 0.02*15 =35% interest to the debt, causing a shortfall", async () => {
               const [liquidity, shortfall] = await auditor.getAccountLiquidity(
-                bob.address,
-                nextPoolID
+                bob.address
               );
               // Based on the events emitted, we calculate the liquidity
               // This is because we need to take into account the fixed rates
@@ -247,6 +237,14 @@ describe("Liquidity computations", function () {
         });
       });
     });
+    it("should allow to leave market if there's no debt", async () => {
+      await expect(auditor.exitMarket(fixedLenderDAI.address)).to.not.be
+        .reverted;
+    });
+    it("should not revert when trying to exit a market that was not interacted with", async () => {
+      await expect(auditor.exitMarket(fixedLenderWBTC.address)).to.not.be
+        .reverted;
+    });
   });
 
   describe("support for tokens with different decimals", () => {
@@ -261,13 +259,11 @@ describe("Liquidity computations", function () {
       describe("WHEN bob does a 1 sat deposit", () => {
         beforeEach(async () => {
           await wbtc.connect(bob).approve(fixedLenderWBTC.address, "10000000");
-          await fixedLenderWBTC.depositToMaturityPool("1", nextPoolID, "1");
+          await fixedLenderWBTC.connect(bob).depositToSmartPool("1");
+          await auditor.connect(bob).enterMarkets([fixedLenderWBTC.address]);
         });
         it("THEN bobs liquidity is 63000 * 0.6 * 10 ^ - 8 usd == 3.78*10^14 minimal usd units", async () => {
-          const [liquidity] = await auditor.getAccountLiquidity(
-            bob.address,
-            nextPoolID
-          );
+          const [liquidity] = await auditor.getAccountLiquidity(bob.address);
           expect(liquidity).to.eq(parseUnits("3.78", 14));
         });
         it("AND WHEN he tries to take a 4*10^14 usd USDC loan, THEN it reverts", async () => {
@@ -287,10 +283,7 @@ describe("Liquidity computations", function () {
               .borrowFromMaturityPool("300", nextPoolID, "300");
           });
           it("THEN he has 7.8*10^13 usd left of liquidity", async () => {
-            const [liquidity] = await auditor.getAccountLiquidity(
-              bob.address,
-              nextPoolID
-            );
+            const [liquidity] = await auditor.getAccountLiquidity(bob.address);
             expect(liquidity).to.eq(parseUnits("7.8", 13));
           });
         });
@@ -299,25 +292,14 @@ describe("Liquidity computations", function () {
     describe("GIVEN theres liquidity on the btc fixedLender", () => {
       beforeEach(async () => {
         // laura supplies wbtc to the protocol to have lendable money in the pool
-        const amount = parseUnits("3", 8);
-        await wbtc.connect(laura).approve(fixedLenderWBTC.address, amount);
-        await fixedLenderWBTC
-          .connect(laura)
-          .depositToMaturityPool(amount, nextPoolID, applyMinFee(amount));
+        exactlyEnv.switchWallet(laura);
+        await exactlyEnv.depositMP("WBTC", nextPoolID, "3");
       });
 
       describe("AND GIVEN Bob provides 60kdai (18 decimals) as collateral", () => {
         beforeEach(async () => {
-          await dai
-            .connect(bob)
-            .approve(fixedLenderDAI.address, parseUnits("60000"));
-          await fixedLenderDAI
-            .connect(bob)
-            .depositToMaturityPool(
-              parseUnits("60000"),
-              nextPoolID,
-              applyMinFee(parseUnits("60000"))
-            );
+          exactlyEnv.switchWallet(bob);
+          await exactlyEnv.depositSP("DAI", "60000");
         });
         // Here I'm trying to make sure we use the borrowed token's decimals
         // properly to compute liquidity
@@ -329,13 +311,7 @@ describe("Liquidity computations", function () {
         it("WHEN he tries to take a 1btc (8 decimals) loan (100% collateralization), THEN it reverts", async () => {
           // We expect liquidity to be equal to zero
           await expect(
-            fixedLenderWBTC
-              .connect(bob)
-              .borrowFromMaturityPool(
-                parseUnits("1", 8),
-                nextPoolID,
-                applyMaxFee(parseUnits("1", 8))
-              )
+            exactlyEnv.borrowMP("WBTC", nextPoolID, "1")
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
           );
@@ -344,63 +320,25 @@ describe("Liquidity computations", function () {
 
       describe("AND GIVEN Bob provides 20kdai (18 decimals) and 40kusdc (6 decimals) as collateral", () => {
         beforeEach(async () => {
-          await dai
-            .connect(bob)
-            .approve(fixedLenderDAI.address, parseUnits("20000"));
-          await fixedLenderDAI
-            .connect(bob)
-            .depositToMaturityPool(
-              parseUnits("20000"),
-              nextPoolID,
-              applyMinFee(parseUnits("20000"))
-            );
-          await usdc
-            .connect(bob)
-            .approve(fixedLenderUSDC.address, parseUnits("40000", 6));
-          await fixedLenderUSDC
-            .connect(bob)
-            .depositToMaturityPool(
-              parseUnits("40000", 6),
-              nextPoolID,
-              applyMinFee(parseUnits("40000", 6))
-            );
+          exactlyEnv.switchWallet(bob);
+          await exactlyEnv.depositSP("DAI", "20000");
+          await exactlyEnv.depositSP("USDC", "40000");
         });
         describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
           beforeEach(async () => {
-            await fixedLenderWBTC
-              .connect(bob)
-              .borrowFromMaturityPool(
-                parseUnits("0.5", 8),
-                nextPoolID,
-                applyMaxFee(parseUnits("0.5", 8))
-              );
+            await exactlyEnv.borrowMP("WBTC", nextPoolID, "0.5");
           });
-          describe("AND GIVEN the pool matures", () => {
-            beforeEach(async () => {
-              // Move in time to maturity
-              await ethers.provider.send("evm_setNextBlockTimestamp", [
-                nextPoolID,
-              ]);
-              await ethers.provider.send("evm_mine", []);
-            });
-            // this is similar to the previous test case, but instead of
-            // computing the simulated liquidity with a supplyAmount of zero and
-            // the to-be-loaned amount as the borrowAmount, the amount of
-            // collateral to withdraw is passed as the supplyAmount
-            it("WHEN he tries to withdraw the usdc (8 decimals) collateral, THEN it reverts ()", async () => {
-              // We expect liquidity to be equal to zero
-              await expect(
-                fixedLenderUSDC
-                  .connect(bob)
-                  .withdrawFromMaturityPool(
-                    bob.address,
-                    parseUnits("40000", 6),
-                    nextPoolID
-                  )
-              ).to.be.revertedWith(
-                errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
-              );
-            });
+          // this is similar to the previous test case, but instead of
+          // computing the simulated liquidity with a supplyAmount of zero and
+          // the to-be-loaned amount as the borrowAmount, the amount of
+          // collateral to withdraw is passed as the supplyAmount
+          it("WHEN he tries to withdraw the usdc (8 decimals) collateral, THEN it reverts ()", async () => {
+            // We expect liquidity to be equal to zero
+            await expect(
+              exactlyEnv.withdrawSP("USDC", "40000")
+            ).to.be.revertedWith(
+              errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+            );
           });
         });
       });

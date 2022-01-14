@@ -210,11 +210,9 @@ export class DefaultEnv {
       .repayToMaturityPool(this.currentWallet.address, maturityPool, amount);
   }
 
-  public async enterMarkets(assets: string[], maturityPool: number) {
+  public async enterMarkets(assets: string[]) {
     const markets = assets.map((asset) => this.getFixedLender(asset).address);
-    return this.auditor
-      .connect(this.currentWallet)
-      .enterMarkets(markets, maturityPool);
+    return this.auditor.connect(this.currentWallet).enterMarkets(markets);
   }
 
   public async setBorrowRate(rate: string) {

@@ -62,6 +62,11 @@ describe("FixedLender", function () {
         await exactlyEnv
           .getFixedLender("DAI")
           .connect(mariaUser)
+          .depositToSmartPool("2");
+        // we add liquidity to the maturity
+        await exactlyEnv
+          .getFixedLender("DAI")
+          .connect(mariaUser)
           .depositToMaturityPool("2", nextPoolId, "0");
       });
       it("THEN the FixedLender registers a supply of 2 wei DAI for the user (exposed via getAccountSnapshot)", async () => {
@@ -104,7 +109,7 @@ describe("FixedLender", function () {
     });
   });
 
-  describe("WHEN depositing 100 DAI to a maturity pool (with a collateralization rate of 80%)", () => {
+  describe("WHEN depositing 100 DAI to a maturity pool", () => {
     let tx: any;
     beforeEach(async () => {
       tx = exactlyEnv.depositMP("DAI", nextPoolId, "100");
@@ -123,9 +128,9 @@ describe("FixedLender", function () {
         parseUnits("100")
       );
     });
-    it("AND the FixedLender registers a supply of 100 DAI for the user (exposed via getAccountSnapshot)", async () => {
+    it("AND the FixedLender registers a supply of 100 DAI for the user", async () => {
       expect(
-        (await fixedLender.getAccountSnapshot(mariaUser.address, nextPoolId))[0]
+        await fixedLender.mpUserSuppliedAmount(nextPoolId, mariaUser.address)
       ).to.be.equal(parseUnits("100"));
     });
     it("AND WHEN trying to withdraw before the pool matures, THEN it reverts", async () => {
@@ -136,9 +141,9 @@ describe("FixedLender", function () {
         errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
       );
     });
-    it("WHEN trying to borrow 90 DAI THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+    it("WHEN trying to borrow DAI THEN it reverts with INSUFFICIENT_LIQUIDITY since collateral was not deposited yet", async () => {
       await expect(
-        exactlyEnv.borrowMP("DAI", nextPoolId, "90")
+        exactlyEnv.borrowMP("DAI", nextPoolId, "1")
       ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY));
     });
     describe("AND WHEN depositing 50 DAI to the same maturity, as the same user", () => {
@@ -160,18 +165,19 @@ describe("FixedLender", function () {
           parseUnits("150")
         );
       });
-      it("AND the FixedLender registers a supply of 150 DAI for the user (exposed via getAccountSnapshot)", async () => {
+      it("AND the FixedLender does not register a smart pool balance deposit (exposed via getAccountSnapshot)", async () => {
         expect(
           (
             await fixedLender.getAccountSnapshot(mariaUser.address, nextPoolId)
           )[0]
-        ).to.be.equal(parseUnits("150"));
+        ).to.be.equal(parseUnits("0"));
       });
     });
 
-    describe("WHEN borrowing 60 DAI from the same maturity", () => {
+    describe("WHEN depositing collateral and borrowing 60 DAI from the same maturity", () => {
       let tx: any;
       beforeEach(async () => {
+        await exactlyEnv.depositSP("DAI", "100");
         tx = exactlyEnv.borrowMP("DAI", nextPoolId, "60");
         await tx;
       });
@@ -190,6 +196,31 @@ describe("FixedLender", function () {
           await exactlyEnv.getFixedLender("DAI").getTotalMpBorrows(nextPoolId)
         ).to.equal(parseUnits("60"));
       });
+      it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
+        expect(
+          await exactlyEnv
+            .getFixedLender("DAI")
+            .userMpBorrowed(mariaUser.address, 0)
+        ).to.equal(nextPoolId);
+      });
+      describe("AND WHEN borrowing 60 DAI from another maturity AND repaying only first debt", () => {
+        beforeEach(async () => {
+          await exactlyEnv.depositSP("DAI", "1000");
+          await exactlyEnv.borrowMP(
+            "DAI",
+            exaTime.poolIDByNumberOfWeek(2),
+            "60"
+          );
+          await exactlyEnv.repayMP("DAI", nextPoolId, "60");
+        });
+        it("THEN contract's state variable userMpBorrowed registers the second maturity where the user borrowed from", async () => {
+          expect(
+            await exactlyEnv
+              .getFixedLender("DAI")
+              .userMpBorrowed(mariaUser.address, 0)
+          ).to.equal(exaTime.poolIDByNumberOfWeek(2));
+        });
+      });
       describe("AND WHEN fully repaying the debt", () => {
         let tx: any;
         beforeEach(async () => {
@@ -207,15 +238,16 @@ describe("FixedLender", function () {
               nextPoolId
             );
         });
-        it("AND WHEN withdrawing the collateral, THEN it reverts because the pool isnt mature yet", async () => {
+        it("AND contract's state variable userMpBorrowed does not register the maturity where the user borrowed from anymore", async () => {
           await expect(
-            exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
-          ).to.be.revertedWith(
-            errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
-          );
+            exactlyEnv
+              .getFixedLender("DAI")
+              .userMpBorrowed(mariaUser.address, 0)
+          ).to.be.reverted;
         });
-        describe("AND WHEN moving in time to maturity AND withdrawing the collateral", () => {
+        describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {
+            await exactlyEnv.withdrawSP("DAI", "100");
             await exactlyEnv.moveInTime(nextPoolId);
             await exactlyEnv.withdrawMP("DAI", nextPoolId, "100");
           });
@@ -230,7 +262,7 @@ describe("FixedLender", function () {
           });
         });
       });
-      describe("GIVEN the pool matures", () => {
+      describe("GIVEN the maturity pool matures", () => {
         beforeEach(async () => {
           await exactlyEnv.moveInTime(nextPoolId);
         });
@@ -238,17 +270,6 @@ describe("FixedLender", function () {
           await expect(
             exactlyEnv.withdrawMP("DAI", nextPoolId, "0")
           ).to.be.revertedWith(errorGeneric(ProtocolError.REDEEM_CANT_BE_ZERO));
-        });
-        it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
-          await expect(
-            exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
-          ).to.be.revertedWith(
-            errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
-          );
-        });
-        it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (10 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
-          await expect(exactlyEnv.withdrawMP("DAI", nextPoolId, "10")).to.not.be
-            .reverted;
         });
       });
 
@@ -418,8 +439,10 @@ describe("FixedLender", function () {
     beforeEach(async () => {
       await exactlyEnv.setBorrowRate("0.02");
 
+      await exactlyEnv.depositSP("DAI", "1");
+      await exactlyEnv.enterMarkets(["DAI"]);
+      // we add liquidity to the maturity
       await exactlyEnv.depositMP("DAI", nextPoolId, "1");
-      await exactlyEnv.enterMarkets(["DAI"], nextPoolId);
     });
     it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
       await expect(
@@ -437,8 +460,8 @@ describe("FixedLender", function () {
 
   describe("GIVEN Maria has 10ETH collateral", () => {
     beforeEach(async () => {
-      await exactlyEnv.depositMP("ETH", nextPoolId, "10");
-      await exactlyEnv.enterMarkets(["ETH"], nextPoolId);
+      await exactlyEnv.depositSP("ETH", "10");
+      await exactlyEnv.enterMarkets(["ETH"]);
     });
     it("WHEN Maria tries to borrow 50 DAI on an empty maturity, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
       await expect(
@@ -505,12 +528,10 @@ describe("FixedLender", function () {
 
   describe("GIVEN maria has plenty of ETH collateral", () => {
     beforeEach(async () => {
-      await exactlyEnv.depositMP("ETH", nextPoolId, "2");
-      await exactlyEnv.depositMP("ETH", laterPoolId, "2");
-      await exactlyEnv.enterMarkets(["DAI", "ETH"], nextPoolId);
-      await exactlyEnv.enterMarkets(["DAI", "ETH"], laterPoolId);
+      await exactlyEnv.depositSP("ETH", "4");
+      await exactlyEnv.enterMarkets(["DAI", "ETH"]);
     });
-    describe("AND GIVEN she deposits 1000DAI into the next two maturity pools AND 500 * 12 = 6000 into the smart pool", () => {
+    describe("AND GIVEN she deposits 1000DAI into the next two maturity pools AND other 500 into the smart pool", () => {
       beforeEach(async () => {
         await exactlyEnv.depositMP("DAI", nextPoolId, "1000");
         await exactlyEnv.depositMP("DAI", laterPoolId, "1000");
@@ -692,20 +713,18 @@ describe("FixedLender", function () {
         await underlyingToken.transfer(johnUser.address, parseUnits("10000"));
       });
 
-      describe("WHEN depositing 2000 DAI on a maturity pool", () => {
+      describe("WHEN depositing 2000 DAI on a maturity pool and on a smart pool", () => {
         beforeEach(async () => {
           exactlyEnv.switchWallet(johnUser);
           await exactlyEnv.depositMP("DAI", nextPoolId, "2000", "1800");
+          await exactlyEnv.depositSP("DAI", "2000");
           exactlyEnv.switchWallet(mariaUser);
         });
 
         it("THEN the user receives 1800 on the maturity pool deposit", async () => {
-          const supplied = (
-            await fixedLender
-              .connect(johnUser)
-              .getAccountSnapshot(johnUser.address, nextPoolId)
-          )[0];
-          expect(supplied).to.eq(parseUnits("1800"));
+          expect(
+            await fixedLender.mpUserSuppliedAmount(nextPoolId, johnUser.address)
+          ).to.be.equal(parseUnits("1800"));
         });
 
         describe("AND GIVEN john has a 900 DAI borrows on a maturity pool", () => {

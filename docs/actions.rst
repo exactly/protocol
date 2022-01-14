@@ -7,7 +7,7 @@ Borrowing
 
 Previous steps
 --------------
-- The user deposited assets in one or more maturity pools
+- The user deposited assets in one or more smart pools
 - The user has marked one or more of those assets as collateral
 
 In this case, the user is trying to borrow DAI from the appropiate FixedLender contract, EXADAI
