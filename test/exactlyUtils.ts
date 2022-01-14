@@ -353,9 +353,11 @@ export class ExaTime {
     return this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL;
   }
 
-  public poolIDByNumberOfWeek(week: number): number {
+  public poolIDByNumberOfWeek(weekNumber: number): number {
     return (
-      this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL * week
+      this.timestamp -
+      (this.timestamp % this.INTERVAL) +
+      this.INTERVAL * weekNumber
     );
   }
 

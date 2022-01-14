@@ -540,22 +540,24 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             debtCovered;
 
         if (mpUserBorrowedAmount[maturityDate][borrower] == 0) {
-            uint256[] memory userAssetList = userMpBorrowed[borrower];
-            uint256 len = userAssetList.length;
-            uint256 assetIndex = len;
+            uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[
+                borrower
+            ];
+            uint256 len = userMaturitiesBorrowedList.length;
+            uint256 maturityIndex = len;
             for (uint256 i = 0; i < len; i++) {
-                if (userAssetList[i] == maturityDate) {
-                    assetIndex = i;
+                if (userMaturitiesBorrowedList[i] == maturityDate) {
+                    maturityIndex = i;
                     break;
                 }
             }
 
-            // We *must* have found the asset in the list or our redundant data structure is broken
-            assert(assetIndex < len);
+            // We *must* have found the maturity in the list or our redundant data structure is broken
+            assert(maturityIndex < len);
 
             // copy last item in list to location of item to be removed, reduce length by 1
             uint256[] storage storedList = userMpBorrowed[borrower];
-            storedList[assetIndex] = storedList[storedList.length - 1];
+            storedList[maturityIndex] = storedList[storedList.length - 1];
             storedList.pop();
         }
 
