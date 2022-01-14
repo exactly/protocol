@@ -342,6 +342,18 @@ describe("Auditor from User Space", function () {
     );
   });
 
+  it("Contract's state variable accountAssets should correctly add and remove the asset which the user entered and exited as collateral", async () => {
+    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
+    const fixedLenderETH = exactlyEnv.getFixedLender("ETH");
+    await auditor.enterMarkets([
+      fixedLenderDAI.address,
+      fixedLenderETH.address,
+    ]);
+
+    await expect(auditor.exitMarket(fixedLenderDAI.address)).to.not.be.reverted;
+    await expect(auditor.exitMarket(fixedLenderETH.address)).to.not.be.reverted;
+  });
+
   it("Auditor reverts if Oracle acts weird", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     const dai = exactlyEnv.getUnderlying("DAI");

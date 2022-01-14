@@ -203,6 +203,24 @@ describe("FixedLender", function () {
             .userMpBorrowed(mariaUser.address, 0)
         ).to.equal(nextPoolId);
       });
+      describe("AND WHEN borrowing 60 DAI from another maturity AND repaying only first debt", () => {
+        beforeEach(async () => {
+          await exactlyEnv.depositSP("DAI", "1000");
+          await exactlyEnv.borrowMP(
+            "DAI",
+            exaTime.poolIDByNumberOfWeek(2),
+            "60"
+          );
+          await exactlyEnv.repayMP("DAI", nextPoolId, "60");
+        });
+        it("THEN contract's state variable userMpBorrowed registers the second maturity where the user borrowed from", async () => {
+          expect(
+            await exactlyEnv
+              .getFixedLender("DAI")
+              .userMpBorrowed(mariaUser.address, 0)
+          ).to.equal(exaTime.poolIDByNumberOfWeek(2));
+        });
+      });
       describe("AND WHEN fully repaying the debt", () => {
         let tx: any;
         beforeEach(async () => {
