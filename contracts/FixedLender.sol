@@ -233,7 +233,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         totalMpBorrows += totalBorrow;
         totalMpBorrowsUser[msg.sender] += totalBorrow;
 
-        trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
+        trustedUnderlying.safeTransfer(msg.sender, amount);
 
         emit BorrowFromMaturityPool(
             msg.sender,
@@ -312,11 +312,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             "Not enough liquidity"
         );
 
-        trustedUnderlying.safeTransferFrom(
-            address(this),
-            redeemer,
-            redeemAmount
-        );
+        trustedUnderlying.safeTransfer(redeemer, redeemAmount);
 
         emit WithdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
     }
@@ -412,16 +408,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             amountToWithdraw = userBalance;
         }
 
+        // We check if the underlying liquidity that the user wants to withdraw is borrowed
         if (eToken.totalSupply() - amountToWithdraw < smartPoolBorrowed) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
 
         eToken.burn(msg.sender, amountToWithdraw);
-        trustedUnderlying.safeTransferFrom(
-            address(this),
-            msg.sender,
-            amountToWithdraw
-        );
+        trustedUnderlying.safeTransfer(msg.sender, amountToWithdraw);
 
         emit WithdrawFromSmartPool(msg.sender, amount);
     }
@@ -670,17 +663,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         auditor.beforeDepositSP(address(this), borrower);
 
+        // We check if the underlying liquidity that the user wants to seize is borrowed
         if (eToken.totalSupply() - amountToTransfer < smartPoolBorrowed) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
 
         // That seize amount diminishes liquidity in the pool
         eToken.burn(borrower, seizeAmount);
-        trustedUnderlying.safeTransferFrom(
-            address(this),
-            liquidator,
-            amountToTransfer
-        );
+        trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
 
         emit SeizeAsset(liquidator, borrower, seizeAmount);
         emit AddReserves(address(this), protocolAmount);
