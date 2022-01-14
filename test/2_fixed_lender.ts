@@ -407,9 +407,18 @@ describe("FixedLender", function () {
         );
       });
     });
+
     it("WHEN calling setLiquidationFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(
         fixedLender.connect(mariaUser).setLiquidationFee(parseUnits("0.04"))
+      ).to.be.revertedWith("AccessControl");
+    });
+
+    it("WHEN calling withdrawEarnings from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        fixedLender
+          .connect(mariaUser)
+          .withdrawEarnings(owner.address, parseUnits("0.04"))
       ).to.be.revertedWith("AccessControl");
     });
   });

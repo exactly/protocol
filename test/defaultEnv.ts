@@ -356,4 +356,9 @@ export class DefaultEnv {
       maturityPoolID
     );
   }
+
+  public async protocolEarnings(assetString: string) {
+    const fixedLender = this.getFixedLender(assetString);
+    return fixedLender.protocolEarnings();
+  }
 }

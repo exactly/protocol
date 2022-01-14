@@ -25,9 +25,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     mapping(uint256 => mapping(address => uint256)) public mpUserBorrowedAmount;
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
     uint256 public smartPoolBorrowed;
-    uint256 public protocolAccumulatedEarnings;
     uint256 private liquidationFee = 2.8e16; //2.8%
     uint256 private protocolFee; // 0%
+    uint256 public protocolEarnings;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     IERC20 public override trustedUnderlying;
@@ -376,6 +376,20 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
+     * @notice public function to transfer funds from protocol earnings to a specified wallet
+     * @param who address which will receive the funds
+     * @param amount amount to be transfered
+     */
+    function withdrawEarnings(address who, uint256 amount)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        protocolEarnings -= amount;
+        trustedUnderlying.safeTransferFrom(address(this), who, amount);
+    }
+
+    /**
      * @notice Public function to seize a certain amount of tokens
      * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date.
      *      This function will only be called from another FixedLender, on `liquidation` calls.
@@ -574,7 +588,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         // We take a share of the spread of the protocol
         uint256 protocolShare = fee.mul_(protocolFee);
-        protocolAccumulatedEarnings += protocolShare;
+        protocolEarnings += protocolShare;
         eToken.accrueEarnings(fee - protocolShare + earningsRepay);
 
         smartPoolBorrowed -= smartPoolDebtReduction;

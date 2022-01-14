@@ -5,6 +5,7 @@ import { ExactlyEnv, ExaTime } from "./exactlyUtils";
 import { PoolEnv } from "./poolEnv";
 import { DefaultEnv } from "./defaultEnv";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { BigNumber } from "ethers";
 
 describe("Pool Management Library", () => {
   const exaTime = new ExaTime();
@@ -12,9 +13,11 @@ describe("Pool Management Library", () => {
   let poolEnv: PoolEnv;
   let defaultEnv: DefaultEnv;
   let snapshot: any;
+  let owner: SignerWithAddress;
   let juana: SignerWithAddress;
   let walter: SignerWithAddress;
   let cindy: SignerWithAddress;
+  let fakeMultisig: SignerWithAddress;
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -755,18 +758,24 @@ describe("Pool Management Library", () => {
     });
   });
 
-  describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool AND 6% penalty rate AND 10% borrow rate (for the period, not yearly)", () => {
+  describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool AND 6% penalty rate AND 10% borrow rate AND 10% protocol share (for the period, not yearly)", () => {
     beforeEach(async () => {
       defaultEnv = await ExactlyEnv.create({});
-      [, juana, cindy, walter] = await ethers.getSigners();
+      [owner, juana, cindy, walter, fakeMultisig] = await ethers.getSigners();
+
+      // Juana has ETH to put as collateral, and some DAIf
+      // to pay back the interests of her loan
       await defaultEnv.transfer("ETH", juana, "200");
       await defaultEnv.transfer("DAI", juana, "400");
+      // Cindy will deposit to the MP of DAI
       await defaultEnv.transfer("DAI", cindy, "3000");
+      // Walter will be providing liquidity to the SP
       await defaultEnv.transfer("DAI", walter, "60000");
       await defaultEnv
         .getInterestRateModel()
         .setPenaltyRate(parseUnits("0.06"));
       await defaultEnv.getInterestRateModel().setBorrowRate(parseUnits("0.1"));
+      await defaultEnv.getFixedLender("DAI").setProtocolFee(parseUnits("0.1"));
       defaultEnv.switchWallet(walter);
       await defaultEnv.depositSP("DAI", "60000");
       defaultEnv.switchWallet(juana);
@@ -964,10 +973,17 @@ describe("Pool Management Library", () => {
                 expect(mp.suppliedSP).to.equal(0);
               });
 
-              it("THEN Juana got to cover her penalties", async () => {
+              it("THEN Juana got to cover some of her penalties (60 - protocolfee = 54)", async () => {
                 await expect(tx2)
                   .to.emit(defaultEnv.getEToken("DAI"), "EarningsAccrued")
-                  .withArgs(parseUnits("60"));
+                  .withArgs(parseUnits("54"));
+              });
+
+              it("THEN protocol earnings are 6 (10% out of 60)", async () => {
+                await tx2;
+                expect(await defaultEnv.protocolEarnings("DAI")).to.equal(
+                  parseUnits("6")
+                );
               });
 
               it("THEN 'earningsSP' are still there (400)", async () => {
@@ -985,6 +1001,37 @@ describe("Pool Management Library", () => {
                   parseUnits("424"),
                   parseUnits("0.000001").toNumber()
                 );
+              });
+
+              describe("AND admin withdraw the funds that were earned by the protocol", () => {
+                let balancePre: BigNumber;
+                let balancePost: BigNumber;
+                beforeEach(async () => {
+                  await tx2;
+                  defaultEnv.switchWallet(owner);
+                  balancePre = await defaultEnv
+                    .getUnderlying("DAI")
+                    .balanceOf(fakeMultisig.address);
+                  await defaultEnv
+                    .getFixedLender("DAI")
+                    .withdrawEarnings(fakeMultisig.address, parseUnits("6"));
+                  balancePost = await defaultEnv
+                    .getUnderlying("DAI")
+                    .balanceOf(fakeMultisig.address);
+                });
+
+                it("THEN the fakeMultisig had 0 funds before", async () => {
+                  expect(balancePre).to.equal(0);
+                });
+
+                it("THEN the fakeMultisig has 6 DAI after", async () => {
+                  expect(balancePost).to.equal(parseUnits("6"));
+                });
+
+                it("THEN protocol earnings are 0 (they were withdrawn)", async () => {
+                  await tx2;
+                  expect(await defaultEnv.protocolEarnings("DAI")).to.equal(0);
+                });
               });
 
               describe("AND Cindy withdraws her 3000 after maturity", () => {
