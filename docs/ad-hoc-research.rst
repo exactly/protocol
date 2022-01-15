@@ -188,3 +188,28 @@ We also have two different strategies when implementing ownership in contracts:
 - [x] Using OZ's AccessControl. While the simplicity of ownership can be useful for simple systems or quick prototyping, different levels of authorization are often needed.
 
 This would be our case when having pausable functions and modifiers. Our idea then is to implement a timelock for contracts' setters but to have another role for being able to pause actions (borrows, deposits, withdrawals, etc) at any moment in case of emergency.
+
+Smart Pool deposits as collateral to borrow from maturities
+===========================================================
+
+As decided with the team we will no longer allow deposits to maturities to be 'entered' as collateral for borrowing. Instead, users will now be able to leave their **smart pool deposits** as their guarantee.
+This feature brings two major changes to the **collateral** flow:
+
+1. Users will now 'enter a market' without having to send a specific maturity date as parameter, this change makes the logic pretty similar to Compound and Aave that have a single deposit/collateral vault per asset.
+
+2. Once money is left as collateral, users can now borrow different assets from different maturities. In order to consistently calculate users' liquidity (``accountLiquidity()``) when he interacts with the protocol, the ``fixedLender`` now has to iterate over the different maturities to know how much the user owes.
+    - But why do we need to iterate over maturities to know how much he owes if we can read its value in mapping ``totalMpDepositsUser``? Well, in fact that's not accurate enough, since we have the penalty system that dynamically increments his borrowed amount from day to day if the mp is matured.
+    - That's mainly the reason why a new contract state variable was added to the ``FixedLender`` : ``mapping(address => uint256[]) public userMpBorrowed;`` We ``push`` a maturity date to the array when the user asks for a loan and ``pop`` a maturity from the array when he repays his whole debt.
+    - Disclaimer: [] I'm opened to new or better approaches ^^.
+
+Another turning point IMO is **liquidations**. Users can now have multiple borrows in different maturities with a single collateral amount in a specific smart pool. *Notice* that this is different from Compound or Aave that have two unique vaults. 
+One for lending one for borrowing, despite different assets.
+
+With this being said, users can ask for many small loans of a same asset (different maturities) or many small loans of different assets/maturities. If their position becomes undercollateralized, 
+liquidators will want to liquidate as much as possible and as soon as possible, in order to compete with other liquidators and keep the profit while helping the protocol's solvency. So we have two strategies to achieve this:
+
+1. Liquidators know how much the user owes and how much can be liquidated, so they send the amount and the contract starts iterating over maturities to repay the debt until the max amount is covered.
+
+2. Liquidators choose a maturity to repay, they can send one tx at a time. If the user still has shortfall, then they'll have to send another one an point to another maturity.
+
+As discussed with Lucas, will go for the second one. Bear in mind that it might not be so useful/efficient from a liquidator's point of view. I'm also opened here for other approaches.

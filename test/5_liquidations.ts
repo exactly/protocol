@@ -7,8 +7,6 @@ import {
   ExactlyEnv,
   ExaTime,
   errorGeneric,
-  applyMaxFee,
-  applyMinFee,
 } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
@@ -24,13 +22,13 @@ describe("Liquidations", function () {
   let john: SignerWithAddress;
 
   let fixedLenderETH: Contract;
-  let eth: Contract;
   let fixedLenderDAI: Contract;
   let dai: Contract;
+  let eth: Contract;
   let fixedLenderWBTC: Contract;
   let wbtc: Contract;
 
-  let amountToBorrowDAI: BigNumber;
+  let amountToBorrowDAI: string;
 
   let snapshot: any;
   beforeEach(async () => {
@@ -44,9 +42,9 @@ describe("Liquidations", function () {
     auditor = exactlyEnv.auditor;
 
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");
-    eth = exactlyEnv.getUnderlying("ETH");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
+    eth = exactlyEnv.getUnderlying("ETH");
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
@@ -62,30 +60,14 @@ describe("Liquidations", function () {
   describe("GIVEN alice deposits USD63k worth of WBTC, USD3k worth of ETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob deposits 65kDAI", () => {
     beforeEach(async () => {
       // we deposit Eth to the protocol
-      const amountETH = parseUnits("1");
-      await eth.approve(fixedLenderETH.address, amountETH);
-      await fixedLenderETH.depositToMaturityPool(
-        amountETH,
-        nextPoolID,
-        applyMinFee(amountETH)
-      );
+      await exactlyEnv.depositSP("ETH", "1");
 
       // we deposit WBTC to the protocol
-      const amountWBTC = parseUnits("1", 8);
-      await wbtc.approve(fixedLenderWBTC.address, amountWBTC);
-      await fixedLenderWBTC.depositToMaturityPool(
-        amountWBTC,
-        nextPoolID,
-        applyMinFee(amountWBTC)
-      );
+      await exactlyEnv.depositSP("WBTC", "1");
 
       // bob deposits DAI to the protocol to have money in the pool
-      const amountDAI = parseUnits("65000");
-
-      await dai.connect(bob).approve(fixedLenderDAI.address, amountDAI);
-      await fixedLenderDAI
-        .connect(bob)
-        .depositToMaturityPool(amountDAI, nextPoolID, applyMinFee(amountDAI));
+      exactlyEnv.switchWallet(bob);
+      await exactlyEnv.depositMP("DAI", nextPoolID, "65000");
       await dai
         .connect(bob)
         .approve(fixedLenderDAI.address, parseUnits("200000"));
@@ -97,29 +79,25 @@ describe("Liquidations", function () {
     describe("AND GIVEN Alice takes the biggest loan she can (39900 DAI)", () => {
       beforeEach(async () => {
         // we make ETH & WBTC count as collateral
-        await auditor.enterMarkets(
-          [fixedLenderETH.address, fixedLenderWBTC.address],
-          nextPoolID
-        );
+        await auditor.enterMarkets([
+          fixedLenderETH.address,
+          fixedLenderWBTC.address,
+        ]);
+
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
-        amountToBorrowDAI = parseUnits("39900");
+        amountToBorrowDAI = "39900";
         // alice borrows all liquidity
-        await fixedLenderDAI.borrowFromMaturityPool(
-          amountToBorrowDAI,
-          nextPoolID,
-          applyMaxFee(amountToBorrowDAI)
-        );
+        exactlyEnv.switchWallet(alice);
+        await exactlyEnv.borrowMP("DAI", nextPoolID, amountToBorrowDAI);
       });
 
       describe("WHEN john supplies to the smart pool & the pool matures (prices stay the same) and 20 days goes by without payment", () => {
         beforeEach(async () => {
-          await fixedLenderDAI
-            .connect(john)
-            .depositToSmartPool(parseUnits("10000"));
-          await ethers.provider.send("evm_setNextBlockTimestamp", [
-            nextPoolID + exaTime.ONE_DAY * 20 + exaTime.ONE_HOUR * 10,
-          ]);
-          await ethers.provider.send("evm_mine", []);
+          exactlyEnv.switchWallet(john);
+          await exactlyEnv.depositSP("DAI", "10000");
+          await exactlyEnv.moveInTime(
+            nextPoolID + exaTime.ONE_DAY * 20 + exaTime.ONE_HOUR * 10
+          );
         });
         describe("Alice is a sneaky gal and uses a flash loan to recover her penalty", () => {
           describe("GIVEN a funded attacker contract and a flash-loaneable token", () => {
@@ -168,7 +146,7 @@ describe("Liquidations", function () {
 
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 0.028% in fee is charged (971111 sats)", async () => {
               const seizedWBTC = parseUnits("34682539", 0);
@@ -207,7 +185,7 @@ describe("Liquidations", function () {
 
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 0.4% in fee is charged (1326984 sats)", async () => {
               const seizedWBTC = parseUnits("33174603", 0);
@@ -241,7 +219,7 @@ describe("Liquidations", function () {
             const seizedWBTC = parseUnits("33174603", 0);
             await expect(tx)
               .to.emit(fixedLenderWBTC, "SeizeAsset")
-              .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+              .withArgs(bob.address, alice.address, seizedWBTC);
           });
 
           it("THEN john DID NOT collected the penalty fees because there's still SP debt", async () => {
@@ -294,7 +272,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("31428570", 0);
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 18k DAI of debt has been repaid, making debt ~18k DAI", async () => {
               const [, debt] = await fixedLenderDAI.getAccountSnapshot(
@@ -339,7 +317,7 @@ describe("Liquidations", function () {
             const seizedWBTC = parseUnits("29857142", 0);
             await expect(tx)
               .to.emit(fixedLenderWBTC, "SeizeAsset")
-              .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+              .withArgs(bob.address, alice.address, seizedWBTC);
           });
 
           it("THEN liquidator receives WBTC minus 10% commission of the underlying", async () => {
@@ -399,7 +377,7 @@ describe("Liquidations", function () {
 
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
             let shortfall = (
-              await auditor.getAccountLiquidity(alice.address, nextPoolID)
+              await auditor.getAccountLiquidity(alice.address)
             )[1];
             expect(shortfall).to.eq(parseUnits("1050"));
           });
@@ -419,7 +397,7 @@ describe("Liquidations", function () {
 
             it("THEN alice no longer has a liquidity shortfall", async () => {
               const shortfall = (
-                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+                await auditor.getAccountLiquidity(alice.address)
               )[1];
               expect(shortfall).to.eq(0);
             });
@@ -429,7 +407,7 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("33174603", 0);
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
 
             // debt: 39900-19000 = 20900
@@ -437,7 +415,7 @@ describe("Liquidations", function () {
             // 5410
             it("AND she has some liquidity", async () => {
               const liquidity = (
-                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+                await auditor.getAccountLiquidity(alice.address)
               )[0];
               expect(liquidity).to.be.lt(parseUnits("5410.1"));
               expect(liquidity).to.be.gt(parseUnits("5410"));
@@ -454,7 +432,7 @@ describe("Liquidations", function () {
           });
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
             let shortfall = (
-              await auditor.getAccountLiquidity(alice.address, nextPoolID)
+              await auditor.getAccountLiquidity(alice.address)
             )[1];
             expect(shortfall).to.eq(parseUnits("1050"));
           });
@@ -477,7 +455,7 @@ describe("Liquidations", function () {
             });
             it("THEN alice no longer has a liquidity shortfall", async () => {
               const shortfall = (
-                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+                await auditor.getAccountLiquidity(alice.address)
               )[1];
               expect(shortfall).to.eq(0);
             });
@@ -487,14 +465,14 @@ describe("Liquidations", function () {
               const seizedWBTC = parseUnits("29857142", 0);
               await expect(tx)
                 .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+                .withArgs(bob.address, alice.address, seizedWBTC);
             });
             // debt: 39900-17100 = 22800
             // liquidity: (1-0.29857142)*0.6*63000+1500*0.7 = 27564.000324000
             // diff =>> 4764.000324000
             it("AND she has some liquidity", async () => {
               const liquidity = (
-                await auditor.getAccountLiquidity(alice.address, nextPoolID)
+                await auditor.getAccountLiquidity(alice.address)
               )[0];
               expect(liquidity).to.be.lt(parseUnits("4765"));
               expect(liquidity).to.be.gt(parseUnits("4764"));
@@ -593,14 +571,12 @@ describe("Liquidations", function () {
         it("THEN alices liquidity is zero", async () => {
           // We expect liquidity to be equal to zero
           let liquidityAfterOracleChange = (
-            await auditor.getAccountLiquidity(alice.address, nextPoolID)
+            await auditor.getAccountLiquidity(alice.address)
           )[0];
           expect(liquidityAfterOracleChange).to.be.lt("1");
         });
         it("AND alice has a big (18k) liquidity shortfall", async () => {
-          let shortfall = (
-            await auditor.getAccountLiquidity(alice.address, nextPoolID)
-          )[1];
+          let shortfall = (await auditor.getAccountLiquidity(alice.address))[1];
           expect(shortfall).to.eq(parseUnits("18300"));
         });
 
@@ -703,7 +679,7 @@ describe("Liquidations", function () {
             const seizedWBTC = parseUnits("64307691", 0);
             await expect(tx)
               .to.emit(fixedLenderWBTC, "SeizeAsset")
-              .withArgs(bob.address, alice.address, seizedWBTC, nextPoolID);
+              .withArgs(bob.address, alice.address, seizedWBTC);
             const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
             expect(await wbtc.balanceOf(bob.address)).to.eq(
               seizedWBTC.sub(fee)
@@ -723,6 +699,111 @@ describe("Liquidations", function () {
             expect(await dai.balanceOf(bob.address)).to.eq(
               bobDAIBalanceBefore.sub(parseUnits("19000"))
             );
+          });
+        });
+      });
+    });
+  });
+
+  describe("GIVEN john funds the ETH maturity pool and deposits collateral to the smart pool", () => {
+    beforeEach(async () => {
+      exactlyEnv.switchWallet(john);
+      await eth.transfer(john.address, parseUnits("20"));
+      // we add ETH liquidity to the maturity
+      await exactlyEnv.depositMP(
+        "ETH",
+        exaTime.poolIDByNumberOfWeek(1),
+        "1.25"
+      );
+      await exactlyEnv.depositMP(
+        "ETH",
+        exaTime.poolIDByNumberOfWeek(2),
+        "1.25"
+      );
+
+      await exactlyEnv.depositSP("ETH", "10");
+      await exactlyEnv.enterMarkets(["ETH"]);
+    });
+    describe("AND GIVEN alice deposits 10k DAI to the smart pool AND borrows USD8k worth of ETH (80% collateralization rate)", () => {
+      beforeEach(async () => {
+        exactlyEnv.switchWallet(alice);
+        await exactlyEnv.depositSP("DAI", "10000");
+        await exactlyEnv.enterMarkets(["DAI"]);
+
+        await exactlyEnv.borrowMP(
+          "ETH",
+          exaTime.poolIDByNumberOfWeek(1),
+          "1.25"
+        );
+        await exactlyEnv.borrowMP(
+          "ETH",
+          exaTime.poolIDByNumberOfWeek(2),
+          "1.25"
+        );
+      });
+      describe("WHEN ETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
+        beforeEach(async () => {
+          await exactlyEnv.oracle.setPrice("ETH", parseUnits("8000"));
+          // We borrow 10k DAI from 12 maturities since we can't borrow too much from the smart pool with only one maturity
+          // We can't deposit DAI liquidity to a maturity as a workaround since we are trying to test a seize without underlying liquidity
+          exactlyEnv.switchWallet(john);
+          for (let i = 1; i < exaTime.MAX_POOLS + 1; i++) {
+            await exactlyEnv.borrowMP(
+              "DAI",
+              exaTime.poolIDByNumberOfWeek(i),
+              "833.33"
+            );
+          }
+        });
+        it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY when trying to liquidate one of alice's positions", async () => {
+          await eth
+            .connect(john)
+            .approve(fixedLenderETH.address, parseUnits("1"));
+
+          await expect(
+            fixedLenderETH
+              .connect(john)
+              .liquidate(
+                alice.address,
+                parseUnits("1"),
+                fixedLenderDAI.address,
+                nextPoolID
+              )
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+          );
+        });
+        describe("AND GIVEN a DAI liquidity deposit to the smart pool", () => {
+          beforeEach(async () => {
+            exactlyEnv.switchWallet(john);
+            await dai.transfer(john.address, parseUnits("10000"));
+            await exactlyEnv.depositSP("DAI", "10000");
+          });
+          it("WHEN both of alice's positions are liquidated THEN it doesn't revert", async () => {
+            await eth
+              .connect(john)
+              .approve(fixedLenderETH.address, parseUnits("2"));
+
+            await expect(
+              fixedLenderETH
+                .connect(john)
+                .liquidate(
+                  alice.address,
+                  parseUnits("0.5"),
+                  fixedLenderDAI.address,
+                  exaTime.poolIDByNumberOfWeek(1)
+                )
+            ).to.not.be.reverted;
+            await expect(
+              fixedLenderETH
+                .connect(john)
+                .liquidate(
+                  alice.address,
+                  parseUnits("0.5"),
+                  fixedLenderDAI.address,
+                  exaTime.poolIDByNumberOfWeek(2)
+                )
+            ).to.not.be.reverted;
           });
         });
       });

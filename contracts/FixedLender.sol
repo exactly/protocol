@@ -23,6 +23,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     mapping(uint256 => mapping(address => uint256)) public mpUserSuppliedAmount;
     mapping(uint256 => mapping(address => uint256)) public mpUserBorrowedAmount;
+    mapping(address => uint256[]) public userMpBorrowed;
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
     uint256 public smartPoolBorrowed;
     uint256 private liquidationFee = 2.8e16; //2.8%
@@ -131,13 +132,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param liquidator address which seized this collateral
      * @param borrower address which had the original debt
      * @param seizedAmount amount seized of the collateral
-     * @param maturityDate poolID where the borrower lost the amount of collateral
      */
     event SeizeAsset(
         address liquidator,
         address borrower,
-        uint256 seizedAmount,
-        uint256 maturityDate
+        uint256 seizedAmount
     );
 
     /**
@@ -226,6 +225,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             totalBorrow,
             maturityDate
         );
+        if (mpUserBorrowedAmount[maturityDate][msg.sender] == 0) {
+            userMpBorrowed[msg.sender].push(maturityDate);
+        }
 
         maturityPools[maturityDate].addFee(maturityDate, commission);
 
@@ -233,7 +235,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         totalMpBorrows += totalBorrow;
         totalMpBorrowsUser[msg.sender] += totalBorrow;
 
-        trustedUnderlying.safeTransferFrom(address(this), msg.sender, amount);
+        trustedUnderlying.safeTransfer(msg.sender, amount);
 
         emit BorrowFromMaturityPool(
             msg.sender,
@@ -301,12 +303,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         }
 
         // reverts on failure
-        auditor.beforeWithdrawMP(
-            address(this),
-            redeemer,
-            redeemAmount,
-            maturityDate
-        );
+        auditor.beforeWithdrawMP(address(this), redeemer, maturityDate);
 
         uint256 maxDebt = eToken.totalSupply() / auditor.maxFuturePools();
         smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
@@ -323,11 +320,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             "Not enough liquidity"
         );
 
-        trustedUnderlying.safeTransferFrom(
-            address(this),
-            redeemer,
-            redeemAmount
-        );
+        trustedUnderlying.safeTransfer(redeemer, redeemAmount);
 
         emit WithdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
     }
@@ -352,7 +345,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     /**
      * @notice Function to liquidate an uncollaterized position
-     * @dev Msg.sender liquidates a borrower's position and repays a certain amount of collateral
+     * @dev Msg.sender liquidates a borrower's position and repays a certain amount of debt
      *      for a maturity date, seizing a part of borrower's collateral
      * @param borrower wallet that has an outstanding debt for a certain maturity date
      * @param repayAmount amount to be repaid by liquidator(msg.sender)
@@ -391,21 +384,19 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     /**
      * @notice Public function to seize a certain amount of tokens
-     * @dev Public function for liquidator to seize borrowers tokens in a certain maturity date.
+     * @dev Public function for liquidator to seize borrowers tokens in the smart pool.
      *      This function will only be called from another FixedLender, on `liquidation` calls.
      *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
      * @param liquidator address which will receive the seized tokens
      * @param borrower address from which the tokens will be seized
      * @param seizeAmount amount to be removed from borrower's posession
-     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function seize(
         address liquidator,
         address borrower,
-        uint256 seizeAmount,
-        uint256 maturityDate
+        uint256 seizeAmount
     ) external override nonReentrant whenNotPaused {
-        _seize(msg.sender, liquidator, borrower, seizeAmount, maturityDate);
+        _seize(msg.sender, liquidator, borrower, seizeAmount);
     }
 
     /**
@@ -418,7 +409,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         override
         whenNotPaused
     {
-        auditor.beforeSupplyOrWithdrawSP(address(this), msg.sender);
+        auditor.beforeDepositSP(address(this), msg.sender);
         amount = doTransferIn(msg.sender, amount);
         eToken.mint(msg.sender, amount);
         emit DepositToSmartPool(msg.sender, amount);
@@ -431,7 +422,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      */
     function withdrawFromSmartPool(uint256 amount) external override {
-        auditor.beforeSupplyOrWithdrawSP(address(this), msg.sender);
+        auditor.beforeWithdrawSP(address(this), msg.sender, amount);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
@@ -439,16 +430,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             amountToWithdraw = userBalance;
         }
 
+        // We check if the underlying liquidity that the user wants to withdraw is borrowed
         if (eToken.totalSupply() - amountToWithdraw < smartPoolBorrowed) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
 
         eToken.burn(msg.sender, amountToWithdraw);
-        trustedUnderlying.safeTransferFrom(
-            address(this),
-            msg.sender,
-            amountToWithdraw
-        );
+        trustedUnderlying.safeTransfer(msg.sender, amountToWithdraw);
 
         emit WithdrawFromSmartPool(msg.sender, amount);
     }
@@ -490,9 +478,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @dev Gets current snapshot for a wallet in a certain maturity
+     * @dev Gets current snapshot for a wallet in certain maturity
      * @param who wallet to return status snapshot in the specified maturity date
-     * @param maturityDate maturity date
+     * @param maturityDate maturityDate
+     * - Send the value 0 in order to get the snapshot for all maturities where the user borrowed
+     * @return the amount the user deposited to the smart pool and the total money he owes from maturities
      */
     function getAccountSnapshot(address who, uint256 maturityDate)
         public
@@ -500,17 +490,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         override
         returns (uint256, uint256)
     {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        uint256 debt;
+        if (maturityDate == 0) {
+            for (uint256 i = 0; i < userMpBorrowed[who].length; i++) {
+                debt += getAccountDebt(who, userMpBorrowed[who][i]);
+            }
+        } else {
+            debt = getAccountDebt(who, maturityDate);
         }
 
-        uint256 debt = mpUserBorrowedAmount[maturityDate][who];
-        uint256 daysDelayed = TSUtils.daysPre(maturityDate, block.timestamp);
-        if (daysDelayed > 0) {
-            debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
-        }
-
-        return (mpUserSuppliedAmount[maturityDate][who], debt);
+        return (eToken.balanceOf(who), debt);
     }
 
     /**
@@ -545,7 +534,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param borrower the address of the account that has the debt
      * @param repayAmount the amount of debt of the pool that should be paid
      * @param maturityDate the maturityDate to access the pool
-     * @return the actual amount that it was transferred in to the protocol
+     * @return the actual amount that it was transferred into the protocol
      */
     function _repay(
         address payer,
@@ -575,6 +564,29 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         mpUserBorrowedAmount[maturityDate][borrower] =
             amountBorrowed -
             debtCovered;
+            
+        if (mpUserBorrowedAmount[maturityDate][borrower] == 0) {
+            uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[
+                borrower
+            ];
+            uint256 len = userMaturitiesBorrowedList.length;
+            uint256 maturityIndex = len;
+            for (uint256 i = 0; i < len; i++) {
+                if (userMaturitiesBorrowedList[i] == maturityDate) {
+                    maturityIndex = i;
+                    break;
+                }
+            }
+
+            // We *must* have found the maturity in the list or our redundant data structure is broken
+            assert(maturityIndex < len);
+
+            // copy last item in list to location of item to be removed, reduce length by 1
+            uint256[] storage storedList = userMpBorrowed[borrower];
+            storedList[maturityIndex] = storedList[storedList.length - 1];
+            storedList.pop();
+        }
+
 
         // Pays back in the following order:
         //       1) Maturity Pool Depositors
@@ -628,8 +640,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             address(fixedLenderCollateral),
             liquidator,
             borrower,
-            repayAmount,
-            maturityDate
+            repayAmount
         );
 
         repayAmount = _repay(liquidator, borrower, repayAmount, maturityDate);
@@ -654,20 +665,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
         // both revert on failure
         if (address(fixedLenderCollateral) == address(this)) {
-            _seize(
-                address(this),
-                liquidator,
-                borrower,
-                seizeTokens,
-                maturityDate
-            );
+            _seize(address(this), liquidator, borrower, seizeTokens);
         } else {
-            fixedLenderCollateral.seize(
-                liquidator,
-                borrower,
-                seizeTokens,
-                maturityDate
-            );
+            fixedLenderCollateral.seize(liquidator, borrower, seizeTokens);
         }
 
         /* We emit a LiquidateBorrow event */
@@ -685,21 +685,19 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     /**
      * @notice Private function to seize a certain amount of tokens
-     * @dev Private function for liquidator to seize borrowers tokens in a certain maturity date.
+     * @dev Private function for liquidator to seize borrowers tokens in the smart pool.
      *      This function will only be called from this FixedLender, on `liquidation` or through `seize` calls from another FixedLender.
      *      That's why msg.sender needs to be passed to the private function (to be validated as a market)
      * @param seizerFixedLender address which is calling the seize function (see `seize` public function)
      * @param liquidator address which will receive the seized tokens
      * @param borrower address from which the tokens will be seized
      * @param seizeAmount amount to be removed from borrower's posession
-     * @param maturityDate maturity date from where the tokens will be removed. Used to remove liquidity.
      */
     function _seize(
         address seizerFixedLender,
         address liquidator,
         address borrower,
-        uint256 seizeAmount,
-        uint256 maturityDate
+        uint256 seizeAmount
     ) internal {
         // reverts on failure
         auditor.seizeAllowed(
@@ -712,19 +710,18 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 protocolAmount = seizeAmount.mul_(liquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
 
-        mpUserSuppliedAmount[maturityDate][borrower] -= seizeAmount;
+        auditor.beforeDepositSP(address(this), borrower);
+
+        // We check if the underlying liquidity that the user wants to seize is borrowed
+        if (eToken.totalSupply() - amountToTransfer < smartPoolBorrowed) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
 
         // That seize amount diminishes liquidity in the pool
-        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
-        pool.supplied -= seizeAmount;
-        maturityPools[maturityDate] = pool;
-
-        totalMpDeposits -= seizeAmount;
-        totalMpDepositsUser[borrower] -= seizeAmount;
-
+        eToken.burn(borrower, seizeAmount);
         trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
 
-        emit SeizeAsset(liquidator, borrower, seizeAmount, maturityDate);
+        emit SeizeAsset(liquidator, borrower, seizeAmount);
         emit AddReserves(address(this), protocolAmount);
     }
 
@@ -747,5 +744,29 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // Calculate the amount that was *actually* transferred
         uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
         return balanceAfter - balanceBefore;
+    }
+
+    /**
+     * @notice Internal function to get the debt + penalties of an account for a certain maturityDate
+     * @param who wallet to return debt status for the specified maturityDate
+     * @param maturityDate amount to be transfered
+     * @return the total owed denominated in number of tokens
+     */
+    function getAccountDebt(address who, uint256 maturityDate)
+        internal
+        view
+        returns (uint256)
+    {
+        if (!TSUtils.isPoolID(maturityDate)) {
+            revert GenericError(ErrorCode.INVALID_POOL_ID);
+        }
+
+        uint256 debt = mpUserBorrowedAmount[maturityDate][who];
+        uint256 daysDelayed = TSUtils.daysPre(maturityDate, block.timestamp);
+        if (daysDelayed > 0) {
+            debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
+        }
+
+        return debt;
     }
 }

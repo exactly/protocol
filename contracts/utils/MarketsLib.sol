@@ -4,7 +4,6 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/IFixedLender.sol";
 import "../interfaces/IOracle.sol";
-import "./TSUtils.sol";
 import "../utils/Errors.sol";
 import "../utils/DecimalMath.sol";
 
@@ -25,7 +24,7 @@ library MarketsLib {
     struct Book {
         mapping(address => MarketsLib.Market) markets;
         mapping(address => uint256) borrowCaps;
-        mapping(address => mapping(uint256 => IFixedLender[])) accountAssets;
+        mapping(address => IFixedLender[]) accountAssets;
     }
 
     // Struct for FixedLender's markets
@@ -35,19 +34,13 @@ library MarketsLib {
         bool isListed;
         uint256 collateralFactor;
         uint8 decimals;
-        mapping(address => mapping(uint256 => bool)) accountMembership;
+        mapping(address => bool) accountMembership;
     }
 
-    event MarketEntered(
-        address fixedLender,
-        address account,
-        uint256 maturityDate
-    );
-    event MarketExited(
-        address fixedLender,
-        address account,
-        uint256 maturityDate
-    );
+    uint256 internal constant ALL_MATURITIES = 0;
+
+    event MarketEntered(address fixedLender, address account);
+    event MarketExited(address fixedLender, address account);
 
     /**
      * @dev Allows wallet to exit certain markets (fixedLenderDAI, fixedLenderETH, etc)
@@ -55,28 +48,24 @@ library MarketsLib {
      * @param book book in which the addMarket function will be applied to
      * @param fixedLenderAddress market address used to retrieve the market data
      * @param who wallet that wants to exit a market/maturity
-     * @param maturityDate poolID in which the wallet will stop using as collateral
      */
     function exitMarket(
         Book storage book,
         address fixedLenderAddress,
-        address who,
-        uint256 maturityDate
+        address who
     ) external {
         MarketsLib.Market storage marketToExit = book.markets[
             fixedLenderAddress
         ];
 
-        if (marketToExit.accountMembership[who][maturityDate] == false) {
+        if (marketToExit.accountMembership[who] == false) {
             return;
         }
 
-        delete marketToExit.accountMembership[who][maturityDate];
+        delete marketToExit.accountMembership[who];
 
         // load into memory for faster iteration
-        IFixedLender[] memory userAssetList = book.accountAssets[who][
-            maturityDate
-        ];
+        IFixedLender[] memory userAssetList = book.accountAssets[who];
         uint256 len = userAssetList.length;
         uint256 assetIndex = len;
         for (uint256 i = 0; i < len; i++) {
@@ -90,13 +79,11 @@ library MarketsLib {
         assert(assetIndex < len);
 
         // copy last item in list to location of item to be removed, reduce length by 1
-        IFixedLender[] storage storedList = book.accountAssets[who][
-            maturityDate
-        ];
+        IFixedLender[] storage storedList = book.accountAssets[who];
         storedList[assetIndex] = storedList[storedList.length - 1];
         storedList.pop();
 
-        emit MarketExited(fixedLenderAddress, who, maturityDate);
+        emit MarketExited(fixedLenderAddress, who);
     }
 
     /**
@@ -121,24 +108,19 @@ library MarketsLib {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if (
-            !book.markets[fixedLenderAddress].accountMembership[borrower][
-                maturityDate
-            ]
-        ) {
+        if (!book.markets[fixedLenderAddress].accountMembership[borrower]) {
             // only fixedLenders may call borrowAllowed if borrower not in market
             if (msg.sender != fixedLenderAddress) {
                 revert GenericError(ErrorCode.NOT_A_FIXED_LENDER_SENDER);
             }
 
             // attempt to add borrower to the market // reverts if error
-            addToMarket(book, fixedLenderAddress, borrower, maturityDate);
+            addToMarket(book, fixedLenderAddress, borrower);
 
             // it should be impossible to break the important invariant
+            // TODO: is this tested?
             assert(
-                book.markets[fixedLenderAddress].accountMembership[borrower][
-                    maturityDate
-                ]
+                book.markets[fixedLenderAddress].accountMembership[borrower]
             );
         }
 
@@ -159,7 +141,6 @@ library MarketsLib {
      * @param book account book that it will be used to calculate liquidity
      * @param oracle oracle used to perform all liquidity calculations
      * @param account wallet which the liquidity will be calculated
-     * @param maturityDate timestamp to calculate maturity's pool
      * @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args)
      * @param withdrawAmount amount to simulate withdraw
      * @param borrowAmount amount to simulate borrow
@@ -168,7 +149,6 @@ library MarketsLib {
         Book storage book,
         IOracle oracle,
         address account,
-        uint256 maturityDate,
         address fixedLenderToSimulate,
         uint256 withdrawAmount,
         uint256 borrowAmount
@@ -176,9 +156,7 @@ library MarketsLib {
         AccountLiquidity memory vars; // Holds all our calculation results
 
         // For each asset the account is in
-        IFixedLender[] memory assets = book.accountAssets[account][
-            maturityDate
-        ];
+        IFixedLender[] memory assets = book.accountAssets[account];
         for (uint256 i = 0; i < assets.length; i++) {
             IFixedLender asset = assets[i];
             MarketsLib.Market storage market = book.markets[address(asset)];
@@ -186,8 +164,9 @@ library MarketsLib {
             // Read the balances
             (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
                 account,
-                maturityDate
+                ALL_MATURITIES
             );
+
             vars.collateralFactor = book
                 .markets[address(asset)]
                 .collateralFactor;
@@ -251,48 +230,26 @@ library MarketsLib {
      * @param book book in which the addMarket function will be applied to
      * @param fixedLenderAddress address used to retrieve the market data
      * @param who address of the user that it will start participating in a market/maturity
-     * @param maturityDate poolID in which it will start participating
      */
     function addToMarket(
         Book storage book,
         address fixedLenderAddress,
-        address who,
-        uint256 maturityDate
+        address who
     ) public {
         MarketsLib.Market storage marketToJoin = book.markets[
             fixedLenderAddress
         ];
-        addToMaturity(marketToJoin, who, maturityDate);
-        book.accountAssets[who][maturityDate].push(
-            IFixedLender(fixedLenderAddress)
-        );
-        emit MarketEntered(fixedLenderAddress, who, maturityDate);
-    }
-
-    /**
-     * @dev Allows wallet to enter certain markets (fixedLenderDAI, fixedLenderETH, etc)
-     *      By performing this action, the wallet's money could be used as collateral
-     * @param market Market in which the user will be a added to a certain maturity
-     * @param borrower wallet that wants to enter a market
-     * @param maturityDate poolID in which the wallet will be added to
-     */
-    function addToMaturity(
-        Market storage market,
-        address borrower,
-        uint256 maturityDate
-    ) internal {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        if (!market.isListed) {
+        if (!marketToJoin.isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        if (market.accountMembership[borrower][maturityDate] == true) {
+        if (marketToJoin.accountMembership[who] == true) {
             return;
         }
 
-        market.accountMembership[borrower][maturityDate] = true;
+        marketToJoin.accountMembership[who] = true;
+
+        book.accountAssets[who].push(IFixedLender(fixedLenderAddress));
+        emit MarketEntered(fixedLenderAddress, who);
     }
 }

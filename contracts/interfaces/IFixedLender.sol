@@ -37,8 +37,7 @@ interface IFixedLender {
     function seize(
         address liquidator,
         address borrower,
-        uint256 seizeTokens,
-        uint256 maturityDate
+        uint256 seizeTokens
     ) external;
 
     function liquidate(
@@ -54,7 +53,7 @@ interface IFixedLender {
 
     function trustedUnderlying() external view returns (IERC20);
 
-    function getAccountSnapshot(address who, uint256 timestamp)
+    function getAccountSnapshot(address who, uint256 maturityDate)
         external
         view
         returns (uint256, uint256);
