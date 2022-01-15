@@ -514,8 +514,8 @@ describe("Pool Management Library", () => {
       defaultEnv.switchWallet(walter);
       await defaultEnv.depositSP("DAI", "60000");
       defaultEnv.switchWallet(juana);
-      await defaultEnv.depositMP("ETH", exaTime.nextPoolID(), "100");
-      await defaultEnv.enterMarkets(["ETH"], exaTime.nextPoolID());
+      await defaultEnv.depositSP("ETH", "100");
+      await defaultEnv.enterMarkets(["ETH"]);
     });
 
     describe("WHEN Juana borrows 4000 DAI in the next maturity pool", () => {
@@ -778,9 +778,11 @@ describe("Pool Management Library", () => {
       await defaultEnv.getFixedLender("DAI").setProtocolFee(parseUnits("0.1"));
       defaultEnv.switchWallet(walter);
       await defaultEnv.depositSP("DAI", "60000");
+
+      // This is Juana's colateral
       defaultEnv.switchWallet(juana);
-      await defaultEnv.depositMP("ETH", exaTime.nextPoolID(), "100");
-      await defaultEnv.enterMarkets(["ETH"], exaTime.nextPoolID());
+      await defaultEnv.depositSP("ETH", "100");
+      await defaultEnv.enterMarkets(["ETH"]);
     });
 
     describe("WHEN Juana borrows 4000 DAI in the next maturity pool", () => {
@@ -823,10 +825,9 @@ describe("Pool Management Library", () => {
 
           it("THEN Cindy's commission is 400 * 3000 / 7000", async () => {
             defaultEnv.switchWallet(cindy);
-            const [supplied] = await defaultEnv.accountSnapshot(
-              "DAI",
-              exaTime.nextPoolID()
-            );
+            const supplied = await defaultEnv
+              .getFixedLender("DAI")
+              .mpUserSuppliedAmount(exaTime.nextPoolID(), cindy.address);
 
             let commission = parseUnits("400")
               .mul(parseUnits("3000"))

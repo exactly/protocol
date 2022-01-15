@@ -564,7 +564,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         mpUserBorrowedAmount[maturityDate][borrower] =
             amountBorrowed -
             debtCovered;
-            
+
         if (mpUserBorrowedAmount[maturityDate][borrower] == 0) {
             uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[
                 borrower
@@ -586,7 +586,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             storedList[maturityIndex] = storedList[storedList.length - 1];
             storedList.pop();
         }
-
 
         // Pays back in the following order:
         //       1) Maturity Pool Depositors
