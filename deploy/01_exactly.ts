@@ -151,6 +151,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
 
     const fixedLenderDeploymentName = "FixedLender" + symbol;
+    const poolLenderDeploymentName = "PoolLender" + symbol;
     const eTokenDeploymentName = "EToken" + symbol;
 
     const eToken = await hre.deployments.deploy(eTokenDeploymentName, {
@@ -163,6 +164,17 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     addresses[`e${symbol}`] = eToken.address;
     console.log("eToken e%s deployed", symbol);
 
+    const poolLender = await hre.deployments.deploy(poolLenderDeploymentName, {
+      contract: "PoolLender",
+      from: deployer,
+      args: [eToken.address, interestRateModel.address],
+      log: true,
+      libraries: {
+        TSUtils: tsUtils.address,
+        PoolLib: poolLib.address,
+      },
+    });
+
     const fixedLender = await hre.deployments.deploy(
       fixedLenderDeploymentName,
       {
@@ -173,12 +185,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
           oracleName,
           eToken.address,
           auditor.address,
-          interestRateModel.address,
+          poolLender.address,
         ],
         log: true,
         libraries: {
           TSUtils: tsUtils.address,
-          PoolLib: poolLib.address,
         },
       }
     );
@@ -214,6 +225,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       "initialize",
       fixedLender.address,
       auditor.address
+    );
+
+    // We set the FixedLender on the PoolLender
+    await hre.deployments.execute(
+      poolLenderDeploymentName,
+      { from: deployer },
+      "initialize",
+      fixedLender.address
     );
 
     // We enable this FixedLender Market on Auditor

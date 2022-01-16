@@ -94,15 +94,11 @@ library MarketsLib {
      * @param fixedLenderAddress address of the market that the borrow will be validated. If this equals msg.sender
               then the wallet will be autosubscribed to the market membership,
      * @param borrower address which will be borrowing money from this market
-     * @param borrowAmount amount to be valide the borrow action with
-     * @param maturityDate of the market that the borrow will be validated.
      */
     function validateBorrow(
         Book storage book,
         address fixedLenderAddress,
-        address borrower,
-        uint256 borrowAmount,
-        uint256 maturityDate
+        address borrower
     ) external {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
@@ -128,9 +124,8 @@ library MarketsLib {
         // Borrow cap of 0 corresponds to unlimited borrowing
         if (borrowCap != 0) {
             uint256 totalBorrows = IFixedLender(fixedLenderAddress)
-                .getTotalMpBorrows(maturityDate);
-            uint256 nextTotalBorrows = totalBorrows + borrowAmount;
-            if (nextTotalBorrows >= borrowCap) {
+                .totalMpBorrows();
+            if (totalBorrows >= borrowCap) {
                 revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
             }
         }

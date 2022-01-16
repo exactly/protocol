@@ -373,39 +373,49 @@ contract Auditor is IAuditor, AccessControl {
      *      and accrues rewards accordingly.
      * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
      * @param borrower address of the user that will borrow money from a maturity date
-     * @param borrowAmount amount that will be lent out to the borrower (expressed with same precision as underlying)
      * @param maturityDate timestamp for the maturity date that the user wants to borrow money. It should
      *                     be in a VALID state (meaning that is not in the distant future, nor matured)
      */
     function beforeBorrowMP(
         address fixedLenderAddress,
         address borrower,
-        uint256 borrowAmount,
         uint256 maturityDate
     ) external override {
         _requirePoolState(maturityDate, TSUtils.State.VALID);
 
-        book.validateBorrow(
-            fixedLenderAddress,
-            borrower,
-            borrowAmount,
-            maturityDate
-        );
+        if (!book.markets[fixedLenderAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
 
+        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
+        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
+    }
+
+    /**
+     * @dev Hook function to be called after calling the poolLender borrowMP function. Validates
+     *      that the current state of the position and system are valid (liquidity)
+     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
+     * @param borrower address of the user that will borrow money from a maturity date
+     */
+    function validateBorrowMP(address fixedLenderAddress, address borrower)
+        external
+        override
+    {
+        // we validate borrow state
+        book.validateBorrow(fixedLenderAddress, borrower);
+
+        // We verify that current liquidity is not short
         (, uint256 shortfall) = book.accountLiquidity(
             oracle,
             borrower,
             fixedLenderAddress,
             0,
-            borrowAmount
+            0
         );
 
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
-
-        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
