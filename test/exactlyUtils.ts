@@ -144,6 +144,7 @@ export class ExactlyEnv {
       mockedTokens = defaultMockedTokens;
     }
     let fixedLenderContracts = new Map<string, Contract>();
+    let poolLenderContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
     let eTokenContracts = new Map<string, Contract>();
 
@@ -232,21 +233,25 @@ export class ExactlyEnv {
         );
         await eToken.deployed();
 
-        const FixedLender = await ethers.getContractFactory("FixedLender", {
+        const PoolLender = await ethers.getContractFactory("PoolLender", {
           libraries: {
             TSUtils: tsUtils.address,
             PoolLib: poolLib.address,
           },
         });
+        const poolLender = await PoolLender.deploy(interestRateModel.address);
+
+        const FixedLender = await ethers.getContractFactory("FixedLender");
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
           eToken.address,
           auditor.address,
-          interestRateModel.address
+          poolLender.address
         );
         await fixedLender.deployed();
 
+        await poolLender.initialize(fixedLender.address);
         await eToken.initialize(fixedLender.address, auditor.address);
 
         // Mock PriceOracle setting dummy price
@@ -262,6 +267,7 @@ export class ExactlyEnv {
 
         // Handy maps with all the fixedLenders and underlying tokens
         fixedLenderContracts.set(tokenName, fixedLender);
+        poolLenderContracts.set(tokenName, poolLender);
         underlyingContracts.set(tokenName, underlyingToken);
         eTokenContracts.set(tokenName, eToken);
       })
@@ -279,6 +285,7 @@ export class ExactlyEnv {
       marketsLib,
       exaToken,
       fixedLenderContracts,
+      poolLenderContracts,
       underlyingContracts,
       eTokenContracts,
       mockedTokens!,

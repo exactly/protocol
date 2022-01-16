@@ -527,7 +527,7 @@ describe("Pool Management Library", () => {
       it("THEN the debt of the smart pool is 4000", async () => {
         const mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
         const borrowSP = await defaultEnv
-          .getFixedLender("DAI")
+          .getPoolLender("DAI")
           .smartPoolBorrowed();
         expect(mp.suppliedSP).to.equal(parseUnits("4000"));
         expect(borrowSP).to.equal(parseUnits("4000"));
@@ -552,7 +552,7 @@ describe("Pool Management Library", () => {
               exaTime.nextPoolID()
             );
             const borrowSP = await defaultEnv
-              .getFixedLender("DAI")
+              .getPoolLender("DAI")
               .smartPoolBorrowed();
             expect(mp.suppliedSP).to.equal(0);
             expect(borrowSP).to.equal(0);
@@ -572,7 +572,7 @@ describe("Pool Management Library", () => {
               exaTime.nextPoolID()
             );
             const borrowSP = await defaultEnv
-              .getFixedLender("DAI")
+              .getPoolLender("DAI")
               .smartPoolBorrowed();
             expect(mp.suppliedSP).to.equal(parseUnits("2000"));
             expect(borrowSP).to.equal(parseUnits("2000"));
@@ -796,7 +796,7 @@ describe("Pool Management Library", () => {
       it("THEN the debt of the smart pool is 4000", async () => {
         const mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
         const borrowSP = await defaultEnv
-          .getFixedLender("DAI")
+          .getPoolLender("DAI")
           .smartPoolBorrowed();
         expect(mp.suppliedSP).to.equal(parseUnits("4000"));
         expect(borrowSP).to.equal(parseUnits("4000"));
@@ -819,7 +819,7 @@ describe("Pool Management Library", () => {
 
           it("THEN the debt of the smart pool is back to 0", async () => {
             const borrowSP = await defaultEnv
-              .getFixedLender("DAI")
+              .getPoolLender("DAI")
               .smartPoolBorrowed();
             expect(mp.suppliedSP).to.equal(0);
             expect(borrowSP).to.equal(0);
@@ -828,7 +828,7 @@ describe("Pool Management Library", () => {
           it("THEN Cindy's commission is 400 * 3000 / 7000", async () => {
             defaultEnv.switchWallet(cindy);
             const supplied = await defaultEnv
-              .getFixedLender("DAI")
+              .getPoolLender("DAI")
               .mpUserSuppliedAmount(exaTime.nextPoolID(), cindy.address);
 
             let commission = parseUnits("400")

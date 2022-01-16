@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IFixedLender.sol";
+import "./interfaces/IPoolLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./utils/Errors.sol";
 import "./utils/DecimalMath.sol";

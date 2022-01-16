@@ -22,8 +22,8 @@ describe("Smart Pool", function () {
   let eWBTC: Contract;
   let bob: SignerWithAddress;
   let john: SignerWithAddress;
-  const bobBalancePre = parseUnits("2000");
-  const johnBalancePre = parseUnits("2000");
+  const bobBalancePre = parseUnits("200000");
+  const johnBalancePre = parseUnits("200000");
   const exaTime: ExaTime = new ExaTime();
   const nextPoolId: number = exaTime.nextPoolID();
 
@@ -202,24 +202,25 @@ describe("Smart Pool", function () {
     });
   });
 
-  describe("GIVEN bob deposits 100 DAI (collateralization rate 80%)", () => {
+  describe("GIVEN bob deposits 10000 DAI (collateralization rate 80%)", () => {
     beforeEach(async () => {
       exactlyEnv.switchWallet(bob);
-      await exactlyEnv.depositSP("DAI", "100");
+      await exactlyEnv.depositSP("DAI", "10000");
       // we add liquidity to the maturity
       await exactlyEnv.depositMP("DAI", nextPoolId, "60");
     });
-    it("WHEN trying to transfer to another user the entire position (100 eDAI) THEN it should not revert", async () => {
-      await expect(eDAI.connect(bob).transfer(john.address, parseUnits("100")))
-        .to.not.be.reverted;
+    it("WHEN trying to transfer to another user the entire position (10000 eDAI) THEN it should not revert", async () => {
+      await expect(
+        eDAI.connect(bob).transfer(john.address, parseUnits("10000"))
+      ).to.not.be.reverted;
     });
     describe("AND GIVEN bob borrows 60 DAI from a maturity", () => {
       beforeEach(async () => {
         await exactlyEnv.borrowMP("DAI", nextPoolId, "60");
       });
-      it("WHEN trying to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+      it("WHEN trying to transfer to another user the entire position (10000 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(
-          eDAI.connect(bob).transfer(john.address, parseUnits("100"))
+          eDAI.connect(bob).transfer(john.address, parseUnits("10000"))
         ).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
         );
@@ -228,8 +229,8 @@ describe("Smart Pool", function () {
         await expect(eDAI.connect(bob).transfer(john.address, parseUnits("10")))
           .to.not.be.reverted;
       });
-      it("WHEN trying to withdraw the entire pos  ition (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
-        await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith(
+      it("WHEN trying to withdraw the entire position (10000 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+        await expect(exactlyEnv.withdrawSP("DAI", "10000")).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
         );
       });
