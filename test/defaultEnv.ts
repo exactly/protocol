@@ -355,8 +355,8 @@ export class DefaultEnv {
     );
   }
 
-  public async protocolEarnings(assetString: string) {
+  public async treasury(assetString: string) {
     const fixedLender = this.getFixedLender(assetString);
-    return fixedLender.protocolEarnings();
+    return fixedLender.treasury();
   }
 }

@@ -429,9 +429,9 @@ describe("FixedLender", function () {
       });
     });
 
-    it("WHEN calling setLiquidationFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+    it("WHEN calling setProtocolSpreadFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(
-        fixedLender.connect(mariaUser).setLiquidationFee(parseUnits("0.04"))
+        fixedLender.connect(mariaUser).setProtocolSpreadFee(parseUnits("0.04"))
       ).to.be.revertedWith("AccessControl");
     });
 
@@ -439,8 +439,17 @@ describe("FixedLender", function () {
       await expect(
         fixedLender
           .connect(mariaUser)
-          .withdrawEarnings(owner.address, parseUnits("0.04"))
+          .withdrawFromTreasury(owner.address, parseUnits("0.04"))
       ).to.be.revertedWith("AccessControl");
+    });
+
+    it("WHEN calling withdrawEarnings from an admin user and there are no funds, THEN it reverts", async () => {
+      await expect(
+        fixedLender.withdrawFromTreasury(
+          owner.address,
+          parseUnits("100000000000")
+        )
+      ).to.be.reverted;
     });
   });
 

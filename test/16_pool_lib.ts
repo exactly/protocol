@@ -775,7 +775,9 @@ describe("Pool Management Library", () => {
         .getInterestRateModel()
         .setPenaltyRate(parseUnits("0.06"));
       await defaultEnv.getInterestRateModel().setBorrowRate(parseUnits("0.1"));
-      await defaultEnv.getFixedLender("DAI").setProtocolFee(parseUnits("0.1"));
+      await defaultEnv
+        .getFixedLender("DAI")
+        .setProtocolSpreadFee(parseUnits("0.1"));
       defaultEnv.switchWallet(walter);
       await defaultEnv.depositSP("DAI", "60000");
 
@@ -982,7 +984,7 @@ describe("Pool Management Library", () => {
 
               it("THEN protocol earnings are 6 (10% out of 60)", async () => {
                 await tx2;
-                expect(await defaultEnv.protocolEarnings("DAI")).to.equal(
+                expect(await defaultEnv.treasury("DAI")).to.equal(
                   parseUnits("6")
                 );
               });
@@ -1015,7 +1017,10 @@ describe("Pool Management Library", () => {
                     .balanceOf(fakeMultisig.address);
                   await defaultEnv
                     .getFixedLender("DAI")
-                    .withdrawEarnings(fakeMultisig.address, parseUnits("6"));
+                    .withdrawFromTreasury(
+                      fakeMultisig.address,
+                      parseUnits("6")
+                    );
                   balancePost = await defaultEnv
                     .getUnderlying("DAI")
                     .balanceOf(fakeMultisig.address);
@@ -1031,7 +1036,7 @@ describe("Pool Management Library", () => {
 
                 it("THEN protocol earnings are 0 (they were withdrawn)", async () => {
                   await tx2;
-                  expect(await defaultEnv.protocolEarnings("DAI")).to.equal(0);
+                  expect(await defaultEnv.treasury("DAI")).to.equal(0);
                 });
               });
 

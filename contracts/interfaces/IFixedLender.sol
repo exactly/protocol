@@ -47,7 +47,7 @@ interface IFixedLender {
         uint256 maturityDate
     ) external returns (uint256);
 
-    function withdrawEarnings(address who, uint256 amount) external;
+    function withdrawFromTreasury(address who, uint256 amount) external;
 
     function underlyingTokenName() external view returns (string calldata);
 

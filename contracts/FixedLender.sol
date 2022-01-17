@@ -26,9 +26,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     mapping(address => uint256[]) public userMpBorrowed;
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
     uint256 public smartPoolBorrowed;
-    uint256 private liquidationFee = 2.8e16; //2.8%
-    uint256 private protocolFee; // 0%
-    uint256 public protocolEarnings;
+    uint256 private protocolSpreadFee = 2.8e16; //2.8%
+    uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     IERC20 public override trustedUnderlying;
@@ -373,12 +372,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param who address which will receive the funds
      * @param amount amount to be transferred
      */
-    function withdrawEarnings(address who, uint256 amount)
+    function withdrawFromTreasury(address who, uint256 amount)
         external
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        protocolEarnings -= amount;
+        treasury -= amount;
         trustedUnderlying.safeTransfer(who, amount);
     }
 
@@ -442,26 +441,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @dev Sets the protocol's liquidation fee for the underlying asset of this fixedLender
-     * @param _liquidationFee fee that the protocol earns when position is liquidated
+     * @dev Sets the protocol's spread fee used on liquidations and loan repayment
+     * @param _protocolSpreadFee percentile amount represented with 1e18 decimals
      */
-    function setLiquidationFee(uint256 _liquidationFee)
+    function setProtocolSpreadFee(uint256 _protocolSpreadFee)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        liquidationFee = _liquidationFee;
-    }
-
-    /**
-     * @dev Sets the protocol's fee for revenues
-     * @param _protocolFee that the protocol earns when position are repaid
-     *        this fee is extracted from the earnings that the SP providers gained
-     */
-    function setProtocolFee(uint256 _protocolFee)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        protocolFee = _protocolFee;
+        protocolSpreadFee = _protocolSpreadFee;
     }
 
     /**
@@ -599,8 +586,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         ) = maturityPools[maturityDate].repay(maturityDate, repayAmount);
 
         // We take a share of the spread of the protocol
-        uint256 protocolShare = fee.mul_(protocolFee);
-        protocolEarnings += protocolShare;
+        uint256 protocolShare = fee.mul_(protocolSpreadFee);
+        treasury += protocolShare;
         eToken.accrueEarnings(fee - protocolShare + earningsRepay);
 
         smartPoolBorrowed -= smartPoolDebtReduction;
@@ -707,8 +694,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             borrower
         );
 
-        uint256 protocolAmount = seizeAmount.mul_(liquidationFee);
+        uint256 protocolAmount = seizeAmount.mul_(protocolSpreadFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
+        treasury += protocolAmount;
 
         auditor.beforeDepositSP(address(this), borrower);
 
