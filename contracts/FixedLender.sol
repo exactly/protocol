@@ -454,7 +454,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     /**
      * @dev Sets the protocol's fee for revenues
-     * @param _protocolFee that the protocol earns when position is liquidated
+     * @param _protocolFee that the protocol earns when position are repaid
+     *        this fee is extracted from the earnings that the SP providers gained
      */
     function setProtocolFee(uint256 _protocolFee)
         external
