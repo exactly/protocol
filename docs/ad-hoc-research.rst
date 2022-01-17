@@ -311,3 +311,69 @@ Notes
 
 Extension by inheritance to the WETH FixedLender contract
 ---------------------------------------------------------
+
+The idea would be to add some methods to the default FixedLender via inheritance in order to receive ETH directly.
+
+.. uml::
+
+    @startuml
+
+    interface IFixedLender {
+        + depositToSmartPool()
+        + withdrawFromSmartPool()
+        + depositToMaturityPool()
+        + withdrawFromMaturityPool()
+        + repayToMaturityPool()
+    }
+    interface IETHFixedLender {
+        + depositToSmartPoolETH()
+        + withdrawFromSmartPoolETH()
+        + depositToMaturityPoolETH()
+        + withdrawFromMaturityPoolETH()
+        + repayToMaturityPoolETH()
+    }
+    class IERC20 {
+    }
+    class WETH {
+    }
+    class FixedLender {
+        # doTransferIn(from, amount): actualReceived
+        # doTransferOut(to, amount)
+    }
+    class ETHFixedLender {
+        # doTransferIn(from, amount): actualReceived
+        # doTransferOut(to, amount)
+    }
+
+    FixedLender ..|> IFixedLender
+    ETHFixedLender ..|> IETHFixedLender
+    FixedLender o-- IERC20 : has underlying
+    ETHFixedLender o-- WETH : uses for wrapping
+    ETHFixedLender --|> FixedLender
+    IETHFixedLender --|> IFixedLender
+    WETH --|> IERC20
+
+    @enduml
+
+A core difference in the implementation would be that we'd have to add hook-style functions to the ``FixedLender`` to get money in and out of the system, which would be overriden in the ``ETHFixedLender``
+
+hooks for transfer in
+^^^^^^^^^^^^^^^^^^^^^
+- [ ] depositToMaturityPool , FixedLender.sol:262
+- [ ] depositToSmartPool, FixedLender.sol:386
+- [ ] _repay, FixedLender.sol:511
+
+that's basically all calls to ``doTransferIn``, we could just make that function virtual
+
+hooks for transfer out
+^^^^^^^^^^^^^^^^^^^^^^
+- [ ] borrowFromMaturityPool contracts/FixedLender.sol:236
+- [ ] withdrawFromMaturityPool contracts/FixedLender.sol:310
+- [ ] withdrawFromSmartPool contracts/FixedLender.sol:412
+- [ ] _seize contracts/FixedLender.sol:668
+
+Notes
+^^^^^
+- [ ] the ``liquidate`` method doesn't have its eth-receiving couterpart, given that any user technical enough to do liquidations can probably wrap ETH on their own
+- [ ] it's not necessary to override ``balanceOf`` usages since the only context in which it's called on the underlying token is inside the ``doTransferIn`` method, and the global/by user accounting are updated with the return value of the latter function
+
