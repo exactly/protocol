@@ -379,7 +379,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         protocolEarnings -= amount;
-        trustedUnderlying.safeTransferFrom(address(this), who, amount);
+        trustedUnderlying.safeTransfer(who, amount);
     }
 
     /**
