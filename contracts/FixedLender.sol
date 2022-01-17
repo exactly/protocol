@@ -307,11 +307,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         totalMpDeposits -= redeemAmount;
         totalMpDepositsUser[redeemer] -= redeemAmount;
 
-        require(
-            trustedUnderlying.balanceOf(address(this)) >= redeemAmount,
-            "Not enough liquidity"
-        );
-
         trustedUnderlying.safeTransfer(redeemer, redeemAmount);
 
         emit WithdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
