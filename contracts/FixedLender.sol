@@ -161,7 +161,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         trustedUnderlying = IERC20(_tokenAddress);
-        trustedUnderlying.safeApprove(address(this), type(uint256).max);
         underlyingTokenName = _underlyingTokenName;
 
         auditor = IAuditor(_auditorAddress);
