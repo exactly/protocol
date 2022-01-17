@@ -17,7 +17,6 @@ import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
-    using SafeERC20 for IERC20;
     using DecimalMath for uint256;
 
     uint256 private protocolSpreadFee = 2.8e16; //2.8%
@@ -198,7 +197,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         auditor.validateBorrowMP(address(this), msg.sender);
 
-        trustedUnderlying.safeTransfer(msg.sender, amount);
+        doTransferOut(msg.sender, amount);
 
         emit BorrowFromMaturityPool(
             msg.sender,
@@ -273,7 +272,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         totalMpDeposits -= redeemAmount;
         totalMpDepositsUser[redeemer] -= redeemAmount;
 
-        trustedUnderlying.safeTransfer(redeemer, redeemAmount);
+        doTransferOut(redeemer, redeemAmount);
 
         emit WithdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
     }
@@ -332,7 +331,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         treasury -= amount;
-        trustedUnderlying.safeTransfer(who, amount);
+        SafeERC20.safeTransfer(trustedUnderlying, who, amount);
     }
 
     /**
@@ -393,7 +392,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         }
 
         eToken.burn(msg.sender, amountToWithdraw);
-        trustedUnderlying.safeTransfer(msg.sender, amountToWithdraw);
+        doTransferOut(msg.sender, amountToWithdraw);
 
         emit WithdrawFromSmartPool(msg.sender, amount);
     }
@@ -623,7 +622,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         // That seize amount diminishes liquidity in the pool
         eToken.burn(borrower, seizeAmount);
-        trustedUnderlying.safeTransfer(liquidator, amountToTransfer);
+        doTransferOut(liquidator, amountToTransfer);
 
         emit SeizeAsset(liquidator, borrower, seizeAmount);
         emit AddReserves(address(this), protocolAmount);
@@ -640,13 +639,23 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      */
     function doTransferIn(address from, uint256 amount)
         internal
+        virtual
         returns (uint256)
     {
         uint256 balanceBefore = trustedUnderlying.balanceOf(address(this));
-        trustedUnderlying.safeTransferFrom(from, address(this), amount);
+        SafeERC20.safeTransferFrom(
+            trustedUnderlying,
+            from,
+            address(this),
+            amount
+        );
 
         // Calculate the amount that was *actually* transferred
         uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
         return balanceAfter - balanceBefore;
+    }
+
+    function doTransferOut(address to, uint256 amount) internal virtual {
+        SafeERC20.safeTransfer(trustedUnderlying, to, amount);
     }
 }
