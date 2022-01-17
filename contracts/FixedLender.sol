@@ -371,7 +371,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     /**
      * @notice public function to transfer funds from protocol earnings to a specified wallet
      * @param who address which will receive the funds
-     * @param amount amount to be transfered
+     * @param amount amount to be transferred
      */
     function withdrawEarnings(address who, uint256 amount)
         external
@@ -730,7 +730,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      *      transfer less of the initial amount (ie: take a commission out).
      *      This function takes into account this scenario
      * @param from address which will transfer funds in (approve needed on underlying token)
-     * @param amount amount to be transfered
+     * @param amount amount to be transferred
      * @return amount actually transferred by the protocol
      */
     function doTransferIn(address from, uint256 amount)
@@ -748,7 +748,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     /**
      * @notice Internal function to get the debt + penalties of an account for a certain maturityDate
      * @param who wallet to return debt status for the specified maturityDate
-     * @param maturityDate amount to be transfered
+     * @param maturityDate amount to be transferred
      * @return the total owed denominated in number of tokens
      */
     function getAccountDebt(address who, uint256 maturityDate)
