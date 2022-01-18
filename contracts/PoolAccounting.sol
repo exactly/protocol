@@ -17,6 +17,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // Vars used in `borrowMP` to avoid
     // stack too deep problem
     struct BorrowVars {
+        uint256 borrowerDebt;
         uint256 commissionRate;
         uint256 commission;
         uint256 totalBorrow;
@@ -124,13 +125,16 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         borrowVars.totalBorrow = amount + borrowVars.commission;
 
-        if (mpUserBorrowedAmount[maturityDate][borrower] == 0) {
+        borrowVars.borrowerDebt = mpUserBorrowedAmount[maturityDate][borrower];
+        if (borrowVars.borrowerDebt == 0) {
             userMpBorrowed[borrower].push(maturityDate);
         }
 
         maturityPools[maturityDate].addFee(maturityDate, borrowVars.commission);
 
-        mpUserBorrowedAmount[maturityDate][borrower] += borrowVars.totalBorrow;
+        mpUserBorrowedAmount[maturityDate][borrower] =
+            borrowVars.borrowerDebt +
+            borrowVars.totalBorrow;
 
         return borrowVars.totalBorrow;
     }

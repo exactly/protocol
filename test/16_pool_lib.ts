@@ -884,7 +884,7 @@ describe("Pool Management Library", () => {
         it("THEN Cindy's commission is 400 * 3000 / 7000", async () => {
           defaultEnv.switchWallet(cindy);
           const supplied = await defaultEnv
-            .getFixedLender("DAI")
+            .getPoolAccounting("DAI")
             .mpUserSuppliedAmount(exaTime.nextPoolID(), cindy.address);
 
           let commission = parseUnits("400")
