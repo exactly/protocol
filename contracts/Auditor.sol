@@ -369,8 +369,7 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Hook function to be called before someone borrows money to a market/maturity.
-     *      This function verifies if market is valid, maturity is valid, checks if the user has enough collateral
-     *      and accrues rewards accordingly.
+     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly.
      * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
      * @param borrower address of the user that will borrow money from a maturity date
      * @param maturityDate timestamp for the maturity date that the user wants to borrow money. It should
