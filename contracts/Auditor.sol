@@ -392,7 +392,7 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Hook function to be called after calling the poolLender borrowMP function. Validates
+     * @dev Hook function to be called after calling the poolAccounting borrowMP function. Validates
      *      that the current state of the position and system are valid (liquidity)
      * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
      * @param borrower address of the user that will borrow money from a maturity date
