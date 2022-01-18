@@ -5,26 +5,31 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
-import "./interfaces/IPoolLender.sol";
+import "./interfaces/IPoolAccounting.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "hardhat/console.sol";
 
-contract PoolLender is IPoolLender, AccessControl {
+contract PoolAccounting is IPoolAccounting, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
     using DecimalMath for uint256;
 
+    // Vars used in `borrowMP` to avoid
+    // stack too deep problem
     struct BorrowVars {
         uint256 commissionRate;
         uint256 commission;
         uint256 totalBorrow;
     }
 
+    // Vars used in `repayMP` to avoid
+    // stack too deep problem
     struct RepayVars {
+        uint256 amountOwed;
+        uint256 amountBorrowed;
         uint256 debtCovered;
         uint256 penalties;
-        uint256 amountOwed;
         uint256 smartPoolDebtReduction;
         uint256 fee;
         uint256 earningsRepay;
@@ -42,6 +47,11 @@ contract PoolLender is IPoolLender, AccessControl {
 
     event Initialized(address indexed fixedLender);
 
+    /**
+     * @dev modifier used to allows calls to certain methods only from
+     * the `fixedLender` contract. `fixedLenderAddress` should be set
+     * through `initialize` method
+     */
     modifier onlyFixedLender() {
         if (msg.sender != address(fixedLenderAddress)) {
             revert GenericError(ErrorCode.CALLER_MUST_BE_FIXED_LENDER);
@@ -55,7 +65,7 @@ contract PoolLender is IPoolLender, AccessControl {
     }
 
     /**
-     * @dev Initializes the PoolLender setting the FixedLender
+     * @dev Initializes the PoolAccounting setting the FixedLender
      * - Only able to initialize once
      * @param _fixedLenderAddress The address of the FixedLender that uses this eToken
      */
@@ -72,6 +82,18 @@ contract PoolLender is IPoolLender, AccessControl {
         emit Initialized(_fixedLenderAddress);
     }
 
+    /**
+     * @dev Function to account for borrowing money from a maturity pool (MP).
+     *      It doesn't check liquidity for the borrower, so the `fixedLender`
+     *      should call `validateBorrowMP` immediately after calling this function.
+     * @param maturityDate maturity date / pool id where the asset will be borrowed
+     * @param borrower borrower that it will take the debt
+     * @param amount amount that the borrower will be borrowing
+     * @param maxAmountAllowed maximum amount that the borrower is willing to pay
+     *        at maturity
+     * @param maxSPDebt maximum amount of assset debt that the MP can have with the SP
+     * @return total amount that will need to be paid at maturity
+     */
     function borrowMP(
         uint256 maturityDate,
         address borrower,
@@ -114,6 +136,15 @@ contract PoolLender is IPoolLender, AccessControl {
         return borrowVars.totalBorrow;
     }
 
+    /**
+     * @dev Function to account for a deposit to a maturity pool (MP). It doesn't transfer or
+     * @param maturityDate maturity date / pool id where the asset will be deposited
+     * @param supplier address that will be depositing the assets
+     * @param amount amount that the supplier will be depositing
+     * @param minAmountRequired minimum amount that the borrower is expecting to receive at
+     *        maturity
+     * @return the amount that should be collected at maturity
+     */
     function depositMP(
         uint256 maturityDate,
         address supplier,
@@ -135,6 +166,13 @@ contract PoolLender is IPoolLender, AccessControl {
         return currentTotalDeposit;
     }
 
+    /**
+     * @dev Function to account for a withdraw from from a maturity pool (MP).
+     * @param maturityDate maturity date / pool id where the asset should be accounted for
+     * @param redeemer address that should have the assets withdrawn
+     * @param amount amount that the redeemer will be extracting
+     * @param maxSPDebt max amount of debt that can be taken from the SP in case of illiquidity
+     */
     function withdrawMP(
         uint256 maturityDate,
         address redeemer,
@@ -149,6 +187,12 @@ contract PoolLender is IPoolLender, AccessControl {
         mpUserSuppliedAmount[maturityDate][redeemer] -= amount;
     }
 
+    /**
+     * @dev Function to account for a repayment to a maturity pool (MP).
+     * @param maturityDate maturity date / pool id where the asset should be accounted for
+     * @param borrower address where the debt will be reduced
+     * @param repayAmount amount that it will be repaid in the MP
+     */
     function repayMP(
         uint256 maturityDate,
         address borrower,
@@ -171,18 +215,18 @@ contract PoolLender is IPoolLender, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY_TRANSFER);
         }
 
-        uint256 amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
+        repayVars.amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
 
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
         // then amountBorrowed is what should be discounted to the users account
         repayVars.debtCovered =
-            (repayAmount * amountBorrowed) /
+            (repayAmount * repayVars.amountBorrowed) /
             repayVars.amountOwed;
         repayVars.penalties = repayAmount - repayVars.debtCovered;
 
         mpUserBorrowedAmount[maturityDate][borrower] =
-            amountBorrowed -
+            repayVars.amountBorrowed -
             repayVars.debtCovered;
 
         if (mpUserBorrowedAmount[maturityDate][borrower] == 0) {
@@ -228,9 +272,9 @@ contract PoolLender is IPoolLender, AccessControl {
     }
 
     /**
-     * @dev Gets current snapshot for a wallet in certain maturity
+     * @dev Gets all borrows for a wallet in certain maturity (or ALL_MATURITIES)
      * @param who wallet to return status snapshot in the specified maturity date
-     * @param maturityDate maturityDate
+     * @param maturityDate maturityDate where the borrow is taking place.
      * - Send the value 0 in order to get the snapshot for all maturities where the user borrowed
      * @return the amount the user deposited to the smart pool and the total money he owes from maturities
      */

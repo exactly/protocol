@@ -600,7 +600,7 @@ describe("Pool Management Library", () => {
       it("THEN the debt of the smart pool is 4000", async () => {
         const mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
         const borrowSP = await defaultEnv
-          .getPoolLender("DAI")
+          .getPoolAccounting("DAI")
           .smartPoolBorrowed();
         expect(mp.suppliedSP).to.equal(parseUnits("4000"));
         expect(borrowSP).to.equal(parseUnits("4000"));
@@ -625,7 +625,7 @@ describe("Pool Management Library", () => {
               exaTime.nextPoolID()
             );
             const borrowSP = await defaultEnv
-              .getPoolLender("DAI")
+              .getPoolAccounting("DAI")
               .smartPoolBorrowed();
             expect(mp.suppliedSP).to.equal(0);
             expect(borrowSP).to.equal(0);
@@ -645,7 +645,7 @@ describe("Pool Management Library", () => {
               exaTime.nextPoolID()
             );
             const borrowSP = await defaultEnv
-              .getPoolLender("DAI")
+              .getPoolAccounting("DAI")
               .smartPoolBorrowed();
             expect(mp.suppliedSP).to.equal(parseUnits("2000"));
             expect(borrowSP).to.equal(parseUnits("2000"));
@@ -869,7 +869,7 @@ describe("Pool Management Library", () => {
       it("THEN the debt of the smart pool is 4000", async () => {
         const mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
         const borrowSP = await defaultEnv
-          .getPoolLender("DAI")
+          .getPoolAccounting("DAI")
           .smartPoolBorrowed();
         expect(mp.suppliedSP).to.equal(parseUnits("4000"));
         expect(borrowSP).to.equal(parseUnits("4000"));
@@ -905,7 +905,7 @@ describe("Pool Management Library", () => {
 
           it("THEN the debt of the smart pool is back to 0", async () => {
             const borrowSP = await defaultEnv
-              .getPoolLender("DAI")
+              .getPoolAccounting("DAI")
               .smartPoolBorrowed();
             expect(mp.suppliedSP).to.equal(0);
             expect(borrowSP).to.equal(0);

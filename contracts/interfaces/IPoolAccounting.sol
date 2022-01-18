@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IAuditor.sol";
 import "./IEToken.sol";
 
-interface IPoolLender {
+interface IPoolAccounting {
     function borrowMP(
         uint256 maturityDate,
         address borrower,
