@@ -275,25 +275,25 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
      * @param who wallet to return status snapshot in the specified maturity date
      * @param maturityDate maturityDate where the borrow is taking place.
      * - Send the value 0 in order to get the snapshot for all maturities where the user borrowed
-     * @return the amount the user deposited to the smart pool and the total money he owes from maturities
+     * @return debt the amount the user deposited to the smart pool and the total money he owes from maturities
      */
     function getAccountBorrows(address who, uint256 maturityDate)
         public
         view
         override
-        returns (uint256)
+        returns (uint256 debt)
     {
-        uint256 debt;
         if (maturityDate == 0) {
             uint256 borrowsLength = userMpBorrowed[who].length;
             for (uint256 i = 0; i < borrowsLength; i++) {
                 debt += getAccountDebt(who, userMpBorrowed[who][i]);
             }
         } else {
+            if (!TSUtils.isPoolID(maturityDate)) {
+                revert GenericError(ErrorCode.INVALID_POOL_ID);
+            }
             debt = getAccountDebt(who, maturityDate);
         }
-
-        return (debt);
     }
 
     /**
@@ -316,23 +316,17 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
      * @notice Internal function to get the debt + penalties of an account for a certain maturityDate
      * @param who wallet to return debt status for the specified maturityDate
      * @param maturityDate amount to be transfered
-     * @return the total owed denominated in number of tokens
+     * @return debt the total owed denominated in number of tokens
      */
     function getAccountDebt(address who, uint256 maturityDate)
         internal
         view
-        returns (uint256)
+        returns (uint256 debt)
     {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        uint256 debt = mpUserBorrowedAmount[maturityDate][who];
+        debt = mpUserBorrowedAmount[maturityDate][who];
         uint256 daysDelayed = TSUtils.daysPre(maturityDate, block.timestamp);
         if (daysDelayed > 0) {
             debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
         }
-
-        return debt;
     }
 }
