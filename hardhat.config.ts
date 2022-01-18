@@ -40,6 +40,7 @@ const forkingHardhatConfig = {
   },
   accounts: {
     mnemonic: process.env.MNEMONIC,
+    accountsBalance: "100000000000000000000000000000000",
   },
   chainId: 1337,
 };
@@ -48,6 +49,7 @@ const standaloneHardhatConfig = {
   initialBaseFeePerGas: 0,
   accounts: {
     mnemonic: process.env.MNEMONIC,
+    accountsBalance: "100000000000000000000000000000000",
   },
   chainId: 1337,
 };

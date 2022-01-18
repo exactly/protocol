@@ -280,8 +280,8 @@ describe("Auditor from User Space", function () {
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address]);
 
-    const fixedLenderETH = exactlyEnv.getFixedLender("ETH");
-    const eth = exactlyEnv.getUnderlying("ETH");
+    const fixedLenderETH = exactlyEnv.getFixedLender("WETH");
+    const eth = exactlyEnv.getUnderlying("WETH");
 
     // we supply Eth to the protocol
     const amountETH = parseUnits("1");
@@ -290,7 +290,7 @@ describe("Auditor from User Space", function () {
 
     expect(await eth.balanceOf(fixedLenderETH.address)).to.equal(amountETH);
 
-    // we make it count as collateral (ETH)
+    // we make it count as collateral (WETH)
     await auditor.enterMarkets([fixedLenderETH.address]);
 
     let liquidity = (await auditor.getAccountLiquidity(owner.address))[0];
@@ -302,9 +302,9 @@ describe("Auditor from User Space", function () {
       .div(parseUnits("1"));
 
     let collaterETH = amountETH
-      .mul(exactlyEnv.mockedTokens.get("ETH")!.collateralRate)
+      .mul(exactlyEnv.mockedTokens.get("WETH")!.collateralRate)
       .div(parseUnits("1"))
-      .mul(exactlyEnv.mockedTokens.get("ETH")!.usdPrice)
+      .mul(exactlyEnv.mockedTokens.get("WETH")!.usdPrice)
       .div(parseUnits("1"));
 
     expect(parseFloat(await formatUnits(liquidity))).to.be.equal(
@@ -314,7 +314,7 @@ describe("Auditor from User Space", function () {
 
   it("Contract's state variable accountAssets should correctly add and remove the asset which the user entered and exited as collateral", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const fixedLenderETH = exactlyEnv.getFixedLender("ETH");
+    const fixedLenderETH = exactlyEnv.getFixedLender("WETH");
     await auditor.enterMarkets([
       fixedLenderDAI.address,
       fixedLenderETH.address,

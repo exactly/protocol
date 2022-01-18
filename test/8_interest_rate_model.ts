@@ -33,7 +33,7 @@ describe("InterestRateModel", () => {
     });
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
-    eth = exactlyEnv.getUnderlying("ETH");
+    eth = exactlyEnv.getUnderlying("WETH");
 
     interestRateModel = exactlyEnv.interestRateModel;
     // From Owner to User

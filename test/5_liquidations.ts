@@ -36,10 +36,10 @@ describe("Liquidations", function () {
     exactlyEnv = await DefaultEnv.create({});
     auditor = exactlyEnv.auditor;
 
-    fixedLenderETH = exactlyEnv.getFixedLender("ETH");
+    fixedLenderETH = exactlyEnv.getFixedLender("WETH");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     dai = exactlyEnv.getUnderlying("DAI");
-    eth = exactlyEnv.getUnderlying("ETH");
+    eth = exactlyEnv.getUnderlying("WETH");
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
@@ -52,10 +52,10 @@ describe("Liquidations", function () {
     await dai.transfer(john.address, parseUnits("10000"));
   });
 
-  describe("GIVEN alice deposits USD63k worth of WBTC, USD3k worth of ETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob deposits 65kDAI", () => {
+  describe("GIVEN alice deposits USD63k worth of WBTC, USD3k worth of WETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob deposits 65kDAI", () => {
     beforeEach(async () => {
       // we deposit Eth to the protocol
-      await exactlyEnv.depositSP("ETH", "1");
+      await exactlyEnv.depositSP("WETH", "1");
 
       // we deposit WBTC to the protocol
       await exactlyEnv.depositSP("WBTC", "1");
@@ -73,7 +73,7 @@ describe("Liquidations", function () {
 
     describe("AND GIVEN Alice takes the biggest loan she can (39900 DAI)", () => {
       beforeEach(async () => {
-        // we make ETH & WBTC count as collateral
+        // we make WETH & WBTC count as collateral
         await auditor.enterMarkets([
           fixedLenderETH.address,
           fixedLenderWBTC.address,
@@ -365,9 +365,9 @@ describe("Liquidations", function () {
       });
 
       describe("A position can be recollateralized through liquidation", () => {
-        describe("AND WHEN ETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850)", () => {
+        describe("AND WHEN WETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850)", () => {
           beforeEach(async () => {
-            await exactlyEnv.setOracleMockPrice("ETH", "1500");
+            await exactlyEnv.setOracleMockPrice("WETH", "1500");
           });
 
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
@@ -418,9 +418,9 @@ describe("Liquidations", function () {
           });
         });
 
-        describe("AND WHEN ETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850) and transfer comission are 10%", () => {
+        describe("AND WHEN WETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850) and transfer comission are 10%", () => {
           beforeEach(async () => {
-            await exactlyEnv.setOracleMockPrice("ETH", "1500");
+            await exactlyEnv.setOracleMockPrice("WETH", "1500");
             await exactlyEnv
               .getUnderlying("DAI")
               .setCommission(parseUnits("0.1"));
@@ -481,7 +481,7 @@ describe("Liquidations", function () {
           await exactlyEnv.setOracleMockPrice("WBTC", "32500");
         });
         describe("the collateral can be entirely depleted and still have some debt left", () => {
-          describe("WHEN depleting Alices ETH collateral", () => {
+          describe("WHEN depleting Alices WETH collateral", () => {
             beforeEach(async () => {
               await fixedLenderDAI.connect(bob).liquidate(
                 alice.address,
@@ -491,7 +491,7 @@ describe("Liquidations", function () {
                 nextPoolID
               );
             });
-            it("THEN theres nearly no ETH supplied by Alice", async () => {
+            it("THEN theres nearly no WETH supplied by Alice", async () => {
               const [depositedETH] = await fixedLenderETH.getAccountSnapshot(
                 alice.address,
                 nextPoolID
@@ -576,7 +576,7 @@ describe("Liquidations", function () {
         });
 
         it("AND trying to repay an amount of zero fails", async () => {
-          // We try to get all the ETH we can
+          // We try to get all the WETH we can
           // We expect trying to repay zero to fail
           await expect(
             fixedLenderDAI
@@ -622,7 +622,7 @@ describe("Liquidations", function () {
         });
 
         describe("Liquidation error cases", () => {
-          it("WHEN trying to liquidate 39850 DAI for ETH (of which there is only 3000usd), THEN it reverts with a TOKENS_MORE_THAN_BALANCE error", async () => {
+          it("WHEN trying to liquidate 39850 DAI for WETH (of which there is only 3000usd), THEN it reverts with a TOKENS_MORE_THAN_BALANCE error", async () => {
             // We expect liquidation to fail because trying to liquidate
             // and take over a collateral that bob doesn't have enough
             await expect(
@@ -700,45 +700,45 @@ describe("Liquidations", function () {
     });
   });
 
-  describe("GIVEN john funds the ETH maturity pool and deposits collateral to the smart pool", () => {
+  describe("GIVEN john funds the WETH maturity pool and deposits collateral to the smart pool", () => {
     beforeEach(async () => {
       exactlyEnv.switchWallet(john);
       await eth.transfer(john.address, parseUnits("20"));
-      // we add ETH liquidity to the maturity
+      // we add WETH liquidity to the maturity
       await exactlyEnv.depositMP(
-        "ETH",
+        "WETH",
         exaTime.poolIDByNumberOfWeek(1),
         "1.25"
       );
       await exactlyEnv.depositMP(
-        "ETH",
+        "WETH",
         exaTime.poolIDByNumberOfWeek(2),
         "1.25"
       );
 
-      await exactlyEnv.depositSP("ETH", "10");
-      await exactlyEnv.enterMarkets(["ETH"]);
+      await exactlyEnv.depositSP("WETH", "10");
+      await exactlyEnv.enterMarkets(["WETH"]);
     });
-    describe("AND GIVEN alice deposits 10k DAI to the smart pool AND borrows USD8k worth of ETH (80% collateralization rate)", () => {
+    describe("AND GIVEN alice deposits 10k DAI to the smart pool AND borrows USD8k worth of WETH (80% collateralization rate)", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(alice);
         await exactlyEnv.depositSP("DAI", "10000");
         await exactlyEnv.enterMarkets(["DAI"]);
 
         await exactlyEnv.borrowMP(
-          "ETH",
+          "WETH",
           exaTime.poolIDByNumberOfWeek(1),
           "1.25"
         );
         await exactlyEnv.borrowMP(
-          "ETH",
+          "WETH",
           exaTime.poolIDByNumberOfWeek(2),
           "1.25"
         );
       });
-      describe("WHEN ETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
+      describe("WHEN WETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
         beforeEach(async () => {
-          await exactlyEnv.oracle.setPrice("ETH", parseUnits("8000"));
+          await exactlyEnv.oracle.setPrice("WETH", parseUnits("8000"));
           // We borrow 10k DAI from 12 maturities since we can't borrow too much from the smart pool with only one maturity
           // We can't deposit DAI liquidity to a maturity as a workaround since we are trying to test a seize without underlying liquidity
           exactlyEnv.switchWallet(john);

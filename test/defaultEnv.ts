@@ -158,14 +158,22 @@ export class DefaultEnv {
         const { decimals, collateralRate, usdPrice } =
           mockedTokens!.get(tokenName)!;
         const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
-        const MockedToken = await ethers.getContractFactory("MockedToken");
-        const underlyingToken = await MockedToken.deploy(
-          "Fake " + tokenName,
-          "F" + tokenName,
-          decimals,
-          totalSupply.toString()
-        );
-        await underlyingToken.deployed();
+        let underlyingToken: Contract;
+        if (tokenName === "WETH") {
+          const Weth = await ethers.getContractFactory("WETH9");
+          underlyingToken = await Weth.deploy();
+          await underlyingToken.deployed();
+          await underlyingToken.deposit({ value: totalSupply });
+        } else {
+          const MockedToken = await ethers.getContractFactory("MockedToken");
+          underlyingToken = await MockedToken.deploy(
+            "Fake " + tokenName,
+            "F" + tokenName,
+            decimals,
+            totalSupply.toString()
+          );
+          await underlyingToken.deployed();
+        }
         const MockedEToken = await ethers.getContractFactory("EToken");
         const eToken = await MockedEToken.deploy(
           "eFake " + tokenName,
@@ -187,7 +195,9 @@ export class DefaultEnv {
           interestRateModel.address
         );
 
-        const FixedLender = await ethers.getContractFactory("FixedLender");
+        const FixedLender = await ethers.getContractFactory(
+          tokenName === "WETH" ? "ETHFixedLender" : "FixedLender"
+        );
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,

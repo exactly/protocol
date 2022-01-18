@@ -92,7 +92,7 @@ export const defaultMockedTokens: Map<string, MockedTokenSpec> = new Map([
     },
   ],
   [
-    "ETH",
+    "WETH",
     {
       decimals: 18,
       collateralRate: parseUnits("0.7"),

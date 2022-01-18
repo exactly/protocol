@@ -628,7 +628,7 @@ describe("Pool Management Library", () => {
     beforeEach(async () => {
       defaultEnv = await DefaultEnv.create({});
       [, juana, cindy, walter] = await ethers.getSigners();
-      await defaultEnv.transfer("ETH", juana, "200");
+      await defaultEnv.transfer("WETH", juana, "200");
       await defaultEnv.transfer("DAI", juana, "200");
       await defaultEnv.transfer("DAI", cindy, "3000");
       await defaultEnv.transfer("DAI", walter, "60000");
@@ -639,8 +639,8 @@ describe("Pool Management Library", () => {
       defaultEnv.switchWallet(walter);
       await defaultEnv.depositSP("DAI", "60000");
       defaultEnv.switchWallet(juana);
-      await defaultEnv.depositSP("ETH", "100");
-      await defaultEnv.enterMarkets(["ETH"]);
+      await defaultEnv.depositSP("WETH", "100");
+      await defaultEnv.enterMarkets(["WETH"]);
     });
 
     describe("WHEN Juana borrows 4000 DAI in the next maturity pool", () => {
@@ -888,9 +888,9 @@ describe("Pool Management Library", () => {
       defaultEnv = await DefaultEnv.create({});
       [owner, juana, cindy, walter, fakeMultisig] = await ethers.getSigners();
 
-      // Juana has ETH to put as collateral, and some DAIf
+      // Juana has WETH to put as collateral, and some DAIf
       // to pay back the interests of her loan
-      await defaultEnv.transfer("ETH", juana, "200");
+      await defaultEnv.transfer("WETH", juana, "200");
       await defaultEnv.transfer("DAI", juana, "400");
       // Cindy will deposit to the MP of DAI
       await defaultEnv.transfer("DAI", cindy, "3000");
@@ -908,8 +908,8 @@ describe("Pool Management Library", () => {
 
       // This is Juana's colateral
       defaultEnv.switchWallet(juana);
-      await defaultEnv.depositSP("ETH", "100");
-      await defaultEnv.enterMarkets(["ETH"]);
+      await defaultEnv.depositSP("WETH", "100");
+      await defaultEnv.enterMarkets(["WETH"]);
     });
 
     describe("WHEN Juana borrows 4000 DAI in the next maturity pool", () => {
