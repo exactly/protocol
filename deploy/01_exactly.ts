@@ -151,7 +151,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
 
     const fixedLenderDeploymentName = "FixedLender" + symbol;
-    const poolLenderDeploymentName = "PoolLender" + symbol;
+    const poolAccountingDeploymentName = "PoolAccounting" + symbol;
     const eTokenDeploymentName = "EToken" + symbol;
 
     const eToken = await hre.deployments.deploy(eTokenDeploymentName, {
@@ -164,16 +164,19 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     addresses[`e${symbol}`] = eToken.address;
     console.log("eToken e%s deployed", symbol);
 
-    const poolLender = await hre.deployments.deploy(poolLenderDeploymentName, {
-      contract: "PoolLender",
-      from: deployer,
-      args: [eToken.address, interestRateModel.address],
-      log: true,
-      libraries: {
-        TSUtils: tsUtils.address,
-        PoolLib: poolLib.address,
-      },
-    });
+    const poolAccounting = await hre.deployments.deploy(
+      poolAccountingDeploymentName,
+      {
+        contract: "PoolAccounting",
+        from: deployer,
+        args: [eToken.address, interestRateModel.address],
+        log: true,
+        libraries: {
+          TSUtils: tsUtils.address,
+          PoolLib: poolLib.address,
+        },
+      }
+    );
 
     const fixedLender = await hre.deployments.deploy(
       fixedLenderDeploymentName,
@@ -185,7 +188,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
           oracleName,
           eToken.address,
           auditor.address,
-          poolLender.address,
+          poolAccounting.address,
         ],
         log: true,
         libraries: {
@@ -227,9 +230,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       auditor.address
     );
 
-    // We set the FixedLender on the PoolLender
+    // We set the FixedLender on the PoolAccounting
     await hre.deployments.execute(
-      poolLenderDeploymentName,
+      poolAccountingDeploymentName,
       { from: deployer },
       "initialize",
       fixedLender.address
