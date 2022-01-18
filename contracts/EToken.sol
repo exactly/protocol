@@ -127,7 +127,7 @@ contract EToken is IEToken, AccessControl {
         if (
             address(fixedLender) != address(0) && address(auditor) != address(0)
         ) {
-            revert GenericError(ErrorCode.ETOKEN_ALREADY_INITIALIZED);
+            revert GenericError(ErrorCode.CONTRACT_ALREADY_INITIALIZED);
         }
         fixedLender = IFixedLender(fixedLenderAddress);
         auditor = IAuditor(auditorAddress);
