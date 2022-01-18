@@ -380,11 +380,11 @@ contract Auditor is IAuditor, AccessControl {
         address borrower,
         uint256 maturityDate
     ) external override {
-        _requirePoolState(maturityDate, TSUtils.State.VALID);
-
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
+
+        _requirePoolState(maturityDate, TSUtils.State.VALID);
 
         rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
         rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
