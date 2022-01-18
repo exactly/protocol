@@ -12,10 +12,9 @@ import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
-import "./interfaces/IPoolLender.sol";
+import "./interfaces/IPoolAccounting.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
-import "./PoolLender.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using SafeERC20 for IERC20;
@@ -28,7 +27,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     IERC20 public override trustedUnderlying;
     IEToken public override eToken;
     string public override underlyingTokenName;
-    IPoolLender public poolLender;
+    IPoolAccounting public poolAccounting;
 
     IAuditor public auditor;
 
@@ -159,7 +158,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         string memory _underlyingTokenName,
         address _eTokenAddress,
         address _auditorAddress,
-        address _poolLender
+        address _poolAccounting
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         trustedUnderlying = IERC20(_tokenAddress);
@@ -168,7 +167,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         auditor = IAuditor(_auditorAddress);
         eToken = IEToken(_eTokenAddress);
-        poolLender = IPoolLender(_poolLender);
+        poolAccounting = IPoolAccounting(_poolAccounting);
     }
 
     /**
@@ -186,7 +185,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     ) external override nonReentrant whenNotPaused {
         auditor.beforeBorrowMP(address(this), msg.sender, maturityDate);
 
-        uint256 totalBorrow = poolLender.borrowMP(
+        uint256 totalBorrow = poolAccounting.borrowMP(
             maturityDate,
             msg.sender,
             amount,
@@ -227,7 +226,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         amount = doTransferIn(msg.sender, amount);
 
-        uint256 currentTotalDeposit = poolLender.depositMP(
+        uint256 currentTotalDeposit = poolAccounting.depositMP(
             maturityDate,
             msg.sender,
             amount,
@@ -264,7 +263,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // reverts on failure
         auditor.beforeWithdrawMP(address(this), redeemer, maturityDate);
 
-        poolLender.withdrawMP(
+        poolAccounting.withdrawMP(
             maturityDate,
             redeemer,
             redeemAmount,
@@ -392,7 +391,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // We check if the underlying liquidity that the user wants to withdraw is borrowed
         if (
             eToken.totalSupply() - amountToWithdraw <
-            poolLender.smartPoolBorrowed()
+            poolAccounting.smartPoolBorrowed()
         ) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
@@ -450,7 +449,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     {
         return (
             eToken.balanceOf(who),
-            poolLender.getAccountBorrows(who, maturityDate)
+            poolAccounting.getAccountBorrows(who, maturityDate)
         );
     }
 
@@ -464,7 +463,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         override
         returns (uint256)
     {
-        return poolLender.getTotalMpBorrows(maturityDate);
+        return poolAccounting.getTotalMpBorrows(maturityDate);
     }
 
     /**
@@ -495,14 +494,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             uint256 debtCovered,
             uint256 fee,
             uint256 earningsRepay
-        ) = poolLender.repayMP(maturityDate, borrower, repayAmount);
+        ) = poolAccounting.repayMP(maturityDate, borrower, repayAmount);
 
         // We take a share of the spread of the protocol
         uint256 protocolShare = fee.mul_(protocolSpreadFee);
         treasury += protocolShare;
         eToken.accrueEarnings(fee - protocolShare + earningsRepay);
 
-        protocolEarnings += protocolShare;
         totalMpBorrows -= debtCovered;
         totalMpBorrowsUser[borrower] -= debtCovered;
 
@@ -615,7 +613,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // We check if the underlying liquidity that the user wants to seize is borrowed
         if (
             eToken.totalSupply() - amountToTransfer <
-            poolLender.smartPoolBorrowed()
+            poolAccounting.smartPoolBorrowed()
         ) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
