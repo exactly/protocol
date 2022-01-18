@@ -65,7 +65,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     }
 
     /**
-     * @dev Initializes the PoolAccounting setting the FixedLender
+     * @dev Initializes the PoolAccounting setting the FixedLender address
      * - Only able to initialize once
      * @param _fixedLenderAddress The address of the FixedLender that uses this PoolAccounting
      */
