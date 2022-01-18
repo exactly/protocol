@@ -167,7 +167,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     }
 
     /**
-     * @dev Function to account for a withdraw from from a maturity pool (MP).
+     * @dev Function to account for a withdraw from a maturity pool (MP).
      * @param maturityDate maturity date / pool id where the asset should be accounted for
      * @param redeemer address that should have the assets withdrawn
      * @param amount amount that the redeemer will be extracting
