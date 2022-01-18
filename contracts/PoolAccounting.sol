@@ -48,7 +48,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     event Initialized(address indexed fixedLender);
 
     /**
-     * @dev modifier used to allows calls to certain methods only from
+     * @dev modifier used to allow calls to certain functions only from
      * the `fixedLender` contract. `fixedLenderAddress` should be set
      * through `initialize` method
      */
