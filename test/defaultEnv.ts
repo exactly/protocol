@@ -327,6 +327,26 @@ export class DefaultEnv {
       .depositToMaturityPool(amount, maturityPool, expectedAmount);
   }
 
+  public async depositMPETH(
+    assetString: string,
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    const expectedAmount =
+      (expectedAtMaturity &&
+        parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) ||
+      applyMinFee(amount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .depositToMaturityPoolEth(maturityPool, expectedAmount, {
+        value: amount,
+      });
+  }
+
   public async withdrawSP(assetString: string, units: string) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
