@@ -286,7 +286,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     {
         uint256 debt;
         if (maturityDate == 0) {
-            for (uint256 i = 0; i < userMpBorrowed[who].length; i++) {
+            uint256 borrowsLength = userMpBorrowed[who].length;
+            for (uint256 i = 0; i < borrowsLength; i++) {
                 debt += getAccountDebt(who, userMpBorrowed[who][i]);
             }
         } else {
