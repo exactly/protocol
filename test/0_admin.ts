@@ -194,6 +194,14 @@ describe("Auditor Admin", function () {
       await expect(tx).to.emit(exactlyEnv.auditor, "ExaSpeedUpdated");
     });
 
+    it("WHEN initializing a poolAccounting contract, THEN it should revert with CONTRACT_ALREADY_INITIALIZED", async () => {
+      await expect(
+        exactlyEnv.getPoolAccounting("DAI").initialize(owner.address)
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.CONTRACT_ALREADY_INITIALIZED)
+      );
+    });
+
     describe("GIVEN Exa speed is 10000 for fixedLender for DAI", async () => {
       beforeEach(async () => {
         await exactlyEnv.setExaSpeed("DAI", "10000");

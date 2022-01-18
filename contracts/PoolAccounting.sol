@@ -73,7 +73,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         if (fixedLenderAddress != address(0)) {
-            revert GenericError(ErrorCode.ETOKEN_ALREADY_INITIALIZED);
+            revert GenericError(ErrorCode.CONTRACT_ALREADY_INITIALIZED);
         }
 
         fixedLenderAddress = _fixedLenderAddress;
