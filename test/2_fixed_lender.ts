@@ -443,13 +443,13 @@ describe("FixedLender", function () {
       ).to.be.revertedWith("AccessControl");
     });
 
-    it("WHEN calling withdrawEarnings from an admin user and there are no funds, THEN it reverts", async () => {
+    it("WHEN trying to withdrawEarnings with an amount bigger than the current available funds, THEN it reverts with overflow", async () => {
       await expect(
         fixedLender.withdrawFromTreasury(
           owner.address,
           parseUnits("100000000000")
         )
-      ).to.be.reverted;
+      ).to.be.revertedWith("reverted with panic code 0x11");
     });
   });
 
