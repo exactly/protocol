@@ -808,6 +808,19 @@ describe("Pool Management Library", () => {
           await defaultEnv.depositMP("DAI", exaTime.nextPoolID(), "3000");
         });
 
+        it("THEN Cindy's commission is 400 * 3000 / 7000", async () => {
+          defaultEnv.switchWallet(cindy);
+          const supplied = await defaultEnv
+            .getFixedLender("DAI")
+            .mpUserSuppliedAmount(exaTime.nextPoolID(), cindy.address);
+
+          let commission = parseUnits("400")
+            .mul(parseUnits("3000"))
+            .div(parseUnits("7000"));
+
+          expect(supplied).to.equal(parseUnits("3000").add(commission));
+        });
+
         describe("AND WHEN Juana repays 4000 at maturity", () => {
           let mp: any;
           beforeEach(async () => {
@@ -823,19 +836,6 @@ describe("Pool Management Library", () => {
               .smartPoolBorrowed();
             expect(mp.suppliedSP).to.equal(0);
             expect(borrowSP).to.equal(0);
-          });
-
-          it("THEN Cindy's commission is 400 * 3000 / 7000", async () => {
-            defaultEnv.switchWallet(cindy);
-            const supplied = await defaultEnv
-              .getFixedLender("DAI")
-              .mpUserSuppliedAmount(exaTime.nextPoolID(), cindy.address);
-
-            let commission = parseUnits("400")
-              .mul(parseUnits("3000"))
-              .div(parseUnits("7000"));
-
-            expect(supplied).to.equal(parseUnits("3000").add(commission));
           });
 
           it("THEN 'earningsSP' are still there (400 - previous MP deposit commission)", async () => {
