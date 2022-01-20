@@ -169,7 +169,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       {
         contract: "PoolAccounting",
         from: deployer,
-        args: [eToken.address, interestRateModel.address],
+        args: [interestRateModel.address],
         log: true,
         libraries: {
           TSUtils: tsUtils.address,
