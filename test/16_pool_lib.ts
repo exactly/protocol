@@ -499,7 +499,7 @@ describe("Pool Management Library", () => {
     });
   });
 
-  describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool AND 10% penalty rate", () => {
+  describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool AND 6% penalty rate", () => {
     beforeEach(async () => {
       defaultEnv = await ExactlyEnv.create({});
       [, juana, cindy, walter] = await ethers.getSigners();
