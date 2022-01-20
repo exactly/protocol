@@ -26,7 +26,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     mapping(address => uint256[]) public userMpBorrowed;
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
     uint256 public smartPoolBorrowed;
-    uint256 private liquidationFee = 2.8e16; //2.8%
+    uint256 private protocolSpreadFee = 2.8e16; //2.8%
+    uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     IERC20 public override trustedUnderlying;
@@ -227,7 +228,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             userMpBorrowed[msg.sender].push(maturityDate);
         }
 
-        maturityPools[maturityDate].addFee(commission, maturityDate);
+        maturityPools[maturityDate].addFee(maturityDate, commission);
 
         mpUserBorrowedAmount[maturityDate][msg.sender] += totalBorrow;
         totalMpBorrows += totalBorrow;
@@ -303,6 +304,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // reverts on failure
         auditor.beforeWithdrawMP(address(this), redeemer, maturityDate);
 
+        uint256 maxDebt = eToken.totalSupply() / auditor.maxFuturePools();
+        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
+            redeemAmount,
+            maxDebt
+        );
+
         mpUserSuppliedAmount[maturityDate][redeemer] -= redeemAmount;
         totalMpDeposits -= redeemAmount;
         totalMpDepositsUser[redeemer] -= redeemAmount;
@@ -353,6 +360,20 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
                 fixedLenderCollateral,
                 maturityDate
             );
+    }
+
+    /**
+     * @notice public function to transfer funds from protocol earnings to a specified wallet
+     * @param who address which will receive the funds
+     * @param amount amount to be transferred
+     */
+    function withdrawFromTreasury(address who, uint256 amount)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        treasury -= amount;
+        trustedUnderlying.safeTransfer(who, amount);
     }
 
     /**
@@ -415,14 +436,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @dev Sets the protocol's liquidation fee for the underlying asset of this fixedLender
-     * @param _liquidationFee fee that the protocol earns when position is liquidated
+     * @dev Sets the protocol's spread fee used on liquidations and loan repayment
+     * @param _protocolSpreadFee percentile amount represented with 1e18 decimals
      */
-    function setLiquidationFee(uint256 _liquidationFee)
+    function setProtocolSpreadFee(uint256 _protocolSpreadFee)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        liquidationFee = _liquidationFee;
+        protocolSpreadFee = _protocolSpreadFee;
     }
 
     /**
@@ -522,7 +543,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // then amountBorrowed is what should be discounted to the users account
         uint256 debtCovered = (repayAmount * amountBorrowed) / amountOwed;
         uint256 penalties = repayAmount - debtCovered;
-        eToken.accrueEarnings(penalties);
+
         mpUserBorrowedAmount[maturityDate][borrower] =
             amountBorrowed -
             debtCovered;
@@ -549,7 +570,22 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             storedList.pop();
         }
 
-        maturityPools[maturityDate].addMoney(maturityDate, debtCovered);
+        // Pays back in the following order:
+        //       1) Maturity Pool Depositors
+        //       2) Smart Pool Debt
+        //       3) Earnings Smart Pool the rest
+        (
+            uint256 smartPoolDebtReduction,
+            uint256 fee,
+            uint256 earningsRepay
+        ) = maturityPools[maturityDate].repay(maturityDate, repayAmount);
+
+        // We take a share of the spread of the protocol
+        uint256 protocolShare = fee.mul_(protocolSpreadFee);
+        treasury += protocolShare;
+        eToken.accrueEarnings(fee - protocolShare + earningsRepay);
+
+        smartPoolBorrowed -= smartPoolDebtReduction;
         totalMpBorrows -= debtCovered;
         totalMpBorrowsUser[borrower] -= debtCovered;
 
@@ -653,8 +689,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             borrower
         );
 
-        uint256 protocolAmount = seizeAmount.mul_(liquidationFee);
+        uint256 protocolAmount = seizeAmount.mul_(protocolSpreadFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
+        treasury += protocolAmount;
 
         auditor.beforeDepositSP(address(this), borrower);
 
@@ -677,7 +714,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      *      transfer less of the initial amount (ie: take a commission out).
      *      This function takes into account this scenario
      * @param from address which will transfer funds in (approve needed on underlying token)
-     * @param amount amount to be transfered
+     * @param amount amount to be transferred
      * @return amount actually transferred by the protocol
      */
     function doTransferIn(address from, uint256 amount)
@@ -695,7 +732,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     /**
      * @notice Internal function to get the debt + penalties of an account for a certain maturityDate
      * @param who wallet to return debt status for the specified maturityDate
-     * @param maturityDate amount to be transfered
+     * @param maturityDate amount to be transferred
      * @return the total owed denominated in number of tokens
      */
     function getAccountDebt(address who, uint256 maturityDate)

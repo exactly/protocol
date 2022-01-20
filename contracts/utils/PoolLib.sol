@@ -72,6 +72,7 @@ library PoolLib {
      *         of the smart pool
      * @param pool maturity pool where money needs to be taken out
      * @param amount amount to be taken out of the pool before it matures
+     * @return amount of new debt that needs to be taken out of the SP
      */
     function takeMoney(
         MaturityPool storage pool,
@@ -100,6 +101,86 @@ library PoolLib {
         }
 
         return newDebtSP;
+    }
+
+    /**
+     * @notice function that registers an operation to repay to
+     *         maturity pool. Reduces the amount of supplied amount by
+     *         MP depositors, after that reduces SP debt, and finally
+     *         returns the amount of earnings to pay to SP
+     * @param pool maturity pool where money will be added
+     * @param maturityID timestamp in which maturity pool matures
+     * @param amount amount to be added to the maturity pool
+     * @return smartPoolDebtReduction : amount to reduce the SP debt
+     * @return fee : amount to distribute as earnings to the SP (revenue share with protocol)
+     * @return earningsRepay : amount to distribute as earnings to the SP - extras (penalties,
+     *         not shared with anyone)
+     */
+    function repay(
+        MaturityPool storage pool,
+        uint256 maturityID,
+        uint256 amount
+    )
+        external
+        returns (
+            uint256 smartPoolDebtReduction,
+            uint256 fee,
+            uint256 earningsRepay
+        )
+    {
+        // we use this function to accrue only
+        // by passing 0 fees
+        _accrueAndAddFee(pool, maturityID, 0);
+
+        uint256 borrowMP = pool.borrowed;
+        uint256 supplySP = pool.suppliedSP;
+        uint256 earningsSP = pool.earningsSP;
+
+        // You can't have repayments bigger than the borrowed amount
+        // but amount might contain the penalties
+        pool.borrowed = borrowMP - Math.min(borrowMP, amount);
+
+        // This is the amount that is being lent out by the protocol
+        // that belongs to the MP depositors
+        uint256 depositsBorrowed = borrowMP - supplySP;
+        if (amount > depositsBorrowed) {
+            // if its more than the amount being repaid, then it should
+            // take a little part of the SP debt
+            uint256 extra = amount - depositsBorrowed;
+            if (extra <= supplySP) {
+                // Covered part of the supply SP
+                pool.suppliedSP -= extra;
+                smartPoolDebtReduction = extra;
+                // unchanged values:
+                //   fee = 0
+                //   earningsRepay = 0
+            } else if (extra < supplySP + earningsSP) {
+                // Covered the supply SP and part of the earningsSP
+                pool.suppliedSP = 0;
+                extra -= supplySP;
+                pool.earningsSP -= extra;
+
+                smartPoolDebtReduction = supplySP;
+                fee = extra;
+                // unchanged values:
+                //   earningsRepay = 0
+            } else {
+                // Covered the supply SP and the earnings SP and extras SP
+                smartPoolDebtReduction = supplySP;
+                fee = pool.earningsSP;
+                earningsRepay = amount - supplySP - fee;
+
+                pool.suppliedSP = 0;
+                pool.earningsSP = 0;
+            }
+        }
+
+        // No smart pool debt reduction
+        // No revenue for smart pool and protocol
+        // No extras for smart pool
+        //   smartPoolDebtReduction = 0
+        //   fee = 0
+        //   earningsRepay = 0
     }
 
     /**

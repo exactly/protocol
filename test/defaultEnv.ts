@@ -341,4 +341,22 @@ export class DefaultEnv {
       await fixedLender.smartPoolBorrowed()
     );
   }
+
+  public async maturityPool(assetString: string, maturityPoolID: number) {
+    const fixedLender = this.getFixedLender(assetString);
+    return fixedLender.maturityPools(maturityPoolID);
+  }
+
+  public async accountSnapshot(assetString: string, maturityPoolID: number) {
+    const fixedLender = this.getFixedLender(assetString);
+    return fixedLender.getAccountSnapshot(
+      this.currentWallet.address,
+      maturityPoolID
+    );
+  }
+
+  public async treasury(assetString: string) {
+    const fixedLender = this.getFixedLender(assetString);
+    return fixedLender.treasury();
+  }
 }
