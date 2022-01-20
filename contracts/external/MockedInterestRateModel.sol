@@ -8,7 +8,6 @@ import "../utils/DecimalMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract MockedInterestRateModel is IInterestRateModel {
-    uint256 public supplyRate;
     uint256 public borrowRate;
     uint256 public override penaltyRate;
 
