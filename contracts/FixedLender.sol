@@ -185,7 +185,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     ) external override nonReentrant whenNotPaused {
         auditor.beforeBorrowMP(address(this), msg.sender, maturityDate);
 
-        uint256 totalBorrow = poolAccounting.borrowMP(
+        uint256 totalOwed = poolAccounting.borrowMP(
             maturityDate,
             msg.sender,
             amount,
@@ -193,8 +193,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             eToken.totalSupply() / auditor.maxFuturePools()
         );
 
-        totalMpBorrows += totalBorrow;
-        totalMpBorrowsUser[msg.sender] += totalBorrow;
+        totalMpBorrows += totalOwed;
+        totalMpBorrowsUser[msg.sender] += totalOwed;
 
         auditor.validateBorrowMP(address(this), msg.sender);
 
@@ -203,7 +203,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         emit BorrowFromMaturityPool(
             msg.sender,
             amount,
-            totalBorrow - amount,
+            totalOwed - amount, // fee
             maturityDate
         );
     }
