@@ -18,8 +18,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // stack too deep problem
     struct BorrowVars {
         uint256 borrowerDebt;
-        uint256 commissionRate;
-        uint256 commission;
+        uint256 feeRate;
+        uint256 fee;
     }
 
     // Vars used in `repayMP` to avoid
@@ -109,15 +109,15 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
 
-        borrowVars.commissionRate = interestRateModel.getRateToBorrow(
+        borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
             pool,
             smartPoolBorrowed,
             maxSPDebt,
             true
         );
-        borrowVars.commission = amount.mul_(borrowVars.commissionRate);
-        totalOwedNewBorrow = amount + borrowVars.commission;
+        borrowVars.fee = amount.mul_(borrowVars.feeRate);
+        totalOwedNewBorrow = amount + borrowVars.fee;
 
         if (totalOwedNewBorrow > maxAmountAllowed) {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
@@ -128,7 +128,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             userMpBorrowed[borrower].push(maturityDate);
         }
 
-        maturityPools[maturityDate].addFee(maturityDate, borrowVars.commission);
+        maturityPools[maturityDate].addFee(maturityDate, borrowVars.fee);
 
         mpUserBorrowedAmount[maturityDate][borrower] =
             borrowVars.borrowerDebt +
@@ -142,27 +142,24 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
      * @param amount amount that the supplier will be depositing
      * @param minAmountRequired minimum amount that the borrower is expecting to receive at
      *        maturity
-     * @return the amount that should be collected at maturity
+     * @return currentTotalDeposit : the amount that should be collected at maturity for this deposit
      */
     function depositMP(
         uint256 maturityDate,
         address supplier,
         uint256 amount,
         uint256 minAmountRequired
-    ) external override onlyFixedLender returns (uint256) {
-        uint256 commission = maturityPools[maturityDate].addMoney(
+    ) external override onlyFixedLender returns (uint256 currentTotalDeposit) {
+        uint256 fee = maturityPools[maturityDate].addMoney(
             maturityDate,
             amount
         );
 
-        if (amount + commission < minAmountRequired) {
+        currentTotalDeposit = amount + fee;
+        if (currentTotalDeposit < minAmountRequired) {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
-
-        uint256 currentTotalDeposit = amount + commission;
         mpUserSuppliedAmount[maturityDate][supplier] += currentTotalDeposit;
-
-        return currentTotalDeposit;
     }
 
     /**

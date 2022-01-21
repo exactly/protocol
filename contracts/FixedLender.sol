@@ -44,32 +44,31 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      *         certain maturity date
      * @param to address which borrowed the asset
      * @param amount of the asset that it was borrowed
-     * @param totalAmount is the amount + extra that it will need to be paid at
-     *                   maturity
+     * @param fee amount extra that it will need to be paid at maturity
      * @param maturityDate dateID/poolID/maturity in which the user will have
      *                     to repay the loan
      */
     event BorrowFromMaturityPool(
         address indexed to,
         uint256 amount,
-        uint256 totalAmount,
+        uint256 fee,
         uint256 maturityDate
     );
 
     /**
      * @notice Event emitted when a user deposits an amount of an asset to a
-     *         certain maturity date collecting a commission at the end of the
+     *         certain maturity date collecting a fee at the end of the
      *         period
      * @param from address which deposited the asset
      * @param amount of the asset that it was deposited
-     * @param currentTotalDeposit is the amount + extra that it will be collected at maturity
+     * @param fee is the extra amount that it will be collected at maturity
      * @param maturityDate dateID/poolID/maturity in which the user will be able
-     *                     to collect his deposit + his commission
+     *                     to collect his deposit + his fee
      */
     event DepositToMaturityPool(
         address indexed from,
         uint256 amount,
-        uint256 currentTotalDeposit,
+        uint256 fee,
         uint256 maturityDate
     );
 
@@ -624,7 +623,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     /**
      * @notice Private function to safely transfer funds into this contract
      * @dev Some underlying token implementations can alter the transfer function to
-     *      transfer less of the initial amount (ie: take a commission out).
+     *      transfer less of the initial amount (ie: take a fee out).
      *      This function takes into account this scenario
      * @param from address which will transfer funds in (approve needed on underlying token)
      * @param amount amount to be transferred
