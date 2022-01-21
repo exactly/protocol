@@ -25,12 +25,12 @@ describe("Pool accounting (Admin)", () => {
       );
     });
 
-    it("WHEN invoking withdrawMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
+    it("WHEN invoking depositMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         defaultEnv
           .getPoolAccounting("DAI")
           .connect(laura)
-          .withdrawMP(0, laura.address, 0, 0)
+          .depositMP(0, laura.address, 0, 0)
       ).to.be.revertedWith(
         errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
       );
