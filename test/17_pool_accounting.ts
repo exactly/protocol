@@ -13,8 +13,8 @@ describe("Pool accounting (Admin)", () => {
     defaultEnv = await ExactlyEnv.create({});
   });
 
-  describe("GIVEN function calls not being the FixedLender contract", () => {
-    it("AND invoking borrowMP, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
+  describe("function calls not originating from the FixedLender contract", () => {
+    it("WHEN invoking borrowMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         defaultEnv
           .getPoolAccounting("DAI")
@@ -25,7 +25,7 @@ describe("Pool accounting (Admin)", () => {
       );
     });
 
-    it("AND invoking withdrawMP, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
+    it("WHEN invoking withdrawMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         defaultEnv
           .getPoolAccounting("DAI")
@@ -36,7 +36,7 @@ describe("Pool accounting (Admin)", () => {
       );
     });
 
-    it("AND invoking repayMP, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
+    it("WHEN invoking repayMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         defaultEnv
           .getPoolAccounting("DAI")
@@ -47,7 +47,7 @@ describe("Pool accounting (Admin)", () => {
       );
     });
 
-    it("AND invoking repayMP, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
+    it("WHEN invoking withdrawMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         defaultEnv
           .getPoolAccounting("DAI")
