@@ -27,11 +27,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     struct RepayVars {
         uint256 amountOwed;
         uint256 amountBorrowed;
-        uint256 debtCovered;
-        uint256 penalties;
+        uint256 outstandingDebt;
         uint256 smartPoolDebtReduction;
-        uint256 fee;
-        uint256 earningsRepay;
     }
 
     mapping(uint256 => mapping(address => uint256)) public mpUserSuppliedAmount;
@@ -198,10 +195,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         override
         onlyFixedLender
         returns (
-            uint256,
-            uint256,
-            uint256,
-            uint256
+            uint256 penalties,
+            uint256 debtCovered,
+            uint256 fee,
+            uint256 earningsRepay
         )
     {
         RepayVars memory repayVars;
@@ -216,16 +213,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
         // then amountBorrowed is what should be discounted to the users account
-        repayVars.debtCovered =
+        debtCovered =
             (repayAmount * repayVars.amountBorrowed) /
             repayVars.amountOwed;
-        repayVars.penalties = repayAmount - repayVars.debtCovered;
+        penalties = repayAmount - debtCovered;
 
-        mpUserBorrowedAmount[maturityDate][borrower] =
-            repayVars.amountBorrowed -
-            repayVars.debtCovered;
+        repayVars.outstandingDebt = repayVars.amountBorrowed - debtCovered;
 
-        if (mpUserBorrowedAmount[maturityDate][borrower] == 0) {
+        if (repayVars.outstandingDebt == 0) {
             uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[
                 borrower
             ];
@@ -247,24 +242,18 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             storedList.pop();
         }
 
+        mpUserBorrowedAmount[maturityDate][borrower] = repayVars
+            .outstandingDebt;
+
         // Pays back in the following order:
         //       1) Maturity Pool Depositors
         //       2) Smart Pool Debt
         //       3) Earnings Smart Pool the rest
-        (
-            repayVars.smartPoolDebtReduction,
-            repayVars.fee,
-            repayVars.earningsRepay
-        ) = maturityPools[maturityDate].repay(maturityDate, repayAmount);
+        (repayVars.smartPoolDebtReduction, fee, earningsRepay) = maturityPools[
+            maturityDate
+        ].repay(maturityDate, repayAmount);
 
         smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
-
-        return (
-            repayVars.penalties,
-            repayVars.debtCovered,
-            repayVars.fee,
-            repayVars.earningsRepay
-        );
     }
 
     /**
