@@ -119,34 +119,18 @@ describe("Auditor from User Space", function () {
       auditor.beforeBorrowMP(
         exactlyEnv.notAnFixedLenderAddress,
         owner.address,
-        100,
         nextPoolID
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
-  it("BorrowAllowed should fail for when oracle gets weird", async () => {
+  it("validateBorrowMP should fail for when oracle gets weird", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const dai = exactlyEnv.getUnderlying("DAI");
-
-    const amountDAI = parseUnits("100");
-    await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID,
-      applyMinFee(amountDAI)
-    );
-
     await auditor.enterMarkets([fixedLenderDAI.address]);
 
     await exactlyEnv.oracle.setPrice("DAI", 0);
     await expect(
-      auditor.beforeBorrowMP(
-        fixedLenderDAI.address,
-        owner.address,
-        100,
-        nextPoolID
-      )
+      auditor.validateBorrowMP(fixedLenderDAI.address, owner.address)
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
@@ -236,12 +220,7 @@ describe("Auditor from User Space", function () {
 
     // we make it count as collateral (DAI)
     await expect(
-      auditor.beforeBorrowMP(
-        fixedLenderDAI.address,
-        owner.address,
-        100,
-        nextPoolID
-      )
+      auditor.validateBorrowMP(fixedLenderDAI.address, owner.address)
     ).to.be.revertedWith(errorGeneric(ProtocolError.NOT_A_FIXED_LENDER_SENDER));
   });
 
@@ -254,16 +233,8 @@ describe("Auditor from User Space", function () {
 
   it("SetBorrowCap should block borrowing more than the cap on a listed market", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    const dai = exactlyEnv.getUnderlying("DAI");
     await auditor.setMarketBorrowCaps([fixedLenderDAI.address], [10]);
-    // we supply Dai to the protocol
-    const amountDAI = parseUnits("100");
-    await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToMaturityPool(
-      amountDAI,
-      nextPoolID,
-      applyMinFee(amountDAI)
-    );
+    await exactlyEnv.depositSP("DAI", "100");
 
     await expect(
       // user tries to borrow more than the cap

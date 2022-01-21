@@ -66,7 +66,7 @@ export enum ProtocolError {
   REDEEM_CANT_BE_ZERO,
   EXIT_MARKET_BALANCE_OWED,
   CALLER_MUST_BE_FIXED_LENDER,
-  ETOKEN_ALREADY_INITIALIZED,
+  CONTRACT_ALREADY_INITIALIZED,
   INSUFFICIENT_PROTOCOL_LIQUIDITY,
   TOO_MUCH_SLIPPAGE,
   TOO_MUCH_REPAY_TRANSFER,
@@ -144,6 +144,7 @@ export class ExactlyEnv {
       mockedTokens = defaultMockedTokens;
     }
     let fixedLenderContracts = new Map<string, Contract>();
+    let poolAccountingContracts = new Map<string, Contract>();
     let underlyingContracts = new Map<string, Contract>();
     let eTokenContracts = new Map<string, Contract>();
 
@@ -232,21 +233,30 @@ export class ExactlyEnv {
         );
         await eToken.deployed();
 
-        const FixedLender = await ethers.getContractFactory("FixedLender", {
-          libraries: {
-            TSUtils: tsUtils.address,
-            PoolLib: poolLib.address,
-          },
-        });
+        const PoolAccounting = await ethers.getContractFactory(
+          "PoolAccounting",
+          {
+            libraries: {
+              TSUtils: tsUtils.address,
+              PoolLib: poolLib.address,
+            },
+          }
+        );
+        const poolAccounting = await PoolAccounting.deploy(
+          interestRateModel.address
+        );
+
+        const FixedLender = await ethers.getContractFactory("FixedLender");
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
           eToken.address,
           auditor.address,
-          interestRateModel.address
+          poolAccounting.address
         );
         await fixedLender.deployed();
 
+        await poolAccounting.initialize(fixedLender.address);
         await eToken.initialize(fixedLender.address, auditor.address);
 
         // Mock PriceOracle setting dummy price
@@ -262,6 +272,7 @@ export class ExactlyEnv {
 
         // Handy maps with all the fixedLenders and underlying tokens
         fixedLenderContracts.set(tokenName, fixedLender);
+        poolAccountingContracts.set(tokenName, poolAccounting);
         underlyingContracts.set(tokenName, underlyingToken);
         eTokenContracts.set(tokenName, eToken);
       })
@@ -279,6 +290,7 @@ export class ExactlyEnv {
       marketsLib,
       exaToken,
       fixedLenderContracts,
+      poolAccountingContracts,
       underlyingContracts,
       eTokenContracts,
       mockedTokens!,

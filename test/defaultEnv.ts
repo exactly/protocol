@@ -30,6 +30,7 @@ export class DefaultEnv {
   marketsLib: Contract;
   exaToken: Contract;
   fixedLenderContracts: Map<string, Contract>;
+  poolAccountingContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   eTokenContracts: Map<string, Contract>;
   baseRate: BigNumber;
@@ -50,6 +51,7 @@ export class DefaultEnv {
     _marketsLib: Contract,
     _exaToken: Contract,
     _fixedLenderContracts: Map<string, Contract>,
+    _poolAccountingContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
     _eTokenContracts: Map<string, Contract>,
     _mockedTokens: Map<string, MockedTokenSpec>,
@@ -58,6 +60,7 @@ export class DefaultEnv {
     this.oracle = _oracle;
     this.auditor = _auditor;
     this.fixedLenderContracts = _fixedLenderContracts;
+    this.poolAccountingContracts = _poolAccountingContracts;
     this.underlyingContracts = _underlyingContracts;
     this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
@@ -76,6 +79,10 @@ export class DefaultEnv {
 
   public getFixedLender(key: string): Contract {
     return this.fixedLenderContracts.get(key)!;
+  }
+
+  public getPoolAccounting(key: string): Contract {
+    return this.poolAccountingContracts.get(key)!;
   }
 
   public getUnderlying(key: string): Contract {
@@ -314,19 +321,22 @@ export class DefaultEnv {
     underlyingAddress: string,
     underlyingTokenName: string
   ) {
-    const FixedLender = await ethers.getContractFactory("FixedLender", {
+    const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
       libraries: {
         TSUtils: this.tsUtils.address,
         PoolLib: this.poolLib.address,
       },
     });
-
+    const poolAccounting = await PoolAccounting.deploy(
+      interestRateModelAddress
+    );
+    const FixedLender = await ethers.getContractFactory("FixedLender");
     const fixedLender = await FixedLender.deploy(
       underlyingAddress,
       underlyingTokenName,
       eTokenAddress,
       newAuditorAddress,
-      interestRateModelAddress
+      poolAccounting.address
     );
 
     await fixedLender.deployed();
@@ -334,17 +344,17 @@ export class DefaultEnv {
   }
 
   public async smartPoolState(assetString: string) {
-    const fixedLender = this.getFixedLender(assetString);
+    const poolLender = this.getPoolAccounting(assetString);
     const eToken = this.getEToken(assetString);
     return new SmartPoolState(
       await eToken.totalSupply(),
-      await fixedLender.smartPoolBorrowed()
+      await poolLender.smartPoolBorrowed()
     );
   }
 
   public async maturityPool(assetString: string, maturityPoolID: number) {
-    const fixedLender = this.getFixedLender(assetString);
-    return fixedLender.maturityPools(maturityPoolID);
+    const poolLender = this.getPoolAccounting(assetString);
+    return poolLender.maturityPools(maturityPoolID);
   }
 
   public async accountSnapshot(assetString: string, maturityPoolID: number) {

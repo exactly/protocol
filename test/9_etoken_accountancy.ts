@@ -26,11 +26,11 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
       // We simulate that the address of user bob is the fixedLender and the auditor contract (auditor is not relevant because we are not testing transfers here)
       await eDAI.initialize(bob.address, bob.address);
     });
-    it("THEN it should revert with ETOKEN_ALREADY_INITIALIZED error when trying to set again", async () => {
+    it("THEN it should revert with CONTRACT_ALREADY_INITIALIZED error when trying to set again", async () => {
       await expect(
         eDAI.initialize(laura.address, laura.address)
       ).to.be.revertedWith(
-        errorGeneric(ProtocolError.ETOKEN_ALREADY_INITIALIZED)
+        errorGeneric(ProtocolError.CONTRACT_ALREADY_INITIALIZED)
       );
     });
     it("AND WHEN trying to initialize from third parties, THEN it should revert with AccessControl error", async () => {

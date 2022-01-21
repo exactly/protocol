@@ -25,11 +25,14 @@ interface IAuditor {
         uint256 amount
     ) external;
 
+    // this one validates post liquidity check
+    function validateBorrowMP(address fixedLenderAddress, address borrower)
+        external;
+
     function beforeBorrowMP(
         address fixedLenderAddress,
         address borrower,
-        uint256 borrowAmount,
-        uint256 maturityDate
+        uint256 maturityID
     ) external;
 
     function beforeWithdrawMP(

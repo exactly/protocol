@@ -228,7 +228,7 @@ describe("Smart Pool", function () {
         await expect(eDAI.connect(bob).transfer(john.address, parseUnits("10")))
           .to.not.be.reverted;
       });
-      it("WHEN trying to withdraw the entire pos  ition (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+      it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
         );

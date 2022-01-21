@@ -44,12 +44,13 @@ library PoolLib {
      * @param pool maturity pool where money will be added
      * @param maturityID timestamp in which maturity pool matures
      * @param amount amount to be added to the maturity pool
+     * @return earningsShare amount that the depositor will receive after maturity
      */
     function addMoney(
         MaturityPool storage pool,
         uint256 maturityID,
         uint256 amount
-    ) external returns (uint256) {
+    ) external returns (uint256 earningsShare) {
         // we use this function to accrue only
         // by passing 0 fees
         _accrueAndAddFee(pool, maturityID, 0);
@@ -59,11 +60,10 @@ library PoolLib {
         // from now on, it's earnings calculations
         uint256 supply = pool.suppliedSP + amount;
         uint256 unassignedEarnings = pool.unassignedEarnings;
-        uint256 earningsShare = supply == 0
+        earningsShare = supply == 0
             ? 0
             : (amount * unassignedEarnings) / supply;
         pool.unassignedEarnings -= earningsShare;
-        return earningsShare;
     }
 
     /**
@@ -72,20 +72,19 @@ library PoolLib {
      *         of the smart pool
      * @param pool maturity pool where money needs to be taken out
      * @param amount amount to be taken out of the pool before it matures
-     * @return amount of new debt that needs to be taken out of the SP
+     * @return newDebtSP amount of new debt that needs to be taken out of the SP
      */
     function takeMoney(
         MaturityPool storage pool,
         uint256 amount,
         uint256 maxDebt
-    ) external returns (uint256) {
+    ) external returns (uint256 newDebtSP) {
         uint256 newBorrowed = pool.borrowed + amount;
         pool.borrowed = newBorrowed;
 
         uint256 suppliedSP = pool.suppliedSP;
         uint256 suppliedMP = pool.supplied;
         uint256 supplied = suppliedSP + suppliedMP;
-        uint256 newDebtSP = 0;
 
         if (newBorrowed > supplied) {
             uint256 newSupplySP = newBorrowed - suppliedMP;
@@ -99,8 +98,6 @@ library PoolLib {
             newDebtSP = newBorrowed - supplied;
             pool.suppliedSP = newSupplySP;
         }
-
-        return newDebtSP;
     }
 
     /**
