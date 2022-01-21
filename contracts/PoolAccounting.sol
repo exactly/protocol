@@ -20,7 +20,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 borrowerDebt;
         uint256 commissionRate;
         uint256 commission;
-        uint256 totalBorrow;
     }
 
     // Vars used in `repayMP` to avoid
@@ -92,7 +91,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
      * @param maxAmountAllowed maximum amount that the borrower is willing to pay
      *        at maturity
      * @param maxSPDebt maximum amount of assset debt that the MP can have with the SP
-     * @return total amount that will need to be paid at maturity
+     * @return totalOwedNewBorrow : total amount that will need to be paid at maturity for this borrow
      */
     function borrowMP(
         uint256 maturityDate,
@@ -100,7 +99,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 amount,
         uint256 maxAmountAllowed,
         uint256 maxSPDebt
-    ) external override onlyFixedLender returns (uint256) {
+    ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow) {
         BorrowVars memory borrowVars;
 
         smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
@@ -118,12 +117,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             true
         );
         borrowVars.commission = amount.mul_(borrowVars.commissionRate);
+        totalOwedNewBorrow = amount + borrowVars.commission;
 
-        if (amount + borrowVars.commission > maxAmountAllowed) {
+        if (totalOwedNewBorrow > maxAmountAllowed) {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
-
-        borrowVars.totalBorrow = amount + borrowVars.commission;
 
         borrowVars.borrowerDebt = mpUserBorrowedAmount[maturityDate][borrower];
         if (borrowVars.borrowerDebt == 0) {
@@ -134,9 +132,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         mpUserBorrowedAmount[maturityDate][borrower] =
             borrowVars.borrowerDebt +
-            borrowVars.totalBorrow;
-
-        return borrowVars.totalBorrow;
+            totalOwedNewBorrow;
     }
 
     /**
