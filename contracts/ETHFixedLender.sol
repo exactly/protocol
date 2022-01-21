@@ -11,11 +11,21 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 import "./FixedLender.sol";
+import "./external/WETH9.sol";
 import "./interfaces/IETHFixedLender.sol";
 
 contract ETHFixedLender is FixedLender, IETHFixedLender {
+    bool private wrapOnOurSide;
+    WETH9 private weth;
+
+    modifier usingETH() {
+        wrapOnOurSide = true;
+        _;
+        wrapOnOurSide = false;
+    }
+
     constructor(
-        address _tokenAddress,
+        address payable _tokenAddress,
         string memory _underlyingTokenName,
         address _eTokenAddress,
         address _auditorAddress,
@@ -28,7 +38,11 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
             _auditorAddress,
             _interestRateModelAddress
         )
-    {}
+    {
+        // just to be explicit uwu I know it is zero/falsy by default
+        wrapOnOurSide = false;
+        weth = WETH9(_tokenAddress);
+    }
 
     function borrowFromMaturityPoolEth(
         uint256 maturityDate,
@@ -38,7 +52,9 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
     function depositToMaturityPoolEth(
         uint256 maturityDate,
         uint256 minAmountRequired
-    ) external payable override {}
+    ) external payable override usingETH {
+        depositToMaturityPool(msg.value, maturityDate, minAmountRequired);
+    }
 
     function depositToSmartPoolEth() external payable override {}
 
@@ -61,7 +77,17 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         override
         returns (uint256)
     {
-        return 0;
+        if (wrapOnOurSide) {
+            // giving it some tought, we kind of can trust WETH9 to mint
+            // exactly the requested amount. But I'll leave this here for now
+            uint256 balanceBefore = trustedUnderlying.balanceOf(address(this));
+            weth.deposit{value: msg.value}();
+            uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
+
+            return balanceAfter - balanceBefore;
+        } else {
+            return super.doTransferIn(from, amount);
+        }
     }
 
     function doTransferOut(address to, uint256 amount) internal override {}
