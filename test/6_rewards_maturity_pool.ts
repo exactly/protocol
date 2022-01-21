@@ -6,11 +6,11 @@ import {
   ExactlyEnv,
   ExaTime,
   ProtocolError,
-  RewardsLibEnv,
 } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
+import { RewardsLibEnv } from "./rewardsLibEnv";
 
 describe("ExaToken", () => {
   let exactlyEnv: DefaultEnv;
@@ -25,7 +25,7 @@ describe("ExaToken", () => {
 
   beforeEach(async () => {
     exactlyEnv = await ExactlyEnv.create({});
-    rewardsLibEnv = await ExactlyEnv.createRewardsEnv();
+    rewardsLibEnv = await RewardsLibEnv.create();
     [owner, mariaUser, bobUser] = await ethers.getSigners();
     exaToken = exactlyEnv.exaToken;
     snapshot = await exactlyEnv.takeSnapshot();
