@@ -2,14 +2,12 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ExactlyEnv, ExaTime } from "./exactlyUtils";
+import { ExaTime } from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
 
 describe("FixedLender - Pausable", function () {
   let exactlyEnv: DefaultEnv;
-
   let fixedLender: Contract;
-
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
 
@@ -21,7 +19,7 @@ describe("FixedLender - Pausable", function () {
     beforeEach(async () => {
       [owner, user] = await ethers.getSigners();
 
-      exactlyEnv = await ExactlyEnv.create({});
+      exactlyEnv = await DefaultEnv.create({});
       fixedLender = exactlyEnv.getFixedLender("DAI");
       PAUSER_ROLE = await fixedLender.PAUSER_ROLE();
 

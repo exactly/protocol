@@ -5,7 +5,6 @@ import { Contract } from "ethers";
 import { BigNumber } from "@ethersproject/bignumber";
 import {
   ProtocolError,
-  ExactlyEnv,
   ExaTime,
   errorGeneric,
   applyMinFee,
@@ -29,7 +28,7 @@ describe("Auditor from User Space", function () {
 
     [owner, user] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({});
+    exactlyEnv = await DefaultEnv.create({});
     auditor = exactlyEnv.auditor;
     nextPoolID = new ExaTime().nextPoolID();
 

@@ -2,12 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { BigNumber, Contract } from "ethers";
-import {
-  ProtocolError,
-  ExactlyEnv,
-  ExaTime,
-  errorGeneric,
-} from "./exactlyUtils";
+import { ProtocolError, ExaTime, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
 
@@ -38,7 +33,7 @@ describe("Liquidations", function () {
   beforeEach(async () => {
     [alice, bob, john] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({});
+    exactlyEnv = await DefaultEnv.create({});
     auditor = exactlyEnv.auditor;
 
     fixedLenderETH = exactlyEnv.getFixedLender("ETH");

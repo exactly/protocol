@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ProtocolError, errorGeneric, ExactlyEnv } from "./exactlyUtils";
+import { ProtocolError, errorGeneric } from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
 
 describe("Pool accounting (Admin)", () => {
@@ -10,7 +10,7 @@ describe("Pool accounting (Admin)", () => {
 
   beforeEach(async () => {
     [, laura] = await ethers.getSigners();
-    defaultEnv = await ExactlyEnv.create({});
+    defaultEnv = await DefaultEnv.create({});
   });
 
   describe("function calls not originating from the FixedLender contract", () => {

@@ -5,7 +5,6 @@ import {
   errorGeneric,
   errorUnmatchedPool,
   applyMinFee,
-  ExactlyEnv,
   ExaTime,
   PoolState,
   ProtocolError,
@@ -38,7 +37,7 @@ describe("FixedLender", function () {
   beforeEach(async () => {
     [owner, mariaUser, johnUser] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({});
+    exactlyEnv = await DefaultEnv.create({});
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     underlyingTokenETH = exactlyEnv.getUnderlying("ETH");

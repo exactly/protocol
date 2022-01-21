@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ProtocolError, ExactlyEnv, errorGeneric } from "./exactlyUtils";
+import { ProtocolError, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
 
@@ -34,7 +34,7 @@ describe("Auditor Admin", function () {
   before(async () => {
     [owner, laura] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await DefaultEnv.create({ mockedTokens });
     auditor = exactlyEnv.auditor;
 
     await exactlyEnv.transfer("DAI", laura, "10000");
