@@ -347,6 +347,15 @@ export class DefaultEnv {
       });
   }
 
+  public async depositSPETH(assetString: string, units: string) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .depositToSmartPoolEth({ value: amount });
+  }
+
   public async withdrawSP(assetString: string, units: string) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));

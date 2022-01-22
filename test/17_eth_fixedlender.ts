@@ -10,6 +10,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
   let exactlyEnv: DefaultEnv;
 
   let weth: Contract;
+  let eWeth: Contract;
   let ethFixedLender: Contract;
   let poolAccounting: Contract;
 
@@ -29,6 +30,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     exactlyEnv = await DefaultEnv.create({});
 
     weth = exactlyEnv.getUnderlying("WETH");
+    eWeth = exactlyEnv.getEToken("WETH");
     ethFixedLender = exactlyEnv.getFixedLender("WETH");
     poolAccounting = exactlyEnv.getPoolAccounting("WETH");
     exactlyEnv.switchWallet(alice);
@@ -93,6 +95,61 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           expect(
             await poolAccounting.mpUserSuppliedAmount(nextPoolId, alice.address)
           ).to.be.equal(parseUnits("5"));
+        });
+      });
+    });
+  });
+
+  describe("depositToSmartPoolEth vs depositToSmartPool", () => {
+    describe("WHEN alice deposits 5 ETH (bare ETH, not WETH) to a maturity pool", () => {
+      let tx: any;
+      beforeEach(async () => {
+        tx = exactlyEnv.depositSPETH("WETH", "5");
+        await tx;
+      });
+      it("THEN a DepositToSmartPool event is emitted", async () => {
+        await expect(tx)
+          .to.emit(ethFixedLender, "DepositToSmartPool")
+          .withArgs(alice.address, parseUnits("5"));
+      });
+      it("AND the ETHFixedLender contract has a balance of 5 WETH", async () => {
+        expect(await weth.balanceOf(ethFixedLender.address)).to.equal(
+          parseUnits("5")
+        );
+      });
+      it("AND alice has a balance of 5 eWETH", async () => {
+        expect(await eWeth.balanceOf(alice.address)).to.be.equal(
+          parseUnits("5")
+        );
+      });
+    });
+
+    describe("GIVEN alice has some WETH", () => {
+      beforeEach(async () => {
+        exactlyEnv.switchWallet(owner);
+        weth.transfer(alice.address, parseUnits("10"));
+        exactlyEnv.switchWallet(alice);
+      });
+      describe("WHEN she deposits 5 WETH (ERC20) to the smart pool", () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = exactlyEnv.depositSP("WETH", "5");
+          await tx;
+        });
+        it("THEN a DepositToSmartPool event is emitted", async () => {
+          await expect(tx)
+            .to.emit(ethFixedLender, "DepositToSmartPool")
+            .withArgs(alice.address, parseUnits("5"));
+        });
+        it("AND the ETHFixedLender contract has a balance of 5 WETH", async () => {
+          expect(await weth.balanceOf(ethFixedLender.address)).to.equal(
+            parseUnits("5")
+          );
+        });
+        it("AND alice has a balance of 5 eWETH", async () => {
+          expect(await eWeth.balanceOf(alice.address)).to.be.equal(
+            parseUnits("5")
+          );
         });
       });
     });
