@@ -364,6 +364,15 @@ export class DefaultEnv {
       .withdrawFromSmartPool(amount);
   }
 
+  public async withdrawSPETH(assetString: string, units: string) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawFromSmartPoolEth(amount);
+  }
+
   public async withdrawMP(
     assetString: string,
     maturityPool: number,

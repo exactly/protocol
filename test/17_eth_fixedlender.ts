@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
 import { ExaTime } from "./exactlyUtils";
+import { Contract, BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
@@ -150,6 +150,61 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           expect(await eWeth.balanceOf(alice.address)).to.be.equal(
             parseUnits("5")
           );
+        });
+      });
+    });
+  });
+  describe("withdrawFromSmartPoolEth vs withdrawFromSmartPool", () => {
+    describe("GIVEN alice already has a 5 ETH SP deposit", () => {
+      beforeEach(async () => {
+        weth.transfer(alice.address, parseUnits("10"));
+        await exactlyEnv.depositSP("WETH", "5");
+      });
+      describe("WHEN withdrawing to 3 eWETH to ETH", () => {
+        let tx: any;
+        let aliceETHBalanceBefore: BigNumber;
+        beforeEach(async () => {
+          aliceETHBalanceBefore = await ethers.provider.getBalance(
+            alice.address
+          );
+          tx = exactlyEnv.withdrawSPETH("WETH", "3");
+          await tx;
+        });
+        it("THEN a WithdrawFromSmartPool event is emitted", async () => {
+          await expect(tx)
+            .to.emit(ethFixedLender, "WithdrawFromSmartPool")
+            .withArgs(alice.address, parseUnits("3"));
+        });
+        it("AND the ETHFixedLender contract has a balance of 2 WETH", async () => {
+          expect(await weth.balanceOf(ethFixedLender.address)).to.equal(
+            parseUnits("2")
+          );
+        });
+        it("AND alice's ETH balance has increased by roughly 3", async () => {
+          const newBalance = await ethers.provider.getBalance(alice.address);
+          const balanceDiff = newBalance.sub(aliceETHBalanceBefore);
+          expect(balanceDiff).to.be.gt(parseUnits("2.95"));
+          expect(balanceDiff).to.be.lt(parseUnits("3"));
+        });
+      });
+      describe("WHEN withdrawing 3 eWETH to WETH", () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = exactlyEnv.withdrawSP("WETH", "3");
+          await tx;
+        });
+        it("THEN a WithdrawFromSmartPool event is emitted", async () => {
+          await expect(tx)
+            .to.emit(ethFixedLender, "WithdrawFromSmartPool")
+            .withArgs(alice.address, parseUnits("3"));
+        });
+        it("AND the ETHFixedLender contract has a balance of 2 WETH", async () => {
+          expect(await weth.balanceOf(ethFixedLender.address)).to.equal(
+            parseUnits("2")
+          );
+        });
+        it("AND alice recovers her 2 ETH", async () => {
+          expect(await weth.balanceOf(alice.address)).to.equal(parseUnits("8"));
         });
       });
     });
