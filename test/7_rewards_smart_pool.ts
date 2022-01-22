@@ -1,7 +1,6 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { Contract, BigNumber } from "ethers";
-import { ExactlyEnv } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
@@ -26,7 +25,7 @@ describe("ExaToken Smart Pool", () => {
     let exaToken: Contract;
 
     before(async () => {
-      exactlyEnv = await ExactlyEnv.create({});
+      exactlyEnv = await DefaultEnv.create({});
       dai = exactlyEnv.getUnderlying("DAI");
       eDAI = exactlyEnv.getEToken("DAI");
       fixedLenderDAI = exactlyEnv.getFixedLender("DAI");

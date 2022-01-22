@@ -2,12 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import {
-  ProtocolError,
-  ExactlyEnv,
-  ExaTime,
-  errorGeneric,
-} from "./exactlyUtils";
+import { ProtocolError, ExaTime, errorGeneric } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
 
@@ -38,7 +33,7 @@ describe("Liquidity computations", function () {
     // laura the lender
     [bob, laura] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({});
+    exactlyEnv = await DefaultEnv.create({});
     auditor = exactlyEnv.auditor;
 
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");

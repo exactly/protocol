@@ -1,12 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { BigNumber, Contract } from "ethers";
-import {
-  errorGeneric,
-  ExactlyEnv,
-  ExaTime,
-  ProtocolError,
-} from "./exactlyUtils";
+import { errorGeneric, ExaTime, ProtocolError } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
@@ -24,7 +19,7 @@ describe("ExaToken", () => {
   let snapshot: any;
 
   beforeEach(async () => {
-    exactlyEnv = await ExactlyEnv.create({});
+    exactlyEnv = await DefaultEnv.create({});
     rewardsLibEnv = await RewardsLibEnv.create();
     [owner, mariaUser, bobUser] = await ethers.getSigners();
     exaToken = exactlyEnv.exaToken;
