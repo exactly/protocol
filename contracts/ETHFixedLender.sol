@@ -44,6 +44,8 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         weth = WETH9(_tokenAddress);
     }
 
+    receive() external payable {}
+
     function borrowFromMaturityPoolEth(
         uint256 maturityDate,
         uint256 maxAmountAllowed
@@ -60,7 +62,13 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         depositToSmartPool(msg.value);
     }
 
-    function withdrawFromSmartPoolEth(uint256 amount) external override {}
+    function withdrawFromSmartPoolEth(uint256 amount)
+        external
+        override
+        usingETH
+    {
+        withdrawFromSmartPool(amount);
+    }
 
     function withdrawFromMaturityPoolEth(
         address payable redeemer,
@@ -92,5 +100,12 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         }
     }
 
-    function doTransferOut(address to, uint256 amount) internal override {}
+    function doTransferOut(address to, uint256 amount) internal override {
+        if (wrapOnOurSide) {
+            weth.withdraw(amount);
+            payable(to).transfer(amount);
+        } else {
+            super.doTransferOut(to, amount);
+        }
+    }
 }
