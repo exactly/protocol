@@ -74,7 +74,9 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
-    ) external override {}
+    ) external override usingETH {
+        withdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
+    }
 
     function repayToMaturityPoolEth(address borrower, uint256 maturityDate)
         external
