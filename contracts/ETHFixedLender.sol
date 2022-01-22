@@ -56,7 +56,9 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         depositToMaturityPool(msg.value, maturityDate, minAmountRequired);
     }
 
-    function depositToSmartPoolEth() external payable override {}
+    function depositToSmartPoolEth() external payable override usingETH {
+        depositToSmartPool(msg.value);
+    }
 
     function withdrawFromSmartPoolEth(uint256 amount) external override {}
 
