@@ -506,10 +506,15 @@ describe("Pool Management Library", () => {
         mp = await poolEnv.mpHarness.maturityPool();
       });
 
-      // We test them together so timestamp seconds between tests are not different between one another
-      it("THEN the pool 'earningsSP' is 2, 'unassignedEarnings' are 4 AND 'lastCommission' is 4", async () => {
+      it("THEN the pool 'earningsSP' is 2", async () => {
         expect(mp.earningsSP).to.equal(parseUnits("2"));
+      });
+
+      it("THEN the pool 'unassignedEarnings' are 4", async () => {
         expect(mp.unassignedEarnings).to.equal(parseUnits("4"));
+      });
+
+      it("THEN the pool 'lastCommission' is 4", async () => {
         expect(await poolEnv.mpHarness.lastCommission()).to.equal(
           parseUnits("4")
         );
@@ -524,9 +529,11 @@ describe("Pool Management Library", () => {
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
-        // We test them together so timestamp seconds between tests are not different between one another
-        it("THEN the pool 'earningsSP' is 4 AND 'unassignedEarnings' are 12", async () => {
+        it("THEN the pool 'earningsSP' is 4", async () => {
           expect(mp.earningsSP).to.equal(parseUnits("4"));
+        });
+
+        it("THEN the pool 'unassignedEarnings' are 12", async () => {
           expect(mp.unassignedEarnings).to.eq(parseUnits("12"));
         });
       });
@@ -539,14 +546,23 @@ describe("Pool Management Library", () => {
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
-        it("THEN the pool 'earningsSP' is 4, 'unassignedEarnings' are 0.666 AND 'lastCommission' is 1.3333", async () => {
+        it("THEN the pool 'earningsSP' is 4", async () => {
           expect(mp.earningsSP).to.equal(parseUnits("4"));
 
+          expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
+            parseUnits("1.3333"),
+            parseUnits("0.0001").toNumber()
+          );
+        });
+
+        it("THEN the pool 'unassignedEarnings' are 0.666", async () => {
           expect(mp.unassignedEarnings).to.closeTo(
             parseUnits("0.6666"),
             parseUnits("0.0001").toNumber()
           );
+        });
 
+        it("THEN the pool 'lastCommission' is 1.3333", async () => {
           expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
             parseUnits("1.3333"),
             parseUnits("0.0001").toNumber()
