@@ -217,23 +217,24 @@ library PoolLib {
             pool.lastAccrue = Math.min(maturityID, block.timestamp);
         }
 
-        // days from last accrual to the closest:
+        // seconds from last accrual to the closest:
         // maturity date or the current timestamp
-        uint256 daysSinceLastAccrue = TSUtils.daysPre(
+        uint256 secondsSinceLastAccrue = TSUtils.secondsPre(
             pool.lastAccrue,
             Math.min(maturityID, block.timestamp)
         );
-        // days from last accrual to the maturity date
-        uint256 daysTotalToMaturity = TSUtils.daysPre(
+        // seconds from last accrual to the maturity date
+        uint256 secondsTotalToMaturity = TSUtils.secondsPre(
             pool.lastAccrue,
             maturityID
         );
         uint256 unassignedEarnings = pool.unassignedEarnings;
 
         // assign some of the earnings to be collected at maturity
-        uint256 earningsToAccrue = daysTotalToMaturity == 0
+        uint256 earningsToAccrue = secondsTotalToMaturity == 0
             ? 0
-            : (unassignedEarnings * daysSinceLastAccrue) / daysTotalToMaturity;
+            : (unassignedEarnings * secondsSinceLastAccrue) /
+                secondsTotalToMaturity;
         pool.earningsSP += earningsToAccrue;
         pool.unassignedEarnings =
             unassignedEarnings -
