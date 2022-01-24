@@ -391,6 +391,24 @@ describe("Pool Management Library", () => {
         );
       });
 
+      it("THEN the pool 'earningsSP' are close to 0", async () => {
+        let earningsSP = poolEnv.calculateEarningsSP(
+          nextPoolID,
+          mockedDate,
+          fees, // first fees added are previous unassigned earnings now
+          1 // seconds since last accrue
+        );
+
+        expect(mp.earningsSP).to.closeTo(
+          parseUnits(earningsSP.toFixed(8).toString()),
+          parseUnits("0.00000001").toNumber()
+        );
+        expect(mp.earningsSP).to.closeTo(
+          parseUnits("0"),
+          parseUnits("0.0001").toNumber()
+        );
+      });
+
       it("THEN the pool 'supplied' is 50", async () => {
         expect(mp.supplied).to.equal(parseUnits("50"));
       });
@@ -469,6 +487,24 @@ describe("Pool Management Library", () => {
         );
         expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
           parseUnits("50"),
+          parseUnits("0.0001").toNumber()
+        );
+      });
+
+      it("THEN the pool 'earningsSP' are close to 0", async () => {
+        let earningsSP = poolEnv.calculateEarningsSP(
+          nextPoolID,
+          mockedDate,
+          fees, // first fees added are previous unassigned earnings now
+          1 // seconds since last accrue
+        );
+
+        expect(mp.earningsSP).to.closeTo(
+          parseUnits(earningsSP.toFixed(8).toString()),
+          parseUnits("0.00000001").toNumber()
+        );
+        expect(mp.earningsSP).to.closeTo(
+          parseUnits("0"),
           parseUnits("0.0001").toNumber()
         );
       });
