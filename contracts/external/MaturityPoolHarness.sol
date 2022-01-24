@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import "../utils/PoolLib.sol";
 import "../interfaces/IEToken.sol";
+import "../interfaces/IInterestRateModel.sol";
 
 contract MaturityPoolHarness {
     using PoolLib for PoolLib.MaturityPool;
@@ -10,12 +11,14 @@ contract MaturityPoolHarness {
     PoolLib.MaturityPool public maturityPool;
     uint256 public smartPoolTotalDebt;
     IEToken public eToken;
+    IInterestRateModel public interestRateModel;
     uint256 public lastCommission;
     uint256 public lastEarningsSP;
     uint256 public lastExtrasSP;
 
-    constructor(address _eTokenAddress) {
+    constructor(address _eTokenAddress, address _interestRateModelAddress) {
         eToken = IEToken(_eTokenAddress);
+        interestRateModel = IInterestRateModel(_interestRateModelAddress);
     }
 
     function maxMintEToken() external {
@@ -41,19 +44,29 @@ contract MaturityPoolHarness {
     }
 
     function addFeeMP(uint256 _maturityID, uint256 _amount) external {
-        maturityPool.addFee(_maturityID, _amount);
+        maturityPool.accrueSP(_maturityID);
+        maturityPool.addFee(_amount);
     }
 
     function addMoneyMP(uint256 _maturityID, uint256 _amount) external {
-        lastCommission = maturityPool.addMoney(_maturityID, _amount);
+        maturityPool.accrueSP(_maturityID);
+
+        lastCommission = interestRateModel.getYieldForDeposit(
+            maturityPool.suppliedSP,
+            maturityPool.unassignedEarnings,
+            _amount
+        );
+        maturityPool.addMoney(_amount + lastCommission);
+        maturityPool.takeFee(lastCommission);
     }
 
     function repayMP(uint256 _maturityID, uint256 _amount) external {
+        maturityPool.accrueSP(_maturityID);
         (
             uint256 smartPoolDebtReduction,
             uint256 earningsSP,
             uint256 extrasSP
-        ) = maturityPool.repay(_maturityID, _amount);
+        ) = maturityPool.repay(_amount);
         smartPoolTotalDebt -= smartPoolDebtReduction;
         lastEarningsSP = earningsSP;
         lastExtrasSP = extrasSP;

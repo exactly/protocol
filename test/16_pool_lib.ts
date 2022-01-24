@@ -213,8 +213,9 @@ describe("Pool Management Library", () => {
         );
       });
 
-      it("THEN the pool 'supplied' is 100", async () => {
-        expect(mp.supplied).to.equal(parseUnits("100"));
+      it("THEN the pool 'supplied' is 105 (100 principal + 5 commission)", async () => {
+        // supply should consider the newly taken commission
+        expect(mp.supplied).to.equal(parseUnits("105"));
       });
 
       it("THEN the smart pool total debt is 100", async () => {
@@ -250,8 +251,9 @@ describe("Pool Management Library", () => {
         );
       });
 
-      it("THEN the pool 'supplied' is 50", async () => {
-        expect(mp.supplied).to.equal(parseUnits("50"));
+      it("THEN the pool 'supplied' is 55 (50 principal + 5 commission)", async () => {
+        // supply should consider the newly taken commission
+        expect(mp.supplied).to.equal(parseUnits("55"));
       });
 
       it("THEN the smart pool total debt is 100", async () => {
@@ -288,8 +290,8 @@ describe("Pool Management Library", () => {
         );
       });
 
-      it("THEN the pool 'supplied' is 500", async () => {
-        expect(mp.supplied).to.equal(parseUnits("500"));
+      it("THEN the pool 'supplied' is 550 (500 principal + 50 fee)", async () => {
+        expect(mp.supplied).to.equal(parseUnits("550"));
       });
 
       it("THEN the smart pool total debt is 100", async () => {
@@ -404,8 +406,12 @@ describe("Pool Management Library", () => {
             expect(mp.suppliedSP).to.eq(parseUnits("0"));
           });
 
-          it("THEN the pool have deposits to be repaid for 300", async () => {
-            expect(mp.supplied).to.eq(parseUnits("300"));
+          it("THEN the pool have deposits to be repaid for 305.3333 (300 principal + 5.333 fee)", async () => {
+            expect(mp.supplied).to.closeTo(
+              // 4.666 are earningsSP from the original 10 fees
+              parseUnits("300").add(parseUnits("10").sub(parseUnits("4.6666"))),
+              parseUnits("0.0001").toNumber()
+            );
           });
 
           describe("AND GIVEN that someone repays again for 30", () => {
@@ -447,8 +453,13 @@ describe("Pool Management Library", () => {
               expect(mp.suppliedSP).to.eq(parseUnits("0"));
             });
 
-            it("THEN the pool has all the previous deposits intact (300 total)", async () => {
-              expect(mp.supplied).to.eq(parseUnits("300"));
+            it("THEN the pool has all the previous deposits intact (300 principal + 5.333 fee)", async () => {
+              expect(mp.supplied).to.closeTo(
+                parseUnits("300").add(
+                  parseUnits("10").sub(parseUnits("4.6666"))
+                ),
+                parseUnits("0.0001").toNumber()
+              );
             });
 
             describe("AND GIVEN that someone repays again for 40", () => {
@@ -476,8 +487,17 @@ describe("Pool Management Library", () => {
                 expect(mp.suppliedSP).to.eq(parseUnits("0"));
               });
 
-              it("THEN the pool has all the previous deposits intact (300 total)", async () => {
-                expect(mp.supplied).to.eq(parseUnits("300"));
+              it("THEN the pool has all the previous deposits intact (300 principal + 5.333 fee)", async () => {
+                expect(mp.supplied).to.closeTo(
+                  parseUnits("300").add(
+                    parseUnits("10").sub(parseUnits("4.6666"))
+                  ),
+                  parseUnits("0.0001").toNumber()
+                );
+              });
+
+              it("THEN 'lastAccrue' is the day 10", async () => {
+                expect(mp.lastAccrue).to.eq(exaTime.day(10));
               });
             });
 
@@ -488,8 +508,13 @@ describe("Pool Management Library", () => {
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
-              it("THEN the pool 'supplied' - 'borrowed' equals 0 (everything is 0)", async () => {
-                expect(mp.supplied - mp.borrowed).to.eq(0);
+              it("THEN the pool 'supplied' - 'borrowed' equals to the fees given out to depositors (in this case)", async () => {
+                expect(mp.earningsSP).to.eq(0);
+                // initial 10 earnings minus 4.6666 which was sp earnings
+                expect(mp.supplied.sub(mp.borrowed)).to.closeTo(
+                  parseUnits("10").sub(parseUnits("4.66666")),
+                  parseUnits("0.00001").toNumber()
+                );
                 expect(mp.suppliedSP).to.eq(0);
               });
             });
@@ -524,7 +549,11 @@ describe("Pool Management Library", () => {
           });
 
           it("THEN the pool have deposits to be repaid for 300", async () => {
-            expect(mp.supplied).to.eq(parseUnits("300"));
+            expect(mp.supplied).to.closeTo(
+              // 4.666 are earningsSP from the original 10 fees
+              parseUnits("300").add(parseUnits("10").sub(parseUnits("4.6666"))),
+              parseUnits("0.0001").toNumber()
+            );
           });
 
           describe("AND GIVEN that someone repays again for 30", () => {
@@ -563,8 +592,13 @@ describe("Pool Management Library", () => {
               expect(mp.suppliedSP).to.eq(parseUnits("0"));
             });
 
-            it("THEN the pool has all the previous deposits intact (300 total)", async () => {
-              expect(mp.supplied).to.eq(parseUnits("300"));
+            it("THEN the pool has all the previous deposits intact (300 principal + 5.333 fee)", async () => {
+              expect(mp.supplied).to.closeTo(
+                parseUnits("300").add(
+                  parseUnits("10").sub(parseUnits("4.6666"))
+                ),
+                parseUnits("0.0001").toNumber()
+              );
             });
           });
         });

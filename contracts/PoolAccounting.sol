@@ -99,6 +99,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow) {
         BorrowVars memory borrowVars;
 
+        maturityPools[maturityDate].accrueSP(maturityDate);
+
         smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
             amount,
             maxSPDebt
@@ -125,7 +127,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             userMpBorrowed[borrower].push(maturityDate);
         }
 
-        maturityPools[maturityDate].addFee(maturityDate, borrowVars.fee);
+        maturityPools[maturityDate].addFee(borrowVars.fee);
 
         mpUserBorrowedAmount[maturityDate][borrower] =
             borrowVars.borrowerDebt +
@@ -147,8 +149,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 amount,
         uint256 minAmountRequired
     ) external override onlyFixedLender returns (uint256 currentTotalDeposit) {
-        uint256 fee = maturityPools[maturityDate].addMoney(
-            maturityDate,
+        maturityPools[maturityDate].accrueSP(maturityDate);
+
+        uint256 fee = interestRateModel.getYieldForDeposit(
+            maturityPools[maturityDate].suppliedSP,
+            maturityPools[maturityDate].unassignedEarnings,
             amount
         );
 
@@ -156,6 +161,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         if (currentTotalDeposit < minAmountRequired) {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
+
+        maturityPools[maturityDate].addMoney(currentTotalDeposit);
+        maturityPools[maturityDate].takeFee(fee);
+
         mpUserSuppliedAmount[maturityDate][supplier] += currentTotalDeposit;
     }
 
@@ -245,13 +254,16 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         mpUserBorrowedAmount[maturityDate][borrower] = repayVars
             .outstandingDebt;
 
+        // SP supply needs to accrue its interests
+        maturityPools[maturityDate].accrueSP(maturityDate);
+
         // Pays back in the following order:
         //       1) Maturity Pool Depositors
         //       2) Smart Pool Debt
         //       3) Earnings Smart Pool the rest
         (repayVars.smartPoolDebtReduction, fee, earningsRepay) = maturityPools[
             maturityDate
-        ].repay(maturityDate, repayAmount);
+        ].repay(repayAmount);
 
         smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
     }

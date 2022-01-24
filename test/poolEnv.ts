@@ -42,6 +42,11 @@ export class PoolEnv {
   }
 
   static async create(): Promise<PoolEnv> {
+    const MockedInterestRateModelFactory = await ethers.getContractFactory(
+      "MockedInterestRateModel"
+    );
+
+    const interestRateModel = await MockedInterestRateModelFactory.deploy();
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
@@ -63,11 +68,13 @@ export class PoolEnv {
       {
         libraries: {
           PoolLib: poolLib.address,
-          TSUtils: tsUtils.address,
         },
       }
     );
-    let maturityPoolHarness = await MaturityPoolHarness.deploy(eToken.address);
+    let maturityPoolHarness = await MaturityPoolHarness.deploy(
+      eToken.address,
+      interestRateModel.address
+    );
     await maturityPoolHarness.deployed();
 
     // This is just for testing purposes of the poollib management
