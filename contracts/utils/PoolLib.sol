@@ -213,10 +213,6 @@ library PoolLib {
             return;
         }
 
-        if (pool.lastAccrue == 0) {
-            pool.lastAccrue = Math.min(maturityID, block.timestamp);
-        }
-
         // seconds from last accrual to the closest:
         // maturity date or the current timestamp
         uint256 secondsSinceLastAccrue = TSUtils.secondsPre(
