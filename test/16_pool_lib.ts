@@ -369,23 +369,21 @@ describe("Pool Management Library", () => {
       });
 
       it("THEN the pool 'earningsSP' is around 2", async () => {
-        expect(mp.earningsSP).to.closeTo(
-          parseUnits("2"),
-          parseUnits("0.001").toNumber()
-        );
+        expect(mp.earningsSP).to.be.lt(parseUnits("2"));
+        expect(mp.earningsSP).to.be.gt(parseUnits("1.95"));
       });
 
       it("THEN the pool 'unassignedEarnings' are around 4", async () => {
-        expect(mp.unassignedEarnings).to.closeTo(
-          parseUnits("4"),
-          parseUnits("0.001").toNumber()
-        );
+        expect(mp.unassignedEarnings).to.be.lt(parseUnits("4.05"));
+        expect(mp.unassignedEarnings).to.be.gt(parseUnits("4"));
       });
 
       it("THEN the pool 'lastCommission' is around 4", async () => {
-        expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
-          parseUnits("4"),
-          parseUnits("0.001").toNumber()
+        expect(await poolEnv.mpHarness.lastCommission()).to.be.lt(
+          parseUnits("4.05")
+        );
+        expect(await poolEnv.mpHarness.lastCommission()).to.be.gt(
+          parseUnits("4")
         );
       });
 
@@ -399,16 +397,14 @@ describe("Pool Management Library", () => {
         });
 
         it("THEN the pool 'earningsSP' is 4", async () => {
-          expect(mp.earningsSP).to.closeTo(
-            parseUnits("4"),
-            parseUnits("0.001").toNumber()
-          );
+          expect(mp.earningsSP).to.be.lt(parseUnits("4"));
+          expect(mp.earningsSP).to.be.gt(parseUnits("3.95"));
         });
 
         it("THEN the pool 'unassignedEarnings' are 12", async () => {
           expect(mp.unassignedEarnings).to.closeTo(
             parseUnits("12"),
-            parseUnits("0.001").toNumber()
+            parseUnits("0.009").toNumber()
           );
         });
       });
@@ -422,23 +418,21 @@ describe("Pool Management Library", () => {
         });
 
         it("THEN the pool 'earningsSP' is around 4", async () => {
-          expect(mp.earningsSP).to.closeTo(
-            parseUnits("4"),
-            parseUnits("0.001").toNumber()
-          );
+          expect(mp.earningsSP).to.be.lt(parseUnits("4"));
+          expect(mp.earningsSP).to.be.gt(parseUnits("3.95"));
         });
 
         it("THEN the pool 'unassignedEarnings' are around 0.666", async () => {
           expect(mp.unassignedEarnings).to.closeTo(
             parseUnits("0.666"),
-            parseUnits("0.001").toNumber()
+            parseUnits("0.009").toNumber()
           );
         });
 
         it("THEN the pool 'lastCommission' is around 1.3333", async () => {
           expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
             parseUnits("1.333"),
-            parseUnits("0.001").toNumber()
+            parseUnits("0.009").toNumber()
           );
         });
 
@@ -450,11 +444,9 @@ describe("Pool Management Library", () => {
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
-          it("THEN the pool 'earningsSP' is 4.666", async () => {
-            expect(mp.earningsSP).to.closeTo(
-              parseUnits("4.666"),
-              parseUnits("0.001").toNumber()
-            );
+          it("THEN the pool 'earningsSP' is around 4.666", async () => {
+            expect(mp.earningsSP).to.be.lt(parseUnits("4.7"));
+            expect(mp.earningsSP).to.be.gt(parseUnits("4.6"));
           });
 
           it("THEN the pool 'unassignedEarnings' at maturity are 0", async () => {
@@ -488,23 +480,31 @@ describe("Pool Management Library", () => {
               expect(mp.unassignedEarnings).to.eq(0);
             });
 
-            it("THEN the pool 'lastEarningsSP' is 4.6666", async () => {
+            it("THEN the pool 'lastEarningsSP' is around 4.6666", async () => {
               // 30 repay can be a repayment with penalties. In this case, since
               // all the other debt has been repaid, it  covers all the spread
               // of the earnings to be paid
-              expect(await poolEnv.mpHarness.lastEarningsSP()).to.closeTo(
-                parseUnits("4.666"),
-                parseUnits("0.001").toNumber()
+              expect(await poolEnv.mpHarness.lastEarningsSP()).to.be.lt(
+                parseUnits("4.7")
+              );
+              expect(await poolEnv.mpHarness.lastEarningsSP()).to.be.gt(
+                parseUnits("4.6")
               );
             });
 
-            it("THEN the pool 'lastExtrasSP' is 0", async () => {
+            it("THEN the pool 'lastExtrasSP' is around 25", async () => {
               // 30 repay can be a repayment with penalties. In this case, since
               // all the other debt has been repaid, all the spread has been covered (4.6666)
               // then all the rest goes to the SP and not shared with anyone
-              expect(await poolEnv.mpHarness.lastExtrasSP()).to.closeTo(
-                parseUnits("30").sub(parseUnits("4.666")),
-                parseUnits("0.001").toNumber()
+              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.lt(
+                parseUnits("30").sub(
+                  parseUnits("4.666").sub(parseUnits("0.05"))
+                )
+              );
+              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.gt(
+                parseUnits("30").sub(
+                  parseUnits("4.666").add(parseUnits("0.05"))
+                )
               );
             });
 
@@ -569,11 +569,9 @@ describe("Pool Management Library", () => {
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
-          it("THEN the pool 'earningsSP' is 4.666", async () => {
-            expect(mp.earningsSP).to.closeTo(
-              parseUnits("4.666"),
-              parseUnits("0.001").toNumber()
-            );
+          it("THEN the pool 'earningsSP' is around 4.666", async () => {
+            expect(mp.earningsSP).to.be.lt(parseUnits("4.7"));
+            expect(mp.earningsSP).to.be.gt(parseUnits("4.6"));
           });
 
           it("THEN the pool 'unassignedEarnings' at maturity are 0", async () => {
@@ -607,20 +605,28 @@ describe("Pool Management Library", () => {
               expect(mp.unassignedEarnings).to.eq(0);
             });
 
-            it("THEN the pool 'lastEarningsSP' is 4.6666", async () => {
+            it("THEN the pool 'lastEarningsSP' is around 4.6666", async () => {
               // 30 repay can be a repayment with penalties. In this case, 10 went for the remaining debt
               // 4.66666 as earnings and .... (see next test)
-              expect(await poolEnv.mpHarness.lastEarningsSP()).to.closeTo(
-                parseUnits("4.666"),
-                parseUnits("0.001").toNumber()
+              expect(await poolEnv.mpHarness.lastEarningsSP()).to.be.lt(
+                parseUnits("4.7")
+              );
+              expect(await poolEnv.mpHarness.lastEarningsSP()).to.be.gt(
+                parseUnits("4.6")
               );
             });
 
-            it("THEN the pool 'lastExtrasSP' is 0", async () => {
+            it("THEN the pool 'lastExtrasSP' is around 15", async () => {
               // ... and the extras is 20 - 4.66666 = 15.33333
-              expect(await poolEnv.mpHarness.lastExtrasSP()).to.closeTo(
-                parseUnits("20").sub(parseUnits("4.666")),
-                parseUnits("0.001").toNumber()
+              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.lt(
+                parseUnits("20").sub(
+                  parseUnits("4.666").sub(parseUnits("0.05"))
+                )
+              );
+              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.gt(
+                parseUnits("20").sub(
+                  parseUnits("4.666").add(parseUnits("0.05"))
+                )
               );
             });
 
@@ -956,9 +962,9 @@ describe("Pool Management Library", () => {
             .mul(parseUnits("3000"))
             .div(parseUnits("7000"));
 
-          expect(supplied).to.closeTo(
-            parseUnits("3000").add(commission),
-            parseUnits("0.002").toNumber()
+          expect(supplied).to.be.lt(parseUnits("3000").add(commission));
+          expect(supplied).to.be.gt(
+            parseUnits("3000").add(commission).sub(parseUnits("0.05"))
           );
         });
 
@@ -983,9 +989,14 @@ describe("Pool Management Library", () => {
             let previousCommissionGiven = parseUnits("400")
               .mul(parseUnits("3000"))
               .div(parseUnits("7000"));
-            expect(mp.earningsSP).to.closeTo(
-              parseUnits("400").sub(previousCommissionGiven),
-              parseUnits("0.002").toNumber()
+
+            expect(mp.earningsSP).to.be.gt(
+              parseUnits("400").sub(previousCommissionGiven)
+            );
+            expect(mp.earningsSP).to.be.lt(
+              parseUnits("400")
+                .sub(previousCommissionGiven)
+                .add(parseUnits("0.5"))
             );
           });
 
