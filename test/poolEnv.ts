@@ -22,11 +22,18 @@ export class PoolEnv {
 
   public async moveInTime(timestamp: number) {
     await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
-    await ethers.provider.send("evm_mine", []);
   }
 
-  public async takeMoney(amount: string) {
-    return this.mpHarness.takeMoneyMP(parseUnits(amount));
+  public async takeMoneyAndAddFee(
+    maturityDate: number,
+    amount: string,
+    feeAmount: string
+  ) {
+    return this.mpHarness.takeMoneyMP(
+      maturityDate,
+      parseUnits(amount),
+      parseUnits(feeAmount)
+    );
   }
 
   public async addFee(timestamp: number, amount: string) {
@@ -87,5 +94,74 @@ export class PoolEnv {
     await maturityPoolHarness.maxMintEToken();
 
     return new PoolEnv(tsUtils, poolLib, eToken, maturityPoolHarness);
+  }
+
+  /* Replicates PoolLib.sol calculation of unassigned earnings of a maturity pool when calling _accrueAndAddFee function */
+  public calculateUnassignedEarnings(
+    maturityPoolID: number,
+    blockTimestamp: number,
+    previousUnassignedEarnings: number,
+    secondsSinceLastAccrue: number,
+    newComission: number
+  ): number {
+    return (
+      previousUnassignedEarnings -
+      (previousUnassignedEarnings * secondsSinceLastAccrue) /
+        (maturityPoolID - blockTimestamp + secondsSinceLastAccrue) +
+      newComission
+    );
+  }
+
+  /* Replicates PoolLib.sol calculation of unassigned earnings of a maturity pool when calling addMoney function */
+  public calculateUnassignedEarningsWhenDepositingToMP(
+    maturityPoolID: number,
+    blockTimestamp: number,
+    previousUnassignedEarnings: number,
+    secondsSinceLastAccrue: number,
+    depositedAmount: number,
+    suppliedSP: number
+  ): number {
+    let unassignedEarnings = this.calculateUnassignedEarnings(
+      maturityPoolID,
+      blockTimestamp,
+      previousUnassignedEarnings,
+      secondsSinceLastAccrue,
+      0 // we calculate unassigned earnings but no new commission is added
+    );
+    return (
+      unassignedEarnings -
+      this.calculateLastCommission(
+        unassignedEarnings,
+        depositedAmount,
+        suppliedSP
+      )
+    );
+  }
+
+  /* Replicates PoolLib.sol calculation of smart pool earnings of a maturity pool when calling _accrueAndAddFee function */
+  public calculateEarningsSP(
+    maturityPoolID: number,
+    blockTimestamp: number,
+    previousEarningsSP: number,
+    previousUnassignedEarnings: number,
+    secondsSinceLastAccrue: number
+  ): number {
+    return (
+      (previousUnassignedEarnings * secondsSinceLastAccrue) /
+        (maturityPoolID - blockTimestamp + secondsSinceLastAccrue) +
+      previousEarningsSP
+    );
+  }
+
+  /* Replicates PoolLib.sol calculation of earnings share that a depositor will receive after maturity */
+  public calculateLastCommission(
+    previousUnassignedEarnings: number,
+    depositedAmount: number,
+    suppliedSP: number
+  ): number {
+    return (
+      (previousUnassignedEarnings * depositedAmount) /
+      (suppliedSP + depositedAmount)
+    );
   }
 }

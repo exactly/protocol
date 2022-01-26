@@ -38,9 +38,14 @@ contract MaturityPoolHarness {
         smartPoolTotalDebt = _totalDebt;
     }
 
-    function takeMoneyMP(uint256 _amount) external {
+    function takeMoneyMP(
+        uint256 _maturityID,
+        uint256 _amount,
+        uint256 _feeAmount
+    ) external {
         uint256 maxDebt = eToken.totalSupply();
         smartPoolTotalDebt += maturityPool.takeMoney(_amount, maxDebt);
+        maturityPool.addFee(_maturityID, _feeAmount);
     }
 
     function addFeeMP(uint256 _maturityID, uint256 _amount) external {

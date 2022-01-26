@@ -32,6 +32,19 @@ library TSUtils {
     }
 
     /**
+     * @notice Function to calculate how many seconds are left to a certain date
+     * @param timestampFrom to calculate the difference in seconds from a date
+     * @param timestampTo to calculate the difference in seconds to a date
+     */
+    function secondsPre(uint256 timestampFrom, uint256 timestampTo)
+        public
+        pure
+        returns (uint256)
+    {
+        return timestampFrom < timestampTo ? timestampTo - timestampFrom : 0;
+    }
+
+    /**
      * @notice Function to take a timestamp to it's 00:00 hours (beginning of day)
      * @param timestamp timestamp to calculate the beginning of the day with
      */
