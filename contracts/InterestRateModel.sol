@@ -29,6 +29,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _baseRate,
         uint256 _penaltyRate
     ) {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         setParameters(
             _mpSlopeRate,
             _spSlopeRate,
@@ -37,7 +38,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             _baseRate,
             _penaltyRate
         );
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /**

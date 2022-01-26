@@ -174,12 +174,13 @@ library PoolLib {
     }
 
     /**
-     * @notice External function to accrue Smart Pool earnings and (possibly)
-     *         add more earnings to the pool to be collected at maturity
+     * @notice External function to accrue Smart Pool earnings
      * @param pool maturity pool that needs to be updated
      * @param maturityID timestamp in which maturity pool matures
      */
-    function accrueSP(MaturityPool storage pool, uint256 maturityID) external {
+    function accrueEarningsToSP(MaturityPool storage pool, uint256 maturityID)
+        external
+    {
         if (pool.lastAccrue == maturityID) {
             return;
         }

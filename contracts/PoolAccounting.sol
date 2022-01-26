@@ -99,7 +99,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow) {
         BorrowVars memory borrowVars;
 
-        maturityPools[maturityDate].accrueSP(maturityDate);
+        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
 
         smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
             amount,
@@ -149,7 +149,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 amount,
         uint256 minAmountRequired
     ) external override onlyFixedLender returns (uint256 currentTotalDeposit) {
-        maturityPools[maturityDate].accrueSP(maturityDate);
+        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
 
         uint256 fee = interestRateModel.getYieldForDeposit(
             maturityPools[maturityDate].suppliedSP,
@@ -255,7 +255,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             .outstandingDebt;
 
         // SP supply needs to accrue its interests
-        maturityPools[maturityDate].accrueSP(maturityDate);
+        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
 
         // Pays back in the following order:
         //       1) Maturity Pool Depositors

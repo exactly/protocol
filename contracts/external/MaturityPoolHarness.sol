@@ -44,12 +44,12 @@ contract MaturityPoolHarness {
     }
 
     function addFeeMP(uint256 _maturityID, uint256 _amount) external {
-        maturityPool.accrueSP(_maturityID);
+        maturityPool.accrueEarningsToSP(_maturityID);
         maturityPool.addFee(_amount);
     }
 
     function addMoneyMP(uint256 _maturityID, uint256 _amount) external {
-        maturityPool.accrueSP(_maturityID);
+        maturityPool.accrueEarningsToSP(_maturityID);
 
         lastCommission = interestRateModel.getYieldForDeposit(
             maturityPool.suppliedSP,
@@ -61,7 +61,7 @@ contract MaturityPoolHarness {
     }
 
     function repayMP(uint256 _maturityID, uint256 _amount) external {
-        maturityPool.accrueSP(_maturityID);
+        maturityPool.accrueEarningsToSP(_maturityID);
         (
             uint256 smartPoolDebtReduction,
             uint256 earningsSP,
