@@ -49,7 +49,9 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
     function borrowFromMaturityPoolEth(
         uint256 maturityDate,
         uint256 maxAmountAllowed
-    ) external payable override {}
+    ) external payable override usingETH {
+        borrowFromMaturityPool(msg.value, maturityDate, maxAmountAllowed);
+    }
 
     function depositToMaturityPoolEth(
         uint256 maturityDate,
