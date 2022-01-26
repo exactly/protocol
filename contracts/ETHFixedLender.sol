@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-// solhint-disable no-empty-blocks
-// solhint-disable no-unused-vars
-
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -44,6 +41,7 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         weth = WETH9(_tokenAddress);
     }
 
+    // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
     function borrowFromMaturityPoolEth(
@@ -84,7 +82,10 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         external
         payable
         override
-    {}
+        usingETH
+    {
+        repayToMaturityPool(borrower, maturityDate, msg.value);
+    }
 
     function doTransferIn(address from, uint256 amount)
         internal
