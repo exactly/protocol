@@ -26,9 +26,10 @@ contract MockedInterestRateModel is IInterestRateModel {
         uint256 unassignedEarnings,
         uint256 amount
     ) external pure override returns (uint256 earningsShare) {
-        earningsShare = suppliedSP == 0
+        uint256 supply = suppliedSP + amount;
+        earningsShare = supply == 0
             ? 0
-            : (amount * unassignedEarnings) / (suppliedSP + amount);
+            : (amount * unassignedEarnings) / supply;
     }
 
     function setBorrowRate(uint256 newRate) public {
