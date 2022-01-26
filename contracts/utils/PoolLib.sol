@@ -39,8 +39,7 @@ library PoolLib {
 
     /**
      * @notice function that registers an operation to add money to
-     *         maturity pool that returns how much earnings will be shared
-     *         for that amount supplied
+     *         maturity pool
      * @param pool maturity pool where money will be added
      * @param amount amount to be added to the maturity pool
      */
