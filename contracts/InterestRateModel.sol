@@ -19,7 +19,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 public baseRate;
     uint256 public slopeChangeRate;
     uint256 public override penaltyRate;
-    uint256 public boosterRate;
 
     constructor(
         uint256 _mpSlopeRate,
