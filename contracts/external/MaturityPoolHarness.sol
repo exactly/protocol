@@ -12,7 +12,7 @@ contract MaturityPoolHarness {
     uint256 public smartPoolTotalDebt;
     IEToken public eToken;
     IInterestRateModel public interestRateModel;
-    uint256 public lastCommission;
+    uint256 public lastFee;
     uint256 public lastEarningsSP;
     uint256 public lastExtrasSP;
 
@@ -51,13 +51,13 @@ contract MaturityPoolHarness {
     function addMoneyMP(uint256 _maturityID, uint256 _amount) external {
         maturityPool.accrueEarningsToSP(_maturityID);
 
-        lastCommission = interestRateModel.getYieldForDeposit(
+        lastFee = interestRateModel.getYieldForDeposit(
             maturityPool.suppliedSP,
             maturityPool.unassignedEarnings,
             _amount
         );
-        maturityPool.addMoney(_amount + lastCommission);
-        maturityPool.takeFee(lastCommission);
+        maturityPool.addMoney(_amount + lastFee);
+        maturityPool.takeFee(lastFee);
     }
 
     function repayMP(uint256 _maturityID, uint256 _amount) external {

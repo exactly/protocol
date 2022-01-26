@@ -56,10 +56,8 @@ describe("Pool Management Library", () => {
         expect(smartPoolTotalDebt).to.equal(parseUnits("0"));
       });
 
-      it("THEN the pool 'lastCommission' is 0", async () => {
-        expect(await poolEnv.mpHarness.lastCommission()).to.equal(
-          parseUnits("0")
-        );
+      it("THEN the pool 'lastFee' is 0", async () => {
+        expect(await poolEnv.mpHarness.lastFee()).to.equal(parseUnits("0"));
       });
 
       describe("AND WHEN 80 token are taken out, with 10 of fees to be paid", async () => {
@@ -207,14 +205,12 @@ describe("Pool Management Library", () => {
         expect(mp.unassignedEarnings).to.equal(parseUnits("5"));
       });
 
-      it("THEN the pool 'lastCommission' is 5", async () => {
-        expect(await poolEnv.mpHarness.lastCommission()).to.equal(
-          parseUnits("5")
-        );
+      it("THEN the pool 'lastFee' is 5", async () => {
+        expect(await poolEnv.mpHarness.lastFee()).to.equal(parseUnits("5"));
       });
 
-      it("THEN the pool 'supplied' is 105 (100 principal + 5 commission)", async () => {
-        // supply should consider the newly taken commission
+      it("THEN the pool 'supplied' is 105 (100 principal + 5 fee)", async () => {
+        // supply should consider the newly taken fee
         expect(mp.supplied).to.equal(parseUnits("105"));
       });
 
@@ -245,14 +241,12 @@ describe("Pool Management Library", () => {
         expect(mp.unassignedEarnings).to.equal(parseUnits("10"));
       });
 
-      it("THEN the pool 'lastCommission' is 5", async () => {
-        expect(await poolEnv.mpHarness.lastCommission()).to.equal(
-          parseUnits("5")
-        );
+      it("THEN the pool 'lastFee' is 5", async () => {
+        expect(await poolEnv.mpHarness.lastFee()).to.equal(parseUnits("5"));
       });
 
-      it("THEN the pool 'supplied' is 55 (50 principal + 5 commission)", async () => {
-        // supply should consider the newly taken commission
+      it("THEN the pool 'supplied' is 55 (50 principal + 5 fee)", async () => {
+        // supply should consider the newly taken fee
         expect(mp.supplied).to.equal(parseUnits("55"));
       });
 
@@ -283,11 +277,9 @@ describe("Pool Management Library", () => {
         expect(mp.unassignedEarnings).to.equal(parseUnits("10"));
       });
 
-      it("THEN the pool 'lastCommission' is 50", async () => {
-        // all the commission went to the fixed rate deposit
-        expect(await poolEnv.mpHarness.lastCommission()).to.equal(
-          parseUnits("50")
-        );
+      it("THEN the pool 'lastFee' is 50", async () => {
+        // all the fee went to the fixed rate deposit
+        expect(await poolEnv.mpHarness.lastFee()).to.equal(parseUnits("50"));
       });
 
       it("THEN the pool 'supplied' is 550 (500 principal + 50 fee)", async () => {
@@ -329,10 +321,8 @@ describe("Pool Management Library", () => {
         expect(mp.unassignedEarnings).to.equal(parseUnits("4"));
       });
 
-      it("THEN the pool 'lastCommission' is 4", async () => {
-        expect(await poolEnv.mpHarness.lastCommission()).to.equal(
-          parseUnits("4")
-        );
+      it("THEN the pool 'lastFee' is 4", async () => {
+        expect(await poolEnv.mpHarness.lastFee()).to.equal(parseUnits("4"));
       });
 
       describe("AND GIVEN more fees are generated 4 days after", () => {
@@ -372,8 +362,8 @@ describe("Pool Management Library", () => {
           );
         });
 
-        it("THEN the pool 'lastCommission' is 1.3333", async () => {
-          expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
+        it("THEN the pool 'lastFee' is 1.3333", async () => {
+          expect(await poolEnv.mpHarness.lastFee()).to.closeTo(
             parseUnits("1.3333"),
             parseUnits("0.0001").toNumber()
           );
@@ -915,17 +905,17 @@ describe("Pool Management Library", () => {
           await defaultEnv.depositMP("DAI", exaTime.nextPoolID(), "3000");
         });
 
-        it("THEN Cindy's commission is 400 * 3000 / 7000", async () => {
+        it("THEN Cindy's fee is 400 * 3000 / 7000", async () => {
           defaultEnv.switchWallet(cindy);
           const supplied = await defaultEnv
             .getPoolAccounting("DAI")
             .mpUserSuppliedAmount(exaTime.nextPoolID(), cindy.address);
 
-          let commission = parseUnits("400")
+          let fee = parseUnits("400")
             .mul(parseUnits("3000"))
             .div(parseUnits("7000"));
 
-          expect(supplied).to.equal(parseUnits("3000").add(commission));
+          expect(supplied).to.equal(parseUnits("3000").add(fee));
         });
 
         describe("AND WHEN Juana repays 4000 at maturity", () => {
@@ -945,7 +935,7 @@ describe("Pool Management Library", () => {
             expect(borrowSP).to.equal(0);
           });
 
-          it("THEN 'earningsSP' are still there (400 - previous MP deposit commission)", async () => {
+          it("THEN 'earningsSP' are still there (400 - previous MP deposit fee)", async () => {
             let previousCommissionGiven = parseUnits("400")
               .mul(parseUnits("3000"))
               .div(parseUnits("7000"));
@@ -962,7 +952,7 @@ describe("Pool Management Library", () => {
             expect(owed).to.equal(parseUnits("400"));
           });
 
-          describe("AND Juana repays 400 at maturity for her commission", () => {
+          describe("AND Juana repays 400 at maturity for her fee", () => {
             let mp: any;
             beforeEach(async () => {
               defaultEnv.switchWallet(juana);
