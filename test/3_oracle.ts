@@ -1,12 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import {
-  errorGeneric,
-  ExactlyEnv,
-  ExaTime,
-  ProtocolError,
-} from "./exactlyUtils";
+import { errorGeneric, ExaTime, ProtocolError } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
@@ -50,7 +45,7 @@ describe("ExactlyOracle", function () {
 
   before(async () => {
     [, user] = await ethers.getSigners();
-    exactlyEnv = await ExactlyEnv.create({ mockedTokens });
+    exactlyEnv = await DefaultEnv.create({ mockedTokens });
     underlyingToken = exactlyEnv.getUnderlying("DAI");
     const ChainlinkFeedRegistryMock = await ethers.getContractFactory(
       "MockedChainlinkFeedRegistry"

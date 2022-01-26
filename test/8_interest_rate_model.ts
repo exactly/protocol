@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { BigNumber, Contract } from "ethers";
-import { ExactlyEnv, errorGeneric, ProtocolError } from "./exactlyUtils";
+import { errorGeneric, ProtocolError } from "./exactlyUtils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
 import { DefaultEnv } from "./defaultEnv";
@@ -29,7 +29,7 @@ describe("InterestRateModel", () => {
     // we ignore the first item: owner
     [, mariaUser] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({
+    exactlyEnv = await DefaultEnv.create({
       useRealInterestRateModel: true,
     });
 

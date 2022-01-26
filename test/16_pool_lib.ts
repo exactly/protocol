@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { parseUnits } from "ethers/lib/utils";
 import { ethers } from "hardhat";
-import { ExactlyEnv, ExaTime } from "./exactlyUtils";
+import { ExaTime } from "./exactlyUtils";
 import { PoolEnv } from "./poolEnv";
 import { DefaultEnv } from "./defaultEnv";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -598,7 +598,7 @@ describe("Pool Management Library", () => {
 
   describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool AND 6% penalty rate", () => {
     beforeEach(async () => {
-      defaultEnv = await ExactlyEnv.create({});
+      defaultEnv = await DefaultEnv.create({});
       [, juana, cindy, walter] = await ethers.getSigners();
       await defaultEnv.transfer("ETH", juana, "200");
       await defaultEnv.transfer("DAI", juana, "200");
@@ -857,7 +857,7 @@ describe("Pool Management Library", () => {
 
   describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool AND 6% penalty rate AND 10% borrow rate AND 10% protocol share (for the period, not yearly)", () => {
     beforeEach(async () => {
-      defaultEnv = await ExactlyEnv.create({});
+      defaultEnv = await DefaultEnv.create({});
       [owner, juana, cindy, walter, fakeMultisig] = await ethers.getSigners();
 
       // Juana has ETH to put as collateral, and some DAIf

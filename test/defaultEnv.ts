@@ -2,14 +2,14 @@ import { ethers } from "hardhat";
 import { Contract, BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { applyMaxFee, applyMinFee } from "./exactlyUtils";
+import {
+  applyMaxFee,
+  applyMinFee,
+  defaultMockedTokens,
+  EnvConfig,
+  MockedTokenSpec,
+} from "./exactlyUtils";
 import assert from "assert";
-
-export type MockedTokenSpec = {
-  decimals: BigNumber | number;
-  collateralRate: BigNumber;
-  usdPrice: BigNumber;
-};
 
 export class SmartPoolState {
   supplied: BigNumber;
@@ -75,6 +75,168 @@ export class DefaultEnv {
     this.slopeRate = parseUnits("0.07");
     this.usdAddress = "0x0000000000000000000000000000000000000348";
     this.currentWallet = _currentWallet;
+  }
+
+  static async create({
+    mockedTokens,
+    useRealInterestRateModel,
+  }: EnvConfig): Promise<DefaultEnv> {
+    if (mockedTokens === undefined) {
+      mockedTokens = defaultMockedTokens;
+    }
+    let fixedLenderContracts = new Map<string, Contract>();
+    let poolAccountingContracts = new Map<string, Contract>();
+    let underlyingContracts = new Map<string, Contract>();
+    let eTokenContracts = new Map<string, Contract>();
+
+    const TSUtilsLib = await ethers.getContractFactory("TSUtils");
+    let tsUtils = await TSUtilsLib.deploy();
+    await tsUtils.deployed();
+
+    const ExaLib = await ethers.getContractFactory("ExaLib");
+    let exaLib = await ExaLib.deploy();
+    await exaLib.deployed();
+
+    const PoolLib = await ethers.getContractFactory("PoolLib", {
+      libraries: {
+        TSUtils: tsUtils.address,
+      },
+    });
+    const poolLib = await PoolLib.deploy();
+    await poolLib.deployed();
+
+    const MarketsLib = await ethers.getContractFactory("MarketsLib");
+    let marketsLib = await MarketsLib.deploy();
+    await marketsLib.deployed();
+
+    const ExaToken = await ethers.getContractFactory("ExaToken");
+    let exaToken = await ExaToken.deploy();
+    await exaToken.deployed();
+
+    const MockedOracle = await ethers.getContractFactory("MockedOracle");
+    let oracle = await MockedOracle.deploy();
+    await oracle.deployed();
+
+    const MockedInterestRateModelFactory = await ethers.getContractFactory(
+      "MockedInterestRateModel"
+    );
+
+    const InterestRateModelFactory = await ethers.getContractFactory(
+      "InterestRateModel",
+      {
+        libraries: {
+          TSUtils: tsUtils.address,
+        },
+      }
+    );
+
+    const interestRateModel = useRealInterestRateModel
+      ? await InterestRateModelFactory.deploy(
+          parseUnits("0.07"), // Maturity pool slope rate
+          parseUnits("0.07"), // Smart pool slope rate
+          parseUnits("0.4"), // High UR slope rate
+          parseUnits("0.8"), // Slope change rate
+          parseUnits("0.02"), // Base rate
+          parseUnits("0.02") // Penalty Rate
+        )
+      : await MockedInterestRateModelFactory.deploy();
+    await interestRateModel.deployed();
+
+    const Auditor = await ethers.getContractFactory("Auditor", {
+      libraries: {
+        TSUtils: tsUtils.address,
+        ExaLib: exaLib.address,
+        MarketsLib: marketsLib.address,
+      },
+    });
+    let auditor = await Auditor.deploy(oracle.address, exaToken.address);
+    await auditor.deployed();
+
+    // We have to enable all the FixedLenders in the auditor
+    await Promise.all(
+      Array.from(mockedTokens.keys()).map(async (tokenName) => {
+        const { decimals, collateralRate, usdPrice } =
+          mockedTokens!.get(tokenName)!;
+        const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
+        const MockedToken = await ethers.getContractFactory("MockedToken");
+        const underlyingToken = await MockedToken.deploy(
+          "Fake " + tokenName,
+          "F" + tokenName,
+          decimals,
+          totalSupply.toString()
+        );
+        await underlyingToken.deployed();
+        const MockedEToken = await ethers.getContractFactory("EToken");
+        const eToken = await MockedEToken.deploy(
+          "eFake " + tokenName,
+          "eF" + tokenName,
+          decimals
+        );
+        await eToken.deployed();
+
+        const PoolAccounting = await ethers.getContractFactory(
+          "PoolAccounting",
+          {
+            libraries: {
+              TSUtils: tsUtils.address,
+              PoolLib: poolLib.address,
+            },
+          }
+        );
+        const poolAccounting = await PoolAccounting.deploy(
+          interestRateModel.address
+        );
+
+        const FixedLender = await ethers.getContractFactory("FixedLender");
+        const fixedLender = await FixedLender.deploy(
+          underlyingToken.address,
+          tokenName,
+          eToken.address,
+          auditor.address,
+          poolAccounting.address
+        );
+        await fixedLender.deployed();
+
+        await poolAccounting.initialize(fixedLender.address);
+        await eToken.initialize(fixedLender.address, auditor.address);
+
+        // Mock PriceOracle setting dummy price
+        await oracle.setPrice(tokenName, usdPrice);
+        // Enable Market for FixedLender-TOKEN by setting the collateral rates
+        await auditor.enableMarket(
+          fixedLender.address,
+          collateralRate,
+          tokenName,
+          tokenName,
+          decimals
+        );
+
+        // Handy maps with all the fixedLenders and underlying tokens
+        fixedLenderContracts.set(tokenName, fixedLender);
+        poolAccountingContracts.set(tokenName, poolAccounting);
+        underlyingContracts.set(tokenName, underlyingToken);
+        eTokenContracts.set(tokenName, eToken);
+      })
+    );
+
+    const [owner] = await ethers.getSigners();
+
+    return new DefaultEnv(
+      oracle,
+      auditor,
+      interestRateModel,
+      tsUtils,
+      exaLib,
+      poolLib,
+      marketsLib,
+      exaToken,
+      fixedLenderContracts,
+      poolAccountingContracts,
+      underlyingContracts,
+      eTokenContracts,
+      mockedTokens!,
+      owner
+    );
   }
 
   public getFixedLender(key: string): Contract {

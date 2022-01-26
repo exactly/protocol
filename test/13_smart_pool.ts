@@ -3,12 +3,7 @@ import { ethers } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  ExactlyEnv,
-  ExaTime,
-  errorGeneric,
-  ProtocolError,
-} from "./exactlyUtils";
+import { ExaTime, errorGeneric, ProtocolError } from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
 
 describe("Smart Pool", function () {
@@ -30,7 +25,7 @@ describe("Smart Pool", function () {
   beforeEach(async () => {
     [, bob, john] = await ethers.getSigners();
 
-    exactlyEnv = await ExactlyEnv.create({});
+    exactlyEnv = await DefaultEnv.create({});
     eDAI = exactlyEnv.getEToken("DAI");
     underlyingTokenDAI = exactlyEnv.getUnderlying("DAI");
     fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
