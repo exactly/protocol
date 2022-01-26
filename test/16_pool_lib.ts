@@ -65,8 +65,7 @@ describe("Pool Management Library", () => {
       describe("AND WHEN 80 token are taken out, with 10 of fees to be paid", async () => {
         let mp: any;
         beforeEach(async () => {
-          await poolEnv.takeMoney("80");
-          await poolEnv.addFee(exaTime.day(10), "10");
+          await poolEnv.takeMoneyAndAddFee(exaTime.day(10), "80", "10");
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
@@ -93,10 +92,8 @@ describe("Pool Management Library", () => {
 
         describe("AND WHEN 70 token are taken out, with 8 of fees to be paid", async () => {
           let mp: any;
-          const fees = 8;
           beforeEach(async () => {
-            await poolEnv.takeMoney("70");
-            await poolEnv.addFee(exaTime.day(10), fees.toString());
+            await poolEnv.takeMoneyAndAddFee(exaTime.day(10), "70", "8");
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -178,8 +175,7 @@ describe("Pool Management Library", () => {
     describe("WHEN 100 token are taken out, with 10 of fees to be paid", async () => {
       let mp: any;
       beforeEach(async () => {
-        await poolEnv.takeMoney("100");
-        await poolEnv.addFee(exaTime.nextPoolID(), "10");
+        await poolEnv.takeMoneyAndAddFee(exaTime.nextPoolID(), "100", "10");
         mp = await poolEnv.mpHarness.maturityPool();
       });
 
@@ -199,13 +195,9 @@ describe("Pool Management Library", () => {
 
     describe("WHEN 100 tokens are borrowed, 10 tokens are fees, and 100 token are deposited (same deposited)", async () => {
       let mp: any;
-      const fees = 10;
-      const borrowedAmount = 100;
-      const depositedAmount = 100;
       beforeEach(async () => {
-        await poolEnv.takeMoney(borrowedAmount.toString());
-        await poolEnv.addFee(exaTime.day(10), fees.toString());
-        await poolEnv.addMoney(exaTime.day(10), depositedAmount.toString());
+        await poolEnv.takeMoneyAndAddFee(exaTime.day(10), "100", "10");
+        await poolEnv.addMoney(exaTime.day(10), "100");
         mp = await poolEnv.mpHarness.maturityPool();
       });
 
@@ -250,13 +242,9 @@ describe("Pool Management Library", () => {
 
     describe("WHEN 100 tokens are borrowed, 15 tokens are fees, and 50 token are deposited (less deposited)", async () => {
       let mp: any;
-      const fees = 15;
-      const borrowedAmount = 100;
-      const depositedAmount = 50;
       beforeEach(async () => {
-        await poolEnv.takeMoney(borrowedAmount.toString());
-        await poolEnv.addFee(exaTime.day(10), fees.toString());
-        await poolEnv.addMoney(exaTime.day(10), depositedAmount.toString());
+        await poolEnv.takeMoneyAndAddFee(exaTime.day(10), "100", "15");
+        await poolEnv.addMoney(exaTime.day(10), "50");
         mp = await poolEnv.mpHarness.maturityPool();
       });
 
@@ -301,14 +289,9 @@ describe("Pool Management Library", () => {
 
     describe("WHEN 100 tokens are borrowed, 60 tokens are fees, and 500 token are deposited (more deposit)", async () => {
       let mp: any;
-      const fees = 60;
-      const depositedAmount = 500;
-      const borrowedAmount = 100;
-
       beforeEach(async () => {
-        await poolEnv.takeMoney(borrowedAmount.toString());
-        await poolEnv.addFee(exaTime.day(10), fees.toString());
-        await poolEnv.addMoney(exaTime.day(10), depositedAmount.toString());
+        await poolEnv.takeMoneyAndAddFee(exaTime.day(10), "100", "60");
+        await poolEnv.addMoney(exaTime.day(10), "500");
         mp = await poolEnv.mpHarness.maturityPool();
       });
 
@@ -356,8 +339,7 @@ describe("Pool Management Library", () => {
     let fakeMaturityPool = exaTime.day(10);
     beforeEach(async () => {
       poolEnv = await PoolEnv.create();
-      await poolEnv.takeMoney("100");
-      await poolEnv.addFee(fakeMaturityPool, "10");
+      await poolEnv.takeMoneyAndAddFee(fakeMaturityPool, "100", "10");
     });
 
     describe("WHEN 2 days go by and another user deposits 100 to the same Maturity Pool", async () => {
@@ -391,8 +373,7 @@ describe("Pool Management Library", () => {
         let mp: any;
         beforeEach(async () => {
           await poolEnv.moveInTime(exaTime.day(6));
-          await poolEnv.takeMoney("100");
-          await poolEnv.addFee(fakeMaturityPool, "10");
+          await poolEnv.takeMoneyAndAddFee(fakeMaturityPool, "100", "10");
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
@@ -549,7 +530,7 @@ describe("Pool Management Library", () => {
             describe("AND GIVEN that someone withdraws 300", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolEnv.takeMoney("300");
+                await poolEnv.takeMoneyAndAddFee(fakeMaturityPool, "300", "0");
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 

@@ -24,8 +24,16 @@ export class PoolEnv {
     await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 
-  public async takeMoney(amount: string) {
-    return this.mpHarness.takeMoneyMP(parseUnits(amount));
+  public async takeMoneyAndAddFee(
+    maturityDate: number,
+    amount: string,
+    feeAmount: string
+  ) {
+    return this.mpHarness.takeMoneyMP(
+      maturityDate,
+      parseUnits(amount),
+      parseUnits(feeAmount)
+    );
   }
 
   public async addFee(timestamp: number, amount: string) {
