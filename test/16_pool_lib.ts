@@ -1324,7 +1324,7 @@ describe("Pool Management Library", () => {
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
-        it("THEN the pool 'unassignedEarnings' are 2k5", async () => {
+        it("THEN the pool 'unassignedEarnings' are 2.5k", async () => {
           let unassignedEarnings =
             poolEnv.calculateUnassignedEarningsWhenDepositingToMP(
               fakeMaturityPool,
@@ -1354,7 +1354,7 @@ describe("Pool Management Library", () => {
           expect(mp.earningsSP).to.equal(parseUnits("5000"));
         });
 
-        it("THEN the pool 'lastCommission' is 2k5", async () => {
+        it("THEN the pool 'lastCommission' is 2.5k", async () => {
           let previousUnassignedEarnings = poolEnv.calculateUnassignedEarnings(
             fakeMaturityPool,
             mockedDate5Days,
