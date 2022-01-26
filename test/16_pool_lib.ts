@@ -1205,6 +1205,350 @@ describe("Pool Management Library", () => {
     });
   });
 
+  describe("Tests seconds' precision", async () => {
+    beforeEach(async () => {
+      poolEnv = await PoolEnv.create();
+    });
+    describe("GIVEN 100k tokens are borrowed from a maturity of 10 days (10k in fees)", async () => {
+      let mp: any;
+      let mockedDate = exaTime.timestamp + exaTime.ONE_HOUR; // we add one hour so it's not the same timestamp than previous blocks
+      let fakeMaturityPool = mockedDate + exaTime.ONE_DAY * 10;
+      const fees = 10000;
+      const borrowedAmount = 100000;
+
+      beforeEach(async () => {
+        await poolEnv.moveInTime(mockedDate);
+        await poolEnv.takeMoneyAndAddFee(
+          fakeMaturityPool,
+          borrowedAmount.toString(),
+          fees.toString()
+        );
+      });
+
+      describe("AND WHEN we move in time 10 hours later AND a deposit of 100k is made", async () => {
+        const depositedAmount = 100000;
+        const mockedDate10Hours = mockedDate + exaTime.ONE_HOUR * 10;
+
+        beforeEach(async () => {
+          await poolEnv.moveInTime(mockedDate10Hours);
+          await poolEnv.addMoney(fakeMaturityPool, depositedAmount.toString());
+          mp = await poolEnv.mpHarness.maturityPool();
+        });
+
+        it("THEN the pool 'borrowed' is 100k", async () => {
+          expect(mp.borrowed).to.equal(parseUnits("100000"));
+        });
+
+        it("THEN the pool 'supplied' is 100k", async () => {
+          expect(mp.supplied).to.equal(parseUnits("100000"));
+        });
+
+        it("THEN the pool 'unassignedEarnings' are close to 4790", async () => {
+          let unassignedEarnings =
+            poolEnv.calculateUnassignedEarningsWhenDepositingToMP(
+              fakeMaturityPool,
+              mockedDate10Hours,
+              fees, // previous unassigned earnings
+              exaTime.ONE_HOUR * 10, // seconds since last accrue
+              depositedAmount,
+              borrowedAmount
+            );
+
+          expect(mp.unassignedEarnings).to.closeTo(
+            parseUnits(unassignedEarnings.toFixed(8).toString()),
+            parseUnits("0.00000001").toNumber()
+          );
+          // (10000-(10000*36000)/(10*24*60*60)) / 2
+          expect(mp.unassignedEarnings).to.closeTo(
+            parseUnits("4791.666"),
+            parseUnits("0000.001").toNumber()
+          );
+        });
+
+        it("THEN the pool 'earningsSP' are close to 415", async () => {
+          let earningsSP = poolEnv.calculateEarningsSP(
+            fakeMaturityPool,
+            mockedDate10Hours,
+            0, // previous earningsSP
+            fees, // previous unassigned earnings
+            exaTime.ONE_HOUR * 10 // 10 hours in seconds since last accrue
+          );
+
+          expect(mp.earningsSP).to.closeTo(
+            parseUnits(earningsSP.toFixed(8).toString()),
+            parseUnits("0.00000001").toNumber()
+          );
+          expect(mp.earningsSP).to.closeTo(
+            parseUnits("416.666"),
+            parseUnits("000.001").toNumber()
+          );
+        });
+
+        it("THEN the smart pool total debt is 100k", async () => {
+          let smartPoolTotalDebt = await poolEnv.mpHarness.smartPoolTotalDebt();
+          expect(smartPoolTotalDebt).to.equal(parseUnits("100000"));
+        });
+
+        it("THEN the pool 'lastCommission' is close to 4790", async () => {
+          let previousUnassignedEarnings = poolEnv.calculateUnassignedEarnings(
+            fakeMaturityPool,
+            mockedDate10Hours,
+            fees, // previous unassigned earnings
+            exaTime.ONE_HOUR * 10, // ten hours in seconds since last accrue
+            0 // new commission
+          );
+          let lastCommission = poolEnv.calculateLastCommission(
+            previousUnassignedEarnings,
+            depositedAmount,
+            borrowedAmount
+          );
+
+          expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
+            parseUnits(lastCommission.toFixed(8).toString()),
+            parseUnits("0.00000001").toNumber()
+          );
+          expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
+            parseUnits("4791.666"),
+            parseUnits("0000.001").toNumber()
+          );
+        });
+      });
+
+      describe("AND GIVEN we move in time to day 5 AND a deposit of 100k is made", async () => {
+        const depositedAmount = 100000;
+        const mockedDate5Days = mockedDate + exaTime.ONE_DAY * 5;
+
+        beforeEach(async () => {
+          await poolEnv.moveInTime(mockedDate5Days);
+          await poolEnv.addMoney(fakeMaturityPool, depositedAmount.toString());
+          mp = await poolEnv.mpHarness.maturityPool();
+        });
+
+        it("THEN the pool 'unassignedEarnings' are 2k5", async () => {
+          let unassignedEarnings =
+            poolEnv.calculateUnassignedEarningsWhenDepositingToMP(
+              fakeMaturityPool,
+              mockedDate5Days,
+              fees, // previous unassigned earnings
+              exaTime.ONE_DAY * 5, // seconds since last accrue
+              depositedAmount,
+              borrowedAmount
+            );
+
+          expect(mp.unassignedEarnings).to.eq(
+            parseUnits(unassignedEarnings.toString())
+          );
+          expect(mp.unassignedEarnings).to.equal(parseUnits("2500"));
+        });
+
+        it("THEN the pool 'earningsSP' are 5k", async () => {
+          let earningsSP = poolEnv.calculateEarningsSP(
+            fakeMaturityPool,
+            mockedDate5Days,
+            0, // previous earningsSP
+            fees, // previous unassigned earnings
+            exaTime.ONE_DAY * 5 // five days in seconds since last accrue
+          );
+
+          expect(mp.earningsSP).to.eq(parseUnits(earningsSP.toString()));
+          expect(mp.earningsSP).to.equal(parseUnits("5000"));
+        });
+
+        it("THEN the pool 'lastCommission' is 2k5", async () => {
+          let previousUnassignedEarnings = poolEnv.calculateUnassignedEarnings(
+            fakeMaturityPool,
+            mockedDate5Days,
+            fees, // previous unassigned earnings
+            exaTime.ONE_DAY * 5, // five days in seconds since last accrue
+            0 // new commission
+          );
+          let lastCommission = poolEnv.calculateLastCommission(
+            previousUnassignedEarnings,
+            depositedAmount,
+            borrowedAmount
+          );
+
+          expect(await poolEnv.mpHarness.lastCommission()).to.eq(
+            parseUnits(lastCommission.toString())
+          );
+          expect(await poolEnv.mpHarness.lastCommission()).to.equal(
+            parseUnits("2500")
+          );
+        });
+        describe("AND GIVEN we move in time 2 days more AND a borrow of 50k is made (5k in fees)", async () => {
+          const mockedDate7Days = mockedDate5Days + exaTime.ONE_DAY * 2;
+          const newBorrowedAmount = 50000;
+          const newFees = 5000;
+
+          beforeEach(async () => {
+            await poolEnv.moveInTime(mockedDate7Days);
+            await poolEnv.takeMoneyAndAddFee(
+              fakeMaturityPool,
+              newBorrowedAmount.toString(),
+              newFees.toString()
+            );
+            mp = await poolEnv.mpHarness.maturityPool();
+          });
+
+          it("THEN the pool 'borrowed' is 150k", async () => {
+            expect(mp.borrowed).to.equal(parseUnits("150000"));
+          });
+
+          it("THEN the pool 'supplied' is 100k", async () => {
+            expect(mp.supplied).to.equal(parseUnits("100000"));
+          });
+
+          it("THEN the pool 'unassignedEarnings' are 6500", async () => {
+            let unassignedEarnings = poolEnv.calculateUnassignedEarnings(
+              fakeMaturityPool,
+              mockedDate7Days,
+              2500, // previous unassigned earnings
+              exaTime.ONE_DAY * 2, // 2 days passed since last accrual
+              newFees
+            );
+
+            expect(mp.unassignedEarnings).to.eq(
+              parseUnits(unassignedEarnings.toString())
+            );
+            expect(mp.unassignedEarnings).to.equal(parseUnits("6500"));
+          });
+
+          it("THEN the pool 'earningsSP' are 6k", async () => {
+            let earningsSP = poolEnv.calculateEarningsSP(
+              fakeMaturityPool,
+              mockedDate7Days,
+              5000, // previous earningsSP
+              2500, // previous unassigned earnings
+              exaTime.ONE_DAY * 2 // 2 days in seconds since last accrual
+            );
+
+            expect(mp.earningsSP).to.eq(parseUnits(earningsSP.toString()));
+            expect(mp.earningsSP).to.equal(parseUnits("6000"));
+          });
+
+          it("THEN the smart pool total debt is 100k", async () => {
+            let smartPoolTotalDebt =
+              await poolEnv.mpHarness.smartPoolTotalDebt();
+            expect(smartPoolTotalDebt).to.equal(parseUnits("100000"));
+          });
+        });
+      });
+
+      describe("AND WHEN we move in time to day 8 with 1 hour and 23 seconds AND a deposit of 100k is made", async () => {
+        const depositedAmount = 100000;
+        const mockedDate8DaysWithHoursAndSeconds =
+          mockedDate +
+          exaTime.ONE_DAY * 8 +
+          exaTime.ONE_HOUR * 1 +
+          exaTime.ONE_SECOND * 23;
+        let unassignedEarnings: number;
+
+        beforeEach(async () => {
+          await poolEnv.moveInTime(mockedDate8DaysWithHoursAndSeconds);
+          await poolEnv.addMoney(fakeMaturityPool, depositedAmount.toString());
+
+          mp = await poolEnv.mpHarness.maturityPool();
+          unassignedEarnings = mp.unassignedEarnings;
+        });
+
+        it("THEN the pool 'unassignedEarnings' are correctly accounted", async () => {
+          let unassignedEarnings =
+            poolEnv.calculateUnassignedEarningsWhenDepositingToMP(
+              fakeMaturityPool,
+              mockedDate8DaysWithHoursAndSeconds,
+              fees, // previous unassigned earnings
+              exaTime.ONE_DAY * 8 +
+                exaTime.ONE_HOUR * 1 +
+                exaTime.ONE_SECOND * 23, // total seconds since last accrue
+              depositedAmount,
+              borrowedAmount
+            );
+
+          expect(mp.unassignedEarnings).to.closeTo(
+            parseUnits(unassignedEarnings.toFixed(8).toString()),
+            parseUnits("0.00000001").toNumber()
+          );
+        });
+
+        it("THEN the pool 'earningsSP' are correctly accrued", async () => {
+          let earningsSP = poolEnv.calculateEarningsSP(
+            fakeMaturityPool,
+            mockedDate8DaysWithHoursAndSeconds,
+            0, // previous earningsSP
+            fees, // previous unassigned earnings
+            exaTime.ONE_DAY * 8 + exaTime.ONE_HOUR * 1 + exaTime.ONE_SECOND * 23 // total seconds since last accrue
+          );
+
+          expect(mp.earningsSP).to.closeTo(
+            parseUnits(earningsSP.toFixed(8).toString()),
+            parseUnits("0.00000001").toNumber()
+          );
+        });
+
+        it("THEN the pool 'lastCommission' is correctly accounted", async () => {
+          let previousUnassignedEarnings = poolEnv.calculateUnassignedEarnings(
+            fakeMaturityPool,
+            mockedDate8DaysWithHoursAndSeconds,
+            fees, // previous unassigned earnings
+            exaTime.ONE_DAY * 8 +
+              exaTime.ONE_HOUR * 1 +
+              exaTime.ONE_SECOND * 23, // total seconds since last accrue
+            0 // new commission
+          );
+          let lastCommission = poolEnv.calculateLastCommission(
+            previousUnassignedEarnings,
+            depositedAmount,
+            borrowedAmount
+          );
+
+          expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
+            parseUnits(lastCommission.toFixed(8).toString()),
+            parseUnits("0.00000001").toNumber()
+          );
+        });
+
+        describe("AND GIVEN we reach maturity AND a repay of 100k is made", async () => {
+          beforeEach(async () => {
+            await poolEnv.moveInTime(fakeMaturityPool);
+            await poolEnv.repay(fakeMaturityPool, borrowedAmount.toString());
+            mp = await poolEnv.mpHarness.maturityPool();
+          });
+
+          it("THEN the pool 'borrowed' is 0", async () => {
+            expect(mp.borrowed).to.equal(parseUnits("0"));
+          });
+
+          it("THEN the pool 'supplied' is 100k", async () => {
+            expect(mp.supplied).to.equal(parseUnits("100000"));
+          });
+
+          it("THEN the pool 'unassignedEarnings' are 0", async () => {
+            let currentUnassignedEarnings = poolEnv.calculateUnassignedEarnings(
+              fakeMaturityPool, // maturity pool date
+              fakeMaturityPool, // current block timestamp
+              unassignedEarnings, // previous unassigned earnings
+              exaTime.ONE_DAY * 1 +
+                exaTime.ONE_HOUR * 23 -
+                exaTime.ONE_SECOND * 23, // 1 day, 22 hours, 59 min and 37 seconds passed since last accrue
+              0
+            );
+
+            expect(mp.unassignedEarnings).to.eq(
+              parseUnits(currentUnassignedEarnings.toString())
+            );
+            expect(mp.unassignedEarnings).to.equal(parseUnits("0"));
+          });
+
+          it("THEN the smart pool total debt is 0", async () => {
+            let smartPoolTotalDebt =
+              await poolEnv.mpHarness.smartPoolTotalDebt();
+            expect(smartPoolTotalDebt).to.equal(parseUnits("0"));
+          });
+        });
+      });
+    });
+  });
+
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);

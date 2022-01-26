@@ -121,6 +121,7 @@ export class ExaTime {
   timestamp: number;
   ONE_HOUR: number = 3600;
   ONE_DAY: number = 86400;
+  ONE_SECOND: number = 1;
   INTERVAL: number = 86400 * 7;
   MAX_POOLS: number = 12;
 

@@ -111,7 +111,6 @@ export class PoolEnv {
     blockTimestamp: number,
     previousUnassignedEarnings: number,
     secondsSinceLastAccrue: number,
-    newComission: number,
     depositedAmount: number,
     suppliedSP: number
   ): number {
@@ -120,7 +119,7 @@ export class PoolEnv {
       blockTimestamp,
       previousUnassignedEarnings,
       secondsSinceLastAccrue,
-      newComission
+      0 // we calculate unassigned earnings but no new commission is added
     );
     return (
       unassignedEarnings -
@@ -136,12 +135,14 @@ export class PoolEnv {
   public calculateEarningsSP(
     maturityPoolID: number,
     blockTimestamp: number,
+    previousEarningsSP: number,
     previousUnassignedEarnings: number,
     secondsSinceLastAccrue: number
   ): number {
     return (
       (previousUnassignedEarnings * secondsSinceLastAccrue) /
-      (maturityPoolID - blockTimestamp + secondsSinceLastAccrue)
+        (maturityPoolID - blockTimestamp + secondsSinceLastAccrue) +
+      previousEarningsSP
     );
   }
 
