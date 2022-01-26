@@ -68,7 +68,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     describe("GIVEN alice has some WETH", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(owner);
-        weth.transfer(alice.address, parseUnits("10"));
+        await weth.transfer(alice.address, parseUnits("10"));
         exactlyEnv.switchWallet(alice);
       });
       describe("WHEN she deposits 5 WETH (ERC20) to a maturity pool", () => {
@@ -268,6 +268,86 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           expect(await weth.balanceOf(ethFixedLender.address)).to.equal(
             parseUnits("0")
           );
+        });
+      });
+    });
+  });
+
+  describe("borrowFromMaturityPoolEth vs borrowFromMaturityPool", () => {
+    describe("GIVEN alice has some WETH collateral", () => {
+      beforeEach(async () => {
+        exactlyEnv.switchWallet(owner);
+        await weth.transfer(alice.address, parseUnits("60"));
+        exactlyEnv.switchWallet(alice);
+        await exactlyEnv.depositSP("WETH", "60");
+        await exactlyEnv.enterMarkets(["WETH"]);
+      });
+      describe("WHEN borrowing with ETH (native)", () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = exactlyEnv.borrowMPETH("WETH", nextPoolId, "5");
+          await tx;
+        });
+        it("THEN a BorrowFromMaturityPool event is emmitted", async () => {
+          await expect(tx)
+            .to.emit(
+              exactlyEnv.getFixedLender("WETH"),
+              "BorrowFromMaturityPool"
+            )
+            .withArgs(
+              alice.address,
+              parseUnits("5"),
+              parseUnits("0"),
+              nextPoolId
+            );
+        });
+        it("AND a 5 DAI borrow is registered", async () => {
+          expect(
+            await exactlyEnv
+              .getFixedLender("WETH")
+              .getTotalMpBorrows(nextPoolId)
+          ).to.equal(parseUnits("5"));
+        });
+        it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
+          expect(
+            await exactlyEnv
+              .getPoolAccounting("WETH")
+              .userMpBorrowed(alice.address, 0)
+          ).to.equal(nextPoolId);
+        });
+      });
+      describe("WHEN borrowing with WETH (erc20)", () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = exactlyEnv.borrowMP("WETH", nextPoolId, "5");
+          await tx;
+        });
+        it("THEN a BorrowFromMaturityPool event is emmitted", async () => {
+          await expect(tx)
+            .to.emit(
+              exactlyEnv.getFixedLender("WETH"),
+              "BorrowFromMaturityPool"
+            )
+            .withArgs(
+              alice.address,
+              parseUnits("5"),
+              parseUnits("0"),
+              nextPoolId
+            );
+        });
+        it("AND a 5 DAI borrow is registered", async () => {
+          expect(
+            await exactlyEnv
+              .getFixedLender("WETH")
+              .getTotalMpBorrows(nextPoolId)
+          ).to.equal(parseUnits("5"));
+        });
+        it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
+          expect(
+            await exactlyEnv
+              .getPoolAccounting("WETH")
+              .userMpBorrowed(alice.address, 0)
+          ).to.equal(nextPoolId);
         });
       });
     });

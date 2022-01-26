@@ -428,6 +428,31 @@ export class DefaultEnv {
       .borrowFromMaturityPool(amount, maturityPool, expectedAmount);
   }
 
+  public async borrowMPETH(
+    assetString: string,
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = applyMaxFee(amount);
+    }
+    return fixedLender
+      .connect(this.currentWallet)
+      .borrowFromMaturityPoolEth(maturityPool, expectedAmount, {
+        value: amount,
+      });
+  }
+
   public async repayMP(
     assetString: string,
     maturityPool: number,
