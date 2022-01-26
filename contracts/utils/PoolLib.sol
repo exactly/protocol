@@ -155,7 +155,7 @@ library PoolLib {
     /**
      * @notice External function to add fee to be collected at maturity
      * @param pool maturity pool that needs to be updated
-     * @param fee (optional) fee to be added to the earnings for
+     * @param fee fee to be added to the earnings for
      *                   the pool at maturity
      */
     function addFee(MaturityPool storage pool, uint256 fee) external {
@@ -165,7 +165,7 @@ library PoolLib {
     /**
      * @notice External function to take a fee out of earnings at maturity
      * @param pool maturity pool that needs to be updated
-     * @param fee (optional) fee to be added to the earnings for
+     * @param fee fee to be added to the earnings for
      *                   the pool at maturity
      */
     function takeFee(MaturityPool storage pool, uint256 fee) external {
