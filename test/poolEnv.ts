@@ -36,8 +36,8 @@ export class PoolEnv {
     );
   }
 
-  public async addFee(timestamp: number, amount: string) {
-    return this.mpHarness.addFeeMP(timestamp, parseUnits(amount));
+  public async accrueAndGetMaturityPool(timestamp: number) {
+    return this.mpHarness.accrueAndGetMaturityPool(timestamp);
   }
 
   public async addMoney(timestamp: number, amount: string) {

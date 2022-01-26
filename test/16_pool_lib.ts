@@ -128,7 +128,7 @@ describe("Pool Management Library", () => {
             beforeEach(async () => {
               await poolEnv.moveInTime(exaTime.day(11));
               // adding a 0 fee forces accruing
-              await poolEnv.addFee(exaTime.nextPoolID(), "0");
+              await poolEnv.accrueAndGetMaturityPool(exaTime.nextPoolID());
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -149,7 +149,7 @@ describe("Pool Management Library", () => {
               beforeEach(async () => {
                 await poolEnv.moveInTime(exaTime.day(12));
                 // adding a 0 fee forces accruing
-                await poolEnv.addFee(exaTime.nextPoolID(), "0");
+                await poolEnv.accrueAndGetMaturityPool(exaTime.nextPoolID());
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
@@ -224,9 +224,9 @@ describe("Pool Management Library", () => {
         );
       });
 
-      it("THEN the pool 'supplied' is 105 (100 principal + 5 fee)", async () => {
+      it("THEN the pool 'supplied' is 100 (100 principal)", async () => {
         // supply should consider the newly taken fee
-        expect(mp.supplied).to.equal(parseUnits("105"));
+        expect(mp.supplied).to.equal(parseUnits("100"));
       });
 
       it("THEN the smart pool total debt is 100", async () => {
@@ -257,7 +257,7 @@ describe("Pool Management Library", () => {
           parseUnits("0.0001").toNumber()
         );
       });
-      
+
       it("THEN the pool 'lastFee' is close to 5", async () => {
         expect(await poolEnv.mpHarness.lastFee()).to.closeTo(
           parseUnits("5"),
@@ -272,9 +272,9 @@ describe("Pool Management Library", () => {
         );
       });
 
-      it("THEN the pool 'supplied' is 55 (50 principal + 5 fee)", async () => {
+      it("THEN the pool 'supplied' is 50", async () => {
         // supply should consider the newly taken fee
-        expect(mp.supplied).to.equal(parseUnits("55"));
+        expect(mp.supplied).to.equal(parseUnits("50"));
       });
 
       it("THEN the smart pool total debt is 100", async () => {
@@ -320,8 +320,8 @@ describe("Pool Management Library", () => {
         );
       });
 
-      it("THEN the pool 'supplied' is 550 (500 principal + 50 fee)", async () => {
-        expect(mp.supplied).to.equal(parseUnits("550"));
+      it("THEN the pool 'supplied' is 500", async () => {
+        expect(mp.supplied).to.equal(parseUnits("500"));
       });
 
       it("THEN the smart pool total debt is 100", async () => {
@@ -361,12 +361,8 @@ describe("Pool Management Library", () => {
       });
 
       it("THEN the pool 'lastFee' is around 4", async () => {
-        expect(await poolEnv.mpHarness.lastFee()).to.be.lt(
-          parseUnits("4.05")
-        );
-        expect(await poolEnv.mpHarness.lastFee()).to.be.gt(
-          parseUnits("4")
-        );
+        expect(await poolEnv.mpHarness.lastFee()).to.be.lt(parseUnits("4.05"));
+        expect(await poolEnv.mpHarness.lastFee()).to.be.gt(parseUnits("4"));
       });
 
       describe("AND GIVEN that 4 more days go by and more fees are generated ", () => {
@@ -442,12 +438,8 @@ describe("Pool Management Library", () => {
             expect(mp.suppliedSP).to.eq(parseUnits("0"));
           });
 
-          it("THEN the pool have deposits to be repaid for 305.3333 (300 principal + 5.333 fee)", async () => {
-            expect(mp.supplied).to.closeTo(
-              // 4.666 are earningsSP from the original 10 fees
-              parseUnits("300").add(parseUnits("10").sub(parseUnits("4.6666"))),
-              parseUnits("0.0001").toNumber()
-            );
+          it("THEN the pool have deposits to be repaid for 300", async () => {
+            expect(mp.supplied).to.eq(parseUnits("300"));
           });
 
           describe("AND GIVEN that someone repays again for 30", () => {
@@ -497,13 +489,8 @@ describe("Pool Management Library", () => {
               expect(mp.suppliedSP).to.eq(parseUnits("0"));
             });
 
-            it("THEN the pool has all the previous deposits intact (300 principal + 5.333 fee)", async () => {
-              expect(mp.supplied).to.closeTo(
-                parseUnits("300").add(
-                  parseUnits("10").sub(parseUnits("4.6666"))
-                ),
-                parseUnits("0.0001").toNumber()
-              );
+            it("THEN the pool has all the previous deposits intact (300 principal)", async () => {
+              expect(mp.supplied).to.eq(parseUnits("300"));
             });
 
             describe("AND GIVEN that someone repays again for 40", () => {
@@ -531,13 +518,8 @@ describe("Pool Management Library", () => {
                 expect(mp.suppliedSP).to.eq(parseUnits("0"));
               });
 
-              it("THEN the pool has all the previous deposits intact (300 principal + 5.333 fee)", async () => {
-                expect(mp.supplied).to.closeTo(
-                  parseUnits("300").add(
-                    parseUnits("10").sub(parseUnits("4.6666"))
-                  ),
-                  parseUnits("0.0001").toNumber()
-                );
+              it("THEN the pool has all the previous deposits intact (300 principal)", async () => {
+                expect(mp.supplied).to.eq(parseUnits("300"));
               });
 
               it("THEN 'lastAccrue' is the day 10", async () => {
@@ -552,13 +534,9 @@ describe("Pool Management Library", () => {
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
-              it("THEN the pool 'supplied' - 'borrowed' equals to the fees given out to depositors (in this case)", async () => {
+              it("THEN the pool 'supplied' - 'borrowed' equals 0", async () => {
                 expect(mp.earningsSP).to.eq(0);
-                // initial 10 earnings minus 4.6666 which was sp earnings
-                expect(mp.supplied.sub(mp.borrowed)).to.closeTo(
-                  parseUnits("10").sub(parseUnits("4.66666")),
-                  parseUnits("0.00001").toNumber()
-                );
+                expect(mp.supplied.sub(mp.borrowed)).to.eq(0);
                 expect(mp.suppliedSP).to.eq(0);
               });
             });
@@ -591,11 +569,7 @@ describe("Pool Management Library", () => {
           });
 
           it("THEN the pool have deposits to be repaid for 300", async () => {
-            expect(mp.supplied).to.closeTo(
-              // 4.666 are earningsSP from the original 10 fees
-              parseUnits("300").add(parseUnits("10").sub(parseUnits("4.6666"))),
-              parseUnits("0.0001").toNumber()
-            );
+            expect(mp.supplied).to.eq(parseUnits("300"));
           });
 
           describe("AND GIVEN that someone repays again for 30", () => {
@@ -642,13 +616,8 @@ describe("Pool Management Library", () => {
               expect(mp.suppliedSP).to.eq(parseUnits("0"));
             });
 
-            it("THEN the pool has all the previous deposits intact (300 principal + 5.333 fee)", async () => {
-              expect(mp.supplied).to.closeTo(
-                parseUnits("300").add(
-                  parseUnits("10").sub(parseUnits("4.6666"))
-                ),
-                parseUnits("0.0001").toNumber()
-              );
+            it("THEN the pool has all the previous deposits intact (300 principal)", async () => {
+              expect(mp.supplied).to.eq(parseUnits("300"));
             });
           });
         });
@@ -1321,25 +1290,25 @@ describe("Pool Management Library", () => {
           expect(smartPoolTotalDebt).to.equal(parseUnits("100000"));
         });
 
-        it("THEN the pool 'lastCommission' is close to 4790", async () => {
+        it("THEN the pool 'lastFee' is close to 4790", async () => {
           let previousUnassignedEarnings = poolEnv.calculateUnassignedEarnings(
             fakeMaturityPool,
             mockedDate10Hours,
             fees, // previous unassigned earnings
             exaTime.ONE_HOUR * 10, // ten hours in seconds since last accrue
-            0 // new commission
+            0 // new fee
           );
-          let lastCommission = poolEnv.calculateLastCommission(
+          let lastFee = poolEnv.calculateLastCommission(
             previousUnassignedEarnings,
             depositedAmount,
             borrowedAmount
           );
 
-          expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
-            parseUnits(lastCommission.toFixed(8).toString()),
+          expect(await poolEnv.mpHarness.lastFee()).to.closeTo(
+            parseUnits(lastFee.toFixed(8).toString()),
             parseUnits("0.00000001").toNumber()
           );
-          expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
+          expect(await poolEnv.mpHarness.lastFee()).to.closeTo(
             parseUnits("4791.666"),
             parseUnits("0000.001").toNumber()
           );
@@ -1386,24 +1355,24 @@ describe("Pool Management Library", () => {
           expect(mp.earningsSP).to.equal(parseUnits("5000"));
         });
 
-        it("THEN the pool 'lastCommission' is 2.5k", async () => {
+        it("THEN the pool 'lastFee' is 2.5k", async () => {
           let previousUnassignedEarnings = poolEnv.calculateUnassignedEarnings(
             fakeMaturityPool,
             mockedDate5Days,
             fees, // previous unassigned earnings
             exaTime.ONE_DAY * 5, // five days in seconds since last accrue
-            0 // new commission
+            0 // new fee
           );
-          let lastCommission = poolEnv.calculateLastCommission(
+          let lastFee = poolEnv.calculateLastCommission(
             previousUnassignedEarnings,
             depositedAmount,
             borrowedAmount
           );
 
-          expect(await poolEnv.mpHarness.lastCommission()).to.eq(
-            parseUnits(lastCommission.toString())
+          expect(await poolEnv.mpHarness.lastFee()).to.eq(
+            parseUnits(lastFee.toString())
           );
-          expect(await poolEnv.mpHarness.lastCommission()).to.equal(
+          expect(await poolEnv.mpHarness.lastFee()).to.equal(
             parseUnits("2500")
           );
         });
@@ -1517,7 +1486,7 @@ describe("Pool Management Library", () => {
           );
         });
 
-        it("THEN the pool 'lastCommission' is correctly accounted", async () => {
+        it("THEN the pool 'lastFee' is correctly accounted", async () => {
           let previousUnassignedEarnings = poolEnv.calculateUnassignedEarnings(
             fakeMaturityPool,
             mockedDate8DaysWithHoursAndSeconds,
@@ -1525,16 +1494,16 @@ describe("Pool Management Library", () => {
             exaTime.ONE_DAY * 8 +
               exaTime.ONE_HOUR * 1 +
               exaTime.ONE_SECOND * 23, // total seconds since last accrue
-            0 // new commission
+            0 // new fee
           );
-          let lastCommission = poolEnv.calculateLastCommission(
+          let lastFee = poolEnv.calculateLastCommission(
             previousUnassignedEarnings,
             depositedAmount,
             borrowedAmount
           );
 
-          expect(await poolEnv.mpHarness.lastCommission()).to.closeTo(
-            parseUnits(lastCommission.toFixed(8).toString()),
+          expect(await poolEnv.mpHarness.lastFee()).to.closeTo(
+            parseUnits(lastFee.toFixed(8).toString()),
             parseUnits("0.00000001").toNumber()
           );
         });

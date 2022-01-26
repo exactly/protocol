@@ -38,19 +38,23 @@ contract MaturityPoolHarness {
         smartPoolTotalDebt = _totalDebt;
     }
 
+    function accrueAndGetMaturityPool(uint256 _maturityID)
+        external
+        returns (PoolLib.MaturityPool memory)
+    {
+        maturityPool.accrueEarningsToSP(_maturityID);
+        return maturityPool;
+    }
+
     function takeMoneyMP(
         uint256 _maturityID,
         uint256 _amount,
         uint256 _feeAmount
     ) external {
         uint256 maxDebt = eToken.totalSupply();
-        smartPoolTotalDebt += maturityPool.takeMoney(_amount, maxDebt);
-        maturityPool.addFee(_maturityID, _feeAmount);
-    }
-
-    function addFeeMP(uint256 _maturityID, uint256 _amount) external {
         maturityPool.accrueEarningsToSP(_maturityID);
-        maturityPool.addFee(_amount);
+        smartPoolTotalDebt += maturityPool.takeMoney(_amount, maxDebt);
+        maturityPool.addFee(_feeAmount);
     }
 
     function addMoneyMP(uint256 _maturityID, uint256 _amount) external {
@@ -61,7 +65,7 @@ contract MaturityPoolHarness {
             maturityPool.unassignedEarnings,
             _amount
         );
-        maturityPool.addMoney(_amount + lastFee);
+        maturityPool.addMoney(_amount);
         maturityPool.takeFee(lastFee);
     }
 
