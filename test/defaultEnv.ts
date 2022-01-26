@@ -469,6 +469,21 @@ export class DefaultEnv {
       .repayToMaturityPool(this.currentWallet.address, maturityPool, amount);
   }
 
+  public async repayMPETH(
+    assetString: string,
+    maturityPool: number,
+    units: string
+  ) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .repayToMaturityPoolEth(this.currentWallet.address, maturityPool, {
+        value: amount,
+      });
+  }
+
   public async enterMarkets(assets: string[]) {
     const markets = assets.map((asset) => this.getFixedLender(asset).address);
     return this.auditor.connect(this.currentWallet).enterMarkets(markets);

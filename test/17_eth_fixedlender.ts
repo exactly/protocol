@@ -350,6 +350,101 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           ).to.equal(nextPoolId);
         });
       });
+
+      describe("repayToMaturityPoolEth vs repayToMaturityPool", () => {
+        describe("AND she borrows some WETH (erc20) AND maturity is reached", () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMP("WETH", nextPoolId, "5");
+            await exactlyEnv.moveInTime(nextPoolId);
+          });
+
+          describe("WHEN repaying in WETH (erc20)", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = exactlyEnv.repayMP("WETH", nextPoolId, "5");
+              await tx;
+            });
+            it("THEN a RepayToMaturityPool event is emitted", async () => {
+              await expect(tx)
+                .to.emit(
+                  exactlyEnv.getFixedLender("WETH"),
+                  "RepayToMaturityPool"
+                )
+                .withArgs(
+                  alice.address,
+                  alice.address,
+                  parseUnits("0"),
+                  parseUnits("5"),
+                  nextPoolId
+                );
+            });
+            it("AND Alices debt is cleared", async () => {
+              const [, amountOwed] = await exactlyEnv
+                .getFixedLender("WETH")
+                .getAccountSnapshot(alice.address, nextPoolId);
+              expect(amountOwed).to.equal(parseUnits("0"));
+            });
+            it("AND WETH is returned to the contract", async () => {
+              expect(await weth.balanceOf(alice.address)).to.equal(
+                parseUnits("0")
+              );
+              expect(
+                await weth.balanceOf(exactlyEnv.getFixedLender("WETH").address)
+              ).to.equal(parseUnits("60"));
+            });
+          });
+        });
+
+        describe("AND she borrows some ETH (native) AND maturity is reached", () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMPETH("WETH", nextPoolId, "5");
+            await exactlyEnv.moveInTime(nextPoolId);
+          });
+
+          describe("WHEN repaying in WETH (native)", () => {
+            let tx: any;
+            let aliceETHBalanceBefore: BigNumber;
+            beforeEach(async () => {
+              aliceETHBalanceBefore = await ethers.provider.getBalance(
+                alice.address
+              );
+              tx = exactlyEnv.repayMPETH("WETH", nextPoolId, "5");
+              await tx;
+            });
+            it("THEN a RepayToMaturityPool event is emitted", async () => {
+              await expect(tx)
+                .to.emit(
+                  exactlyEnv.getFixedLender("WETH"),
+                  "RepayToMaturityPool"
+                )
+                .withArgs(
+                  alice.address,
+                  alice.address,
+                  parseUnits("0"),
+                  parseUnits("5"),
+                  nextPoolId
+                );
+            });
+            it("AND Alices debt is cleared", async () => {
+              const [, amountOwed] = await exactlyEnv
+                .getFixedLender("WETH")
+                .getAccountSnapshot(alice.address, nextPoolId);
+              expect(amountOwed).to.equal(parseUnits("0"));
+            });
+            it("AND ETH is returned to the contract", async () => {
+              expect(
+                await weth.balanceOf(exactlyEnv.getFixedLender("WETH").address)
+              ).to.equal(parseUnits("60"));
+              const newBalance = await ethers.provider.getBalance(
+                alice.address
+              );
+              const balanceDiff = aliceETHBalanceBefore.sub(newBalance);
+              expect(balanceDiff).to.be.lt(parseUnits("5.05"));
+              expect(balanceDiff).to.be.gt(parseUnits("5"));
+            });
+          });
+        });
+      });
     });
   });
 
