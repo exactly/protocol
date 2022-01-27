@@ -14,7 +14,6 @@ describe("InterestRateModel", () => {
   let eth: Contract;
   let interestRateModel: Contract;
   let mariaUser: SignerWithAddress;
-  let snapshot: any;
 
   let maturityPool = {
     borrowed: 0,
@@ -40,10 +39,6 @@ describe("InterestRateModel", () => {
     // From Owner to User
     underlyingToken.transfer(mariaUser.address, parseUnits("1000000"));
     eth.transfer(mariaUser.address, parseEther("100"));
-
-    // This can be optimized (so we only do it once per file, not per test)
-    // This helps with tests that use evm_setNextBlockTimestamp
-    snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
   describe("GIVEN a set of parameters", async () => {
@@ -181,10 +176,5 @@ describe("InterestRateModel", () => {
           )
       ).to.be.revertedWith("AccessControl");
     });
-  });
-
-  afterEach(async () => {
-    await ethers.provider.send("evm_revert", [snapshot]);
-    await ethers.provider.send("evm_mine", []);
   });
 });
