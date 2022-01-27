@@ -26,12 +26,8 @@ contract MaturityPoolHarness {
         eToken.mint(address(this), type(uint256).max);
     }
 
-    function accrueAndGetMaturityPool(uint256 _maturityID)
-        external
-        returns (PoolLib.MaturityPool memory)
-    {
+    function accrueEarningsToSP(uint256 _maturityID) external {
         maturityPool.accrueEarningsToSP(_maturityID);
-        return maturityPool;
     }
 
     function takeMoneyMP(

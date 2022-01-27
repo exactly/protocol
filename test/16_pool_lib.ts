@@ -127,8 +127,7 @@ describe("Pool Management Library", () => {
             let mp: any;
             beforeEach(async () => {
               await poolEnv.moveInTime(exaTime.day(11));
-              // adding a 0 fee forces accruing
-              await poolEnv.accrueAndGetMaturityPool(exaTime.nextPoolID());
+              await poolEnv.accrueEarningsToSP(exaTime.nextPoolID());
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -148,8 +147,7 @@ describe("Pool Management Library", () => {
               let mp: any;
               beforeEach(async () => {
                 await poolEnv.moveInTime(exaTime.day(12));
-                // adding a 0 fee forces accruing
-                await poolEnv.accrueAndGetMaturityPool(exaTime.nextPoolID());
+                await poolEnv.accrueEarningsToSP(exaTime.nextPoolID());
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 

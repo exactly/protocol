@@ -36,8 +36,8 @@ export class PoolEnv {
     );
   }
 
-  public async accrueAndGetMaturityPool(timestamp: number) {
-    return this.mpHarness.accrueAndGetMaturityPool(timestamp);
+  public async accrueEarningsToSP(timestamp: number) {
+    return this.mpHarness.accrueEarningsToSP(timestamp);
   }
 
   public async addMoney(timestamp: number, amount: string) {
