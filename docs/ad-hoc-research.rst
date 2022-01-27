@@ -368,3 +368,53 @@ Notes
 - [ ] the ``liquidate`` method doesn't have its eth-receiving couterpart, given that any user technical enough to do liquidations can probably wrap ETH on their own
 - [ ] it's not necessary to override ``balanceOf`` usages since the only context in which it's called on the underlying token is inside the ``doTransferIn`` method, and the global/by user accounting are updated with the return value of the latter function
 
+How accepting ETH works in Compound
+-----------------------------------
+
+.. uml::
+
+    class CToken{
+        doTransferIn(...) abstract
+        doTransferOut(...) abstract
+    }
+    class CERC20{}
+    class CEther{
+        mint() external payable 
+        redeem(redeemTokens) external 
+        redeemUnderlying(redeemAmount) external 
+        borrow(uint borrowAmount) external 
+        repayBorrow() external payable 
+        repayBorrowBehalf(borrower) external payable 
+        liquidateBorrow(borrower, cTokenCollateral) external payable 
+    }
+    interface CErc20Interface{
+        mint(mintAmount) external 
+        redeem(redeemTokens) external 
+        redeemUnderlying(redeemAmount) external 
+        borrow(borrowAmount) external 
+        repayBorrow(repayAmount) external 
+        repayBorrowBehalf(borrower, repayAmount) external 
+        liquidateBorrow(borrower, repayAmount, cTokenCollateral) external 
+        sweepToken(token) external
+    }
+
+    CERC20 --|> CToken 
+    CERC20 ..|> CErc20Interface
+    CEther --|> CToken
+
+note from the above, ``CEther`` and ``CErc20Interface`` have similar but not identical ABIs, so ``CEther`` doesn't implement ``CErc20Interface``
+
+Also, the bulk of the functionality is implemented in ``CToken``, similar to how in our current approach most of the functionality is implemented in the ``FixedLender``
+
+The key difference (at a technical level) is, while we implement the ``doTransfer{In,Out}`` in the ``FixedLender`` and override them in the ``ETHFixedLender``, in Compound's case the functions are abstract in the ``CToken`` and the derived classes implement them separately.
+
+A user-facing consecuence of this is that it's not possible to accept both ``ETH`` and ``WETH`` in the same contract with Compound, something that we're able to do
+
+Pros
+^^^^
+- In the case of ``CEther``, it's a bit more gas efficient, since no wrapping or ERC20 transfers are done
+- Having the transfer hooks as abstract in a base contract and implementing them separately is a bit less confusing than our override-but-sometimes-use-the-default-behaviour approach
+
+Cons
+^^^^
+- It's not possible to accept ``ETH`` and ``WETH`` in the same contract
