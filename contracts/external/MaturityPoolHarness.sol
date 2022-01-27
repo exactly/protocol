@@ -26,18 +26,6 @@ contract MaturityPoolHarness {
         eToken.mint(address(this), type(uint256).max);
     }
 
-    function fakeDepositToSP(uint256 _amount) external {
-        eToken.mint(msg.sender, _amount);
-    }
-
-    function fakeWithdrawSP(uint256 _amount) external {
-        eToken.burn(msg.sender, _amount);
-    }
-
-    function setSmartPoolTotalDebt(uint256 _totalDebt) external {
-        smartPoolTotalDebt = _totalDebt;
-    }
-
     function accrueAndGetMaturityPool(uint256 _maturityID)
         external
         returns (PoolLib.MaturityPool memory)
