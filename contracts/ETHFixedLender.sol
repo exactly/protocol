@@ -9,9 +9,8 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 
 import "./FixedLender.sol";
 import "./external/WETH9.sol";
-import "./interfaces/IETHFixedLender.sol";
 
-contract ETHFixedLender is FixedLender, IETHFixedLender {
+contract ETHFixedLender is FixedLender {
     bool private wrapOnOurSide;
     WETH9 private weth;
 
@@ -47,26 +46,22 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
     function borrowFromMaturityPoolEth(
         uint256 maturityDate,
         uint256 maxAmountAllowed
-    ) external payable override usingETH {
+    ) external payable usingETH {
         borrowFromMaturityPool(msg.value, maturityDate, maxAmountAllowed);
     }
 
     function depositToMaturityPoolEth(
         uint256 maturityDate,
         uint256 minAmountRequired
-    ) external payable override usingETH {
+    ) external payable usingETH {
         depositToMaturityPool(msg.value, maturityDate, minAmountRequired);
     }
 
-    function depositToSmartPoolEth() external payable override usingETH {
+    function depositToSmartPoolEth() external payable usingETH {
         depositToSmartPool(msg.value);
     }
 
-    function withdrawFromSmartPoolEth(uint256 amount)
-        external
-        override
-        usingETH
-    {
+    function withdrawFromSmartPoolEth(uint256 amount) external usingETH {
         withdrawFromSmartPool(amount);
     }
 
@@ -74,14 +69,13 @@ contract ETHFixedLender is FixedLender, IETHFixedLender {
         address payable redeemer,
         uint256 redeemAmount,
         uint256 maturityDate
-    ) external override usingETH {
+    ) external usingETH {
         withdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
     }
 
     function repayToMaturityPoolEth(address borrower, uint256 maturityDate)
         external
         payable
-        override
         usingETH
     {
         repayToMaturityPool(borrower, maturityDate, msg.value);

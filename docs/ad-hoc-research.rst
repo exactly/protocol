@@ -325,13 +325,6 @@ The idea would be to add some methods to the default FixedLender via inheritance
         + withdrawFromMaturityPool()
         + repayToMaturityPool()
     }
-    interface IETHFixedLender {
-        + depositToSmartPoolETH()
-        + withdrawFromSmartPoolETH()
-        + depositToMaturityPoolETH()
-        + withdrawFromMaturityPoolETH()
-        + repayToMaturityPoolETH()
-    }
     class IERC20 {
     }
     class WETH {
@@ -346,11 +339,9 @@ The idea would be to add some methods to the default FixedLender via inheritance
     }
 
     FixedLender ..|> IFixedLender
-    ETHFixedLender ..|> IETHFixedLender
     FixedLender o-- IERC20 : has underlying
     ETHFixedLender o-- WETH : uses for wrapping
     ETHFixedLender --|> FixedLender
-    IETHFixedLender --|> IFixedLender
     WETH --|> IERC20
 
     @enduml
