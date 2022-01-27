@@ -102,13 +102,13 @@ export class PoolEnv {
     blockTimestamp: number,
     previousUnassignedEarnings: number,
     secondsSinceLastAccrue: number,
-    newComission: number
+    newFee: number
   ): number {
     return (
       previousUnassignedEarnings -
       (previousUnassignedEarnings * secondsSinceLastAccrue) /
         (maturityPoolID - blockTimestamp + secondsSinceLastAccrue) +
-      newComission
+      newFee
     );
   }
 
@@ -126,15 +126,11 @@ export class PoolEnv {
       blockTimestamp,
       previousUnassignedEarnings,
       secondsSinceLastAccrue,
-      0 // we calculate unassigned earnings but no new commission is added
+      0 // we calculate unassigned earnings but no new fee is added
     );
     return (
       unassignedEarnings -
-      this.calculateLastCommission(
-        unassignedEarnings,
-        depositedAmount,
-        suppliedSP
-      )
+      this.calculateLastFee(unassignedEarnings, depositedAmount, suppliedSP)
     );
   }
 
@@ -154,7 +150,7 @@ export class PoolEnv {
   }
 
   /* Replicates PoolLib.sol calculation of earnings share that a depositor will receive after maturity */
-  public calculateLastCommission(
+  public calculateLastFee(
     previousUnassignedEarnings: number,
     depositedAmount: number,
     suppliedSP: number

@@ -966,17 +966,15 @@ describe("Pool Management Library", () => {
           });
 
           it("THEN 'earningsSP' are still there (400 - previous MP deposit fee)", async () => {
-            let previousCommissionGiven = parseUnits("400")
+            let previousFeeGiven = parseUnits("400")
               .mul(parseUnits("3000"))
               .div(parseUnits("7000"));
 
             expect(mp.earningsSP).to.be.gt(
-              parseUnits("400").sub(previousCommissionGiven)
+              parseUnits("400").sub(previousFeeGiven)
             );
             expect(mp.earningsSP).to.be.lt(
-              parseUnits("400")
-                .sub(previousCommissionGiven)
-                .add(parseUnits("0.5"))
+              parseUnits("400").sub(previousFeeGiven).add(parseUnits("0.5"))
             );
           });
 
@@ -1296,7 +1294,7 @@ describe("Pool Management Library", () => {
             exaTime.ONE_HOUR * 10, // ten hours in seconds since last accrue
             0 // new fee
           );
-          let lastFee = poolEnv.calculateLastCommission(
+          let lastFee = poolEnv.calculateLastFee(
             previousUnassignedEarnings,
             depositedAmount,
             borrowedAmount
@@ -1361,7 +1359,7 @@ describe("Pool Management Library", () => {
             exaTime.ONE_DAY * 5, // five days in seconds since last accrue
             0 // new fee
           );
-          let lastFee = poolEnv.calculateLastCommission(
+          let lastFee = poolEnv.calculateLastFee(
             previousUnassignedEarnings,
             depositedAmount,
             borrowedAmount
@@ -1494,7 +1492,7 @@ describe("Pool Management Library", () => {
               exaTime.ONE_SECOND * 23, // total seconds since last accrue
             0 // new fee
           );
-          let lastFee = poolEnv.calculateLastCommission(
+          let lastFee = poolEnv.calculateLastFee(
             previousUnassignedEarnings,
             depositedAmount,
             borrowedAmount
