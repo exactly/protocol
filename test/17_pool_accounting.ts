@@ -363,7 +363,7 @@ describe("PoolAccounting", () => {
                   );
                 returnValues = await poolAccounting.returnValues();
               });
-              it("THEN the maturity pool state is correctly updated (unassignedEarnings are close to 0 but not 0)", async () => {
+              it("THEN the maturity pool state is correctly updated", async () => {
                 const mp = await realPoolAccounting.maturityPools(nextPoolID);
 
                 expect(mp.borrowed).to.eq(
@@ -409,7 +409,7 @@ describe("PoolAccounting", () => {
                   );
                 returnValues = await poolAccounting.returnValues();
               });
-              it("THEN the maturity pool state is correctly updated (unassignedEarnings are close to 0 but not 0)", async () => {
+              it("THEN the maturity pool state is correctly updated", async () => {
                 const mp = await realPoolAccounting.maturityPools(nextPoolID);
 
                 expect(mp.borrowed).to.eq(parseUnits("0"));
