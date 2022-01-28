@@ -1,19 +1,13 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import { errorGeneric, ProtocolError } from "./exactlyUtils";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { parseEther } from "ethers/lib/utils";
 import { DefaultEnv } from "./defaultEnv";
 
 describe("InterestRateModel", () => {
   let exactlyEnv: DefaultEnv;
 
-  let underlyingToken: Contract;
-  let eth: Contract;
   let interestRateModel: Contract;
-  let mariaUser: SignerWithAddress;
   let snapshot: any;
 
   let maturityPool = {
@@ -26,28 +20,17 @@ describe("InterestRateModel", () => {
   };
 
   beforeEach(async () => {
-    [mariaUser] = await ethers.getSigners();
-
     exactlyEnv = await DefaultEnv.create({
       useRealInterestRateModel: true,
     });
 
-    underlyingToken = exactlyEnv.getUnderlying("DAI");
-    eth = exactlyEnv.getUnderlying("WETH");
-
     interestRateModel = exactlyEnv.interestRateModel;
-    // From Owner to User
-    underlyingToken.transfer(mariaUser.address, parseUnits("1000000"));
-    eth.transfer(mariaUser.address, parseEther("100"));
-
-    // This can be optimized (so we only do it once per file, not per test)
     // This helps with tests that use evm_setNextBlockTimestamp
-    snapshot = await ethers.provider.send("evm_snapshot", []);
+    snapshot = await exactlyEnv.takeSnapshot();
   });
 
   afterEach(async () => {
-    await ethers.provider.send("evm_revert", [snapshot]);
-    await ethers.provider.send("evm_mine", []);
+    await exactlyEnv.revertSnapshot(snapshot);
   });
 
   it("should change parameters", async () => {
