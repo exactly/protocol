@@ -60,7 +60,79 @@ Aditionally,
 Examples
 ========
 
-TODO
+Let's say we want
+
+- :math:`U_{b}`: 0.8
+- :math:`U_{max}`: 1.1
+- :math:`R_{0}`: 0.02
+- :math:`R_{b}`: 0.14
+
+So, replacing above, we'd end up with
+
+.. code::
+
+    A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
+    A = ((1.1*(1.1-0.8))/0.8)*(0.14-0.02)
+    A = 0.04950000000000000000
+
+    B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
+    B = ((1.1/0.8)*0.02) + (1-(1.1/0.8))*0.14
+    B = -.02500000000000000000
+
+- :math:`A = 0.0495`
+- :math:`B = -0.025`
+
+let's plot it:
+
+.. plot::
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    x=np.linspace(0,1.1, 100)
+    y=map(lambda u: (0.0495/(1.1-u))-0.025, x)
+    fig, ax = plt.subplots()
+    ax.plot(x, list(y))
+    ax.set(xlabel='Utilization Rate', ylabel='Interest Rate')
+    ax.set_ybound(lower=0, upper=0.8)
+    ax.grid()
+    plt.show()
+
+Let's say we wanted to set a higher :math:`R_{0}` and have everything else remain the same:
+
+- :math:`U_{b}`: 0.8
+- :math:`U_{max}`: 1.1
+- :math:`R_{0}`: 0.05
+- :math:`R_{b}`: 0.14
+
+.. code::
+
+    A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
+    A = ((1.1*(1.1-0.8))/0.8)*(0.14-0.05)
+    A = .03712500000000000000
+
+    B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
+    B = ((1.1/0.8)*0.05) + (1-(1.1/0.8))*0.14
+    B = .01625000000000000000
+
+- :math:`A = 0.037125`
+- :math:`B = 0.01625`
+
+plot:
+
+.. plot::
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    x=np.linspace(0,1.1, 100)
+    y=map(lambda u: (0.037125/(1.1-u))+0.01625, x)
+    fig, ax = plt.subplots()
+    ax.plot(x, list(y))
+    ax.set(xlabel='Utilization Rate', ylabel='Interest Rate')
+    ax.set_ybound(lower=0, upper=0.8)
+    ax.grid()
+    plt.show()
 
 Notes
 =====
@@ -86,19 +158,6 @@ if both SP and MP funds can be lent out simultanously?
 Implementation checks
 =====================
 
-TODO
-
-.. this is a placeholder for when we implement&check
-
-.. plot::
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    x=np.linspace(0,1)
-    y= x ** 2
-    plt.plot(x, y)
-    plt.show()
 
 Security considerations
 =======================
