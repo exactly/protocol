@@ -68,5 +68,17 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 borrowedMP,
         uint256 suppliedMP,
         uint256 borrowableFromSP
-    ) external view override returns (uint256) {}
+    ) external view override returns (uint256) {
+        // FIXME: add a test where the liquidity from the MP is used
+        uint256 supplied = borrowableFromSP;
+        // this'll be in the tokens' decimals. very much not ideal.
+        // FIXME: add a test with decimals other than 18 so this breaks
+        uint256 utilizationRate = borrowedMP.div_(supplied);
+        int256 rate = int256(
+            curveParameterA.div_(maxUtilizationRate - utilizationRate)
+        ) + curveParameterB;
+        // this curve _could_ go below zero if the parameters are set wrong.
+        assert(rate > 0);
+        return uint256(rate);
+    }
 }
