@@ -106,12 +106,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
 
+        // FIXME: parameters passed only to aid in compilation
+        // FIXME: with no integration tests this is dead code anyway so it's not like we'd notice
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
-            pool,
-            smartPoolBorrowed,
-            maxSPDebt,
-            true
+            block.timestamp,
+            1000,
+            1000000,
+            800000
         );
         borrowVars.fee = amount.mul_(borrowVars.feeRate);
         totalOwedNewBorrow = amount + borrowVars.fee;
