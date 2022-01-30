@@ -12,7 +12,7 @@ describe("PoolAccounting", () => {
   let mockedInterestRateModel: Contract;
   let exaTime = new ExaTime();
   let snapshot: any;
-  const nextPoolID = exaTime.nextPoolID();
+  const nextPoolID = exaTime.nextPoolID() + 7 * exaTime.ONE_DAY; // we add 7 days so we make sure we are far from the previouos timestamp blocks
   // we use a high maxSPDebt limit since max borrows are already tested
   const maxSPDebt = parseUnits("100000");
 
