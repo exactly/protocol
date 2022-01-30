@@ -162,7 +162,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        maturityPools[maturityDate].addMoney(amount);
+        maturityPools[maturityDate].addMoney(currentTotalDeposit);
         maturityPools[maturityDate].takeFee(fee);
 
         mpUserSuppliedAmount[maturityDate][supplier] += currentTotalDeposit;

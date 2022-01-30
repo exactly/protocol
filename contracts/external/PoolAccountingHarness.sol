@@ -50,6 +50,15 @@ contract PoolAccountingHarness {
         );
     }
 
+    function withdrawMP(
+        uint256 maturityDate,
+        address redeemer,
+        uint256 amount,
+        uint256 maxSPDebt
+    ) external {
+        poolAccounting.withdrawMP(maturityDate, redeemer, amount, maxSPDebt);
+    }
+
     function repayMP(
         uint256 maturityDate,
         address borrower,
