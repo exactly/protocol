@@ -144,13 +144,13 @@ describe("Liquidity computations", function () {
         describe("AND GIVEN laura deposits more collateral for another asset", () => {
           beforeEach(async () => {
             exactlyEnv.switchWallet(bob);
-            await exactlyEnv.transfer("ETH", laura, "1");
+            await exactlyEnv.transfer("WETH", laura, "1");
             exactlyEnv.switchWallet(laura);
-            await exactlyEnv.depositSP("ETH", "1");
-            await exactlyEnv.enterMarkets(["ETH"]);
+            await exactlyEnv.depositSP("WETH", "1");
+            await exactlyEnv.enterMarkets(["WETH"]);
           });
           it("THEN it does not revert when she tries to exit her collateral ETH market", async () => {
-            fixedLenderETH = exactlyEnv.getFixedLender("ETH");
+            fixedLenderETH = exactlyEnv.getFixedLender("WETH");
             await expect(
               auditor.connect(laura).exitMarket(fixedLenderETH.address)
             ).to.not.be.reverted;

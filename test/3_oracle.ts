@@ -30,7 +30,7 @@ describe("ExactlyOracle", function () {
       },
     ],
     [
-      "ETH",
+      "WETH",
       {
         decimals: 18,
         collateralRate: parseUnits("0.7"),
@@ -40,7 +40,7 @@ describe("ExactlyOracle", function () {
   ]);
   let chainlinkPrices = new Map([
     ["DAI", { usdPrice: parseUnits("1", 8) }],
-    ["ETH", { usdPrice: parseUnits("3100", 8) }],
+    ["WETH", { usdPrice: parseUnits("3100", 8) }],
   ]);
 
   before(async () => {
@@ -92,12 +92,12 @@ describe("ExactlyOracle", function () {
   });
 
   it("GetAssetPrice returns a positive and valid price value", async () => {
-    let priceOfEth = await exactlyOracle.getAssetPrice("ETH");
+    let priceOfEth = await exactlyOracle.getAssetPrice("WETH");
     let priceOfDai = await exactlyOracle.getAssetPrice("DAI");
 
     // The price returned by the oracle is previously scaled to an 18-digit decimal
     expect(priceOfEth).to.be.equal(
-      chainlinkPrices.get("ETH")!.usdPrice.mul(1e10)
+      chainlinkPrices.get("WETH")!.usdPrice.mul(1e10)
     );
     expect(priceOfDai).to.be.equal(
       chainlinkPrices.get("DAI")!.usdPrice.mul(1e10)
@@ -196,7 +196,7 @@ describe("ExactlyOracle", function () {
   it("SetAssetSources should fail when called with different length for asset symbols and addresses", async () => {
     await expect(
       exactlyOracle.setAssetSources(
-        ["ETH", "BTC"],
+        ["WETH", "BTC"],
         ["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]
       )
     ).to.be.revertedWith(

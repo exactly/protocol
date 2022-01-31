@@ -40,7 +40,7 @@ describe("FixedLender", function () {
     exactlyEnv = await DefaultEnv.create({});
 
     underlyingToken = exactlyEnv.getUnderlying("DAI");
-    underlyingTokenETH = exactlyEnv.getUnderlying("ETH");
+    underlyingTokenETH = exactlyEnv.getUnderlying("WETH");
     fixedLender = exactlyEnv.getFixedLender("DAI");
     poolAccounting = exactlyEnv.getPoolAccounting("DAI");
     auditor = exactlyEnv.auditor;
@@ -488,8 +488,8 @@ describe("FixedLender", function () {
 
   describe("GIVEN Maria has 10ETH collateral", () => {
     beforeEach(async () => {
-      await exactlyEnv.depositSP("ETH", "10");
-      await exactlyEnv.enterMarkets(["ETH"]);
+      await exactlyEnv.depositSP("WETH", "10");
+      await exactlyEnv.enterMarkets(["WETH"]);
     });
     it("WHEN Maria tries to borrow 50 DAI on an empty maturity, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
       await expect(
@@ -554,10 +554,10 @@ describe("FixedLender", function () {
     });
   });
 
-  describe("GIVEN maria has plenty of ETH collateral", () => {
+  describe("GIVEN maria has plenty of WETH collateral", () => {
     beforeEach(async () => {
-      await exactlyEnv.depositSP("ETH", "4");
-      await exactlyEnv.enterMarkets(["DAI", "ETH"]);
+      await exactlyEnv.depositSP("WETH", "4");
+      await exactlyEnv.enterMarkets(["DAI", "WETH"]);
     });
     describe("AND GIVEN she deposits 1000DAI into the next two maturity pools AND other 500 into the smart pool", () => {
       beforeEach(async () => {

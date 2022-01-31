@@ -158,14 +158,22 @@ export class DefaultEnv {
         const { decimals, collateralRate, usdPrice } =
           mockedTokens!.get(tokenName)!;
         const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
-        const MockedToken = await ethers.getContractFactory("MockedToken");
-        const underlyingToken = await MockedToken.deploy(
-          "Fake " + tokenName,
-          "F" + tokenName,
-          decimals,
-          totalSupply.toString()
-        );
-        await underlyingToken.deployed();
+        let underlyingToken: Contract;
+        if (tokenName === "WETH") {
+          const Weth = await ethers.getContractFactory("WETH9");
+          underlyingToken = await Weth.deploy();
+          await underlyingToken.deployed();
+          await underlyingToken.deposit({ value: totalSupply });
+        } else {
+          const MockedToken = await ethers.getContractFactory("MockedToken");
+          underlyingToken = await MockedToken.deploy(
+            "Fake " + tokenName,
+            "F" + tokenName,
+            decimals,
+            totalSupply.toString()
+          );
+          await underlyingToken.deployed();
+        }
         const MockedEToken = await ethers.getContractFactory("EToken");
         const eToken = await MockedEToken.deploy(
           "eFake " + tokenName,
@@ -187,7 +195,9 @@ export class DefaultEnv {
           interestRateModel.address
         );
 
-        const FixedLender = await ethers.getContractFactory("FixedLender");
+        const FixedLender = await ethers.getContractFactory(
+          tokenName === "WETH" ? "ETHFixedLender" : "FixedLender"
+        );
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
@@ -317,12 +327,67 @@ export class DefaultEnv {
       .depositToMaturityPool(amount, maturityPool, expectedAmount);
   }
 
+  public async depositMPETH(
+    assetString: string,
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    const expectedAmount =
+      (expectedAtMaturity &&
+        parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) ||
+      applyMinFee(amount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .depositToMaturityPoolEth(maturityPool, expectedAmount, {
+        value: amount,
+      });
+  }
+
+  public async depositSPETH(assetString: string, units: string) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .depositToSmartPoolEth({ value: amount });
+  }
+
   public async withdrawSP(assetString: string, units: string) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     return fixedLender
       .connect(this.currentWallet)
       .withdrawFromSmartPool(amount);
+  }
+
+  public async withdrawSPETH(assetString: string, units: string) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawFromSmartPoolEth(amount);
+  }
+
+  public async withdrawMPETH(
+    assetString: string,
+    maturityPool: number,
+    units: string
+  ) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawFromMaturityPoolEth(
+        this.currentWallet.address,
+        amount,
+        maturityPool
+      );
   }
 
   public async withdrawMP(
@@ -363,6 +428,31 @@ export class DefaultEnv {
       .borrowFromMaturityPool(amount, maturityPool, expectedAmount);
   }
 
+  public async borrowMPETH(
+    assetString: string,
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = applyMaxFee(amount);
+    }
+    return fixedLender
+      .connect(this.currentWallet)
+      .borrowFromMaturityPoolEth(maturityPool, expectedAmount, {
+        value: amount,
+      });
+  }
+
   public async repayMP(
     assetString: string,
     maturityPool: number,
@@ -377,6 +467,21 @@ export class DefaultEnv {
     return fixedLender
       .connect(this.currentWallet)
       .repayToMaturityPool(this.currentWallet.address, maturityPool, amount);
+  }
+
+  public async repayMPETH(
+    assetString: string,
+    maturityPool: number,
+    units: string
+  ) {
+    assert(assetString === "WETH");
+    const fixedLender = this.getFixedLender(assetString);
+    const amount = parseUnits(units, this.digitsForAsset(assetString));
+    return fixedLender
+      .connect(this.currentWallet)
+      .repayToMaturityPoolEth(this.currentWallet.address, maturityPool, {
+        value: amount,
+      });
   }
 
   public async enterMarkets(assets: string[]) {

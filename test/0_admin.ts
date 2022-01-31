@@ -22,7 +22,7 @@ describe("Auditor Admin", function () {
       },
     ],
     [
-      "ETH",
+      "WETH",
       {
         decimals: 18,
         collateralRate: parseUnits("0.7"),
@@ -152,7 +152,7 @@ describe("Auditor Admin", function () {
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
       let addresses = await auditor.getMarketAddresses();
       expect(addresses[0]).to.equal(exactlyEnv.getFixedLender("DAI").address);
-      expect(addresses[1]).to.equal(exactlyEnv.getFixedLender("ETH").address);
+      expect(addresses[1]).to.equal(exactlyEnv.getFixedLender("WETH").address);
     });
 
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
@@ -161,16 +161,16 @@ describe("Auditor Admin", function () {
         eToken.address,
         exactlyEnv.auditor.address,
         exactlyEnv.interestRateModel.address,
-        exactlyEnv.getUnderlying("ETH").address,
-        "ETH"
+        exactlyEnv.getUnderlying("WETH").address,
+        "WETH"
       );
 
       let fixedLenderAddress = fixedLender.address;
       let tx = exactlyEnv.enableMarket(
         fixedLender.address,
         parseUnits("0.5"),
-        "ETH",
-        "ETH",
+        "WETH",
+        "WETH",
         18
       );
 

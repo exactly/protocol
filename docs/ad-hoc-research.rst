@@ -213,3 +213,208 @@ liquidators will want to liquidate as much as possible and as soon as possible, 
 2. Liquidators choose a maturity to repay, they can send one tx at a time. If the user still has shortfall, then they'll have to send another one an point to another maturity.
 
 As discussed with Lucas, will go for the second one. Bear in mind that it might not be so useful/efficient from a liquidator's point of view. I'm also opened here for other approaches.
+
+Accepting bare ETH
+==================
+So far we have two ideas for accepting eth deposits:
+
+Wrapper contract
+----------------
+
+.. uml::
+    :caption: depositMP
+
+    actor user
+    participant ETHFixedLender
+    participant FixedLender
+    participant WETH
+
+    user -> ETHFixedLender: depositMP(poolId, {value: 100})
+    ETHFixedLender -> WETH: wrap({value: 100})
+    ETHFixedLender <-- WETH
+    ETHFixedLender -> FixedLender: depositMP(user, poolId, 100)
+    ETHFixedLender <-- FixedLender
+    ETHFixedLender -> ETHFixedLender: ...registers the user has a deposit
+    user <--ETHFixedLender
+
+.. uml::
+    :caption: withdrawMP
+
+    actor user
+    participant ETHFixedLender
+    participant FixedLender
+    participant WETH
+
+    user -> ETHFixedLender: withdrawMP(poolId, 100, v, r, s)
+    ETHFixedLender -> FixedLender: withdrawMP(user, poolId, 100, v, r, s)
+    ETHFixedLender <-- FixedLender
+    ETHFixedLender -> WETH: unwrap(100)
+    ETHFixedLender <-- WETH
+    ETHFixedLender -> user: .send("", {value: 100})
+    note right: this is where a reentrancy attack could happen
+    ETHFixedLender <-- user
+    user <--ETHFixedLender
+
+.. uml::
+    :caption: depositSP
+
+    actor user
+    participant ETHFixedLender
+    participant FixedLender
+    participant WETH
+    participant EWETH
+
+    user -> ETHFixedLender: depositSP({value: 100})
+    ETHFixedLender -> WETH: wrap({value: 100})
+    ETHFixedLender <-- WETH
+    ETHFixedLender -> FixedLender: depositSP(user, 100)
+    FixedLender -> EWETH: mint(user, 100)
+    FixedLender <-- EWETH
+    ETHFixedLender <-- FixedLender
+    user <--ETHFixedLender
+
+Another possible alternative is to leave the tokens under ETHFixedLender's
+custody but set an allowance for the user so they can withdrawn them if needed,
+and don't have to set an allowance to the ETHFixedLender when they want to
+withdraw from the smart pool
+
+.. uml::
+    :caption: withdrawSP
+
+    actor user
+    participant ETHFixedLender
+    participant FixedLender
+    participant WETH
+    participant EWETH
+
+    user -> ETHFixedLender: withdrawSP(100, v,r,s)
+    ETHFixedLender -> EWETH: transferFrom(user, ETHFixedLender, 100)
+    ETHFixedLender <-- EWETH:
+    ETHFixedLender -> FixedLender: withdrawSP(user, 100, v, r, s)
+    FixedLender -> EWETH: burn(ETHFixedLender, 100)
+    FixedLender <-- EWETH
+    ETHFixedLender <-- FixedLender
+    ETHFixedLender -> user: .send("", {value: 100})
+    note right: this is where a reentrancy attack could happen
+    ETHFixedLender <-- user
+    user <--ETHFixedLender
+
+Notes
+^^^^^
+
+- [ ] we might have to do minor modifications to the deposit/withdraw methods in order to be able to easily track the amount that was actually deposited/withdrawn
+- [ ] We'll have to look into reentrancy issues on withdrawals, since we'll call the user back with an eth transfer (which might be a contract)
+- [ ] It's necessary to add a ``from`` argument to the ``FixedLender`` and have it track position ownership instead of having a custodial ``ETHFixedLender``, because otherwise all of the positions created via the ``ETHFixedLender`` would share a liquidity computation.
+- [ ] when handling withdrawals, we should decide if we want the ``FixedLender`` to transfer the tokens to the caller (``ETHFixedLender`` in this case) or the user.
+- [ ] verifying the signatures (``v,r,s`` values) is not trivial, the correct thing to do would be to do a ERC-712 signature verification. However, `OZ's implementation <https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/cryptography/draft-EIP712.sol>`_ is still in draft status. We should decide if we want to use it regardless or import some other implementation
+- [ ] with a working ERC-712 implementation, doing the signature check shouldn't be too hard, but review from someone who actually knows their crypto would be of great value.
+
+Extension by inheritance to the WETH FixedLender contract
+---------------------------------------------------------
+
+The idea would be to add some methods to the default FixedLender via inheritance in order to receive ETH directly.
+
+.. uml::
+
+    @startuml
+
+    interface IFixedLender {
+        + depositToSmartPool()
+        + withdrawFromSmartPool()
+        + depositToMaturityPool()
+        + withdrawFromMaturityPool()
+        + repayToMaturityPool()
+    }
+    class IERC20 {
+    }
+    class WETH {
+    }
+    class FixedLender {
+        # doTransferIn(from, amount): actualReceived
+        # doTransferOut(to, amount)
+    }
+    class ETHFixedLender {
+        # doTransferIn(from, amount): actualReceived
+        # doTransferOut(to, amount)
+    }
+
+    FixedLender ..|> IFixedLender
+    FixedLender o-- IERC20 : has underlying
+    ETHFixedLender o-- WETH : uses for wrapping
+    ETHFixedLender --|> FixedLender
+    WETH --|> IERC20
+
+    @enduml
+
+A core difference in the implementation would be that we'd have to add hook-style functions to the ``FixedLender`` to get money in and out of the system, which would be overriden in the ``ETHFixedLender``
+
+hooks for transfer in
+^^^^^^^^^^^^^^^^^^^^^
+- [ ] depositToMaturityPool , FixedLender.sol:262
+- [ ] depositToSmartPool, FixedLender.sol:386
+- [ ] _repay, FixedLender.sol:511
+
+that's basically all calls to ``doTransferIn``, we could just make that function virtual
+
+hooks for transfer out
+^^^^^^^^^^^^^^^^^^^^^^
+- [ ] borrowFromMaturityPool contracts/FixedLender.sol:236
+- [ ] withdrawFromMaturityPool contracts/FixedLender.sol:310
+- [ ] withdrawFromSmartPool contracts/FixedLender.sol:412
+- [ ] _seize contracts/FixedLender.sol:668
+
+Notes
+^^^^^
+- [ ] the ``liquidate`` method doesn't have its eth-receiving couterpart, given that any user technical enough to do liquidations can probably wrap ETH on their own
+- [ ] it's not necessary to override ``balanceOf`` usages since the only context in which it's called on the underlying token is inside the ``doTransferIn`` method, and the global/by user accounting are updated with the return value of the latter function
+
+How accepting ETH works in Compound
+-----------------------------------
+
+.. uml::
+
+    class CToken{
+        doTransferIn(...) abstract
+        doTransferOut(...) abstract
+    }
+    class CERC20{}
+    class CEther{
+        mint() external payable 
+        redeem(redeemTokens) external 
+        redeemUnderlying(redeemAmount) external 
+        borrow(uint borrowAmount) external 
+        repayBorrow() external payable 
+        repayBorrowBehalf(borrower) external payable 
+        liquidateBorrow(borrower, cTokenCollateral) external payable 
+    }
+    interface CErc20Interface{
+        mint(mintAmount) external 
+        redeem(redeemTokens) external 
+        redeemUnderlying(redeemAmount) external 
+        borrow(borrowAmount) external 
+        repayBorrow(repayAmount) external 
+        repayBorrowBehalf(borrower, repayAmount) external 
+        liquidateBorrow(borrower, repayAmount, cTokenCollateral) external 
+        sweepToken(token) external
+    }
+
+    CERC20 --|> CToken 
+    CERC20 ..|> CErc20Interface
+    CEther --|> CToken
+
+note from the above, ``CEther`` and ``CErc20Interface`` have similar but not identical ABIs, so ``CEther`` doesn't implement ``CErc20Interface``
+
+Also, the bulk of the functionality is implemented in ``CToken``, similar to how in our current approach most of the functionality is implemented in the ``FixedLender``
+
+The key difference (at a technical level) is, while we implement the ``doTransfer{In,Out}`` in the ``FixedLender`` and override them in the ``ETHFixedLender``, in Compound's case the functions are abstract in the ``CToken`` and the derived classes implement them separately.
+
+A user-facing consecuence of this is that it's not possible to accept both ``ETH`` and ``WETH`` in the same contract with Compound, something that we're able to do
+
+Pros
+^^^^
+- In the case of ``CEther``, it's a bit more gas efficient, since no wrapping or ERC20 transfers are done
+- Having the transfer hooks as abstract in a base contract and implementing them separately is a bit less confusing than our override-but-sometimes-use-the-default-behaviour approach
+
+Cons
+^^^^
+- It's not possible to accept ``ETH`` and ``WETH`` in the same contract

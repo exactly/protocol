@@ -2,6 +2,7 @@ import { parseUnits } from "@ethersproject/units";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { ethers } from "hardhat";
+import { Contract } from "ethers";
 import fs from "fs";
 import assert from "assert";
 import YAML from "yaml";
@@ -133,14 +134,25 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log("------");
     let address: string;
     if (hre.network.name === "hardhat" && process.env.FORKING !== "true") {
-      const MockedToken = await ethers.getContractFactory("MockedToken");
       const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
-      const underlyingToken = await MockedToken.deploy(
-        `Fake ${symbol}`,
-        `F${symbol}`,
-        decimals,
-        totalSupply.toString()
-      );
+      let underlyingToken: Contract;
+      if (symbol === "WETH") {
+        const Weth = await ethers.getContractFactory("WETH9");
+        underlyingToken = await Weth.deploy();
+        await underlyingToken.deployed();
+        if (process.env.PUBLIC_ADDRESS) {
+          await underlyingToken.deposit({ value: totalSupply });
+        }
+      } else {
+        const MockedToken = await ethers.getContractFactory("MockedToken");
+        underlyingToken = await MockedToken.deploy(
+          "Fake " + symbol,
+          "F" + symbol,
+          decimals,
+          totalSupply.toString()
+        );
+        await underlyingToken.deployed();
+      }
       await underlyingToken.deployed();
       if (process.env.PUBLIC_ADDRESS) {
         await underlyingToken.transfer(process.env.PUBLIC_ADDRESS, totalSupply);
@@ -181,7 +193,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const fixedLender = await hre.deployments.deploy(
       fixedLenderDeploymentName,
       {
-        contract: "FixedLender",
+        contract: symbol === "WETH" ? "ETHFixedLender" : "FixedLender",
         from: deployer,
         args: [
           address,
