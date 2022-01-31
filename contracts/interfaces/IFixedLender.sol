@@ -69,8 +69,6 @@ interface IFixedLender {
 
     function totalMpBorrows() external view returns (uint256);
 
-    function getSmartPoolDeposits() external view returns (uint256);
-
     function totalMpDeposits() external view returns (uint256);
 
     function totalMpBorrowsUser(address who) external view returns (uint256);

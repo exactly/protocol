@@ -426,7 +426,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     /**
      * @dev Gets the market size of the smart pool, usefull for dApps to show current status
      */
-    function getSmartPoolDeposits() public view override returns (uint256) {
+    function getSmartPoolDeposits() public view returns (uint256) {
         return eToken.totalSupply();
     }
 

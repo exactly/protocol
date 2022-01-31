@@ -6,6 +6,9 @@ docs/_build
 tags
 .DS_Store
 
+.vscode/
+
+
 node_modules
 
 #Hardhat files
