@@ -15,8 +15,7 @@ describe("PoolAccounting", () => {
   let exaTime = new ExaTime();
   let snapshot: any;
   const nextPoolID = exaTime.nextPoolID() + 7 * exaTime.ONE_DAY; // we add 7 days so we make sure we are far from the previouos timestamp blocks
-  // we use a high maxSPDebt limit since max borrows are already tested
-  const maxSPDebt = parseUnits("100000");
+  const maxSPDebt = parseUnits("100000"); // we use a high maxSPDebt limit since max borrows are already tested
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -24,6 +23,7 @@ describe("PoolAccounting", () => {
     poolAccountingEnv = await PoolAccountingEnv.create();
     realPoolAccounting = poolAccountingEnv.realPoolAccounting;
     poolAccountingHarness = poolAccountingEnv.poolAccountingHarness;
+    mockedInterestRateModel = poolAccountingEnv.interestRateModel;
   });
 
   describe("function calls not originating from the FixedLender contract", () => {
@@ -362,12 +362,9 @@ describe("PoolAccounting", () => {
             });
 
             describe("AND GIVEN a total repayMP with an amount of 15750 (all debt)", () => {
-              const twelveHoursToMaturity =
-                nextPoolID - exaTime.ONE_DAY + exaTime.ONE_HOUR * 12;
-
               beforeEach(async () => {
                 await ethers.provider.send("evm_setNextBlockTimestamp", [
-                  twelveHoursToMaturity,
+                  nextPoolID,
                 ]);
                 repayAmount = 15750;
                 await poolAccountingHarness
