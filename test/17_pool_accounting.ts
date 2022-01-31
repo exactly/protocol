@@ -4,11 +4,13 @@ import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ProtocolError, errorGeneric, ExaTime } from "./exactlyUtils";
+import { PoolAccountingEnv } from "./poolAccountingEnv";
 
 describe("PoolAccounting", () => {
   let laura: SignerWithAddress;
+  let poolAccountingEnv: PoolAccountingEnv;
+  let poolAccountingHarness: Contract;
   let realPoolAccounting: Contract;
-  let poolAccounting: Contract;
   let mockedInterestRateModel: Contract;
   let exaTime = new ExaTime();
   let snapshot: any;
@@ -19,42 +21,9 @@ describe("PoolAccounting", () => {
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
     [, laura] = await ethers.getSigners();
-
-    const MockedInterestRateModel = await ethers.getContractFactory(
-      "MockedInterestRateModel"
-    );
-    mockedInterestRateModel = await MockedInterestRateModel.deploy();
-    await mockedInterestRateModel.deployed();
-    const TSUtilsLib = await ethers.getContractFactory("TSUtils");
-    let tsUtils = await TSUtilsLib.deploy();
-    await tsUtils.deployed();
-    const PoolLib = await ethers.getContractFactory("PoolLib", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
-    let poolLib = await PoolLib.deploy();
-    await poolLib.deployed();
-
-    const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
-      libraries: {
-        TSUtils: tsUtils.address,
-        PoolLib: poolLib.address,
-      },
-    });
-    realPoolAccounting = await PoolAccounting.deploy(
-      mockedInterestRateModel.address
-    );
-    await realPoolAccounting.deployed();
-    const PoolAccountingHarness = await ethers.getContractFactory(
-      "PoolAccountingHarness"
-    );
-    poolAccounting = await PoolAccountingHarness.deploy(
-      realPoolAccounting.address
-    );
-    await poolAccounting.deployed();
-
-    await realPoolAccounting.initialize(poolAccounting.address);
+    poolAccountingEnv = await PoolAccountingEnv.create();
+    realPoolAccounting = poolAccountingEnv.realPoolAccounting;
+    poolAccountingHarness = poolAccountingEnv.poolAccountingHarness;
   });
 
   describe("function calls not originating from the FixedLender contract", () => {
@@ -104,7 +73,7 @@ describe("PoolAccounting", () => {
         sixDaysToMaturity,
       ]);
       depositAmount = "10000";
-      await poolAccounting
+      await poolAccountingHarness
         .connect(laura)
         .depositMP(
           nextPoolID,
@@ -112,7 +81,7 @@ describe("PoolAccounting", () => {
           parseUnits(depositAmount),
           parseUnits(depositAmount)
         );
-      returnValues = await poolAccounting.returnValues();
+      returnValues = await poolAccountingHarness.returnValues();
     });
     it("THEN the maturity pool state is correctly updated", async () => {
       const mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -138,7 +107,7 @@ describe("PoolAccounting", () => {
         ]);
         borrowAmount = 5000;
         borrowFees = 250;
-        await poolAccounting
+        await poolAccountingHarness
           .connect(laura)
           .borrowMP(
             nextPoolID,
@@ -147,7 +116,7 @@ describe("PoolAccounting", () => {
             parseUnits((borrowAmount + borrowFees).toString()),
             maxSPDebt
           );
-        returnValues = await poolAccounting.returnValues();
+        returnValues = await poolAccountingHarness.returnValues();
       });
       it("THEN the maturity pool state is correctly updated", async () => {
         const mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -174,7 +143,7 @@ describe("PoolAccounting", () => {
           ]);
           borrowAmount = 5000;
           borrowFees = 250;
-          await poolAccounting
+          await poolAccountingHarness
             .connect(laura)
             .borrowMP(
               nextPoolID,
@@ -183,7 +152,7 @@ describe("PoolAccounting", () => {
               parseUnits((borrowAmount + borrowFees).toString()),
               maxSPDebt
             );
-          returnValues = await poolAccounting.returnValues();
+          returnValues = await poolAccountingHarness.returnValues();
         });
         it("THEN the maturity pool state is correctly updated", async () => {
           const mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -212,7 +181,7 @@ describe("PoolAccounting", () => {
             ]);
             borrowAmount = 5000;
             borrowFees = 250;
-            await poolAccounting
+            await poolAccountingHarness
               .connect(laura)
               .borrowMP(
                 nextPoolID,
@@ -221,7 +190,7 @@ describe("PoolAccounting", () => {
                 parseUnits((borrowAmount + borrowFees).toString()),
                 maxSPDebt
               );
-            returnValues = await poolAccounting.returnValues();
+            returnValues = await poolAccountingHarness.returnValues();
           });
           it("THEN the maturity pool state is correctly updated", async () => {
             const mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -259,7 +228,7 @@ describe("PoolAccounting", () => {
                 oneDayToMaturity,
               ]);
               depositAmount = 10000;
-              await poolAccounting
+              await poolAccountingHarness
                 .connect(laura)
                 .depositMP(
                   nextPoolID,
@@ -267,7 +236,7 @@ describe("PoolAccounting", () => {
                   parseUnits(depositAmount.toString()),
                   parseUnits(depositAmount.toString())
                 );
-              returnValues = await poolAccounting.returnValues();
+              returnValues = await poolAccountingHarness.returnValues();
             });
             it("THEN the maturity pool state is correctly updated", async () => {
               const mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -310,7 +279,7 @@ describe("PoolAccounting", () => {
                 oneDayToMaturity,
               ]);
               depositAmount = 100000000;
-              await poolAccounting
+              await poolAccountingHarness
                 .connect(laura)
                 .depositMP(
                   nextPoolID,
@@ -318,7 +287,8 @@ describe("PoolAccounting", () => {
                   parseUnits(depositAmount.toString()),
                   parseUnits(depositAmount.toString())
                 );
-              returnValues = await poolAccounting.returnValues();
+
+              returnValues = await poolAccountingHarness.returnValues();
             });
             it("THEN the maturity pool state is correctly updated (unassignedEarnings are close to 0 but not 0)", async () => {
               const mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -354,14 +324,14 @@ describe("PoolAccounting", () => {
                   twelveHoursToMaturity,
                 ]);
                 repayAmount = 5250;
-                await poolAccounting
+                await poolAccountingHarness
                   .connect(laura)
                   .repayMP(
                     nextPoolID,
                     laura.address,
                     parseUnits(repayAmount.toString())
                   );
-                returnValues = await poolAccounting.returnValues();
+                returnValues = await poolAccountingHarness.returnValues();
               });
               it("THEN the maturity pool state is correctly updated", async () => {
                 const mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -400,14 +370,14 @@ describe("PoolAccounting", () => {
                   twelveHoursToMaturity,
                 ]);
                 repayAmount = 15750;
-                await poolAccounting
+                await poolAccountingHarness
                   .connect(laura)
                   .repayMP(
                     nextPoolID,
                     laura.address,
                     parseUnits(repayAmount.toString())
                   );
-                returnValues = await poolAccounting.returnValues();
+                returnValues = await poolAccountingHarness.returnValues();
               });
               it("THEN the maturity pool state is correctly updated", async () => {
                 const mp = await realPoolAccounting.maturityPools(nextPoolID);
