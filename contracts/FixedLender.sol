@@ -33,6 +33,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     // Total deposits in all maturities
     uint256 public override totalMpDeposits;
+
+    uint256 public totalSpDeposits;
+
     mapping(address => uint256) public override totalMpDepositsUser;
 
     // Total borrows in all maturities
@@ -364,6 +367,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         auditor.beforeDepositSP(address(this), msg.sender);
         amount = doTransferIn(msg.sender, amount);
         eToken.mint(msg.sender, amount);
+        totalSpDeposits += amount;
+
         emit DepositToSmartPool(msg.sender, amount);
     }
 
