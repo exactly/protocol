@@ -142,11 +142,7 @@ library PoolLib {
                 // Covered the supply SP and the earnings SP and extras SP
                 smartPoolDebtReduction = supplySP;
                 fee = pool.earningsSP;
-                earningsRepay =
-                    extra -
-                    supplySP -
-                    fee -
-                    pool.unassignedEarnings;
+                earningsRepay = extra - supplySP - fee;
 
                 pool.suppliedSP = 0;
                 pool.earningsSP = 0;
