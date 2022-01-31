@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ExaTime } from "./exactlyUtils";
+import { ExaTime, ProtocolError, errorGeneric } from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
 
 describe("InterestRateModel", () => {
@@ -109,6 +109,84 @@ describe("InterestRateModel", () => {
         parseUnits("100") // 100 available from SP
       );
       expect(rate).to.eq(parseUnits("0.14"));
+    });
+    describe("interest for durations other than a full year", () => {
+      it("WHEN asking for the interest for negative time difference, THEN it reverts", async () => {
+        const tx = interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID + exaTime.ONE_DAY,
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("0"), // no MP supply
+          parseUnits("100") // 100 available from SP
+        );
+
+        await expect(tx).to.be.revertedWith(
+          errorGeneric(ProtocolError.INVALID_TIME_DIFFERENCE)
+        );
+      });
+      it("WHEN asking for the interest for a time difference of zero, THEN it reverts", async () => {
+        const tx = interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID,
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("0"), // no MP supply
+          parseUnits("100") // 100 available from SP
+        );
+
+        await expect(tx).to.be.revertedWith(
+          errorGeneric(ProtocolError.INVALID_TIME_DIFFERENCE)
+        );
+      });
+      it("WHEN asking for the interest for a 5-day period at Ub, THEN it returns Rb*(5/365)", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 5 * exaTime.ONE_DAY,
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("0"), // no MP supply
+          parseUnits("100") // 100 available from SP
+        );
+
+        // 0.14*5/365
+        expect(rate).to.closeTo(parseUnits(".00191780821917808"), 100);
+      });
+      it("WHEN asking for the interest for a two-week period at Ub, THEN it returns Rb*(14/365)", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 14 * exaTime.ONE_DAY,
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("0"), // no MP supply
+          parseUnits("100") // 100 available from SP
+        );
+
+        // 0.14*14/365
+        expect(rate).to.be.closeTo(parseUnits(".00536986301369863"), 100);
+      });
+      it("WHEN asking for the interest for a one-day period at U0, THEN it returns R0*(1/365)", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - exaTime.ONE_DAY,
+          parseUnits("0"), // 0 borrowed, this is what makes U=0
+          parseUnits("0"), // no MP supply
+          parseUnits("100") // 100 available from SP
+        );
+
+        // 0.02*1/365
+        // .00005479452054794520
+        expect(rate).to.be.closeTo(parseUnits(".00005479452054794"), 100);
+      });
+
+      it("WHEN asking for the interest for a five-second period at U0, THEN it returns R0*(5/(365*24*60*60))", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 5,
+          parseUnits("0"), // 0 borrowed, this is what makes U=0
+          parseUnits("0"), // no MP supply
+          parseUnits("100") // 100 available from SP
+        );
+
+        // 0.02*5/(365*24*60*60)
+        expect(rate).to.be.closeTo(parseUnits(".00000000317097919"), 100);
+      });
     });
   });
 });

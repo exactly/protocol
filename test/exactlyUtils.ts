@@ -69,6 +69,7 @@ export enum ProtocolError {
   TOO_MUCH_SLIPPAGE,
   TOO_MUCH_REPAY_TRANSFER,
   SMART_POOL_FUNDS_LOCKED,
+  INVALID_TIME_DIFFERENCE,
 }
 
 export type EnvConfig = {

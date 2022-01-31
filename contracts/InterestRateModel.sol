@@ -12,6 +12,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
     using DecimalMath for uint256;
+    uint256 private constant YEAR = 365 days;
 
     // Parameters to the system, expressed with 1e18 decimals
     uint256 public curveParameterA;
@@ -69,6 +70,9 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 suppliedMP,
         uint256 borrowableFromSP
     ) external view override returns (uint256) {
+        if (currentDate >= maturityDate) {
+            revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
+        }
         // FIXME: add a test where the liquidity from the MP is used
         uint256 supplied = borrowableFromSP;
         uint256 utilizationRate = borrowedMP.div_(supplied);
@@ -77,6 +81,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         ) + curveParameterB;
         // this curve _could_ go below zero if the parameters are set wrong.
         assert(rate > 0);
-        return uint256(rate);
+        return (uint256(rate) * (maturityDate - currentDate)) / YEAR;
     }
 }
