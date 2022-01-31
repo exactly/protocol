@@ -77,6 +77,9 @@ describe("FixedLender", function () {
           )[0]
         ).to.be.equal("2");
       });
+      it("AND the Market Size of the smart pool is 2 wei of a dai", async () => {
+        expect(await fixedLender.getSmartPoolDeposits()).to.be.equal("2");
+      });
       it("AND its not possible to borrow 2 wei of a dai", async () => {
         await expect(
           exactlyEnv
@@ -100,6 +103,9 @@ describe("FixedLender", function () {
           await expect(tx)
             .to.emit(exactlyEnv.getFixedLender("DAI"), "BorrowFromMaturityPool")
             .withArgs(mariaUser.address, "1", "0", nextPoolId);
+        });
+        it("AND the Market Size of the smart pool remains in 2 wei of a dai", async () => {
+          expect(await fixedLender.getSmartPoolDeposits()).to.be.equal("2");
         });
         it("AND a 1 wei of DAI borrow is registered", async () => {
           expect(
@@ -389,6 +395,7 @@ describe("FixedLender", function () {
         );
       });
     });
+
     describe("actions enabled/disabled at different pool stages when Smart Pool has liquidity", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(owner);
