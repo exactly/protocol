@@ -89,6 +89,64 @@ describe("InterestRateModel", () => {
         expect(rate).to.eq(parseUnits("0.14"));
       });
     });
+    describe("distinctions on where the liquidity comes from", () => {
+      it("WHEN asking for the interest with a liquidity of zero THEN it reverts", async () => {
+        const tx = interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - exaTime.ONE_DAY,
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("0"), // no MP supply
+          parseUnits("0") // nothing available from SP
+        );
+
+        await expect(tx).to.be.revertedWith(
+          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+        );
+      });
+      it("WHEN asking for the interest with 80 tokens borrowed and 100 supplied to the MP, THEN it returns Rb=0.14 because U=Ub", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("100"), // 100 supplied to MP
+          parseUnits("0") // nothing available from SP
+        );
+        expect(rate).to.eq(parseUnits("0.14"));
+      });
+      it("WHEN asking for the interest with 80 tokens borrowed and 100 supplied to the MP AND 100 available from the SP, THEN it returns Rb=0.14 because U=Ub", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("100"), // 100 supplied to MP
+          parseUnits("100") // 100 available from SP
+        );
+        expect(rate).to.eq(parseUnits("0.14"));
+      });
+      it("WHEN asking for the interest with 80 tokens borrowed and 150 supplied to the MP AND 100 available from the SP, THEN it returns a lower rate because U<Ub", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("150"), // 150 supplied to MP
+          parseUnits("100") // 100 available from SP
+        );
+        // 0.0495/(1.1-(80/150))-0.025
+        expect(rate).to.be.closeTo(parseUnits(".06235294117647058"), 100);
+      });
+
+      it("WHEN asking for the interest with 80 tokens borrowed and 150 supplied to the MP AND 100 available from the SP, THEN it returns a lower rate because U<Ub", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("100"), // 100 supplied to MP
+          parseUnits("150") // 100 available from SP
+        );
+        // 0.0495/(1.1-(80/150))-0.025
+        expect(rate).to.be.closeTo(parseUnits(".06235294117647058"), 100);
+      });
+    });
 
     it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
       const rate = await interestRateModel.getRateToBorrow(

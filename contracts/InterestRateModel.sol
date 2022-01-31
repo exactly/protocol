@@ -7,8 +7,6 @@ import "./utils/Errors.sol";
 import "./utils/DecimalMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-//solhint-ignore no-empty-blocks
-
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
     using DecimalMath for uint256;
@@ -74,7 +72,10 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
         // FIXME: add a test where the liquidity from the MP is used
-        uint256 supplied = borrowableFromSP;
+        uint256 supplied = Math.max(borrowableFromSP, suppliedMP);
+        if (supplied == 0) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
         uint256 utilizationRate = borrowedMP.div_(supplied);
         int256 rate = int256(
             curveParameterA.div_(maxUtilizationRate - utilizationRate)
