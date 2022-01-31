@@ -397,6 +397,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         eToken.burn(msg.sender, amountToWithdraw);
         trustedUnderlying.safeTransfer(msg.sender, amountToWithdraw);
+        totalSpDeposits -= amountToWithdraw;
 
         emit WithdrawFromSmartPool(msg.sender, amount);
     }
