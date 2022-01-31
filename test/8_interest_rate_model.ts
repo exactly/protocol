@@ -67,6 +67,29 @@ describe("InterestRateModel", () => {
         penaltyRate
       );
     });
+    describe("GIVEN a token with 6 decimals instead of 18", () => {
+      it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0", 6), // 0 borrows, this is what makes U=0
+          parseUnits("0", 6), // no MP supply
+          parseUnits("100", 6) // 100 available from SP
+        );
+        expect(rate).to.eq(parseUnits("0.02"));
+      });
+      it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("80", 6), // 80 borrowed, this is what makes U=0.8
+          parseUnits("0"), // no MP supply
+          parseUnits("100", 6) // 100 available from SP
+        );
+        expect(rate).to.eq(parseUnits("0.14"));
+      });
+    });
+
     it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
       const rate = await interestRateModel.getRateToBorrow(
         nextPoolID,

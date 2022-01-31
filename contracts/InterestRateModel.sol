@@ -71,8 +71,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     ) external view override returns (uint256) {
         // FIXME: add a test where the liquidity from the MP is used
         uint256 supplied = borrowableFromSP;
-        // this'll be in the tokens' decimals. very much not ideal.
-        // FIXME: add a test with decimals other than 18 so this breaks
         uint256 utilizationRate = borrowedMP.div_(supplied);
         int256 rate = int256(
             curveParameterA.div_(maxUtilizationRate - utilizationRate)
