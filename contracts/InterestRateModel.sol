@@ -77,6 +77,12 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
         uint256 utilizationRate = borrowedMP.div_(supplied);
+        if (
+            utilizationRate >= maxUtilizationRate ||
+            borrowedMP > suppliedMP + borrowableFromSP
+        ) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
         int256 rate = int256(
             curveParameterA.div_(maxUtilizationRate - utilizationRate)
         ) + curveParameterB;

@@ -168,6 +168,86 @@ describe("InterestRateModel", () => {
       );
       expect(rate).to.eq(parseUnits("0.14"));
     });
+    describe("high utilization rates", () => {
+      it("AND WHEN asking for the interest at 90% (>Ub)utilization rate THEN it returns R=0.22 (price hike)", async () => {
+        let rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("90"), // 90 borrowed, this is what makes U=0.9
+          parseUnits("0"), // no MP supply
+          parseUnits("100") // 100 available from SP
+        );
+        expect(rate).to.eq(parseUnits("0.2225"));
+
+        rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("90"), // 90 borrowed, this is what makes U=0.9
+          parseUnits("100"), // MP supply
+          parseUnits("0") // nothing available from SP
+        );
+        expect(rate).to.eq(parseUnits("0.2225"));
+      });
+      it("AND WHEN asking for the interest at 100% (>Ub)utilization rate THEN it returns R=0.47 (price hike)", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100")
+        );
+        expect(rate).to.eq(parseUnits("0.47"));
+      });
+      it("AND WHEN asking for the interest at 105% (close to Umax)utilization rate THEN it returns R=0.965 (price hike)", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("105"),
+          parseUnits("100"),
+          parseUnits("100")
+        );
+        expect(rate).to.eq(parseUnits("0.965"));
+      });
+      it("AND WHEN asking for the interest at 105% AND liquidity isnt enough, THEN it reverts", async () => {
+        const tx = interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("105"),
+          parseUnits("100"),
+          parseUnits("0")
+        );
+
+        await expect(tx).to.be.revertedWith(
+          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+        );
+      });
+      it("AND WHEN asking for the interest at Umax, THEN it reverts", async () => {
+        const tx = interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("110"),
+          parseUnits("100"),
+          parseUnits("100")
+        );
+
+        await expect(tx).to.be.revertedWith(
+          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+        );
+      });
+      it("AND WHEN asking for the interest at U>Umax, THEN it reverts", async () => {
+        const tx = interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("115"),
+          parseUnits("100"),
+          parseUnits("100")
+        );
+
+        await expect(tx).to.be.revertedWith(
+          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+        );
+      });
+    });
     describe("interest for durations other than a full year", () => {
       it("WHEN asking for the interest for negative time difference, THEN it reverts", async () => {
         const tx = interestRateModel.getRateToBorrow(
