@@ -128,7 +128,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     describe("GIVEN alice has some WETH", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(owner);
-        weth.transfer(alice.address, parseUnits("10"));
+        await weth.transfer(alice.address, parseUnits("10"));
         exactlyEnv.switchWallet(alice);
       });
       describe("WHEN she deposits 5 WETH (ERC20) to the smart pool", () => {
@@ -159,7 +159,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
   describe("withdrawFromSmartPoolEth vs withdrawFromSmartPool", () => {
     describe("GIVEN alice already has a 5 ETH SP deposit", () => {
       beforeEach(async () => {
-        weth.transfer(alice.address, parseUnits("10"));
+        await weth.transfer(alice.address, parseUnits("10"));
         await exactlyEnv.depositSP("WETH", "5");
       });
       describe("WHEN withdrawing to 3 eWETH to ETH", () => {
@@ -216,7 +216,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     describe("GIVEN alice has a deposit to ETH maturity AND maturity is reached", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(owner);
-        weth.transfer(alice.address, parseUnits("10"));
+        await weth.transfer(alice.address, parseUnits("10"));
         exactlyEnv.switchWallet(alice);
         await exactlyEnv.depositMP("WETH", nextPoolId, "10");
         await exactlyEnv.moveInTime(nextPoolId);
@@ -301,7 +301,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
               nextPoolId
             );
         });
-        it("AND a 5 DAI borrow is registered", async () => {
+        it("AND a 5 WETH borrow is registered", async () => {
           expect(
             await exactlyEnv
               .getFixedLender("WETH")
@@ -335,7 +335,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
               nextPoolId
             );
         });
-        it("AND a 5 DAI borrow is registered", async () => {
+        it("AND a 5 WETH borrow is registered", async () => {
           expect(
             await exactlyEnv
               .getFixedLender("WETH")
