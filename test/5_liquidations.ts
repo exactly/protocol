@@ -26,6 +26,7 @@ describe("Liquidations", function () {
   let amountToBorrowDAI: string;
 
   let snapshot: any;
+  const penaltyRate = "0.0000002314814815"; // Penalty Rate per second. each day (86400) is 2%
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
@@ -45,7 +46,9 @@ describe("Liquidations", function () {
 
     nextPoolID = exaTime.nextPoolID();
 
-    await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
+    await exactlyEnv
+      .getInterestRateModel()
+      .setPenaltyRate(parseUnits(penaltyRate));
 
     // From alice to bob
     await dai.transfer(bob.address, parseUnits("200000"));
@@ -90,9 +93,9 @@ describe("Liquidations", function () {
         beforeEach(async () => {
           exactlyEnv.switchWallet(john);
           await exactlyEnv.depositSP("DAI", "10000");
-          await exactlyEnv.moveInTime(
-            nextPoolID + exaTime.ONE_DAY * 20 + exaTime.ONE_HOUR * 10
-          );
+          await ethers.provider.send("evm_setNextBlockTimestamp", [
+            nextPoolID + exaTime.ONE_DAY * 20,
+          ]);
         });
         describe("Alice is a sneaky gal and uses a flash loan to recover her penalty", () => {
           describe("GIVEN a funded attacker contract and a flash-loaneable token", () => {
@@ -226,7 +229,7 @@ describe("Liquidations", function () {
             expect(johnBalanceEDAI).to.equal(parseUnits("10000"));
           });
 
-          it("AND 19k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
+          it("AND 19k DAI of debt has been repaid, making debt ~36860 DAI", async () => {
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
               nextPoolID
@@ -247,7 +250,7 @@ describe("Liquidations", function () {
               .div(100);
 
             // debt should be approximately 36857
-            expect(debt).to.be.closeTo(newDebtCalculated, 10000);
+            expect(debt).to.be.closeTo(newDebtCalculated, 10000000000000);
           });
 
           describe("AND WHEN the position is liquidated a second time (55818-19000)/2 ~== 18000", () => {
@@ -338,28 +341,35 @@ describe("Liquidations", function () {
             expect(johnBalanceEDAI).to.equal(parseUnits("10000"));
           });
 
-          it("AND 17.1k DAI of debt has been repaid, making debt ~39898 DAI", async () => {
+          it("AND 17.1k DAI of debt has been repaid, making debt ~38760 DAI", async () => {
+            const totalBorrowAmount = 39900;
+            const firstPenalties = exactlyEnv.calculatePenaltiesForDebt(
+              totalBorrowAmount,
+              exaTime.ONE_DAY * 20 + exaTime.ONE_SECOND * 2, // 2 seconds passed since there are 2 extra txs in the beforeEach
+              parseFloat(penaltyRate)
+            );
+            // we calculate how much the 17100 DAI cover from the current debt + penalties
+            let debtCovered =
+              (17100 * totalBorrowAmount) /
+              (totalBorrowAmount + firstPenalties);
+            // since we are calling the accountSnapshot again, we now have to calculate what is owed with the debt that has been covered
+            let currentPenalties = exactlyEnv.calculatePenaltiesForDebt(
+              totalBorrowAmount - debtCovered,
+              exaTime.ONE_DAY * 20 + exaTime.ONE_SECOND * 2,
+              parseFloat(penaltyRate)
+            );
             const [, debt] = await fixedLenderDAI.getAccountSnapshot(
               alice.address,
               nextPoolID
             );
 
-            // Borrowed is 39850
-            const totalBorrowAmount = parseUnits("39900");
-
-            // penalty is 2% * 20 days = 40/100 + 1 = 140/100
-            // so amount owed is 55860
-            const amountOwed = parseUnits("55860");
-            const debtCovered = parseUnits("17100")
-              .mul(totalBorrowAmount)
-              .div(amountOwed);
-            const newDebtCalculated = totalBorrowAmount
-              .sub(debtCovered)
-              .mul(140)
-              .div(100);
-
-            // debt should be approximately 36857
-            expect(debt).to.be.closeTo(newDebtCalculated, 10000);
+            // debt should be approximately 38760
+            expect(debt).to.closeTo(
+              parseUnits(
+                (totalBorrowAmount - debtCovered + currentPenalties).toString()
+              ),
+              parseUnits("0.0000001").toNumber()
+            );
           });
         });
       });

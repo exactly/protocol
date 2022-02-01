@@ -28,6 +28,7 @@ describe("FixedLender", function () {
   const exaTime: ExaTime = new ExaTime();
   const nextPoolId: number = exaTime.nextPoolID();
   const laterPoolId: number = nextPoolId + exaTime.INTERVAL;
+  const penaltyRate = "0.0000002315"; // Penalty Rate per second (86400 is ~= 2%)
 
   let snapshot: any;
   beforeEach(async () => {
@@ -50,7 +51,9 @@ describe("FixedLender", function () {
     await underlyingTokenETH.transfer(mariaUser.address, parseUnits("100000"));
     await underlyingToken.transfer(johnUser.address, parseUnits("100000"));
 
-    await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
+    await exactlyEnv
+      .getInterestRateModel()
+      .setPenaltyRate(parseUnits(penaltyRate));
     exactlyEnv.switchWallet(mariaUser);
   });
   describe("small positions", () => {
@@ -309,16 +312,32 @@ describe("FixedLender", function () {
           beforeEach(async () => {
             await exactlyEnv.moveInTime(nextPoolId + exaTime.ONE_DAY);
           });
-          it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 == 0.04 ) DAI of late payment penalties", async () => {
+          it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 ~= 0.0400032 ) DAI of late payment penalties", async () => {
+            let penalties = exactlyEnv.calculatePenaltiesForDebt(
+              20,
+              exaTime.ONE_DAY,
+              parseFloat(penaltyRate)
+            );
             const [, amountOwed] = await exactlyEnv
               .getFixedLender("DAI")
               .getAccountSnapshot(mariaUser.address, nextPoolId);
 
-            expect(amountOwed).to.equal(parseUnits("20.4"));
+            expect(amountOwed).to.equal(
+              parseUnits((20 + penalties).toString())
+            );
           });
           describe("AND WHEN repaying the rest of the 20.4 owed DAI", () => {
             beforeEach(async () => {
-              await exactlyEnv.repayMP("DAI", nextPoolId, "20.4");
+              let penalties = exactlyEnv.calculatePenaltiesForDebt(
+                20,
+                exaTime.ONE_DAY + exaTime.ONE_SECOND * 2,
+                parseFloat(penaltyRate)
+              );
+              await exactlyEnv.repayMP(
+                "DAI",
+                nextPoolId,
+                (20 + penalties).toString()
+              );
             });
             it("THEN all debt is repaid", async () => {
               const [, amountOwed] = await exactlyEnv

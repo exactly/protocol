@@ -137,7 +137,7 @@ export class DefaultEnv {
           parseUnits("0.4"), // High UR slope rate
           parseUnits("0.8"), // Slope change rate
           parseUnits("0.02"), // Base rate
-          parseUnits("0.02") // Penalty Rate
+          parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
         )
       : await MockedInterestRateModelFactory.deploy();
     await interestRateModel.deployed();
@@ -635,5 +635,14 @@ export class DefaultEnv {
   public async treasury(assetString: string) {
     const fixedLender = this.getFixedLender(assetString);
     return fixedLender.treasury();
+  }
+
+  /* Replicates PoolAccounting.sol calculation of debt penalties per second when a user is delayed and did not repay before maturity (getAccountDebt) */
+  public calculatePenaltiesForDebt(
+    debt: number,
+    secondsDelayed: number,
+    penaltyRate: number
+  ): number {
+    return secondsDelayed > 0 ? debt * (secondsDelayed * penaltyRate) : 0;
   }
 }

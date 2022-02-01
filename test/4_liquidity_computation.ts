@@ -23,6 +23,7 @@ describe("Liquidity computations", function () {
   let wbtc: Contract;
 
   let snapshot: any;
+  const penaltyRate = "0.0000002315"; // Penalty Rate per second (86400 is ~= 2%)
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
@@ -43,7 +44,9 @@ describe("Liquidity computations", function () {
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
-    await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
+    await exactlyEnv
+      .getInterestRateModel()
+      .setPenaltyRate(parseUnits(penaltyRate));
 
     // TODO: perhaps pass the addresses to ExactlyEnv.create and do all the
     // transfers in the same place?

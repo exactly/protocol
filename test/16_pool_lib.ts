@@ -905,7 +905,9 @@ describe("Pool Management Library", () => {
     });
   });
 
-  describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool AND 6% penalty rate AND 10% borrow rate AND 10% protocol share (for the period, not yearly)", () => {
+  describe("GIVEN that Walter deposits 60000 DAI in the Smart Pool AND 6% daily penalty rate AND 10% borrow rate AND 10% protocol share (for the period, not yearly)", () => {
+    const penaltyRate = "0.000000695"; // 6% is 86400 seconds then 1 second is 0,000000695
+
     beforeEach(async () => {
       defaultEnv = await DefaultEnv.create({});
       [owner, juana, cindy, walter, fakeMultisig] = await ethers.getSigners();
@@ -920,7 +922,7 @@ describe("Pool Management Library", () => {
       await defaultEnv.transfer("DAI", walter, "60000");
       await defaultEnv
         .getInterestRateModel()
-        .setPenaltyRate(parseUnits("0.06"));
+        .setPenaltyRate(parseUnits(penaltyRate.toString()));
       await defaultEnv.getInterestRateModel().setBorrowRate(parseUnits("0.1"));
       await defaultEnv
         .getFixedLender("DAI")
@@ -975,7 +977,9 @@ describe("Pool Management Library", () => {
           let mp: any;
           beforeEach(async () => {
             defaultEnv.switchWallet(juana);
-            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await ethers.provider.send("evm_setNextBlockTimestamp", [
+              exaTime.nextPoolID() - 1, // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
+            ]);
             await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "4000");
             mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
           });
@@ -1010,26 +1014,28 @@ describe("Pool Management Library", () => {
             );
             expect(owed).to.equal(parseUnits("400"));
           });
+        });
+        describe("AND Juana repays 4400 at maturity for her commission", () => {
+          let mp: any;
+          beforeEach(async () => {
+            defaultEnv.switchWallet(juana);
+            await ethers.provider.send("evm_setNextBlockTimestamp", [
+              exaTime.nextPoolID() - 1, // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
+            ]);
+            await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "4400");
+            mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
+          });
 
-          describe("AND Juana repays 400 at maturity for her fee", () => {
-            let mp: any;
-            beforeEach(async () => {
-              defaultEnv.switchWallet(juana);
-              await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "400");
-              mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
-            });
+          it("THEN 'earningsSP' are 0", async () => {
+            expect(mp.earningsSP).to.equal(0);
+          });
 
-            it("THEN 'earningsSP' are 0", async () => {
-              expect(mp.earningsSP).to.equal(0);
-            });
-
-            it("THEN owes 0 to the pool", async () => {
-              const [, owed] = await defaultEnv.accountSnapshot(
-                "DAI",
-                exaTime.nextPoolID()
-              );
-              expect(owed).to.equal(0);
-            });
+          it("THEN owes 0 to the pool", async () => {
+            const [, owed] = await defaultEnv.accountSnapshot(
+              "DAI",
+              exaTime.nextPoolID()
+            );
+            expect(owed).to.equal(0);
           });
         });
       });
@@ -1071,7 +1077,9 @@ describe("Pool Management Library", () => {
         describe("AND Juana repays 3000 at maturity", () => {
           beforeEach(async () => {
             defaultEnv.switchWallet(juana);
-            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await ethers.provider.send("evm_setNextBlockTimestamp", [
+              exaTime.nextPoolID() - 1, // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
+            ]);
             await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "3000");
           });
 
@@ -1087,9 +1095,9 @@ describe("Pool Management Library", () => {
             let tx: any;
             beforeEach(async () => {
               defaultEnv.switchWallet(juana);
-              await defaultEnv.moveInTime(
-                exaTime.nextPoolID() + exaTime.ONE_DAY
-              );
+              await ethers.provider.send("evm_setNextBlockTimestamp", [
+                exaTime.nextPoolID() - 1 + exaTime.ONE_DAY, // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
+              ]);
               tx = defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "1000");
             });
 
@@ -1109,12 +1117,20 @@ describe("Pool Management Library", () => {
             });
 
             it("THEN she still owes 6% of the 1400 remaining DAI for the penalties (484 DAI)", async () => {
+              let penalties = defaultEnv.calculatePenaltiesForDebt(
+                1400,
+                exaTime.ONE_DAY,
+                parseFloat(penaltyRate)
+              );
               await tx;
               const [, owed] = await defaultEnv.accountSnapshot(
                 "DAI",
                 exaTime.nextPoolID()
               );
-              expect(owed).to.equal(parseUnits("484"));
+              expect(owed).to.closeTo(
+                parseUnits((400 + penalties).toString()),
+                parseUnits("0.000000000000000001").toNumber()
+              );
             });
 
             describe("AND Juana repays another 60 DAI one(1) day after maturity for penalties", () => {
@@ -1151,14 +1167,31 @@ describe("Pool Management Library", () => {
               });
 
               it("THEN she still owes 10% (400 DAI)", async () => {
+                let previousDebt = 456.6464915; // previous debt after repaying 1k
+                let firstPenalties = defaultEnv.calculatePenaltiesForDebt(
+                  previousDebt,
+                  exaTime.ONE_DAY + exaTime.ONE_SECOND * 2, // 2 seconds have passed since one day after maturity (2 txs, 1 approve and 1 repay)
+                  parseFloat(penaltyRate)
+                );
+                // we calculate how much the 60 DAI cover from the current debt + penalties
+                let debtCovered =
+                  (60 * previousDebt) / (previousDebt + firstPenalties);
+                // since we are calling the accountSnapshot again, we now have to calculate what is owed with the debt that has been covered
+                let currentPenalties = defaultEnv.calculatePenaltiesForDebt(
+                  previousDebt - debtCovered,
+                  exaTime.ONE_DAY + exaTime.ONE_SECOND * 2,
+                  parseFloat(penaltyRate)
+                );
                 await tx2;
                 const [, owed] = await defaultEnv.accountSnapshot(
                   "DAI",
                   exaTime.nextPoolID()
                 );
                 expect(owed).to.closeTo(
-                  parseUnits("424"),
-                  parseUnits("0.000001").toNumber()
+                  parseUnits(
+                    (previousDebt - debtCovered + currentPenalties).toString()
+                  ),
+                  parseUnits("0.0000001").toNumber()
                 );
               });
 
