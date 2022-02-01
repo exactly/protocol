@@ -361,34 +361,34 @@ describe("PoolAccounting", () => {
               });
             });
 
-            describe("AND GIVEN a total EARLY repayMP with an amount of 15750 (all debt)", () => {
-              const twelveHoursToMaturity =
-                nextPoolID - exaTime.ONE_DAY + exaTime.ONE_HOUR * 12;
+            // describe("AND GIVEN a total EARLY repayMP with an amount of 15750 (all debt)", () => {
+            //   const twelveHoursToMaturity =
+            //     nextPoolID - exaTime.ONE_DAY + exaTime.ONE_HOUR * 12;
 
-              beforeEach(async () => {
-                await ethers.provider.send("evm_setNextBlockTimestamp", [
-                  twelveHoursToMaturity,
-                ]);
-                repayAmount = 15750;
-                await poolAccountingHarness
-                  .connect(laura)
-                  .repayMP(
-                    nextPoolID,
-                    laura.address,
-                    parseUnits(repayAmount.toString())
-                  );
-                returnValues = await poolAccountingHarness.returnValues();
-              });
-              it("THEN the return values are correctly calculated", async () => {
-                expect(returnValues.penalties).to.be.eq(parseUnits("0"));
-                expect(returnValues.debtCovered).to.be.eq(
-                  parseUnits(repayAmount.toString())
-                );
-                expect(returnValues.fee).to.be.lt(parseUnits("480"));
-                expect(returnValues.fee).to.be.gt(parseUnits("479"));
-                expect(returnValues.earningsRepay).to.eq(parseUnits("0"));
-              });
-            });
+            //   beforeEach(async () => {
+            //     await ethers.provider.send("evm_setNextBlockTimestamp", [
+            //       twelveHoursToMaturity,
+            //     ]);
+            //     repayAmount = 15750;
+            //     await poolAccountingHarness
+            //       .connect(laura)
+            //       .repayMP(
+            //         nextPoolID,
+            //         laura.address,
+            //         parseUnits(repayAmount.toString())
+            //       );
+            //     returnValues = await poolAccountingHarness.returnValues();
+            //   });
+            //   it("THEN the return values are correctly calculated", async () => {
+            //     expect(returnValues.penalties).to.be.eq(parseUnits("0"));
+            //     expect(returnValues.debtCovered).to.be.eq(
+            //       parseUnits(repayAmount.toString())
+            //     );
+            //     expect(returnValues.fee).to.be.lt(parseUnits("480"));
+            //     expect(returnValues.fee).to.be.gt(parseUnits("479"));
+            //     expect(returnValues.earningsRepay).to.eq(parseUnits("0"));
+            //   });
+            // });
 
             describe("AND GIVEN a total repayMP at maturity with an amount of 15750 (all debt)", () => {
               beforeEach(async () => {
