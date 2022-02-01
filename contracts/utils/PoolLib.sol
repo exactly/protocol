@@ -33,6 +33,7 @@ library PoolLib {
         uint256 supplied;
         uint256 suppliedSP;
         uint256 unassignedEarnings;
+        uint256 earningsMP;
         uint256 earningsSP;
         uint256 lastAccrue;
     }
@@ -106,16 +107,20 @@ library PoolLib {
         uint256 earningsSP = pool.earningsSP;
 
         // You can't have repayments bigger than the borrowed amount
-        // but amount might contain the penalties
+        // but amount might contain the fees or penalties
         pool.borrowed = borrowMP - Math.min(borrowMP, amount);
 
         // This is the amount that is being lent out by the protocol
         // that belongs to the MP depositors
-        uint256 depositsBorrowed = borrowMP - supplySP;
+        uint256 depositsBorrowed = borrowMP - Math.min(borrowMP, supplySP);
         if (amount > depositsBorrowed) {
             // if its more than the amount being repaid, then it should
             // take a little part of the SP debt
             uint256 extra = amount - depositsBorrowed;
+
+            uint256 earningsDebtMP = Math.min(pool.earningsMP, extra);
+            pool.earningsMP -= earningsDebtMP;
+            extra -= earningsDebtMP;
             if (extra <= supplySP) {
                 // Covered part of the supply SP
                 pool.suppliedSP -= extra;
@@ -137,7 +142,7 @@ library PoolLib {
                 // Covered the supply SP and the earnings SP and extras SP
                 smartPoolDebtReduction = supplySP;
                 fee = pool.earningsSP;
-                earningsRepay = amount - supplySP - fee;
+                earningsRepay = extra - supplySP - fee;
 
                 pool.suppliedSP = 0;
                 pool.earningsSP = 0;
@@ -170,6 +175,7 @@ library PoolLib {
      */
     function takeFee(MaturityPool storage pool, uint256 fee) external {
         pool.unassignedEarnings -= fee;
+        pool.earningsMP += fee;
     }
 
     /**

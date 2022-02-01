@@ -432,8 +432,9 @@ describe("Pool Management Library", () => {
             expect(await poolEnv.mpHarness.lastEarningsSP()).to.eq(0);
           });
 
-          it("THEN the pool doesn't owe anymore the smart pool ('suppliedSP'=0)", async () => {
-            expect(mp.suppliedSP).to.eq(parseUnits("0"));
+          it("THEN the pool still is owed the MP supplier fees ('suppliedSP'=10 total - 4.6666 given to SP)", async () => {
+            expect(mp.suppliedSP).to.be.lt(parseUnits("5.35"));
+            expect(mp.suppliedSP).to.be.gt(parseUnits("5.33"));
           });
 
           it("THEN the pool have deposits to be repaid for 300", async () => {
@@ -467,19 +468,12 @@ describe("Pool Management Library", () => {
               );
             });
 
-            it("THEN the pool 'lastExtrasSP' is around 25", async () => {
+            it("THEN the pool 'lastExtrasSP' is 20", async () => {
               // 30 repay can be a repayment with penalties. In this case, since
-              // all the other debt has been repaid, all the spread has been covered (4.6666)
+              // all the other debt has been repaid, all the interests have been covered (10 = 4.6 for earninings SP and rest for earningsMP)
               // then all the rest goes to the SP and not shared with anyone
-              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.lt(
-                parseUnits("30").sub(
-                  parseUnits("4.666").sub(parseUnits("0.05"))
-                )
-              );
-              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.gt(
-                parseUnits("30").sub(
-                  parseUnits("4.666").add(parseUnits("0.05"))
-                )
+              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.eq(
+                parseUnits("30").sub(parseUnits("10"))
               );
             });
 
@@ -562,8 +556,9 @@ describe("Pool Management Library", () => {
             expect(await poolEnv.mpHarness.lastEarningsSP()).to.eq(0);
           });
 
-          it("THEN the pool owes 10 to the smart pool ('suppliedSP'=10)", async () => {
-            expect(mp.suppliedSP).to.eq(parseUnits("10"));
+          it("THEN the pool owes 15.333 to the smart pool ('suppliedSP'=10 + original 5.3333 MP fees)", async () => {
+            expect(mp.suppliedSP).to.be.lt(parseUnits("15.35"));
+            expect(mp.suppliedSP).to.be.gt(parseUnits("15.33"));
           });
 
           it("THEN the pool have deposits to be repaid for 300", async () => {
@@ -596,17 +591,10 @@ describe("Pool Management Library", () => {
               );
             });
 
-            it("THEN the pool 'lastExtrasSP' is around 15", async () => {
-              // ... and the extras is 20 - 4.66666 = 15.33333
-              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.lt(
-                parseUnits("20").sub(
-                  parseUnits("4.666").sub(parseUnits("0.05"))
-                )
-              );
-              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.gt(
-                parseUnits("20").sub(
-                  parseUnits("4.666").add(parseUnits("0.05"))
-                )
+            it("THEN the pool 'lastExtrasSP' is 10", async () => {
+              // ... and the extras is 20 - (4.66666 SP fees + 5.3333 MP fees) = 10
+              expect(await poolEnv.mpHarness.lastExtrasSP()).to.be.eq(
+                parseUnits("20").sub(parseUnits("10"))
               );
             });
 
@@ -957,12 +945,14 @@ describe("Pool Management Library", () => {
             mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
           });
 
-          it("THEN the debt of the smart pool is back to 0", async () => {
+          it("THEN the debt of the smart pool is around 171 (earningsMP were paid first)", async () => {
             const borrowSP = await defaultEnv
               .getPoolAccounting("DAI")
               .smartPoolBorrowed();
-            expect(mp.suppliedSP).to.equal(0);
-            expect(borrowSP).to.equal(0);
+            expect(mp.suppliedSP).to.gt(parseUnits("171"));
+            expect(mp.suppliedSP).to.lt(parseUnits("172"));
+            expect(borrowSP).to.gt(parseUnits("171"));
+            expect(borrowSP).to.lt(parseUnits("172"));
           });
 
           it("THEN 'earningsSP' are still there (400 - previous MP deposit fee)", async () => {
@@ -1536,10 +1526,11 @@ describe("Pool Management Library", () => {
             expect(mp.unassignedEarnings).to.equal(parseUnits("0"));
           });
 
-          it("THEN the smart pool total debt is 0", async () => {
+          it("THEN the smart pool total debt is 979 approximately (earningsMP for depositors by the pool)", async () => {
             let smartPoolTotalDebt =
               await poolEnv.mpHarness.smartPoolTotalDebt();
-            expect(smartPoolTotalDebt).to.equal(parseUnits("0"));
+            expect(smartPoolTotalDebt).to.gt(parseUnits("979"));
+            expect(smartPoolTotalDebt).to.lt(parseUnits("980"));
           });
         });
       });

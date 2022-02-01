@@ -2,10 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "../interfaces/IInterestRateModel.sol";
-import "../utils/TSUtils.sol";
 import "../utils/Errors.sol";
-import "../utils/DecimalMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract MockedInterestRateModel is IInterestRateModel {
     uint256 public borrowRate;
