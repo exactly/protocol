@@ -461,6 +461,41 @@ describe("PoolAccounting", () => {
               });
             });
 
+            describe("AND GIVEN a total EARLY repayMP with an amount of 15750 (all debt)", () => {
+              const twelveHoursToMaturity =
+                nextPoolID - exaTime.ONE_DAY + exaTime.ONE_HOUR * 12;
+
+              beforeEach(async () => {
+                await ethers.provider.send("evm_setNextBlockTimestamp", [
+                  twelveHoursToMaturity,
+                ]);
+                repayAmount = 15750;
+                await poolAccountingHarness
+                  .connect(laura)
+                  .repayMP(
+                    nextPoolID,
+                    laura.address,
+                    parseUnits(repayAmount.toString())
+                  );
+                returnValues = await poolAccountingHarness.returnValues();
+              });
+              it("THEN the penalties were 0", async () => {
+                expect(returnValues.penalties).to.be.eq(parseUnits("0"));
+              });
+              it("THEN the debtCovered was the full amount repaid", async () => {
+                expect(returnValues.debtCovered).to.be.eq(
+                  parseUnits(repayAmount.toString())
+                );
+              });
+              it("THEN the fee was around 479", async () => {
+                expect(returnValues.fee).to.be.lt(parseUnits("480"));
+                expect(returnValues.fee).to.be.gt(parseUnits("479"));
+              });
+              it("THEN the earningsRepay was 0", async () => {
+                expect(returnValues.earningsRepay).to.eq(parseUnits("0"));
+              });
+            });
+
             describe("AND GIVEN a total repayMP at maturity with an amount of 15750 (all debt)", () => {
               beforeEach(async () => {
                 await ethers.provider.send("evm_setNextBlockTimestamp", [
