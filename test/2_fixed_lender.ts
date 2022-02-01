@@ -243,7 +243,7 @@ describe("FixedLender", function () {
             .withArgs(
               mariaUser.address,
               mariaUser.address,
-              parseUnits("0"),
+              parseUnits("60"),
               parseUnits("60"),
               nextPoolId
             );
@@ -295,7 +295,7 @@ describe("FixedLender", function () {
             .withArgs(
               mariaUser.address,
               mariaUser.address,
-              parseUnits("0"),
+              parseUnits("40"),
               parseUnits("40"),
               nextPoolId
             );

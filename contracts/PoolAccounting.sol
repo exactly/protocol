@@ -204,7 +204,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         override
         onlyFixedLender
         returns (
-            uint256 penalties,
             uint256 debtCovered,
             uint256 fee,
             uint256 earningsRepay
@@ -225,7 +224,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         debtCovered =
             (repayAmount * repayVars.amountBorrowed) /
             repayVars.amountOwed;
-        penalties = repayAmount - debtCovered;
 
         repayVars.amountStillBorrowed = repayVars.amountBorrowed - debtCovered;
 

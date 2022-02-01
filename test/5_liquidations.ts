@@ -697,7 +697,7 @@ describe("Liquidations", function () {
               .withArgs(
                 bob.address,
                 alice.address,
-                0,
+                parseUnits("19000"),
                 parseUnits("19000"),
                 nextPoolID
               );
