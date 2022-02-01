@@ -112,7 +112,7 @@ library PoolLib {
 
         // This is the amount that is being lent out by the protocol
         // that belongs to the MP depositors
-        uint256 depositsBorrowed = borrowMP - supplySP;
+        uint256 depositsBorrowed = borrowMP - Math.min(borrowMP, supplySP);
         if (amount > depositsBorrowed) {
             // if its more than the amount being repaid, then it should
             // take a little part of the SP debt

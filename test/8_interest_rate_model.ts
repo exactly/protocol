@@ -20,6 +20,7 @@ describe("InterestRateModel", () => {
     supplied: 0,
     suppliedSP: 0,
     unassignedEarnings: 0,
+    earningsMP: 0,
     earningsSP: 0,
     lastAccrue: 0,
   };
