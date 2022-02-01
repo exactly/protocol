@@ -111,7 +111,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 unassignedEarnings,
         uint256 amount
     ) external pure override returns (uint256 earningsShare) {
-        // from now on, it's earnings calculations
         uint256 supply = suppliedSP + amount;
         earningsShare = supply == 0
             ? 0
