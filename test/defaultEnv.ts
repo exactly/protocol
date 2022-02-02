@@ -283,6 +283,10 @@ export class DefaultEnv {
 
   public async moveInTime(timestamp: number) {
     await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
+  }
+
+  public async moveInTimeAndMine(timestamp: number) {
+    await this.moveInTime(timestamp);
     await ethers.provider.send("evm_mine", []);
   }
 

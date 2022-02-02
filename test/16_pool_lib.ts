@@ -784,7 +784,7 @@ describe("Pool Management Library", () => {
         describe("AND Cindy withdraws 3000 at maturity", () => {
           beforeEach(async () => {
             defaultEnv.switchWallet(cindy);
-            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await defaultEnv.moveInTimeAndMine(exaTime.nextPoolID());
             await defaultEnv.withdrawMP("DAI", exaTime.nextPoolID(), "3000");
           });
 
@@ -977,9 +977,8 @@ describe("Pool Management Library", () => {
           let mp: any;
           beforeEach(async () => {
             defaultEnv.switchWallet(juana);
-            await ethers.provider.send("evm_setNextBlockTimestamp", [
-              exaTime.nextPoolID() - 1, // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
-            ]);
+            // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
+            await defaultEnv.moveInTime(exaTime.nextPoolID() - 1);
             await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "4000");
             mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
           });
@@ -1019,9 +1018,8 @@ describe("Pool Management Library", () => {
           let mp: any;
           beforeEach(async () => {
             defaultEnv.switchWallet(juana);
-            await ethers.provider.send("evm_setNextBlockTimestamp", [
-              exaTime.nextPoolID() - 1, // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
-            ]);
+            // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
+            await defaultEnv.moveInTime(exaTime.nextPoolID() - 1);
             await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "4400");
             mp = await defaultEnv.maturityPool("DAI", exaTime.nextPoolID());
           });
@@ -1061,7 +1059,7 @@ describe("Pool Management Library", () => {
         describe("AND Cindy withdraws 3000 at maturity", () => {
           beforeEach(async () => {
             defaultEnv.switchWallet(cindy);
-            await defaultEnv.moveInTime(exaTime.nextPoolID());
+            await defaultEnv.moveInTimeAndMine(exaTime.nextPoolID());
             await defaultEnv.withdrawMP("DAI", exaTime.nextPoolID(), "3000");
           });
 
@@ -1077,9 +1075,8 @@ describe("Pool Management Library", () => {
         describe("AND Juana repays 3000 at maturity", () => {
           beforeEach(async () => {
             defaultEnv.switchWallet(juana);
-            await ethers.provider.send("evm_setNextBlockTimestamp", [
-              exaTime.nextPoolID() - 1, // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
-            ]);
+            // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
+            await defaultEnv.moveInTime(exaTime.nextPoolID() - 1);
             await defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "3000");
           });
 
@@ -1095,9 +1092,10 @@ describe("Pool Management Library", () => {
             let tx: any;
             beforeEach(async () => {
               defaultEnv.switchWallet(juana);
-              await ethers.provider.send("evm_setNextBlockTimestamp", [
-                exaTime.nextPoolID() - 1 + exaTime.ONE_DAY, // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
-              ]);
+              // there's an approve tx in the repayMP of the defaultEnv so we have to subtract a second so real repay has nextPoolId as timestamp
+              await defaultEnv.moveInTime(
+                exaTime.nextPoolID() - 1 + exaTime.ONE_DAY
+              );
               tx = defaultEnv.repayMP("DAI", exaTime.nextPoolID(), "1000");
             });
 

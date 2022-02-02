@@ -93,9 +93,7 @@ describe("Liquidations", function () {
         beforeEach(async () => {
           exactlyEnv.switchWallet(john);
           await exactlyEnv.depositSP("DAI", "10000");
-          await ethers.provider.send("evm_setNextBlockTimestamp", [
-            nextPoolID + exaTime.ONE_DAY * 20,
-          ]);
+          await exactlyEnv.moveInTime(nextPoolID + exaTime.ONE_DAY * 20);
         });
         describe("Alice is a sneaky gal and uses a flash loan to recover her penalty", () => {
           describe("GIVEN a funded attacker contract and a flash-loaneable token", () => {

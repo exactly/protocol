@@ -212,7 +212,7 @@ describe("Liquidity computations", function () {
           describe("AND WHEN moving to fifteen days after the maturity date", () => {
             beforeEach(async () => {
               // Move in time to maturity
-              await exactlyEnv.moveInTime(
+              await exactlyEnv.moveInTimeAndMine(
                 nextPoolID + 15 * new ExaTime().ONE_DAY
               );
             });

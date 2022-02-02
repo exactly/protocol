@@ -258,7 +258,7 @@ describe("FixedLender", function () {
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {
             await exactlyEnv.withdrawSP("DAI", "100");
-            await exactlyEnv.moveInTime(nextPoolId);
+            await exactlyEnv.moveInTimeAndMine(nextPoolId);
             await exactlyEnv.withdrawMP("DAI", nextPoolId, "100");
           });
           // TODO tests for partial/excessive withdrawal?
@@ -310,7 +310,7 @@ describe("FixedLender", function () {
 
         describe("AND WHEN moving in time to 1 day after maturity", () => {
           beforeEach(async () => {
-            await exactlyEnv.moveInTime(nextPoolId + exaTime.ONE_DAY);
+            await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY);
           });
           it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 ~= 0.0400032 ) DAI of late payment penalties", async () => {
             let penalties = exactlyEnv.calculatePenaltiesForDebt(
@@ -354,7 +354,7 @@ describe("FixedLender", function () {
     describe("AND WHEN moving in time to maturity AND withdrawing from the maturity pool", () => {
       let tx: any;
       beforeEach(async () => {
-        await exactlyEnv.moveInTime(nextPoolId);
+        await exactlyEnv.moveInTimeAndMine(nextPoolId);
         tx = await exactlyEnv.withdrawMP("DAI", nextPoolId, "100");
       });
       it("THEN 100 DAI are returned to Maria", async () => {
