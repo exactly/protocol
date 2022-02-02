@@ -1,6 +1,8 @@
 import { expect } from "chai";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { ethers } from "hardhat";
 import { ExaTime, ProtocolError, errorGeneric } from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
 
@@ -8,7 +10,9 @@ describe("InterestRateModel", () => {
   let exactlyEnv: DefaultEnv;
   const exaTime = new ExaTime();
   const nextPoolID = exaTime.poolIDByNumberOfWeek(1);
+  const secondPoolID = exaTime.poolIDByNumberOfWeek(2);
 
+  let alice: SignerWithAddress;
   let interestRateModel: Contract;
   let snapshot: any;
 
@@ -16,6 +20,7 @@ describe("InterestRateModel", () => {
     exactlyEnv = await DefaultEnv.create({
       useRealInterestRateModel: true,
     });
+    [, alice] = await ethers.getSigners();
 
     interestRateModel = exactlyEnv.interestRateModel;
     // This helps with tests that use evm_setNextBlockTimestamp
@@ -66,6 +71,70 @@ describe("InterestRateModel", () => {
         maxUtilizationRate,
         penaltyRate
       );
+    });
+    describe("integration tests for contracts calling the InterestRateModel", () => {
+      describe("AND GIVEN 1kDAI of SP liquidity", () => {
+        beforeEach(async () => {
+          await exactlyEnv.depositSP("DAI", "12000");
+          await exactlyEnv.transfer("WETH", alice, "10");
+          exactlyEnv.switchWallet(alice);
+          await exactlyEnv.depositSP("WETH", "10");
+          await exactlyEnv.enterMarkets(["WETH"]);
+          await exactlyEnv.moveInTime(nextPoolID);
+        });
+        describe("WHEN borrowing 1DAI in the following maturity", () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMP("DAI", secondPoolID, "1");
+          });
+          it("THEN a yearly interest of 2% is charged over a week (0.02*7/365)", async () => {
+            const [, borrowed] = await exactlyEnv.accountSnapshot(
+              "DAI",
+              secondPoolID
+            );
+            // (0.02 * 7) / 365 = 0.00384
+            expect(borrowed).to.be.gt(parseUnits("1.000383"));
+            expect(borrowed).to.be.lt(parseUnits("1.000385"));
+          });
+        });
+        describe("WHEN borrowing 300 DAI in the following maturity", () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMP("DAI", secondPoolID, "300");
+          });
+          it("THEN a yearly interest of 3.6% (U=0.3) is charged over a week (0.03*7/365)", async () => {
+            const [, borrowed] = await exactlyEnv.accountSnapshot(
+              "DAI",
+              secondPoolID
+            );
+
+            // 0.0495/(1.1-(300/1000))-0.025 =  .03687500000000000000
+            // (300*0.036875 * 7) / 365 .21215753424657534246
+            expect(borrowed).to.be.gt(parseUnits("300.212"));
+            expect(borrowed).to.be.lt(parseUnits("300.214"));
+          });
+        });
+        describe("WHEN borrowing 900 DAI in the following maturity", () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMP("DAI", secondPoolID, "900");
+          });
+          it("THEN a yearly interest of 22% (U=0.9) is charged over a week (0.2225*7/365)", async () => {
+            const [, borrowed] = await exactlyEnv.accountSnapshot(
+              "DAI",
+              secondPoolID
+            );
+
+            // 0.0495/(1.1-(900/1000))-0.025 =.22250000000000000000
+            // (900*0.2225 * 7) / 365 = 3.84041095890410958904
+            expect(borrowed).to.be.gt(parseUnits("903.84"));
+            expect(borrowed).to.be.lt(parseUnits("903.85"));
+          });
+        });
+        it("WHEN borrowing 1050 DAI in the following maturity THEN it reverts because only 1000 DAI are available for lending", async () => {
+          const tx = exactlyEnv.borrowMP("DAI", secondPoolID, "1050");
+          await expect(tx).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+          );
+        });
+      });
     });
     describe("GIVEN a token with 6 decimals instead of 18", () => {
       it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
