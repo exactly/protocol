@@ -922,7 +922,7 @@ describe("Pool Management Library", () => {
       await defaultEnv.transfer("DAI", walter, "60000");
       await defaultEnv
         .getInterestRateModel()
-        .setPenaltyRate(parseUnits(penaltyRate.toString()));
+        .setPenaltyRate(parseUnits(penaltyRate));
       await defaultEnv.getInterestRateModel().setBorrowRate(parseUnits("0.1"));
       await defaultEnv
         .getFixedLender("DAI")
