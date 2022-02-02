@@ -201,6 +201,13 @@ describe("Pool Management Library", () => {
         expect(mp.borrowed).to.equal(parseUnits("100"));
       });
 
+      it("THEN the pool 'earningsMP' is 5", async () => {
+        expect(mp.earningsMP).to.be.closeTo(
+          parseUnits("5"),
+          parseUnits("0.0001").toNumber()
+        );
+      });
+
       it("THEN the pool 'unassignedEarnings' is close to 5", async () => {
         expect(mp.unassignedEarnings).to.closeTo(
           parseUnits("5"),
@@ -247,6 +254,13 @@ describe("Pool Management Library", () => {
 
       it("THEN the pool 'borrowed' is 100", async () => {
         expect(mp.borrowed).to.equal(parseUnits("100"));
+      });
+
+      it("THEN the pool 'earningsMP' is 5", async () => {
+        expect(mp.earningsMP).to.be.closeTo(
+          parseUnits("5"),
+          parseUnits("0.0001").toNumber()
+        );
       });
 
       it("THEN the pool 'unassignedEarnings' are close to 10", async () => {
@@ -304,6 +318,13 @@ describe("Pool Management Library", () => {
         );
       });
 
+      it("THEN the pool 'earningsMP' is 50", async () => {
+        expect(mp.earningsMP).to.be.closeTo(
+          parseUnits("50"),
+          parseUnits("0.0001").toNumber()
+        );
+      });
+
       it("THEN the pool 'lastFee' is close to 50", async () => {
         expect(await poolEnv.mpHarness.lastFee()).to.closeTo(
           parseUnits("50"),
@@ -351,6 +372,11 @@ describe("Pool Management Library", () => {
       it("THEN the pool 'earningsSP' is around 2", async () => {
         expect(mp.earningsSP).to.be.lt(parseUnits("2"));
         expect(mp.earningsSP).to.be.gt(parseUnits("1.95"));
+      });
+
+      it("THEN the pool 'earningsMP' is 4", async () => {
+        expect(mp.earningsMP).to.be.lt(parseUnits("4.1"));
+        expect(mp.earningsMP).to.be.gt(parseUnits("3.9"));
       });
 
       it("THEN the pool 'unassignedEarnings' are around 4", async () => {
@@ -411,6 +437,11 @@ describe("Pool Management Library", () => {
           );
         });
 
+        it("THEN the pool 'earningsMP' is 5.3333", async () => {
+          expect(mp.earningsMP).to.be.lt(parseUnits("5.4"));
+          expect(mp.earningsMP).to.be.gt(parseUnits("5.3"));
+        });
+
         describe("AND GIVEN that maturity arrives and someone repays 100 (the MP is borrowing 100 from the SP)", () => {
           let mp: any;
           beforeEach(async () => {
@@ -430,6 +461,10 @@ describe("Pool Management Library", () => {
 
           it("THEN the pool 'lastEarningsSP' is 0 (repayment didn't cover earnings)", async () => {
             expect(await poolEnv.mpHarness.lastEarningsSP()).to.eq(0);
+          });
+
+          it("THEN the pool 'earningsMP' is repaid (=0)", async () => {
+            expect(mp.earningsMP).to.be.eq(0);
           });
 
           it("THEN the pool still is owed the MP supplier fees ('suppliedSP'=10 total - 4.6666 given to SP)", async () => {

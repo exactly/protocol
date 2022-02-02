@@ -428,6 +428,11 @@ describe("PoolAccounting", () => {
                 expect(mp.unassignedEarnings).to.be.gt(parseUnits("0"));
               });
 
+              it("THEN the pool 'earningsMP' is repaid (=0)", async () => {
+                expect(mp.earningsMP).to.be.gt(parseUnits("270"));
+                expect(mp.earningsMP).to.be.lt(parseUnits("271"));
+              });
+
               it("THEN earningsSP are around 479", async () => {
                 expect(mp.earningsSP).to.be.lt(parseUnits("480")); // earnings added are inappreciable
                 expect(mp.earningsSP).to.be.gt(parseUnits("479"));
