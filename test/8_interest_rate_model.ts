@@ -12,7 +12,9 @@ describe("InterestRateModel", () => {
   const nextPoolID = exaTime.poolIDByNumberOfWeek(1);
   const secondPoolID = exaTime.poolIDByNumberOfWeek(2);
 
+  let owner: SignerWithAddress;
   let alice: SignerWithAddress;
+  let bob: SignerWithAddress;
   let interestRateModel: Contract;
   let snapshot: any;
 
@@ -20,7 +22,7 @@ describe("InterestRateModel", () => {
     exactlyEnv = await DefaultEnv.create({
       useRealInterestRateModel: true,
     });
-    [, alice] = await ethers.getSigners();
+    [owner, alice, bob] = await ethers.getSigners();
 
     interestRateModel = exactlyEnv.interestRateModel;
     // This helps with tests that use evm_setNextBlockTimestamp
@@ -186,6 +188,29 @@ describe("InterestRateModel", () => {
             // (1200*0.074 * 7) / 365 = 1.70301369863013698630
             expect(borrowed).to.be.gt(parseUnits("1201.70"));
             expect(borrowed).to.be.lt(parseUnits("1201.71"));
+          });
+          describe("previous borrows are accounted for when computing the utilization rate", () => {
+            describe("AND WHEN another user borrows 400 more DAI", () => {
+              beforeEach(async () => {
+                exactlyEnv.switchWallet(owner);
+                await exactlyEnv.transfer("WETH", bob, "10");
+                exactlyEnv.switchWallet(bob);
+                await exactlyEnv.depositSP("WETH", "10");
+                await exactlyEnv.enterMarkets(["WETH"]);
+                await exactlyEnv.borrowMP("DAI", secondPoolID, "400");
+              });
+              it("THEN a yearly interest of 14% (U=0.8, considering both borrows) is charged over a week", async () => {
+                const [, borrowed] = await exactlyEnv.accountSnapshot(
+                  "DAI",
+                  secondPoolID
+                );
+
+                // 0.0495/(1.1-(1600/2000))-0.025 = .14000000000000000000
+                // (400*0.14 * 7) / 365 = 1.07397260273972602739
+                expect(borrowed).to.be.gt(parseUnits("401.07"));
+                expect(borrowed).to.be.lt(parseUnits("401.08"));
+              });
+            });
           });
         });
       });
