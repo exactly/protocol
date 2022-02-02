@@ -135,6 +135,60 @@ describe("InterestRateModel", () => {
           );
         });
       });
+      describe("AND GIVEN 1kDAI of SP liquidity AND 500DAI of MP liquidity", () => {
+        beforeEach(async () => {
+          await exactlyEnv.depositSP("DAI", "12000");
+          await exactlyEnv.depositMP("DAI", secondPoolID, "500");
+          await exactlyEnv.transfer("WETH", alice, "10");
+          exactlyEnv.switchWallet(alice);
+          await exactlyEnv.depositSP("WETH", "10");
+          await exactlyEnv.enterMarkets(["WETH"]);
+          await exactlyEnv.moveInTime(nextPoolID);
+        });
+        describe("WHEN borrowing 1050 DAI in the following maturity", async () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMP("DAI", secondPoolID, "1050");
+          });
+          it("THEN a yearly interest of 22% (U=1.05) is charged over a week (0.2225*7/365)", async () => {
+            const [, borrowed] = await exactlyEnv.accountSnapshot(
+              "DAI",
+              secondPoolID
+            );
+
+            // 0.0495/(1.1-(1050/1000))-0.025 = .96500000000000000000
+            // (1050*0.965 * 7) / 365 = 19.43219178082191780821
+            expect(borrowed).to.be.gt(parseUnits("1069.4"));
+            expect(borrowed).to.be.lt(parseUnits("1069.5"));
+          });
+        });
+      });
+      describe("AND GIVEN 1kDAI of SP liquidity AND 2kDAI of MP liquidity", () => {
+        beforeEach(async () => {
+          await exactlyEnv.depositSP("DAI", "12000");
+          await exactlyEnv.depositMP("DAI", secondPoolID, "2000");
+          await exactlyEnv.transfer("WETH", alice, "10");
+          exactlyEnv.switchWallet(alice);
+          await exactlyEnv.depositSP("WETH", "10");
+          await exactlyEnv.enterMarkets(["WETH"]);
+          await exactlyEnv.moveInTime(nextPoolID);
+        });
+        describe("WHEN borrowing 1000 DAI in the following maturity", async () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMP("DAI", secondPoolID, "1000");
+          });
+          it("THEN a yearly interest of 5.75% (U=0.5) is charged over a week (0.0575*7/365)", async () => {
+            const [, borrowed] = await exactlyEnv.accountSnapshot(
+              "DAI",
+              secondPoolID
+            );
+
+            // 0.0495/(1.1-(1000/2000))-0.025 = .05750000000000000000
+            // (1000*0.0575 * 7) / 365 = 1.10273972602739726027
+            expect(borrowed).to.be.gt(parseUnits("1001.10"));
+            expect(borrowed).to.be.lt(parseUnits("1001.11"));
+          });
+        });
+      });
     });
     describe("GIVEN a token with 6 decimals instead of 18", () => {
       it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {

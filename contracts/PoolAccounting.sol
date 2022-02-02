@@ -109,7 +109,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             maturityDate,
             block.timestamp,
             pool.borrowed,
-            0,
+            pool.supplied,
             1000000000000000000000
         );
         borrowVars.fee = amount.mul_(borrowVars.feeRate);
