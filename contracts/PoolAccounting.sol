@@ -103,14 +103,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         smartPoolBorrowed += pool.takeMoney(amount, maxSPDebt);
 
-        // FIXME: parameters passed only to aid in compilation
-        // FIXME: with no integration tests this is dead code anyway so it's not like we'd notice
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
             block.timestamp,
             pool.borrowed,
             pool.supplied,
-            1000000000000000000000
+            maxSPDebt
         );
         borrowVars.fee = amount.mul_(borrowVars.feeRate);
         totalOwedNewBorrow = amount + borrowVars.fee;

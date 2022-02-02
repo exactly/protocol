@@ -162,6 +162,33 @@ describe("InterestRateModel", () => {
           });
         });
       });
+      describe("AND GIVEN 2kDAI of SP liquidity AND 1kDAI of MP liquidity", () => {
+        beforeEach(async () => {
+          await exactlyEnv.depositSP("DAI", "24000");
+          await exactlyEnv.depositMP("DAI", secondPoolID, "1000");
+          await exactlyEnv.transfer("WETH", alice, "10");
+          exactlyEnv.switchWallet(alice);
+          await exactlyEnv.depositSP("WETH", "10");
+          await exactlyEnv.enterMarkets(["WETH"]);
+          await exactlyEnv.moveInTime(nextPoolID);
+        });
+        describe("WHEN borrowing 1200 DAI in the following maturity", async () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMP("DAI", secondPoolID, "1200");
+          });
+          it("THEN a yearly interest of 7.4% (U=0.6) is charged over a week (0.0575*7/365)", async () => {
+            const [, borrowed] = await exactlyEnv.accountSnapshot(
+              "DAI",
+              secondPoolID
+            );
+
+            // 0.0495/(1.1-(1200/2000))-0.025 = .07400000000000000000
+            // (1200*0.074 * 7) / 365 = 1.70301369863013698630
+            expect(borrowed).to.be.gt(parseUnits("1201.70"));
+            expect(borrowed).to.be.lt(parseUnits("1201.71"));
+          });
+        });
+      });
       describe("AND GIVEN 1kDAI of SP liquidity AND 2kDAI of MP liquidity", () => {
         beforeEach(async () => {
           await exactlyEnv.depositSP("DAI", "12000");

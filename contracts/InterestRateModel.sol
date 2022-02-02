@@ -71,7 +71,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (currentDate >= maturityDate) {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
-        // FIXME: add a test where the liquidity from the MP is used
         uint256 supplied = Math.max(borrowableFromSP, suppliedMP);
         if (supplied == 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
