@@ -373,7 +373,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
                 .withArgs(
                   alice.address,
                   alice.address,
-                  parseUnits("0"),
+                  parseUnits("5"),
                   parseUnits("5"),
                   nextPoolId
                 );
@@ -420,7 +420,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
                 .withArgs(
                   alice.address,
                   alice.address,
-                  parseUnits("0"),
+                  parseUnits("5"),
                   parseUnits("5"),
                   nextPoolId
                 );
