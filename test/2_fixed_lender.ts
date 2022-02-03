@@ -751,6 +751,59 @@ describe("FixedLender", function () {
         });
       });
     });
+    describe("AND GIVEN she borrows 5k DAI", () => {
+      const depositAmount = 5000;
+      beforeEach(async () => {
+        // we first fund the maturity pool so it has liquidity to borrow
+        await exactlyEnv.depositMP("DAI", nextPoolId, depositAmount.toString());
+        await exactlyEnv.borrowMP("DAI", nextPoolId, depositAmount.toString());
+      });
+      describe("AND WHEN moving in time to 20 days after maturity", () => {
+        beforeEach(async () => {
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 20);
+        });
+        it("THEN Maria owes (getAccountSnapshot) 5k + aprox 2.8k DAI in penalties", async () => {
+          let penalties = exactlyEnv.calculatePenaltiesForDebt(
+            depositAmount,
+            exaTime.ONE_DAY * 20,
+            parseFloat(penaltyRate)
+          );
+          const [, amountOwed] = await exactlyEnv
+            .getFixedLender("DAI")
+            .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+          expect(amountOwed).to.equal(
+            parseUnits((depositAmount + penalties).toString())
+          );
+        });
+      });
+      describe("AND WHEN moving in time to 20 days after maturity but repaying really small amounts within some days", () => {
+        beforeEach(async () => {
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 5);
+          await exactlyEnv.repayMP("DAI", nextPoolId, "0.000000001");
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 10);
+          await exactlyEnv.repayMP("DAI", nextPoolId, "0.000000001");
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 15);
+          await exactlyEnv.repayMP("DAI", nextPoolId, "0.000000001");
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 20);
+        });
+        it("THEN Maria owes (getAccountSnapshot) 5k + aprox 2.8k DAI in penalties (no debt was compounded)", async () => {
+          let penalties = exactlyEnv.calculatePenaltiesForDebt(
+            depositAmount,
+            exaTime.ONE_DAY * 20,
+            parseFloat(penaltyRate)
+          );
+          const [, amountOwed] = await exactlyEnv
+            .getFixedLender("DAI")
+            .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+          expect(amountOwed).to.closeTo(
+            parseUnits((depositAmount + penalties).toString()),
+            parseUnits("0.00000001").toNumber()
+          );
+        });
+      });
+    });
   });
 
   describe("Transfers with Commissions", () => {
