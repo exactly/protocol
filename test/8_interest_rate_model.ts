@@ -33,24 +33,171 @@ describe("InterestRateModel", () => {
     await exactlyEnv.revertSnapshot(snapshot);
   });
 
-  it("should change parameters", async () => {
-    const A = parseUnits("0.037125"); // A parameter for the curve
-    const B = parseUnits("0.01625"); // B parameter for the curve
-    const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-    const penaltyRate = parseUnits("0.025"); // Penalty rate
+  describe("setting different curve parameters", () => {
+    it("WHEN deploying a contract with A and B parameters yielding an invalid curve THEN it reverts", async () => {
+      // - U_{b}: 0.9
+      // - U_{max}: 1.2
+      // - R_{0}: -0.01
+      // - R_{b}: 0.22
 
-    await interestRateModel.setParameters(
-      A,
-      B,
-      maxUtilizationRate,
-      penaltyRate
-    );
-    expect(await interestRateModel.curveParameterA()).to.be.equal(A);
-    expect(await interestRateModel.curveParameterB()).to.be.equal(B);
-    expect(await interestRateModel.maxUtilizationRate()).to.be.equal(
-      maxUtilizationRate
-    );
-    expect(await interestRateModel.penaltyRate()).to.be.equal(penaltyRate);
+      // A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
+      // A = .09200000000000000000
+
+      // B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
+      // B = -.08666666666666666666
+      const A = parseUnits("0.092"); // A parameter for the curve
+      const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
+      const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
+      const penaltyRate = parseUnits("0.025"); // Penalty rate, not used
+      const InterestRateModelFactory = await ethers.getContractFactory(
+        "InterestRateModel",
+        {}
+      );
+      const tx = InterestRateModelFactory.deploy(
+        A, // A parameter for the curve
+        B, // B parameter for the curve
+        maxUtilizationRate, // High UR slope rate
+        penaltyRate // Penalty Rate
+      );
+      await expect(tx).to.be.reverted;
+    });
+    it("WHEN setting A and B parameters yielding an invalid curve THEN it reverts", async () => {
+      // same as case above
+      const A = parseUnits("0.092"); // A parameter for the curve
+      const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
+      const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
+      const penaltyRate = parseUnits("0.025"); // Penalty rate, not used
+      const tx = interestRateModel.setParameters(
+        A,
+        B,
+        maxUtilizationRate,
+        penaltyRate
+      );
+
+      await expect(tx).to.be.reverted;
+    });
+    describe("WHEN changing the penaltyRate", () => {
+      const A = parseUnits("0.037125"); // A parameter for the curve
+      const B = parseUnits("0.01625"); // B parameter for the curve
+      const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
+      const penaltyRate = parseUnits("0.025"); // Penalty rate
+
+      beforeEach(async () => {
+        await interestRateModel.setParameters(
+          A,
+          B,
+          maxUtilizationRate,
+          penaltyRate
+        );
+      });
+      it("THEN the new value is readable", async () => {
+        expect(await interestRateModel.penaltyRate()).to.be.equal(penaltyRate);
+      });
+    });
+    // - U_{b}: 0.9
+    // - U_{max}: 1.2
+    // - R_{0}: 0.02
+    // - R_{b}: 0.22
+
+    //     A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
+    //     A = .08000000000000000000
+
+    //     B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
+    //     B = -.046666666666666666
+    describe("WHEN changing the curve parameters to another valid curve with a different Ub, Umax and Rb", () => {
+      const A = parseUnits("0.08"); // A parameter for the curve
+      const B = parseUnits("-0.046666666666666666"); // B parameter for the curve
+      const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
+      const penaltyRate = parseUnits("0.025"); // Penalty rate, not relevant
+
+      beforeEach(async () => {
+        await interestRateModel.setParameters(
+          A,
+          B,
+          maxUtilizationRate,
+          penaltyRate
+        );
+      });
+      it("THEN the new maxUtilizationRate is readable", async () => {
+        expect(await interestRateModel.maxUtilizationRate()).to.be.equal(
+          maxUtilizationRate
+        );
+      });
+      it("AND the curves R0 stayed the same", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0"),
+          parseUnits("0"),
+          parseUnits("100")
+        );
+        expect(rate).to.eq(parseUnits("0.02"));
+      });
+      it("AND the curves Rb and Ub changed accordingly", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("90"),
+          parseUnits("0"),
+          parseUnits("100")
+        );
+        expect(rate).to.eq(parseUnits("0.22"));
+      });
+      it("AND the curves Umax changed", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("110"), // 1.1 was previously an invalid UR
+          parseUnits("100"),
+          parseUnits("100")
+        );
+        expect(rate).to.eq(parseUnits("0.753333333333333334"));
+      });
+    });
+
+    describe("WHEN changing the curve parameters to another valid curve with a higher R0 of 0.05", () => {
+      const A = parseUnits("0.037125"); // A parameter for the curve
+      const B = parseUnits("0.01625"); // B parameter for the curve
+      const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
+      const penaltyRate = parseUnits("0.025"); // Penalty rate
+
+      beforeEach(async () => {
+        await interestRateModel.setParameters(
+          A,
+          B,
+          maxUtilizationRate,
+          penaltyRate
+        );
+      });
+      it("THEN the new parameters are readable", async () => {
+        expect(await interestRateModel.curveParameterA()).to.be.equal(A);
+        expect(await interestRateModel.curveParameterB()).to.be.equal(B);
+        expect(await interestRateModel.maxUtilizationRate()).to.be.equal(
+          maxUtilizationRate
+        );
+        expect(await interestRateModel.penaltyRate()).to.be.equal(penaltyRate);
+      });
+      it("AND the curves R0 changed accordingly", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0"),
+          parseUnits("0"),
+          parseUnits("100")
+        );
+        expect(rate).to.eq(parseUnits("0.05"));
+      });
+      it("AND the curves Rb stays the same", async () => {
+        const rate = await interestRateModel.getRateToBorrow(
+          nextPoolID,
+          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("80"),
+          parseUnits("0"),
+          parseUnits("100")
+        );
+        expect(rate).to.eq(parseUnits("0.14"));
+      });
+    });
   });
 
   describe("GIVEN curve parameters yielding Ub=0.8, Umax=1.1, R0=0.02 and Rb=0.14", () => {

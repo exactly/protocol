@@ -24,12 +24,13 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _maxUtilizationRate,
         uint256 _penaltyRate
     ) {
-        curveParameterA = _curveParameterA;
-        curveParameterB = _curveParameterB;
-        maxUtilizationRate = _maxUtilizationRate;
-        penaltyRate = _penaltyRate;
-
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        setParameters(
+            _curveParameterA,
+            _curveParameterB,
+            _maxUtilizationRate,
+            _penaltyRate
+        );
     }
 
     /**
@@ -44,11 +45,16 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         int256 _curveParameterB,
         uint256 _maxUtilizationRate,
         uint256 _penaltyRate
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         curveParameterA = _curveParameterA;
         curveParameterB = _curveParameterB;
         maxUtilizationRate = _maxUtilizationRate;
         penaltyRate = _penaltyRate;
+        // we call the getRateToBorrow function with an utilization rate of
+        // zero to force it to revert in the tx that sets it, and not be able
+        // to set an invalid curve (such as one yielding a negative interest
+        // rate). Doing it works because it's a monotonously increasing function.
+        getRateToBorrow(block.timestamp + 1, block.timestamp, 0, 100, 100);
     }
 
     /**
@@ -67,7 +73,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 borrowedMP,
         uint256 suppliedMP,
         uint256 borrowableFromSP
-    ) external view override returns (uint256) {
+    ) public view override returns (uint256) {
         if (currentDate >= maturityDate) {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
