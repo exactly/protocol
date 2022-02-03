@@ -181,7 +181,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 amount,
         uint256 maxSPDebt
     ) external override onlyFixedLender {
-        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
+        smartPoolBorrowed += maturityPools[maturityDate].withdrawMoney(
             amount,
             maxSPDebt
         );
