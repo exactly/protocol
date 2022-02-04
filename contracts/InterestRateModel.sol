@@ -123,6 +123,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param _spSlopeRate slope to alter the utilization rate of smart pool
      * @param _spHighURSlopeRate slope when utilization rate is higher than baseRate
      * @param _baseRate rate that defines if we are using _spSlopeRate or _spHighURSlopeRate
+     * @param _penaltyRate rate that is being used for delayed payments
      */
     function setParameters(
         uint256 _mpSlopeRate,
