@@ -411,9 +411,9 @@ describe("PoolAccounting", () => {
                 );
               });
 
-              it("THEN supplied is 1M + 10k", async () => {
+              it("THEN supplied is 100M + 10k", async () => {
                 expect(mp.supplied).to.eq(
-                  parseUnits((depositAmount + 10000).toString()) // 1M + 10k deposit
+                  parseUnits((depositAmount + 10000).toString()) // 100M + 10k deposit
                 );
               });
 
