@@ -153,7 +153,7 @@ describe("InterestRateModel", () => {
       ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
     });
 
-    it("WHEN a user calls setParameters function", async () => {
+    it("WHEN an unauthorized user calls setParameters function, THEN it should revert", async () => {
       await expect(
         interestRateModel
           .connect(mariaUser)
