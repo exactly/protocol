@@ -347,6 +347,18 @@ describe("FixedLender", function () {
               expect(amountOwed).to.equal(0);
             });
           });
+          describe("AND WHEN repaying more than what is owed (30 DAI)", () => {
+            beforeEach(async () => {
+              await exactlyEnv.repayMP("DAI", nextPoolId, "30");
+            });
+            it("THEN all debt is repaid", async () => {
+              const [, amountOwed] = await exactlyEnv
+                .getFixedLender("DAI")
+                .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+              expect(amountOwed).to.equal(0);
+            });
+          });
         });
       });
     });
