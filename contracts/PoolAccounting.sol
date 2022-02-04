@@ -204,6 +204,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         override
         onlyFixedLender
         returns (
+            uint256 spareRepayAmount,
             uint256 debtCovered,
             uint256 fee,
             uint256 earningsRepay
@@ -213,7 +214,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
 
         if (repayAmount > repayVars.amountOwed) {
-            revert GenericError(ErrorCode.TOO_MUCH_REPAY_TRANSFER);
+            spareRepayAmount = repayAmount - repayVars.amountOwed;
+            repayAmount = repayVars.amountOwed;
         }
 
         repayVars.amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];

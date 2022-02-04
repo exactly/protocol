@@ -849,19 +849,42 @@ describe("FixedLender", function () {
 
           describe("AND WHEN trying to repay 1100 (too much)", () => {
             let tx: any;
+            let johnBalanceBefore: any;
             beforeEach(async () => {
               exactlyEnv.switchWallet(johnUser);
+              johnBalanceBefore = await underlyingToken.balanceOf(
+                johnUser.address
+              );
               tx = exactlyEnv.repayMP("DAI", nextPoolId, "1100");
             });
 
-            it("THEN the transaction is reverted TOO_MUCH_REPAY_TRANSFER", async () => {
-              await expect(tx).to.be.revertedWith(
-                errorGeneric(ProtocolError.TOO_MUCH_REPAY_TRANSFER)
+            it("THEN jhon ends up repaying all debt", async () => {
+              await expect(tx).to.not.be.reverted;
+
+              const [, amountOwed] = await fixedLender
+                .connect(johnUser.address)
+                .getAccountSnapshot(johnUser.address, nextPoolId);
+              expect(amountOwed).to.eq(0);
+            });
+
+            it("THEN the spare amount is transferred back to him", async () => {
+              await expect(tx).to.not.be.reverted;
+
+              const johnBalanceAfter = await underlyingToken.balanceOf(
+                johnUser.address
+              );
+              const repayedAmount = 1100 * 0.9; // 10% comission
+              const returnedSpareAmount = (repayedAmount - 900) * 0.9; // 900 = debt - the transferOut also charges 10% comission
+
+              expect(johnBalanceAfter).to.equal(
+                johnBalanceBefore
+                  .sub(parseUnits(repayedAmount.toString()))
+                  .add(parseUnits(returnedSpareAmount.toString()))
               );
             });
           });
 
-          describe("AND WHEN repaying with 10% commission", () => {
+          describe("AND WHEN repaying the exact amount with 10% commission", () => {
             beforeEach(async () => {
               exactlyEnv.switchWallet(johnUser);
               await exactlyEnv.repayMP("DAI", nextPoolId, "1000");
@@ -874,6 +897,39 @@ describe("FixedLender", function () {
                   .getAccountSnapshot(johnUser.address, nextPoolId)
               )[1];
               expect(borrowed).to.eq(0);
+            });
+          });
+
+          describe("AND WHEN trying to repay 1100 (too much) with no commission", () => {
+            let tx: any;
+            let johnBalanceBefore: any;
+            beforeEach(async () => {
+              exactlyEnv.switchWallet(johnUser);
+              await underlyingToken.setCommission(parseUnits("0"));
+              johnBalanceBefore = await underlyingToken.balanceOf(
+                johnUser.address
+              );
+              tx = exactlyEnv.repayMP("DAI", nextPoolId, "1100");
+            });
+
+            it("THEN jhon ends up repaying all debt", async () => {
+              await expect(tx).to.not.be.reverted;
+
+              const [, amountOwed] = await fixedLender
+                .connect(johnUser.address)
+                .getAccountSnapshot(johnUser.address, nextPoolId);
+              expect(amountOwed).to.eq(0);
+            });
+
+            it("THEN the spare amount is transferred back to him", async () => {
+              await expect(tx).to.not.be.reverted;
+
+              const johnBalanceAfter = await underlyingToken.balanceOf(
+                johnUser.address
+              );
+              expect(johnBalanceAfter).to.equal(
+                johnBalanceBefore.sub(parseUnits("900"))
+              );
             });
           });
         });

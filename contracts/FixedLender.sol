@@ -485,10 +485,15 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         repayAmount = doTransferIn(payer, repayAmount);
 
         (
+            uint256 spareRepayAmount,
             uint256 debtCovered,
             uint256 fee,
             uint256 earningsRepay
         ) = poolAccounting.repayMP(maturityDate, borrower, repayAmount);
+
+        if (spareRepayAmount > 0) {
+            doTransferOut(payer, spareRepayAmount);
+        }
 
         // We take a share of the spread of the protocol
         uint256 protocolShare = fee.mul_(protocolSpreadFee);
