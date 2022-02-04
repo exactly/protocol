@@ -130,16 +130,6 @@ describe("InterestRateModel", () => {
         ).to.equal(parseUnits("0"));
       });
 
-      it("WHEN supply of smart pool is 0, earnings unassigned are 100, and amount deposited is 0, then yield is 0", async () => {
-        expect(
-          await interestRateModel.getYieldForDeposit(
-            parseUnits("0"),
-            parseUnits("100"),
-            parseUnits("0")
-          )
-        ).to.equal(parseUnits("0"));
-      });
-
       it("WHEN supply of smart pool is 100, earnings unassigned are 0, and amount deposited is 100, then yield is 0", async () => {
         expect(
           await interestRateModel.getYieldForDeposit(
