@@ -28,37 +28,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _baseRate,
         uint256 _penaltyRate
     ) {
-        mpSlopeRate = _mpSlopeRate;
-        spSlopeRate = _spSlopeRate;
-        spHighURSlopeRate = _spHighURSlopeRate;
-        slopeChangeRate = _slopeChangeRate;
-        baseRate = _baseRate;
-        penaltyRate = _penaltyRate;
-
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    }
-
-    /**
-     * @dev Function to update this model's parameters (DEFAULT_ADMIN_ROLE)
-     * @param _mpSlopeRate slope to alter the utilization rate of maturity pool
-     * @param _spSlopeRate slope to alter the utilization rate of smart pool
-     * @param _spHighURSlopeRate slope when utilization rate is higher than baseRate
-     * @param _baseRate rate that defines if we are using _spSlopeRate or _spHighURSlopeRate
-     */
-    function setParameters(
-        uint256 _mpSlopeRate,
-        uint256 _spSlopeRate,
-        uint256 _spHighURSlopeRate,
-        uint256 _slopeChangeRate,
-        uint256 _baseRate,
-        uint256 _penaltyRate
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        mpSlopeRate = _mpSlopeRate;
-        spSlopeRate = _spSlopeRate;
-        spHighURSlopeRate = _spHighURSlopeRate;
-        slopeChangeRate = _slopeChangeRate;
-        baseRate = _baseRate;
-        penaltyRate = _penaltyRate;
+        setParameters(
+            _mpSlopeRate,
+            _spSlopeRate,
+            _spHighURSlopeRate,
+            _slopeChangeRate,
+            _baseRate,
+            _penaltyRate
+        );
     }
 
     /**
@@ -70,6 +48,8 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param smartPoolTotalDebt demand values for the smart pool
      * @param smartPoolTotalSupply supply values for the smart pool
      * @param newDebt checks if the maturity pool borrows money from the smart pool in this borrow
+     * @return rate to be applied to the amount to calculate the fee that the borrower will
+     *         have to pay
      */
     function getRateToBorrow(
         uint256 maturityDate,
@@ -116,5 +96,46 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         }
 
         return ((yearlyRate * daysDifference) / 365);
+    }
+
+    /**
+     * @dev Calculate the amount of revenue sharing between the smart pool and the new MP depositor.
+     * @param suppliedSP amount of money currently being supplied in the maturity pool
+     * @param unassignedEarnings earnings not yet accrued to the SP that should be shared with the
+     *        current depositor
+     * @param amount amount being provided by the MP depositor
+     * @return earningsShare : yield to be given to the MP depositor
+     */
+    function getYieldForDeposit(
+        uint256 suppliedSP,
+        uint256 unassignedEarnings,
+        uint256 amount
+    ) external pure override returns (uint256 earningsShare) {
+        uint256 supply = suppliedSP + amount;
+        earningsShare = (amount * unassignedEarnings) / supply;
+    }
+
+    /**
+     * @dev Function to update this model's parameters (DEFAULT_ADMIN_ROLE)
+     * @param _mpSlopeRate slope to alter the utilization rate of maturity pool
+     * @param _spSlopeRate slope to alter the utilization rate of smart pool
+     * @param _spHighURSlopeRate slope when utilization rate is higher than baseRate
+     * @param _baseRate rate that defines if we are using _spSlopeRate or _spHighURSlopeRate
+     * @param _penaltyRate rate that is being used for delayed payments
+     */
+    function setParameters(
+        uint256 _mpSlopeRate,
+        uint256 _spSlopeRate,
+        uint256 _spHighURSlopeRate,
+        uint256 _slopeChangeRate,
+        uint256 _baseRate,
+        uint256 _penaltyRate
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        mpSlopeRate = _mpSlopeRate;
+        spSlopeRate = _spSlopeRate;
+        spHighURSlopeRate = _spHighURSlopeRate;
+        slopeChangeRate = _slopeChangeRate;
+        baseRate = _baseRate;
+        penaltyRate = _penaltyRate;
     }
 }

@@ -33,37 +33,19 @@ library PoolLib {
         uint256 supplied;
         uint256 suppliedSP;
         uint256 unassignedEarnings;
+        uint256 earningsMP;
         uint256 earningsSP;
         uint256 lastAccrue;
     }
 
     /**
      * @notice function that registers an operation to add money to
-     *         maturity pool that returns how much earnings will be shared
-     *         for that amount supplied
+     *         maturity pool
      * @param pool maturity pool where money will be added
-     * @param maturityID timestamp in which maturity pool matures
      * @param amount amount to be added to the maturity pool
-     * @return earningsShare amount that the depositor will receive after maturity
      */
-    function addMoney(
-        MaturityPool storage pool,
-        uint256 maturityID,
-        uint256 amount
-    ) external returns (uint256 earningsShare) {
-        // we use this function to accrue only
-        // by passing 0 fees
-        _accrueAndAddFee(pool, maturityID, 0);
-
+    function addMoney(MaturityPool storage pool, uint256 amount) external {
         pool.supplied += amount;
-
-        // from now on, it's earnings calculations
-        uint256 supply = pool.suppliedSP + amount;
-        uint256 unassignedEarnings = pool.unassignedEarnings;
-        earningsShare = supply == 0
-            ? 0
-            : (amount * unassignedEarnings) / supply;
-        pool.unassignedEarnings -= earningsShare;
     }
 
     /**
@@ -106,18 +88,13 @@ library PoolLib {
      *         MP depositors, after that reduces SP debt, and finally
      *         returns the amount of earnings to pay to SP
      * @param pool maturity pool where money will be added
-     * @param maturityID timestamp in which maturity pool matures
      * @param amount amount to be added to the maturity pool
      * @return smartPoolDebtReduction : amount to reduce the SP debt
      * @return fee : amount to distribute as earnings to the SP (revenue share with protocol)
      * @return earningsRepay : amount to distribute as earnings to the SP - extras (penalties,
      *         not shared with anyone)
      */
-    function repay(
-        MaturityPool storage pool,
-        uint256 maturityID,
-        uint256 amount
-    )
+    function repay(MaturityPool storage pool, uint256 amount)
         external
         returns (
             uint256 smartPoolDebtReduction,
@@ -125,25 +102,25 @@ library PoolLib {
             uint256 earningsRepay
         )
     {
-        // we use this function to accrue only
-        // by passing 0 fees
-        _accrueAndAddFee(pool, maturityID, 0);
-
         uint256 borrowMP = pool.borrowed;
         uint256 supplySP = pool.suppliedSP;
         uint256 earningsSP = pool.earningsSP;
 
         // You can't have repayments bigger than the borrowed amount
-        // but amount might contain the penalties
+        // but amount might contain the fees or penalties
         pool.borrowed = borrowMP - Math.min(borrowMP, amount);
 
         // This is the amount that is being lent out by the protocol
         // that belongs to the MP depositors
-        uint256 depositsBorrowed = borrowMP - supplySP;
+        uint256 depositsBorrowed = borrowMP - Math.min(borrowMP, supplySP);
         if (amount > depositsBorrowed) {
             // if its more than the amount being repaid, then it should
             // take a little part of the SP debt
             uint256 extra = amount - depositsBorrowed;
+
+            uint256 earningsDebtMP = Math.min(pool.earningsMP, extra);
+            pool.earningsMP -= earningsDebtMP;
+            extra -= earningsDebtMP;
             if (extra <= supplySP) {
                 // Covered part of the supply SP
                 pool.suppliedSP -= extra;
@@ -165,7 +142,7 @@ library PoolLib {
                 // Covered the supply SP and the earnings SP and extras SP
                 smartPoolDebtReduction = supplySP;
                 fee = pool.earningsSP;
-                earningsRepay = amount - supplySP - fee;
+                earningsRepay = extra - supplySP - fee;
 
                 pool.suppliedSP = 0;
                 pool.earningsSP = 0;
@@ -181,34 +158,34 @@ library PoolLib {
     }
 
     /**
-     * @notice External function to accrue Smart Pool earnings and (possibly)
-     *         add more earnings to the pool to be collected at maturity
+     * @notice External function to add fee to be collected at maturity
      * @param pool maturity pool that needs to be updated
-     * @param maturityID timestamp in which maturity pool matures
-     * @param commission (optional) commission to be added to the earnings for
+     * @param fee fee to be added to the earnings for
      *                   the pool at maturity
      */
-    function addFee(
-        MaturityPool storage pool,
-        uint256 maturityID,
-        uint256 commission
-    ) internal {
-        _accrueAndAddFee(pool, maturityID, commission);
+    function addFee(MaturityPool storage pool, uint256 fee) external {
+        pool.unassignedEarnings += fee;
     }
 
     /**
-     * @notice Internal function to accrue Smart Pool earnings and (possibly)
-     *         add more earnings to the pool to be collected at maturity
+     * @notice External function to take a fee out of earnings at maturity
      * @param pool maturity pool that needs to be updated
-     * @param maturityID timestamp in which maturity pool matures
-     * @param commission (optional) commission to be added to the earnings for
+     * @param fee fee to be added to the earnings for
      *                   the pool at maturity
      */
-    function _accrueAndAddFee(
-        MaturityPool storage pool,
-        uint256 maturityID,
-        uint256 commission
-    ) internal {
+    function takeFee(MaturityPool storage pool, uint256 fee) external {
+        pool.unassignedEarnings -= fee;
+        pool.earningsMP += fee;
+    }
+
+    /**
+     * @notice External function to accrue Smart Pool earnings
+     * @param pool maturity pool that needs to be updated
+     * @param maturityID timestamp in which maturity pool matures
+     */
+    function accrueEarningsToSP(MaturityPool storage pool, uint256 maturityID)
+        external
+    {
         if (pool.lastAccrue == maturityID) {
             return;
         }
@@ -232,10 +209,7 @@ library PoolLib {
             : (unassignedEarnings * secondsSinceLastAccrue) /
                 secondsTotalToMaturity;
         pool.earningsSP += earningsToAccrue;
-        pool.unassignedEarnings =
-            unassignedEarnings -
-            earningsToAccrue +
-            commission;
+        pool.unassignedEarnings = unassignedEarnings - earningsToAccrue;
         pool.lastAccrue = Math.min(maturityID, block.timestamp);
     }
 }

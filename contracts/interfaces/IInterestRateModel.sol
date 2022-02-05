@@ -13,4 +13,10 @@ interface IInterestRateModel {
     ) external view returns (uint256);
 
     function penaltyRate() external view returns (uint256);
+
+    function getYieldForDeposit(
+        uint256 suppliedSP,
+        uint256 unassignedEarnings,
+        uint256 amount
+    ) external pure returns (uint256 earningsShare);
 }
