@@ -25,13 +25,15 @@ interface IPoolAccounting {
         uint256 maturityDate,
         address redeemer,
         uint256 amount,
+        uint256 minAmountRequired,
         uint256 maxSPDebt
-    ) external;
+    ) external returns (uint256);
 
     function repayMP(
         uint256 maturityDate,
         address borrower,
-        uint256 repayAmount
+        uint256 repayAmount,
+        uint256 maxAmountAllowed
     )
         external
         returns (

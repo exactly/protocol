@@ -76,11 +76,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @notice Event emitted when a user collects its deposits after maturity
      * @param from address which will be collecting the asset
      * @param amount of the asset that it was deposited
+     * @param amountDiscounted of the asset that it was deposited (in case of early withdrawal)
      * @param maturityDate poolID where the user collected its deposits
      */
     event WithdrawFromMaturityPool(
         address indexed from,
         uint256 amount,
+        uint256 amountDiscounted,
         uint256 maturityDate
     );
 
@@ -204,6 +206,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     function liquidate(
         address borrower,
         uint256 repayAmount,
+        uint256 maxAmountAllowed,
         IFixedLender fixedLenderCollateral,
         uint256 maturityDate
     ) external override nonReentrant whenNotPaused returns (uint256) {
@@ -212,6 +215,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
                 msg.sender,
                 borrower,
                 repayAmount,
+                maxAmountAllowed,
                 fixedLenderCollateral,
                 maturityDate
             );
@@ -232,41 +236,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 seizeAmount
     ) external override nonReentrant whenNotPaused {
         _seize(msg.sender, liquidator, borrower, seizeAmount);
-    }
-
-    /**
-     * @notice User collects a certain amount of underlying asset after having
-     *         supplied tokens until a certain maturity date
-     * @dev The pool that the user is trying to retrieve the money should be matured
-     * @param redeemer The address of the account which is redeeming the tokens
-     * @param redeemAmount The number of underlying tokens to receive
-     * @param maturityDate The matured date for which we're trying to retrieve the funds
-     */
-    function withdrawFromMaturityPool(
-        address payable redeemer,
-        uint256 redeemAmount,
-        uint256 maturityDate
-    ) public override nonReentrant {
-        if (redeemAmount == 0) {
-            revert GenericError(ErrorCode.REDEEM_CANT_BE_ZERO);
-        }
-
-        // reverts on failure
-        auditor.beforeWithdrawMP(address(this), redeemer, maturityDate);
-
-        poolAccounting.withdrawMP(
-            maturityDate,
-            redeemer,
-            redeemAmount,
-            eToken.totalSupply() / auditor.maxFuturePools()
-        );
-
-        totalMpDeposits -= redeemAmount;
-        totalMpDepositsUser[redeemer] -= redeemAmount;
-
-        doTransferOut(redeemer, redeemAmount);
-
-        emit WithdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
     }
 
     /**
@@ -386,6 +355,50 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
+     * @notice User collects a certain amount of underlying asset after having
+     *         supplied tokens until a certain maturity date
+     * @dev The pool that the user is trying to retrieve the money should be matured
+     * @param redeemer The address of the account which is redeeming the tokens
+     * @param redeemAmount The number of underlying tokens to receive
+     * @param minAmountRequired minimum amount required by the user (if penalty fees for early withdrawal)
+     * @param maturityDate The matured date for which we're trying to retrieve the funds
+     */
+    function withdrawFromMaturityPool(
+        address payable redeemer,
+        uint256 redeemAmount,
+        uint256 minAmountRequired,
+        uint256 maturityDate
+    ) public override nonReentrant {
+        if (redeemAmount == 0) {
+            revert GenericError(ErrorCode.REDEEM_CANT_BE_ZERO);
+        }
+
+        // We assign rewards before deposit
+        auditor.beforeWithdrawMP(address(this), redeemer, maturityDate);
+
+        // We check if there's any discount to be applied for early withdrawal
+        uint256 redeemAmountDiscounted = poolAccounting.withdrawMP(
+            maturityDate,
+            redeemer,
+            redeemAmount,
+            minAmountRequired,
+            eToken.totalSupply() / auditor.maxFuturePools()
+        );
+
+        totalMpDeposits -= redeemAmountDiscounted;
+        totalMpDepositsUser[redeemer] -= redeemAmountDiscounted;
+
+        doTransferOut(redeemer, redeemAmountDiscounted);
+
+        emit WithdrawFromMaturityPool(
+            redeemer,
+            redeemAmount,
+            redeemAmountDiscounted,
+            maturityDate
+        );
+    }
+
+    /**
      * @notice Sender repays an amount of borrower's debt for a maturity date
      * @dev The pool that the user is trying to repay to should be matured
      * @param borrower The address of the account that has the debt
@@ -395,12 +408,19 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     function repayToMaturityPool(
         address borrower,
         uint256 maturityDate,
-        uint256 repayAmount
+        uint256 repayAmount,
+        uint256 maxAmountAllowed
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
         auditor.beforeRepayMP(address(this), borrower, maturityDate);
 
-        _repay(msg.sender, borrower, repayAmount, maturityDate);
+        _repay(
+            msg.sender,
+            borrower,
+            maturityDate,
+            repayAmount,
+            maxAmountAllowed
+        );
     }
 
     /**
@@ -475,8 +495,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     function _repay(
         address payer,
         address borrower,
+        uint256 maturityDate,
         uint256 repayAmount,
-        uint256 maturityDate
+        uint256 maxAmountAllowed
     ) internal returns (uint256) {
         if (repayAmount == 0) {
             revert GenericError(ErrorCode.REPAY_ZERO);
@@ -489,7 +510,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             uint256 debtCovered,
             uint256 fee,
             uint256 earningsRepay
-        ) = poolAccounting.repayMP(maturityDate, borrower, repayAmount);
+        ) = poolAccounting.repayMP(
+                maturityDate,
+                borrower,
+                repayAmount,
+                maxAmountAllowed
+            );
 
         if (spareRepayAmount > 0) {
             doTransferOut(payer, spareRepayAmount);
@@ -527,6 +553,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         address liquidator,
         address borrower,
         uint256 repayAmount,
+        uint256 maxAmountAllowed,
         IFixedLender fixedLenderCollateral,
         uint256 maturityDate
     ) internal returns (uint256) {
@@ -539,7 +566,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             repayAmount
         );
 
-        repayAmount = _repay(liquidator, borrower, repayAmount, maturityDate);
+        repayAmount = _repay(
+            liquidator,
+            borrower,
+            maturityDate,
+            repayAmount,
+            maxAmountAllowed
+        );
 
         // reverts on failure
         uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(

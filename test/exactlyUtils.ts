@@ -30,6 +30,14 @@ export function applyMaxFee(amount: BigNumber): BigNumber {
   return amount.add(amount.div(10)); // 10%
 }
 
+export function discountMaxFee(amount: BigNumber): BigNumber {
+  return amount.sub(amount.div(10)); // 10%
+}
+
+export function noDiscount(amount: BigNumber): BigNumber {
+  return amount; // 0%
+}
+
 export function applyMinFee(amount: BigNumber): BigNumber {
   return amount; // 0%
 }

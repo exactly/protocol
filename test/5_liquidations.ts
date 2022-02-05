@@ -131,6 +131,7 @@ describe("Liquidations", function () {
                 .liquidate(
                   alice.address,
                   parseUnits("19000"),
+                  parseUnits("19000"),
                   fixedLenderWBTC.address,
                   nextPoolID
                 );
@@ -170,6 +171,7 @@ describe("Liquidations", function () {
                 .liquidate(
                   alice.address,
                   parseUnits("19000"),
+                  parseUnits("19000"),
                   fixedLenderWBTC.address,
                   nextPoolID
                 );
@@ -204,6 +206,7 @@ describe("Liquidations", function () {
               .connect(bob)
               .liquidate(
                 alice.address,
+                parseUnits("19000"),
                 parseUnits("19000"),
                 fixedLenderWBTC.address,
                 nextPoolID
@@ -258,6 +261,7 @@ describe("Liquidations", function () {
                 .liquidate(
                   alice.address,
                   parseUnits("18000"),
+                  parseUnits("18000"),
                   fixedLenderWBTC.address,
                   nextPoolID
                 );
@@ -299,6 +303,7 @@ describe("Liquidations", function () {
               .connect(bob)
               .liquidate(
                 alice.address,
+                parseUnits("19000"),
                 parseUnits("19000"),
                 fixedLenderWBTC.address,
                 nextPoolID
@@ -393,6 +398,7 @@ describe("Liquidations", function () {
                 .liquidate(
                   alice.address,
                   parseUnits("19000"),
+                  parseUnits("19000"),
                   fixedLenderWBTC.address,
                   nextPoolID
                 );
@@ -452,6 +458,7 @@ describe("Liquidations", function () {
                 .liquidate(
                   alice.address,
                   parseUnits("19000"),
+                  parseUnits("19000"),
                   fixedLenderWBTC.address,
                   nextPoolID
                 );
@@ -495,6 +502,7 @@ describe("Liquidations", function () {
                 alice.address,
                 // maybe I should've used amounts divisible by each other
                 parseUnits("2727"),
+                parseUnits("2727"),
                 fixedLenderETH.address,
                 nextPoolID
               );
@@ -513,6 +521,7 @@ describe("Liquidations", function () {
                   .liquidate(
                     alice.address,
                     parseUnits("18000"),
+                    parseUnits("18000"),
                     fixedLenderWBTC.address,
                     nextPoolID
                   );
@@ -520,6 +529,7 @@ describe("Liquidations", function () {
                   .connect(bob)
                   .liquidate(
                     alice.address,
+                    parseUnits("9500"),
                     parseUnits("9500"),
                     fixedLenderWBTC.address,
                     nextPoolID
@@ -531,6 +541,7 @@ describe("Liquidations", function () {
                     .connect(bob)
                     .liquidate(
                       alice.address,
+                      parseUnits("4500"),
                       parseUnits("4500"),
                       fixedLenderETH.address,
                       nextPoolID
@@ -545,6 +556,7 @@ describe("Liquidations", function () {
                     .connect(bob)
                     .liquidate(
                       alice.address,
+                      parseUnits("2045"),
                       parseUnits("2045"),
                       fixedLenderWBTC.address,
                       nextPoolID
@@ -589,7 +601,13 @@ describe("Liquidations", function () {
           await expect(
             fixedLenderDAI
               .connect(bob)
-              .liquidate(alice.address, 0, fixedLenderETH.address, nextPoolID)
+              .liquidate(
+                alice.address,
+                0,
+                0,
+                fixedLenderETH.address,
+                nextPoolID
+              )
           ).to.be.revertedWith(errorGeneric(ProtocolError.REPAY_ZERO));
         });
 
@@ -598,6 +616,7 @@ describe("Liquidations", function () {
           await expect(
             fixedLenderDAI.liquidate(
               alice.address,
+              parseUnits("15000"),
               parseUnits("15000"),
               fixedLenderETH.address,
               nextPoolID
@@ -622,6 +641,7 @@ describe("Liquidations", function () {
                 .liquidate(
                   alice.address,
                   parseUnits("15000"),
+                  parseUnits("15000"),
                   fixedLenderETH.address,
                   nextPoolID
                 )
@@ -639,6 +659,7 @@ describe("Liquidations", function () {
                 .liquidate(
                   alice.address,
                   parseUnits("10000"),
+                  parseUnits("10000"),
                   fixedLenderETH.address,
                   nextPoolID
                 )
@@ -653,6 +674,7 @@ describe("Liquidations", function () {
                 .connect(bob)
                 .liquidate(
                   alice.address,
+                  parseUnits("20000"),
                   parseUnits("20000"),
                   fixedLenderWBTC.address,
                   nextPoolID
@@ -669,6 +691,7 @@ describe("Liquidations", function () {
               .connect(bob)
               .liquidate(
                 alice.address,
+                parseUnits("19000"),
                 parseUnits("19000"),
                 fixedLenderWBTC.address,
                 nextPoolID
@@ -769,6 +792,7 @@ describe("Liquidations", function () {
               .liquidate(
                 alice.address,
                 parseUnits("1"),
+                parseUnits("1"),
                 fixedLenderDAI.address,
                 nextPoolID
               )
@@ -793,6 +817,7 @@ describe("Liquidations", function () {
                 .liquidate(
                   alice.address,
                   parseUnits("0.5"),
+                  parseUnits("0.5"),
                   fixedLenderDAI.address,
                   exaTime.poolIDByNumberOfWeek(1)
                 )
@@ -802,6 +827,7 @@ describe("Liquidations", function () {
                 .connect(john)
                 .liquidate(
                   alice.address,
+                  parseUnits("0.5"),
                   parseUnits("0.5"),
                   fixedLenderDAI.address,
                   exaTime.poolIDByNumberOfWeek(2)
@@ -865,6 +891,7 @@ describe("Liquidations", function () {
             .connect(john)
             .liquidate(
               alice.address,
+              parseUnits("3000"),
               parseUnits("3000"),
               fixedLenderETH.address,
               exaTime.poolIDByNumberOfWeek(1)

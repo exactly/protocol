@@ -29,7 +29,7 @@ contract FlashLoanAttacker is IFlashBorrower {
     function doThingsWithFlashLoan() external override {
         underlying.approve(address(fixedLender), 2 * FLASHLOAN_AMOUNT);
         fixedLender.depositToSmartPool(FLASHLOAN_AMOUNT);
-        fixedLender.repayToMaturityPool(borrower, maturityDate, amount);
+        fixedLender.repayToMaturityPool(borrower, maturityDate, amount, amount);
         fixedLender.withdrawFromSmartPool(FLASHLOAN_AMOUNT);
     }
 }

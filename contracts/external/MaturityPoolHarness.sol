@@ -59,7 +59,7 @@ contract MaturityPoolHarness {
             uint256 smartPoolDebtReduction,
             uint256 earningsSP,
             uint256 extrasSP
-        ) = maturityPool.repay(_amount);
+        ) = maturityPool.repay(PoolLib.Debt(_amount, 0));
         smartPoolTotalDebt -= smartPoolDebtReduction;
         lastEarningsSP = earningsSP;
         lastExtrasSP = extrasSP;

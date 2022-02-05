@@ -435,7 +435,11 @@ contract Auditor is IAuditor, AccessControl {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
 
-        _requirePoolState(maturityDate, TSUtils.State.MATURED);
+        _requirePoolState(
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.MATURED
+        );
 
         rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
         rewardsState.distributeMPSupplierExa(fixedLenderAddress, redeemer);

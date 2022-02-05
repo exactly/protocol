@@ -6,8 +6,10 @@ import {
   applyMaxFee,
   applyMinFee,
   defaultMockedTokens,
+  discountMaxFee,
   EnvConfig,
   MockedTokenSpec,
+  noDiscount,
 } from "./exactlyUtils";
 import assert from "assert";
 
@@ -380,16 +382,27 @@ export class DefaultEnv {
   public async withdrawMPETH(
     assetString: string,
     maturityPool: number,
-    units: string
+    units: string,
+    expectedAtMaturity?: string
   ) {
     assert(assetString === "WETH");
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = discountMaxFee(amount);
+    }
     return fixedLender
       .connect(this.currentWallet)
       .withdrawFromMaturityPoolEth(
         this.currentWallet.address,
         amount,
+        expectedAmount,
         maturityPool
       );
   }
@@ -397,15 +410,26 @@ export class DefaultEnv {
   public async withdrawMP(
     assetString: string,
     maturityPool: number,
-    units: string
+    units: string,
+    expectedAtMaturity?: string
   ) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = discountMaxFee(amount);
+    }
     return fixedLender
       .connect(this.currentWallet)
       .withdrawFromMaturityPool(
         this.currentWallet.address,
         amount,
+        expectedAmount,
         maturityPool
       );
   }
@@ -460,17 +484,32 @@ export class DefaultEnv {
   public async repayMP(
     assetString: string,
     maturityPool: number,
-    units: string
+    units: string,
+    expectedAtMaturity?: string
   ) {
     const asset = this.getUnderlying(assetString);
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = noDiscount(amount);
+    }
     await asset
       .connect(this.currentWallet)
       .approve(fixedLender.address, amount);
     return fixedLender
       .connect(this.currentWallet)
-      .repayToMaturityPool(this.currentWallet.address, maturityPool, amount);
+      .repayToMaturityPool(
+        this.currentWallet.address,
+        maturityPool,
+        amount,
+        expectedAmount
+      );
   }
 
   public async repayMPETH(

@@ -143,14 +143,6 @@ describe("FixedLender", function () {
         await poolAccounting.mpUserSuppliedAmount(nextPoolId, mariaUser.address)
       ).to.be.equal(parseUnits("100"));
     });
-    it("AND WHEN trying to withdraw before the pool matures, THEN it reverts", async () => {
-      // try to withdraw before maturity
-      await expect(
-        exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
-      ).to.be.revertedWith(
-        errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
-      );
-    });
     it("WHEN trying to borrow DAI THEN it reverts with INSUFFICIENT_LIQUIDITY since collateral was not deposited yet", async () => {
       await expect(
         exactlyEnv.borrowMP("DAI", nextPoolId, "1")
@@ -380,7 +372,12 @@ describe("FixedLender", function () {
       it("AND a WithdrawFromMaturityPool event is emitted", async () => {
         await expect(tx)
           .to.emit(fixedLender, "WithdrawFromMaturityPool")
-          .withArgs(mariaUser.address, parseUnits("100"), nextPoolId);
+          .withArgs(
+            mariaUser.address,
+            parseUnits("100"),
+            parseUnits("100"),
+            nextPoolId
+          );
       });
     });
   });

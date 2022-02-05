@@ -7,7 +7,8 @@ contract PoolAccountingHarness {
     struct ReturnValues {
         uint256 totalOwedNewBorrow;
         uint256 currentTotalDeposit;
-        uint256 penalties;
+        uint256 currentTotalWithdrawal;
+        uint256 spareAmount;
         uint256 debtCovered;
         uint256 fee;
         uint256 earningsRepay;
@@ -54,21 +55,34 @@ contract PoolAccountingHarness {
         uint256 maturityDate,
         address redeemer,
         uint256 amount,
+        uint256 minAmountRequired,
         uint256 maxSPDebt
     ) external {
-        poolAccounting.withdrawMP(maturityDate, redeemer, amount, maxSPDebt);
+        returnValues.currentTotalWithdrawal = poolAccounting.withdrawMP(
+            maturityDate,
+            redeemer,
+            amount,
+            minAmountRequired,
+            maxSPDebt
+        );
     }
 
     function repayMP(
         uint256 maturityDate,
         address borrower,
-        uint256 repayAmount
+        uint256 repayAmount,
+        uint256 maxAmountAllowed
     ) external {
         (
-            returnValues.penalties,
+            returnValues.spareAmount,
             returnValues.debtCovered,
             returnValues.fee,
             returnValues.earningsRepay
-        ) = poolAccounting.repayMP(maturityDate, borrower, repayAmount);
+        ) = poolAccounting.repayMP(
+            maturityDate,
+            borrower,
+            repayAmount,
+            maxAmountAllowed
+        );
     }
 }

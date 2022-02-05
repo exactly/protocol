@@ -68,9 +68,15 @@ contract ETHFixedLender is FixedLender {
     function withdrawFromMaturityPoolEth(
         address payable redeemer,
         uint256 redeemAmount,
+        uint256 minAmountRequired,
         uint256 maturityDate
     ) external usingETH {
-        withdrawFromMaturityPool(redeemer, redeemAmount, maturityDate);
+        withdrawFromMaturityPool(
+            redeemer,
+            redeemAmount,
+            minAmountRequired,
+            maturityDate
+        );
     }
 
     function repayToMaturityPoolEth(address borrower, uint256 maturityDate)
@@ -78,7 +84,8 @@ contract ETHFixedLender is FixedLender {
         payable
         usingETH
     {
-        repayToMaturityPool(borrower, maturityDate, msg.value);
+        // TODO: how do you do slippage on bare ETH
+        repayToMaturityPool(borrower, maturityDate, msg.value, msg.value);
     }
 
     function doTransferIn(address from, uint256 amount)
