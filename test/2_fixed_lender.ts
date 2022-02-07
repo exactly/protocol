@@ -28,6 +28,7 @@ describe("FixedLender", function () {
   const exaTime: ExaTime = new ExaTime();
   const nextPoolId: number = exaTime.nextPoolID();
   const laterPoolId: number = nextPoolId + exaTime.INTERVAL;
+  const penaltyRate = "0.0000002315"; // Penalty Rate per second (86400 is ~= 2%)
 
   let snapshot: any;
   beforeEach(async () => {
@@ -50,7 +51,9 @@ describe("FixedLender", function () {
     await underlyingTokenETH.transfer(mariaUser.address, parseUnits("100000"));
     await underlyingToken.transfer(johnUser.address, parseUnits("100000"));
 
-    await exactlyEnv.getInterestRateModel().setPenaltyRate(parseUnits("0.02"));
+    await exactlyEnv
+      .getInterestRateModel()
+      .setPenaltyRate(parseUnits(penaltyRate));
     exactlyEnv.switchWallet(mariaUser);
   });
   describe("small positions", () => {
@@ -240,7 +243,7 @@ describe("FixedLender", function () {
             .withArgs(
               mariaUser.address,
               mariaUser.address,
-              parseUnits("0"),
+              parseUnits("60"),
               parseUnits("60"),
               nextPoolId
             );
@@ -255,7 +258,7 @@ describe("FixedLender", function () {
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {
             await exactlyEnv.withdrawSP("DAI", "100");
-            await exactlyEnv.moveInTime(nextPoolId);
+            await exactlyEnv.moveInTimeAndMine(nextPoolId);
             await exactlyEnv.withdrawMP("DAI", nextPoolId, "100");
           });
           // TODO tests for partial/excessive withdrawal?
@@ -292,7 +295,7 @@ describe("FixedLender", function () {
             .withArgs(
               mariaUser.address,
               mariaUser.address,
-              parseUnits("0"),
+              parseUnits("40"),
               parseUnits("40"),
               nextPoolId
             );
@@ -307,18 +310,46 @@ describe("FixedLender", function () {
 
         describe("AND WHEN moving in time to 1 day after maturity", () => {
           beforeEach(async () => {
-            await exactlyEnv.moveInTime(nextPoolId + exaTime.ONE_DAY);
+            await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY);
           });
-          it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 == 0.04 ) DAI of late payment penalties", async () => {
+          it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 ~= 0.0400032 ) DAI of late payment penalties", async () => {
+            let penalties = exactlyEnv.calculatePenaltiesForDebt(
+              20,
+              exaTime.ONE_DAY,
+              parseFloat(penaltyRate)
+            );
             const [, amountOwed] = await exactlyEnv
               .getFixedLender("DAI")
               .getAccountSnapshot(mariaUser.address, nextPoolId);
 
-            expect(amountOwed).to.equal(parseUnits("20.4"));
+            expect(amountOwed).to.equal(
+              parseUnits((20 + penalties).toString())
+            );
           });
           describe("AND WHEN repaying the rest of the 20.4 owed DAI", () => {
             beforeEach(async () => {
-              await exactlyEnv.repayMP("DAI", nextPoolId, "20.4");
+              let penalties = exactlyEnv.calculatePenaltiesForDebt(
+                20,
+                exaTime.ONE_DAY + exaTime.ONE_SECOND * 2,
+                parseFloat(penaltyRate)
+              );
+              await exactlyEnv.repayMP(
+                "DAI",
+                nextPoolId,
+                (20 + penalties).toString()
+              );
+            });
+            it("THEN all debt is repaid", async () => {
+              const [, amountOwed] = await exactlyEnv
+                .getFixedLender("DAI")
+                .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+              expect(amountOwed).to.equal(0);
+            });
+          });
+          describe("AND WHEN repaying more than what is owed (30 DAI)", () => {
+            beforeEach(async () => {
+              await exactlyEnv.repayMP("DAI", nextPoolId, "30");
             });
             it("THEN all debt is repaid", async () => {
               const [, amountOwed] = await exactlyEnv
@@ -335,7 +366,7 @@ describe("FixedLender", function () {
     describe("AND WHEN moving in time to maturity AND withdrawing from the maturity pool", () => {
       let tx: any;
       beforeEach(async () => {
-        await exactlyEnv.moveInTime(nextPoolId);
+        await exactlyEnv.moveInTimeAndMine(nextPoolId);
         tx = await exactlyEnv.withdrawMP("DAI", nextPoolId, "100");
       });
       it("THEN 100 DAI are returned to Maria", async () => {
@@ -732,6 +763,59 @@ describe("FixedLender", function () {
         });
       });
     });
+    describe("AND GIVEN she borrows 5k DAI", () => {
+      const depositAmount = 5000;
+      beforeEach(async () => {
+        // we first fund the maturity pool so it has liquidity to borrow
+        await exactlyEnv.depositMP("DAI", nextPoolId, depositAmount.toString());
+        await exactlyEnv.borrowMP("DAI", nextPoolId, depositAmount.toString());
+      });
+      describe("AND WHEN moving in time to 20 days after maturity", () => {
+        beforeEach(async () => {
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 20);
+        });
+        it("THEN Maria owes (getAccountSnapshot) 5k + aprox 2.8k DAI in penalties", async () => {
+          let penalties = exactlyEnv.calculatePenaltiesForDebt(
+            depositAmount,
+            exaTime.ONE_DAY * 20,
+            parseFloat(penaltyRate)
+          );
+          const [, amountOwed] = await exactlyEnv
+            .getFixedLender("DAI")
+            .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+          expect(amountOwed).to.equal(
+            parseUnits((depositAmount + penalties).toString())
+          );
+        });
+      });
+      describe("AND WHEN moving in time to 20 days after maturity but repaying really small amounts within some days", () => {
+        beforeEach(async () => {
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 5);
+          await exactlyEnv.repayMP("DAI", nextPoolId, "0.000000001");
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 10);
+          await exactlyEnv.repayMP("DAI", nextPoolId, "0.000000001");
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 15);
+          await exactlyEnv.repayMP("DAI", nextPoolId, "0.000000001");
+          await exactlyEnv.moveInTimeAndMine(nextPoolId + exaTime.ONE_DAY * 20);
+        });
+        it("THEN Maria owes (getAccountSnapshot) 5k + aprox 2.8k DAI in penalties (no debt was compounded)", async () => {
+          let penalties = exactlyEnv.calculatePenaltiesForDebt(
+            depositAmount,
+            exaTime.ONE_DAY * 20,
+            parseFloat(penaltyRate)
+          );
+          const [, amountOwed] = await exactlyEnv
+            .getFixedLender("DAI")
+            .getAccountSnapshot(mariaUser.address, nextPoolId);
+
+          expect(amountOwed).to.closeTo(
+            parseUnits((depositAmount + penalties).toString()),
+            parseUnits("0.00000001").toNumber()
+          );
+        });
+      });
+    });
   });
 
   describe("Transfers with Commissions", () => {
@@ -777,19 +861,42 @@ describe("FixedLender", function () {
 
           describe("AND WHEN trying to repay 1100 (too much)", () => {
             let tx: any;
+            let johnBalanceBefore: any;
             beforeEach(async () => {
               exactlyEnv.switchWallet(johnUser);
+              johnBalanceBefore = await underlyingToken.balanceOf(
+                johnUser.address
+              );
               tx = exactlyEnv.repayMP("DAI", nextPoolId, "1100");
             });
 
-            it("THEN the transaction is reverted TOO_MUCH_REPAY_TRANSFER", async () => {
-              await expect(tx).to.be.revertedWith(
-                errorGeneric(ProtocolError.TOO_MUCH_REPAY_TRANSFER)
+            it("THEN jhon ends up repaying all debt", async () => {
+              await expect(tx).to.not.be.reverted;
+
+              const [, amountOwed] = await fixedLender
+                .connect(johnUser.address)
+                .getAccountSnapshot(johnUser.address, nextPoolId);
+              expect(amountOwed).to.eq(0);
+            });
+
+            it("THEN the spare amount is transferred back to him", async () => {
+              await expect(tx).to.not.be.reverted;
+
+              const johnBalanceAfter = await underlyingToken.balanceOf(
+                johnUser.address
+              );
+              const repayedAmount = 1100 * 0.9; // 10% comission
+              const returnedSpareAmount = (repayedAmount - 900) * 0.9; // 900 = debt - the transferOut also charges 10% comission
+
+              expect(johnBalanceAfter).to.equal(
+                johnBalanceBefore
+                  .sub(parseUnits(repayedAmount.toString()))
+                  .add(parseUnits(returnedSpareAmount.toString()))
               );
             });
           });
 
-          describe("AND WHEN repaying with 10% commission", () => {
+          describe("AND WHEN repaying the exact amount with 10% commission", () => {
             beforeEach(async () => {
               exactlyEnv.switchWallet(johnUser);
               await exactlyEnv.repayMP("DAI", nextPoolId, "1000");
@@ -802,6 +909,39 @@ describe("FixedLender", function () {
                   .getAccountSnapshot(johnUser.address, nextPoolId)
               )[1];
               expect(borrowed).to.eq(0);
+            });
+          });
+
+          describe("AND WHEN trying to repay 1100 (too much) with no commission", () => {
+            let tx: any;
+            let johnBalanceBefore: any;
+            beforeEach(async () => {
+              exactlyEnv.switchWallet(johnUser);
+              await underlyingToken.setCommission(parseUnits("0"));
+              johnBalanceBefore = await underlyingToken.balanceOf(
+                johnUser.address
+              );
+              tx = exactlyEnv.repayMP("DAI", nextPoolId, "1100");
+            });
+
+            it("THEN jhon ends up repaying all debt", async () => {
+              await expect(tx).to.not.be.reverted;
+
+              const [, amountOwed] = await fixedLender
+                .connect(johnUser.address)
+                .getAccountSnapshot(johnUser.address, nextPoolId);
+              expect(amountOwed).to.eq(0);
+            });
+
+            it("THEN the spare amount is transferred back to him", async () => {
+              await expect(tx).to.not.be.reverted;
+
+              const johnBalanceAfter = await underlyingToken.balanceOf(
+                johnUser.address
+              );
+              expect(johnBalanceAfter).to.equal(
+                johnBalanceBefore.sub(parseUnits("900"))
+              );
             });
           });
         });

@@ -27,7 +27,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     struct RepayVars {
         uint256 amountOwed;
         uint256 amountBorrowed;
-        uint256 outstandingDebt;
+        uint256 amountStillBorrowed;
         uint256 smartPoolDebtReduction;
     }
 
@@ -204,7 +204,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         override
         onlyFixedLender
         returns (
-            uint256 penalties,
+            uint256 spareRepayAmount,
             uint256 debtCovered,
             uint256 fee,
             uint256 earningsRepay
@@ -214,7 +214,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
 
         if (repayAmount > repayVars.amountOwed) {
-            revert GenericError(ErrorCode.TOO_MUCH_REPAY_TRANSFER);
+            spareRepayAmount = repayAmount - repayVars.amountOwed;
+            repayAmount = repayVars.amountOwed;
         }
 
         repayVars.amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
@@ -225,11 +226,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         debtCovered =
             (repayAmount * repayVars.amountBorrowed) /
             repayVars.amountOwed;
-        penalties = repayAmount - debtCovered;
 
-        repayVars.outstandingDebt = repayVars.amountBorrowed - debtCovered;
+        repayVars.amountStillBorrowed = repayVars.amountBorrowed - debtCovered;
 
-        if (repayVars.outstandingDebt == 0) {
+        if (repayVars.amountStillBorrowed == 0) {
             uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[
                 borrower
             ];
@@ -252,7 +252,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         mpUserBorrowedAmount[maturityDate][borrower] = repayVars
-            .outstandingDebt;
+            .amountStillBorrowed;
 
         // SP supply needs to accrue its interests
         maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
@@ -322,9 +322,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         returns (uint256 debt)
     {
         debt = mpUserBorrowedAmount[maturityDate][who];
-        uint256 daysDelayed = TSUtils.daysPre(maturityDate, block.timestamp);
-        if (daysDelayed > 0) {
-            debt += debt.mul_(daysDelayed * interestRateModel.penaltyRate());
+        uint256 secondsDelayed = TSUtils.secondsPre(
+            maturityDate,
+            block.timestamp
+        );
+        if (secondsDelayed > 0) {
+            debt += debt.mul_(secondsDelayed * interestRateModel.penaltyRate());
         }
     }
 }
