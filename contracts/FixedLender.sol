@@ -511,7 +511,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             maturityDate
         );
 
-        return repayAmount;
+        return repayAmount - spareRepayAmount;
     }
 
     /**
