@@ -19,8 +19,8 @@ import "./utils/Errors.sol";
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using DecimalMath for uint256;
 
-    uint256 private protocolSpreadFee = 2.8e16; //2.8%
-    uint256 private protocolLiquidationFee = 2.8e16; //2.8%
+    uint256 public protocolSpreadFee = 2.8e16; //2.8%
+    uint256 public protocolLiquidationFee = 2.8e16; //2.8%
     uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
