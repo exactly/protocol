@@ -476,6 +476,14 @@ describe("FixedLender", function () {
       ).to.be.revertedWith("AccessControl");
     });
 
+    it("WHEN calling setProtocolLiquidationFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        fixedLender
+          .connect(mariaUser)
+          .setProtocolLiquidationFee(parseUnits("0.04"))
+      ).to.be.revertedWith("AccessControl");
+    });
+
     it("WHEN calling withdrawEarnings from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(
         fixedLender
