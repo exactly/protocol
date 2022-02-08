@@ -20,6 +20,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using DecimalMath for uint256;
 
     uint256 private protocolSpreadFee = 2.8e16; //2.8%
+    uint256 private protocolLiquidationFee = 2.8e16; //2.8%
     uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -169,14 +170,25 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @dev Sets the protocol's spread fee used on liquidations and loan repayment
-     * @param _protocolSpreadFee percentile amount represented with 1e18 decimals
+     * @dev Sets the protocol's spread fee used on loan repayment
+     * @param _protocolSpreadFee percentage amount represented with 1e18 decimals
      */
     function setProtocolSpreadFee(uint256 _protocolSpreadFee)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         protocolSpreadFee = _protocolSpreadFee;
+    }
+
+    /**
+     * @dev Sets the protocol's collateral liquidation fee used on liquidations
+     * @param _protocolLiquidationFee percentage amount represented with 1e18 decimals
+     */
+    function setProtocolLiquidationFee(uint256 _protocolLiquidationFee)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        protocolLiquidationFee = _protocolLiquidationFee;
     }
 
     /**
@@ -603,7 +615,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             borrower
         );
 
-        uint256 protocolAmount = seizeAmount.mul_(protocolSpreadFee);
+        uint256 protocolAmount = seizeAmount.mul_(protocolLiquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
         treasury += protocolAmount;
 

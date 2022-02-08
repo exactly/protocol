@@ -158,9 +158,9 @@ describe("Liquidations", function () {
           });
         });
 
-        describe("AND the protcol fee is increased to 4%", () => {
+        describe("AND the protocol collateral liquidation fee is increased to 4%", () => {
           beforeEach(async () => {
-            await fixedLenderWBTC.setProtocolSpreadFee(parseUnits("0.04"));
+            await fixedLenderWBTC.setProtocolLiquidationFee(parseUnits("0.04"));
           });
           describe("AND the position is liquidated (19kdai)", () => {
             let tx: any;
