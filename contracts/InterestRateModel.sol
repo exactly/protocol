@@ -109,8 +109,10 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     function getYieldForDeposit(
         uint256 suppliedSP,
         uint256 unassignedEarnings,
-        uint256 amount
+        uint256 amount,
+        uint256 mpDepositsWeighter
     ) external pure override returns (uint256 earningsShare) {
+        amount = amount.mul_(mpDepositsWeighter);
         uint256 supply = suppliedSP + amount;
         earningsShare = (amount * unassignedEarnings) / supply;
     }

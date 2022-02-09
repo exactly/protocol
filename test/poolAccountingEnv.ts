@@ -5,15 +5,18 @@ export class PoolAccountingEnv {
   interestRateModel: Contract;
   realPoolAccounting: Contract;
   poolAccountingHarness: Contract;
+  fixedLender: Contract;
 
   constructor(
     _interestRateModel: Contract,
     _realPoolAccounting: Contract,
-    _poolAccountingHarness: Contract
+    _poolAccountingHarness: Contract,
+    _fixedLender: Contract
   ) {
     this.interestRateModel = _interestRateModel;
     this.realPoolAccounting = _realPoolAccounting;
     this.poolAccountingHarness = _poolAccountingHarness;
+    this.fixedLender = _fixedLender;
   }
 
   public async moveInTime(timestamp: number) {
@@ -47,11 +50,23 @@ export class PoolAccountingEnv {
       mockedInterestRateModel.address
     );
     await realPoolAccounting.deployed();
+    const FixedLender = await ethers.getContractFactory("FixedLender");
+    const addressZero = "0x0000000000000000000000000000000000000000";
+    // We only deploy a FixedLender to be able to access mpDepositDistributionWeighter parameter and to also call setMpDepositDistributionWeighter
+    const fixedLender = await FixedLender.deploy(
+      addressZero,
+      "DAI",
+      addressZero,
+      addressZero,
+      addressZero
+    );
+    await fixedLender.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
       "PoolAccountingHarness"
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
-      realPoolAccounting.address
+      realPoolAccounting.address,
+      fixedLender.address
     );
     await poolAccountingHarness.deployed();
 
@@ -59,7 +74,8 @@ export class PoolAccountingEnv {
     return new PoolAccountingEnv(
       mockedInterestRateModel,
       realPoolAccounting,
-      poolAccountingHarness
+      poolAccountingHarness,
+      fixedLender
     );
   }
 }

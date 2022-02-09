@@ -19,8 +19,9 @@ import "./utils/Errors.sol";
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using DecimalMath for uint256;
 
-    uint256 public protocolSpreadFee = 2.8e16; //2.8%
-    uint256 public protocolLiquidationFee = 2.8e16; //2.8%
+    uint256 public protocolSpreadFee = 2.8e16; // 2.8%
+    uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
+    uint256 public override mpDepositDistributionWeighter = 1e18; // 100%
     uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -189,6 +190,17 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         protocolLiquidationFee = _protocolLiquidationFee;
+    }
+
+    /**
+     * @dev Sets the maturity pool deposits' weighter used to increase or decrease the deposit amount in order
+     *      to share out more or less unassigned earnings to that deposit
+     * @param _mpDepositDistributionWeighter percentage amount represented with 1e18 decimals that will multiply the amount to deposit
+     */
+    function setMpDepositDistributionWeighter(
+        uint256 _mpDepositDistributionWeighter
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        mpDepositDistributionWeighter = _mpDepositDistributionWeighter;
     }
 
     /**

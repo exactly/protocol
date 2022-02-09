@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
+import "./interfaces/IFixedLender.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
@@ -154,7 +155,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 fee = interestRateModel.getYieldForDeposit(
             maturityPools[maturityDate].suppliedSP,
             maturityPools[maturityDate].unassignedEarnings,
-            amount
+            amount,
+            IFixedLender(fixedLenderAddress).mpDepositDistributionWeighter()
         );
 
         currentTotalDeposit = amount + fee;
