@@ -334,9 +334,7 @@ describe("PoolAccounting", () => {
               await fixedLender.setMpDepositDistributionWeighter(
                 parseUnits("1.5")
               );
-              await ethers.provider.send("evm_setNextBlockTimestamp", [
-                oneDayToMaturity,
-              ]);
+              await poolAccountingEnv.moveInTime(oneDayToMaturity);
               depositAmount = 10000;
               await poolAccountingHarness
                 .connect(laura)
