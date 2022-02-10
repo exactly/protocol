@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "../interfaces/IPoolAccounting.sol";
+import "../interfaces/IFixedLender.sol";
 
 contract PoolAccountingHarness {
     struct ReturnValues {
@@ -15,9 +16,11 @@ contract PoolAccountingHarness {
 
     ReturnValues public returnValues;
     IPoolAccounting public poolAccounting;
+    IFixedLender public fixedLender;
 
-    constructor(address _poolAccounting) {
+    constructor(address _poolAccounting, address _fixedLender) {
         poolAccounting = IPoolAccounting(_poolAccounting);
+        fixedLender = IFixedLender(_fixedLender);
     }
 
     function borrowMP(
@@ -70,5 +73,9 @@ contract PoolAccountingHarness {
             returnValues.fee,
             returnValues.earningsRepay
         ) = poolAccounting.repayMP(maturityDate, borrower, repayAmount);
+    }
+
+    function mpDepositDistributionWeighter() external view returns (uint256) {
+        return fixedLender.mpDepositDistributionWeighter();
     }
 }

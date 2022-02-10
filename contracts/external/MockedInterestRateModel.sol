@@ -3,8 +3,11 @@ pragma solidity ^0.8.4;
 
 import "../interfaces/IInterestRateModel.sol";
 import "../utils/Errors.sol";
+import "../utils/DecimalMath.sol";
 
 contract MockedInterestRateModel is IInterestRateModel {
+    using DecimalMath for uint256;
+
     uint256 public borrowRate;
     uint256 public override penaltyRate;
 
@@ -21,8 +24,10 @@ contract MockedInterestRateModel is IInterestRateModel {
     function getYieldForDeposit(
         uint256 suppliedSP,
         uint256 unassignedEarnings,
-        uint256 amount
+        uint256 amount,
+        uint256 mpDepositDistributionWeighter
     ) external pure override returns (uint256 earningsShare) {
+        amount = amount.mul_(mpDepositDistributionWeighter);
         uint256 supply = suppliedSP + amount;
         earningsShare = supply == 0
             ? 0

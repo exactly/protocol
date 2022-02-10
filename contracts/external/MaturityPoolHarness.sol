@@ -47,7 +47,8 @@ contract MaturityPoolHarness {
         lastFee = interestRateModel.getYieldForDeposit(
             maturityPool.suppliedSP,
             maturityPool.unassignedEarnings,
-            _amount
+            _amount,
+            1e18 // mpDepositDistributionWeighter -> 100%
         );
         maturityPool.addMoney(_amount);
         maturityPool.takeFee(lastFee);
