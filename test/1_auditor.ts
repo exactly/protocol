@@ -76,53 +76,6 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
-  it("BeforeDepositSP should fail for an unlisted market", async () => {
-    await expect(
-      auditor.beforeDepositSP(exactlyEnv.notAnFixedLenderAddress, owner.address)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
-  it("BeforeWithdrawSP should fail for an unlisted market", async () => {
-    await expect(
-      auditor.beforeWithdrawSP(
-        exactlyEnv.notAnFixedLenderAddress,
-        owner.address,
-        "0"
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
-  it("BeforeDepositMP should fail for an unlisted market", async () => {
-    await expect(
-      auditor.beforeDepositMP(
-        exactlyEnv.notAnFixedLenderAddress,
-        owner.address,
-        nextPoolID
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
-  it("BeforeTransferSP should fail for an unlisted market", async () => {
-    await expect(
-      auditor.beforeTransferSP(
-        exactlyEnv.notAnFixedLenderAddress,
-        owner.address,
-        owner.address,
-        "0"
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
-  it("BorrowAllowed should fail for an unlisted market", async () => {
-    await expect(
-      auditor.beforeBorrowMP(
-        exactlyEnv.notAnFixedLenderAddress,
-        owner.address,
-        nextPoolID
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
   it("validateBorrowMP should fail for when oracle gets weird", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     await auditor.enterMarkets([fixedLenderDAI.address]);
@@ -131,26 +84,6 @@ describe("Auditor from User Space", function () {
     await expect(
       auditor.validateBorrowMP(fixedLenderDAI.address, owner.address)
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
-  });
-
-  it("BeforeWithdrawMP should fail for an unlisted market", async () => {
-    await expect(
-      auditor.beforeWithdrawMP(
-        exactlyEnv.notAnFixedLenderAddress,
-        owner.address,
-        nextPoolID
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
-  it("BeforeRepayMP should fail for an unlisted market", async () => {
-    await expect(
-      auditor.beforeRepayMP(
-        exactlyEnv.notAnFixedLenderAddress,
-        owner.address,
-        nextPoolID
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("SeizeAllowed should fail for an unlisted market", async () => {

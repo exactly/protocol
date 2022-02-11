@@ -392,7 +392,11 @@ describe("FixedLender", function () {
         const invalidPoolID = exaTime.pastPoolID() + 666;
 
         await expect(
-          auditorUser.requirePoolState(invalidPoolID, PoolState.VALID)
+          auditorUser.requirePoolState(
+            invalidPoolID,
+            PoolState.VALID,
+            PoolState.NONE
+          )
         ).to.be.revertedWith(
           errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
         );

@@ -88,9 +88,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenderAddress The address of the asset to be removed
      */
     function exitMarket(address fixedLenderAddress) external {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        validateMarketListed(fixedLenderAddress);
 
         IFixedLender fixedLender = IFixedLender(fixedLenderAddress);
         (uint256 amountHeld, uint256 borrowBalance) = fixedLender
@@ -102,7 +100,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        _validateAccountShortfall(fixedLenderAddress, msg.sender, amountHeld);
+        validateAccountShortfall(fixedLenderAddress, msg.sender, amountHeld);
 
         book.exitMarket(fixedLenderAddress, msg.sender);
     }
@@ -193,98 +191,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Hook function to be called before someone supplies money to the smart pool
-     *      This function basically checks if the address of the fixedLender market is
-     *      valid and updates EXA rewards accordingly.
-     * @param fixedLenderAddress address of the fixedLender that has the smart pool that is going to be interacted with
-     * @param supplier address of the user that will supply to the smart pool
-     */
-    function beforeDepositSP(address fixedLenderAddress, address supplier)
-        external
-        override
-    {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-    }
-
-    /**
-     * @dev Hook function to be called before someone withdraws money from the smart pool
-     *      This function checks if the address of the fixedLender market is
-     *      valid and updates EXA rewards accordingly.
-     *      Also checks if the user has no outstanding debt.
-     * @param fixedLenderAddress address of the fixedLender that has the smart pool that is going to be interacted with
-     * @param redeemer address of the user that will withdraw money from the smart pool
-     * @param redeemAmount amount that will be withdrawn (expressed with same precision as underlying)
-     */
-    function beforeWithdrawSP(
-        address fixedLenderAddress,
-        address redeemer,
-        uint256 redeemAmount
-    ) external override {
-        _validateAccountShortfall(fixedLenderAddress, redeemer, redeemAmount);
-    }
-
-    /**
-     * @dev Hook function to be called before someone supplies money to a market/maturity.
-     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly.
-     * @param fixedLenderAddress address of the fixedLender that will deposit money in a maturity
-     * @param supplier address of the user that will supply money to a certain maturity (it can be later on
-     *                 used as collater with _enterMarkets_ functions)
-     * @param maturityDate timestamp for the maturity date that the user wants to supply money. It should
-     *                     be in a VALID state (meaning that is not in the distant future, nor matured)
-     */
-    function beforeDepositMP(
-        address fixedLenderAddress,
-        address supplier,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(maturityDate, TSUtils.State.VALID);
-    }
-
-    /**
-     * @dev Hook function to be called before someone wants to transfer its eTokens.
-     *      This function updates rewards accordingly.
-     *      This function is called from eToken contract.
-     * @param fixedLenderAddress address of the fixedLender where this eToken is used
-     * @param sender address of the sender of the tokens
-     * @param recipient address of the recipient of the tokens
-     * @param amount amount of tokens to be transferred
-     */
-    function beforeTransferSP(
-        address fixedLenderAddress,
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external override {
-        _validateAccountShortfall(fixedLenderAddress, sender, amount);
-    }
-
-    /**
-     * @dev Hook function to be called before someone borrows money to a market/maturity.
-     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly.
-     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
-     * @param borrower address of the user that will borrow money from a maturity date
-     * @param maturityDate timestamp for the maturity date that the user wants to borrow money. It should
-     *                     be in a VALID state (meaning that is not in the distant future, nor matured)
-     */
-    function beforeBorrowMP(
-        address fixedLenderAddress,
-        address borrower,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(maturityDate, TSUtils.State.VALID);
-    }
-
-    /**
      * @dev Hook function to be called after calling the poolAccounting borrowMP function. Validates
      *      that the current state of the position and system are valid (liquidity)
      * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
@@ -309,51 +215,6 @@ contract Auditor is IAuditor, AccessControl {
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
-    }
-
-    /**
-     * @dev Hook function to be called before someone wants to receive its money back from a maturity pool.
-     *      This function verifies if market is valid, maturity is MATURED and accrues rewards accordingly.
-     *      This function is called from fixedLender contracts.
-     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
-     * @param redeemer address of the user that wants to withdraw it's money
-     * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
-     *                     be in a MATURED state (meaning that the date is VALID + MATURED)
-     */
-    function beforeWithdrawMP(
-        address fixedLenderAddress,
-        address redeemer,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(maturityDate, TSUtils.State.MATURED);
-    }
-
-    /**
-     * @dev Hook function to be called before someone wants to repay its debt in a market/maturity.
-     *      This function verifies if market is valid, maturity is MATURED and accrues rewards accordingly.
-     *      This function is called from fixedLender contracts.
-     * @param fixedLenderAddress address of the fixedLender that will collect money in a maturity
-     * @param borrower address of the user that wants to repay its debt
-     * @param maturityDate pool ID in which the user is trying to repay debt
-     */
-    function beforeRepayMP(
-        address fixedLenderAddress,
-        address borrower,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(
-            maturityDate,
-            TSUtils.State.VALID,
-            TSUtils.State.MATURED
-        );
     }
 
     /**
@@ -517,13 +378,14 @@ contract Auditor is IAuditor, AccessControl {
      *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
      * @param maturityDate timestamp of the maturity date to be verified
      * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
+     * @param alternativeState state required by the caller to be verified (see TSUtils.State() for description)
      */
-    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState)
-        external
-        view
-        override
-    {
-        return _requirePoolState(maturityDate, requiredState);
+    function requirePoolState(
+        uint256 maturityDate,
+        TSUtils.State requiredState,
+        TSUtils.State alternativeState
+    ) external view override {
+        return _requirePoolState(maturityDate, requiredState, alternativeState);
     }
 
     /**
@@ -548,6 +410,52 @@ contract Auditor is IAuditor, AccessControl {
         returns (address[] memory)
     {
         return marketsAddresses;
+    }
+
+    /**
+     * @dev Function to be called before someone wants to interact with its smart pool position.
+     *      This function verifies if market is valid, maturity is MATURED, checks if the user has no outstanding
+     *      debts. This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
+     *      this contract when the user wants to exit a market.
+     * @param fixedLenderAddress address of the fixedLender where the smart pool belongs
+     * @param account address of the user to check for possible shortfall
+     * @param amount amount that the user wants to withdraw or transfer
+     */
+    function validateAccountShortfall(
+        address fixedLenderAddress,
+        address account,
+        uint256 amount
+    ) public view override {
+        /* If the user is not 'in' the market, then we can bypass the liquidity check */
+        if (!book.markets[fixedLenderAddress].accountMembership[account]) {
+            return;
+        }
+
+        /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
+        (, uint256 shortfall) = book.accountLiquidity(
+            oracle,
+            account,
+            fixedLenderAddress,
+            amount,
+            0
+        );
+        if (shortfall > 0) {
+            revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
+        }
+    }
+
+    /**
+     * @dev This function verifies if market is listed as valid
+     * @param fixedLenderAddress address of the fixedLender to be validated by the auditor
+     */
+    function validateMarketListed(address fixedLenderAddress)
+        public
+        view
+        override
+    {
+        if (!book.markets[fixedLenderAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+        }
     }
 
     /**
@@ -576,49 +484,6 @@ contract Auditor is IAuditor, AccessControl {
                 requiredState,
                 alternativeState
             );
-        }
-    }
-
-    function _requirePoolState(
-        uint256 maturityDate,
-        TSUtils.State requiredState
-    ) internal view {
-        _requirePoolState(maturityDate, requiredState, TSUtils.State.NONE);
-    }
-
-    /**
-     * @dev Internal function to be called before someone wants to interact with its smart pool position.
-     *      This function verifies if market is valid, maturity is MATURED, checks if the user has no outstanding
-     *      debts. This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
-     *      this contract when the user wants to exit a market.
-     * @param fixedLenderAddress address of the fixedLender where the smart pool belongs
-     * @param account address of the user to check for possible shortfall
-     * @param amount amount that the user wants to withdraw or transfer
-     */
-    function _validateAccountShortfall(
-        address fixedLenderAddress,
-        address account,
-        uint256 amount
-    ) internal view {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        /* If the user is not 'in' the market, then we can bypass the liquidity check */
-        if (!book.markets[fixedLenderAddress].accountMembership[account]) {
-            return;
-        }
-
-        /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (, uint256 shortfall) = book.accountLiquidity(
-            oracle,
-            account,
-            fixedLenderAddress,
-            amount,
-            0
-        );
-        if (shortfall > 0) {
-            revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
     }
 }

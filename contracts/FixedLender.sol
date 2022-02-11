@@ -15,7 +15,6 @@ import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
-import "hardhat/console.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using DecimalMath for uint256;
@@ -271,7 +270,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         }
 
         // reverts on failure
-        auditor.beforeWithdrawMP(address(this), redeemer, maturityDate);
+        auditor.validateMarketListed(address(this));
+        auditor.requirePoolState(
+            maturityDate,
+            TSUtils.State.MATURED,
+            TSUtils.State.NONE
+        );
 
         poolAccounting.withdrawMP(
             maturityDate,
@@ -306,7 +310,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      */
     function withdrawFromSmartPool(uint256 amount) public override {
-        auditor.beforeWithdrawSP(address(this), msg.sender, amount);
+        auditor.validateMarketListed(address(this));
+        auditor.validateAccountShortfall(address(this), msg.sender, amount);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
@@ -341,8 +346,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 maturityDate,
         uint256 maxAmountAllowed
     ) public override nonReentrant whenNotPaused {
-        uint256 initialGas = gasleft();
-        auditor.beforeBorrowMP(address(this), msg.sender, maturityDate);
+        // reverts on failure
+        auditor.validateMarketListed(address(this));
+        auditor.requirePoolState(
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.NONE
+        );
 
         uint256 totalOwed = poolAccounting.borrowMP(
             maturityDate,
@@ -363,7 +373,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             totalOwed - amount, // fee
             maturityDate
         );
-        console.log("gas used when borrowing mp: ", initialGas - gasleft());
     }
 
     /**
@@ -379,9 +388,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 maturityDate,
         uint256 minAmountRequired
     ) public override nonReentrant whenNotPaused {
-        uint256 initialGas = gasleft();
         // reverts on failure
-        auditor.beforeDepositMP(address(this), msg.sender, maturityDate);
+        auditor.validateMarketListed(address(this));
+        auditor.requirePoolState(
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.NONE
+        );
 
         amount = doTransferIn(msg.sender, amount);
 
@@ -398,7 +411,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             currentTotalDeposit - amount,
             maturityDate
         );
-        console.log("gas used when depositing mp: ", initialGas - gasleft());
     }
 
     /**
@@ -413,12 +425,15 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 maturityDate,
         uint256 repayAmount
     ) public override nonReentrant whenNotPaused {
-        uint256 initialGas = gasleft();
         // reverts on failure
-        auditor.beforeRepayMP(address(this), borrower, maturityDate);
+        auditor.validateMarketListed(address(this));
+        auditor.requirePoolState(
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.MATURED
+        );
 
         _repay(msg.sender, borrower, repayAmount, maturityDate);
-        console.log("gas used when repaying mp: ", initialGas - gasleft());
     }
 
     /**
@@ -427,12 +442,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param amount The amount to be deposited
      */
     function depositToSmartPool(uint256 amount) public override whenNotPaused {
-        uint256 initialGas = gasleft();
-        auditor.beforeDepositSP(address(this), msg.sender);
+        // reverts on failure
+        auditor.validateMarketListed(address(this));
+
         amount = doTransferIn(msg.sender, amount);
         eToken.mint(msg.sender, amount);
         emit DepositToSmartPool(msg.sender, amount);
-        console.log("gas used when depositing sp: ", initialGas - gasleft());
     }
 
     /**
@@ -625,8 +640,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 protocolAmount = seizeAmount.mul_(protocolLiquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
         treasury += protocolAmount;
-
-        auditor.beforeDepositSP(address(this), borrower);
 
         // We check if the underlying liquidity that the user wants to seize is borrowed
         if (
