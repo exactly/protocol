@@ -10,12 +10,11 @@ import "./interfaces/IOracle.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
-import "./utils/ExaLib.sol";
+import "./utils/MarketsLib.sol";
 
 contract Auditor is IAuditor, AccessControl {
     using DecimalMath for uint256;
     using SafeCast for uint256;
-    using ExaLib for ExaLib.RewardsState;
     using MarketsLib for MarketsLib.Book;
 
     // Protocol Management
@@ -25,9 +24,6 @@ contract Auditor is IAuditor, AccessControl {
     uint256 public liquidationIncentive = 1e18 + 1e17;
     uint8 public override maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
-
-    // Rewards Management
-    ExaLib.RewardsState public rewardsState;
 
     IOracle public oracle;
 
@@ -68,60 +64,7 @@ contract Auditor is IAuditor, AccessControl {
      */
     event NewBorrowCap(address indexed fixedLender, uint256 newBorrowCap);
 
-    /**
-     * @notice Event emitted when a new ExaSpeed has been set for a given fixedLender.
-     *         The speed is the amount of EXA tokens that it will be given to
-     *         suppliers/borrowers/lenders on each block. Amount distributed accordingly
-     *         to their contributions
-     * @param fixedLenderAddress address of the lender that has a new borrow cap
-     * @param newSpeed new borrow cap expressed with 1e18 precision for the given market.
-     */
-    event ExaSpeedUpdated(address fixedLenderAddress, uint256 newSpeed);
-
-    /**
-     * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool supplier
-     * @param fixedLender address of the fixed lender market in which a user has received rewards
-     * @param supplier address of the supplier that have received rewards in a given lender space
-     * @param mpSupplierDelta delta blocks that have been processed
-     * @param exaMPSupplyIndex index of the given market that was used to update user rewards
-     */
-    event DistributedMPSupplierExa(
-        address indexed fixedLender,
-        address indexed supplier,
-        uint256 mpSupplierDelta,
-        uint256 exaMPSupplyIndex
-    );
-
-    /**
-     * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool borrower
-     * @param fixedLender address of the fixed lender market in which a user has received rewards
-     * @param borrower address of the borrower that have received rewards in a given fixedLender space
-     * @param mpBorrowerDelta delta blocks that have been processed
-     * @param exaMPBorrowIndex index of the given market that was used to update user rewards
-     */
-    event DistributedMPBorrowerExa(
-        address indexed fixedLender,
-        address indexed borrower,
-        uint256 mpBorrowerDelta,
-        uint256 exaMPBorrowIndex
-    );
-
-    /**
-     * @notice Event emitted each time EXA has been distributed to a certain user as a smart pool supplier
-     * @param fixedLender address of the fixed lender market in which a user has received rewards
-     * @param supplier address of the supplier that have received rewards in a given lender space
-     * @param spSupplierDelta delta blocks that have been processed
-     * @param exaSPSupplyIndex index of the given market that was used to update user rewards
-     */
-    event DistributedSPSupplierExa(
-        address indexed fixedLender,
-        address indexed supplier,
-        uint256 spSupplierDelta,
-        uint256 exaSPSupplyIndex
-    );
-
-    constructor(address _priceOracleAddress, address _exaToken) {
-        rewardsState.exaToken = _exaToken;
+    constructor(address _priceOracleAddress) {
         oracle = IOracle(_priceOracleAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -188,31 +131,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @notice Set EXA speed for a single market
-     * @param fixedLenderAddress The market whose EXA speed to update
-     * @param exaSpeed New EXA speed for market
-     */
-    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        MarketsLib.Market storage market = book.markets[fixedLenderAddress];
-        if (market.isListed == false) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        if (
-            rewardsState.setExaSpeed(
-                block.number,
-                fixedLenderAddress,
-                exaSpeed
-            ) == true
-        ) {
-            emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
-        }
-    }
-
-    /**
      * @dev Function to enable a certain FixedLender market
      * @param fixedLender address to add to the protocol
      * @param collateralFactor fixedLender's collateral factor for the underlying asset
@@ -275,14 +193,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @notice Claim all the EXA accrued by holder in all markets
-     * @param holder The address to claim EXA for
-     */
-    function claimExaAll(address holder) external {
-        claimExa(holder, marketsAddresses);
-    }
-
-    /**
      * @dev Hook function to be called before someone supplies money to the smart pool
      *      This function basically checks if the address of the fixedLender market is
      *      valid and updates EXA rewards accordingly.
@@ -296,9 +206,6 @@ contract Auditor is IAuditor, AccessControl {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
-
-        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -316,9 +223,6 @@ contract Auditor is IAuditor, AccessControl {
         uint256 redeemAmount
     ) external override {
         _validateAccountShortfall(fixedLenderAddress, redeemer, redeemAmount);
-
-        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, redeemer);
     }
 
     /**
@@ -340,9 +244,6 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         _requirePoolState(maturityDate, TSUtils.State.VALID);
-
-        rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPSupplierExa(fixedLenderAddress, supplier);
     }
 
     /**
@@ -361,10 +262,6 @@ contract Auditor is IAuditor, AccessControl {
         uint256 amount
     ) external override {
         _validateAccountShortfall(fixedLenderAddress, sender, amount);
-
-        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, sender);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, recipient);
     }
 
     /**
@@ -385,9 +282,6 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         _requirePoolState(maturityDate, TSUtils.State.VALID);
-
-        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
@@ -436,9 +330,6 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         _requirePoolState(maturityDate, TSUtils.State.MATURED);
-
-        rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPSupplierExa(fixedLenderAddress, redeemer);
     }
 
     /**
@@ -463,9 +354,6 @@ contract Auditor is IAuditor, AccessControl {
             TSUtils.State.VALID,
             TSUtils.State.MATURED
         );
-
-        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
@@ -660,25 +548,6 @@ contract Auditor is IAuditor, AccessControl {
         returns (address[] memory)
     {
         return marketsAddresses;
-    }
-
-    /**
-     * @notice Claim all the EXA accrued by holder in the specified markets
-     * @param holder The address to claim EXA for
-     * @param fixedLenders The list of markets to claim EXA in
-     */
-    function claimExa(address holder, address[] memory fixedLenders) public {
-        address[] memory holders = new address[](1);
-        holders[0] = holder;
-        rewardsState.claimExa(
-            block.number,
-            book.markets,
-            holders,
-            fixedLenders,
-            true,
-            true,
-            true
-        );
     }
 
     /**

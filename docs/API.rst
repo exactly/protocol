@@ -12,7 +12,7 @@ Contracts' API
     :members: constructor, setParameters, getRateToBorrow, getRateToSupply
 
 .. autosolcontract:: Auditor
-    :members: constructor, enterMarkets, exitMarket, setOracle, setLiquidationIncentive, setExaSpeed, enableMarket, setMarketBorrowCaps, claimExaAll, beforeDepositSP, beforeWithdrawSP, beforeDepositMP, beforeBorrowMP, beforeWithdrawMP, beforeRepayMP, liquidateAllowed, seizeAllowed, getMarketData, getAccountLiquidity, liquidateCalculateSeizeAmount, requirePoolState, getFuturePools, getMarketAddresses, claimExa, _requirePoolState, _beforeWithdrawSP
+    :members: constructor, enterMarkets, exitMarket, setOracle, setLiquidationIncentive, setExaSpeed, enableMarket, setMarketBorrowCaps, beforeDepositSP, beforeWithdrawSP, beforeDepositMP, beforeBorrowMP, beforeWithdrawMP, beforeRepayMP, liquidateAllowed, seizeAllowed, getMarketData, getAccountLiquidity, liquidateCalculateSeizeAmount, requirePoolState, getFuturePools, getMarketAddresses, claimExa, _requirePoolState, _beforeWithdrawSP
 
 .. autosolcontract:: ExactlyOracle
     :members: constructor, setAssetSources, getAssetPrice, _setAssetsSources, _scaleOraclePriceByDigits
