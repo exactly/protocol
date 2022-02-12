@@ -77,6 +77,7 @@ contract Auditor is IAuditor, AccessControl {
     function enterMarkets(address[] calldata fixedLenders) external {
         uint256 len = fixedLenders.length;
         for (uint256 i = 0; i < len; i++) {
+            validateMarketListed(fixedLenders[i]);
             book.addToMarket(fixedLenders[i], msg.sender);
         }
     }
@@ -181,9 +182,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         for (uint256 i = 0; i < numMarkets; i++) {
-            if (!book.markets[fixedLenders[i]].isListed) {
-                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-            }
+            validateMarketListed(fixedLenders[i]);
 
             book.borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
             emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
@@ -310,9 +309,8 @@ contract Auditor is IAuditor, AccessControl {
             address
         )
     {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        validateMarketListed(fixedLenderAddress);
+
         MarketsLib.Market storage marketData = book.markets[fixedLenderAddress];
         return (
             marketData.symbol,

@@ -310,6 +310,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      */
     function withdrawFromSmartPool(uint256 amount) public override {
+        // reverts on failure
         auditor.validateMarketListed(address(this));
         auditor.validateAccountShortfall(address(this), msg.sender, amount);
 
