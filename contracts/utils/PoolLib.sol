@@ -172,45 +172,43 @@ library PoolLib {
         pool.borrowed = repayVars.borrowMP - debt.principals;
 
         // NOTES re: smart pool debt
-        //     * This is the amount that is being lent out by the protocol that belongs to the MP depositors
-        //     * once you've covered all the given out loans from depositors, you need to start covering the debt of the
-        //       the maturity pool, because you don't know what might happen
-        uint256 depositsBorrowed = repayVars.borrowMP -
-            Math.min(repayVars.borrowMP, repayVars.supplySP);
-        if (debt.principals > depositsBorrowed) {
-            // if its more than the amount being repaid, then it should
-            // take a little part of the SP debt
-            uint256 extra = debt.principals - depositsBorrowed;
-            if (extra <= repayVars.supplySP) {
-                // Covered part of the supply SP
-                pool.suppliedSP = repayVars.supplySP - extra;
-                smartPoolDebtReduction = extra; // it gets returned lastly
-            }
-        }
+        //       we repay the debt immediately
+        // TODO: get the fee for the SPDebt takeover
+        smartPoolDebtReduction = Math.min(repayVars.supplySP, debt.principals);
+        pool.suppliedSP = repayVars.supplySP - smartPoolDebtReduction;
 
         // NOTES:
         //     * you can't do asimmetric payment, because you would be altering the values for the following operations
         //       ie: You use the earnings to pay all the earningsSP first, so the function _returnFee_ will change the
         //           values for after
-        // TODO: Talk to Francisco about this repayment model
-        repayVars.earningsMPReduce = ((repayVars.earningsMP * debt.fees) /
-            repayVars.earningsAll);
-        repayVars.earningsSPReduce = ((repayVars.earningsSP * debt.fees) /
-            repayVars.earningsAll);
-        repayVars.unassignedEarningsReduce =
-            debt.fees -
-            repayVars.earningsMPReduce -
-            repayVars.earningsSPReduce;
+        if (repayVars.earningsAll == 0) {
+            earningsRepay = debt.fees;
+        } else {
+            repayVars.earningsMPReduce = ((repayVars.earningsMP * debt.fees) /
+                repayVars.earningsAll);
+            repayVars.earningsSPReduce = ((repayVars.earningsSP * debt.fees) /
+                repayVars.earningsAll);
+            repayVars.unassignedEarningsReduce = Math.min(
+                repayVars.unassignedEarnings,
+                debt.fees -
+                    repayVars.earningsMPReduce -
+                    repayVars.earningsSPReduce
+            );
 
-        pool.earningsMP = repayVars.earningsMP - repayVars.earningsMPReduce;
-        pool.earningsSP = repayVars.earningsSP - repayVars.earningsSPReduce;
-        pool.unassignedEarnings =
-            repayVars.unassignedEarnings -
-            repayVars.unassignedEarningsReduce;
+            pool.earningsMP = repayVars.earningsMP - repayVars.earningsMPReduce;
+            pool.earningsSP = repayVars.earningsSP - repayVars.earningsSPReduce;
+            pool.unassignedEarnings =
+                repayVars.unassignedEarnings -
+                repayVars.unassignedEarningsReduce;
 
-        // return value smartPoolDebtReduction = extra from principal
-        feeRepay = repayVars.earningsSPReduce;
-        earningsRepay = repayVars.unassignedEarningsReduce;
+            // return value smartPoolDebtReduction = extra from principal
+            feeRepay = repayVars.earningsSPReduce;
+            // all the rest goes to the SP as earnings
+            earningsRepay =
+                debt.fees -
+                repayVars.earningsMPReduce -
+                repayVars.earningsSPReduce;
+        }
     }
 
     /**

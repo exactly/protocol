@@ -9,6 +9,7 @@ import "./interfaces/IPoolAccounting.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
+import "hardhat/console.sol";
 
 contract PoolAccounting is IPoolAccounting, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
@@ -263,9 +264,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // SP supply needs to accrue its interests
         maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
 
+        console.log("REPAY: %s", repayAmount);
+
         // Amount Owed is (principal+fees)*penalties
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
         repayVars.debt = mpUserBorrowedAmount[maturityDate][borrower];
+        console.log("OWED: %s", repayVars.amountOwed);
+        console.log("DEBT: %s", repayVars.debt.principals);
 
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
