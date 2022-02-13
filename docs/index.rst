@@ -13,4 +13,5 @@ Exactly
     pausable.rst
     API.rst
     ad-hoc-research.rst
+    validations.rst
 

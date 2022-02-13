@@ -143,14 +143,6 @@ describe("FixedLender", function () {
         await poolAccounting.mpUserSuppliedAmount(nextPoolId, mariaUser.address)
       ).to.be.equal(parseUnits("100"));
     });
-    it("AND WHEN trying to withdraw before the pool matures, THEN it reverts", async () => {
-      // try to withdraw before maturity
-      await expect(
-        exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
-      ).to.be.revertedWith(
-        errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
-      );
-    });
     it("WHEN trying to borrow DAI THEN it reverts with INSUFFICIENT_LIQUIDITY since collateral was not deposited yet", async () => {
       await expect(
         exactlyEnv.borrowMP("DAI", nextPoolId, "1")
@@ -413,64 +405,6 @@ describe("FixedLender", function () {
         await expect(
           fixedLender.getTotalMpBorrows(invalidPoolID)
         ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
-      });
-
-      it("WHEN trying to deposit to an invalid pool THEN it reverts with INVALID_POOL_ID", async () => {
-        await expect(
-          exactlyEnv.depositMP("DAI", exaTime.invalidPoolID(), "100")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
-        );
-      });
-      it("WHEN trying to borrow to an invalid pool THEN it reverts ", async () => {
-        await expect(
-          exactlyEnv.borrowMP("DAI", exaTime.invalidPoolID(), "3", "3")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
-        );
-      });
-    });
-
-    describe("actions enabled/disabled at different pool stages when Smart Pool has liquidity", () => {
-      beforeEach(async () => {
-        exactlyEnv.switchWallet(owner);
-        // We add liquidity to the smart pool for the maturity pool
-        // to be able to borrow from it. It can borrow up to 1/12
-        // of the total supply of the Smart Pool
-        await exactlyEnv.depositSP("DAI", "100000");
-        exactlyEnv.switchWallet(mariaUser);
-      });
-
-      it("WHEN trying to deposit to an already-matured pool, THEN it reverts", async () => {
-        await expect(
-          exactlyEnv.depositMP("DAI", exaTime.pastPoolID(), "100")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
-        );
-      });
-
-      it("WHEN depositing into a maturity very far into the future THEN it reverts", async () => {
-        await expect(
-          exactlyEnv.depositMP("DAI", exaTime.distantFuturePoolID(), "100")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
-        );
-      });
-
-      it("WHEN trying to borrow from an already-matured pool THEN it reverts", async () => {
-        await expect(
-          exactlyEnv.borrowMP("DAI", exaTime.pastPoolID(), "2", "2")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
-        );
-      });
-
-      it("WHEN trying to borrow from a not-yet-enabled pool THEN it reverts ", async () => {
-        await expect(
-          exactlyEnv.borrowMP("DAI", exaTime.distantFuturePoolID(), "2", "2")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
-        );
       });
     });
 
