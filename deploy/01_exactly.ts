@@ -98,7 +98,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       parseUnits("0.0495"), // A parameter for the curve
       parseUnits("-0.025"), // B parameter for the curve
       parseUnits("1.1"), // High UR slope rate
-      parseUnits("0.02"), // Penalty Rate
+      parseUnits("0.0000002314814815"), // Penalty Rate per second. each day (86400) is 2%
     ],
     log: true,
   });

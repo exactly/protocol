@@ -48,7 +48,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.092"); // A parameter for the curve
       const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.025"); // Penalty rate, not used
+      const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate, not used
       const InterestRateModelFactory = await ethers.getContractFactory(
         "InterestRateModel",
         {}
@@ -66,7 +66,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.092"); // A parameter for the curve
       const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.025"); // Penalty rate, not used
+      const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate, not used
       const tx = interestRateModel.setParameters(
         A,
         B,
@@ -80,7 +80,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.037125"); // A parameter for the curve
       const B = parseUnits("0.01625"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.025"); // Penalty rate
+      const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate
 
       beforeEach(async () => {
         await interestRateModel.setParameters(
@@ -108,7 +108,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.08"); // A parameter for the curve
       const B = parseUnits("-0.046666666666666666"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.025"); // Penalty rate, not relevant
+      const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate, not relevant
 
       beforeEach(async () => {
         await interestRateModel.setParameters(
@@ -648,5 +648,152 @@ describe("InterestRateModel", () => {
         expect(rate).to.be.closeTo(parseUnits(".00000000317097919"), 100);
       });
     });
+  });
+
+  describe("getYieldForDeposit with a normal weighter distrubition parameter (100%)", async () => {
+    const mpDepositDistributionWeighter = parseUnits("1");
+
+    it("WHEN supply of smart pool is 100, earnings unassigned are 100, and amount deposited is 100, then yield is 50", async () => {
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.equal(parseUnits("50"));
+    });
+
+    it("WHEN supply of smart pool is 0, earnings unassigned are 0, and amount deposited is 100, then yield is 0", async () => {
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("0"),
+          parseUnits("0"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.equal(parseUnits("0"));
+    });
+
+    it("WHEN supply of smart pool is 0, earnings unassigned are 100, and amount deposited is 100, then yield is 100", async () => {
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("0"),
+          parseUnits("100"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.equal(parseUnits("100"));
+    });
+
+    it("WHEN supply of smart pool is 100, earnings unassigned are 100, and amount deposited is 0, then yield is 0", async () => {
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("0"),
+          mpDepositDistributionWeighter
+        )
+      ).to.equal(parseUnits("0"));
+    });
+
+    it("WHEN supply of smart pool is 100, earnings unassigned are 0, and amount deposited is 100, then yield is 0", async () => {
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("0"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.equal(parseUnits("0"));
+    });
+  });
+
+  describe("getYieldForDeposit with a custom weighter distribution parameter, smart pool supply of 100, unassigned earnings of 100 and amount deposited of 100", async () => {
+    let mpDepositDistributionWeighter: any;
+
+    it("WHEN mpDepositDistributionWeighter is 50%, then yield is 33.3333...", async () => {
+      mpDepositDistributionWeighter = parseUnits("0.5");
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.closeTo(
+        parseUnits("33.33333333"),
+        parseUnits("0.00000001").toNumber()
+      );
+    });
+
+    it("WHEN mpDepositDistributionWeighter is 150%, then yield is 60", async () => {
+      mpDepositDistributionWeighter = parseUnits("1.5");
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.equal(parseUnits("60"));
+    });
+
+    it("WHEN mpDepositDistributionWeighter is 200%, then yield is 66.6666...", async () => {
+      mpDepositDistributionWeighter = parseUnits("2");
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.closeTo(
+        parseUnits("66.66666666"),
+        parseUnits("0.00000001").toNumber()
+      );
+    });
+
+    it("WHEN mpDepositDistributionWeighter is 1000%, then yield is 90.9090...", async () => {
+      mpDepositDistributionWeighter = parseUnits("10");
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.closeTo(
+        parseUnits("90.90909090"),
+        parseUnits("0.00000001").toNumber()
+      );
+    });
+
+    it("WHEN mpDepositDistributionWeighter is 10000%, then yield is 99.0099...", async () => {
+      mpDepositDistributionWeighter = parseUnits("100");
+      expect(
+        await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100"),
+          mpDepositDistributionWeighter
+        )
+      ).to.closeTo(
+        parseUnits("99.00990099"),
+        parseUnits("0.00000001").toNumber()
+      );
+    });
+  });
+
+  it("WHEN an unauthorized user calls setParameters function, THEN it should revert", async () => {
+    const A = parseUnits("0.092"); // A parameter for the curve
+    const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
+    const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
+    const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate, not used
+    await expect(
+      interestRateModel
+        .connect(alice)
+        .setParameters(A, B, maxUtilizationRate, penaltyRate)
+    ).to.be.revertedWith("AccessControl");
   });
 });

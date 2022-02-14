@@ -34,6 +34,25 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     }
 
     /**
+     * @dev Calculate the amount of revenue sharing between the smart pool and the new MP depositor.
+     * @param suppliedSP amount of money currently being supplied in the maturity pool
+     * @param unassignedEarnings earnings not yet accrued to the SP that should be shared with the
+     *        current depositor
+     * @param amount amount being provided by the MP depositor
+     * @return earningsShare : yield to be given to the MP depositor
+     */
+    function getYieldForDeposit(
+        uint256 suppliedSP,
+        uint256 unassignedEarnings,
+        uint256 amount,
+        uint256 mpDepositsWeighter
+    ) external pure override returns (uint256 earningsShare) {
+        amount = amount.mul_(mpDepositsWeighter);
+        uint256 supply = suppliedSP + amount;
+        earningsShare = (amount * unassignedEarnings) / supply;
+    }
+
+    /**
      * @dev Function to update this model's parameters (DEFAULT_ADMIN_ROLE)
      * @param _curveParameterA curve parameter
      * @param _curveParameterB curve parameter
@@ -66,6 +85,8 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param borrowedMP total borrowed from this maturity
      * @param suppliedMP total supplied to this maturity
      * @param borrowableFromSP max amount the smart pool is able to lend to this maturity
+     * @return rate to be applied to the amount to calculate the fee that the borrower will
+     *         have to pay
      */
     function getRateToBorrow(
         uint256 maturityDate,

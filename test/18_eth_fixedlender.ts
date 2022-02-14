@@ -219,7 +219,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         await weth.transfer(alice.address, parseUnits("10"));
         exactlyEnv.switchWallet(alice);
         await exactlyEnv.depositMP("WETH", nextPoolId, "10");
-        await exactlyEnv.moveInTime(nextPoolId);
+        await exactlyEnv.moveInTimeAndMine(nextPoolId);
       });
       describe("WHEN she withdraws to ETH", () => {
         let tx: any;
@@ -373,7 +373,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
                 .withArgs(
                   alice.address,
                   alice.address,
-                  parseUnits("0"),
+                  parseUnits("5"),
                   parseUnits("5"),
                   nextPoolId
                 );
@@ -420,7 +420,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
                 .withArgs(
                   alice.address,
                   alice.address,
-                  parseUnits("0"),
+                  parseUnits("5"),
                   parseUnits("5"),
                   nextPoolId
                 );

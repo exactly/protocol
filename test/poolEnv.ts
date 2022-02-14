@@ -36,8 +36,8 @@ export class PoolEnv {
     );
   }
 
-  public async addFee(timestamp: number, amount: string) {
-    return this.mpHarness.addFeeMP(timestamp, parseUnits(amount));
+  public async accrueEarningsToSP(timestamp: number) {
+    return this.mpHarness.accrueEarningsToSP(timestamp);
   }
 
   public async addMoney(timestamp: number, amount: string) {
@@ -49,6 +49,11 @@ export class PoolEnv {
   }
 
   static async create(): Promise<PoolEnv> {
+    const MockedInterestRateModelFactory = await ethers.getContractFactory(
+      "MockedInterestRateModel"
+    );
+
+    const interestRateModel = await MockedInterestRateModelFactory.deploy();
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
@@ -70,11 +75,13 @@ export class PoolEnv {
       {
         libraries: {
           PoolLib: poolLib.address,
-          TSUtils: tsUtils.address,
         },
       }
     );
-    let maturityPoolHarness = await MaturityPoolHarness.deploy(eToken.address);
+    let maturityPoolHarness = await MaturityPoolHarness.deploy(
+      eToken.address,
+      interestRateModel.address
+    );
     await maturityPoolHarness.deployed();
 
     // This is just for testing purposes of the poollib management
@@ -95,13 +102,13 @@ export class PoolEnv {
     blockTimestamp: number,
     previousUnassignedEarnings: number,
     secondsSinceLastAccrue: number,
-    newComission: number
+    newFee: number
   ): number {
     return (
       previousUnassignedEarnings -
       (previousUnassignedEarnings * secondsSinceLastAccrue) /
         (maturityPoolID - blockTimestamp + secondsSinceLastAccrue) +
-      newComission
+      newFee
     );
   }
 
@@ -119,15 +126,11 @@ export class PoolEnv {
       blockTimestamp,
       previousUnassignedEarnings,
       secondsSinceLastAccrue,
-      0 // we calculate unassigned earnings but no new commission is added
+      0 // we calculate unassigned earnings but no new fee is added
     );
     return (
       unassignedEarnings -
-      this.calculateLastCommission(
-        unassignedEarnings,
-        depositedAmount,
-        suppliedSP
-      )
+      this.calculateLastFee(unassignedEarnings, depositedAmount, suppliedSP)
     );
   }
 
@@ -147,7 +150,7 @@ export class PoolEnv {
   }
 
   /* Replicates PoolLib.sol calculation of earnings share that a depositor will receive after maturity */
-  public calculateLastCommission(
+  public calculateLastFee(
     previousUnassignedEarnings: number,
     depositedAmount: number,
     suppliedSP: number

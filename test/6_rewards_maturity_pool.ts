@@ -97,7 +97,7 @@ describe("ExaToken", () => {
         let tx: any;
         beforeEach(async () => {
           await exactlyEnv.depositMP("DAI", exaTime.nextPoolID(), "100");
-          await exactlyEnv.moveInTime(exaTime.nextPoolID());
+          await exactlyEnv.moveInTimeAndMine(exaTime.nextPoolID());
           tx = exactlyEnv.withdrawMP("DAI", exaTime.nextPoolID(), "100");
         });
 

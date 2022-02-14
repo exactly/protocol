@@ -74,4 +74,6 @@ interface IFixedLender {
     function totalMpBorrowsUser(address who) external view returns (uint256);
 
     function totalMpDepositsUser(address who) external view returns (uint256);
+
+    function mpDepositDistributionWeighter() external view returns (uint256);
 }

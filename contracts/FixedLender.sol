@@ -19,7 +19,9 @@ import "./utils/Errors.sol";
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using DecimalMath for uint256;
 
-    uint256 private protocolSpreadFee = 2.8e16; //2.8%
+    uint256 public protocolSpreadFee = 2.8e16; // 2.8%
+    uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
+    uint256 public override mpDepositDistributionWeighter = 1e18; // 100%
     uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -88,14 +90,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @notice Event emitted when a user repays its borrows after maturity
      * @param payer address which repaid the previously borrowed amount
      * @param borrower address which had the original debt
-     * @param penalty amount paid for penalties
-     * @param debtCovered amount of the debt that it was covered in this repayment
+     * @param repayAmount amount that was repaid
+     * @param debtCovered amount of the debt that was covered in this repayment (penalties could have been repaid)
      * @param maturityDate poolID where the user repaid its borrowed amounts
      */
     event RepayToMaturityPool(
         address indexed payer,
         address indexed borrower,
-        uint256 penalty,
+        uint256 repayAmount,
         uint256 debtCovered,
         uint256 maturityDate
     );
@@ -169,14 +171,36 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @dev Sets the protocol's spread fee used on liquidations and loan repayment
-     * @param _protocolSpreadFee percentile amount represented with 1e18 decimals
+     * @dev Sets the protocol's spread fee used on loan repayment
+     * @param _protocolSpreadFee percentage amount represented with 1e18 decimals
      */
     function setProtocolSpreadFee(uint256 _protocolSpreadFee)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         protocolSpreadFee = _protocolSpreadFee;
+    }
+
+    /**
+     * @dev Sets the protocol's collateral liquidation fee used on liquidations
+     * @param _protocolLiquidationFee percentage amount represented with 1e18 decimals
+     */
+    function setProtocolLiquidationFee(uint256 _protocolLiquidationFee)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        protocolLiquidationFee = _protocolLiquidationFee;
+    }
+
+    /**
+     * @dev Sets the maturity pool deposits' weighter used to increase or decrease the deposit amount in order
+     *      to share out more or less unassigned earnings to that deposit
+     * @param _mpDepositDistributionWeighter percentage amount represented with 1e18 decimals that will multiply the amount to deposit
+     */
+    function setMpDepositDistributionWeighter(
+        uint256 _mpDepositDistributionWeighter
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        mpDepositDistributionWeighter = _mpDepositDistributionWeighter;
     }
 
     /**
@@ -485,11 +509,15 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         repayAmount = doTransferIn(payer, repayAmount);
 
         (
-            uint256 penalties,
+            uint256 spareRepayAmount,
             uint256 debtCovered,
             uint256 fee,
             uint256 earningsRepay
         ) = poolAccounting.repayMP(maturityDate, borrower, repayAmount);
+
+        if (spareRepayAmount > 0) {
+            doTransferOut(payer, spareRepayAmount);
+        }
 
         // We take a share of the spread of the protocol
         uint256 protocolShare = fee.mul_(protocolSpreadFee);
@@ -502,12 +530,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         emit RepayToMaturityPool(
             payer,
             borrower,
-            penalties,
+            repayAmount,
             debtCovered,
             maturityDate
         );
 
-        return repayAmount;
+        return repayAmount - spareRepayAmount;
     }
 
     /**
@@ -599,7 +627,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             borrower
         );
 
-        uint256 protocolAmount = seizeAmount.mul_(protocolSpreadFee);
+        uint256 protocolAmount = seizeAmount.mul_(protocolLiquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
         treasury += protocolAmount;
 

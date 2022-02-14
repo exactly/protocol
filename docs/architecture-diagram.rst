@@ -34,12 +34,12 @@ Contracts' UML diagram
     IEToken ..|> IERC20
     FixedLender ..|> IFixedLender
     FixedLender --> Auditor
-    FixedLender --> InterestRateModel
     FixedLender --> EToken
+    FixedLender --> PoolAccounting
     EToken --> FixedLender
     EToken --> Auditor
     Auditor --> ExactlyOracle
+    PoolAccounting --> InterestRateModel
 
     @enduml
 
-    

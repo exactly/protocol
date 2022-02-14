@@ -109,7 +109,7 @@ describe("ExactlyOracle", function () {
       mockedDate - (maxDelayTime - 1)
     );
 
-    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
+    await exactlyEnv.moveInTime(mockedDate);
     await ethers.provider.send("evm_mine", []);
 
     await expect(exactlyOracle.getAssetPrice("DAI")).to.not.be.reverted;
@@ -120,7 +120,7 @@ describe("ExactlyOracle", function () {
       mockedDate - maxDelayTime
     );
 
-    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
+    await exactlyEnv.moveInTime(mockedDate);
     await ethers.provider.send("evm_mine", []);
 
     await expect(exactlyOracle.getAssetPrice("DAI")).to.not.be.reverted;
@@ -131,7 +131,7 @@ describe("ExactlyOracle", function () {
       mockedDate - (maxDelayTime + 1)
     );
 
-    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
+    await exactlyEnv.moveInTime(mockedDate);
     await ethers.provider.send("evm_mine", []);
 
     await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(
@@ -187,7 +187,7 @@ describe("ExactlyOracle", function () {
     await chainlinkFeedRegistry.setUpdatedAtTimestamp(
       mockedDate - maxDelayTime
     );
-    await ethers.provider.send("evm_setNextBlockTimestamp", [mockedDate]);
+    await exactlyEnv.moveInTime(mockedDate);
     await ethers.provider.send("evm_mine", []);
 
     await expect(exactlyOracle.getAssetPrice(linkSymbol)).to.not.be.reverted;

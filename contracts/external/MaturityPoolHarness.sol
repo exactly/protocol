@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import "../utils/PoolLib.sol";
 import "../interfaces/IEToken.sol";
+import "../interfaces/IInterestRateModel.sol";
 
 contract MaturityPoolHarness {
     using PoolLib for PoolLib.MaturityPool;
@@ -10,12 +11,14 @@ contract MaturityPoolHarness {
     PoolLib.MaturityPool public maturityPool;
     uint256 public smartPoolTotalDebt;
     IEToken public eToken;
-    uint256 public lastCommission;
+    IInterestRateModel public interestRateModel;
+    uint256 public lastFee;
     uint256 public lastEarningsSP;
     uint256 public lastExtrasSP;
 
-    constructor(address _eTokenAddress) {
+    constructor(address _eTokenAddress, address _interestRateModelAddress) {
         eToken = IEToken(_eTokenAddress);
+        interestRateModel = IInterestRateModel(_interestRateModelAddress);
     }
 
     function maxMintEToken() external {
@@ -23,16 +26,8 @@ contract MaturityPoolHarness {
         eToken.mint(address(this), type(uint256).max);
     }
 
-    function fakeDepositToSP(uint256 _amount) external {
-        eToken.mint(msg.sender, _amount);
-    }
-
-    function fakeWithdrawSP(uint256 _amount) external {
-        eToken.burn(msg.sender, _amount);
-    }
-
-    function setSmartPoolTotalDebt(uint256 _totalDebt) external {
-        smartPoolTotalDebt = _totalDebt;
+    function accrueEarningsToSP(uint256 _maturityID) external {
+        maturityPool.accrueEarningsToSP(_maturityID);
     }
 
     function takeMoneyMP(
@@ -41,24 +36,31 @@ contract MaturityPoolHarness {
         uint256 _feeAmount
     ) external {
         uint256 maxDebt = eToken.totalSupply();
+        maturityPool.accrueEarningsToSP(_maturityID);
         smartPoolTotalDebt += maturityPool.takeMoney(_amount, maxDebt);
-        maturityPool.addFee(_maturityID, _feeAmount);
-    }
-
-    function addFeeMP(uint256 _maturityID, uint256 _amount) external {
-        maturityPool.addFee(_maturityID, _amount);
+        maturityPool.addFee(_feeAmount);
     }
 
     function addMoneyMP(uint256 _maturityID, uint256 _amount) external {
-        lastCommission = maturityPool.addMoney(_maturityID, _amount);
+        maturityPool.accrueEarningsToSP(_maturityID);
+
+        lastFee = interestRateModel.getYieldForDeposit(
+            maturityPool.suppliedSP,
+            maturityPool.unassignedEarnings,
+            _amount,
+            1e18 // mpDepositDistributionWeighter -> 100%
+        );
+        maturityPool.addMoney(_amount);
+        maturityPool.takeFee(lastFee);
     }
 
     function repayMP(uint256 _maturityID, uint256 _amount) external {
+        maturityPool.accrueEarningsToSP(_maturityID);
         (
             uint256 smartPoolDebtReduction,
             uint256 earningsSP,
             uint256 extrasSP
-        ) = maturityPool.repay(_maturityID, _amount);
+        ) = maturityPool.repay(_amount);
         smartPoolTotalDebt -= smartPoolDebtReduction;
         lastEarningsSP = earningsSP;
         lastExtrasSP = extrasSP;
