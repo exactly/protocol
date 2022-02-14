@@ -446,11 +446,7 @@ contract Auditor is IAuditor, AccessControl {
      * @dev This function verifies if market is listed as valid
      * @param fixedLenderAddress address of the fixedLender to be validated by the auditor
      */
-    function validateMarketListed(address fixedLenderAddress)
-        public
-        view
-        override
-    {
+    function validateMarketListed(address fixedLenderAddress) internal view {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }

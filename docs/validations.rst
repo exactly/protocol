@@ -36,13 +36,13 @@ In the following list I'll make sure we are testing these errors over the differ
     - unpause -> NONE
     - liquidate -> NONE
     - seize -> NONE
-    - withdrawFromMaturityPool -> **MARKET_NOT_LISTED** & **TSUtils.State.MATURED**
+    - withdrawFromMaturityPool -> **TSUtils.State.MATURED**
     - withdrawFromTreasury -> NONE
-    - withdrawFromSmartPool -> **MARKET_NOT_LISTED**
-    - borrowFromMaturityPool -> **MARKET_NOT_LISTED** & **TSUtils.State.VALID**
-    - depositToMaturityPool -> **MARKET_NOT_LISTED** & **TSUtils.State.VALID**
-    - repayToMaturityPool -> **MARKET_NOT_LISTED** & **TSUtils.State.MATURED**
-    - depositToSmartPool -> **MARKET_NOT_LISTED**
+    - withdrawFromSmartPool -> NONE
+    - borrowFromMaturityPool -> **TSUtils.State.VALID**
+    - depositToMaturityPool -> **TSUtils.State.VALID**
+    - repayToMaturityPool -> **TSUtils.State.MATURED**
+    - depositToSmartPool -> NONE
 
 **EToken**:
-- transfer -> **MARKET_NOT_LISTED**
+- transfer -> NONE

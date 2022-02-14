@@ -270,7 +270,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         }
 
         // reverts on failure
-        auditor.validateMarketListed(address(this));
         auditor.requirePoolState(
             maturityDate,
             TSUtils.State.MATURED,
@@ -311,7 +310,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      */
     function withdrawFromSmartPool(uint256 amount) public override {
         // reverts on failure
-        auditor.validateMarketListed(address(this));
         auditor.validateAccountShortfall(address(this), msg.sender, amount);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
@@ -348,7 +346,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 maxAmountAllowed
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        auditor.validateMarketListed(address(this));
         auditor.requirePoolState(
             maturityDate,
             TSUtils.State.VALID,
@@ -390,7 +387,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 minAmountRequired
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        auditor.validateMarketListed(address(this));
         auditor.requirePoolState(
             maturityDate,
             TSUtils.State.VALID,
@@ -427,7 +423,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 repayAmount
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        auditor.validateMarketListed(address(this));
         auditor.requirePoolState(
             maturityDate,
             TSUtils.State.VALID,
@@ -443,9 +438,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param amount The amount to be deposited
      */
     function depositToSmartPool(uint256 amount) public override whenNotPaused {
-        // reverts on failure
-        auditor.validateMarketListed(address(this));
-
         amount = doTransferIn(msg.sender, amount);
         eToken.mint(msg.sender, amount);
         emit DepositToSmartPool(msg.sender, amount);

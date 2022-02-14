@@ -45,8 +45,6 @@ interface IAuditor {
         TSUtils.State alternativeState
     ) external view;
 
-    function validateMarketListed(address fixedLenderAddress) external view;
-
     function validateAccountShortfall(
         address fixedLenderAddress,
         address account,

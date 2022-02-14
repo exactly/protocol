@@ -100,54 +100,6 @@ describe("Validations", function () {
     });
   });
   describe("FixedLender:", () => {
-    describe("GIVEN an unlisted FixedLender", () => {
-      it("WHEN trying to withdraw from MP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-        await expect(
-          unlistedFixedLender.withdrawFromMaturityPool(
-            owner.address,
-            nextPoolId,
-            parseUnits("100")
-          )
-        ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-      });
-      it("WHEN trying to withdraw from SP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-        await expect(
-          unlistedFixedLender.withdrawFromSmartPool(parseUnits("100"))
-        ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-      });
-      it("WHEN trying to borrow from MP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-        await expect(
-          unlistedFixedLender.borrowFromMaturityPool(
-            parseUnits("100"),
-            nextPoolId,
-            parseUnits("100")
-          )
-        ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-      });
-      it("WHEN trying to deposit to MP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-        await expect(
-          unlistedFixedLender.depositToMaturityPool(
-            parseUnits("100"),
-            nextPoolId,
-            parseUnits("100")
-          )
-        ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-      });
-      it("WHEN trying to repay to MP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-        await expect(
-          unlistedFixedLender.repayToMaturityPool(
-            owner.address,
-            nextPoolId,
-            parseUnits("100")
-          )
-        ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-      });
-      it("WHEN trying to deposit to SP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-        await expect(
-          unlistedFixedLender.depositToSmartPool(parseUnits("100"))
-        ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-      });
-    });
     describe("GIVEN a NOT matured pool", () => {
       it("WHEN trying to withdraw from MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(

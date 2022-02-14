@@ -9,6 +9,4 @@ contract MockedAuditor {
         address,
         uint256
     ) external {}
-
-    function validateMarketListed(address) external {}
 }
