@@ -38,12 +38,6 @@ describe("Auditor from User Space", function () {
       .transfer(user.address, parseUnits("100000"));
   });
 
-  it("We try to enter an unlisted market and fail", async () => {
-    await expect(
-      auditor.enterMarkets([exactlyEnv.notAnFixedLenderAddress])
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
   it("We enter market twice without failing", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     await auditor.enterMarkets([fixedLenderDAI.address]);
@@ -70,12 +64,6 @@ describe("Auditor from User Space", function () {
       .withArgs(fixedLenderDAI.address, owner.address);
   });
 
-  it("We try to exit an unlisted market and fail", async () => {
-    await expect(
-      auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress)
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-  });
-
   it("validateBorrowMP should fail for when oracle gets weird", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     await auditor.enterMarkets([fixedLenderDAI.address]);
@@ -84,18 +72,6 @@ describe("Auditor from User Space", function () {
     await expect(
       auditor.validateBorrowMP(fixedLenderDAI.address, owner.address)
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
-  });
-
-  it("SeizeAllowed should fail for an unlisted market", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(
-      auditor.seizeAllowed(
-        exactlyEnv.notAnFixedLenderAddress,
-        fixedLenderDAI.address,
-        owner.address,
-        user.address
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
   });
 
   it("SeizeAllowed should fail when liquidator is borrower", async () => {
@@ -108,37 +84,6 @@ describe("Auditor from User Space", function () {
         owner.address
       )
     ).to.be.revertedWith(errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER));
-  });
-
-  it("LiquidateAllowed should fail for unlisted markets", async () => {
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    await expect(
-      auditor.liquidateAllowed(
-        exactlyEnv.notAnFixedLenderAddress,
-        fixedLenderDAI.address,
-        owner.address,
-        user.address,
-        100
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-    await expect(
-      auditor.liquidateAllowed(
-        fixedLenderDAI.address,
-        exactlyEnv.notAnFixedLenderAddress,
-        owner.address,
-        user.address,
-        100
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
-    await expect(
-      auditor.liquidateAllowed(
-        fixedLenderDAI.address,
-        fixedLenderDAI.address,
-        owner.address,
-        user.address,
-        100
-      )
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
   });
 
   it("Autoadding a market should only be allowed from a fixedLender", async () => {

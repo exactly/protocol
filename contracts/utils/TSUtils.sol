@@ -101,7 +101,7 @@ library TSUtils {
      * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
      * @param alternativeState state required by the caller to be verified (see TSUtils.State() for description)
      */
-    function requirePoolState(
+    function validateRequiredPoolState(
         uint256 maturityDate,
         TSUtils.State requiredState,
         TSUtils.State alternativeState

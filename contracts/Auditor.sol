@@ -383,8 +383,8 @@ contract Auditor is IAuditor, AccessControl {
 
     /**
      * @dev Function to be called before someone wants to interact with its smart pool position.
-     *      This function verifies if market is valid, maturity is MATURED, checks if the user has no outstanding
-     *      debts. This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
+     *      This function checks if the user has no outstanding debts.
+     *      This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
      *      this contract when the user wants to exit a market.
      * @param fixedLenderAddress address of the fixedLender where the smart pool belongs
      * @param account address of the user to check for possible shortfall

@@ -271,7 +271,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         }
 
         // reverts on failure
-        TSUtils.requirePoolState(
+        TSUtils.validateRequiredPoolState(
             maturityDate,
             TSUtils.State.MATURED,
             TSUtils.State.NONE
@@ -347,7 +347,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 maxAmountAllowed
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        TSUtils.requirePoolState(
+        TSUtils.validateRequiredPoolState(
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.NONE
@@ -388,7 +388,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 minAmountRequired
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        TSUtils.requirePoolState(
+        TSUtils.validateRequiredPoolState(
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.NONE
@@ -424,7 +424,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 repayAmount
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        TSUtils.requirePoolState(
+        TSUtils.validateRequiredPoolState(
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.MATURED
