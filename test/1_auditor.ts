@@ -86,6 +86,19 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER));
   });
 
+  it("LiquidateAllowed should revert with INSUFFICIENT_SHORTFALL if user has no shortfall", async () => {
+    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
+    await expect(
+      auditor.liquidateAllowed(
+        fixedLenderDAI.address,
+        fixedLenderDAI.address,
+        owner.address,
+        user.address,
+        100
+      )
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
+  });
+
   it("Autoadding a market should only be allowed from a fixedLender", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     const dai = exactlyEnv.getUnderlying("DAI");
