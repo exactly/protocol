@@ -14,6 +14,7 @@ import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
 import "./utils/DecimalMath.sol";
+import "./utils/TSUtils.sol";
 import "./utils/Errors.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
@@ -270,7 +271,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         }
 
         // reverts on failure
-        auditor.requirePoolState(
+        TSUtils.requirePoolState(
             maturityDate,
             TSUtils.State.MATURED,
             TSUtils.State.NONE
@@ -280,7 +281,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             maturityDate,
             redeemer,
             redeemAmount,
-            eToken.totalSupply() / auditor.maxFuturePools()
+            eToken.totalSupply() / TSUtils.MAX_FUTURE_POOLS
         );
 
         doTransferOut(redeemer, redeemAmount);
@@ -346,7 +347,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 maxAmountAllowed
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        auditor.requirePoolState(
+        TSUtils.requirePoolState(
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.NONE
@@ -357,7 +358,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             msg.sender,
             amount,
             maxAmountAllowed,
-            eToken.totalSupply() / auditor.maxFuturePools()
+            eToken.totalSupply() / TSUtils.MAX_FUTURE_POOLS
         );
         totalMpBorrows += totalOwed;
 
@@ -387,7 +388,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 minAmountRequired
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        auditor.requirePoolState(
+        TSUtils.requirePoolState(
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.NONE
@@ -423,7 +424,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 repayAmount
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        auditor.requirePoolState(
+        TSUtils.requirePoolState(
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.MATURED

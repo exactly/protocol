@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IOracle.sol";
-import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "./utils/MarketsLib.sol";
@@ -22,7 +21,6 @@ contract Auditor is IAuditor, AccessControl {
 
     uint256 public closeFactor = 5e17;
     uint256 public liquidationIncentive = 1e18 + 1e17;
-    uint8 public override maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
 
     IOracle public oracle;
@@ -372,33 +370,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Function to verify that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
-     *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
-     * @param maturityDate timestamp of the maturity date to be verified
-     * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
-     * @param alternativeState state required by the caller to be verified (see TSUtils.State() for description)
-     */
-    function requirePoolState(
-        uint256 maturityDate,
-        TSUtils.State requiredState,
-        TSUtils.State alternativeState
-    ) external view override {
-        return _requirePoolState(maturityDate, requiredState, alternativeState);
-    }
-
-    /**
-     * @dev Function to retrieve valid future pools
-     */
-    function getFuturePools()
-        external
-        view
-        override
-        returns (uint256[] memory)
-    {
-        return TSUtils.futurePools(block.timestamp, maxFuturePools);
-    }
-
-    /**
      * @dev Function to retrieve all markets
      */
     function getMarketAddresses()
@@ -449,35 +420,6 @@ contract Auditor is IAuditor, AccessControl {
     function validateMarketListed(address fixedLenderAddress) internal view {
         if (!book.markets[fixedLenderAddress].isListed) {
             revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-    }
-
-    /**
-     * @dev Internal Function to verify that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
-     *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
-     * @param maturityDate timestamp of the maturity date to be verified
-     * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
-     */
-    function _requirePoolState(
-        uint256 maturityDate,
-        TSUtils.State requiredState,
-        TSUtils.State alternativeState
-    ) internal view {
-        TSUtils.State poolState = TSUtils.getPoolState(
-            block.timestamp,
-            maturityDate,
-            maxFuturePools
-        );
-
-        if (poolState != requiredState && poolState != alternativeState) {
-            if (alternativeState == TSUtils.State.NONE) {
-                revert UnmatchedPoolState(poolState, requiredState);
-            }
-            revert UnmatchedPoolStateMultiple(
-                poolState,
-                requiredState,
-                alternativeState
-            );
         }
     }
 }

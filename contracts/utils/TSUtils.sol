@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import "./Errors.sol";
+
 library TSUtils {
     enum State {
         NONE,
@@ -11,6 +13,22 @@ library TSUtils {
     }
 
     uint32 public constant INTERVAL = 7 days;
+    uint8 public constant MAX_FUTURE_POOLS = 12; // if every 14 days, then 6 months
+
+    /**
+     * @notice Function to return all the future pool IDs give in a certain time horizon that
+     *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
+     *         configured in this library
+     */
+    function futurePools() public view returns (uint256[] memory) {
+        uint256[] memory poolIDs = new uint256[](MAX_FUTURE_POOLS);
+        uint256 timestamp = block.timestamp - (block.timestamp % INTERVAL);
+        for (uint256 i = 0; i < MAX_FUTURE_POOLS; i++) {
+            timestamp += INTERVAL;
+            poolIDs[i] = timestamp;
+        }
+        return poolIDs;
+    }
 
     /**
      * @notice Function to calculate how many seconds are left to a certain date
@@ -77,23 +95,32 @@ library TSUtils {
     }
 
     /**
-     * @notice Function to return all the future pool IDs give in a certain time horizon that
-     *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
-     *         configured in this library
-     * @param startingTimestamp initialTimestamp to start calculating poolIDs
-     * @param maxPools number of pools to return
+     * @dev Function to verify that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
+     *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
+     * @param maturityDate timestamp of the maturity date to be verified
+     * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
+     * @param alternativeState state required by the caller to be verified (see TSUtils.State() for description)
      */
-    function futurePools(uint256 startingTimestamp, uint8 maxPools)
-        public
-        pure
-        returns (uint256[] memory)
-    {
-        uint256[] memory poolIDs = new uint256[](maxPools);
-        uint256 timestamp = startingTimestamp - (startingTimestamp % INTERVAL);
-        for (uint256 i = 0; i < maxPools; i++) {
-            timestamp += INTERVAL;
-            poolIDs[i] = timestamp;
+    function requirePoolState(
+        uint256 maturityDate,
+        TSUtils.State requiredState,
+        TSUtils.State alternativeState
+    ) internal view {
+        TSUtils.State poolState = getPoolState(
+            block.timestamp,
+            maturityDate,
+            MAX_FUTURE_POOLS
+        );
+
+        if (poolState != requiredState && poolState != alternativeState) {
+            if (alternativeState == TSUtils.State.NONE) {
+                revert UnmatchedPoolState(poolState, requiredState);
+            }
+            revert UnmatchedPoolStateMultiple(
+                poolState,
+                requiredState,
+                alternativeState
+            );
         }
-        return poolIDs;
     }
 }

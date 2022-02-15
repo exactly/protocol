@@ -3,10 +3,8 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import {
   errorGeneric,
-  errorUnmatchedPool,
   applyMinFee,
   ExaTime,
-  PoolState,
   ProtocolError,
 } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
@@ -20,7 +18,6 @@ describe("FixedLender", function () {
   let underlyingTokenETH: Contract;
   let fixedLender: Contract;
   let poolAccounting: Contract;
-  let auditor: Contract;
 
   let mariaUser: SignerWithAddress;
   let johnUser: SignerWithAddress;
@@ -44,7 +41,6 @@ describe("FixedLender", function () {
     underlyingTokenETH = exactlyEnv.getUnderlying("WETH");
     fixedLender = exactlyEnv.getFixedLender("DAI");
     poolAccounting = exactlyEnv.getPoolAccounting("DAI");
-    auditor = exactlyEnv.auditor;
 
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("100000"));
@@ -379,20 +375,6 @@ describe("FixedLender", function () {
 
   describe("simple validations:", () => {
     describe("invalid pool ids", () => {
-      it("WHEN calling auditor.requirePoolState directly with an invalid pool id, THEN it reverts", async () => {
-        let auditorUser = auditor.connect(mariaUser);
-        const invalidPoolID = exaTime.pastPoolID() + 666;
-
-        await expect(
-          auditorUser.requirePoolState(
-            invalidPoolID,
-            PoolState.VALID,
-            PoolState.NONE
-          )
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
-        );
-      });
       it("WHEN calling getAccountSnapshot on an invalid pool, THEN it reverts with INVALID_POOL_ID", async () => {
         let invalidPoolID = nextPoolId + 3;
         await expect(

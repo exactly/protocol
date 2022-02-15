@@ -130,7 +130,6 @@ export class DefaultEnv {
 
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
-        TSUtils: tsUtils.address,
         MarketsLib: marketsLib.address,
       },
     });
@@ -246,6 +245,10 @@ export class DefaultEnv {
 
   public getInterestRateModel(): Contract {
     return this.interestRateModel;
+  }
+
+  public getTSUtils(): Contract {
+    return this.tsUtils;
   }
 
   public getEToken(key: string): Contract {
@@ -543,7 +546,6 @@ export class DefaultEnv {
   public async deployDuplicatedAuditor() {
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
-        TSUtils: this.tsUtils.address,
         MarketsLib: this.marketsLib.address,
       },
     });

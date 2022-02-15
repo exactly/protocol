@@ -192,7 +192,8 @@ describe("Auditor from User Space", function () {
 
   it("Future pools should match JS generated ones", async () => {
     let exaTime = new ExaTime();
-    let poolsInContract = await auditor.callStatic.getFuturePools();
+    let tsUtils = exactlyEnv.getTSUtils();
+    let poolsInContract = await tsUtils.callStatic.futurePools();
     let poolsInJS = exaTime.futurePools().map((item) => BigNumber.from(item));
     for (let i = 0; i < exaTime.MAX_POOLS; i++) {
       expect(poolsInContract[i]).to.be.equal(poolsInJS[i]);

@@ -348,7 +348,6 @@ async function deployLibraries(
     {
       from: deployer,
       libraries: {
-        TSUtils: tsUtils.address,
         DecimalMath: decimalMath.address,
       },
     }
