@@ -79,7 +79,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [exactlyOracle.address],
     log: true,
     libraries: {
-      TSUtils: tsUtils.address,
       DecimalMath: decimalMath.address,
       MarketsLib: marketsLib.address,
     },
@@ -198,9 +197,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
           poolAccounting.address,
         ],
         log: true,
-        libraries: {
-          TSUtils: tsUtils.address,
-        },
       }
     );
     await grantPauserRole(fixedLenderDeploymentName, deployer, hre, config);

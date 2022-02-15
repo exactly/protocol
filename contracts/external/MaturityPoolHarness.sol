@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "../utils/PoolLib.sol";
 import "../interfaces/IEToken.sol";
 import "../interfaces/IInterestRateModel.sol";
+import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 contract MaturityPoolHarness {
     using PoolLib for PoolLib.MaturityPool;
