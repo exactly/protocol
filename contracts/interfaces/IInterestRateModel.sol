@@ -16,7 +16,8 @@ interface IInterestRateModel {
 
     function getYieldForDeposit(
         uint256 suppliedSP,
+        uint256 borrowed,
         uint256 unassignedEarnings,
         uint256 amount
-    ) external pure returns (uint256 earningsShare);
+    ) external view returns (uint256 earningsShare, uint256 earningsShareSP);
 }

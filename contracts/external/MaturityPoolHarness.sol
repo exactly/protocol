@@ -13,6 +13,7 @@ contract MaturityPoolHarness {
     IEToken public eToken;
     IInterestRateModel public interestRateModel;
     uint256 public lastFee;
+    uint256 public lastFeeSP;
     uint256 public lastEarningsSP;
     uint256 public lastExtrasSP;
 
@@ -26,42 +27,15 @@ contract MaturityPoolHarness {
         eToken.mint(address(this), type(uint256).max);
     }
 
-    function accrueEarningsToSP(uint256 _maturityID) external {
-        maturityPool.accrueEarningsToSP(_maturityID);
+    function accrueEarnings(uint256 _maturityID) external {
+        maturityPool.accrueEarnings(_maturityID);
     }
 
-    function takeMoneyMP(
-        uint256 _maturityID,
-        uint256 _amount,
-        uint256 _feeAmount
-    ) external {
-        uint256 maxDebt = eToken.totalSupply();
-        maturityPool.accrueEarningsToSP(_maturityID);
-        smartPoolTotalDebt += maturityPool.takeMoney(_amount, maxDebt);
-        maturityPool.addFee(_feeAmount);
-    }
-
-    function addMoneyMP(uint256 _maturityID, uint256 _amount) external {
-        maturityPool.accrueEarningsToSP(_maturityID);
-
-        lastFee = interestRateModel.getYieldForDeposit(
-            maturityPool.suppliedSP,
-            maturityPool.unassignedEarnings,
-            _amount
-        );
+    function addMoney(uint256 _amount) external {
         maturityPool.addMoney(_amount);
-        maturityPool.takeFee(lastFee);
     }
 
-    function repayMP(uint256 _maturityID, uint256 _amount) external {
-        maturityPool.accrueEarningsToSP(_maturityID);
-        (
-            uint256 smartPoolDebtReduction,
-            uint256 earningsSP,
-            uint256 extrasSP
-        ) = maturityPool.repay(PoolLib.Debt(_amount, 0));
-        smartPoolTotalDebt -= smartPoolDebtReduction;
-        lastEarningsSP = earningsSP;
-        lastExtrasSP = extrasSP;
+    function takeFee(uint256 _fee) external {
+        maturityPool.takeFee(_fee);
     }
 }

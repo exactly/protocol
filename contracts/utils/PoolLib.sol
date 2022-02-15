@@ -34,6 +34,7 @@ library PoolLib {
         uint256 supplied;
         uint256 suppliedSP;
         uint256 unassignedEarnings;
+        uint256 earningsTreasury;
         uint256 earningsMP;
         uint256 earningsSP;
         uint256 lastAccrue;
@@ -145,7 +146,7 @@ library PoolLib {
      * @return earningsRepay : amount to distribute as earnings to the SP - extras (penalties,
      *         not shared with anyone)
      */
-    function repay(MaturityPool storage pool, Debt memory debt)
+    function distribute(MaturityPool storage pool, Debt memory debt)
         external
         returns (
             uint256 smartPoolDebtReduction,
@@ -184,6 +185,7 @@ library PoolLib {
         if (repayVars.earningsAll == 0) {
             earningsRepay = debt.fees;
         } else {
+            // We calculate the approximate amounts to reduce on each earnings field
             repayVars.earningsMPReduce = ((repayVars.earningsMP * debt.fees) /
                 repayVars.earningsAll);
             repayVars.earningsSPReduce = ((repayVars.earningsSP * debt.fees) /
@@ -195,6 +197,7 @@ library PoolLib {
                     repayVars.earningsSPReduce
             );
 
+            // We reduce the actual amounts
             pool.earningsMP = repayVars.earningsMP - repayVars.earningsMPReduce;
             pool.earningsSP = repayVars.earningsSP - repayVars.earningsSPReduce;
             pool.unassignedEarnings =
@@ -241,6 +244,18 @@ library PoolLib {
     }
 
     /**
+     * @notice External function to add a fee to the Smart Pool. This function
+     *         is useful to when someone deposits to maturity replacing SP debt
+     *         and we give a fee to the SP
+     * @param pool maturity pool that needs to be updated
+     * @param fee fee to be added to the earnings for
+     *                   the pool at maturity
+     */
+    function addFeeSP(MaturityPool storage pool, uint256 fee) external {
+        pool.earningsSP += fee;
+    }
+
+    /**
      * @notice External function to return a fee to be collected a maturity
      * @param pool maturity pool that needs to be updated
      * @param fee fee to be removed to the earnings for the pool at maturity
@@ -254,7 +269,7 @@ library PoolLib {
      * @param pool maturity pool that needs to be updated
      * @param maturityID timestamp in which maturity pool matures
      */
-    function accrueEarningsToSP(MaturityPool storage pool, uint256 maturityID)
+    function accrueEarnings(MaturityPool storage pool, uint256 maturityID)
         external
     {
         if (pool.lastAccrue == maturityID) {
@@ -272,14 +287,24 @@ library PoolLib {
             pool.lastAccrue,
             maturityID
         );
+
         uint256 unassignedEarnings = pool.unassignedEarnings;
+        uint256 borrowed = pool.borrowed;
+        uint256 suppliedSP = pool.suppliedSP;
 
         // assign some of the earnings to be collected at maturity
         uint256 earningsToAccrue = secondsTotalToMaturity == 0
             ? 0
             : (unassignedEarnings * secondsSinceLastAccrue) /
                 secondsTotalToMaturity;
-        pool.earningsSP += earningsToAccrue;
+
+        // we distribute the proportional of the SP according to the debt
+        uint256 earningsToAccrueSP = ((suppliedSP * earningsToAccrue) /
+            borrowed);
+        pool.earningsSP += earningsToAccrueSP;
+
+        // ... treasury gets the rest
+        pool.earningsTreasury += earningsToAccrueSP - earningsToAccrueSP;
         pool.unassignedEarnings = unassignedEarnings - earningsToAccrue;
         pool.lastAccrue = Math.min(maturityID, block.timestamp);
     }

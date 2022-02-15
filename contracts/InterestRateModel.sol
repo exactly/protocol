@@ -19,6 +19,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 public baseRate;
     uint256 public slopeChangeRate;
     uint256 public override penaltyRate;
+    uint256 public spFeeRate = 1e17; // 10%
 
     constructor(
         uint256 _mpSlopeRate,
@@ -108,11 +109,21 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      */
     function getYieldForDeposit(
         uint256 suppliedSP,
+        uint256 borrowed,
         uint256 unassignedEarnings,
         uint256 amount
-    ) external pure override returns (uint256 earningsShare) {
-        uint256 supply = Math.min(suppliedSP, amount) + amount;
-        earningsShare = (amount * unassignedEarnings) / supply;
+    )
+        external
+        view
+        override
+        returns (uint256 earningsShare, uint256 earningsShareSP)
+    {
+        if (borrowed != 0) {
+            earningsShare = ((amount * unassignedEarnings) / borrowed);
+            earningsShareSP = ((suppliedSP * unassignedEarnings) / borrowed)
+                .mul_(spFeeRate);
+            earningsShare -= earningsShareSP;
+        }
     }
 
     /**

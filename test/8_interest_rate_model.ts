@@ -15,11 +15,14 @@ describe("InterestRateModel", () => {
   let interestRateModel: Contract;
   let mariaUser: SignerWithAddress;
 
+  // INFO: This struct should always match
+  // the one in PoolLib, otherwise tests fail
   let maturityPool = {
     borrowed: 0,
     supplied: 0,
     suppliedSP: 0,
     unassignedEarnings: 0,
+    earningsTreasury: 0,
     earningsMP: 0,
     earningsSP: 0,
     lastAccrue: 0,
@@ -90,54 +93,77 @@ describe("InterestRateModel", () => {
     });
 
     describe("getYieldForDeposit", async () => {
-      it("WHEN supply of smart pool is 100, earnings unassigned are 100, and amount deposited is 100, then yield is 50", async () => {
-        expect(
-          await interestRateModel.getYieldForDeposit(
-            parseUnits("100"),
-            parseUnits("100"),
-            parseUnits("100")
-          )
-        ).to.equal(parseUnits("50"));
+      it("WHEN supply SP is 100, borrowed is 100, earnings unassigned are 100, and amount deposited is 100, then fee is 90 (and 10 for the SP)", async () => {
+        const result = await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100")
+        );
+
+        expect(result[0]).to.equal(parseUnits("90"));
+        expect(result[1]).to.equal(parseUnits("10"));
       });
 
-      it("WHEN supply of smart pool is 0, earnings unassigned are 0, and amount deposited is 100, then yield is 0", async () => {
-        expect(
-          await interestRateModel.getYieldForDeposit(
-            parseUnits("0"),
-            parseUnits("0"),
-            parseUnits("100")
-          )
-        ).to.equal(parseUnits("0"));
+      it("WHEN supply SP is 100, borrowed is 200, earnings unassigned are 100, and amount deposited is 100, then fee is 45 (5 for the SP)", async () => {
+        const result = await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("200"),
+          parseUnits("100"),
+          parseUnits("100")
+        );
+
+        // there were 100 to be distributed, so 50 belonged were supported by MP depositors
+        // and the other 50 were supported by SP debt. When depositing to cover de SP debt,
+        // then the SP takes 10% fee to be replaced (50*0.1 = 5 in this case)
+        expect(result[0]).to.equal(parseUnits("45"));
+        expect(result[1]).to.equal(parseUnits("5"));
       });
 
-      it("WHEN supply of smart pool is 0, earnings unassigned are 100, and amount deposited is 100, then yield is 100", async () => {
-        expect(
-          await interestRateModel.getYieldForDeposit(
-            parseUnits("0"),
-            parseUnits("100"),
-            parseUnits("100")
-          )
-        ).to.equal(parseUnits("100"));
+      it("WHEN supply SP is 0, borrowed is 200, earnings unassigned are 100, and amount deposited is 100, then fee is 50", async () => {
+        const result = await interestRateModel.getYieldForDeposit(
+          parseUnits("0"),
+          parseUnits("200"),
+          parseUnits("100"),
+          parseUnits("100")
+        );
+
+        // there were 100 to be distributed, all supported by deposits of the MP. Then
+        // it takes a part of the supply and pays no SP debt replacement fee
+        expect(result[0]).to.equal(parseUnits("50"));
       });
 
-      it("WHEN supply of smart pool is 100, earnings unassigned are 100, and amount deposited is 0, then yield is 0", async () => {
-        expect(
-          await interestRateModel.getYieldForDeposit(
-            parseUnits("100"),
-            parseUnits("100"),
-            parseUnits("0")
-          )
-        ).to.equal(parseUnits("0"));
+      it("WHEN supply of smart pool is 0, borrowed is 0, earnings unassigned are 0, and amount deposited is 100, then fee is 0", async () => {
+        const result = await interestRateModel.getYieldForDeposit(
+          parseUnits("0"),
+          parseUnits("0"),
+          parseUnits("0"),
+          parseUnits("100")
+        );
+
+        expect(result[0]).to.equal(parseUnits("0"));
       });
 
-      it("WHEN supply of smart pool is 100, earnings unassigned are 0, and amount deposited is 100, then yield is 0", async () => {
-        expect(
-          await interestRateModel.getYieldForDeposit(
-            parseUnits("100"),
-            parseUnits("0"),
-            parseUnits("100")
-          )
-        ).to.equal(parseUnits("0"));
+      it("WHEN supply of smart pool is 100, borrowed is 100, earnings unassigned are 0, and amount deposited is 100, then fee is 0", async () => {
+        const result = await interestRateModel.getYieldForDeposit(
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("0"),
+          parseUnits("100")
+        );
+
+        expect(result[0]).to.equal(parseUnits("0"));
+      });
+
+      it("WHEN supply of smart pool is 0, borrowed is 0, earnings unassigned are 100, and amount deposited is 100, then fee is 100", async () => {
+        const result = await interestRateModel.getYieldForDeposit(
+          parseUnits("0"),
+          parseUnits("100"),
+          parseUnits("100"),
+          parseUnits("100")
+        );
+
+        expect(result[0]).to.equal(parseUnits("100"));
       });
     });
 
@@ -145,7 +171,7 @@ describe("InterestRateModel", () => {
       await expect(
         interestRateModel.getRateToBorrow(
           parseUnits("123", 0),
-          maturityPool,
+          maturityPool, // If this test fails, check that this struct is the same as the one in PoolLib.MaturityPool
           parseUnits("1000"),
           parseUnits("1000000"),
           false

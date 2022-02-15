@@ -36,16 +36,12 @@ export class PoolEnv {
     );
   }
 
-  public async accrueEarningsToSP(timestamp: number) {
-    return this.mpHarness.accrueEarningsToSP(timestamp);
+  public async accrueEarnings(timestamp: number) {
+    return this.mpHarness.accrueEarnings(timestamp);
   }
 
-  public async addMoney(timestamp: number, amount: string) {
-    return this.mpHarness.addMoneyMP(timestamp, parseUnits(amount));
-  }
-
-  public async repay(timestamp: number, amount: string) {
-    return this.mpHarness.repayMP(timestamp, parseUnits(amount));
+  public async addMoney(amount: string) {
+    return this.mpHarness.addMoney(parseUnits(amount));
   }
 
   static async create(): Promise<PoolEnv> {

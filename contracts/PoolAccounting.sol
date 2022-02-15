@@ -27,6 +27,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // Vars used in `repayMP` to avoid
     // stack too deep problem
     struct RepayVars {
+        uint256 discountFee;
+        uint256 feeSP;
         uint256 amountOwed;
         PoolLib.Debt debt;
         uint256 principalRepay;
@@ -104,7 +106,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow) {
         BorrowVars memory borrowVars;
 
-        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
+        maturityPools[maturityDate].accrueEarnings(maturityDate);
 
         smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
             amount,
@@ -154,10 +156,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 amount,
         uint256 minAmountRequired
     ) external override onlyFixedLender returns (uint256 currentTotalDeposit) {
-        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
+        maturityPools[maturityDate].accrueEarnings(maturityDate);
 
-        uint256 fee = interestRateModel.getYieldForDeposit(
+        (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
             maturityPools[maturityDate].suppliedSP,
+            maturityPools[maturityDate].borrowed,
             maturityPools[maturityDate].unassignedEarnings,
             amount
         );
@@ -169,6 +172,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         maturityPools[maturityDate].addMoney(amount);
         maturityPools[maturityDate].takeFee(fee);
+        maturityPools[maturityDate].addFeeSP(feeSP);
 
         PoolLib.Debt memory debt = mpUserSuppliedAmount[maturityDate][supplier];
 
@@ -197,7 +201,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         onlyFixedLender
         returns (uint256 redeemAmountDiscounted)
     {
-        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
+        maturityPools[maturityDate].accrueEarnings(maturityDate);
 
         PoolLib.Debt memory debt = mpUserSuppliedAmount[maturityDate][redeemer];
 
@@ -262,7 +266,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         RepayVars memory repayVars;
 
         // SP supply needs to accrue its interests
-        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
+        maturityPools[maturityDate].accrueEarnings(maturityDate);
 
         console.log("REPAY: %s", repayAmount);
 
@@ -284,39 +288,40 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         );
 
         // Early repayment allows you to get a discount from the unassigned earnings
-        uint256 discountFee;
         if (block.timestamp < maturityDate) {
             // We calculate the deposit fee considering the amount
             // of debt he'll pay
-            discountFee = interestRateModel.getYieldForDeposit(
-                maturityPools[maturityDate].suppliedSP,
-                maturityPools[maturityDate].unassignedEarnings,
-                debtCovered
-            );
+            (repayVars.discountFee, repayVars.feeSP) = interestRateModel
+                .getYieldForDeposit(
+                    maturityPools[maturityDate].suppliedSP,
+                    maturityPools[maturityDate].borrowed,
+                    maturityPools[maturityDate].unassignedEarnings,
+                    debtCovered
+                );
 
             // We verify that the user agrees to this discount
-            if (debtCovered - discountFee > maxAmountAllowed) {
+            if (debtCovered - repayVars.discountFee > maxAmountAllowed) {
                 revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
             }
 
             // We remove the fee from unassigned earnings
-            maturityPools[maturityDate].removeFee(discountFee);
+            maturityPools[maturityDate].removeFee(repayVars.discountFee);
         }
 
         // user paid more than it should. The fee gets kicked back to the user
         // through _spareRepayAmount_ and on the pool side it was removed by
-        // calling _removeFee_
-        if (repayAmount > repayVars.amountOwed - discountFee) {
+        // calling _removeFee_ a few lines before ^
+        if (repayAmount > repayVars.amountOwed - repayVars.discountFee) {
             spareRepayAmount =
                 repayAmount -
-                (repayVars.amountOwed - discountFee);
+                (repayVars.amountOwed - repayVars.discountFee);
             repayAmount = repayVars.amountOwed;
             debtCovered = Math.min(
                 debtCovered,
                 (repayVars.debt.principals + repayVars.debt.fees)
             );
         } else {
-            spareRepayAmount = discountFee;
+            spareRepayAmount = repayVars.discountFee;
         }
 
         repayVars.amountStillBorrowed =
@@ -340,9 +345,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             repayVars.smartPoolDebtReduction,
             feeRepay,
             earningsRepay
-        ) = maturityPools[maturityDate].repay(
+        ) = maturityPools[maturityDate].distribute(
             repayVars.debt.scaleProportionally(debtCovered).reduceFees(
-                discountFee
+                repayVars.discountFee
             )
         );
 
