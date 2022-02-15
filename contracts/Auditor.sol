@@ -197,6 +197,7 @@ contract Auditor is IAuditor, AccessControl {
         external
         override
     {
+        validateMarketListed(fixedLenderAddress);
         // we validate borrow state
         book.validateBorrow(fixedLenderAddress, borrower);
 

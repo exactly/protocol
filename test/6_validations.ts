@@ -52,6 +52,14 @@ describe("Validations", function () {
         auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress)
       ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
     });
+    it("WHEN trying to call validateBorrowMP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
+      await expect(
+        auditor.validateBorrowMP(
+          exactlyEnv.notAnFixedLenderAddress,
+          owner.address
+        )
+      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+    });
     it("WHEN trying to set borrow caps, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
         auditor.setMarketBorrowCaps(
