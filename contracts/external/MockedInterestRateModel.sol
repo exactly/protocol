@@ -12,11 +12,11 @@ contract MockedInterestRateModel is IInterestRateModel {
     uint256 public override penaltyRate;
 
     function getRateToBorrow(
-        uint256 maturityDate,
-        uint256 currentDate,
-        uint256 borrowedMP,
-        uint256 suppliedMP,
-        uint256 borrowableFromSP
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256
     ) external view override returns (uint256) {
         return borrowRate;
     }

@@ -26,14 +26,6 @@ library TSUtils {
     }
 
     /**
-     * @notice Function to take a timestamp to it's 00:00 hours (beginning of day)
-     * @param timestamp timestamp to calculate the beginning of the day with
-     */
-    function trimmedDay(uint256 timestamp) public pure returns (uint256) {
-        return timestamp - (timestamp % 1 days);
-    }
-
-    /**
      * @notice Function to return a pool _time_ state based on the current time,
      *         maxPools available, and the INTERVALS configured, all to return
      *         if a pool is VALID, not yet available(NOT_READY), INVALID or MATURED

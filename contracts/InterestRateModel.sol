@@ -57,7 +57,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param _curveParameterA curve parameter
      * @param _curveParameterB curve parameter
      * @param _maxUtilizationRate % of MP supp
-     * @param _penaltyRate daily rate charged on late repays. 18 decimals
+     * @param _penaltyRate by-second rate charged on late repays, with 18 decimals
      */
     function setParameters(
         uint256 _curveParameterA,

@@ -164,14 +164,6 @@ export class ExaTime {
     return this.futurePools().pop()! + 86400 * 7;
   }
 
-  public trimmedDay(): number {
-    return this.timestamp - (this.timestamp % this.ONE_DAY);
-  }
-
-  public daysDiffWith(anotherTimestamp: number): number {
-    return (anotherTimestamp - this.trimmedDay()) / this.ONE_DAY;
-  }
-
   public futurePools(): number[] {
     let nextPoolID = this.nextPoolID();
     var allPools: number[] = [];
