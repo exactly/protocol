@@ -626,8 +626,8 @@ describe("PoolAccounting", () => {
             mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
           ).to.eq(parseUnits("0"));
         });
-        it("THEN spareAmount is NOT 0 (got a discount)", async () => {
-          expect(returnValues.spareAmount).to.not.eq(parseUnits("0"));
+        it("THEN spareAmount is 0 (didn't get a discount since it was gotten all before)", async () => {
+          expect(returnValues.spareAmount).to.eq(parseUnits("0"));
         });
       });
     });

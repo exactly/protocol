@@ -98,15 +98,44 @@ export class PoolAccountingEnv {
       );
   }
 
-  static async create(): Promise<PoolAccountingEnv> {
-    const MockedInterestRateModel = await ethers.getContractFactory(
-      "MockedInterestRateModel"
-    );
-    const mockedInterestRateModel = await MockedInterestRateModel.deploy();
-    await mockedInterestRateModel.deployed();
+  static async create(
+    useRealInterestRateModel: boolean = false
+  ): Promise<PoolAccountingEnv> {
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
+
+    const MockedInterestRateModelFactory = await ethers.getContractFactory(
+      "MockedInterestRateModel"
+    );
+    const InterestRateModelFactory = await ethers.getContractFactory(
+      "InterestRateModel",
+      {
+        libraries: {
+          TSUtils: tsUtils.address,
+        },
+      }
+    );
+
+    const realInterestRateModel = await InterestRateModelFactory.deploy(
+      parseUnits("0.07"), // Maturity pool slope rate
+      parseUnits("0.07"), // Smart pool slope rate
+      parseUnits("0.4"), // High UR slope rate
+      parseUnits("0.8"), // Slope change rate
+      parseUnits("0.02"), // Base rate
+      parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
+    );
+
+    // MockedInterestRateModel is wrapping the real IRM since getYieldToDeposit
+    // wants to be tested while we might want to hardcode the borrowing rate
+    // for testing simplicity
+    const interestRateModel = useRealInterestRateModel
+      ? realInterestRateModel
+      : await MockedInterestRateModelFactory.deploy(
+          realInterestRateModel.address
+        );
+    await interestRateModel.deployed();
+
     const PoolLib = await ethers.getContractFactory("PoolLib", {
       libraries: {
         TSUtils: tsUtils.address,
@@ -122,7 +151,7 @@ export class PoolAccountingEnv {
       },
     });
     const realPoolAccounting = await PoolAccounting.deploy(
-      mockedInterestRateModel.address
+      interestRateModel.address
     );
     await realPoolAccounting.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
@@ -137,7 +166,7 @@ export class PoolAccountingEnv {
 
     await realPoolAccounting.initialize(poolAccountingHarness.address);
     return new PoolAccountingEnv(
-      mockedInterestRateModel,
+      interestRateModel,
       realPoolAccounting,
       poolAccountingHarness,
       owner

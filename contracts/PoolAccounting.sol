@@ -171,7 +171,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         maturityPools[maturityDate].addMoney(amount);
-        maturityPools[maturityDate].takeFee(fee);
+        maturityPools[maturityDate].addFeeMP(fee);
         maturityPools[maturityDate].addFeeSP(feeSP);
 
         PoolLib.Debt memory debt = mpUserSuppliedAmount[maturityDate][supplier];
@@ -268,13 +268,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // SP supply needs to accrue its interests
         maturityPools[maturityDate].accrueEarnings(maturityDate);
 
-        console.log("REPAY: %s", repayAmount);
-
         // Amount Owed is (principal+fees)*penalties
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
         repayVars.debt = mpUserBorrowedAmount[maturityDate][borrower];
-        console.log("OWED: %s", repayVars.amountOwed);
-        console.log("DEBT: %s", repayVars.debt.principals);
 
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
@@ -296,7 +292,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                     maturityPools[maturityDate].suppliedSP,
                     maturityPools[maturityDate].borrowed,
                     maturityPools[maturityDate].unassignedEarnings,
-                    debtCovered
+                    repayVars.debt.scaleProportionally(debtCovered).principals
+                    // ^ this case shouldn't contain penalties since is before maturity date
                 );
 
             // We verify that the user agrees to this discount

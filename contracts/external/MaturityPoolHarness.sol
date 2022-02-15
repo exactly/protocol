@@ -9,23 +9,6 @@ contract MaturityPoolHarness {
     using PoolLib for PoolLib.MaturityPool;
 
     PoolLib.MaturityPool public maturityPool;
-    uint256 public smartPoolTotalDebt;
-    IEToken public eToken;
-    IInterestRateModel public interestRateModel;
-    uint256 public lastFee;
-    uint256 public lastFeeSP;
-    uint256 public lastEarningsSP;
-    uint256 public lastExtrasSP;
-
-    constructor(address _eTokenAddress, address _interestRateModelAddress) {
-        eToken = IEToken(_eTokenAddress);
-        interestRateModel = IInterestRateModel(_interestRateModelAddress);
-    }
-
-    function maxMintEToken() external {
-        // it has all the liquidity possible
-        eToken.mint(address(this), type(uint256).max);
-    }
 
     function accrueEarnings(uint256 _maturityID) external {
         maturityPool.accrueEarnings(_maturityID);
@@ -35,7 +18,7 @@ contract MaturityPoolHarness {
         maturityPool.addMoney(_amount);
     }
 
-    function takeFee(uint256 _fee) external {
-        maturityPool.takeFee(_fee);
+    function addFeeMP(uint256 _fee) external {
+        maturityPool.addFeeMP(_fee);
     }
 }

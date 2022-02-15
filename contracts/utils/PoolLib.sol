@@ -53,8 +53,8 @@ library PoolLib {
     }
 
     struct Debt {
-        uint256 principals;
-        uint256 fees;
+        uint256 principal;
+        uint256 fee;
     }
 
     /**
@@ -170,12 +170,12 @@ library PoolLib {
         //     * you can't do asimmetric payment, because you would be altering the values for the following operations
         //       ie: You use the earnings to pay all the earningsSP first, so the function _returnFee_ will change the
         //           values for after
-        pool.borrowed = repayVars.borrowMP - debt.principals;
+        pool.borrowed = repayVars.borrowMP - debt.principal;
 
         // NOTES re: smart pool debt
         //       we repay the debt immediately
         // TODO: get the fee for the SPDebt takeover
-        smartPoolDebtReduction = Math.min(repayVars.supplySP, debt.principals);
+        smartPoolDebtReduction = Math.min(repayVars.supplySP, debt.principal);
         pool.suppliedSP = repayVars.supplySP - smartPoolDebtReduction;
 
         // NOTES:
@@ -183,16 +183,16 @@ library PoolLib {
         //       ie: You use the earnings to pay all the earningsSP first, so the function _returnFee_ will change the
         //           values for after
         if (repayVars.earningsAll == 0) {
-            earningsRepay = debt.fees;
+            earningsRepay = debt.fee;
         } else {
             // We calculate the approximate amounts to reduce on each earnings field
-            repayVars.earningsMPReduce = ((repayVars.earningsMP * debt.fees) /
+            repayVars.earningsMPReduce = ((repayVars.earningsMP * debt.fee) /
                 repayVars.earningsAll);
-            repayVars.earningsSPReduce = ((repayVars.earningsSP * debt.fees) /
+            repayVars.earningsSPReduce = ((repayVars.earningsSP * debt.fee) /
                 repayVars.earningsAll);
             repayVars.unassignedEarningsReduce = Math.min(
                 repayVars.unassignedEarnings,
-                debt.fees -
+                debt.fee -
                     repayVars.earningsMPReduce -
                     repayVars.earningsSPReduce
             );
@@ -208,7 +208,7 @@ library PoolLib {
             feeRepay = repayVars.earningsSPReduce;
             // all the rest goes to the SP as earnings
             earningsRepay =
-                debt.fees -
+                debt.fee -
                 repayVars.earningsMPReduce -
                 repayVars.earningsSPReduce;
         }
@@ -238,7 +238,7 @@ library PoolLib {
      * @param fee fee to be added to the earnings for
      *                   the pool at maturity
      */
-    function takeFee(MaturityPool storage pool, uint256 fee) external {
+    function addFeeMP(MaturityPool storage pool, uint256 fee) external {
         pool.unassignedEarnings -= fee;
         pool.earningsMP += fee;
     }
@@ -252,6 +252,7 @@ library PoolLib {
      *                   the pool at maturity
      */
     function addFeeSP(MaturityPool storage pool, uint256 fee) external {
+        pool.unassignedEarnings -= fee;
         pool.earningsSP += fee;
     }
 
@@ -288,9 +289,17 @@ library PoolLib {
             maturityID
         );
 
+        pool.lastAccrue = Math.min(maturityID, block.timestamp);
+
         uint256 unassignedEarnings = pool.unassignedEarnings;
         uint256 borrowed = pool.borrowed;
         uint256 suppliedSP = pool.suppliedSP;
+
+        // There shouln't be earnings since the should've been
+        // repaid completely
+        if (borrowed == 0) {
+            return;
+        }
 
         // assign some of the earnings to be collected at maturity
         uint256 earningsToAccrue = secondsTotalToMaturity == 0
@@ -304,9 +313,8 @@ library PoolLib {
         pool.earningsSP += earningsToAccrueSP;
 
         // ... treasury gets the rest
-        pool.earningsTreasury += earningsToAccrueSP - earningsToAccrueSP;
+        pool.earningsTreasury += earningsToAccrue - earningsToAccrueSP;
         pool.unassignedEarnings = unassignedEarnings - earningsToAccrue;
-        pool.lastAccrue = Math.min(maturityID, block.timestamp);
     }
 
     function scaleProportionally(Debt memory debt, uint256 amount)
@@ -315,10 +323,10 @@ library PoolLib {
         returns (Debt memory)
     {
         // we proportionally reduce the values
-        uint256 principals = (debt.principals * amount) /
-            (debt.principals + debt.fees);
-        debt.principals = principals;
-        debt.fees = amount - principals;
+        uint256 principal = (debt.principal * amount) /
+            (debt.principal + debt.fee);
+        debt.principal = principal;
+        debt.fee = amount - principal;
         return debt;
     }
 
@@ -328,20 +336,20 @@ library PoolLib {
         returns (Debt memory)
     {
         // we proportionally reduce the values
-        uint256 principals = (debt.principals * amount) /
-            (debt.principals + debt.fees);
-        debt.principals -= principals;
-        debt.fees -= amount - principals;
+        uint256 principal = (debt.principal * amount) /
+            (debt.principal + debt.fee);
+        debt.principal -= principal;
+        debt.fee -= amount - principal;
         return debt;
     }
 
-    function reduceFees(Debt memory debt, uint256 fees)
+    function reduceFees(Debt memory debt, uint256 fee)
         external
         pure
         returns (Debt memory)
     {
         // we only reduce the fees
-        debt.fees = debt.fees - fees;
+        debt.fee = debt.fee - fee;
         return debt;
     }
 }
