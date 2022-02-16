@@ -255,13 +255,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @dev Function to retrieve valid future pools
-     */
-    function getFuturePools() external view returns (uint256[] memory) {
-        return TSUtils.futurePools(MAX_FUTURE_POOLS);
-    }
-
-    /**
      * @notice User collects a certain amount of underlying asset after having
      *         supplied tokens until a certain maturity date
      * @dev The pool that the user is trying to retrieve the money should be matured

@@ -148,16 +148,6 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith(errorGeneric(ProtocolError.PRICE_ERROR));
   });
 
-  it("Future pools should match JS generated ones", async () => {
-    let exaTime = new ExaTime();
-    const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
-    let poolsInContract = await fixedLenderDAI.callStatic.getFuturePools();
-    let poolsInJS = exaTime.futurePools().map((item) => BigNumber.from(item));
-    for (let i = 0; i < exaTime.MAX_POOLS; i++) {
-      expect(poolsInContract[i]).to.be.equal(poolsInJS[i]);
-    }
-  });
-
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
     const fixedLenderDAI = exactlyEnv.getFixedLender("DAI");
     const dai = exactlyEnv.getUnderlying("DAI");

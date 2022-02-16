@@ -107,7 +107,7 @@ library TSUtils {
      *         configured in this library
      */
     function futurePools(uint8 maxFuturePools)
-        internal
+        public
         view
         returns (uint256[] memory)
     {
