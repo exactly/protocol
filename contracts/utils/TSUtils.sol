@@ -15,6 +15,25 @@ library TSUtils {
     uint32 public constant INTERVAL = 7 days;
 
     /**
+     * @notice Function to return all the future pool IDs give in a certain time horizon that
+     *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
+     *         configured in this library
+     */
+    function futurePools(uint8 maxFuturePools)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        uint256[] memory poolIDs = new uint256[](maxFuturePools);
+        uint256 timestamp = block.timestamp - (block.timestamp % INTERVAL);
+        for (uint256 i = 0; i < maxFuturePools; i++) {
+            timestamp += INTERVAL;
+            poolIDs[i] = timestamp;
+        }
+        return poolIDs;
+    }
+
+    /**
      * @notice Function to calculate how many seconds are left to a certain date
      * @param timestampFrom to calculate the difference in seconds from a date
      * @param timestampTo to calculate the difference in seconds to a date
@@ -99,24 +118,5 @@ library TSUtils {
                 alternativeState
             );
         }
-    }
-
-    /**
-     * @notice Function to return all the future pool IDs give in a certain time horizon that
-     *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
-     *         configured in this library
-     */
-    function futurePools(uint8 maxFuturePools)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        uint256[] memory poolIDs = new uint256[](maxFuturePools);
-        uint256 timestamp = block.timestamp - (block.timestamp % INTERVAL);
-        for (uint256 i = 0; i < maxFuturePools; i++) {
-            timestamp += INTERVAL;
-            poolIDs[i] = timestamp;
-        }
-        return poolIDs;
     }
 }
