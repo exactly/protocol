@@ -11,7 +11,9 @@ contract MaturityPoolHarness {
     PoolLib.MaturityPool public maturityPool;
 
     function accrueEarnings(uint256 _maturityID) external {
-        maturityPool.accrueEarnings(_maturityID);
+        // TODO: convert block.number to a state variable to have
+        // more control over the tests
+        maturityPool.accrueEarnings(_maturityID, block.number);
     }
 
     function addMoney(uint256 _amount) external {

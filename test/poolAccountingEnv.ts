@@ -6,24 +6,22 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 export class PoolAccountingEnv {
   interestRateModel: Contract;
-  realPoolAccounting: Contract;
   poolAccountingHarness: Contract;
   currentWallet: SignerWithAddress;
   maxSPDebt = parseUnits("100000");
 
   constructor(
     _interestRateModel: Contract,
-    _realPoolAccounting: Contract,
     _poolAccountingHarness: Contract,
     _currentWallet: SignerWithAddress
   ) {
     this.interestRateModel = _interestRateModel;
-    this.realPoolAccounting = _realPoolAccounting;
     this.poolAccountingHarness = _poolAccountingHarness;
     this.currentWallet = _currentWallet;
   }
 
   public async moveInTime(timestamp: number) {
+    await this.poolAccountingHarness.setCurrentTimestamp(timestamp);
     return ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 
@@ -45,7 +43,7 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .repayMP(
+      .repayMPWithReturnValues(
         maturityPool,
         this.currentWallet.address,
         amount,
@@ -67,7 +65,7 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .depositMP(
+      .depositMPWithReturnValues(
         maturityPool,
         this.currentWallet.address,
         amount,
@@ -89,7 +87,7 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .borrowMP(
+      .borrowMPWithReturnValues(
         maturityPool,
         this.currentWallet.address,
         amount,
@@ -144,30 +142,26 @@ export class PoolAccountingEnv {
     let poolLib = await PoolLib.deploy();
     await poolLib.deployed();
 
-    const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
-      libraries: {
-        TSUtils: tsUtils.address,
-        PoolLib: poolLib.address,
-      },
-    });
-    const realPoolAccounting = await PoolAccounting.deploy(
-      interestRateModel.address
-    );
-    await realPoolAccounting.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
-      "PoolAccountingHarness"
+      "PoolAccountingHarness",
+      {
+        libraries: {
+          TSUtils: tsUtils.address,
+          PoolLib: poolLib.address,
+        },
+      }
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
-      realPoolAccounting.address
+      interestRateModel.address
     );
     await poolAccountingHarness.deployed();
+    // We initialize it with itself, so it can call the methods from within
+    await poolAccountingHarness.initialize(poolAccountingHarness.address);
 
     const [owner] = await ethers.getSigners();
 
-    await realPoolAccounting.initialize(poolAccountingHarness.address);
     return new PoolAccountingEnv(
       interestRateModel,
-      realPoolAccounting,
       poolAccountingHarness,
       owner
     );

@@ -106,7 +106,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow) {
         BorrowVars memory borrowVars;
 
-        maturityPools[maturityDate].accrueEarnings(maturityDate);
+        maturityPools[maturityDate].accrueEarnings(
+            maturityDate,
+            currentTimestamp()
+        );
 
         smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
             amount,
@@ -156,7 +159,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 amount,
         uint256 minAmountRequired
     ) external override onlyFixedLender returns (uint256 currentTotalDeposit) {
-        maturityPools[maturityDate].accrueEarnings(maturityDate);
+        maturityPools[maturityDate].accrueEarnings(
+            maturityDate,
+            currentTimestamp()
+        );
 
         (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
             maturityPools[maturityDate].suppliedSP,
@@ -201,7 +207,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         onlyFixedLender
         returns (uint256 redeemAmountDiscounted)
     {
-        maturityPools[maturityDate].accrueEarnings(maturityDate);
+        maturityPools[maturityDate].accrueEarnings(
+            maturityDate,
+            currentTimestamp()
+        );
 
         PoolLib.Debt memory debt = mpUserSuppliedAmount[maturityDate][redeemer];
 
@@ -213,7 +222,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // We verify if there are any penalties/fee for him because of
         // early withdrawal
-        if (block.timestamp < maturityDate) {
+        if (currentTimestamp() < maturityDate) {
             // TODO: Change this to Capu's implementation
             PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
             uint256 feeRate = interestRateModel.getRateToBorrow(
@@ -266,7 +275,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         RepayVars memory repayVars;
 
         // SP supply needs to accrue its interests
-        maturityPools[maturityDate].accrueEarnings(maturityDate);
+        maturityPools[maturityDate].accrueEarnings(
+            maturityDate,
+            currentTimestamp()
+        );
 
         // Amount Owed is (principal+fees)*penalties
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
@@ -284,7 +296,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         );
 
         // Early repayment allows you to get a discount from the unassigned earnings
-        if (block.timestamp < maturityDate) {
+        if (currentTimestamp() < maturityDate) {
             // We calculate the deposit fee considering the amount
             // of debt he'll pay
             (repayVars.discountFee, repayVars.feeSP) = interestRateModel
@@ -435,12 +447,21 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         totalDebt = debt.principal + debt.fee;
         uint256 secondsDelayed = TSUtils.secondsPre(
             maturityDate,
-            block.timestamp
+            currentTimestamp()
         );
         if (secondsDelayed > 0) {
             totalDebt += totalDebt.mul_(
                 secondsDelayed * interestRateModel.penaltyRate()
             );
         }
+    }
+
+    /**
+     * @notice Internal/virtual function to get the current timestamp (it gets overriden
+     *         when writing tests)
+     * @return current timestamp
+     */
+    function currentTimestamp() internal view virtual returns (uint256) {
+        return block.timestamp;
     }
 }

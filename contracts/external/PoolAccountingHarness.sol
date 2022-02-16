@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "../interfaces/IPoolAccounting.sol";
+import "../PoolAccounting.sol";
+import "hardhat/console.sol";
 
-contract PoolAccountingHarness {
+contract PoolAccountingHarness is PoolAccounting {
     struct ReturnValues {
         uint256 totalOwedNewBorrow;
         uint256 currentTotalDeposit;
@@ -15,20 +16,20 @@ contract PoolAccountingHarness {
     }
 
     ReturnValues public returnValues;
-    IPoolAccounting public poolAccounting;
+    uint256 public timestamp;
 
-    constructor(address _poolAccounting) {
-        poolAccounting = IPoolAccounting(_poolAccounting);
+    constructor(address interestRateModel) PoolAccounting(interestRateModel) {
+        timestamp = block.timestamp;
     }
 
-    function borrowMP(
+    function borrowMPWithReturnValues(
         uint256 maturityDate,
         address borrower,
         uint256 amount,
         uint256 maxAmountAllowed,
         uint256 maxSPDebt
     ) external {
-        returnValues.totalOwedNewBorrow = poolAccounting.borrowMP(
+        returnValues.totalOwedNewBorrow = this.borrowMP(
             maturityDate,
             borrower,
             amount,
@@ -37,13 +38,13 @@ contract PoolAccountingHarness {
         );
     }
 
-    function depositMP(
+    function depositMPWithReturnValues(
         uint256 maturityDate,
         address supplier,
         uint256 amount,
         uint256 minAmountRequired
     ) external {
-        returnValues.currentTotalDeposit = poolAccounting.depositMP(
+        returnValues.currentTotalDeposit = this.depositMP(
             maturityDate,
             supplier,
             amount,
@@ -51,14 +52,14 @@ contract PoolAccountingHarness {
         );
     }
 
-    function withdrawMP(
+    function withdrawMPWithReturnValues(
         uint256 maturityDate,
         address redeemer,
         uint256 amount,
         uint256 minAmountRequired,
         uint256 maxSPDebt
     ) external {
-        returnValues.currentTotalWithdrawal = poolAccounting.withdrawMP(
+        returnValues.currentTotalWithdrawal = this.withdrawMP(
             maturityDate,
             redeemer,
             amount,
@@ -67,7 +68,7 @@ contract PoolAccountingHarness {
         );
     }
 
-    function repayMP(
+    function repayMPWithReturnValues(
         uint256 maturityDate,
         address borrower,
         uint256 repayAmount,
@@ -78,11 +79,14 @@ contract PoolAccountingHarness {
             returnValues.debtCovered,
             returnValues.fee,
             returnValues.earningsRepay
-        ) = poolAccounting.repayMP(
-            maturityDate,
-            borrower,
-            repayAmount,
-            maxAmountAllowed
-        );
+        ) = this.repayMP(maturityDate, borrower, repayAmount, maxAmountAllowed);
+    }
+
+    function setCurrentTimestamp(uint256 _timestamp) external {
+        timestamp = _timestamp;
+    }
+
+    function currentTimestamp() internal view override returns (uint256) {
+        return timestamp;
     }
 }

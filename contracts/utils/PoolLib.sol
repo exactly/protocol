@@ -270,9 +270,11 @@ library PoolLib {
      * @param pool maturity pool that needs to be updated
      * @param maturityID timestamp in which maturity pool matures
      */
-    function accrueEarnings(MaturityPool storage pool, uint256 maturityID)
-        external
-    {
+    function accrueEarnings(
+        MaturityPool storage pool,
+        uint256 maturityID,
+        uint256 currentTimestamp
+    ) external {
         if (pool.lastAccrue == maturityID) {
             return;
         }
@@ -281,7 +283,7 @@ library PoolLib {
         // maturity date or the current timestamp
         uint256 secondsSinceLastAccrue = TSUtils.secondsPre(
             pool.lastAccrue,
-            Math.min(maturityID, block.timestamp)
+            Math.min(maturityID, currentTimestamp)
         );
         // seconds from last accrual to the maturity date
         uint256 secondsTotalToMaturity = TSUtils.secondsPre(
@@ -289,7 +291,7 @@ library PoolLib {
             maturityID
         );
 
-        pool.lastAccrue = Math.min(maturityID, block.timestamp);
+        pool.lastAccrue = Math.min(maturityID, currentTimestamp);
 
         uint256 unassignedEarnings = pool.unassignedEarnings;
         uint256 borrowed = pool.borrowed;

@@ -10,7 +10,6 @@ describe("PoolAccounting", () => {
   let laura: SignerWithAddress;
   let poolAccountingEnv: PoolAccountingEnv;
   let poolAccountingHarness: Contract;
-  let realPoolAccounting: Contract;
   let mockedInterestRateModel: Contract;
   let exaTime = new ExaTime();
   let snapshot: any;
@@ -20,7 +19,6 @@ describe("PoolAccounting", () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
     [, laura] = await ethers.getSigners();
     poolAccountingEnv = await PoolAccountingEnv.create();
-    realPoolAccounting = poolAccountingEnv.realPoolAccounting;
     poolAccountingHarness = poolAccountingEnv.poolAccountingHarness;
     mockedInterestRateModel = poolAccountingEnv.interestRateModel;
   });
@@ -28,7 +26,7 @@ describe("PoolAccounting", () => {
   describe("function calls not originating from the FixedLender contract", () => {
     it("WHEN invoking borrowMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
-        realPoolAccounting.borrowMP(0, laura.address, 0, 0, 0)
+        poolAccountingHarness.borrowMP(0, laura.address, 0, 0, 0)
       ).to.be.revertedWith(
         errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
       );
@@ -36,7 +34,7 @@ describe("PoolAccounting", () => {
 
     it("WHEN invoking depositMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
-        realPoolAccounting.depositMP(0, laura.address, 0, 0)
+        poolAccountingHarness.depositMP(0, laura.address, 0, 0)
       ).to.be.revertedWith(
         errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
       );
@@ -44,7 +42,7 @@ describe("PoolAccounting", () => {
 
     it("WHEN invoking repayMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
-        realPoolAccounting.repayMP(0, laura.address, 0, 0)
+        poolAccountingHarness.repayMP(0, laura.address, 0, 0)
       ).to.be.revertedWith(
         errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
       );
@@ -52,7 +50,7 @@ describe("PoolAccounting", () => {
 
     it("WHEN invoking withdrawMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
-        realPoolAccounting.withdrawMP(0, laura.address, 0, 0, 0)
+        poolAccountingHarness.withdrawMP(0, laura.address, 0, 0, 0)
       ).to.be.revertedWith(
         errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
       );
@@ -74,7 +72,7 @@ describe("PoolAccounting", () => {
       poolAccountingEnv.switchWallet(laura);
       await poolAccountingEnv.depositMP(nextPoolID, depositAmount);
       returnValues = await poolAccountingHarness.returnValues();
-      mp = await realPoolAccounting.maturityPools(nextPoolID);
+      mp = await poolAccountingHarness.maturityPools(nextPoolID);
     });
     it("THEN borrowed equals 0", async () => {
       expect(mp.borrowed).to.eq(parseUnits("0"));
@@ -112,7 +110,7 @@ describe("PoolAccounting", () => {
           (borrowAmount + borrowFees).toString()
         );
         returnValues = await poolAccountingHarness.returnValues();
-        mp = await realPoolAccounting.maturityPools(nextPoolID);
+        mp = await poolAccountingHarness.maturityPools(nextPoolID);
       });
       it("THEN borrowed is the just borrowed amount", async () => {
         expect(mp.borrowed).to.eq(parseUnits(borrowAmount.toString()));
@@ -151,7 +149,7 @@ describe("PoolAccounting", () => {
             (borrowAmount + borrowFees).toString()
           );
           returnValues = await poolAccountingHarness.returnValues();
-          mp = await realPoolAccounting.maturityPools(nextPoolID);
+          mp = await poolAccountingHarness.maturityPools(nextPoolID);
         });
         it("THEN borrowed is 2x the previously borrow amount", async () => {
           expect(mp.borrowed).to.eq(parseUnits((borrowAmount * 2).toString()));
@@ -167,8 +165,10 @@ describe("PoolAccounting", () => {
             parseUnits((borrowFees + borrowFees - borrowFees / 4).toString()) // 250 + 250 - 250 / 4
           );
         });
-        it("THEN earningsSP are 250 / 4", async () => {
-          expect(mp.earningsSP).to.eq(parseUnits((borrowFees / 4).toString())); // 250 / 4
+        it("THEN earningsTreasury are 250 / 4", async () => {
+          expect(mp.earningsTreasury).to.eq(
+            parseUnits((borrowFees / 4).toString())
+          ); // 250 / 4
         });
         it("THEN the maturity pool state is correctly updated", async () => {
           expect(mp.lastAccrue).to.eq(threeDaysToMaturity);
@@ -192,7 +192,7 @@ describe("PoolAccounting", () => {
               (borrowAmount + borrowFees).toString()
             );
             returnValues = await poolAccountingHarness.returnValues();
-            mp = await realPoolAccounting.maturityPools(nextPoolID);
+            mp = await poolAccountingHarness.maturityPools(nextPoolID);
           });
           it("THEN borrowed is 3x the borrowAmount", async () => {
             expect(mp.borrowed).to.eq(
@@ -213,11 +213,11 @@ describe("PoolAccounting", () => {
               parseUnits((borrowFees + 437.5 - 437.5 / 3 - 1).toString())
             );
           });
-          it("THEN earningsSP are around 62.5", async () => {
-            expect(mp.earningsSP).to.be.lt(
+          it("THEN earningsSP are still around 62.5", async () => {
+            expect(mp.earningsTreasury).to.be.lt(
               parseUnits((62.5 + 437.5 / 3 + 1).toString()) // 62.5 = previous earnings SP
             );
-            expect(mp.earningsSP).to.be.gt(
+            expect(mp.earningsTreasury).to.be.gt(
               parseUnits((62.5 + 437.5 / 3 - 1).toString())
             );
           });
@@ -241,7 +241,7 @@ describe("PoolAccounting", () => {
                 depositAmount.toString()
               );
               returnValues = await poolAccountingHarness.returnValues();
-              mp = await realPoolAccounting.maturityPools(nextPoolID);
+              mp = await poolAccountingHarness.maturityPools(nextPoolID);
             });
 
             it("THEN borrowed is 3x borrowAmount", async () => {
@@ -303,7 +303,7 @@ describe("PoolAccounting", () => {
                 depositAmount.toString()
               );
               returnValues = await poolAccountingHarness.returnValues();
-              mp = await realPoolAccounting.maturityPools(nextPoolID);
+              mp = await poolAccountingHarness.maturityPools(nextPoolID);
             });
 
             it("THEN borrowed is 3x borrowAmount", async () => {
@@ -357,7 +357,7 @@ describe("PoolAccounting", () => {
                   repayAmount.toString()
                 );
                 returnValues = await poolAccountingHarness.returnValues();
-                mp = await realPoolAccounting.maturityPools(nextPoolID);
+                mp = await poolAccountingHarness.maturityPools(nextPoolID);
               });
 
               it("THEN borrowed is (borrowAmount(principal) * 3 - repayAmount(principal)) = 10K", async () => {
@@ -496,7 +496,9 @@ describe("PoolAccounting", () => {
                 returnValues = await poolAccountingHarness.returnValues();
               });
               it("THEN the maturity pool state is correctly updated", async () => {
-                const mp = await realPoolAccounting.maturityPools(nextPoolID);
+                const mp = await poolAccountingHarness.maturityPools(
+                  nextPoolID
+                );
 
                 expect(mp.borrowed).to.eq(parseUnits("0"));
                 expect(mp.supplied).to.eq(
@@ -536,7 +538,7 @@ describe("PoolAccounting", () => {
         await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
         await poolAccountingEnv.borrowMP(nextPoolID, "5000");
         await poolAccountingEnv.borrowMP(nextPoolID, "5000");
-        mp = await realPoolAccounting.maturityPools(nextPoolID);
+        mp = await poolAccountingHarness.maturityPools(nextPoolID);
       });
 
       it("THEN fees (all) should be 500", () => {
@@ -549,7 +551,7 @@ describe("PoolAccounting", () => {
         beforeEach(async () => {
           await poolAccountingEnv.repayMP(nextPoolID, "5250");
           returnValues = await poolAccountingHarness.returnValues();
-          mp = await realPoolAccounting.maturityPools(nextPoolID);
+          mp = await poolAccountingHarness.maturityPools(nextPoolID);
         });
         it("THEN borrowed is 5000", async () => {
           expect(mp.borrowed).to.eq(parseUnits("5000"));
@@ -574,7 +576,7 @@ describe("PoolAccounting", () => {
           beforeEach(async () => {
             await poolAccountingEnv.repayMP(nextPoolID, "5250");
             returnValues = await poolAccountingHarness.returnValues();
-            mp = await realPoolAccounting.maturityPools(nextPoolID);
+            mp = await poolAccountingHarness.maturityPools(nextPoolID);
           });
           it("THEN borrowed is 0", async () => {
             expect(mp.borrowed).to.eq(0);
@@ -603,7 +605,7 @@ describe("PoolAccounting", () => {
         await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
         await poolAccountingEnv.borrowMP(nextPoolID, "5000");
         await poolAccountingEnv.depositMP(nextPoolID, "5000");
-        mp = await realPoolAccounting.maturityPools(nextPoolID);
+        mp = await poolAccountingHarness.maturityPools(nextPoolID);
       });
 
       it("THEN fees (all) should be 250", () => {
@@ -616,7 +618,7 @@ describe("PoolAccounting", () => {
         beforeEach(async () => {
           await poolAccountingEnv.repayMP(nextPoolID, "5250");
           returnValues = await poolAccountingHarness.returnValues();
-          mp = await realPoolAccounting.maturityPools(nextPoolID);
+          mp = await poolAccountingHarness.maturityPools(nextPoolID);
         });
         it("THEN borrowed is 0", async () => {
           expect(mp.borrowed).to.eq(parseUnits("0"));

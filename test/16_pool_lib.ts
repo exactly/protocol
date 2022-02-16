@@ -51,13 +51,12 @@ describe("Pool Management Library", () => {
         expect(mp.earningsSP).to.equal(parseUnits("0"));
       });
 
-      it("THEN the smart pool total debt is 0", async () => {
-        let smartPoolTotalDebt = await poolEnv.mpHarness.smartPoolTotalDebt();
-        expect(smartPoolTotalDebt).to.equal(parseUnits("0"));
+      it("THEN the pool 'earningsMP' are 0", async () => {
+        expect(mp.earningsMP).to.equal(parseUnits("0"));
       });
 
-      it("THEN the pool 'lastFee' is 0", async () => {
-        expect(await poolEnv.mpHarness.lastFee()).to.equal(parseUnits("0"));
+      it("THEN the pool 'earningsTreasury' are 0", async () => {
+        expect(mp.earningsTreasury).to.equal(parseUnits("0"));
       });
     });
 
