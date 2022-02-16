@@ -100,10 +100,6 @@ library MarketsLib {
         address fixedLenderAddress,
         address borrower
     ) external {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
         if (!book.markets[fixedLenderAddress].accountMembership[borrower]) {
             // only fixedLenders may call borrowAllowed if borrower not in market
             if (msg.sender != fixedLenderAddress) {
@@ -234,9 +230,6 @@ library MarketsLib {
         MarketsLib.Market storage marketToJoin = book.markets[
             fixedLenderAddress
         ];
-        if (!marketToJoin.isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
 
         if (marketToJoin.accountMembership[who] == true) {
             return;

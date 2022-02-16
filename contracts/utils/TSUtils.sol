@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import "./Errors.sol";
+
 library TSUtils {
     enum State {
         NONE,
@@ -69,20 +71,49 @@ library TSUtils {
     }
 
     /**
+     * @dev Function to verify that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
+     *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
+     * @param maturityDate timestamp of the maturity date to be verified
+     * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
+     * @param alternativeState state required by the caller to be verified (see TSUtils.State() for description)
+     */
+    function validateRequiredPoolState(
+        uint8 maxFuturePools,
+        uint256 maturityDate,
+        TSUtils.State requiredState,
+        TSUtils.State alternativeState
+    ) internal view {
+        TSUtils.State poolState = getPoolState(
+            block.timestamp,
+            maturityDate,
+            maxFuturePools
+        );
+
+        if (poolState != requiredState && poolState != alternativeState) {
+            if (alternativeState == TSUtils.State.NONE) {
+                revert UnmatchedPoolState(poolState, requiredState);
+            }
+            revert UnmatchedPoolStateMultiple(
+                poolState,
+                requiredState,
+                alternativeState
+            );
+        }
+    }
+
+    /**
      * @notice Function to return all the future pool IDs give in a certain time horizon that
      *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
      *         configured in this library
-     * @param startingTimestamp initialTimestamp to start calculating poolIDs
-     * @param maxPools number of pools to return
      */
-    function futurePools(uint256 startingTimestamp, uint8 maxPools)
-        public
-        pure
+    function futurePools(uint8 maxFuturePools)
+        internal
+        view
         returns (uint256[] memory)
     {
-        uint256[] memory poolIDs = new uint256[](maxPools);
-        uint256 timestamp = startingTimestamp - (startingTimestamp % INTERVAL);
-        for (uint256 i = 0; i < maxPools; i++) {
+        uint256[] memory poolIDs = new uint256[](maxFuturePools);
+        uint256 timestamp = block.timestamp - (block.timestamp % INTERVAL);
+        for (uint256 i = 0; i < maxFuturePools; i++) {
             timestamp += INTERVAL;
             poolIDs[i] = timestamp;
         }

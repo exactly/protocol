@@ -7,15 +7,13 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IOracle.sol";
-import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
-import "./utils/ExaLib.sol";
+import "./utils/MarketsLib.sol";
 
 contract Auditor is IAuditor, AccessControl {
     using DecimalMath for uint256;
     using SafeCast for uint256;
-    using ExaLib for ExaLib.RewardsState;
     using MarketsLib for MarketsLib.Book;
 
     // Protocol Management
@@ -23,11 +21,7 @@ contract Auditor is IAuditor, AccessControl {
 
     uint256 public closeFactor = 5e17;
     uint256 public liquidationIncentive = 1e18 + 1e17;
-    uint8 public override maxFuturePools = 12; // if every 14 days, then 6 months
     address[] public marketsAddresses;
-
-    // Rewards Management
-    ExaLib.RewardsState public rewardsState;
 
     IOracle public oracle;
 
@@ -68,60 +62,7 @@ contract Auditor is IAuditor, AccessControl {
      */
     event NewBorrowCap(address indexed fixedLender, uint256 newBorrowCap);
 
-    /**
-     * @notice Event emitted when a new ExaSpeed has been set for a given fixedLender.
-     *         The speed is the amount of EXA tokens that it will be given to
-     *         suppliers/borrowers/lenders on each block. Amount distributed accordingly
-     *         to their contributions
-     * @param fixedLenderAddress address of the lender that has a new borrow cap
-     * @param newSpeed new borrow cap expressed with 1e18 precision for the given market.
-     */
-    event ExaSpeedUpdated(address fixedLenderAddress, uint256 newSpeed);
-
-    /**
-     * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool supplier
-     * @param fixedLender address of the fixed lender market in which a user has received rewards
-     * @param supplier address of the supplier that have received rewards in a given lender space
-     * @param mpSupplierDelta delta blocks that have been processed
-     * @param exaMPSupplyIndex index of the given market that was used to update user rewards
-     */
-    event DistributedMPSupplierExa(
-        address indexed fixedLender,
-        address indexed supplier,
-        uint256 mpSupplierDelta,
-        uint256 exaMPSupplyIndex
-    );
-
-    /**
-     * @notice Event emitted each time EXA has been distributed to a certain user as a maturity pool borrower
-     * @param fixedLender address of the fixed lender market in which a user has received rewards
-     * @param borrower address of the borrower that have received rewards in a given fixedLender space
-     * @param mpBorrowerDelta delta blocks that have been processed
-     * @param exaMPBorrowIndex index of the given market that was used to update user rewards
-     */
-    event DistributedMPBorrowerExa(
-        address indexed fixedLender,
-        address indexed borrower,
-        uint256 mpBorrowerDelta,
-        uint256 exaMPBorrowIndex
-    );
-
-    /**
-     * @notice Event emitted each time EXA has been distributed to a certain user as a smart pool supplier
-     * @param fixedLender address of the fixed lender market in which a user has received rewards
-     * @param supplier address of the supplier that have received rewards in a given lender space
-     * @param spSupplierDelta delta blocks that have been processed
-     * @param exaSPSupplyIndex index of the given market that was used to update user rewards
-     */
-    event DistributedSPSupplierExa(
-        address indexed fixedLender,
-        address indexed supplier,
-        uint256 spSupplierDelta,
-        uint256 exaSPSupplyIndex
-    );
-
-    constructor(address _priceOracleAddress, address _exaToken) {
-        rewardsState.exaToken = _exaToken;
+    constructor(address _priceOracleAddress) {
         oracle = IOracle(_priceOracleAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -134,6 +75,7 @@ contract Auditor is IAuditor, AccessControl {
     function enterMarkets(address[] calldata fixedLenders) external {
         uint256 len = fixedLenders.length;
         for (uint256 i = 0; i < len; i++) {
+            validateMarketListed(fixedLenders[i]);
             book.addToMarket(fixedLenders[i], msg.sender);
         }
     }
@@ -145,9 +87,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenderAddress The address of the asset to be removed
      */
     function exitMarket(address fixedLenderAddress) external {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        validateMarketListed(fixedLenderAddress);
 
         IFixedLender fixedLender = IFixedLender(fixedLenderAddress);
         (uint256 amountHeld, uint256 borrowBalance) = fixedLender
@@ -159,7 +99,7 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        _validateAccountShortfall(fixedLenderAddress, msg.sender, amountHeld);
+        validateAccountShortfall(fixedLenderAddress, msg.sender, amountHeld);
 
         book.exitMarket(fixedLenderAddress, msg.sender);
     }
@@ -185,31 +125,6 @@ contract Auditor is IAuditor, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         liquidationIncentive = _liquidationIncentive;
-    }
-
-    /**
-     * @notice Set EXA speed for a single market
-     * @param fixedLenderAddress The market whose EXA speed to update
-     * @param exaSpeed New EXA speed for market
-     */
-    function setExaSpeed(address fixedLenderAddress, uint256 exaSpeed)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        MarketsLib.Market storage market = book.markets[fixedLenderAddress];
-        if (market.isListed == false) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        if (
-            rewardsState.setExaSpeed(
-                block.number,
-                fixedLenderAddress,
-                exaSpeed
-            ) == true
-        ) {
-            emit ExaSpeedUpdated(fixedLenderAddress, exaSpeed);
-        }
     }
 
     /**
@@ -265,129 +180,11 @@ contract Auditor is IAuditor, AccessControl {
         }
 
         for (uint256 i = 0; i < numMarkets; i++) {
-            if (!book.markets[fixedLenders[i]].isListed) {
-                revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-            }
+            validateMarketListed(fixedLenders[i]);
 
             book.borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
             emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
         }
-    }
-
-    /**
-     * @notice Claim all the EXA accrued by holder in all markets
-     * @param holder The address to claim EXA for
-     */
-    function claimExaAll(address holder) external {
-        claimExa(holder, marketsAddresses);
-    }
-
-    /**
-     * @dev Hook function to be called before someone supplies money to the smart pool
-     *      This function basically checks if the address of the fixedLender market is
-     *      valid and updates EXA rewards accordingly.
-     * @param fixedLenderAddress address of the fixedLender that has the smart pool that is going to be interacted with
-     * @param supplier address of the user that will supply to the smart pool
-     */
-    function beforeDepositSP(address fixedLenderAddress, address supplier)
-        external
-        override
-    {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, supplier);
-    }
-
-    /**
-     * @dev Hook function to be called before someone withdraws money from the smart pool
-     *      This function checks if the address of the fixedLender market is
-     *      valid and updates EXA rewards accordingly.
-     *      Also checks if the user has no outstanding debt.
-     * @param fixedLenderAddress address of the fixedLender that has the smart pool that is going to be interacted with
-     * @param redeemer address of the user that will withdraw money from the smart pool
-     * @param redeemAmount amount that will be withdrawn (expressed with same precision as underlying)
-     */
-    function beforeWithdrawSP(
-        address fixedLenderAddress,
-        address redeemer,
-        uint256 redeemAmount
-    ) external override {
-        _validateAccountShortfall(fixedLenderAddress, redeemer, redeemAmount);
-
-        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, redeemer);
-    }
-
-    /**
-     * @dev Hook function to be called before someone supplies money to a market/maturity.
-     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly.
-     * @param fixedLenderAddress address of the fixedLender that will deposit money in a maturity
-     * @param supplier address of the user that will supply money to a certain maturity (it can be later on
-     *                 used as collater with _enterMarkets_ functions)
-     * @param maturityDate timestamp for the maturity date that the user wants to supply money. It should
-     *                     be in a VALID state (meaning that is not in the distant future, nor matured)
-     */
-    function beforeDepositMP(
-        address fixedLenderAddress,
-        address supplier,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(maturityDate, TSUtils.State.VALID);
-
-        rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPSupplierExa(fixedLenderAddress, supplier);
-    }
-
-    /**
-     * @dev Hook function to be called before someone wants to transfer its eTokens.
-     *      This function updates rewards accordingly.
-     *      This function is called from eToken contract.
-     * @param fixedLenderAddress address of the fixedLender where this eToken is used
-     * @param sender address of the sender of the tokens
-     * @param recipient address of the recipient of the tokens
-     * @param amount amount of tokens to be transferred
-     */
-    function beforeTransferSP(
-        address fixedLenderAddress,
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external override {
-        _validateAccountShortfall(fixedLenderAddress, sender, amount);
-
-        rewardsState.updateExaSPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, sender);
-        rewardsState.distributeSPSupplierExa(fixedLenderAddress, recipient);
-    }
-
-    /**
-     * @dev Hook function to be called before someone borrows money to a market/maturity.
-     *      This function verifies if market is valid, maturity is valid, and accrues rewards accordingly.
-     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
-     * @param borrower address of the user that will borrow money from a maturity date
-     * @param maturityDate timestamp for the maturity date that the user wants to borrow money. It should
-     *                     be in a VALID state (meaning that is not in the distant future, nor matured)
-     */
-    function beforeBorrowMP(
-        address fixedLenderAddress,
-        address borrower,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(maturityDate, TSUtils.State.VALID);
-
-        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
@@ -400,6 +197,7 @@ contract Auditor is IAuditor, AccessControl {
         external
         override
     {
+        validateMarketListed(fixedLenderAddress);
         // we validate borrow state
         book.validateBorrow(fixedLenderAddress, borrower);
 
@@ -415,57 +213,6 @@ contract Auditor is IAuditor, AccessControl {
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
         }
-    }
-
-    /**
-     * @dev Hook function to be called before someone wants to receive its money back from a maturity pool.
-     *      This function verifies if market is valid, maturity is MATURED and accrues rewards accordingly.
-     *      This function is called from fixedLender contracts.
-     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
-     * @param redeemer address of the user that wants to withdraw it's money
-     * @param maturityDate timestamp for the maturity date that the user wants to get it's money from. It should
-     *                     be in a MATURED state (meaning that the date is VALID + MATURED)
-     */
-    function beforeWithdrawMP(
-        address fixedLenderAddress,
-        address redeemer,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(maturityDate, TSUtils.State.MATURED);
-
-        rewardsState.updateExaMPSupplyIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPSupplierExa(fixedLenderAddress, redeemer);
-    }
-
-    /**
-     * @dev Hook function to be called before someone wants to repay its debt in a market/maturity.
-     *      This function verifies if market is valid, maturity is MATURED and accrues rewards accordingly.
-     *      This function is called from fixedLender contracts.
-     * @param fixedLenderAddress address of the fixedLender that will collect money in a maturity
-     * @param borrower address of the user that wants to repay its debt
-     * @param maturityDate pool ID in which the user is trying to repay debt
-     */
-    function beforeRepayMP(
-        address fixedLenderAddress,
-        address borrower,
-        uint256 maturityDate
-    ) external override {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
-        _requirePoolState(
-            maturityDate,
-            TSUtils.State.VALID,
-            TSUtils.State.MATURED
-        );
-
-        rewardsState.updateExaMPBorrowIndex(block.number, fixedLenderAddress);
-        rewardsState.distributeMPBorrowerExa(fixedLenderAddress, borrower);
     }
 
     /**
@@ -561,9 +308,8 @@ contract Auditor is IAuditor, AccessControl {
             address
         )
     {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        validateMarketListed(fixedLenderAddress);
+
         MarketsLib.Market storage marketData = book.markets[fixedLenderAddress];
         return (
             marketData.symbol,
@@ -625,32 +371,6 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev Function to verify that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
-     *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
-     * @param maturityDate timestamp of the maturity date to be verified
-     * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
-     */
-    function requirePoolState(uint256 maturityDate, TSUtils.State requiredState)
-        external
-        view
-        override
-    {
-        return _requirePoolState(maturityDate, requiredState);
-    }
-
-    /**
-     * @dev Function to retrieve valid future pools
-     */
-    function getFuturePools()
-        external
-        view
-        override
-        returns (uint256[] memory)
-    {
-        return TSUtils.futurePools(block.timestamp, maxFuturePools);
-    }
-
-    /**
      * @dev Function to retrieve all markets
      */
     function getMarketAddresses()
@@ -663,78 +383,19 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @notice Claim all the EXA accrued by holder in the specified markets
-     * @param holder The address to claim EXA for
-     * @param fixedLenders The list of markets to claim EXA in
-     */
-    function claimExa(address holder, address[] memory fixedLenders) public {
-        address[] memory holders = new address[](1);
-        holders[0] = holder;
-        rewardsState.claimExa(
-            block.number,
-            book.markets,
-            holders,
-            fixedLenders,
-            true,
-            true,
-            true
-        );
-    }
-
-    /**
-     * @dev Internal Function to verify that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
-     *      If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
-     * @param maturityDate timestamp of the maturity date to be verified
-     * @param requiredState state required by the caller to be verified (see TSUtils.State() for description)
-     */
-    function _requirePoolState(
-        uint256 maturityDate,
-        TSUtils.State requiredState,
-        TSUtils.State alternativeState
-    ) internal view {
-        TSUtils.State poolState = TSUtils.getPoolState(
-            block.timestamp,
-            maturityDate,
-            maxFuturePools
-        );
-
-        if (poolState != requiredState && poolState != alternativeState) {
-            if (alternativeState == TSUtils.State.NONE) {
-                revert UnmatchedPoolState(poolState, requiredState);
-            }
-            revert UnmatchedPoolStateMultiple(
-                poolState,
-                requiredState,
-                alternativeState
-            );
-        }
-    }
-
-    function _requirePoolState(
-        uint256 maturityDate,
-        TSUtils.State requiredState
-    ) internal view {
-        _requirePoolState(maturityDate, requiredState, TSUtils.State.NONE);
-    }
-
-    /**
-     * @dev Internal function to be called before someone wants to interact with its smart pool position.
-     *      This function verifies if market is valid, maturity is MATURED, checks if the user has no outstanding
-     *      debts. This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
+     * @dev Function to be called before someone wants to interact with its smart pool position.
+     *      This function checks if the user has no outstanding debts.
+     *      This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
      *      this contract when the user wants to exit a market.
      * @param fixedLenderAddress address of the fixedLender where the smart pool belongs
      * @param account address of the user to check for possible shortfall
      * @param amount amount that the user wants to withdraw or transfer
      */
-    function _validateAccountShortfall(
+    function validateAccountShortfall(
         address fixedLenderAddress,
         address account,
         uint256 amount
-    ) internal view {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
-
+    ) public view override {
         /* If the user is not 'in' the market, then we can bypass the liquidity check */
         if (!book.markets[fixedLenderAddress].accountMembership[account]) {
             return;
@@ -750,6 +411,16 @@ contract Auditor is IAuditor, AccessControl {
         );
         if (shortfall > 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
+        }
+    }
+
+    /**
+     * @dev This function verifies if market is listed as valid
+     * @param fixedLenderAddress address of the fixedLender to be validated by the auditor
+     */
+    function validateMarketListed(address fixedLenderAddress) internal view {
+        if (!book.markets[fixedLenderAddress].isListed) {
+            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
         }
     }
 }
