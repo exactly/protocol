@@ -38,6 +38,7 @@ export class DefaultEnv {
   notAnFixedLenderAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
   usdAddress: string;
   currentWallet: SignerWithAddress;
+  maxOracleDelayTime: number;
 
   constructor(
     _oracle: Contract,
@@ -69,6 +70,7 @@ export class DefaultEnv {
     this.slopeRate = parseUnits("0.07");
     this.usdAddress = "0x0000000000000000000000000000000000000348";
     this.currentWallet = _currentWallet;
+    this.maxOracleDelayTime = 3600; // 1 hour
   }
 
   static async create({

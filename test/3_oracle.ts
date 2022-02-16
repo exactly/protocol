@@ -76,12 +76,13 @@ describe("ExactlyOracle", function () {
       chainlinkFeedRegistry.address,
       tokenNames,
       tokenAddresses,
-      exactlyEnv.usdAddress
+      exactlyEnv.usdAddress,
+      exactlyEnv.maxOracleDelayTime
     );
     await exactlyOracle.deployed();
     await exactlyOracle.setAssetSources(tokenNames, tokenAddresses);
     await exactlyEnv.setOracle(exactlyOracle.address);
-    maxDelayTime = await exactlyOracle.MAX_DELAY_TIME();
+    maxDelayTime = await exactlyOracle.maxDelayTime();
 
     // This helps with tests that use evm_setNextBlockTimestamp
     snapshot = await ethers.provider.send("evm_snapshot", []);

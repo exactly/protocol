@@ -64,6 +64,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         tokenSymbols,
         tokenAddresses,
         config.tokenAddresses[hre.network.name].usdAddress,
+        config.tokenAddresses[hre.network.name].maxOracleDelayTime,
       ],
       log: true,
       libraries: {
