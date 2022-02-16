@@ -247,10 +247,6 @@ export class DefaultEnv {
     return this.interestRateModel;
   }
 
-  public getTSUtils(): Contract {
-    return this.tsUtils;
-  }
-
   public getEToken(key: string): Contract {
     return this.eTokenContracts.get(key)!;
   }

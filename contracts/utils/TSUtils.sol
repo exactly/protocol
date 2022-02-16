@@ -13,22 +13,6 @@ library TSUtils {
     }
 
     uint32 public constant INTERVAL = 7 days;
-    uint8 public constant MAX_FUTURE_POOLS = 12; // if every 14 days, then 6 months
-
-    /**
-     * @notice Function to return all the future pool IDs give in a certain time horizon that
-     *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
-     *         configured in this library
-     */
-    function futurePools() public view returns (uint256[] memory) {
-        uint256[] memory poolIDs = new uint256[](MAX_FUTURE_POOLS);
-        uint256 timestamp = block.timestamp - (block.timestamp % INTERVAL);
-        for (uint256 i = 0; i < MAX_FUTURE_POOLS; i++) {
-            timestamp += INTERVAL;
-            poolIDs[i] = timestamp;
-        }
-        return poolIDs;
-    }
 
     /**
      * @notice Function to calculate how many seconds are left to a certain date
@@ -102,6 +86,7 @@ library TSUtils {
      * @param alternativeState state required by the caller to be verified (see TSUtils.State() for description)
      */
     function validateRequiredPoolState(
+        uint8 maxFuturePools,
         uint256 maturityDate,
         TSUtils.State requiredState,
         TSUtils.State alternativeState
@@ -109,7 +94,7 @@ library TSUtils {
         TSUtils.State poolState = getPoolState(
             block.timestamp,
             maturityDate,
-            MAX_FUTURE_POOLS
+            maxFuturePools
         );
 
         if (poolState != requiredState && poolState != alternativeState) {
@@ -122,5 +107,24 @@ library TSUtils {
                 alternativeState
             );
         }
+    }
+
+    /**
+     * @notice Function to return all the future pool IDs give in a certain time horizon that
+     *         gets calculated using a startTime, the amount of pools to returns, and the INTERVAL
+     *         configured in this library
+     */
+    function futurePools(uint8 maxFuturePools)
+        internal
+        view
+        returns (uint256[] memory)
+    {
+        uint256[] memory poolIDs = new uint256[](maxFuturePools);
+        uint256 timestamp = block.timestamp - (block.timestamp % INTERVAL);
+        for (uint256 i = 0; i < maxFuturePools; i++) {
+            timestamp += INTERVAL;
+            poolIDs[i] = timestamp;
+        }
+        return poolIDs;
     }
 }

@@ -23,6 +23,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     uint256 public protocolSpreadFee = 2.8e16; // 2.8%
     uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
     uint256 public override mpDepositDistributionWeighter = 1e18; // 100%
+    uint8 public constant MAX_FUTURE_POOLS = 12; // if every 14 days, then 6 months
     uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -254,6 +255,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
+     * @dev Function to retrieve valid future pools
+     */
+    function getFuturePools() external view returns (uint256[] memory) {
+        return TSUtils.futurePools(MAX_FUTURE_POOLS);
+    }
+
+    /**
      * @notice User collects a certain amount of underlying asset after having
      *         supplied tokens until a certain maturity date
      * @dev The pool that the user is trying to retrieve the money should be matured
@@ -272,6 +280,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         // reverts on failure
         TSUtils.validateRequiredPoolState(
+            MAX_FUTURE_POOLS,
             maturityDate,
             TSUtils.State.MATURED,
             TSUtils.State.NONE
@@ -281,7 +290,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             maturityDate,
             redeemer,
             redeemAmount,
-            eToken.totalSupply() / TSUtils.MAX_FUTURE_POOLS
+            eToken.totalSupply() / MAX_FUTURE_POOLS
         );
 
         doTransferOut(redeemer, redeemAmount);
@@ -348,6 +357,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
         TSUtils.validateRequiredPoolState(
+            MAX_FUTURE_POOLS,
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.NONE
@@ -358,7 +368,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             msg.sender,
             amount,
             maxAmountAllowed,
-            eToken.totalSupply() / TSUtils.MAX_FUTURE_POOLS
+            eToken.totalSupply() / MAX_FUTURE_POOLS
         );
         totalMpBorrows += totalOwed;
 
@@ -389,6 +399,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
         TSUtils.validateRequiredPoolState(
+            MAX_FUTURE_POOLS,
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.NONE
@@ -425,6 +436,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
         TSUtils.validateRequiredPoolState(
+            MAX_FUTURE_POOLS,
             maturityDate,
             TSUtils.State.VALID,
             TSUtils.State.MATURED
