@@ -33,7 +33,7 @@ library PoolLib {
         uint256 borrowed;
         uint256 supplied;
         uint256 suppliedSP;
-        uint256 unassignedEarnings;
+        uint256 earningsUnassigned;
         uint256 earningsTreasury;
         uint256 earningsMP;
         uint256 earningsSP;
@@ -41,15 +41,16 @@ library PoolLib {
     }
 
     struct RepayVars {
-        uint256 borrowMP;
         uint256 earningsSP;
         uint256 earningsMP;
-        uint256 unassignedEarnings;
+        uint256 earningsTreasury;
+        uint256 earningsUnassigned;
         uint256 earningsSPReduce;
         uint256 earningsMPReduce;
-        uint256 unassignedEarningsReduce;
+        uint256 earningsTreasuryReduce;
+        uint256 earningsUnassignedReduce;
         uint256 earningsAll;
-        uint256 supplySP;
+        uint256 earningsAllToDistribute;
     }
 
     struct Debt {
@@ -63,8 +64,36 @@ library PoolLib {
      * @param pool maturity pool where money will be added
      * @param amount amount to be added to the maturity pool
      */
-    function addMoney(MaturityPool storage pool, uint256 amount) external {
-        pool.supplied += amount;
+    function addMoney(MaturityPool storage pool, uint256 amount)
+        external
+        returns (uint256 smartPoolDebtReduction)
+    {
+        uint256 suppliedSP = pool.suppliedSP;
+        uint256 supplied = pool.supplied;
+
+        smartPoolDebtReduction = Math.min(suppliedSP, amount);
+
+        pool.supplied = supplied + amount;
+        pool.suppliedSP = suppliedSP - smartPoolDebtReduction;
+    }
+
+    /**
+     * @notice function that registers an operation to add money to
+     *         maturity pool
+     * @param pool maturity pool where money will be added
+     * @param amount amount to be added to the maturity pool
+     */
+    function repayMoney(MaturityPool storage pool, uint256 amount)
+        external
+        returns (uint256 smartPoolDebtReduction)
+    {
+        uint256 suppliedSP = pool.suppliedSP;
+        uint256 borrowed = pool.borrowed;
+
+        smartPoolDebtReduction = Math.min(suppliedSP, amount);
+
+        pool.borrowed = borrowed - amount;
+        pool.suppliedSP = suppliedSP - smartPoolDebtReduction;
     }
 
     /**
@@ -141,57 +170,38 @@ library PoolLib {
      *         returns the amount of earnings to pay to SP
      * @param pool maturity pool where money will be added
      * @param debt _Debt_ to be reduced from the pool
-     * @return smartPoolDebtReduction : amount to reduce the SP debt
-     * @return feeRepay : amount to distribute as earnings to the SP (revenue share with protocol)
-     * @return earningsRepay : amount to distribute as earnings to the SP - extras (penalties,
-     *         not shared with anyone)
+     * @return treasuryRepay : amount to distribute as earnings to Treasury
+     * @return spRepay : amount to distribute as earnings to the SP
      */
     function distribute(MaturityPool storage pool, Debt memory debt)
         external
-        returns (
-            uint256 smartPoolDebtReduction,
-            uint256 feeRepay,
-            uint256 earningsRepay
-        )
+        returns (uint256 treasuryRepay, uint256 spRepay)
     {
         RepayVars memory repayVars;
-        repayVars.borrowMP = pool.borrowed;
         repayVars.earningsSP = pool.earningsSP;
         repayVars.earningsMP = pool.earningsMP;
-        repayVars.unassignedEarnings = pool.unassignedEarnings;
+        repayVars.earningsTreasury = pool.earningsTreasury;
+        repayVars.earningsUnassigned = pool.earningsUnassigned;
         repayVars.earningsAll =
             repayVars.earningsSP +
             repayVars.earningsMP +
-            repayVars.unassignedEarnings;
-        repayVars.supplySP = pool.suppliedSP;
-
-        // NOTES re: principal to only reduce borrow
-        //     * you can't use principal to pay anything else (ppal with ppal and earnings with earnings)
-        //     * you can't do asimmetric payment, because you would be altering the values for the following operations
-        //       ie: You use the earnings to pay all the earningsSP first, so the function _returnFee_ will change the
-        //           values for after
-        pool.borrowed = repayVars.borrowMP - debt.principal;
-
-        // NOTES re: smart pool debt
-        //       we repay the debt immediately
-        // TODO: get the fee for the SPDebt takeover
-        smartPoolDebtReduction = Math.min(repayVars.supplySP, debt.principal);
-        pool.suppliedSP = repayVars.supplySP - smartPoolDebtReduction;
+            repayVars.earningsUnassigned +
+            repayVars.earningsTreasury;
 
         // NOTES:
         //     * you can't do asimmetric payment, because you would be altering the values for the following operations
         //       ie: You use the earnings to pay all the earningsSP first, so the function _returnFee_ will change the
         //           values for after
         if (repayVars.earningsAll == 0) {
-            earningsRepay = debt.fee;
+            spRepay = debt.fee;
         } else {
             // We calculate the approximate amounts to reduce on each earnings field
             repayVars.earningsMPReduce = ((repayVars.earningsMP * debt.fee) /
                 repayVars.earningsAll);
             repayVars.earningsSPReduce = ((repayVars.earningsSP * debt.fee) /
                 repayVars.earningsAll);
-            repayVars.unassignedEarningsReduce = Math.min(
-                repayVars.unassignedEarnings,
+            repayVars.earningsUnassignedReduce = Math.min(
+                repayVars.earningsUnassigned,
                 debt.fee -
                     repayVars.earningsMPReduce -
                     repayVars.earningsSPReduce
@@ -200,17 +210,9 @@ library PoolLib {
             // We reduce the actual amounts
             pool.earningsMP = repayVars.earningsMP - repayVars.earningsMPReduce;
             pool.earningsSP = repayVars.earningsSP - repayVars.earningsSPReduce;
-            pool.unassignedEarnings =
-                repayVars.unassignedEarnings -
-                repayVars.unassignedEarningsReduce;
-
-            // return value smartPoolDebtReduction = extra from principal
-            feeRepay = repayVars.earningsSPReduce;
-            // all the rest goes to the SP as earnings
-            earningsRepay =
-                debt.fee -
-                repayVars.earningsMPReduce -
-                repayVars.earningsSPReduce;
+            pool.earningsUnassigned =
+                repayVars.earningsUnassigned -
+                repayVars.earningsUnassignedReduce;
         }
     }
 
@@ -220,7 +222,7 @@ library PoolLib {
      * @param fee fee to be added to the earnings for the pool at maturity
      */
     function addFee(MaturityPool storage pool, uint256 fee) external {
-        pool.unassignedEarnings += fee;
+        pool.earningsUnassigned += fee;
     }
 
     /**
@@ -229,7 +231,7 @@ library PoolLib {
      * @param fee fee to be removed from the unassigned earnings
      */
     function removeFee(MaturityPool storage pool, uint256 fee) external {
-        pool.unassignedEarnings -= fee;
+        pool.earningsUnassigned -= fee;
     }
 
     /**
@@ -239,7 +241,7 @@ library PoolLib {
      *                   the pool at maturity
      */
     function addFeeMP(MaturityPool storage pool, uint256 fee) external {
-        pool.unassignedEarnings -= fee;
+        pool.earningsUnassigned -= fee;
         pool.earningsMP += fee;
     }
 
@@ -252,7 +254,7 @@ library PoolLib {
      *                   the pool at maturity
      */
     function addFeeSP(MaturityPool storage pool, uint256 fee) external {
-        pool.unassignedEarnings -= fee;
+        pool.earningsUnassigned -= fee;
         pool.earningsSP += fee;
     }
 
@@ -293,7 +295,7 @@ library PoolLib {
 
         pool.lastAccrue = Math.min(maturityID, currentTimestamp);
 
-        uint256 unassignedEarnings = pool.unassignedEarnings;
+        uint256 earningsUnassigned = pool.earningsUnassigned;
         uint256 borrowed = pool.borrowed;
         uint256 suppliedSP = pool.suppliedSP;
 
@@ -306,7 +308,7 @@ library PoolLib {
         // assign some of the earnings to be collected at maturity
         uint256 earningsToAccrue = secondsTotalToMaturity == 0
             ? 0
-            : (unassignedEarnings * secondsSinceLastAccrue) /
+            : (earningsUnassigned * secondsSinceLastAccrue) /
                 secondsTotalToMaturity;
 
         // we distribute the proportional of the SP according to the debt
@@ -316,7 +318,7 @@ library PoolLib {
 
         // ... treasury gets the rest
         pool.earningsTreasury += earningsToAccrue - earningsToAccrueSP;
-        pool.unassignedEarnings = unassignedEarnings - earningsToAccrue;
+        pool.earningsUnassigned = earningsUnassigned - earningsToAccrue;
     }
 
     function scaleProportionally(Debt memory debt, uint256 amount)

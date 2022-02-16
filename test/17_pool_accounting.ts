@@ -83,8 +83,8 @@ describe("PoolAccounting", () => {
     it("THEN suppliedSP is 0", async () => {
       expect(mp.suppliedSP).to.eq(parseUnits("0"));
     });
-    it("THEN unassignedEarnings are 0", async () => {
-      expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
+    it("THEN earningsUnassigned are 0", async () => {
+      expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
     });
     it("THEN earningsSP are 0", async () => {
       expect(mp.earningsSP).to.eq(parseUnits("0"));
@@ -121,8 +121,8 @@ describe("PoolAccounting", () => {
       it("THEN suppliedSP is equal to 0", async () => {
         expect(mp.suppliedSP).to.eq(parseUnits("0"));
       });
-      it("THEN unassignedEarnings are 5000 x 0,05 (5%)", async () => {
-        expect(mp.unassignedEarnings).to.eq(parseUnits(borrowFees.toString())); // 5000 x 0,05 (5%)
+      it("THEN earningsUnassigned are 5000 x 0,05 (5%)", async () => {
+        expect(mp.earningsUnassigned).to.eq(parseUnits(borrowFees.toString())); // 5000 x 0,05 (5%)
       });
       it("THEN earningsSP are 0", async () => {
         expect(mp.earningsSP).to.eq(parseUnits("0"));
@@ -160,8 +160,8 @@ describe("PoolAccounting", () => {
         it("THEN suppliedSP is 0", async () => {
           expect(mp.suppliedSP).to.eq(parseUnits("0"));
         });
-        it("THEN unassignedEarnings are 250 + 250 - 250 / 4", async () => {
-          expect(mp.unassignedEarnings).to.eq(
+        it("THEN earningsUnassigned are 250 + 250 - 250 / 4", async () => {
+          expect(mp.earningsUnassigned).to.eq(
             parseUnits((borrowFees + borrowFees - borrowFees / 4).toString()) // 250 + 250 - 250 / 4
           );
         });
@@ -205,11 +205,11 @@ describe("PoolAccounting", () => {
           it("THEN suppliedSP is borrowAmount", async () => {
             expect(mp.suppliedSP).to.eq(parseUnits(borrowAmount.toString()));
           });
-          it("THEN unassignedEarnings around 437.5", async () => {
-            expect(mp.unassignedEarnings).to.be.lt(
+          it("THEN earningsUnassigned around 437.5", async () => {
+            expect(mp.earningsUnassigned).to.be.lt(
               parseUnits((borrowFees + 437.5 - 437.5 / 3 + 1).toString()) // 437.5 = previous unassigned earnings
             );
-            expect(mp.unassignedEarnings).to.be.gt(
+            expect(mp.earningsUnassigned).to.be.gt(
               parseUnits((borrowFees + 437.5 - 437.5 / 3 - 1).toString())
             );
           });
@@ -256,20 +256,20 @@ describe("PoolAccounting", () => {
               );
             });
 
-            it("THEN suppliedSP is 1x borrowAmount", async () => {
-              expect(mp.suppliedSP).to.eq(parseUnits(borrowAmount.toString()));
+            it("THEN suppliedSP is 0", async () => {
+              expect(mp.suppliedSP).to.eq(0);
             });
 
-            it("THEN unassignedEarnings are 542 / 2 - earnedFees", async () => {
+            it("THEN earningsUnassigned are 542 / 2 - earnedFees", async () => {
               const earnedFees =
                 ((542 / 2) * depositAmount) / (depositAmount + borrowAmount); // 542 = previous unassigned earnings
-              const unassignedEarnings = 542 / 2 - earnedFees;
+              const earningsUnassigned = 542 / 2 - earnedFees;
 
-              expect(mp.unassignedEarnings).to.be.lt(
-                parseUnits(unassignedEarnings.toString())
+              expect(mp.earningsUnassigned).to.be.lt(
+                parseUnits(earningsUnassigned.toString())
               );
-              expect(mp.unassignedEarnings).to.be.gt(
-                parseUnits((unassignedEarnings - 1).toString())
+              expect(mp.earningsUnassigned).to.be.gt(
+                parseUnits((earningsUnassigned - 1).toString())
               );
             });
 
@@ -278,7 +278,7 @@ describe("PoolAccounting", () => {
                 mp.earningsMP
                   .add(mp.earningsSP)
                   .add(mp.earningsTreasury)
-                  .add(mp.unassignedEarnings)
+                  .add(mp.earningsUnassigned)
               ).to.eq(parseUnits("750"));
             });
 
@@ -322,13 +322,12 @@ describe("PoolAccounting", () => {
               );
             });
 
-            it("THEN suppliedSP is equal to borrowAmount (5k)", async () => {
-              expect(mp.suppliedSP).to.eq(parseUnits(borrowAmount.toString())); // 5k
+            it("THEN suppliedSP is 0", async () => {
+              expect(mp.suppliedSP).to.eq(0);
             });
 
-            it("THEN unassignedEarnings are almost 0", async () => {
-              expect(mp.unassignedEarnings).to.be.lt(parseUnits("0.1")); // after a very big deposit compared to the suppliedSP, almost no unassignedEarnings are left
-              expect(mp.unassignedEarnings).to.be.gt(parseUnits("0"));
+            it("THEN earningsUnassigned are 0", async () => {
+              expect(mp.earningsUnassigned).to.be.eq(parseUnits("0")); // after a very big deposit compared to the suppliedSP, almost no earningsUnassigned are left
             });
 
             it("THEN earningsSP are around 480", async () => {
@@ -374,15 +373,13 @@ describe("PoolAccounting", () => {
                 );
               });
 
-              it("THEN suppliedSP is borrowAmount", async () => {
-                expect(mp.suppliedSP).to.eq(
-                  parseUnits(borrowAmount.toString())
-                );
+              it("THEN suppliedSP is 0", async () => {
+                expect(mp.suppliedSP).to.eq(0);
               });
 
-              it("THEN unassignedEarnings are close to 0", async () => {
-                expect(mp.unassignedEarnings).to.be.lt(parseUnits("0.01"));
-                expect(mp.unassignedEarnings).to.be.gt(parseUnits("0"));
+              it("THEN earningsUnassigned are close to 0", async () => {
+                expect(mp.earningsUnassigned).to.be.lt(parseUnits("0.01"));
+                expect(mp.earningsUnassigned).to.be.gt(parseUnits("0"));
               });
 
               it("THEN the pool 'earningsMP' is partially repaid (270 - partial repay)", async () => {
@@ -390,7 +387,7 @@ describe("PoolAccounting", () => {
                 const partialRepayForEarningsMP = parseUnits("249")
                   .mul(mp.earningsMP)
                   .div(
-                    mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
+                    mp.earningsMP.add(mp.earningsSP).add(mp.earningsUnassigned)
                   );
 
                 // 270 were the earnings before the last repayment
@@ -407,7 +404,7 @@ describe("PoolAccounting", () => {
                 const partialRepayForEarningsSP = parseUnits("249")
                   .mul(mp.earningsSP)
                   .div(
-                    mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
+                    mp.earningsMP.add(mp.earningsSP).add(mp.earningsUnassigned)
                   );
 
                 expect(mp.earningsSP).to.be.lt(
@@ -434,7 +431,7 @@ describe("PoolAccounting", () => {
                 // const partialRepayForEarningsSP = parseUnits("249")
                 //   .mul(mp.earningsSP)
                 //   .div(
-                //     mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
+                //     mp.earningsMP.add(mp.earningsSP).add(mp.earningsUnassigned)
                 //   );
                 expect(returnValues.fee).to.be.gt(parseUnits("159"));
                 expect(returnValues.fee).to.be.lt(parseUnits("160"));
@@ -444,9 +441,9 @@ describe("PoolAccounting", () => {
                 // approximation:
                 // 249 are the fees left after discount to repay fees
                 // const partialRepayForEarningsSP = parseUnits("249")
-                //   .mul(mp.unassignedEarnings)
+                //   .mul(mp.earningsUnassigned)
                 //   .div(
-                //     mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
+                //     mp.earningsMP.add(mp.earningsSP).add(mp.earningsUnassigned)
                 //   );
                 expect(returnValues.earningsRepay).to.be.gt(
                   parseUnits("0.0010")
@@ -547,7 +544,7 @@ describe("PoolAccounting", () => {
 
       it("THEN fees (all) should be 500", () => {
         expect(
-          mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
+          mp.earningsMP.add(mp.earningsSP).add(mp.earningsUnassigned)
         ).to.eq(parseUnits("500"));
       });
 
@@ -567,7 +564,7 @@ describe("PoolAccounting", () => {
           expect(
             mp.earningsMP
               .add(mp.earningsSP)
-              .add(mp.unassignedEarnings)
+              .add(mp.earningsUnassigned)
               .add(returnValues.spareAmount)
               .add(earningsDistributed)
           ).to.eq(parseUnits("500"));
@@ -587,7 +584,7 @@ describe("PoolAccounting", () => {
           });
           it("THEN interests are all 0", async () => {
             expect(
-              mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
+              mp.earningsMP.add(mp.earningsSP).add(mp.earningsUnassigned)
             ).to.eq(0);
           });
           it("THEN suppliedSP is 0", async () => {
@@ -614,7 +611,7 @@ describe("PoolAccounting", () => {
 
       it("THEN fees (all) should be 250", () => {
         expect(
-          mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
+          mp.earningsMP.add(mp.earningsSP).add(mp.earningsUnassigned)
         ).to.eq(parseUnits("250"));
       });
 
@@ -629,7 +626,7 @@ describe("PoolAccounting", () => {
         });
         it("THEN fees have been paid with the early repayment (= 0)", async () => {
           expect(
-            mp.earningsMP.add(mp.earningsSP).add(mp.unassignedEarnings)
+            mp.earningsMP.add(mp.earningsSP).add(mp.earningsUnassigned)
           ).to.eq(parseUnits("0"));
         });
         it("THEN spareAmount is 0 (didn't get a discount since it was gotten all before)", async () => {

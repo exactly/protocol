@@ -167,7 +167,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
             maturityPools[maturityDate].suppliedSP,
             maturityPools[maturityDate].borrowed,
-            maturityPools[maturityDate].unassignedEarnings,
+            maturityPools[maturityDate].earningsUnassigned,
             amount
         );
 
@@ -176,7 +176,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        maturityPools[maturityDate].addMoney(amount);
+        smartPoolBorrowed -= maturityPools[maturityDate].addMoney(amount);
         maturityPools[maturityDate].addFeeMP(fee);
         maturityPools[maturityDate].addFeeSP(feeSP);
 
@@ -303,7 +303,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 .getYieldForDeposit(
                     maturityPools[maturityDate].suppliedSP,
                     maturityPools[maturityDate].borrowed,
-                    maturityPools[maturityDate].unassignedEarnings,
+                    maturityPools[maturityDate].earningsUnassigned,
                     repayVars.debt.scaleProportionally(debtCovered).principal
                     // ^ this case shouldn't contain penalties since is before maturity date
                 );
@@ -346,21 +346,21 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 .scaleProportionally(repayVars.amountStillBorrowed);
         }
 
+        // We reduce the borrowed and we might decrease the SP debt
+        PoolLib.Debt memory scaledDebt = repayVars.debt.scaleProportionally(
+            debtCovered
+        );
+        repayVars.smartPoolDebtReduction = maturityPools[maturityDate]
+            .repayMoney(scaledDebt.principal);
+        smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
+
         // Pays back in the following order:
         //       1) Maturity Pool Depositors
         //       2) Smart Pool Debt
         //       3) Earnings Smart Pool the rest
-        (
-            repayVars.smartPoolDebtReduction,
-            feeRepay,
-            earningsRepay
-        ) = maturityPools[maturityDate].distribute(
-            repayVars.debt.scaleProportionally(debtCovered).reduceFees(
-                repayVars.discountFee
-            )
+        (feeRepay, earningsRepay) = maturityPools[maturityDate].distribute(
+            scaledDebt.reduceFees(repayVars.discountFee)
         );
-
-        smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
     }
 
     /**
