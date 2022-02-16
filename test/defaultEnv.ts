@@ -122,21 +122,14 @@ export class DefaultEnv {
     );
 
     const InterestRateModelFactory = await ethers.getContractFactory(
-      "InterestRateModel",
-      {
-        libraries: {
-          TSUtils: tsUtils.address,
-        },
-      }
+      "InterestRateModel"
     );
 
     const interestRateModel = useRealInterestRateModel
       ? await InterestRateModelFactory.deploy(
-          parseUnits("0.07"), // Maturity pool slope rate
-          parseUnits("0.07"), // Smart pool slope rate
-          parseUnits("0.4"), // High UR slope rate
-          parseUnits("0.8"), // Slope change rate
-          parseUnits("0.02"), // Base rate
+          parseUnits("0.0495"), // A parameter for the curve
+          parseUnits("-0.025"), // B parameter for the curve
+          parseUnits("1.1"), // Max utilization rate
           parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
         )
       : await MockedInterestRateModelFactory.deploy();

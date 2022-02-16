@@ -418,3 +418,190 @@ Pros
 Cons
 ^^^^
 - It's not possible to accept ``ETH`` and ``WETH`` in the same contract
+
+Gas savings by using smaller variables in InterestRateModel
+===========================================================
+
+The parameters of the InterestRateModel are all values which can be more or less be guaranteed to be less than 10, and they all have 18 decimals precision. so, the required variable length would be ...int64 for any of them:
+
+.. code:: 
+
+    in base 10:
+    10000000000000000000
+    in hexadecimal:
+    dec2hex 10000000000000000000
+    8ac7230489e80000
+    length: 16, meaning 8 bytes, so a int64 could suffice
+    max value representable by a
+    int64:
+    2^63 - 1 (might be off by literally 1, idc)
+    9223372036854775807/10^18
+    9.22337203685477580700
+    uint64:
+    2^64 - 1
+    18446744073709551615/10^18
+    18.44674407370955161500
+
+However, given that we have to do divisions, and for that multiply the numerator by 10^18, in some cases we have to use ``{u,}int128`` s (see the patch for details)
+
+Gas costs after this patch (running only 8_interest_rate_model.ts):
+
+==================== ======================== ======== ======== ====
+  Contract            Method                   Min      Max      Avg
+==================== ======================== ======== ======== ====
+  FixedLender         borrowFromMaturityPool   438328   538128   512058
+
+  FixedLender         depositToMaturityPool    -        -        255883
+
+  FixedLender         depositToSmartPool       223423   223435   223432
+
+  InterestRateModel   setParameters            34772    35084    35041
+==================== ======================== ======== ======== ====
+
+Gas costs before:
+
+==================== ======================== ======== ======== ====
+  Contract            Method                   Min      Max      Avg
+==================== ======================== ======== ======== ====
+  FixedLender         borrowFromMaturityPool   441942   541742   515672
+
+  FixedLender         depositToMaturityPool    -        -        255883
+
+  FixedLender         depositToSmartPool       223423   223435   223432
+
+  InterestRateModel   setParameters            40247    48659    41729
+==================== ======================== ======== ======== ====
+
+
+this yields 3614 average gas savings for the ``borrowFromMaturityPool`` function, which is pretty low considering the level of anxiety doing that many casts and being that short on bits gives me, so my recommendation is to not implement this savings (or at least not in this stage of the project, perhaps that kind of optimization doesn't feel so so premature in the future)
+
+gas savings in ``setPrameters`` are more significative, but they're also much less relevant since it's a governance action that'll be called way less often.
+
+the patch:
+
+.. TODO look into moving this to its own file if this file grows much larger
+
+.. code::
+
+    diff --git a/contracts/InterestRateModel.sol b/contracts/InterestRateModel.sol
+    index 9afe35c..2f4b852 100644
+    --- a/contracts/InterestRateModel.sol
+    +++ b/contracts/InterestRateModel.sol
+    @@ -10,19 +10,20 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
+     contract InterestRateModel is IInterestRateModel, AccessControl {
+         using PoolLib for PoolLib.MaturityPool;
+         using DecimalMath for uint256;
+    +    using DecimalMath for uint64;
+         uint256 private constant YEAR = 365 days;
+     
+         // Parameters to the system, expressed with 1e18 decimals
+    -    uint256 public curveParameterA;
+    -    int256 public curveParameterB;
+    -    uint256 public maxUtilizationRate;
+    -    uint256 public override penaltyRate;
+    +    uint64 public curveParameterA;
+    +    int64 public curveParameterB;
+    +    uint64 public maxUtilizationRate;
+    +    uint64 public override penaltyRate;
+     
+         constructor(
+    -        uint256 _curveParameterA,
+    -        int256 _curveParameterB,
+    -        uint256 _maxUtilizationRate,
+    -        uint256 _penaltyRate
+    +        uint64 _curveParameterA,
+    +        int64 _curveParameterB,
+    +        uint64 _maxUtilizationRate,
+    +        uint64 _penaltyRate
+         ) {
+             _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+             setParameters(
+    @@ -41,10 +42,10 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
+          * @param _penaltyRate daily rate charged on late repays. 18 decimals
+          */
+         function setParameters(
+    -        uint256 _curveParameterA,
+    -        int256 _curveParameterB,
+    -        uint256 _maxUtilizationRate,
+    -        uint256 _penaltyRate
+    +        uint64 _curveParameterA,
+    +        int64 _curveParameterB,
+    +        uint64 _maxUtilizationRate,
+    +        uint64 _penaltyRate
+         ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+             curveParameterA = _curveParameterA;
+             curveParameterB = _curveParameterB;
+    @@ -82,18 +83,21 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
+             if (supplied == 0) {
+                 revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+             }
+    -        uint256 utilizationRate = borrowedMP.div_(supplied);
+    +        // U is always < 2 < type(uint64).max ~= 18 and overflows are checked
+    +        // by solidity so it can't go back to a valid value
+    +        uint64 utilizationRate = uint64(borrowedMP.div_(supplied));
+             if (
+                 utilizationRate >= maxUtilizationRate ||
+                 borrowedMP > suppliedMP + borrowableFromSP
+             ) {
+                 revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+             }
+    -        int256 rate = int256(
+    -            curveParameterA.div_(maxUtilizationRate - utilizationRate)
+    +
+    +        int256 rate = int64(
+    +            curveParameterA.div_u64(maxUtilizationRate - utilizationRate)
+             ) + curveParameterB;
+             // this curve _could_ go below zero if the parameters are set wrong.
+             assert(rate > 0);
+    -        return (uint256(rate) * (maturityDate - currentDate)) / YEAR;
+    +        return (uint256(int256(rate)) * (maturityDate - currentDate)) / YEAR;
+         }
+     }
+    diff --git a/contracts/external/MockedInterestRateModel.sol b/contracts/external/MockedInterestRateModel.sol
+    index e274504..b920580 100644
+    --- a/contracts/external/MockedInterestRateModel.sol
+    +++ b/contracts/external/MockedInterestRateModel.sol
+    @@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
+     
+     contract MockedInterestRateModel is IInterestRateModel {
+         uint256 public borrowRate;
+    -    uint256 public override penaltyRate;
+    +    uint64 public override penaltyRate;
+     
+         function getRateToBorrow(
+             uint256 maturityDate,
+    @@ -25,7 +25,7 @@ contract MockedInterestRateModel is IInterestRateModel {
+             borrowRate = newRate;
+         }
+     
+    -    function setPenaltyRate(uint256 newRate) public {
+    +    function setPenaltyRate(uint64 newRate) public {
+             penaltyRate = newRate;
+         }
+     }
+    diff --git a/contracts/interfaces/IInterestRateModel.sol b/contracts/interfaces/IInterestRateModel.sol
+    index 51f3c7d..f72597c 100644
+    --- a/contracts/interfaces/IInterestRateModel.sol
+    +++ b/contracts/interfaces/IInterestRateModel.sol
+    @@ -12,5 +12,5 @@ interface IInterestRateModel {
+             uint256 borrowableFromSP
+         ) external view returns (uint256);
+     
+    -    function penaltyRate() external view returns (uint256);
+    +    function penaltyRate() external view returns (uint64);
+     }
+    diff --git a/contracts/utils/DecimalMath.sol b/contracts/utils/DecimalMath.sol
+    index 2691df1..9dc3e97 100644
+    --- a/contracts/utils/DecimalMath.sol
+    +++ b/contracts/utils/DecimalMath.sol
+    @@ -24,6 +24,10 @@ library DecimalMath {
+             return (a * NUMBER_SCALE) / b;
+         }
+     
+    +    function div_u64(uint64 a, uint64 b) internal pure returns (uint64) {
+    +        return uint64((uint128(a) * 1 ether) / b);
+    +    }
+    +
+         function add_(Double memory a, Double memory b)
+             internal
+             pure

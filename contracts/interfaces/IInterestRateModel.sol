@@ -6,10 +6,10 @@ import "../utils/PoolLib.sol";
 interface IInterestRateModel {
     function getRateToBorrow(
         uint256 maturityDate,
-        PoolLib.MaturityPool memory poolMaturity,
-        uint256 smartPoolTotalDebt,
-        uint256 smartPoolTotalSupply,
-        bool newDebt
+        uint256 currentDate,
+        uint256 borrowedMP,
+        uint256 suppliedMP,
+        uint256 borrowableFromSP
     ) external view returns (uint256);
 
     function penaltyRate() external view returns (uint256);

@@ -67,7 +67,9 @@ export enum ProtocolError {
   CONTRACT_ALREADY_INITIALIZED,
   INSUFFICIENT_PROTOCOL_LIQUIDITY,
   TOO_MUCH_SLIPPAGE,
+  TOO_MUCH_REPAY_TRANSFER,
   SMART_POOL_FUNDS_LOCKED,
+  INVALID_TIME_DIFFERENCE,
 }
 
 export type EnvConfig = {
@@ -160,14 +162,6 @@ export class ExaTime {
 
   public distantFuturePoolID(): number {
     return this.futurePools().pop()! + 86400 * 7;
-  }
-
-  public trimmedDay(): number {
-    return this.timestamp - (this.timestamp % this.ONE_DAY);
-  }
-
-  public daysDiffWith(anotherTimestamp: number): number {
-    return (anotherTimestamp - this.trimmedDay()) / this.ONE_DAY;
   }
 
   public futurePools(): number[] {

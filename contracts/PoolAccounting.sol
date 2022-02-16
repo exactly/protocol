@@ -100,21 +100,17 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow) {
         BorrowVars memory borrowVars;
 
-        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+        pool.accrueEarningsToSP(maturityDate);
 
-        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
-            amount,
-            maxSPDebt
-        );
-
-        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
+        smartPoolBorrowed += pool.takeMoney(amount, maxSPDebt);
 
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
-            pool,
-            smartPoolBorrowed,
-            maxSPDebt,
-            true
+            block.timestamp,
+            pool.borrowed,
+            pool.supplied,
+            maxSPDebt
         );
         borrowVars.fee = amount.mul_(borrowVars.feeRate);
         totalOwedNewBorrow = amount + borrowVars.fee;
@@ -128,7 +124,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             userMpBorrowed[borrower].push(maturityDate);
         }
 
-        maturityPools[maturityDate].addFee(borrowVars.fee);
+        pool.addFee(borrowVars.fee);
 
         mpUserBorrowedAmount[maturityDate][borrower] =
             borrowVars.borrowerDebt +
