@@ -96,7 +96,7 @@ describe("PoolAccounting", () => {
       expect(returnValues.currentTotalDeposit).to.eq(parseUnits(depositAmount));
     });
 
-    describe("AND GIVEN a borrowMP with an amount of 5000 (250 charged in fees)", () => {
+    describe("AND GIVEN a borrowMP with an amount of 5000 (250 charged in fees) (4 days to go)", () => {
       const fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
       let mp: any;
       beforeEach(async () => {
@@ -136,7 +136,7 @@ describe("PoolAccounting", () => {
         );
       });
 
-      describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees)", () => {
+      describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees) (3 days to go)", () => {
         const threeDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 3;
         let mp: any;
         beforeEach(async () => {
@@ -179,7 +179,7 @@ describe("PoolAccounting", () => {
           );
         });
 
-        describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees)", () => {
+        describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees) (2 days to go)", () => {
           const twoDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 2;
           let mp: any;
           beforeEach(async () => {
@@ -230,7 +230,7 @@ describe("PoolAccounting", () => {
             );
           });
 
-          describe("AND GIVEN another depositMP with an amount of 10000 (180 fees earned)", () => {
+          describe("AND GIVEN another depositMP with an amount of 10000 (180 fees earned) (1 day to)", () => {
             const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
             let mp: any;
             beforeEach(async () => {
@@ -273,9 +273,13 @@ describe("PoolAccounting", () => {
               );
             });
 
-            it("THEN earningsSP are around 480", async () => {
-              expect(mp.earningsSP).to.be.lt(parseUnits("480")); // 209 + 542 / 2
-              expect(mp.earningsSP).to.be.gt(parseUnits("479")); // 209 = previous earnings SP & 542 = previous unassigned earnings
+            it("THEN all earnings are around 750", async () => {
+              expect(
+                mp.earningsMP
+                  .add(mp.earningsSP)
+                  .add(mp.earningsTreasury)
+                  .add(mp.unassignedEarnings)
+              ).to.eq(parseUnits("750"));
             });
 
             it("THEN lastAccrue is 1 day to maturity", async () => {
@@ -284,10 +288,10 @@ describe("PoolAccounting", () => {
 
             it("THEN the currentTotalDeposit returned is equal to the amount plus fees earned", async () => {
               expect(returnValues.currentTotalDeposit).to.be.lt(
-                parseUnits((depositAmount + 181).toString()) // 542 / 3
+                parseUnits((depositAmount + 172).toString())
               );
               expect(returnValues.currentTotalDeposit).to.be.gt(
-                parseUnits((depositAmount + 180).toString())
+                parseUnits((depositAmount + 171).toString())
               );
             });
           });

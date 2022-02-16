@@ -119,7 +119,9 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         returns (uint256 earningsShare, uint256 earningsShareSP)
     {
         if (borrowed != 0) {
-            earningsShare = ((amount * unassignedEarnings) / borrowed);
+            // User can't make more fees after the total borrowed amount
+            earningsShare = ((Math.min(amount, borrowed) * unassignedEarnings) /
+                borrowed);
             earningsShareSP = ((suppliedSP * unassignedEarnings) / borrowed)
                 .mul_(spFeeRate);
             earningsShare -= earningsShareSP;
