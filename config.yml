@@ -2,6 +2,7 @@ tokenAddresses:
   hardhat:
     chainlinkFeedRegistry: "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf"
     usdAddress: "0x0000000000000000000000000000000000000348"
+    maxOracleDelayTime: 86400
     assets:
       DAI:
         name: "Dai"
@@ -37,6 +38,7 @@ tokenAddresses:
   rinkeby:
     mockedExactlyOracle: "0x05cCA0e6b4C53eC73B28313745641940E5634842"
     multisigAddress: "0x0820289Cb202DbF23B709D4AC1a346331cd590c4"
+    maxOracleDelayTime: 86400
     assets:
       DAI:
         name: "Dai"
@@ -53,21 +55,22 @@ tokenAddresses:
         oracleName: "ETH"
         decimals: 18
   kovan:
-      chainlinkFeedRegistry: "0xAa7F6f7f507457a1EE157fE97F6c7DB2BEec5cD0"
-      usdAddress: "0x0000000000000000000000000000000000000348"
-      assets:
-        DAI:
-          name: "Dai"
-          address: "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa"
-          oracleAddress: "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa"
-          collateralRate: "0.8"
-          oracleName: "DAI"
-          decimals: 18
-        WETH:
-          name: "Wrapped ETH"
-          address: "0xd0a1e359811322d97991e03f863a0c30c2cf029c"
-          oracleAddress: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
-          collateralRate: "0.8"
-          oracleName: "ETH"
-          decimals: 18
+    chainlinkFeedRegistry: "0xAa7F6f7f507457a1EE157fE97F6c7DB2BEec5cD0"
+    usdAddress: "0x0000000000000000000000000000000000000348"
+    maxOracleDelayTime: 86400
+    assets:
+      DAI:
+        name: "Dai"
+        address: "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa"
+        oracleAddress: "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa"
+        collateralRate: "0.8"
+        oracleName: "DAI"
+        decimals: 18
+      WETH:
+        name: "Wrapped ETH"
+        address: "0xd0a1e359811322d97991e03f863a0c30c2cf029c"
+        oracleAddress: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+        collateralRate: "0.8"
+        oracleName: "ETH"
+        decimals: 18
 minTimelockDelay: 60
