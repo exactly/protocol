@@ -17,6 +17,7 @@ describe("PoolAccounting", () => {
   let snapshot: any;
   const nextPoolID = exaTime.nextPoolID() + 7 * exaTime.ONE_DAY; // we add 7 days so we make sure we are far from the previouos timestamp blocks
   const maxSPDebt = parseUnits("100000"); // we use a high maxSPDebt limit since max borrows are already tested
+  const nMaturities = 12;
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -31,7 +32,7 @@ describe("PoolAccounting", () => {
   describe("function calls not originating from the FixedLender contract", () => {
     it("WHEN invoking borrowMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
-        realPoolAccounting.borrowMP(0, laura.address, 0, 0, 0)
+        realPoolAccounting.borrowMP(0, laura.address, 0, 0, 0, 0)
       ).to.be.revertedWith(
         errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
       );
@@ -126,7 +127,8 @@ describe("PoolAccounting", () => {
             laura.address,
             parseUnits(borrowAmount.toString()),
             parseUnits((borrowAmount + borrowFees).toString()),
-            maxSPDebt
+            maxSPDebt,
+            nMaturities
           );
         returnValues = await poolAccountingHarness.returnValues();
         mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -171,7 +173,8 @@ describe("PoolAccounting", () => {
               laura.address,
               parseUnits(borrowAmount.toString()),
               parseUnits((borrowAmount + borrowFees).toString()),
-              maxSPDebt
+              maxSPDebt,
+              nMaturities
             );
           returnValues = await poolAccountingHarness.returnValues();
           mp = await realPoolAccounting.maturityPools(nextPoolID);
@@ -218,7 +221,8 @@ describe("PoolAccounting", () => {
                 laura.address,
                 parseUnits(borrowAmount.toString()),
                 parseUnits((borrowAmount + borrowFees).toString()),
-                maxSPDebt
+                maxSPDebt,
+                nMaturities
               );
             returnValues = await poolAccountingHarness.returnValues();
             mp = await realPoolAccounting.maturityPools(nextPoolID);

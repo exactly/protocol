@@ -3,7 +3,12 @@ import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
-import { ExaTime, ProtocolError, errorGeneric } from "./exactlyUtils";
+import {
+  ExaTime,
+  ProtocolError,
+  errorGeneric,
+  expectFee,
+} from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
 
 describe("InterestRateModel", () => {
@@ -11,6 +16,7 @@ describe("InterestRateModel", () => {
   const exaTime = new ExaTime();
   const nextPoolID = exaTime.poolIDByNumberOfWeek(1);
   const secondPoolID = exaTime.poolIDByNumberOfWeek(2);
+  const thirdPoolID = exaTime.poolIDByNumberOfWeek(3);
 
   let owner: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -200,6 +206,138 @@ describe("InterestRateModel", () => {
     });
   });
 
+  describe("dynamic use of SP liquidity", () => {
+    describe("GIVEN 12k of SP liquidity AND 12 maturities AND enough collateral", () => {
+      beforeEach(async () => {
+        await exactlyEnv.depositSP("DAI", "12000");
+        await exactlyEnv.transfer("WETH", alice, "10");
+        exactlyEnv.switchWallet(alice);
+        await exactlyEnv.depositSP("WETH", "10");
+        await exactlyEnv.enterMarkets(["WETH"]);
+        await exactlyEnv.moveInTime(nextPoolID);
+        exactlyEnv.switchWallet(owner);
+      });
+      describe("GIVEN curve parameters yielding Ub=1, Umax=3, R0=0.02 and Rb=0.14", () => {
+        beforeEach(async () => {
+          // A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
+          // A = ((3*(3-1))/1)*(0.14-0.02)
+          // A = .72000000000000000000
+
+          // B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
+          // B = ((3/1)*0.02) + (1-(3/1))*0.14
+          // B = -.22000000000000000000
+
+          const A = parseUnits("0.72"); // A parameter for the curve
+          const B = parseUnits("-0.22"); // B parameter for the curve
+          const maxUtilizationRate = parseUnits("3"); // Maximum utilization rate
+          const penaltyRate = parseUnits("0.025"); // Penalty rate
+          await interestRateModel.setParameters(
+            A,
+            B,
+            maxUtilizationRate,
+            penaltyRate
+          );
+          exactlyEnv.switchWallet(alice);
+        });
+        it("WHEN doing a borrow which pushes U to 3.2, THEN it reverts because the utilization rate is too high", async () => {
+          await expect(
+            exactlyEnv.borrowMP("DAI", secondPoolID, "3200", "4000")
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.EXCEEDED_MAX_UTILIZATION_RATE)
+          );
+        });
+        it("WHEN doing a borrow which pushes U to 6, THEN it reverts because the utilization rate is too high", async () => {
+          await expect(
+            exactlyEnv.borrowMP("DAI", secondPoolID, "6000", "10000")
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.EXCEEDED_MAX_UTILIZATION_RATE)
+          );
+        });
+        it("WHEN doing a borrow which pushes U to 15 (>nMaturities), THEN it reverts because there isnt enough liquidity", async () => {
+          await expect(
+            exactlyEnv.borrowMP("DAI", secondPoolID, "15000", "100000")
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+          );
+        });
+        it("AND WHEN doing a borrow which pushes U to 2.9, THEN it succeeds", async () => {
+          await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "2900", "4000"))
+            .to.not.be.reverted;
+        });
+
+        it("WHEN borrowing 1050 DAI THEN it succeds", async () => {
+          await exactlyEnv.borrowMP("DAI", secondPoolID, "1050");
+        });
+      });
+      describe("GIVEN curve parameters yiending Ub=1, Umax=12 (==nMaturities), R0=0.02, Rb=0.18", () => {
+        beforeEach(async () => {
+          // A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
+          // A = ((12*(12-1))/1)*(0.18-0.02)
+          // A = 21.12000000000000000000
+
+          // B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
+          // B = ((12/1)*0.02) + (1-(12/1))*0.18
+          // B =-1.74000000000000000000
+
+          const A = parseUnits("21.12"); // A parameter for the curve
+          const B = parseUnits("-1.74"); // B parameter for the curve
+          const maxUtilizationRate = parseUnits("12"); // Maximum utilization rate
+          const penaltyRate = parseUnits("0.025"); // Penalty rate
+          await interestRateModel.setParameters(
+            A,
+            B,
+            maxUtilizationRate,
+            penaltyRate
+          );
+          exactlyEnv.switchWallet(alice);
+        });
+        it("WHEN doing a borrow which pushes U to 12, THEN it reverts because the utilization rate is too high", async () => {
+          await expect(
+            exactlyEnv.borrowMP("DAI", secondPoolID, "12000")
+          ).to.be.revertedWith(
+            errorGeneric(ProtocolError.EXCEEDED_MAX_UTILIZATION_RATE)
+          );
+        });
+        describe("WHEN borrowing 11k of SP liquidity", () => {
+          let tx: any;
+          beforeEach(async () => {
+            tx = await exactlyEnv.borrowMP(
+              "DAI",
+              secondPoolID,
+              "11000",
+              "16000"
+            );
+          });
+          // r = (21.12/(12-(11000/(12000/12)))) - 1.74
+          // 19.38
+          it("THEN the fee charged (193800%) implies an utilization rate of 11 ", async () => {
+            // 11000* (19.38 * 7) / 365
+            // 4088.38356164383561643835
+            await expectFee(tx, parseUnits("4080"));
+          });
+        });
+        describe("GIVEN a borrow of 2000 DAI in the closest maturity", () => {
+          beforeEach(async () => {
+            await exactlyEnv.borrowMP("DAI", secondPoolID, "2000");
+          });
+          describe("WHEN borrowing 1000 DAI in a following maturity", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = await exactlyEnv.borrowMP("DAI", thirdPoolID, "1000");
+            });
+            // 10k should be available, since 2k were already lent out
+            // (21.12/(12-(1000/(10000/12)))) - 1.74
+            // .21555555555555555555
+            it("THEN the fee charged (21.5%) implies U > 1, since the available liquidity is less", async () => {
+              // 1000* (.21555555555555555555 * 14) / 365
+              await expectFee(tx, parseUnits("8.267"));
+            });
+          });
+        });
+      });
+    });
+  });
+
   describe("GIVEN curve parameters yielding Ub=0.8, Umax=1.1, R0=0.02 and Rb=0.14", () => {
     beforeEach(async () => {
       // A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
@@ -277,12 +415,6 @@ describe("InterestRateModel", () => {
             expect(borrowed).to.be.lt(parseUnits("903.85"));
           });
         });
-        it("WHEN borrowing 1050 DAI in the following maturity THEN it reverts because only 1000 DAI are available for lending", async () => {
-          const tx = exactlyEnv.borrowMP("DAI", secondPoolID, "1050");
-          await expect(tx).to.be.revertedWith(
-            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-          );
-        });
       });
       describe("AND GIVEN 1kDAI of SP liquidity AND 500DAI of MP liquidity", () => {
         beforeEach(async () => {
@@ -346,16 +478,16 @@ describe("InterestRateModel", () => {
                 await exactlyEnv.enterMarkets(["WETH"]);
                 await exactlyEnv.borrowMP("DAI", secondPoolID, "400");
               });
-              it("THEN a yearly interest of 14% (U=0.8, considering both borrows) is charged over a week", async () => {
+              it("THEN a yearly interest of 14.3% (U=0.8, considering both borrows) is charged over a week", async () => {
                 const [, borrowed] = await exactlyEnv.accountSnapshot(
                   "DAI",
                   secondPoolID
                 );
 
-                // 0.0495/(1.1-(1600/2000))-0.025 = .14000000000000000000
-                // (400*0.14 * 7) / 365 = 1.07397260273972602739
-                expect(borrowed).to.be.gt(parseUnits("401.07"));
-                expect(borrowed).to.be.lt(parseUnits("401.08"));
+                // 0.0495/(1.1-(1600/((24000-200)/12)))-0.025 = .14378223495702005730
+                // (400*.14378223495702005730 * 7) / 365 = 1.10298700788946893271
+                expect(borrowed).to.be.gt(parseUnits("401.10"));
+                expect(borrowed).to.be.lt(parseUnits("401.11"));
               });
             });
           });
@@ -530,19 +662,6 @@ describe("InterestRateModel", () => {
         );
         expect(rate).to.eq(parseUnits("0.965"));
       });
-      it("AND WHEN asking for the interest at 105% AND liquidity isnt enough, THEN it reverts", async () => {
-        const tx = interestRateModel.getRateToBorrow(
-          nextPoolID,
-          nextPoolID - 365 * exaTime.ONE_DAY,
-          parseUnits("105"),
-          parseUnits("100"),
-          parseUnits("0")
-        );
-
-        await expect(tx).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-        );
-      });
       it("AND WHEN asking for the interest at Umax, THEN it reverts", async () => {
         const tx = interestRateModel.getRateToBorrow(
           nextPoolID,
@@ -553,7 +672,7 @@ describe("InterestRateModel", () => {
         );
 
         await expect(tx).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+          errorGeneric(ProtocolError.EXCEEDED_MAX_UTILIZATION_RATE)
         );
       });
       it("AND WHEN asking for the interest at U>Umax, THEN it reverts", async () => {
@@ -566,7 +685,7 @@ describe("InterestRateModel", () => {
         );
 
         await expect(tx).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+          errorGeneric(ProtocolError.EXCEEDED_MAX_UTILIZATION_RATE)
         );
       });
     });

@@ -77,14 +77,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     }
 
     /**
-     * @dev Get current rate for borrow a certain amount in a certain maturity
+     * @notice Get current rate for borrow a certain amount in a certain maturity
      *      with supply/demand values in the maturity pool and supply demand values
      *      in the smart pool
+     * @dev liquidity limits aren't checked, that's the responsibility of pool.takeMoney.
      * @param maturityDate maturity date for calculating days left to maturity
      * @param currentDate the curent block timestamp. Recieved from caller for easier testing
      * @param borrowedMP total borrowed from this maturity
      * @param suppliedMP total supplied to this maturity
-     * @param borrowableFromSP max amount the smart pool is able to lend to this maturity
+     * @param smartPoolLiquidityShare 'fair' share of the smart pool that this maturity can borrow
      * @return rate to be applied to the amount to calculate the fee that the borrower will
      *         have to pay
      */
@@ -93,21 +94,18 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 currentDate,
         uint256 borrowedMP,
         uint256 suppliedMP,
-        uint256 borrowableFromSP
+        uint256 smartPoolLiquidityShare
     ) public view override returns (uint256) {
         if (currentDate >= maturityDate) {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
-        uint256 supplied = Math.max(borrowableFromSP, suppliedMP);
+        uint256 supplied = Math.max(smartPoolLiquidityShare, suppliedMP);
         if (supplied == 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
         uint256 utilizationRate = borrowedMP.div_(supplied);
-        if (
-            utilizationRate >= maxUtilizationRate ||
-            borrowedMP > suppliedMP + borrowableFromSP
-        ) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        if (utilizationRate >= maxUtilizationRate) {
+            revert GenericError(ErrorCode.EXCEEDED_MAX_UTILIZATION_RATE);
         }
         int256 rate = int256(
             curveParameterA.div_(maxUtilizationRate - utilizationRate)
