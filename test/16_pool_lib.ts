@@ -7,6 +7,7 @@ describe("Pool Management Library", () => {
   let poolEnv: PoolEnv;
   let mp: any;
   let scaledDebt: any;
+  const mockedMaxDebt = "5000";
 
   describe("GIVEN a clean maturity pool", () => {
     beforeEach(async () => {
@@ -49,7 +50,7 @@ describe("Pool Management Library", () => {
         });
         describe("AND WHEN 80 tokens are taken out", async () => {
           beforeEach(async () => {
-            await poolEnv.takeMoney("80", "1000");
+            await poolEnv.takeMoney("80", mockedMaxDebt);
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -68,7 +69,7 @@ describe("Pool Management Library", () => {
           });
           describe("AND WHEN another 20 tokens are taken out", async () => {
             beforeEach(async () => {
-              await poolEnv.takeMoney("20", "1000");
+              await poolEnv.takeMoney("20", mockedMaxDebt);
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -100,7 +101,7 @@ describe("Pool Management Library", () => {
             });
             describe("AND WHEN 50 tokens are taken out", async () => {
               beforeEach(async () => {
-                await poolEnv.takeMoney("50", "1000");
+                await poolEnv.takeMoney("50", mockedMaxDebt);
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
@@ -159,7 +160,7 @@ describe("Pool Management Library", () => {
     describe("repayMoney", async () => {
       describe("WHEN 100 tokens are taken out", async () => {
         beforeEach(async () => {
-          await poolEnv.takeMoney("100", "1000");
+          await poolEnv.takeMoney("100", mockedMaxDebt);
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
@@ -262,7 +263,7 @@ describe("Pool Management Library", () => {
         });
         describe("WHEN 50 tokens are withdrawn", async () => {
           beforeEach(async () => {
-            await poolEnv.withdrawMoney("50", "5000");
+            await poolEnv.withdrawMoney("50", mockedMaxDebt);
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -275,16 +276,16 @@ describe("Pool Management Library", () => {
           });
           describe("AND GIVEN another 100 tokens are taken out", async () => {
             beforeEach(async () => {
-              await poolEnv.takeMoney("100", "1000");
+              await poolEnv.takeMoney("100", mockedMaxDebt);
             });
             describe("WHEN another 50 tokens are withdrawn", async () => {
               beforeEach(async () => {
-                await poolEnv.withdrawMoney("50", "5000");
+                await poolEnv.withdrawMoney("50", mockedMaxDebt);
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
-              it("THEN the pool 'supplied' is 50", async () => {
-                expect(mp.supplied).to.equal(parseUnits("50"));
+              it("THEN the pool 'supplied' is 0", async () => {
+                expect(mp.supplied).to.equal(parseUnits("0"));
               });
               it("THEN the newDebtSP that is returned is 50", async () => {
                 const newDebtSpReturned = await poolEnv
@@ -307,7 +308,7 @@ describe("Pool Management Library", () => {
           });
           describe("AND WHEN another 50 tokens are withdrawn", async () => {
             beforeEach(async () => {
-              await poolEnv.withdrawMoney("50", "5000");
+              await poolEnv.withdrawMoney("50", mockedMaxDebt);
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -392,7 +393,7 @@ describe("Pool Management Library", () => {
           it("THEN the scaledDebtPrincipal is 0", async () => {
             expect(scaledDebt.principal).to.equal(parseUnits("0"));
           });
-          it("THEN the scaledDebtFee is 0", async () => {
+          it("THEN the scaledDebtFee is 50", async () => {
             expect(scaledDebt.fee).to.equal(parseUnits("50"));
           });
         });
@@ -407,7 +408,7 @@ describe("Pool Management Library", () => {
           it("THEN the scaledDebtPrincipal is 0", async () => {
             expect(scaledDebt.principal).to.equal(parseUnits("0"));
           });
-          it("THEN the scaledDebtFee is 0", async () => {
+          it("THEN the scaledDebtFee is 100", async () => {
             expect(scaledDebt.fee).to.equal(parseUnits("100"));
           });
         });
