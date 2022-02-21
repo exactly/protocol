@@ -160,7 +160,7 @@ library PoolLib {
             pool.suppliedSP = newSupplySP;
         }
 
-        pool.supplied = newSuppliedALL;
+        pool.supplied = newSuppliedMP;
     }
 
     /**

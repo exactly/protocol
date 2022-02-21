@@ -13,6 +13,10 @@ export class PoolEnv {
     this.mpHarness = _mpHarness;
   }
 
+  public getMpHarness(): Contract {
+    return this.mpHarness;
+  }
+
   public async moveInTime(timestamp: number) {
     await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
@@ -25,8 +29,70 @@ export class PoolEnv {
     return this.mpHarness.addMoney(parseUnits(amount));
   }
 
-  public async takeMoney(amount: string) {
-    return this.mpHarness.takeMoney(parseUnits(amount));
+  public async repayMoney(amount: string) {
+    return this.mpHarness.repayMoney(parseUnits(amount));
+  }
+
+  public async addFee(amount: string) {
+    return this.mpHarness.addFee(parseUnits(amount));
+  }
+
+  public async addFeeMP(amount: string) {
+    return this.mpHarness.addFeeMP(parseUnits(amount));
+  }
+
+  public async addFeeSP(amount: string) {
+    return this.mpHarness.addFeeSP(parseUnits(amount));
+  }
+
+  public async removeFee(amount: string) {
+    return this.mpHarness.removeFee(parseUnits(amount));
+  }
+
+  public async returnFee(amount: string) {
+    return this.mpHarness.returnFee(parseUnits(amount));
+  }
+
+  public async reduceFee(scaledDebtFee: string, feeToReduce: string) {
+    return this.mpHarness.reduceFee(
+      parseUnits(scaledDebtFee),
+      parseUnits(feeToReduce)
+    );
+  }
+
+  public async scaleProportionally(
+    scaledDebtPrincipal: string,
+    scaledDebtFee: string,
+    amount: string
+  ) {
+    return this.mpHarness.scaleProportionally(
+      parseUnits(scaledDebtPrincipal),
+      parseUnits(scaledDebtFee),
+      parseUnits(amount)
+    );
+  }
+
+  public async reduceProportionally(
+    scaledDebtPrincipal: string,
+    scaledDebtFee: string,
+    amount: string
+  ) {
+    return this.mpHarness.reduceProportionally(
+      parseUnits(scaledDebtPrincipal),
+      parseUnits(scaledDebtFee),
+      parseUnits(amount)
+    );
+  }
+
+  public async takeMoney(amount: string, maxDebt: string) {
+    return this.mpHarness.takeMoney(parseUnits(amount), parseUnits(maxDebt));
+  }
+
+  public async withdrawMoney(amount: string, maxDebt: string) {
+    return this.mpHarness.withdrawMoney(
+      parseUnits(amount),
+      parseUnits(maxDebt)
+    );
   }
 
   static async create(): Promise<PoolEnv> {
