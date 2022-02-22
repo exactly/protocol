@@ -11,6 +11,7 @@ describe("PoolAccounting", () => {
   let poolAccountingEnv: PoolAccountingEnv;
   let poolAccountingHarness: Contract;
   let mockedInterestRateModel: Contract;
+  let fixedLender: Contract;
   let exaTime = new ExaTime();
   let snapshot: any;
   const nextPoolID = exaTime.nextPoolID() + 7 * exaTime.ONE_DAY; // we add 7 days so we make sure we are far from the previouos timestamp blocks
@@ -21,6 +22,7 @@ describe("PoolAccounting", () => {
     poolAccountingEnv = await PoolAccountingEnv.create();
     poolAccountingHarness = poolAccountingEnv.poolAccountingHarness;
     mockedInterestRateModel = poolAccountingEnv.interestRateModel;
+    fixedLender = poolAccountingEnv.fixedLender;
   });
 
   describe("function calls not originating from the FixedLender contract", () => {
@@ -292,6 +294,76 @@ describe("PoolAccounting", () => {
               );
               expect(returnValues.currentTotalDeposit).to.be.gt(
                 parseUnits((depositAmount + 171).toString())
+              );
+            });
+          });
+
+          describe("AND GIVEN another depositMP with an amount of 10000 and with a mpDepositDistributionWeighter of 150% (203 fees earned)", () => {
+            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
+            let mp: any;
+            beforeEach(async () => {
+              await fixedLender.setMpDepositDistributionWeighter(
+                parseUnits("1.5")
+              );
+              await poolAccountingEnv.moveInTime(oneDayToMaturity);
+              depositAmount = 10000;
+              await poolAccountingHarness
+                .connect(laura)
+                .depositMP(
+                  nextPoolID,
+                  laura.address,
+                  parseUnits(depositAmount.toString()),
+                  parseUnits(depositAmount.toString())
+                );
+              returnValues = await poolAccountingHarness.returnValues();
+              mp = await poolAccountingHarness.maturityPools(nextPoolID);
+            });
+
+            it("THEN borrowed is 3x borrowAmount", async () => {
+              expect(mp.borrowed).to.eq(
+                parseUnits((borrowAmount * 3).toString()) // 3 borrows of 5k where made
+              );
+            });
+
+            it("THEN supplied is 2x depositAmount", async () => {
+              expect(mp.supplied).to.eq(
+                parseUnits((depositAmount * 2).toString()) // 2 deposits of 10k where made
+              );
+            });
+
+            it("THEN suppliedSP is 1x borrowAmount", async () => {
+              expect(mp.suppliedSP).to.eq(parseUnits(borrowAmount.toString()));
+            });
+
+            it("THEN unassignedEarnings are 542 / 2 - earnedFees", async () => {
+              depositAmount = depositAmount * 1.5;
+              const earnedFees =
+                ((542 / 2) * depositAmount) / (depositAmount + borrowAmount); // 542 = previous unassigned earnings
+              const unassignedEarnings = 542 / 2 - earnedFees;
+
+              expect(mp.unassignedEarnings).to.be.lt(
+                parseUnits(unassignedEarnings.toString())
+              );
+              expect(mp.unassignedEarnings).to.be.gt(
+                parseUnits((unassignedEarnings - 1).toString())
+              );
+            });
+
+            it("THEN earningsSP are around 480", async () => {
+              expect(mp.earningsSP).to.be.lt(parseUnits("480")); // 209 + 542 / 2
+              expect(mp.earningsSP).to.be.gt(parseUnits("479")); // 209 = previous earnings SP & 542 = previous unassigned earnings
+            });
+
+            it("THEN lastAccrue is 1 day to maturity", async () => {
+              expect(mp.lastAccrue).to.eq(oneDayToMaturity);
+            });
+
+            it("THEN the currentTotalDeposit returned is equal to the amount plus fees earned", async () => {
+              expect(returnValues.currentTotalDeposit).to.be.lt(
+                parseUnits((depositAmount + 204).toString()) // earned more fees due to change in weighter
+              );
+              expect(returnValues.currentTotalDeposit).to.be.gt(
+                parseUnits((depositAmount + 203).toString())
               );
             });
           });

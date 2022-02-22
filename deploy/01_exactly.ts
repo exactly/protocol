@@ -41,8 +41,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     );
   }
 
-  const { tsUtils, decimalMath, marketsLib, exaLib, poolLib } =
-    await deployLibraries(deployer, hre);
+  const { tsUtils, decimalMath, marketsLib, poolLib } = await deployLibraries(
+    deployer,
+    hre
+  );
 
   let exactlyOracle;
   const addresses: { [id: string]: string } = {};
@@ -62,6 +64,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         tokenSymbols,
         tokenAddresses,
         config.tokenAddresses[hre.network.name].usdAddress,
+        config.tokenAddresses[hre.network.name].maxOracleDelayTime,
       ],
       log: true,
       libraries: {
@@ -72,20 +75,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     addresses.exactlyOracle = exactlyOracle.address;
   }
 
-  const exaToken = await hre.deployments.deploy("ExaToken", {
-    from: deployer,
-  });
-
-  addresses.exaToken = exaToken.address;
-
   const auditor = await hre.deployments.deploy("Auditor", {
     from: deployer,
-    args: [exactlyOracle.address, exaToken.address],
+    args: [exactlyOracle.address],
     log: true,
     libraries: {
-      TSUtils: tsUtils.address,
       DecimalMath: decimalMath.address,
-      ExaLib: exaLib.address,
       MarketsLib: marketsLib.address,
     },
   });
@@ -95,17 +90,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const interestRateModel = await hre.deployments.deploy("InterestRateModel", {
     from: deployer,
     args: [
-      parseUnits("0.07"), // Maturity pool slope rate
-      parseUnits("0.07"), // Smart pool slope rate
-      parseUnits("0.4"), // High UR slope rate
-      parseUnits("0.8"), // Slope change rate
-      parseUnits("0.02"), // Base rate
+      parseUnits("0.0495"), // A parameter for the curve
+      parseUnits("-0.025"), // B parameter for the curve
+      parseUnits("1.1"), // High UR slope rate
       parseUnits("0.0000002314814815"), // Penalty Rate per second. each day (86400) is 2%
     ],
     log: true,
-    libraries: {
-      TSUtils: tsUtils.address,
-    },
   });
 
   addresses.interestRateModel = interestRateModel.address;
@@ -203,9 +193,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
           poolAccounting.address,
         ],
         log: true,
-        libraries: {
-          TSUtils: tsUtils.address,
-        },
       }
     );
     await grantPauserRole(fixedLenderDeploymentName, deployer, hre, config);
@@ -353,20 +340,12 @@ async function deployLibraries(
     {
       from: deployer,
       libraries: {
-        TSUtils: tsUtils.address,
         DecimalMath: decimalMath.address,
       },
     }
   );
-  const exaLib = await hardhatRuntimeEnvironment.deployments.deploy("ExaLib", {
-    from: deployer,
-    libraries: {
-      MarketsLib: marketsLib.address,
-      DecimalMath: decimalMath.address,
-    },
-  });
 
-  return { tsUtils, decimalMath, marketsLib, exaLib, poolLib };
+  return { tsUtils, decimalMath, marketsLib, poolLib };
 }
 
 async function transferOwnershipToTimelock(

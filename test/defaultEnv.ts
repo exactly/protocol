@@ -27,10 +27,8 @@ export class DefaultEnv {
   auditor: Contract;
   interestRateModel: Contract;
   tsUtils: Contract;
-  exaLib: Contract;
   poolLib: Contract;
   marketsLib: Contract;
-  exaToken: Contract;
   fixedLenderContracts: Map<string, Contract>;
   poolAccountingContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
@@ -42,16 +40,15 @@ export class DefaultEnv {
   notAnFixedLenderAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
   usdAddress: string;
   currentWallet: SignerWithAddress;
+  maxOracleDelayTime: number;
 
   constructor(
     _oracle: Contract,
     _auditor: Contract,
     _interestRateModel: Contract,
     _tsUtils: Contract,
-    _exaLib: Contract,
     _poolLib: Contract,
     _marketsLib: Contract,
-    _exaToken: Contract,
     _fixedLenderContracts: Map<string, Contract>,
     _poolAccountingContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
@@ -67,16 +64,15 @@ export class DefaultEnv {
     this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
-    this.exaLib = _exaLib;
     this.poolLib = _poolLib;
     this.mockedTokens = _mockedTokens;
     this.marketsLib = _marketsLib;
-    this.exaToken = _exaToken;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
     this.usdAddress = "0x0000000000000000000000000000000000000348";
     this.currentWallet = _currentWallet;
+    this.maxOracleDelayTime = 3600; // 1 hour
   }
 
   static async create({
@@ -95,10 +91,6 @@ export class DefaultEnv {
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
 
-    const ExaLib = await ethers.getContractFactory("ExaLib");
-    let exaLib = await ExaLib.deploy();
-    await exaLib.deployed();
-
     const PoolLib = await ethers.getContractFactory("PoolLib", {
       libraries: {
         TSUtils: tsUtils.address,
@@ -111,10 +103,6 @@ export class DefaultEnv {
     let marketsLib = await MarketsLib.deploy();
     await marketsLib.deployed();
 
-    const ExaToken = await ethers.getContractFactory("ExaToken");
-    let exaToken = await ExaToken.deploy();
-    await exaToken.deployed();
-
     const MockedOracle = await ethers.getContractFactory("MockedOracle");
     let oracle = await MockedOracle.deploy();
     await oracle.deployed();
@@ -124,21 +112,14 @@ export class DefaultEnv {
     );
 
     const InterestRateModelFactory = await ethers.getContractFactory(
-      "InterestRateModel",
-      {
-        libraries: {
-          TSUtils: tsUtils.address,
-        },
-      }
+      "InterestRateModel"
     );
 
     const interestRateModel = useRealInterestRateModel
       ? await InterestRateModelFactory.deploy(
-          parseUnits("0.07"), // Maturity pool slope rate
-          parseUnits("0.07"), // Smart pool slope rate
-          parseUnits("0.4"), // High UR slope rate
-          parseUnits("0.8"), // Slope change rate
-          parseUnits("0.02"), // Base rate
+          parseUnits("0.0495"), // A parameter for the curve
+          parseUnits("-0.025"), // B parameter for the curve
+          parseUnits("1.1"), // Max utilization rate
           parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
         )
       : await MockedInterestRateModelFactory.deploy();
@@ -146,12 +127,10 @@ export class DefaultEnv {
 
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
-        TSUtils: tsUtils.address,
-        ExaLib: exaLib.address,
         MarketsLib: marketsLib.address,
       },
     });
-    let auditor = await Auditor.deploy(oracle.address, exaToken.address);
+    let auditor = await Auditor.deploy(oracle.address);
     await auditor.deployed();
 
     // We have to enable all the FixedLenders in the auditor
@@ -238,10 +217,8 @@ export class DefaultEnv {
       auditor,
       interestRateModel,
       tsUtils,
-      exaLib,
       poolLib,
       marketsLib,
-      exaToken,
       fixedLenderContracts,
       poolAccountingContracts,
       underlyingContracts,
@@ -596,23 +573,14 @@ export class DefaultEnv {
       .setExaSpeed(this.getFixedLender(asset).address, parseUnits(speed));
   }
 
-  public async claimAllEXA(addressToSend: string) {
-    return this.auditor.connect(this.currentWallet).claimExaAll(addressToSend);
-  }
-
   public async deployDuplicatedAuditor() {
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
-        TSUtils: this.tsUtils.address,
-        ExaLib: this.exaLib.address,
         MarketsLib: this.marketsLib.address,
       },
     });
 
-    let newAuditor = await Auditor.deploy(
-      this.oracle.address,
-      this.exaToken.address
-    );
+    let newAuditor = await Auditor.deploy(this.oracle.address);
     await newAuditor.deployed();
     return newAuditor;
   }

@@ -14,12 +14,16 @@ import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
 import "./utils/DecimalMath.sol";
+import "./utils/TSUtils.sol";
 import "./utils/Errors.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using DecimalMath for uint256;
 
-    uint256 private protocolSpreadFee = 2.8e16; //2.8%
+    uint256 public protocolSpreadFee = 2.8e16; // 2.8%
+    uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
+    uint256 public override mpDepositDistributionWeighter = 1e18; // 100%
+    uint8 public constant MAX_FUTURE_POOLS = 12; // if every 14 days, then 6 months
     uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -30,14 +34,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     IAuditor public auditor;
 
-    // Total deposits in all maturities
-    uint256 public override totalMpDeposits;
-
-    mapping(address => uint256) public override totalMpDepositsUser;
-
     // Total borrows in all maturities
     uint256 public override totalMpBorrows;
-    mapping(address => uint256) public override totalMpBorrowsUser;
 
     /**
      * @notice Event emitted when a user borrows amount of an asset from a
@@ -171,14 +169,36 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @dev Sets the protocol's spread fee used on liquidations and loan repayment
-     * @param _protocolSpreadFee percentile amount represented with 1e18 decimals
+     * @dev Sets the protocol's spread fee used on loan repayment
+     * @param _protocolSpreadFee percentage amount represented with 1e18 decimals
      */
     function setProtocolSpreadFee(uint256 _protocolSpreadFee)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         protocolSpreadFee = _protocolSpreadFee;
+    }
+
+    /**
+     * @dev Sets the protocol's collateral liquidation fee used on liquidations
+     * @param _protocolLiquidationFee percentage amount represented with 1e18 decimals
+     */
+    function setProtocolLiquidationFee(uint256 _protocolLiquidationFee)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        protocolLiquidationFee = _protocolLiquidationFee;
+    }
+
+    /**
+     * @dev Sets the maturity pool deposits' weighter used to increase or decrease the deposit amount in order
+     *      to share out more or less unassigned earnings to that deposit
+     * @param _mpDepositDistributionWeighter percentage amount represented with 1e18 decimals that will multiply the amount to deposit
+     */
+    function setMpDepositDistributionWeighter(
+        uint256 _mpDepositDistributionWeighter
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        mpDepositDistributionWeighter = _mpDepositDistributionWeighter;
     }
 
     /**
@@ -239,6 +259,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
+     * @dev Function to retrieve valid future pools
+     */
+    function getFuturePools() external view returns (uint256[] memory) {
+        return TSUtils.futurePools(MAX_FUTURE_POOLS);
+    }
+
+    /**
      * @notice public function to transfer funds from protocol earnings to a specified wallet
      * @param who address which will receive the funds
      * @param amount amount to be transferred
@@ -259,7 +286,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * - Send the value type(uint256).max in order to withdraw the whole eToken balance
      */
     function withdrawFromSmartPool(uint256 amount) public override {
-        auditor.beforeWithdrawSP(address(this), msg.sender, amount);
+        // reverts on failure
+        auditor.validateAccountShortfall(address(this), msg.sender, amount);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
@@ -294,18 +322,22 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 maturityDate,
         uint256 maxAmountAllowed
     ) public override nonReentrant whenNotPaused {
-        auditor.beforeBorrowMP(address(this), msg.sender, maturityDate);
+        // reverts on failure
+        TSUtils.validateRequiredPoolState(
+            MAX_FUTURE_POOLS,
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.NONE
+        );
 
         uint256 totalOwed = poolAccounting.borrowMP(
             maturityDate,
             msg.sender,
             amount,
             maxAmountAllowed,
-            eToken.totalSupply() / auditor.maxFuturePools()
+            eToken.totalSupply() / MAX_FUTURE_POOLS
         );
-
         totalMpBorrows += totalOwed;
-        totalMpBorrowsUser[msg.sender] += totalOwed;
 
         auditor.validateBorrowMP(address(this), msg.sender);
 
@@ -333,7 +365,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 minAmountRequired
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        auditor.beforeDepositMP(address(this), msg.sender, maturityDate);
+        TSUtils.validateRequiredPoolState(
+            MAX_FUTURE_POOLS,
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.NONE
+        );
 
         amount = doTransferIn(msg.sender, amount);
 
@@ -343,8 +380,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             amount,
             minAmountRequired
         );
-        totalMpDeposits += currentTotalDeposit;
-        totalMpDepositsUser[msg.sender] += currentTotalDeposit;
 
         emit DepositToMaturityPool(
             msg.sender,
@@ -373,8 +408,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             revert GenericError(ErrorCode.REDEEM_CANT_BE_ZERO);
         }
 
-        // We assign rewards before deposit
-        auditor.beforeWithdrawMP(address(this), redeemer, maturityDate);
+        // reverts on failure
+        TSUtils.validateRequiredPoolState(
+            MAX_FUTURE_POOLS,
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.MATURED
+        );
 
         // We check if there's any discount to be applied for early withdrawal
         uint256 redeemAmountDiscounted = poolAccounting.withdrawMP(
@@ -382,11 +422,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             redeemer,
             redeemAmount,
             minAmountRequired,
-            eToken.totalSupply() / auditor.maxFuturePools()
+            eToken.totalSupply() / MAX_FUTURE_POOLS
         );
-
-        totalMpDeposits -= redeemAmountDiscounted;
-        totalMpDepositsUser[redeemer] -= redeemAmountDiscounted;
 
         doTransferOut(redeemer, redeemAmountDiscounted);
 
@@ -412,7 +449,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         uint256 maxAmountAllowed
     ) public override nonReentrant whenNotPaused {
         // reverts on failure
-        auditor.beforeRepayMP(address(this), borrower, maturityDate);
+        TSUtils.validateRequiredPoolState(
+            MAX_FUTURE_POOLS,
+            maturityDate,
+            TSUtils.State.VALID,
+            TSUtils.State.MATURED
+        );
 
         _repay(
             msg.sender,
@@ -429,7 +471,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param amount The amount to be deposited
      */
     function depositToSmartPool(uint256 amount) public override whenNotPaused {
-        auditor.beforeDepositSP(address(this), msg.sender);
         amount = doTransferIn(msg.sender, amount);
         eToken.mint(msg.sender, amount);
         emit DepositToSmartPool(msg.sender, amount);
@@ -527,7 +568,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         eToken.accrueEarnings(fee - protocolShare + earningsRepay);
 
         totalMpBorrows -= debtCovered;
-        totalMpBorrowsUser[borrower] -= debtCovered;
 
         emit RepayToMaturityPool(
             payer,
@@ -636,11 +676,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             borrower
         );
 
-        uint256 protocolAmount = seizeAmount.mul_(protocolSpreadFee);
+        uint256 protocolAmount = seizeAmount.mul_(protocolLiquidationFee);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
         treasury += protocolAmount;
-
-        auditor.beforeDepositSP(address(this), borrower);
 
         // We check if the underlying liquidity that the user wants to seize is borrowed
         if (

@@ -3,10 +3,8 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import {
   errorGeneric,
-  errorUnmatchedPool,
   applyMinFee,
   ExaTime,
-  PoolState,
   ProtocolError,
 } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
@@ -20,7 +18,6 @@ describe("FixedLender", function () {
   let underlyingTokenETH: Contract;
   let fixedLender: Contract;
   let poolAccounting: Contract;
-  let auditor: Contract;
 
   let mariaUser: SignerWithAddress;
   let johnUser: SignerWithAddress;
@@ -44,7 +41,6 @@ describe("FixedLender", function () {
     underlyingTokenETH = exactlyEnv.getUnderlying("WETH");
     fixedLender = exactlyEnv.getFixedLender("DAI");
     poolAccounting = exactlyEnv.getPoolAccounting("DAI");
-    auditor = exactlyEnv.auditor;
 
     // From Owner to User
     await underlyingToken.transfer(mariaUser.address, parseUnits("100000"));
@@ -384,16 +380,6 @@ describe("FixedLender", function () {
 
   describe("simple validations:", () => {
     describe("invalid pool ids", () => {
-      it("WHEN calling auditor.requirePoolState directly with an invalid pool id, THEN it reverts", async () => {
-        let auditorUser = auditor.connect(mariaUser);
-        const invalidPoolID = exaTime.pastPoolID() + 666;
-
-        await expect(
-          auditorUser.requirePoolState(invalidPoolID, PoolState.VALID)
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
-        );
-      });
       it("WHEN calling getAccountSnapshot on an invalid pool, THEN it reverts with INVALID_POOL_ID", async () => {
         let invalidPoolID = nextPoolId + 3;
         await expect(
@@ -407,69 +393,27 @@ describe("FixedLender", function () {
           fixedLender.getTotalMpBorrows(invalidPoolID)
         ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_POOL_ID));
       });
-
-      it("WHEN trying to deposit to an invalid pool THEN it reverts with INVALID_POOL_ID", async () => {
-        await expect(
-          exactlyEnv.depositMP("DAI", exaTime.invalidPoolID(), "100")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
-        );
-      });
-      it("WHEN trying to borrow to an invalid pool THEN it reverts ", async () => {
-        await expect(
-          exactlyEnv.borrowMP("DAI", exaTime.invalidPoolID(), "3", "3")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID)
-        );
-      });
-    });
-
-    describe("actions enabled/disabled at different pool stages when Smart Pool has liquidity", () => {
-      beforeEach(async () => {
-        exactlyEnv.switchWallet(owner);
-        // We add liquidity to the smart pool for the maturity pool
-        // to be able to borrow from it. It can borrow up to 1/12
-        // of the total supply of the Smart Pool
-        await exactlyEnv.depositSP("DAI", "100000");
-        exactlyEnv.switchWallet(mariaUser);
-      });
-
-      it("WHEN trying to deposit to an already-matured pool, THEN it reverts", async () => {
-        await expect(
-          exactlyEnv.depositMP("DAI", exaTime.pastPoolID(), "100")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
-        );
-      });
-
-      it("WHEN depositing into a maturity very far into the future THEN it reverts", async () => {
-        await expect(
-          exactlyEnv.depositMP("DAI", exaTime.distantFuturePoolID(), "100")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
-        );
-      });
-
-      it("WHEN trying to borrow from an already-matured pool THEN it reverts", async () => {
-        await expect(
-          exactlyEnv.borrowMP("DAI", exaTime.pastPoolID(), "2", "2")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.MATURED, PoolState.VALID)
-        );
-      });
-
-      it("WHEN trying to borrow from a not-yet-enabled pool THEN it reverts ", async () => {
-        await expect(
-          exactlyEnv.borrowMP("DAI", exaTime.distantFuturePoolID(), "2", "2")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID)
-        );
-      });
     });
 
     it("WHEN calling setProtocolSpreadFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(
         fixedLender.connect(mariaUser).setProtocolSpreadFee(parseUnits("0.04"))
+      ).to.be.revertedWith("AccessControl");
+    });
+
+    it("WHEN calling setProtocolLiquidationFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        fixedLender
+          .connect(mariaUser)
+          .setProtocolLiquidationFee(parseUnits("0.04"))
+      ).to.be.revertedWith("AccessControl");
+    });
+
+    it("WHEN calling setMpDepositDistributionWeighter from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        fixedLender
+          .connect(mariaUser)
+          .setMpDepositDistributionWeighter(parseUnits("0.04"))
       ).to.be.revertedWith("AccessControl");
     });
 

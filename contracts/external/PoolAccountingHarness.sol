@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "../PoolAccounting.sol";
+import "../interfaces/IFixedLender.sol";
 import "hardhat/console.sol";
 
 contract PoolAccountingHarness is PoolAccounting {
@@ -17,9 +18,13 @@ contract PoolAccountingHarness is PoolAccounting {
 
     ReturnValues public returnValues;
     uint256 public timestamp;
+    IFixedLender public fixedLender;
 
-    constructor(address interestRateModel) PoolAccounting(interestRateModel) {
+    constructor(address interestRateModel, address fixedLenderAddress)
+        PoolAccounting(interestRateModel)
+    {
         timestamp = block.timestamp;
+        fixedLender = IFixedLender(fixedLenderAddress);
     }
 
     function borrowMPWithReturnValues(
@@ -84,6 +89,10 @@ contract PoolAccountingHarness is PoolAccounting {
 
     function setCurrentTimestamp(uint256 _timestamp) external {
         timestamp = _timestamp;
+    }
+
+    function mpDepositDistributionWeighter() external view returns (uint256) {
+        return fixedLender.mpDepositDistributionWeighter();
     }
 
     function currentTimestamp() internal view override returns (uint256) {

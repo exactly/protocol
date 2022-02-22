@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
+import "./interfaces/IFixedLender.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
@@ -106,24 +107,17 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow) {
         BorrowVars memory borrowVars;
 
-        maturityPools[maturityDate].accrueEarnings(
-            maturityDate,
-            currentTimestamp()
-        );
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
-        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
-            amount,
-            maxSPDebt
-        );
-
-        PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
+        pool.accrueEarnings(maturityDate, currentTimestamp());
+        smartPoolBorrowed += pool.takeMoney(amount, maxSPDebt);
 
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
-            pool,
-            smartPoolBorrowed,
-            maxSPDebt,
-            true
+            block.timestamp,
+            pool.borrowed,
+            pool.supplied,
+            maxSPDebt
         );
         borrowVars.fee = amount.mul_(borrowVars.feeRate);
         totalOwedNewBorrow = amount + borrowVars.fee;
@@ -136,7 +130,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         if (borrowVars.debt.principal == 0) {
             userMpBorrowed[borrower].push(maturityDate);
         }
-        maturityPools[maturityDate].addFee(borrowVars.fee);
+
+        pool.addFee(borrowVars.fee);
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Debt(
             borrowVars.debt.principal + amount,
@@ -168,7 +163,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             maturityPools[maturityDate].suppliedSP,
             maturityPools[maturityDate].borrowed,
             maturityPools[maturityDate].earningsUnassigned,
-            amount
+            amount,
+            IFixedLender(fixedLenderAddress).mpDepositDistributionWeighter()
         );
 
         currentTotalDeposit = amount + fee;
@@ -223,14 +219,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // We verify if there are any penalties/fee for him because of
         // early withdrawal
         if (currentTimestamp() < maturityDate) {
-            // TODO: Change this to Capu's implementation
-            PoolLib.MaturityPool memory pool = maturityPools[maturityDate];
+            PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+
             uint256 feeRate = interestRateModel.getRateToBorrow(
                 maturityDate,
-                pool,
-                smartPoolBorrowed,
-                maxSPDebt,
-                true
+                block.timestamp,
+                pool.borrowed,
+                pool.supplied,
+                maxSPDebt
             );
             redeemAmountDiscounted = amount.div_(1e18 + feeRate);
         } else {
@@ -304,8 +300,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                     maturityPools[maturityDate].suppliedSP,
                     maturityPools[maturityDate].borrowed,
                     maturityPools[maturityDate].earningsUnassigned,
-                    repayVars.debt.scaleProportionally(debtCovered).principal
+                    repayVars.debt.scaleProportionally(debtCovered).principal,
                     // ^ this case shouldn't contain penalties since is before maturity date
+                    IFixedLender(fixedLenderAddress)
+                        .mpDepositDistributionWeighter()
                 );
 
             // We verify that the user agrees to this discount

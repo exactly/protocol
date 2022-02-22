@@ -7,16 +7,19 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 export class PoolAccountingEnv {
   interestRateModel: Contract;
   poolAccountingHarness: Contract;
+  fixedLender: Contract;
   currentWallet: SignerWithAddress;
   maxSPDebt = parseUnits("100000");
 
   constructor(
     _interestRateModel: Contract,
     _poolAccountingHarness: Contract,
+    _fixedLender: Contract,
     _currentWallet: SignerWithAddress
   ) {
     this.interestRateModel = _interestRateModel;
     this.poolAccountingHarness = _poolAccountingHarness;
+    this.fixedLender = _fixedLender;
     this.currentWallet = _currentWallet;
   }
 
@@ -142,6 +145,27 @@ export class PoolAccountingEnv {
     let poolLib = await PoolLib.deploy();
     await poolLib.deployed();
 
+    const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
+      libraries: {
+        TSUtils: tsUtils.address,
+        PoolLib: poolLib.address,
+      },
+    });
+    const realPoolAccounting = await PoolAccounting.deploy(
+      interestRateModel.address
+    );
+    await realPoolAccounting.deployed();
+    const FixedLender = await ethers.getContractFactory("FixedLender");
+    const addressZero = "0x0000000000000000000000000000000000000000";
+    // We only deploy a FixedLender to be able to access mpDepositDistributionWeighter parameter and to also call setMpDepositDistributionWeighter
+    const fixedLender = await FixedLender.deploy(
+      addressZero,
+      "DAI",
+      addressZero,
+      addressZero,
+      addressZero
+    );
+    await fixedLender.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
       "PoolAccountingHarness",
       {
@@ -163,6 +187,7 @@ export class PoolAccountingEnv {
     return new PoolAccountingEnv(
       interestRateModel,
       poolAccountingHarness,
+      fixedLender,
       owner
     );
   }

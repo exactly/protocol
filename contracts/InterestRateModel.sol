@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import "./interfaces/IInterestRateModel.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "./utils/TSUtils.sol";
 import "./utils/Errors.sol";
 import "./utils/DecimalMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
@@ -11,92 +10,28 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
     using DecimalMath for uint256;
+    uint256 private constant YEAR = 365 days;
 
     // Parameters to the system, expressed with 1e18 decimals
-    uint256 public mpSlopeRate;
-    uint256 public spSlopeRate;
-    uint256 public spHighURSlopeRate;
-    uint256 public baseRate;
-    uint256 public slopeChangeRate;
+    uint256 public curveParameterA;
+    int256 public curveParameterB;
+    uint256 public maxUtilizationRate;
     uint256 public override penaltyRate;
     uint256 public spFeeRate = 1e17; // 10%
 
     constructor(
-        uint256 _mpSlopeRate,
-        uint256 _spSlopeRate,
-        uint256 _spHighURSlopeRate,
-        uint256 _slopeChangeRate,
-        uint256 _baseRate,
+        uint256 _curveParameterA,
+        int256 _curveParameterB,
+        uint256 _maxUtilizationRate,
         uint256 _penaltyRate
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         setParameters(
-            _mpSlopeRate,
-            _spSlopeRate,
-            _spHighURSlopeRate,
-            _slopeChangeRate,
-            _baseRate,
+            _curveParameterA,
+            _curveParameterB,
+            _maxUtilizationRate,
             _penaltyRate
         );
-    }
-
-    /**
-     * @dev Get current rate for borrow a certain amount in a certain maturity
-     *      with supply/demand values in the maturity pool and supply demand values
-     *      in the smart pool
-     * @param maturityDate maturity date for calculating days left to maturity
-     * @param maturityPool supply/demand values for the maturity pool
-     * @param smartPoolTotalDebt demand values for the smart pool
-     * @param smartPoolTotalSupply supply values for the smart pool
-     * @param newDebt checks if the maturity pool borrows money from the smart pool in this borrow
-     * @return rate to be applied to the amount to calculate the fee that the borrower will
-     *         have to pay
-     */
-    function getRateToBorrow(
-        uint256 maturityDate,
-        PoolLib.MaturityPool memory maturityPool,
-        uint256 smartPoolTotalDebt,
-        uint256 smartPoolTotalSupply,
-        bool newDebt
-    ) external view override returns (uint256) {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
-
-        uint256 daysDifference = (maturityDate -
-            TSUtils.trimmedDay(block.timestamp)) / 1 days;
-        uint256 yearlyRate;
-
-        if (!newDebt) {
-            yearlyRate = maturityPool.supplied == 0
-                ? 0
-                : baseRate +
-                    (mpSlopeRate * maturityPool.borrowed) /
-                    maturityPool.supplied;
-        } else {
-            if (smartPoolTotalSupply == 0) {
-                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-            }
-            uint256 smartPoolUtilizationRate = smartPoolTotalDebt.div_(
-                smartPoolTotalSupply
-            );
-            uint256 spCurrentSlopeRate = smartPoolUtilizationRate >=
-                slopeChangeRate
-                ? spHighURSlopeRate
-                : spSlopeRate;
-
-            uint256 smartPoolRate = (spCurrentSlopeRate * smartPoolTotalDebt) /
-                smartPoolTotalSupply;
-            uint256 maturityPoolRate = maturityPool.supplied == 0
-                ? 0
-                : baseRate +
-                    (mpSlopeRate * maturityPool.borrowed) /
-                    maturityPool.supplied;
-
-            yearlyRate = Math.max(smartPoolRate, maturityPoolRate);
-        }
-
-        return ((yearlyRate * daysDifference) / 365);
     }
 
     /**
@@ -111,7 +46,8 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 suppliedSP,
         uint256 borrowed,
         uint256 unassignedEarnings,
-        uint256 amount
+        uint256 amount,
+        uint256 mpDepositsWeighter
     )
         external
         view
@@ -119,6 +55,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         returns (uint256 earningsShare, uint256 earningsShareSP)
     {
         if (borrowed != 0) {
+            amount = amount.mul_(mpDepositsWeighter);
             // User can't make more fees after the total borrowed amount
             earningsShare = ((Math.min(amount, borrowed) * unassignedEarnings) /
                 borrowed);
@@ -130,25 +67,66 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
 
     /**
      * @dev Function to update this model's parameters (DEFAULT_ADMIN_ROLE)
-     * @param _mpSlopeRate slope to alter the utilization rate of maturity pool
-     * @param _spSlopeRate slope to alter the utilization rate of smart pool
-     * @param _spHighURSlopeRate slope when utilization rate is higher than baseRate
-     * @param _baseRate rate that defines if we are using _spSlopeRate or _spHighURSlopeRate
-     * @param _penaltyRate rate that is being used for delayed payments
+     * @param _curveParameterA curve parameter
+     * @param _curveParameterB curve parameter
+     * @param _maxUtilizationRate % of MP supp
+     * @param _penaltyRate by-second rate charged on late repays, with 18 decimals
      */
     function setParameters(
-        uint256 _mpSlopeRate,
-        uint256 _spSlopeRate,
-        uint256 _spHighURSlopeRate,
-        uint256 _slopeChangeRate,
-        uint256 _baseRate,
+        uint256 _curveParameterA,
+        int256 _curveParameterB,
+        uint256 _maxUtilizationRate,
         uint256 _penaltyRate
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        mpSlopeRate = _mpSlopeRate;
-        spSlopeRate = _spSlopeRate;
-        spHighURSlopeRate = _spHighURSlopeRate;
-        slopeChangeRate = _slopeChangeRate;
-        baseRate = _baseRate;
+        curveParameterA = _curveParameterA;
+        curveParameterB = _curveParameterB;
+        maxUtilizationRate = _maxUtilizationRate;
         penaltyRate = _penaltyRate;
+        // we call the getRateToBorrow function with an utilization rate of
+        // zero to force it to revert in the tx that sets it, and not be able
+        // to set an invalid curve (such as one yielding a negative interest
+        // rate). Doing it works because it's a monotonously increasing function.
+        getRateToBorrow(block.timestamp + 1, block.timestamp, 0, 100, 100);
+    }
+
+    /**
+     * @dev Get current rate for borrow a certain amount in a certain maturity
+     *      with supply/demand values in the maturity pool and supply demand values
+     *      in the smart pool
+     * @param maturityDate maturity date for calculating days left to maturity
+     * @param currentDate the curent block timestamp. Recieved from caller for easier testing
+     * @param borrowedMP total borrowed from this maturity
+     * @param suppliedMP total supplied to this maturity
+     * @param borrowableFromSP max amount the smart pool is able to lend to this maturity
+     * @return rate to be applied to the amount to calculate the fee that the borrower will
+     *         have to pay
+     */
+    function getRateToBorrow(
+        uint256 maturityDate,
+        uint256 currentDate,
+        uint256 borrowedMP,
+        uint256 suppliedMP,
+        uint256 borrowableFromSP
+    ) public view override returns (uint256) {
+        if (currentDate >= maturityDate) {
+            revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
+        }
+        uint256 supplied = Math.max(borrowableFromSP, suppliedMP);
+        if (supplied == 0) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
+        uint256 utilizationRate = borrowedMP.div_(supplied);
+        if (
+            utilizationRate >= maxUtilizationRate ||
+            borrowedMP > suppliedMP + borrowableFromSP
+        ) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
+        int256 rate = int256(
+            curveParameterA.div_(maxUtilizationRate - utilizationRate)
+        ) + curveParameterB;
+        // this curve _could_ go below zero if the parameters are set wrong.
+        assert(rate > 0);
+        return (uint256(rate) * (maturityDate - currentDate)) / YEAR;
     }
 }
