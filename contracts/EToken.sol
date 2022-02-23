@@ -24,8 +24,8 @@ contract EToken is IEToken, AccessControl {
     string public override symbol;
     uint8 public override decimals;
 
-    IFixedLender private fixedLender;
-    IAuditor private auditor;
+    IFixedLender public fixedLender;
+    IAuditor public auditor;
 
     modifier onlyFixedLender() {
         if (msg.sender != address(fixedLender)) {
