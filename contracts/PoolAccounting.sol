@@ -184,7 +184,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         smartPoolBorrowed -= maturityPools[maturityDate].addMoney(amount);
         maturityPools[maturityDate].removeFee(fee);
-        spEarnings = feeSP;
+        earningsSP += feeSP;
 
         // We update users's position
         PoolLib.Position memory debt = mpUserSuppliedAmount[maturityDate][
