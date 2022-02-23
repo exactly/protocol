@@ -110,19 +110,12 @@ export class PoolAccountingEnv {
       "MockedInterestRateModel"
     );
     const InterestRateModelFactory = await ethers.getContractFactory(
-      "InterestRateModel",
-      {
-        libraries: {
-          TSUtils: tsUtils.address,
-        },
-      }
+      "InterestRateModel"
     );
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
       parseUnits("0.07"), // Maturity pool slope rate
       parseUnits("0.07"), // Smart pool slope rate
-      parseUnits("0.4"), // High UR slope rate
-      parseUnits("0.8"), // Slope change rate
       parseUnits("0.02"), // Base rate
       parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
     );
@@ -176,7 +169,8 @@ export class PoolAccountingEnv {
       }
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
-      interestRateModel.address
+      interestRateModel.address,
+      fixedLender.address
     );
     await poolAccountingHarness.deployed();
     // We initialize it with itself, so it can call the methods from within
