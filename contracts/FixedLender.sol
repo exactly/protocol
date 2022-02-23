@@ -568,8 +568,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             doTransferOut(payer, spareRepayAmount);
         }
 
-        // TODO: treasury needs to collect here too
-        // We take a share of the spread of the protocol
         eToken.accrueEarnings(earningsRepay);
 
         totalMpBorrows -= debtCovered;
