@@ -1,9 +1,9 @@
 {
   "name": "@exactly-finance/protocol",
   "scripts": {
-    "lint:ts": "eslint test/* deploy/* hardhat.config.ts",
-    "lint:sol": "find contracts  -regex \".*\\.sol\" | xargs solhint",
-    "fix:sol": "find contracts  -regex \".*\\.sol\" | xargs prettier -w",
+    "lint:ts": "eslint --ext .ts,.js,.cjs,.mjs .",
+    "lint:sol": "solhint 'contracts/**/*.sol'",
+    "fix:sol": "solhint 'contracts/**/*.sol' --fix",
     "compile": "hardhat compile",
     "test": "hardhat test",
     "coverage": "hardhat coverage",
