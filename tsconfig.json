@@ -6,6 +6,6 @@
     "esModuleInterop": true,
     "noEmit": true
   },
-  "include": ["**/*.ts", "**/.eslintrc.js"],
+  "include": ["**/*.ts", "**/.utils/**/*", "**/.eslintrc.js"],
   "exclude": ["node_modules"]
 }

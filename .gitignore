@@ -17,7 +17,9 @@ artifacts
 coverage/
 coverage.json
 abi
+/types/
+/deployments/localhost/
+/deployments/*/solcInputs/
 
 *.code-workspace
-
-deployments/
+.*-version*

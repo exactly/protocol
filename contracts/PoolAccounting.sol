@@ -39,7 +39,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
     uint256 public override smartPoolBorrowed;
 
-    address private fixedLenderAddress;
+    address public fixedLenderAddress;
     IInterestRateModel public interestRateModel;
 
     event Initialized(address indexed fixedLender);

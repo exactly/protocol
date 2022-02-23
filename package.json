@@ -5,10 +5,11 @@
     "lint:sol": "solhint 'contracts/**/*.sol'",
     "fix:sol": "solhint 'contracts/**/*.sol' --fix",
     "compile": "hardhat compile",
-    "test": "hardhat test",
+    "test": "hardhat test --deploy-fixture",
     "coverage": "hardhat coverage",
     "deploy:kovan": "hardhat --network kovan deploy",
-    "deploy:hardhat": "hardhat --network hardhat deploy"
+    "deploy:hardhat": "hardhat --network hardhat deploy",
+    "postinstall": "hardhat compile"
   },
   "engines": {
     "node": ">=16"
