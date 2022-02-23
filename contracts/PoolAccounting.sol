@@ -215,7 +215,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         onlyFixedLender
         returns (uint256 redeemAmountDiscounted, uint256 earningsSP)
     {
-        earningsSP += maturityPools[maturityDate].accrueEarnings(
+        earningsSP = maturityPools[maturityDate].accrueEarnings(
             maturityDate,
             currentTimestamp()
         );
