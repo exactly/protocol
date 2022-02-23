@@ -41,7 +41,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     );
   }
 
-  const { tsUtils, decimalMath, marketsLib, poolLib } = await deployLibraries(
+  const { tsUtils, decimalMath, marketsLib } = await deployLibraries(
     deployer,
     hre
   );
@@ -175,7 +175,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         log: true,
         libraries: {
           TSUtils: tsUtils.address,
-          PoolLib: poolLib.address,
         },
       }
     );
@@ -320,15 +319,6 @@ async function deployLibraries(
       from: deployer,
     }
   );
-  const poolLib = await hardhatRuntimeEnvironment.deployments.deploy(
-    "PoolLib",
-    {
-      from: deployer,
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    }
-  );
   const decimalMath = await hardhatRuntimeEnvironment.deployments.deploy(
     "DecimalMath",
     {
@@ -345,7 +335,7 @@ async function deployLibraries(
     }
   );
 
-  return { tsUtils, decimalMath, marketsLib, poolLib };
+  return { tsUtils, decimalMath, marketsLib };
 }
 
 async function transferOwnershipToTimelock(
