@@ -8,12 +8,12 @@ import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 contract MaturityPoolHarness {
     using PoolLib for PoolLib.MaturityPool;
-    using PoolLib for PoolLib.Debt;
+    using PoolLib for PoolLib.Position;
 
     PoolLib.MaturityPool public maturityPool;
     uint256 public newDebtSP;
     uint256 public smartPoolDebtReduction;
-    PoolLib.Debt public scaledDebt;
+    PoolLib.Position public scaledDebt;
 
     function accrueEarnings(uint256 _maturityID) external {
         // TODO: convert block.number to a state variable to have
@@ -37,24 +37,12 @@ contract MaturityPoolHarness {
         newDebtSP = maturityPool.withdrawMoney(_amount, _maxDebt);
     }
 
-    function addFeeSP(uint256 _fee) external {
-        maturityPool.addFeeSP(_fee);
-    }
-
-    function addFeeMP(uint256 _fee) external {
-        maturityPool.addFeeMP(_fee);
-    }
-
     function addFee(uint256 _fee) external {
         maturityPool.addFee(_fee);
     }
 
     function removeFee(uint256 _fee) external {
         maturityPool.removeFee(_fee);
-    }
-
-    function returnFee(uint256 _fee) external {
-        maturityPool.returnFee(_fee);
     }
 
     function scaleProportionally(

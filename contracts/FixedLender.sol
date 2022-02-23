@@ -330,7 +330,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             TSUtils.State.NONE
         );
 
-        uint256 totalOwed = poolAccounting.borrowMP(
+        (uint256 totalOwed, uint256 earningsSP) = poolAccounting.borrowMP(
             maturityDate,
             msg.sender,
             amount,
@@ -338,6 +338,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             eToken.totalSupply() / MAX_FUTURE_POOLS
         );
         totalMpBorrows += totalOwed;
+
+        eToken.accrueEarnings(earningsSP);
 
         auditor.validateBorrowMP(address(this), msg.sender);
 
@@ -374,12 +376,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         amount = doTransferIn(msg.sender, amount);
 
-        uint256 currentTotalDeposit = poolAccounting.depositMP(
-            maturityDate,
-            msg.sender,
-            amount,
-            minAmountRequired
-        );
+        (uint256 currentTotalDeposit, uint256 earningsSP) = poolAccounting
+            .depositMP(maturityDate, msg.sender, amount, minAmountRequired);
+
+        eToken.accrueEarnings(earningsSP);
 
         emit DepositToMaturityPool(
             msg.sender,
@@ -417,13 +417,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         );
 
         // We check if there's any discount to be applied for early withdrawal
-        uint256 redeemAmountDiscounted = poolAccounting.withdrawMP(
-            maturityDate,
-            redeemer,
-            redeemAmount,
-            minAmountRequired,
-            eToken.totalSupply() / MAX_FUTURE_POOLS
-        );
+        (uint256 redeemAmountDiscounted, uint256 earningsSP) = poolAccounting
+            .withdrawMP(
+                maturityDate,
+                redeemer,
+                redeemAmount,
+                minAmountRequired,
+                eToken.totalSupply() / MAX_FUTURE_POOLS
+            );
+
+        eToken.accrueEarnings(earningsSP);
 
         doTransferOut(redeemer, redeemAmountDiscounted);
 
@@ -549,7 +552,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         (
             uint256 spareRepayAmount,
             uint256 debtCovered,
-            uint256 fee,
             uint256 earningsRepay
         ) = poolAccounting.repayMP(
                 maturityDate,
@@ -562,10 +564,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             doTransferOut(payer, spareRepayAmount);
         }
 
+        // TODO: treasury needs to collect here too
         // We take a share of the spread of the protocol
-        uint256 protocolShare = fee.mul_(protocolSpreadFee);
-        treasury += protocolShare;
-        eToken.accrueEarnings(fee - protocolShare + earningsRepay);
+        eToken.accrueEarnings(earningsRepay);
 
         totalMpBorrows -= debtCovered;
 
