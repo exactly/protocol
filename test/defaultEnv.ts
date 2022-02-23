@@ -115,14 +115,18 @@ export class DefaultEnv {
       "InterestRateModel"
     );
 
+    const realInterestRateModel = await InterestRateModelFactory.deploy(
+      parseUnits("0.0495"), // A parameter for the curve
+      parseUnits("-0.025"), // B parameter for the curve
+      parseUnits("1.1"), // Max utilization rate
+      parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
+    );
+
     const interestRateModel = useRealInterestRateModel
-      ? await InterestRateModelFactory.deploy(
-          parseUnits("0.0495"), // A parameter for the curve
-          parseUnits("-0.025"), // B parameter for the curve
-          parseUnits("1.1"), // Max utilization rate
-          parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
-        )
-      : await MockedInterestRateModelFactory.deploy();
+      ? realInterestRateModel
+      : await MockedInterestRateModelFactory.deploy(
+          realInterestRateModel.address
+        );
     await interestRateModel.deployed();
 
     const Auditor = await ethers.getContractFactory("Auditor", {
@@ -565,12 +569,6 @@ export class DefaultEnv {
     return this.auditor
       .connect(this.currentWallet)
       .setMarketBorrowCaps(markets, borrowCapsBigNumber);
-  }
-
-  public async setExaSpeed(asset: string, speed: string) {
-    return this.auditor
-      .connect(this.currentWallet)
-      .setExaSpeed(this.getFixedLender(asset).address, parseUnits(speed));
   }
 
   public async deployDuplicatedAuditor() {
