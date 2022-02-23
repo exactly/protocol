@@ -284,7 +284,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         RepayVars memory repayVars;
 
         // SP supply needs to accrue its interests
-        earningsSP += maturityPools[maturityDate].accrueEarnings(
+        earningsSP = maturityPools[maturityDate].accrueEarnings(
             maturityDate,
             currentTimestamp()
         );
