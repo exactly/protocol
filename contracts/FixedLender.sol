@@ -330,17 +330,21 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             TSUtils.State.NONE
         );
 
-        (uint256 totalOwed, uint256 earningsSP) = poolAccounting.borrowMP(
-            maturityDate,
-            msg.sender,
-            amount,
-            maxAmountAllowed,
-            eToken.totalSupply() / MAX_FUTURE_POOLS
-        );
+        (
+            uint256 totalOwed,
+            uint256 earningsSP,
+            uint256 earningsTreasury
+        ) = poolAccounting.borrowMP(
+                maturityDate,
+                msg.sender,
+                amount,
+                maxAmountAllowed,
+                eToken.totalSupply() / MAX_FUTURE_POOLS
+            );
         totalMpBorrows += totalOwed;
 
+        treasury += earningsTreasury;
         eToken.accrueEarnings(earningsSP);
-
         auditor.validateBorrowMP(address(this), msg.sender);
 
         doTransferOut(msg.sender, amount);

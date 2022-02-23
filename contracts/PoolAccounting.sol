@@ -20,7 +20,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // Vars used in `borrowMP` to avoid
     // stack too deep problem
     struct BorrowVars {
-        PoolLib.Position debt;
+        PoolLib.Position position;
         uint256 feeRate;
         uint256 fee;
     }
@@ -31,7 +31,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 discountFee;
         uint256 feeSP;
         uint256 amountOwed;
-        PoolLib.Position debt;
+        PoolLib.Position position;
         uint256 amountStillBorrowed;
         uint256 smartPoolDebtReduction;
     }
@@ -107,7 +107,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         external
         override
         onlyFixedLender
-        returns (uint256 totalOwedNewBorrow, uint256 earningsSP)
+        returns (
+            uint256 totalOwedNewBorrow,
+            uint256 earningsSP,
+            uint256 earningsTreasury
+        )
     {
         BorrowVars memory borrowVars;
 
@@ -126,21 +130,27 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         borrowVars.fee = amount.mul_(borrowVars.feeRate);
         totalOwedNewBorrow = amount + borrowVars.fee;
 
+        // We validate that the user is not taking arbitrary fees
         if (totalOwedNewBorrow > maxAmountAllowed) {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        borrowVars.debt = mpUserBorrowedAmount[maturityDate][borrower];
-        if (borrowVars.debt.principal == 0) {
+        // If used doesn't have a current position, we add it to the list
+        // of all of them
+        borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
+        if (borrowVars.position.principal == 0) {
             userMpBorrowed[borrower].push(maturityDate);
         }
 
-        // TODO: add treasury fee here
-        pool.addFee(borrowVars.fee);
+        // We distribute to treasury and also to unassigned
+        earningsTreasury =
+            ((amount - Math.min(pool.suppliedSP, amount)) * borrowVars.fee) /
+            amount;
+        pool.addFee(borrowVars.fee - earningsTreasury);
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
-            borrowVars.debt.principal + amount,
-            borrowVars.debt.fee + borrowVars.fee
+            borrowVars.position.principal + amount,
+            borrowVars.position.fee + borrowVars.fee
         );
     }
 
@@ -187,12 +197,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         earningsSP += feeSP;
 
         // We update users's position
-        PoolLib.Position memory debt = mpUserSuppliedAmount[maturityDate][
+        PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][
             supplier
         ];
         mpUserSuppliedAmount[maturityDate][supplier] = PoolLib.Position(
-            debt.principal + amount,
-            debt.fee + fee
+            position.principal + amount,
+            position.fee + fee
         );
     }
 
@@ -220,13 +230,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             currentTimestamp()
         );
 
-        PoolLib.Position memory debt = mpUserSuppliedAmount[maturityDate][
+        PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][
             redeemer
         ];
 
         // We remove the supply from the offer
         smartPoolBorrowed += maturityPools[maturityDate].withdrawMoney(
-            debt.scaleProportionally(amount).principal,
+            position.scaleProportionally(amount).principal,
             maxSPDebt
         );
 
@@ -256,7 +266,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         maturityPools[maturityDate].removeFee(amount - redeemAmountDiscounted);
 
         // the user gets discounted the full amount
-        mpUserSuppliedAmount[maturityDate][redeemer] = debt
+        mpUserSuppliedAmount[maturityDate][redeemer] = position
             .reduceProportionally(amount);
     }
 
@@ -291,7 +301,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // Amount Owed is (principal+fees)*penalties
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
-        repayVars.debt = mpUserBorrowedAmount[maturityDate][borrower];
+        repayVars.position = mpUserBorrowedAmount[maturityDate][borrower];
 
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
@@ -299,7 +309,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // Math.min to not go over repayAmount since we return exceeding money, but
         // hasn't been calculated yet
         debtCovered = Math.min(
-            (repayAmount * (repayVars.debt.principal + repayVars.debt.fee)) /
+            (repayAmount *
+                (repayVars.position.principal + repayVars.position.fee)) /
                 repayVars.amountOwed,
             repayVars.amountOwed
         );
@@ -313,7 +324,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                     maturityPools[maturityDate].suppliedSP,
                     maturityPools[maturityDate].borrowed,
                     maturityPools[maturityDate].earningsUnassigned,
-                    repayVars.debt.scaleProportionally(debtCovered).principal,
+                    repayVars
+                        .position
+                        .scaleProportionally(debtCovered)
+                        .principal,
                     // ^ this case shouldn't contain penalties since is before maturity date
                     IFixedLender(fixedLenderAddress)
                         .mpDepositDistributionWeighter()
@@ -340,14 +354,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             repayAmount = repayVars.amountOwed;
             debtCovered = Math.min(
                 debtCovered,
-                (repayVars.debt.principal + repayVars.debt.fee)
+                (repayVars.position.principal + repayVars.position.fee)
             );
         } else {
             spareRepayAmount = repayVars.discountFee;
         }
 
         repayVars.amountStillBorrowed =
-            (repayVars.debt.principal + repayVars.debt.fee) -
+            (repayVars.position.principal + repayVars.position.fee) -
             debtCovered;
 
         if (repayVars.amountStillBorrowed == 0) {
@@ -355,14 +369,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         } else {
             // we proportionally reduce the values
             mpUserBorrowedAmount[maturityDate][borrower] = repayVars
-                .debt
+                .position
                 .scaleProportionally(repayVars.amountStillBorrowed);
         }
 
         // We reduce the borrowed and we might decrease the SP debt
-        PoolLib.Position memory scaledDebt = repayVars.debt.scaleProportionally(
-            debtCovered
-        );
+        PoolLib.Position memory scaledDebt = repayVars
+            .position
+            .scaleProportionally(debtCovered);
         repayVars.smartPoolDebtReduction = maturityPools[maturityDate]
             .repayMoney(scaledDebt.principal);
         smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
@@ -448,8 +462,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         view
         returns (uint256 totalDebt)
     {
-        PoolLib.Position memory debt = mpUserBorrowedAmount[maturityDate][who];
-        totalDebt = debt.principal + debt.fee;
+        PoolLib.Position memory position = mpUserBorrowedAmount[maturityDate][
+            who
+        ];
+        totalDebt = position.principal + position.fee;
         uint256 secondsDelayed = TSUtils.secondsPre(
             maturityDate,
             currentTimestamp()

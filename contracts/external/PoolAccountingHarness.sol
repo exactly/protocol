@@ -12,6 +12,7 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 currentTotalWithdrawal;
         uint256 spareAmount;
         uint256 earningsSP;
+        uint256 earningsTreasury;
         uint256 debtCovered;
     }
 
@@ -33,14 +34,17 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 maxAmountAllowed,
         uint256 maxSPDebt
     ) external {
-        (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = this
-            .borrowMP(
-                maturityDate,
-                borrower,
-                amount,
-                maxAmountAllowed,
-                maxSPDebt
-            );
+        (
+            returnValues.totalOwedNewBorrow,
+            returnValues.earningsSP,
+            returnValues.earningsTreasury
+        ) = this.borrowMP(
+            maturityDate,
+            borrower,
+            amount,
+            maxAmountAllowed,
+            maxSPDebt
+        );
     }
 
     function depositMPWithReturnValues(

@@ -12,7 +12,13 @@ interface IPoolAccounting {
         uint256 amount,
         uint256 maxAmountAllowed,
         uint256 maxSPDebt
-    ) external returns (uint256, uint256);
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        );
 
     function depositMP(
         uint256 maturityDate,
