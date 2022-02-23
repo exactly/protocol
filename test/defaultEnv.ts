@@ -27,7 +27,6 @@ export class DefaultEnv {
   auditor: Contract;
   interestRateModel: Contract;
   tsUtils: Contract;
-  poolLib: Contract;
   marketsLib: Contract;
   fixedLenderContracts: Map<string, Contract>;
   poolAccountingContracts: Map<string, Contract>;
@@ -47,7 +46,6 @@ export class DefaultEnv {
     _auditor: Contract,
     _interestRateModel: Contract,
     _tsUtils: Contract,
-    _poolLib: Contract,
     _marketsLib: Contract,
     _fixedLenderContracts: Map<string, Contract>,
     _poolAccountingContracts: Map<string, Contract>,
@@ -64,7 +62,6 @@ export class DefaultEnv {
     this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
-    this.poolLib = _poolLib;
     this.mockedTokens = _mockedTokens;
     this.marketsLib = _marketsLib;
     this.baseRate = parseUnits("0.02");
@@ -90,14 +87,6 @@ export class DefaultEnv {
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
-
-    const PoolLib = await ethers.getContractFactory("PoolLib", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
-    const poolLib = await PoolLib.deploy();
-    await poolLib.deployed();
 
     const MarketsLib = await ethers.getContractFactory("MarketsLib");
     let marketsLib = await MarketsLib.deploy();
@@ -172,7 +161,6 @@ export class DefaultEnv {
           {
             libraries: {
               TSUtils: tsUtils.address,
-              PoolLib: poolLib.address,
             },
           }
         );
@@ -221,7 +209,6 @@ export class DefaultEnv {
       auditor,
       interestRateModel,
       tsUtils,
-      poolLib,
       marketsLib,
       fixedLenderContracts,
       poolAccountingContracts,
@@ -600,7 +587,6 @@ export class DefaultEnv {
     const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
       libraries: {
         TSUtils: this.tsUtils.address,
-        PoolLib: this.poolLib.address,
       },
     });
     const poolAccounting = await PoolAccounting.deploy(
