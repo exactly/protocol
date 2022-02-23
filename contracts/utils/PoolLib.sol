@@ -49,7 +49,7 @@ library PoolLib {
      * @param amount amount to be added to the maturity pool
      */
     function addMoney(MaturityPool storage pool, uint256 amount)
-        external
+        internal
         returns (uint256 smartPoolDebtReduction)
     {
         uint256 suppliedSP = pool.suppliedSP;
@@ -68,7 +68,7 @@ library PoolLib {
      * @param amount amount to be added to the maturity pool
      */
     function repayMoney(MaturityPool storage pool, uint256 amount)
-        external
+        internal
         returns (uint256 smartPoolDebtReduction)
     {
         uint256 suppliedSP = pool.suppliedSP;
@@ -92,7 +92,7 @@ library PoolLib {
         MaturityPool storage pool,
         uint256 amount,
         uint256 maxDebt
-    ) external returns (uint256 newDebtSP) {
+    ) internal returns (uint256 newDebtSP) {
         uint256 newBorrowedMP = pool.borrowed + amount;
         uint256 suppliedMP = pool.supplied;
         uint256 suppliedALL = pool.suppliedSP + suppliedMP;
@@ -125,7 +125,7 @@ library PoolLib {
         MaturityPool storage pool,
         uint256 amount,
         uint256 maxDebt
-    ) external returns (uint256 newDebtSP) {
+    ) internal returns (uint256 newDebtSP) {
         uint256 borrowedMP = pool.borrowed;
         uint256 newSuppliedMP = pool.supplied - amount;
         uint256 newSuppliedALL = pool.suppliedSP + newSuppliedMP;
@@ -152,7 +152,7 @@ library PoolLib {
      * @param pool maturity pool that needs to be updated
      * @param fee fee to be added to the earnings for the pool at maturity
      */
-    function addFee(MaturityPool storage pool, uint256 fee) external {
+    function addFee(MaturityPool storage pool, uint256 fee) internal {
         pool.earningsUnassigned += fee;
     }
 
@@ -161,7 +161,7 @@ library PoolLib {
      * @param pool maturity pool that needs to be updated
      * @param fee fee to be removed from the unassigned earnings
      */
-    function removeFee(MaturityPool storage pool, uint256 fee) external {
+    function removeFee(MaturityPool storage pool, uint256 fee) internal {
         pool.earningsUnassigned -= fee;
     }
 
@@ -174,7 +174,7 @@ library PoolLib {
         MaturityPool storage pool,
         uint256 maturityID,
         uint256 currentTimestamp
-    ) external returns (uint256 earningsSP) {
+    ) internal returns (uint256 earningsSP) {
         uint256 lastAccrue = pool.lastAccrue;
 
         if (lastAccrue == maturityID) {
@@ -204,7 +204,7 @@ library PoolLib {
     }
 
     function scaleProportionally(Position memory debt, uint256 amount)
-        external
+        internal
         pure
         returns (Position memory)
     {
@@ -217,7 +217,7 @@ library PoolLib {
     }
 
     function reduceProportionally(Position memory debt, uint256 amount)
-        external
+        internal
         pure
         returns (Position memory)
     {
@@ -230,7 +230,7 @@ library PoolLib {
     }
 
     function reduceFees(Position memory debt, uint256 fee)
-        external
+        internal
         pure
         returns (Position memory)
     {

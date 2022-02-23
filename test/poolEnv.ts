@@ -4,12 +4,10 @@ import { parseUnits } from "ethers/lib/utils";
 
 export class PoolEnv {
   tsUtils: Contract;
-  poolLib: Contract;
   mpHarness: Contract;
 
-  constructor(_tsUtils: Contract, _poolLib: Contract, _mpHarness: Contract) {
+  constructor(_tsUtils: Contract, _mpHarness: Contract) {
     this.tsUtils = _tsUtils;
-    this.poolLib = _poolLib;
     this.mpHarness = _mpHarness;
   }
 
@@ -100,26 +98,18 @@ export class PoolEnv {
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
 
-    const PoolLib = await ethers.getContractFactory("PoolLib", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
-    const poolLib = await PoolLib.deploy();
-    await poolLib.deployed();
-
     const MaturityPoolHarness = await ethers.getContractFactory(
       "MaturityPoolHarness",
       {
         libraries: {
-          PoolLib: poolLib.address,
+          TSUtils: tsUtils.address,
         },
       }
     );
     let maturityPoolHarness = await MaturityPoolHarness.deploy();
     await maturityPoolHarness.deployed();
 
-    return new PoolEnv(tsUtils, poolLib, maturityPoolHarness);
+    return new PoolEnv(tsUtils, maturityPoolHarness);
   }
 
   /* Replicates PoolLib.sol calculation of unassigned earnings of a maturity pool when calling _accrueAndAddFee function */

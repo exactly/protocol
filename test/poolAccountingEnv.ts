@@ -137,18 +137,9 @@ export class PoolAccountingEnv {
         );
     await interestRateModel.deployed();
 
-    const PoolLib = await ethers.getContractFactory("PoolLib", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
-    let poolLib = await PoolLib.deploy();
-    await poolLib.deployed();
-
     const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
       libraries: {
         TSUtils: tsUtils.address,
-        PoolLib: poolLib.address,
       },
     });
     const realPoolAccounting = await PoolAccounting.deploy(
@@ -171,7 +162,6 @@ export class PoolAccountingEnv {
       {
         libraries: {
           TSUtils: tsUtils.address,
-          PoolLib: poolLib.address,
         },
       }
     );
