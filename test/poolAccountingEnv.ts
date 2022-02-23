@@ -7,19 +7,16 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 export class PoolAccountingEnv {
   interestRateModel: Contract;
   poolAccountingHarness: Contract;
-  fixedLender: Contract;
   currentWallet: SignerWithAddress;
   maxSPDebt = parseUnits("100000");
 
   constructor(
     _interestRateModel: Contract,
     _poolAccountingHarness: Contract,
-    _fixedLender: Contract,
     _currentWallet: SignerWithAddress
   ) {
     this.interestRateModel = _interestRateModel;
     this.poolAccountingHarness = _poolAccountingHarness;
-    this.fixedLender = _fixedLender;
     this.currentWallet = _currentWallet;
   }
 
@@ -117,7 +114,8 @@ export class PoolAccountingEnv {
       parseUnits("0.07"), // Maturity pool slope rate
       parseUnits("0.07"), // Smart pool slope rate
       parseUnits("0.02"), // Base rate
-      parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
+      parseUnits("0.0000002315"), // Penalty Rate per second (86400 is ~= 2%)
+      parseUnits("0") // SP rate if 0 then no fees charged for the mp depositors' yield
     );
 
     // MockedInterestRateModel is wrapping the real IRM since getYieldToDeposit
@@ -148,17 +146,6 @@ export class PoolAccountingEnv {
       interestRateModel.address
     );
     await realPoolAccounting.deployed();
-    const FixedLender = await ethers.getContractFactory("FixedLender");
-    const addressZero = "0x0000000000000000000000000000000000000000";
-    // We only deploy a FixedLender to be able to access mpDepositDistributionWeighter parameter and to also call setMpDepositDistributionWeighter
-    const fixedLender = await FixedLender.deploy(
-      addressZero,
-      "DAI",
-      addressZero,
-      addressZero,
-      addressZero
-    );
-    await fixedLender.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
       "PoolAccountingHarness",
       {
@@ -169,8 +156,7 @@ export class PoolAccountingEnv {
       }
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
-      interestRateModel.address,
-      fixedLender.address
+      interestRateModel.address
     );
     await poolAccountingHarness.deployed();
     // We initialize it with itself, so it can call the methods from within
@@ -181,7 +167,6 @@ export class PoolAccountingEnv {
     return new PoolAccountingEnv(
       interestRateModel,
       poolAccountingHarness,
-      fixedLender,
       owner
     );
   }

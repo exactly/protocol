@@ -29,10 +29,8 @@ contract MockedInterestRateModel is IInterestRateModel {
 
     function getYieldForDeposit(
         uint256 suppliedSP,
-        uint256 borrowed,
         uint256 unassignedEarnings,
-        uint256 amount,
-        uint256 mpDepositsWeighter
+        uint256 amount
     )
         external
         view
@@ -44,19 +42,13 @@ contract MockedInterestRateModel is IInterestRateModel {
         return
             realInterestRateModel.getYieldForDeposit(
                 suppliedSP,
-                borrowed,
                 unassignedEarnings,
-                amount,
-                mpDepositsWeighter
+                amount
             );
     }
 
     function setBorrowRate(uint256 newRate) public {
         borrowRate = newRate;
-    }
-
-    function setSPFeeRate(uint256 newRate) public {
-        spFeeRate = newRate;
     }
 
     function setPenaltyRate(uint256 newRate) public {
