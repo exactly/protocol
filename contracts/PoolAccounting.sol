@@ -162,7 +162,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         external
         override
         onlyFixedLender
-        returns (uint256 currentTotalDeposit, uint256 spEarnings)
+        returns (uint256 currentTotalDeposit, uint256 earningsSP)
     {
         maturityPools[maturityDate].accrueEarnings(
             maturityDate,
