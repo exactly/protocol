@@ -11,9 +11,9 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 currentTotalDeposit;
         uint256 currentTotalWithdrawal;
         uint256 spareAmount;
+        uint256 earningsSP;
+        uint256 earningsTreasury;
         uint256 debtCovered;
-        uint256 fee;
-        uint256 earningsRepay;
     }
 
     ReturnValues public returnValues;
@@ -34,7 +34,11 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 maxAmountAllowed,
         uint256 maxSPDebt
     ) external {
-        returnValues.totalOwedNewBorrow = this.borrowMP(
+        (
+            returnValues.totalOwedNewBorrow,
+            returnValues.earningsSP,
+            returnValues.earningsTreasury
+        ) = this.borrowMP(
             maturityDate,
             borrower,
             amount,
@@ -49,12 +53,8 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 amount,
         uint256 minAmountRequired
     ) external {
-        returnValues.currentTotalDeposit = this.depositMP(
-            maturityDate,
-            supplier,
-            amount,
-            minAmountRequired
-        );
+        (returnValues.currentTotalDeposit, returnValues.earningsSP) = this
+            .depositMP(maturityDate, supplier, amount, minAmountRequired);
     }
 
     function withdrawMPWithReturnValues(
@@ -64,13 +64,14 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 minAmountRequired,
         uint256 maxSPDebt
     ) external {
-        returnValues.currentTotalWithdrawal = this.withdrawMP(
-            maturityDate,
-            redeemer,
-            amount,
-            minAmountRequired,
-            maxSPDebt
-        );
+        (returnValues.currentTotalWithdrawal, returnValues.earningsSP) = this
+            .withdrawMP(
+                maturityDate,
+                redeemer,
+                amount,
+                minAmountRequired,
+                maxSPDebt
+            );
     }
 
     function repayMPWithReturnValues(
@@ -82,8 +83,7 @@ contract PoolAccountingHarness is PoolAccounting {
         (
             returnValues.spareAmount,
             returnValues.debtCovered,
-            returnValues.fee,
-            returnValues.earningsRepay
+            returnValues.earningsSP
         ) = this.repayMP(maturityDate, borrower, repayAmount, maxAmountAllowed);
     }
 

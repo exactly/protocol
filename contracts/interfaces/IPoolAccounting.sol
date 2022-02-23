@@ -12,14 +12,20 @@ interface IPoolAccounting {
         uint256 amount,
         uint256 maxAmountAllowed,
         uint256 maxSPDebt
-    ) external returns (uint256);
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        );
 
     function depositMP(
         uint256 maturityDate,
         address supplier,
         uint256 amount,
         uint256 minAmountRequired
-    ) external returns (uint256);
+    ) external returns (uint256, uint256);
 
     function withdrawMP(
         uint256 maturityDate,
@@ -27,7 +33,7 @@ interface IPoolAccounting {
         uint256 amount,
         uint256 minAmountRequired,
         uint256 maxSPDebt
-    ) external returns (uint256);
+    ) external returns (uint256, uint256);
 
     function repayMP(
         uint256 maturityDate,
@@ -37,7 +43,6 @@ interface IPoolAccounting {
     )
         external
         returns (
-            uint256,
             uint256,
             uint256,
             uint256
