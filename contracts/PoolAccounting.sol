@@ -10,7 +10,6 @@ import "./interfaces/IFixedLender.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
-import "hardhat/console.sol";
 
 contract PoolAccounting is IPoolAccounting, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
@@ -181,10 +180,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
             maturityPools[maturityDate].suppliedSP,
-            maturityPools[maturityDate].borrowed,
             maturityPools[maturityDate].earningsUnassigned,
-            amount,
-            IFixedLender(fixedLenderAddress).mpDepositDistributionWeighter()
+            amount
         );
 
         currentTotalDeposit = amount + fee;
@@ -193,7 +190,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         smartPoolBorrowed -= maturityPools[maturityDate].addMoney(amount);
-        maturityPools[maturityDate].removeFee(fee);
+        maturityPools[maturityDate].removeFee(fee + feeSP);
         earningsSP += feeSP;
 
         // We update users's position
@@ -322,15 +319,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             (repayVars.discountFee, repayVars.feeSP) = interestRateModel
                 .getYieldForDeposit(
                     maturityPools[maturityDate].suppliedSP,
-                    maturityPools[maturityDate].borrowed,
                     maturityPools[maturityDate].earningsUnassigned,
                     repayVars
                         .position
                         .scaleProportionally(debtCovered)
-                        .principal,
+                        .principal
                     // ^ this case shouldn't contain penalties since is before maturity date
-                    IFixedLender(fixedLenderAddress)
-                        .mpDepositDistributionWeighter()
                 );
 
             earningsSP += repayVars.feeSP;
