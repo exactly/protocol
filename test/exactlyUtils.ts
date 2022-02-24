@@ -92,6 +92,14 @@ export type MockedTokenSpec = {
   usdPrice: BigNumber;
 };
 
+export type MaturityPoolState = {
+  borrowFees: BigNumber;
+  earningsTreasury: BigNumber;
+  earningsUnassigned: BigNumber;
+  earningsSP: BigNumber;
+  earningsMP: BigNumber;
+};
+
 export const defaultMockedTokens: Map<string, MockedTokenSpec> = new Map([
   [
     "DAI",

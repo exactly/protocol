@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
 import { BigNumber, Contract } from "ethers";
-import { applyMaxFee, noDiscount } from "./exactlyUtils";
+import { applyMaxFee, noDiscount, MaturityPoolState } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -36,13 +36,11 @@ export class PoolAccountingEnv {
     return this.realInterestRateModel;
   }
 
-  public getAllEarnings(maturityPoolState: any): number {
-    return (
-      maturityPoolState.earningsSP +
-      maturityPoolState.earningsMP +
-      maturityPoolState.earningsTreasury +
-      maturityPoolState.earningsUnassigned
-    );
+  public getAllEarnings(maturityPoolState: MaturityPoolState): BigNumber {
+    return maturityPoolState.earningsSP
+      .add(maturityPoolState.earningsMP)
+      .add(maturityPoolState.earningsTreasury)
+      .add(maturityPoolState.earningsUnassigned);
   }
 
   public async repayMP(
