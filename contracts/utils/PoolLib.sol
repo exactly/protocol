@@ -132,6 +132,7 @@ library PoolLib {
         uint256 newSuppliedMP = pool.supplied - amountToDiscount;
         uint256 newSuppliedALL = pool.suppliedSP +
             newSuppliedMP +
+            amountToDiscount -
             amountToWithdraw;
 
         // by reducing supply we might need to take debt from SP

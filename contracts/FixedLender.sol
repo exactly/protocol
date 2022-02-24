@@ -421,8 +421,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         );
 
         // We check if there's any discount to be applied for early withdrawal
-        (uint256 redeemAmountDiscounted, uint256 earningsSP) = poolAccounting
-            .withdrawMP(
+        (
+            uint256 redeemAmountDiscounted,
+            uint256 earningsSP,
+            uint256 earningsTreasury
+        ) = poolAccounting.withdrawMP(
                 maturityDate,
                 redeemer,
                 redeemAmount,
@@ -431,6 +434,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             );
 
         eToken.accrueEarnings(earningsSP);
+        treasury += earningsTreasury;
 
         doTransferOut(redeemer, redeemAmountDiscounted);
 

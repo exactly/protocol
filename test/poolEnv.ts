@@ -89,6 +89,19 @@ export class PoolEnv {
   public async withdrawMoney(amount: string, maxDebt: string) {
     return this.mpHarness.withdrawMoney(
       parseUnits(amount),
+      parseUnits(amount),
+      parseUnits(maxDebt)
+    );
+  }
+
+  public async withdrawMoneyAsym(
+    amountToDiscount: string,
+    amountToGive: string,
+    maxDebt: string
+  ) {
+    return this.mpHarness.withdrawMoney(
+      parseUnits(amountToDiscount),
+      parseUnits(amountToGive),
       parseUnits(maxDebt)
     );
   }
