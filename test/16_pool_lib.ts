@@ -294,6 +294,25 @@ describe("Pool Management Library", () => {
                 expect(newDebtSpReturned).to.equal(parseUnits("50"));
               });
             });
+            describe("WHEN another 50 tokens are withdrawn for 45 tokens", async () => {
+              beforeEach(async () => {
+                await poolEnv.withdrawMoneyAsym("50", "45", mockedMaxDebt);
+                mp = await poolEnv.mpHarness.maturityPool();
+              });
+
+              it("THEN the pool 'supplied' is 0", async () => {
+                expect(mp.supplied).to.equal(parseUnits("0"));
+              });
+              it("THEN the newDebtSP that is returned is 45", async () => {
+                const newDebtSpReturned = await poolEnv
+                  .getMpHarness()
+                  .newDebtSP();
+                expect(newDebtSpReturned).to.equal(parseUnits("45"));
+              });
+              it("THEN the mp.suppliedSP is 95", async () => {
+                expect(mp.suppliedSP).to.equal(parseUnits("95"));
+              });
+            });
             describe("AND WHEN more tokens are taken out than the max sp debt", async () => {
               let tx: any;
               beforeEach(async () => {

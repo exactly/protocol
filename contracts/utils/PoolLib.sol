@@ -117,29 +117,32 @@ library PoolLib {
      *         maturity pool that returns if there's new debt to be taken out
      *         of the smart pool
      * @param pool maturity pool where money needs to be withdrawn
-     * @param amount amount to be taken out of the pool before it matures
+     * @param amountToDiscount previous amount that the user deposited
+     * @param amountToWithdraw amount that the user will withdraw
      * @return newDebtSP amount of new debt that needs to be taken out of the SP
      */
     function withdrawMoney(
         MaturityPool storage pool,
-        uint256 amount,
+        uint256 amountToDiscount,
+        uint256 amountToWithdraw,
         uint256 maxDebt
     ) internal returns (uint256 newDebtSP) {
         uint256 borrowedMP = pool.borrowed;
-        uint256 newSuppliedMP = pool.supplied - amount;
-        uint256 newSuppliedALL = pool.suppliedSP + newSuppliedMP;
+        uint256 newSuppliedMP = pool.supplied - amountToDiscount;
+        uint256 newSuppliedALL = pool.suppliedSP +
+            newSuppliedMP +
+            amountToDiscount -
+            amountToWithdraw;
 
         // by reducing supply we might need to take debt from SP
         if (borrowedMP > newSuppliedALL) {
-            // We verify the SP is not taking too much debt
-            uint256 newSupplySP = borrowedMP - newSuppliedMP;
-            if (newSupplySP > maxDebt) {
-                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-            }
-
             // We take money out from the Smart Pool
             // because there's not enough in the MP
             newDebtSP = borrowedMP - newSuppliedALL;
+            uint256 newSupplySP = pool.suppliedSP + newDebtSP;
+            if (newSupplySP > maxDebt) {
+                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+            }
             pool.suppliedSP = newSupplySP;
         }
 

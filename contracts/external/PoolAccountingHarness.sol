@@ -59,14 +59,17 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 minAmountRequired,
         uint256 maxSPDebt
     ) external {
-        (returnValues.currentTotalWithdrawal, returnValues.earningsSP) = this
-            .withdrawMP(
-                maturityDate,
-                redeemer,
-                amount,
-                minAmountRequired,
-                maxSPDebt
-            );
+        (
+            returnValues.currentTotalWithdrawal,
+            returnValues.earningsSP,
+            returnValues.earningsTreasury
+        ) = this.withdrawMP(
+            maturityDate,
+            redeemer,
+            amount,
+            minAmountRequired,
+            maxSPDebt
+        );
     }
 
     function repayMPWithReturnValues(
