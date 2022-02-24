@@ -99,7 +99,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (currentDate >= maturityDate) {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
-        uint256 supplied = Math.max(smartPoolLiquidityShare, suppliedMP);
+        uint256 supplied = smartPoolLiquidityShare + suppliedMP;
         if (supplied == 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
