@@ -238,12 +238,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         ];
 
         // We verify if there are any penalties/fee for him because of
-        // early withdrawal
+        // early withdrawal - if so: discount
         if (currentTimestamp() < maturityDate) {
             uint256 feeRate = interestRateModel.getRateToBorrow(
                 maturityDate,
                 block.timestamp,
-                pool.borrowed,
+                pool.borrowed + amount, // like asking for a loan full amount
                 pool.supplied,
                 maxSPDebt
             );
