@@ -223,28 +223,23 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         external
         override
         onlyFixedLender
-        returns (uint256 redeemAmountDiscounted, uint256 earningsSP)
+        returns (
+            uint256 redeemAmountDiscounted,
+            uint256 earningsSP,
+            uint256 earningsTreasury
+        )
     {
-        earningsSP = maturityPools[maturityDate].accrueEarnings(
-            maturityDate,
-            currentTimestamp()
-        );
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+
+        earningsSP = pool.accrueEarnings(maturityDate, currentTimestamp());
 
         PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][
             redeemer
         ];
 
-        // We remove the supply from the offer
-        smartPoolBorrowed += maturityPools[maturityDate].withdrawMoney(
-            position.scaleProportionally(amount).principal,
-            maxSPDebt
-        );
-
         // We verify if there are any penalties/fee for him because of
         // early withdrawal
         if (currentTimestamp() < maturityDate) {
-            PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
-
             uint256 feeRate = interestRateModel.getRateToBorrow(
                 maturityDate,
                 block.timestamp,
@@ -261,9 +256,19 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        // and we cancelled some future fees at maturity
-        // (instead of transferring to the depositor)
-        maturityPools[maturityDate].removeFee(amount - redeemAmountDiscounted);
+        // We remove the supply from the offer
+        smartPoolBorrowed += pool.withdrawMoney(
+            position.scaleProportionally(amount).principal,
+            redeemAmountDiscounted,
+            maxSPDebt
+        );
+
+        // All the fees go to unassigned or to the treasury
+        uint256 earnings = amount - redeemAmountDiscounted;
+        earningsTreasury =
+            ((amount - Math.min(pool.suppliedSP, amount)) * earnings) /
+            amount;
+        maturityPools[maturityDate].addFee(earnings - earningsTreasury);
 
         // the user gets discounted the full amount
         mpUserSuppliedAmount[maturityDate][redeemer] = position
