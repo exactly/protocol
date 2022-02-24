@@ -309,6 +309,9 @@ describe("Pool Management Library", () => {
                   .newDebtSP();
                 expect(newDebtSpReturned).to.equal(parseUnits("45"));
               });
+              it("THEN the mp.suppliedSP is 95", async () => {
+                expect(mp.suppliedSP).to.equal(parseUnits("95"));
+              });
             });
             describe("AND WHEN more tokens are taken out than the max sp debt", async () => {
               let tx: any;

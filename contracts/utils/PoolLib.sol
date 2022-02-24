@@ -137,15 +137,13 @@ library PoolLib {
 
         // by reducing supply we might need to take debt from SP
         if (borrowedMP > newSuppliedALL) {
-            // We verify the SP is not taking too much debt
-            uint256 newSupplySP = borrowedMP - newSuppliedMP;
-            if (newSupplySP > maxDebt) {
-                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-            }
-
             // We take money out from the Smart Pool
             // because there's not enough in the MP
             newDebtSP = borrowedMP - newSuppliedALL;
+            uint256 newSupplySP = pool.suppliedSP + newDebtSP;
+            if (newSupplySP > maxDebt) {
+                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+            }
             pool.suppliedSP = newSupplySP;
         }
 
