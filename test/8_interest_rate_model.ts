@@ -650,174 +650,148 @@ describe("InterestRateModel", () => {
     });
   });
 
-  describe("getYieldForDeposit with a normal weighter distrubition parameter (100%)", async () => {
-    const mpDepositDistributionWeighter = parseUnits("1");
-
-    it("WHEN supply SP is 100, borrowed is 100, earnings unassigned are 100, and amount deposited is 100, then fee is 90 (and 10 for the SP)", async () => {
+  describe("getYieldForDeposit without a spFeeRate (0%)", async () => {
+    it("WHEN suppliedSP is 100, unassignedEarnings are 100, and amount deposited is 100, THEN earningsShare is 100 (0 for the SP)", async () => {
       const result = await interestRateModel.getYieldForDeposit(
         parseUnits("100"),
         parseUnits("100"),
-        parseUnits("100"),
-        parseUnits("100"),
-        mpDepositDistributionWeighter
-      );
-
-      expect(result[0]).to.equal(parseUnits("90"));
-      expect(result[1]).to.equal(parseUnits("10"));
-    });
-
-    it("WHEN supply SP is 100, borrowed is 200, earnings unassigned are 100, and amount deposited is 100, then fee is 45 (5 for the SP)", async () => {
-      const result = await interestRateModel.getYieldForDeposit(
-        parseUnits("100"),
-        parseUnits("200"),
-        parseUnits("100"),
-        parseUnits("100"),
-        mpDepositDistributionWeighter
-      );
-
-      // there were 100 to be distributed, so 50 belonged were supported by MP depositors
-      // and the other 50 were supported by SP debt. When depositing to cover de SP debt,
-      // then the SP takes 10% fee to be replaced (50*0.1 = 5 in this case)
-      expect(result[0]).to.equal(parseUnits("45"));
-      expect(result[1]).to.equal(parseUnits("5"));
-    });
-
-    it("WHEN supply SP is 0, borrowed is 200, earnings unassigned are 100, and amount deposited is 100, then fee is 50", async () => {
-      const result = await interestRateModel.getYieldForDeposit(
-        parseUnits("0"),
-        parseUnits("200"),
-        parseUnits("100"),
-        parseUnits("100"),
-        mpDepositDistributionWeighter
-      );
-
-      // there were 100 to be distributed, all supported by deposits of the MP. Then
-      // it takes a part of the supply and pays no SP debt replacement fee
-      expect(result[0]).to.equal(parseUnits("50"));
-    });
-
-    it("WHEN supply of smart pool is 0, borrowed is 0, earnings unassigned are 0, and amount deposited is 100, then fee is 0", async () => {
-      const result = await interestRateModel.getYieldForDeposit(
-        parseUnits("0"),
-        parseUnits("0"),
-        parseUnits("0"),
-        parseUnits("100"),
-        mpDepositDistributionWeighter
-      );
-
-      expect(result[0]).to.equal(parseUnits("0"));
-    });
-
-    it("WHEN supply of smart pool is 100, borrowed is 100, earnings unassigned are 0, and amount deposited is 100, then fee is 0", async () => {
-      const result = await interestRateModel.getYieldForDeposit(
-        parseUnits("100"),
-        parseUnits("100"),
-        parseUnits("0"),
-        parseUnits("100"),
-        mpDepositDistributionWeighter
-      );
-
-      expect(result[0]).to.equal(parseUnits("0"));
-    });
-
-    it("WHEN supply of smart pool is 0, borrowed is 0, earnings unassigned are 100, and amount deposited is 100, then fee is 100", async () => {
-      const result = await interestRateModel.getYieldForDeposit(
-        parseUnits("0"),
-        parseUnits("100"),
-        parseUnits("100"),
-        parseUnits("100"),
-        mpDepositDistributionWeighter
+        parseUnits("100")
       );
 
       expect(result[0]).to.equal(parseUnits("100"));
+      expect(result[1]).to.equal(parseUnits("0"));
     });
 
-    it("WHEN supply of smart pool is 100, earnings unassigned are 0, and amount deposited is 100, then yield is 0", async () => {
-      expect(
-        await interestRateModel.getYieldForDeposit(
-          parseUnits("100"),
-          parseUnits("0"),
-          parseUnits("100"),
-          mpDepositDistributionWeighter
-        )
-      ).to.equal(parseUnits("0"));
+    it("WHEN suppliedSP is 101, unassignedEarnings are 100, and amount deposited is 100, THEN earningsShare is 99.0099... (0 for the SP)", async () => {
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("101"),
+        parseUnits("100"),
+        parseUnits("100")
+      );
+
+      expect(result[0]).to.closeTo(
+        parseUnits("99.00990099"),
+        parseUnits("00.00000001").toNumber()
+      );
+      expect(result[1]).to.eq(parseUnits("0"));
+    });
+
+    it("WHEN suppliedSP is 200, unassignedEarnings are 100, and amount deposited is 100, THEN earningsShare is 50 (0 for the SP)", async () => {
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("200"),
+        parseUnits("100"),
+        parseUnits("100")
+      );
+
+      expect(result[0]).to.equal(parseUnits("50"));
+      expect(result[1]).to.equal(parseUnits("0"));
+    });
+
+    it("WHEN suppliedSP is 0, unassignedEarnings are 100, and amount deposited is 100, THEN earningsShare is 0 (0 for the SP)", async () => {
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("0"),
+        parseUnits("100"),
+        parseUnits("100")
+      );
+
+      expect(result[0]).to.equal(parseUnits("0"));
+      expect(result[1]).to.equal(parseUnits("0"));
+    });
+
+    it("WHEN suppliedSP is 100, unassignedEarnings are 0, and amount deposited is 100, THEN earningsShare is 0 (0 for the SP)", async () => {
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("100"),
+        parseUnits("0"),
+        parseUnits("100")
+      );
+
+      expect(result[0]).to.equal(parseUnits("0"));
+      expect(result[1]).to.equal(parseUnits("0"));
+    });
+
+    it("WHEN suppliedSP is 100, unassignedEarnings are 100, and amount deposited is 0, THEN earningsShare is 0 (0 for the SP)", async () => {
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("100"),
+        parseUnits("100"),
+        parseUnits("0")
+      );
+
+      expect(result[0]).to.equal(parseUnits("0"));
+      expect(result[1]).to.equal(parseUnits("0"));
     });
   });
 
-  describe("getYieldForDeposit with a custom weighter distribution parameter, smart pool supply of 100, unassigned earnings of 100 and amount deposited of 100", async () => {
-    let mpDepositDistributionWeighter: any;
+  describe("getYieldForDeposit with a custom spFeeRate, suppliedSP of 100, unassignedEarnings of 100 and amount deposited of 100", async () => {
+    it("WHEN spFeeRate is 50%, THEN earningsShare is 50 (50 for the SP)", async () => {
+      await interestRateModel.setSPFeeRate(parseUnits("0.5"));
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("100"),
+        parseUnits("100"),
+        parseUnits("100")
+      );
 
-    it("WHEN mpDepositDistributionWeighter is 50%, then yield is 33.3333...", async () => {
-      mpDepositDistributionWeighter = parseUnits("0.5");
-      expect(
-        await interestRateModel.getYieldForDeposit(
-          parseUnits("100"),
-          parseUnits("100"),
-          parseUnits("100"),
-          mpDepositDistributionWeighter
-        )
-      ).to.closeTo(
-        parseUnits("33.33333333"),
-        parseUnits("0.00000001").toNumber()
+      expect(result[0]).to.equal(parseUnits("50"));
+      expect(result[1]).to.equal(parseUnits("50"));
+    });
+
+    it("WHEN spFeeRate is 100%, THEN earningsShare is 0 (100 for the SP)", async () => {
+      await interestRateModel.setSPFeeRate(parseUnits("1"));
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("100"),
+        parseUnits("100"),
+        parseUnits("100")
+      );
+
+      expect(result[0]).to.equal(parseUnits("0"));
+      expect(result[1]).to.equal(parseUnits("100"));
+    });
+
+    it("WHEN spFeeRate is 30%, THEN earningsShare is 70 (30 for the SP)", async () => {
+      await interestRateModel.setSPFeeRate(parseUnits("0.3"));
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("100"),
+        parseUnits("100"),
+        parseUnits("100")
+      );
+
+      expect(result[0]).to.eq(parseUnits("70"));
+      expect(result[1]).to.eq(parseUnits("30"));
+    });
+
+    it("WHEN spFeeRate is 30% AND suppliedSP is 101 THEN earningsShare is 69.3069... (29.7029... for the SP)", async () => {
+      await interestRateModel.setSPFeeRate(parseUnits("0.3"));
+      const result = await interestRateModel.getYieldForDeposit(
+        parseUnits("101"),
+        parseUnits("100"),
+        parseUnits("100")
+      );
+
+      expect(result[0]).to.closeTo(
+        parseUnits("69.30693069"),
+        parseUnits("00.00000001").toNumber()
+      );
+      expect(result[1]).to.closeTo(
+        parseUnits("29.70297029"),
+        parseUnits("00.00000001").toNumber()
       );
     });
+  });
 
-    it("WHEN mpDepositDistributionWeighter is 150%, then yield is 60", async () => {
-      mpDepositDistributionWeighter = parseUnits("1.5");
-      expect(
-        await interestRateModel.getYieldForDeposit(
-          parseUnits("100"),
-          parseUnits("100"),
-          parseUnits("100"),
-          mpDepositDistributionWeighter
-        )
-      ).to.equal(parseUnits("60"));
-    });
+  it("WHEN calling setSPFeeRate function, THEN it should update spFeeRate", async () => {
+    await interestRateModel.setSPFeeRate(parseUnits("0.5"));
+    expect(await interestRateModel.spFeeRate()).to.eq(parseUnits("0.5"));
+  });
 
-    it("WHEN mpDepositDistributionWeighter is 200%, then yield is 66.6666...", async () => {
-      mpDepositDistributionWeighter = parseUnits("2");
-      expect(
-        await interestRateModel.getYieldForDeposit(
-          parseUnits("100"),
-          parseUnits("100"),
-          parseUnits("100"),
-          mpDepositDistributionWeighter
-        )
-      ).to.closeTo(
-        parseUnits("66.66666666"),
-        parseUnits("0.00000001").toNumber()
-      );
-    });
+  it("WHEN calling setSPFeeRate function with a value higher than 100% (1), THEN it should revert with INVALID_SP_FEE_RATE error", async () => {
+    await expect(
+      interestRateModel.setSPFeeRate(parseUnits("1.01"))
+    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_SP_FEE_RATE));
+  });
 
-    it("WHEN mpDepositDistributionWeighter is 1000%, then yield is 90.9090...", async () => {
-      mpDepositDistributionWeighter = parseUnits("10");
-      expect(
-        await interestRateModel.getYieldForDeposit(
-          parseUnits("100"),
-          parseUnits("100"),
-          parseUnits("100"),
-          mpDepositDistributionWeighter
-        )
-      ).to.closeTo(
-        parseUnits("90.90909090"),
-        parseUnits("0.00000001").toNumber()
-      );
-    });
-
-    it("WHEN mpDepositDistributionWeighter is 10000%, then yield is 99.0099...", async () => {
-      mpDepositDistributionWeighter = parseUnits("100");
-      expect(
-        await interestRateModel.getYieldForDeposit(
-          parseUnits("100"),
-          parseUnits("100"),
-          parseUnits("100"),
-          mpDepositDistributionWeighter
-        )
-      ).to.closeTo(
-        parseUnits("99.00990099"),
-        parseUnits("0.00000001").toNumber()
-      );
-    });
+  it("WHEN an unauthorized user calls setSPFeeRate function, THEN it should revert", async () => {
+    await expect(
+      interestRateModel.connect(alice).setSPFeeRate(parseUnits("0"))
+    ).to.be.revertedWith("AccessControl");
   });
 
   it("WHEN an unauthorized user calls setParameters function, THEN it should revert", async () => {

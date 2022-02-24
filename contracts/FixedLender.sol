@@ -22,7 +22,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     uint256 public protocolSpreadFee = 2.8e16; // 2.8%
     uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
-    uint256 public override mpDepositDistributionWeighter = 1e18; // 100%
     uint8 public constant MAX_FUTURE_POOLS = 12; // if every 14 days, then 6 months
     uint256 public treasury;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -188,17 +187,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         protocolLiquidationFee = _protocolLiquidationFee;
-    }
-
-    /**
-     * @dev Sets the maturity pool deposits' weighter used to increase or decrease the deposit amount in order
-     *      to share out more or less unassigned earnings to that deposit
-     * @param _mpDepositDistributionWeighter percentage amount represented with 1e18 decimals that will multiply the amount to deposit
-     */
-    function setMpDepositDistributionWeighter(
-        uint256 _mpDepositDistributionWeighter
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        mpDepositDistributionWeighter = _mpDepositDistributionWeighter;
     }
 
     /**
