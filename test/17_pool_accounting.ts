@@ -20,7 +20,7 @@ describe("PoolAccounting", () => {
     [, laura] = await ethers.getSigners();
     poolAccountingEnv = await PoolAccountingEnv.create();
     poolAccountingHarness = poolAccountingEnv.poolAccountingHarness;
-    mockedInterestRateModel = poolAccountingEnv.interestRateModel;
+    mockedInterestRateModel = poolAccountingEnv.mockedInterestRateModel;
   });
 
   describe("function calls not originating from the FixedLender contract", () => {
@@ -168,7 +168,7 @@ describe("PoolAccounting", () => {
         it("THEN earningsUnassigned are 0", async () => {
           expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
         });
-        it("THEN the maturity pool state is correctly updated", async () => {
+        it("THEN the lastAccrue is 3 days to maturity", async () => {
           expect(mp.lastAccrue).to.eq(threeDaysToMaturity);
         });
         it("THEN the earningsTreasury returned are 250", async () => {
@@ -231,7 +231,7 @@ describe("PoolAccounting", () => {
             );
           });
 
-          describe("AND GIVEN another depositMP with an amount of 5000 (all fees earned) (1 day to)", () => {
+          describe("AND GIVEN another depositMP with an amount of 5000 (half of 250 unassigned earnings earned) (1 day to)", () => {
             const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
             let mp: any;
             beforeEach(async () => {
@@ -279,69 +279,56 @@ describe("PoolAccounting", () => {
             });
           });
 
-          // describe("AND GIVEN another depositMP with an amount of 5000 and with a spFeeRate of 150% (203 fees earned)", () => {
-          //   const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
-          //   let mp: any;
-          //   beforeEach(async () => {
-          //     await fixedLender.setMpDepositDistributionWeighter(
-          //       parseUnits("1.5")
-          //     );
-          //     await poolAccountingEnv.moveInTime(oneDayToMaturity);
-          //     depositAmount = 10000;
-          //     await poolAccountingHarness
-          //       .connect(laura)
-          //       .depositMP(
-          //         nextPoolID,
-          //         laura.address,
-          //         parseUnits(depositAmount.toString()),
-          //         parseUnits(depositAmount.toString())
-          //       );
-          //     returnValues = await poolAccountingHarness.returnValues();
-          //     mp = await poolAccountingHarness.maturityPools(nextPoolID);
-          //   });
+          describe("AND GIVEN another depositMP with an amount of 5000 and with a spFeeRate of 10% (125 - (125 * 0.1) fees earned)", () => {
+            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
+            let mp: any;
+            beforeEach(async () => {
+              await poolAccountingEnv
+                .getRealInterestRateModel()
+                .setSPFeeRate(parseUnits("0.1")); // 10% fees charged from the mp depositor yield to the sp earnings
+              await poolAccountingEnv.moveInTime(oneDayToMaturity);
+              depositAmount = 10000;
+              await poolAccountingEnv.depositMP(
+                nextPoolID,
+                depositAmount.toString()
+              );
+              returnValues = await poolAccountingHarness.returnValues();
+              mp = await poolAccountingHarness.maturityPools(nextPoolID);
+            });
 
-          //   it("THEN borrowed is 3x borrowAmount", async () => {
-          //     expect(mp.borrowed).to.eq(
-          //       parseUnits((borrowAmount * 3).toString()) // 3 borrows of 5k where made
-          //     );
-          //   });
-          //   it("THEN supplied is 2x depositAmount", async () => {
-          //     expect(mp.supplied).to.eq(
-          //       parseUnits((depositAmount * 2).toString()) // 2 deposits of 10k where made
-          //     );
-          //   });
-          //   it("THEN suppliedSP is 1x borrowAmount", async () => {
-          //     expect(mp.suppliedSP).to.eq(parseUnits(borrowAmount.toString()));
-          //   });
-          //   it("THEN unassignedEarnings are 542 / 2 - earnedFees", async () => {
-          //     depositAmount = depositAmount * 1.5;
-          //     const earnedFees =
-          //       ((542 / 2) * depositAmount) / (depositAmount + borrowAmount); // 542 = previous unassigned earnings
-          //     const unassignedEarnings = 542 / 2 - earnedFees;
-
-          //     expect(mp.unassignedEarnings).to.be.lt(
-          //       parseUnits(unassignedEarnings.toString())
-          //     );
-          //     expect(mp.unassignedEarnings).to.be.gt(
-          //       parseUnits((unassignedEarnings - 1).toString())
-          //     );
-          //   });
-          //   it("THEN earningsSP are around 480", async () => {
-          //     expect(mp.earningsSP).to.be.lt(parseUnits("480")); // 209 + 542 / 2
-          //     expect(mp.earningsSP).to.be.gt(parseUnits("479")); // 209 = previous earnings SP & 542 = previous unassigned earnings
-          //   });
-          //   it("THEN lastAccrue is 1 day to maturity", async () => {
-          //     expect(mp.lastAccrue).to.eq(oneDayToMaturity);
-          //   });
-          //   it("THEN the currentTotalDeposit returned is equal to the amount plus fees earned", async () => {
-          //     expect(returnValues.currentTotalDeposit).to.be.lt(
-          //       parseUnits((depositAmount + 204).toString()) // earned more fees due to change in weighter
-          //     );
-          //     expect(returnValues.currentTotalDeposit).to.be.gt(
-          //       parseUnits((depositAmount + 203).toString())
-          //     );
-          //   });
-          // });
+            it("THEN borrowed is 3x borrowAmount", async () => {
+              expect(mp.borrowed).to.eq(
+                parseUnits((borrowAmount * 3).toString()) // 3 borrows of 5k were made
+              );
+            });
+            it("THEN supplied is 2x depositAmount", async () => {
+              expect(mp.supplied).to.eq(
+                parseUnits((depositAmount * 2).toString()) // 2 deposits of 10k were made
+              );
+            });
+            it("THEN suppliedSP is 0", async () => {
+              expect(mp.suppliedSP).to.eq(0);
+            });
+            it("THEN earningsUnassigned are 0", async () => {
+              expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+            });
+            it("THEN lastAccrue is 1 day to maturity", async () => {
+              expect(mp.lastAccrue).to.eq(oneDayToMaturity);
+            });
+            it("THEN the earningsTreasury returned are 0", async () => {
+              expect(returnValues.earningsTreasury).to.eq(parseUnits("0"));
+            });
+            it("THEN the earningsSP returned are 125 + 12.5", async () => {
+              expect(returnValues.earningsSP).to.eq(
+                parseUnits((250 / 2 + 12.5).toString()) // 250 (previous unassigned) / 2 days
+              );
+            });
+            it("THEN the currentTotalDeposit returned is equal to the amount plus fees earned", async () => {
+              expect(returnValues.currentTotalDeposit).to.eq(
+                parseUnits((depositAmount + 250 / 2 - 12.5).toString())
+              );
+            });
+          });
 
           describe("AND GIVEN another depositMP with an exorbitant amount of 100M (all fees earned - same as depositing only 5k)", () => {
             const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;

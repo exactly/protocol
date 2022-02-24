@@ -71,6 +71,4 @@ interface IFixedLender {
     function eToken() external view returns (IEToken);
 
     function totalMpBorrows() external view returns (uint256);
-
-    function mpDepositDistributionWeighter() external view returns (uint256);
 }

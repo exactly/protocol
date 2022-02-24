@@ -28,13 +28,28 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _spFeeRate
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        spFeeRate = _spFeeRate;
         setParameters(
             _curveParameterA,
             _curveParameterB,
             _maxUtilizationRate,
-            _penaltyRate,
-            _spFeeRate
+            _penaltyRate
         );
+    }
+
+    /**
+     * @dev Sets the rate charged to the mp depositors to be accrued by the sp borrowers
+     * @param _spFeeRate percentage amount represented with 1e18 decimals
+     */
+    function setSPFeeRate(uint256 _spFeeRate)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (_spFeeRate > 1e18) {
+            revert GenericError(ErrorCode.INVALID_SP_FEE_RATE);
+        }
+
+        spFeeRate = _spFeeRate;
     }
 
     /**
@@ -70,20 +85,17 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param _curveParameterB curve parameter
      * @param _maxUtilizationRate % of MP supp
      * @param _penaltyRate by-second rate charged on late repays, with 18 decimals
-     * @param _spFeeRate rate charged to the mp depositors to be accrued by the sp borrowers
      */
     function setParameters(
         uint256 _curveParameterA,
         int256 _curveParameterB,
         uint256 _maxUtilizationRate,
-        uint256 _penaltyRate,
-        uint256 _spFeeRate
+        uint256 _penaltyRate
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         curveParameterA = _curveParameterA;
         curveParameterB = _curveParameterB;
         maxUtilizationRate = _maxUtilizationRate;
         penaltyRate = _penaltyRate;
-        spFeeRate = _spFeeRate;
         // we call the getRateToBorrow function with an utilization rate of
         // zero to force it to revert in the tx that sets it, and not be able
         // to set an invalid curve (such as one yielding a negative interest

@@ -5,17 +5,20 @@ import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 export class PoolAccountingEnv {
-  interestRateModel: Contract;
+  mockedInterestRateModel: Contract;
+  realInterestRateModel: Contract;
   poolAccountingHarness: Contract;
   currentWallet: SignerWithAddress;
   maxSPDebt = parseUnits("100000");
 
   constructor(
-    _interestRateModel: Contract,
+    _mockedInterestRateModel: Contract,
+    _realInterestRateModel: Contract,
     _poolAccountingHarness: Contract,
     _currentWallet: SignerWithAddress
   ) {
-    this.interestRateModel = _interestRateModel;
+    this.mockedInterestRateModel = _mockedInterestRateModel;
+    this.realInterestRateModel = _realInterestRateModel;
     this.poolAccountingHarness = _poolAccountingHarness;
     this.currentWallet = _currentWallet;
   }
@@ -27,6 +30,10 @@ export class PoolAccountingEnv {
 
   public switchWallet(wallet: SignerWithAddress) {
     this.currentWallet = wallet;
+  }
+
+  public getRealInterestRateModel(): Contract {
+    return this.realInterestRateModel;
   }
 
   public async repayMP(
@@ -96,9 +103,7 @@ export class PoolAccountingEnv {
       );
   }
 
-  static async create(
-    useRealInterestRateModel: boolean = false
-  ): Promise<PoolAccountingEnv> {
+  static async create(): Promise<PoolAccountingEnv> {
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
@@ -117,16 +122,15 @@ export class PoolAccountingEnv {
       parseUnits("0.0000002315"), // Penalty Rate per second (86400 is ~= 2%)
       parseUnits("0") // SP rate if 0 then no fees charged for the mp depositors' yield
     );
+    await realInterestRateModel.deployed();
 
     // MockedInterestRateModel is wrapping the real IRM since getYieldToDeposit
     // wants to be tested while we might want to hardcode the borrowing rate
     // for testing simplicity
-    const interestRateModel = useRealInterestRateModel
-      ? realInterestRateModel
-      : await MockedInterestRateModelFactory.deploy(
-          realInterestRateModel.address
-        );
-    await interestRateModel.deployed();
+    const mockedInterestRateModel = await MockedInterestRateModelFactory.deploy(
+      realInterestRateModel.address
+    );
+    await mockedInterestRateModel.deployed();
 
     const PoolLib = await ethers.getContractFactory("PoolLib", {
       libraries: {
@@ -143,7 +147,7 @@ export class PoolAccountingEnv {
       },
     });
     const realPoolAccounting = await PoolAccounting.deploy(
-      interestRateModel.address
+      mockedInterestRateModel.address
     );
     await realPoolAccounting.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
@@ -156,7 +160,7 @@ export class PoolAccountingEnv {
       }
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
-      interestRateModel.address
+      mockedInterestRateModel.address
     );
     await poolAccountingHarness.deployed();
     // We initialize it with itself, so it can call the methods from within
@@ -165,7 +169,8 @@ export class PoolAccountingEnv {
     const [owner] = await ethers.getSigners();
 
     return new PoolAccountingEnv(
-      interestRateModel,
+      mockedInterestRateModel,
+      realInterestRateModel,
       poolAccountingHarness,
       owner
     );
