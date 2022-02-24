@@ -36,6 +36,15 @@ export class PoolAccountingEnv {
     return this.realInterestRateModel;
   }
 
+  public getAllEarnings(maturityPoolState: any): number {
+    return (
+      maturityPoolState.earningsSP +
+      maturityPoolState.earningsMP +
+      maturityPoolState.earningsTreasury +
+      maturityPoolState.earningsUnassigned
+    );
+  }
+
   public async repayMP(
     maturityPool: number,
     units: string,
