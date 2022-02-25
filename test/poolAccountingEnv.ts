@@ -5,21 +5,21 @@ import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 export class PoolAccountingEnv {
-  interestRateModel: Contract;
+  mockedInterestRateModel: Contract;
+  realInterestRateModel: Contract;
   poolAccountingHarness: Contract;
-  fixedLender: Contract;
   currentWallet: SignerWithAddress;
   maxSPDebt = parseUnits("100000");
 
   constructor(
-    _interestRateModel: Contract,
+    _mockedInterestRateModel: Contract,
+    _realInterestRateModel: Contract,
     _poolAccountingHarness: Contract,
-    _fixedLender: Contract,
     _currentWallet: SignerWithAddress
   ) {
-    this.interestRateModel = _interestRateModel;
+    this.mockedInterestRateModel = _mockedInterestRateModel;
+    this.realInterestRateModel = _realInterestRateModel;
     this.poolAccountingHarness = _poolAccountingHarness;
-    this.fixedLender = _fixedLender;
     this.currentWallet = _currentWallet;
   }
 
@@ -30,6 +30,10 @@ export class PoolAccountingEnv {
 
   public switchWallet(wallet: SignerWithAddress) {
     this.currentWallet = wallet;
+  }
+
+  public getRealInterestRateModel(): Contract {
+    return this.realInterestRateModel;
   }
 
   public async repayMP(
@@ -99,9 +103,7 @@ export class PoolAccountingEnv {
       );
   }
 
-  static async create(
-    useRealInterestRateModel: boolean = false
-  ): Promise<PoolAccountingEnv> {
+  static async create(): Promise<PoolAccountingEnv> {
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
@@ -110,32 +112,25 @@ export class PoolAccountingEnv {
       "MockedInterestRateModel"
     );
     const InterestRateModelFactory = await ethers.getContractFactory(
-      "InterestRateModel",
-      {
-        libraries: {
-          TSUtils: tsUtils.address,
-        },
-      }
+      "InterestRateModel"
     );
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
       parseUnits("0.07"), // Maturity pool slope rate
       parseUnits("0.07"), // Smart pool slope rate
-      parseUnits("0.4"), // High UR slope rate
-      parseUnits("0.8"), // Slope change rate
       parseUnits("0.02"), // Base rate
-      parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
+      parseUnits("0.0000002315"), // Penalty Rate per second (86400 is ~= 2%)
+      parseUnits("0") // SP rate if 0 then no fees charged for the mp depositors' yield
     );
+    await realInterestRateModel.deployed();
 
     // MockedInterestRateModel is wrapping the real IRM since getYieldToDeposit
     // wants to be tested while we might want to hardcode the borrowing rate
     // for testing simplicity
-    const interestRateModel = useRealInterestRateModel
-      ? realInterestRateModel
-      : await MockedInterestRateModelFactory.deploy(
-          realInterestRateModel.address
-        );
-    await interestRateModel.deployed();
+    const mockedInterestRateModel = await MockedInterestRateModelFactory.deploy(
+      realInterestRateModel.address
+    );
+    await mockedInterestRateModel.deployed();
 
     const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
       libraries: {
@@ -143,20 +138,9 @@ export class PoolAccountingEnv {
       },
     });
     const realPoolAccounting = await PoolAccounting.deploy(
-      interestRateModel.address
+      mockedInterestRateModel.address
     );
     await realPoolAccounting.deployed();
-    const FixedLender = await ethers.getContractFactory("FixedLender");
-    const addressZero = "0x0000000000000000000000000000000000000000";
-    // We only deploy a FixedLender to be able to access mpDepositDistributionWeighter parameter and to also call setMpDepositDistributionWeighter
-    const fixedLender = await FixedLender.deploy(
-      addressZero,
-      "DAI",
-      addressZero,
-      addressZero,
-      addressZero
-    );
-    await fixedLender.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
       "PoolAccountingHarness",
       {
@@ -166,7 +150,7 @@ export class PoolAccountingEnv {
       }
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
-      interestRateModel.address
+      mockedInterestRateModel.address
     );
     await poolAccountingHarness.deployed();
     // We initialize it with itself, so it can call the methods from within
@@ -175,9 +159,9 @@ export class PoolAccountingEnv {
     const [owner] = await ethers.getSigners();
 
     return new PoolAccountingEnv(
-      interestRateModel,
+      mockedInterestRateModel,
+      realInterestRateModel,
       poolAccountingHarness,
-      fixedLender,
       owner
     );
   }

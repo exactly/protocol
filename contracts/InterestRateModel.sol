@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "./interfaces/IInterestRateModel.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+
+import "./interfaces/IInterestRateModel.sol";
 import "./utils/Errors.sol";
 import "./utils/DecimalMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
@@ -16,22 +17,39 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 public curveParameterA;
     int256 public curveParameterB;
     uint256 public maxUtilizationRate;
+    uint256 public spFeeRate;
     uint256 public override penaltyRate;
-    uint256 public spFeeRate = 1e17; // 10%
 
     constructor(
         uint256 _curveParameterA,
         int256 _curveParameterB,
         uint256 _maxUtilizationRate,
-        uint256 _penaltyRate
+        uint256 _penaltyRate,
+        uint256 _spFeeRate
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        spFeeRate = _spFeeRate;
         setParameters(
             _curveParameterA,
             _curveParameterB,
             _maxUtilizationRate,
             _penaltyRate
         );
+    }
+
+    /**
+     * @dev Sets the rate charged to the mp depositors to be accrued by the sp borrowers
+     * @param _spFeeRate percentage amount represented with 1e18 decimals
+     */
+    function setSPFeeRate(uint256 _spFeeRate)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (_spFeeRate > 1e18) {
+            revert GenericError(ErrorCode.INVALID_SP_FEE_RATE);
+        }
+
+        spFeeRate = _spFeeRate;
     }
 
     /**
@@ -44,23 +62,19 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      */
     function getYieldForDeposit(
         uint256 suppliedSP,
-        uint256 borrowed,
         uint256 unassignedEarnings,
-        uint256 amount,
-        uint256 mpDepositsWeighter
+        uint256 amount
     )
         external
         view
         override
         returns (uint256 earningsShare, uint256 earningsShareSP)
     {
-        if (borrowed != 0) {
-            amount = amount.mul_(mpDepositsWeighter);
+        if (suppliedSP != 0) {
             // User can't make more fees after the total borrowed amount
-            earningsShare = ((Math.min(amount, borrowed) * unassignedEarnings) /
-                borrowed);
-            earningsShareSP = ((suppliedSP * unassignedEarnings) / borrowed)
-                .mul_(spFeeRate);
+            earningsShare = ((Math.min(amount, suppliedSP) *
+                unassignedEarnings) / suppliedSP);
+            earningsShareSP = earningsShare.mul_(spFeeRate);
             earningsShare -= earningsShareSP;
         }
     }
