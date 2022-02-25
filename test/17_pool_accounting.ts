@@ -114,7 +114,6 @@ describe("PoolAccounting", () => {
       beforeEach(async () => {
         borrowAmount = 5000;
         borrowFees = 250;
-        maturityPoolState.borrowFees = parseUnits(borrowFees.toString());
 
         await mockedInterestRateModel.setBorrowRate(parseUnits("0.05"));
         await poolAccountingEnv.moveInTime(fourDaysToMaturity);
@@ -123,9 +122,13 @@ describe("PoolAccounting", () => {
           borrowAmount.toString(),
           (borrowAmount + borrowFees).toString()
         );
+
         returnValues = await poolAccountingHarness.returnValues();
         mp = await poolAccountingHarness.maturityPools(nextPoolID);
         maturityPoolState.earningsTreasury = returnValues.earningsTreasury;
+        maturityPoolState.borrowFees = returnValues.totalOwedNewBorrow.sub(
+          parseUnits(borrowAmount.toString())
+        );
       });
       it("THEN borrowed is the just borrowed amount", async () => {
         expect(mp.borrowed).to.eq(parseUnits(borrowAmount.toString()));
@@ -161,14 +164,6 @@ describe("PoolAccounting", () => {
         beforeEach(async () => {
           borrowAmount = 5000;
           borrowFees = 250;
-          maturityPoolState.borrowFees = maturityPoolState.borrowFees.add(
-            parseUnits(borrowFees.toString())
-          );
-          maturityPoolState.earningsTreasury =
-            maturityPoolState.earningsTreasury.add(
-              parseUnits(borrowFees.toString())
-            );
-          maturityPoolState.earningsUnassigned = parseUnits("0");
 
           await poolAccountingEnv.moveInTime(threeDaysToMaturity);
           await poolAccountingEnv.borrowMP(
@@ -176,8 +171,21 @@ describe("PoolAccounting", () => {
             borrowAmount.toString(),
             (borrowAmount + borrowFees).toString()
           );
+
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
+          maturityPoolState.borrowFees = maturityPoolState.borrowFees.add(
+            returnValues.totalOwedNewBorrow.sub(
+              parseUnits(borrowAmount.toString())
+            )
+          );
+          maturityPoolState.earningsTreasury =
+            maturityPoolState.earningsTreasury.add(
+              returnValues.totalOwedNewBorrow.sub(
+                parseUnits(borrowAmount.toString())
+              )
+            );
+          maturityPoolState.earningsUnassigned = parseUnits("0");
         });
         it("THEN borrowed is 2x the previously borrow amount", async () => {
           expect(mp.borrowed).to.eq(parseUnits((borrowAmount * 2).toString()));
@@ -218,9 +226,6 @@ describe("PoolAccounting", () => {
           beforeEach(async () => {
             borrowAmount = 5000;
             borrowFees = 250;
-            maturityPoolState.borrowFees = maturityPoolState.borrowFees.add(
-              parseUnits(borrowFees.toString())
-            );
 
             await poolAccountingEnv.moveInTime(twoDaysToMaturity);
             await poolAccountingEnv.borrowMP(
@@ -228,8 +233,14 @@ describe("PoolAccounting", () => {
               borrowAmount.toString(),
               (borrowAmount + borrowFees).toString()
             );
+
             returnValues = await poolAccountingHarness.returnValues();
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
+            maturityPoolState.borrowFees = maturityPoolState.borrowFees.add(
+              returnValues.totalOwedNewBorrow.sub(
+                parseUnits(borrowAmount.toString())
+              )
+            );
             maturityPoolState.earningsUnassigned =
               maturityPoolState.earningsUnassigned.add(mp.earningsUnassigned);
           });
@@ -273,11 +284,13 @@ describe("PoolAccounting", () => {
             const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
             beforeEach(async () => {
               depositAmount = 5000;
+
               await poolAccountingEnv.moveInTime(oneDayToMaturity);
               await poolAccountingEnv.depositMP(
                 nextPoolID,
                 depositAmount.toString()
               );
+
               returnValues = await poolAccountingHarness.returnValues();
               mp = await poolAccountingHarness.maturityPools(nextPoolID);
               maturityPoolState.earningsSP = returnValues.earningsSP;
@@ -331,6 +344,7 @@ describe("PoolAccounting", () => {
             const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
             beforeEach(async () => {
               depositAmount = 5000;
+
               await poolAccountingEnv
                 .getRealInterestRateModel()
                 .setSPFeeRate(parseUnits("0.1")); // 10% fees charged from the mp depositor yield to the sp earnings
@@ -339,6 +353,7 @@ describe("PoolAccounting", () => {
                 nextPoolID,
                 depositAmount.toString()
               );
+
               returnValues = await poolAccountingHarness.returnValues();
               mp = await poolAccountingHarness.maturityPools(nextPoolID);
               maturityPoolState.earningsSP = returnValues.earningsSP;
@@ -392,12 +407,14 @@ describe("PoolAccounting", () => {
             const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
 
             beforeEach(async () => {
-              await poolAccountingEnv.moveInTime(oneDayToMaturity);
               depositAmount = 100000000;
+
+              await poolAccountingEnv.moveInTime(oneDayToMaturity);
               await poolAccountingEnv.depositMP(
                 nextPoolID,
                 depositAmount.toString()
               );
+
               returnValues = await poolAccountingHarness.returnValues();
               mp = await poolAccountingHarness.maturityPools(nextPoolID);
             });
@@ -432,12 +449,14 @@ describe("PoolAccounting", () => {
                 nextPoolID - exaTime.ONE_DAY + exaTime.ONE_HOUR * 12;
 
               beforeEach(async () => {
-                await poolAccountingEnv.moveInTime(twelveHoursToMaturity);
                 repayAmount = 5250;
+
+                await poolAccountingEnv.moveInTime(twelveHoursToMaturity);
                 await poolAccountingEnv.repayMP(
                   nextPoolID,
                   repayAmount.toString()
                 );
+
                 returnValues = await poolAccountingHarness.returnValues();
                 mp = await poolAccountingHarness.maturityPools(nextPoolID);
               });
@@ -474,12 +493,14 @@ describe("PoolAccounting", () => {
                 nextPoolID - exaTime.ONE_DAY + exaTime.ONE_HOUR * 12;
 
               beforeEach(async () => {
-                await poolAccountingEnv.moveInTime(twelveHoursToMaturity);
                 repayAmount = 15750;
+
+                await poolAccountingEnv.moveInTime(twelveHoursToMaturity);
                 await poolAccountingEnv.repayMP(
                   nextPoolID,
                   repayAmount.toString()
                 );
+
                 returnValues = await poolAccountingHarness.returnValues();
               });
               it("THEN the debtCovered was the full amount repaid", async () => {
@@ -497,12 +518,14 @@ describe("PoolAccounting", () => {
 
             describe("AND GIVEN a total repayMP at maturity with an amount of 15750 (all debt)", () => {
               beforeEach(async () => {
-                await poolAccountingEnv.moveInTime(nextPoolID);
                 repayAmount = 15750;
+
+                await poolAccountingEnv.moveInTime(nextPoolID);
                 await poolAccountingEnv.repayMP(
                   nextPoolID,
                   repayAmount.toString()
                 );
+
                 returnValues = await poolAccountingHarness.returnValues();
               });
               it("THEN the maturity pool state is correctly updated", async () => {
@@ -538,6 +561,7 @@ describe("PoolAccounting", () => {
   describe("PoolAccounting Early Withdrawal / Early Repayment", () => {
     let returnValues: any;
     let mp: any;
+    let borrowAmount: number;
     let maturityPoolState: MaturityPoolState = {
       borrowFees: parseUnits("0"),
       earningsTreasury: parseUnits("0"),
@@ -551,13 +575,19 @@ describe("PoolAccounting", () => {
       const fiveDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
 
       beforeEach(async () => {
+        borrowAmount = 10000;
         maturityPoolState.borrowFees = parseUnits("500");
 
         poolAccountingEnv.switchWallet(laura);
         await mockedInterestRateModel.setBorrowRate(parseUnits("0.05"));
         await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
-        await poolAccountingEnv.borrowMP(nextPoolID, "10000");
+        await poolAccountingEnv.borrowMP(nextPoolID, borrowAmount.toString());
+
         mp = await poolAccountingHarness.maturityPools(nextPoolID);
+        returnValues = await poolAccountingHarness.returnValues();
+        maturityPoolState.borrowFees = returnValues.totalOwedNewBorrow.sub(
+          parseUnits(borrowAmount.toString())
+        );
       });
 
       it("THEN all earningsUnassigned should be 500", () => {
@@ -628,17 +658,21 @@ describe("PoolAccounting", () => {
       const fiveDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
 
       beforeEach(async () => {
-        maturityPoolState.borrowFees = parseUnits("250");
+        borrowAmount = 5000;
 
         poolAccountingEnv.switchWallet(laura);
         await mockedInterestRateModel.setBorrowRate(parseUnits("0.05"));
         await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
-        await poolAccountingEnv.borrowMP(nextPoolID, "5000");
+        await poolAccountingEnv.borrowMP(nextPoolID, borrowAmount.toString());
         await poolAccountingEnv.depositMP(nextPoolID, "5000");
+
         returnValues = await poolAccountingHarness.returnValues();
         mp = await poolAccountingHarness.maturityPools(nextPoolID);
         maturityPoolState.earningsMP = returnValues.currentTotalDeposit.sub(
           parseUnits("5000")
+        );
+        maturityPoolState.borrowFees = returnValues.totalOwedNewBorrow.sub(
+          parseUnits(borrowAmount.toString())
         );
         maturityPoolState.earningsDiscounted = parseUnits("0");
       });
