@@ -298,11 +298,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     {
         RepayVars memory repayVars;
 
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+
         // SP supply needs to accrue its interests
-        earningsSP = maturityPools[maturityDate].accrueEarnings(
-            maturityDate,
-            currentTimestamp()
-        );
+        earningsSP = pool.accrueEarnings(maturityDate, currentTimestamp());
 
         // Amount Owed is (principal+fees)*penalties
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
@@ -326,9 +325,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             // of debt he'll pay
             (repayVars.discountFee, repayVars.feeSP) = interestRateModel
                 .getYieldForDeposit(
-                    maturityPools[maturityDate].suppliedSP,
-                    maturityPools[maturityDate].borrowed,
-                    maturityPools[maturityDate].earningsUnassigned,
+                    pool.suppliedSP,
+                    pool.borrowed,
+                    pool.earningsUnassigned,
                     repayVars
                         .position
                         .scaleProportionally(debtCovered)
@@ -346,7 +345,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             }
 
             // We remove the fee from unassigned earnings
-            maturityPools[maturityDate].removeFee(repayVars.discountFee);
+            pool.removeFee(repayVars.discountFee);
         }
 
         // user paid more than it should. The fee gets kicked back to the user
