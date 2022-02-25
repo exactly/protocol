@@ -76,6 +76,7 @@ describe("PoolAccounting", () => {
       earningsUnassigned: parseUnits("0"),
       earningsSP: parseUnits("0"),
       earningsMP: parseUnits("0"),
+      earningsDiscounted: parseUnits("0"),
     };
 
     beforeEach(async () => {
@@ -204,6 +205,11 @@ describe("PoolAccounting", () => {
         it("THEN the totalOwedNewBorrow returned is equal to the amount plus fees charged", async () => {
           expect(returnValues.totalOwedNewBorrow).to.eq(
             parseUnits((borrowAmount + borrowFees).toString())
+          );
+        });
+        it("THEN the borrow fees are equal to all earnings distributed", async () => {
+          expect(maturityPoolState.borrowFees).to.eq(
+            poolAccountingEnv.getAllEarnings(maturityPoolState)
           );
         });
 
@@ -538,6 +544,7 @@ describe("PoolAccounting", () => {
       earningsUnassigned: parseUnits("0"),
       earningsSP: parseUnits("0"),
       earningsMP: parseUnits("0"),
+      earningsDiscounted: parseUnits("0"),
     };
 
     describe("GIVEN a borrowMP of 10000 (500 fees earned)", () => {
@@ -562,7 +569,7 @@ describe("PoolAccounting", () => {
           await poolAccountingEnv.repayMP(nextPoolID, "5250");
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
-          maturityPoolState.earningsMP = returnValues.spareAmount;
+          maturityPoolState.earningsDiscounted = returnValues.spareAmount;
         });
         it("THEN borrowed is 5000", async () => {
           expect(mp.borrowed).to.eq(parseUnits("5000"));
@@ -585,9 +592,10 @@ describe("PoolAccounting", () => {
             await poolAccountingEnv.repayMP(nextPoolID, "5250");
             returnValues = await poolAccountingHarness.returnValues();
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
-            maturityPoolState.earningsMP = maturityPoolState.earningsMP.add(
-              returnValues.spareAmount
-            );
+            maturityPoolState.earningsDiscounted =
+              maturityPoolState.earningsDiscounted.add(
+                returnValues.spareAmount
+              );
           });
           it("THEN borrowed is 0", async () => {
             expect(mp.borrowed).to.eq(0);
@@ -632,6 +640,7 @@ describe("PoolAccounting", () => {
         maturityPoolState.earningsMP = returnValues.currentTotalDeposit.sub(
           parseUnits("5000")
         );
+        maturityPoolState.earningsDiscounted = parseUnits("0");
       });
       it("THEN all earningsUnassigned should be 0", async () => {
         expect(mp.earningsUnassigned).to.eq(parseUnits("0"));

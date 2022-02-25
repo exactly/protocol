@@ -40,7 +40,8 @@ export class PoolAccountingEnv {
     return maturityPoolState.earningsSP
       .add(maturityPoolState.earningsMP)
       .add(maturityPoolState.earningsTreasury)
-      .add(maturityPoolState.earningsUnassigned);
+      .add(maturityPoolState.earningsUnassigned)
+      .add(maturityPoolState.earningsDiscounted);
   }
 
   public async repayMP(
