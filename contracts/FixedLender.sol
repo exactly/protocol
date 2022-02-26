@@ -548,7 +548,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         (
             uint256 spareRepayAmount,
             uint256 debtCovered,
-            uint256 earningsRepay
+            uint256 earningsSP,
+            uint256 earningsTreasury
         ) = poolAccounting.repayMP(
                 maturityDate,
                 borrower,
@@ -560,7 +561,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             doTransferOut(payer, spareRepayAmount);
         }
 
-        eToken.accrueEarnings(earningsRepay);
+        eToken.accrueEarnings(earningsSP);
+        treasury += earningsTreasury;
 
         totalMpBorrows -= debtCovered;
 

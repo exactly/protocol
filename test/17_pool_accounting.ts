@@ -401,6 +401,9 @@ describe("PoolAccounting", () => {
               it("THEN the earningsSP returned are 0", async () => {
                 expect(returnValues.earningsSP).to.eq(parseUnits("0"));
               });
+              it("THEN the earningsTreasury returned are 0", async () => {
+                expect(returnValues.earningsTreasury).to.eq(parseUnits("0"));
+              });
               it("THEN lastAccrue is 12 hours before maturity", async () => {
                 expect(mp.lastAccrue).to.eq(twelveHoursToMaturity);
               });
@@ -466,6 +469,46 @@ describe("PoolAccounting", () => {
               });
               it("THEN earningsUnassigned are still 0", async () => {
                 expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+              });
+              it("THEN the earningsSP returned are 0", async () => {
+                expect(returnValues.earningsSP).to.eq(parseUnits("0"));
+              });
+            });
+
+            describe("AND GIVEN a total repayMP at maturity(+1 DAY) with an amount of 8000", () => {
+              beforeEach(async () => {
+                await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
+                  parseUnits("0.1").div(exaTime.ONE_DAY)
+                );
+
+                await poolAccountingEnv.moveInTime(
+                  nextPoolID + exaTime.ONE_DAY
+                );
+                repayAmount = 8000;
+                await poolAccountingEnv.repayMP(
+                  nextPoolID,
+                  repayAmount.toString()
+                );
+                returnValues = await poolAccountingHarness.returnValues();
+              });
+              it("THEN the maturity pool state is correctly updated", async () => {
+                const mp = await poolAccountingHarness.maturityPools(
+                  nextPoolID
+                );
+
+                expect(mp.borrowed).to.eq(parseUnits("7500"));
+                expect(mp.supplied).to.eq(
+                  parseUnits((depositAmount + 10000).toString()) // 1M + 10k deposit
+                );
+                expect(mp.suppliedSP).to.eq(parseUnits("0"));
+              });
+              it("THEN the debtCovered was equal to full repayAmount", async () => {
+                expect(returnValues.debtCovered).to.eq(
+                  parseUnits(repayAmount.toString())
+                );
+              });
+              it("THEN earningsTreasury are still 0", async () => {
+                expect(returnValues.earningsTreasury).to.eq(parseUnits("0"));
               });
               it("THEN the earningsSP returned are 0", async () => {
                 expect(returnValues.earningsSP).to.eq(parseUnits("0"));
