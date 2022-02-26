@@ -277,6 +277,52 @@ describe("PoolAccounting", () => {
             });
           });
 
+          describe("AND GIVEN a repayMP at maturity(-1 DAY) with an amount of 8000 (partial EARLY repayment) ", () => {
+            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY * 1;
+            let mp: any;
+            beforeEach(async () => {
+              await poolAccountingEnv.moveInTime(oneDayToMaturity);
+              repayAmount = 8000;
+              await poolAccountingEnv.repayMP(
+                nextPoolID,
+                repayAmount.toString()
+              );
+              returnValues = await poolAccountingHarness.returnValues();
+              mp = await poolAccountingHarness.maturityPools(nextPoolID);
+            });
+
+            it("THEN borrowed field is updated correctly and is 0", async () => {
+              // debtCovered=8000*15750/15750=8000
+              // ppal of 8000 => 7619 (following ratio principal-fee of 15000 and 750)
+              // borrowed original (15000) - 7619 = ~7380
+              expect(mp.borrowed).to.be.gt(parseUnits("7380"));
+              expect(mp.borrowed).to.be.lt(parseUnits("7381"));
+            });
+
+            it("THEN supplies are correctly updated", async () => {
+              expect(mp.supplied).to.eq(
+                parseUnits(depositAmount.toString()) // 10k
+              );
+              expect(mp.suppliedSP).to.eq(parseUnits("0"));
+            });
+            it("THEN the debtCovered was equal to full repayAmount (8000)", async () => {
+              expect(returnValues.debtCovered).to.eq(parseUnits("8000"));
+            });
+            it("THEN earningsSP returned 0", async () => {
+              expect(returnValues.earningsSP).to.eq(0);
+            });
+            it("THEN the earningsTreasury returned is 0", async () => {
+              expect(returnValues.earningsTreasury).to.eq(0);
+            });
+            it("THEN the spareAmount returned is 125", async () => {
+              // Takes all the unassignedEarnings
+              // first 500 were taken by the treasury
+              // then 125 was accrued and earned by the SP
+              // then the repay takes the rest as a discount
+              expect(returnValues.spareAmount).to.eq(parseUnits("125"));
+            });
+          });
+
           describe("AND GIVEN a repayMP at maturity(-1 DAY) with an amount of 15750 but asking a 126 discount (total EARLY repayment) ", () => {
             const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY * 1;
             let tx: any;
