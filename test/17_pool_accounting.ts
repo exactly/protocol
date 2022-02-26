@@ -231,6 +231,62 @@ describe("PoolAccounting", () => {
             );
           });
 
+          describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 15750*1.1=17325 (total late repayment supported by SP) ", () => {
+            // (to check earnings distribution) => we have the same test down below, but the differences here
+            // are the pre-conditions: in this case, the borrow was supported by the SP and MP, while the one at the bottom
+            // was supported by the MP
+            let mp: any;
+            beforeEach(async () => {
+              await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
+                parseUnits("0.1").div(exaTime.ONE_DAY)
+              );
+
+              await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
+              repayAmount = 17325;
+              await poolAccountingEnv.repayMP(
+                nextPoolID,
+                repayAmount.toString()
+              );
+              returnValues = await poolAccountingHarness.returnValues();
+              mp = await poolAccountingHarness.maturityPools(nextPoolID);
+            });
+
+            it("THEN borrowed field is updated correctly and is 0", async () => {
+              // debtCovered=17325*15750/17325=15750
+              // ppal of 15750 => 15000 (following ratio principal-fee of 15000 and 750)
+              // borrowed original (15000) - 15000 = 0
+              expect(mp.borrowed).to.be.eq(0);
+            });
+
+            it("THEN supplies are correctly updated", async () => {
+              expect(mp.supplied).to.eq(
+                parseUnits(depositAmount.toString()) // 10k
+              );
+              expect(mp.suppliedSP).to.eq(parseUnits("0"));
+            });
+            it("THEN the debtCovered was equal to full repayAmount", async () => {
+              // debtCovered=5775*5250/5775=5250
+              expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
+            });
+            it("THEN earningsSP receive the 10% of penalties (they were supporting this borrow)", async () => {
+              // 17325 - 15750 = 1575 (10% of the debt) * 1/3 = 1050
+              expect(returnValues.earningsSP).to.gt(parseUnits("524"));
+              expect(returnValues.earningsSP).to.lt(parseUnits("525"));
+            });
+            it("THEN the earningsTreasury returned is 0", async () => {
+              // 17325 - 15750 = 1575 (10% of the debt) * 1/3 = 1050
+              expect(returnValues.earningsTreasury).to.gt(parseUnits("1049"));
+              expect(returnValues.earningsTreasury).to.lt(parseUnits("1050"));
+            });
+            it("THEN the spareAmount returned is almost 0", async () => {
+              expect(returnValues.spareAmount).to.lt(parseUnits("0.1"));
+            });
+
+            afterEach(async () => {
+              await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(0);
+            });
+          });
+
           describe("AND GIVEN another depositMP with an amount of 5000 (half of 250 unassigned earnings earned) (1 day to)", () => {
             const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
             let mp: any;
@@ -529,7 +585,7 @@ describe("PoolAccounting", () => {
               });
             });
 
-            describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 15750*0.1=17325 (total late repayment)", () => {
+            describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 15750*1.1=17325 (total late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
                 await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
