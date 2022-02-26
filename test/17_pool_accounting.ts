@@ -231,6 +231,72 @@ describe("PoolAccounting", () => {
             );
           });
 
+          describe("AND GIVEN a repayMP at maturity(-1 DAY) with an amount of 15750 (total EARLY repayment) ", () => {
+            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY * 1;
+            let mp: any;
+            beforeEach(async () => {
+              await poolAccountingEnv.moveInTime(oneDayToMaturity);
+              repayAmount = 15750;
+              await poolAccountingEnv.repayMP(
+                nextPoolID,
+                repayAmount.toString()
+              );
+              returnValues = await poolAccountingHarness.returnValues();
+              mp = await poolAccountingHarness.maturityPools(nextPoolID);
+            });
+
+            it("THEN borrowed field is updated correctly and is 0", async () => {
+              // debtCovered=17325*15750/17325=15750
+              // ppal of 15750 => 15000 (following ratio principal-fee of 15000 and 750)
+              // borrowed original (15000) - 15000 = 0
+              expect(mp.borrowed).to.be.eq(0);
+            });
+
+            it("THEN supplies are correctly updated", async () => {
+              expect(mp.supplied).to.eq(
+                parseUnits(depositAmount.toString()) // 10k
+              );
+              expect(mp.suppliedSP).to.eq(parseUnits("0"));
+            });
+            it("THEN the debtCovered was equal to full repayAmount", async () => {
+              // debtCovered=5775*5250/5775=5250
+              expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
+            });
+            it("THEN earningsSP returned 0", async () => {
+              expect(returnValues.earningsSP).to.eq(0);
+            });
+            it("THEN the earningsTreasury returned is 0", async () => {
+              expect(returnValues.earningsTreasury).to.eq(0);
+            });
+            it("THEN the spareAmount returned is 125", async () => {
+              // Takes all the unassignedEarnings
+              // first 500 were taken by the treasury
+              // then 125 was accrued and earned by the SP
+              // then the repay takes the rest as a discount
+              expect(returnValues.spareAmount).to.eq(parseUnits("125"));
+            });
+          });
+
+          describe("AND GIVEN a repayMP at maturity(-1 DAY) with an amount of 15750 but asking a 126 discount (total EARLY repayment) ", () => {
+            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY * 1;
+            let tx: any;
+            beforeEach(async () => {
+              await poolAccountingEnv.moveInTime(oneDayToMaturity);
+              repayAmount = 15750;
+              tx = poolAccountingEnv.repayMP(
+                nextPoolID,
+                repayAmount.toString(),
+                (repayAmount - 126).toString()
+              );
+            });
+
+            it("THEN the tx is reverted with TOO_MUCH_SLIPPAGE", async () => {
+              await expect(tx).to.be.revertedWith(
+                errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
+              );
+            });
+          });
+
           describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 15750*1.1=17325 (total late repayment supported by SP) ", () => {
             // (to check earnings distribution) => we have the same test down below, but the differences here
             // are the pre-conditions: in this case, the borrow was supported by the SP and MP, while the one at the bottom
@@ -582,6 +648,12 @@ describe("PoolAccounting", () => {
               });
               it("THEN the earningsSP returned are 0", async () => {
                 expect(returnValues.earningsSP).to.eq(parseUnits("0"));
+              });
+
+              afterEach(async () => {
+                await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
+                  0
+                );
               });
             });
 
