@@ -88,6 +88,29 @@ export class PoolAccountingEnv {
       );
   }
 
+  public async withdrawMP(
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    let minAmountRequired: BigNumber;
+    let amount = parseUnits(units);
+    if (expectedAtMaturity) {
+      minAmountRequired = parseUnits(expectedAtMaturity);
+    } else {
+      minAmountRequired = noDiscount(amount);
+    }
+    return this.poolAccountingHarness
+      .connect(this.currentWallet)
+      .withdrawMPWithReturnValues(
+        maturityPool,
+        this.currentWallet.address,
+        amount,
+        minAmountRequired,
+        this.maxSPDebt
+      );
+  }
+
   public async borrowMP(
     maturityPool: number,
     units: string,
