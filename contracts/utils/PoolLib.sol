@@ -240,4 +240,20 @@ library PoolLib {
         debt.fee = debt.fee - fee;
         return debt;
     }
+
+    function copy(Position memory debt)
+        internal
+        pure
+        returns (Position memory)
+    {
+        return Position(debt.principal, debt.fee);
+    }
+
+    function fullAmount(Position memory debt)
+        internal
+        pure
+        returns (uint256 amount)
+    {
+        amount = debt.principal + debt.fee;
+    }
 }

@@ -81,7 +81,8 @@ contract PoolAccountingHarness is PoolAccounting {
         (
             returnValues.spareAmount,
             returnValues.debtCovered,
-            returnValues.earningsSP
+            returnValues.earningsSP,
+            returnValues.earningsTreasury
         ) = this.repayMP(maturityDate, borrower, repayAmount, maxAmountAllowed);
     }
 

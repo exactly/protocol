@@ -27,10 +27,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // Vars used in `repayMP` to avoid
     // stack too deep problem
     struct RepayVars {
+        PoolLib.Position position;
+        PoolLib.Position scaleDebtCovered;
+        uint256 amountOwed;
+        uint256 penalties;
         uint256 discountFee;
         uint256 feeSP;
-        uint256 amountOwed;
-        PoolLib.Position position;
         uint256 amountStillBorrowed;
         uint256 smartPoolDebtReduction;
     }
@@ -261,6 +263,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         );
 
         // All the fees go to unassigned or to the treasury
+        // TODO: should this be amountDiscounted?
         uint256 earnings = amount - redeemAmountDiscounted;
         earningsTreasury =
             ((amount - Math.min(pool.suppliedSP, amount)) * earnings) /
@@ -290,16 +293,16 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         returns (
             uint256 spareRepayAmount,
             uint256 debtCovered,
-            uint256 earningsSP
+            uint256 earningsSP,
+            uint256 earningsTreasury
         )
     {
         RepayVars memory repayVars;
 
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+
         // SP supply needs to accrue its interests
-        earningsSP = maturityPools[maturityDate].accrueEarnings(
-            maturityDate,
-            currentTimestamp()
-        );
+        earningsSP = pool.accrueEarnings(maturityDate, currentTimestamp());
 
         // Amount Owed is (principal+fees)*penalties
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
@@ -310,12 +313,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // then amountBorrowed is what should be discounted to the users account
         // Math.min to not go over repayAmount since we return exceeding money, but
         // hasn't been calculated yet
-        debtCovered = Math.min(
-            (repayAmount *
-                (repayVars.position.principal + repayVars.position.fee)) /
-                repayVars.amountOwed,
-            repayVars.amountOwed
-        );
+        debtCovered =
+            (repayVars.position.fullAmount() *
+                Math.min(repayAmount, repayVars.amountOwed)) /
+            repayVars.amountOwed;
+        repayVars.scaleDebtCovered = repayVars
+            .position
+            .copy()
+            .scaleProportionally(debtCovered);
 
         // Early repayment allows you to get a discount from the unassigned earnings
         if (currentTimestamp() < maturityDate) {
@@ -323,12 +328,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             // of debt he'll pay
             (repayVars.discountFee, repayVars.feeSP) = interestRateModel
                 .getYieldForDeposit(
-                    maturityPools[maturityDate].suppliedSP,
-                    maturityPools[maturityDate].earningsUnassigned,
-                    repayVars
-                        .position
-                        .scaleProportionally(debtCovered)
-                        .principal
+                    pool.suppliedSP,
+                    pool.earningsUnassigned,
+                    repayVars.scaleDebtCovered.principal
                     // ^ this case shouldn't contain penalties since is before maturity date
                 );
 
@@ -340,45 +342,48 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             }
 
             // We remove the fee from unassigned earnings
-            maturityPools[maturityDate].removeFee(repayVars.discountFee);
+            pool.removeFee(repayVars.discountFee);
         }
 
         // user paid more than it should. The fee gets kicked back to the user
         // through _spareRepayAmount_ and on the pool side it was removed by
         // calling _removeFee_ a few lines before ^
-        if (repayAmount > repayVars.amountOwed - repayVars.discountFee) {
-            spareRepayAmount =
-                repayAmount -
-                (repayVars.amountOwed - repayVars.discountFee);
+        spareRepayAmount = repayVars.discountFee;
+
+        if (repayAmount > repayVars.amountOwed) {
+            spareRepayAmount += repayAmount - repayVars.amountOwed;
             repayAmount = repayVars.amountOwed;
-            debtCovered = Math.min(
-                debtCovered,
-                (repayVars.position.principal + repayVars.position.fee)
-            );
-        } else {
-            spareRepayAmount = repayVars.discountFee;
         }
 
-        repayVars.amountStillBorrowed =
-            (repayVars.position.principal + repayVars.position.fee) -
-            debtCovered;
+        // We distribute penalties to those that supported (pre-repayment)
+        repayVars.penalties =
+            repayAmount -
+            repayVars.scaleDebtCovered.fullAmount();
+        earningsTreasury =
+            ((repayVars.scaleDebtCovered.principal -
+                Math.min(
+                    pool.suppliedSP,
+                    repayVars.scaleDebtCovered.principal
+                )) * repayVars.penalties) /
+            repayVars.scaleDebtCovered.principal;
+        earningsSP = repayVars.penalties - earningsTreasury;
 
-        if (repayVars.amountStillBorrowed == 0) {
+        // We reduce the borrowed and we might decrease the SP debt
+        repayVars.smartPoolDebtReduction = pool.repayMoney(
+            repayVars.scaleDebtCovered.principal
+        );
+        smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
+
+        //
+        // From now on: We update the user position
+        //
+        repayVars.position.reduceProportionally(debtCovered);
+        if (repayVars.position.fullAmount() == 0) {
             cleanPosition(borrower, maturityDate);
         } else {
             // we proportionally reduce the values
-            mpUserBorrowedAmount[maturityDate][borrower] = repayVars
-                .position
-                .scaleProportionally(repayVars.amountStillBorrowed);
+            mpUserBorrowedAmount[maturityDate][borrower] = repayVars.position;
         }
-
-        // We reduce the borrowed and we might decrease the SP debt
-        PoolLib.Position memory scaledDebt = repayVars
-            .position
-            .scaleProportionally(debtCovered);
-        repayVars.smartPoolDebtReduction = maturityPools[maturityDate]
-            .repayMoney(scaledDebt.principal);
-        smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
     }
 
     /**
