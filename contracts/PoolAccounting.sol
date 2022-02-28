@@ -257,8 +257,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // We remove the supply from the offer
         smartPoolBorrowed += pool.withdrawMoney(
-            position.scaleProportionally(amount).principal,
-            redeemAmountDiscounted,
+            position.copy().scaleProportionally(amount).principal,
+            position
+                .copy()
+                .scaleProportionally(redeemAmountDiscounted)
+                .principal,
             maxSPDebt
         );
 
@@ -272,6 +275,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // the user gets discounted the full amount
         mpUserSuppliedAmount[maturityDate][redeemer] = position
+            .copy()
             .reduceProportionally(amount);
     }
 
