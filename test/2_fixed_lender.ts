@@ -631,82 +631,14 @@ describe("FixedLender", function () {
       });
 
       describe("WHEN depositing 2000 DAI on a maturity pool and on a smart pool", () => {
+        let tx: any;
         beforeEach(async () => {
-          await fixedLenderDAI
-            .connect(john)
-            .depositToMaturityPool(parseUnits("2000"), futurePools(1)[0], parseUnits("1800"));
-          await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("2000"));
+          exactlyEnv.switchWallet(johnUser);
+          tx = exactlyEnv.depositMP("DAI", nextPoolId, "2000", "1800");
         });
 
-        it("THEN the user receives 1800 on the maturity pool deposit", async () => {
-          expect((await poolAccountingDAI.mpUserSuppliedAmount(futurePools(1)[0], john.address))[0]).to.be.equal(
-            parseUnits("1800"),
-          );
-        });
-
-        describe("AND GIVEN john has a 900 DAI borrows on a maturity pool", () => {
-          beforeEach(async () => {
-            await fixedLenderDAI
-              .connect(john)
-              .borrowFromMaturityPool(parseUnits("900"), futurePools(1)[0], parseUnits("900"));
-          });
-
-          describe("AND WHEN trying to repay 1100 (too much)", () => {
-            let tx: Promise<ContractTransaction>;
-            beforeEach(async () => {
-              tx = fixedLenderDAI
-                .connect(john)
-                .repayToMaturityPool(john.address, futurePools(1)[0], parseUnits("1100"), parseUnits("1100"));
-            });
-
-            it("THEN john ends up repaying all debt", async () => {
-              await expect(tx).to.not.be.reverted;
-              expect((await fixedLenderDAI.getAccountSnapshot(john.address, futurePools(1)[0]))[1]).to.equal(0);
-            });
-
-            it("THEN the spare amount is transferred back to him", async () => {
-              await expect(tx).to.not.be.reverted;
-              expect(await dai.balanceOf(john.address)).to.equal(
-                parseUnits(String(10_000 - (2_000 * 2 - 900) * 0.9))
-                  .sub(parseUnits(String(1_100 * 0.9))) // 10% commission
-                  .add(parseUnits(String((1_100 * 0.9 - 900) * 0.9))), // 900 = debt - the transferOut also charges 10% commission
-              );
-            });
-          });
-
-          describe("AND WHEN repaying the exact amount with 10% commission", () => {
-            beforeEach(async () => {
-              await fixedLenderDAI
-                .connect(john)
-                .repayToMaturityPool(john.address, futurePools(1)[0], parseUnits("1000"), parseUnits("1000"));
-            });
-
-            it("THEN the user cancel its debt and succeeds", async () => {
-              expect((await fixedLenderDAI.getAccountSnapshot(john.address, futurePools(1)[0]))[1]).to.equal(0);
-            });
-          });
-
-          describe("AND WHEN trying to repay 1100 (too much) with no commission", () => {
-            let tx: Promise<ContractTransaction>;
-            beforeEach(async () => {
-              await dai.setCommission(0);
-              tx = fixedLenderDAI
-                .connect(john)
-                .repayToMaturityPool(john.address, futurePools(1)[0], parseUnits("1100"), parseUnits("1100"));
-            });
-
-            it("THEN john ends up repaying all debt", async () => {
-              await expect(tx).to.not.be.reverted;
-              expect((await fixedLenderDAI.getAccountSnapshot(john.address, futurePools(1)[0]))[1]).to.equal(0);
-            });
-
-            it("THEN the spare amount is transferred back to him", async () => {
-              await expect(tx).to.not.be.reverted;
-              expect(await dai.balanceOf(john.address)).to.equal(
-                parseUnits(String(10_000 - (2_000 * 2 - 900) * 0.9)).sub(parseUnits("900")),
-              );
-            });
-          });
+        it("THEN the transaction reverts with INVALID_TOKEN_FEE", async () => {
+          await expect(tx).to.be.revertedWith(GenericError(ErrorCode.INVALID_TOKEN_FEE));
         });
       });
     });

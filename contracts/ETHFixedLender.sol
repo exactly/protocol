@@ -82,11 +82,7 @@ contract ETHFixedLender is FixedLender {
         repayToMaturityPool(borrower, maturityDate, msg.value, msg.value);
     }
 
-    function doTransferIn(address from, uint256 amount)
-        internal
-        override
-        returns (uint256)
-    {
+    function doTransferIn(address from, uint256 amount) internal override {
         if (wrapOnOurSide) {
             // giving it some tought, we kind of can trust WETH9 to mint
             // exactly the requested amount. But I'll leave this here for now
@@ -94,7 +90,9 @@ contract ETHFixedLender is FixedLender {
             weth.deposit{ value: msg.value }();
             uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
 
-            return balanceAfter - balanceBefore;
+            if (balanceAfter - balanceBefore != amount) {
+                revert GenericError(ErrorCode.INVALID_TOKEN_FEE);
+            }
         } else {
             return super.doTransferIn(from, amount);
         }
