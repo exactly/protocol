@@ -33,15 +33,6 @@ describe("Pool Management Library", () => {
         it("THEN the pool 'earningsUnassigned' are 0", async () => {
           expect(mp.earningsUnassigned).to.equal(parseUnits("0"));
         });
-        it("THEN the pool 'earningsSP' are 0", async () => {
-          expect(mp.earningsSP).to.equal(parseUnits("0"));
-        });
-        it("THEN the pool 'earningsMP' are 0", async () => {
-          expect(mp.earningsMP).to.equal(parseUnits("0"));
-        });
-        it("THEN the pool 'earningsTreasury' are 0", async () => {
-          expect(mp.earningsTreasury).to.equal(parseUnits("0"));
-        });
         it("THEN the smartPoolDebtReduction that is returned is 0", async () => {
           const smartPoolDebtReductionReturned = await poolEnv
             .getMpHarness()
@@ -206,50 +197,6 @@ describe("Pool Management Library", () => {
                 .getMpHarness()
                 .smartPoolDebtReduction();
               expect(smartPoolDebtReductionReturned).to.equal(parseUnits("50"));
-            });
-          });
-        });
-      });
-    });
-
-    describe("addFeeMP & addFeeSP", async () => {
-      describe("GIVEN 100 unassigned earnings are added", async () => {
-        beforeEach(async () => {
-          await poolEnv.addFee("100");
-        });
-        describe("WHEN 50 fees are added to the MP", async () => {
-          beforeEach(async () => {
-            await poolEnv.addFeeMP("50");
-            mp = await poolEnv.mpHarness.maturityPool();
-          });
-
-          it("THEN the pool 'earningsUnassigned' are 50", async () => {
-            expect(mp.earningsUnassigned).to.equal(parseUnits("50"));
-          });
-          it("THEN the pool 'earningsMP' are 50", async () => {
-            expect(mp.earningsMP).to.equal(parseUnits("50"));
-          });
-          describe("AND WHEN those 50 fees are returned", async () => {
-            beforeEach(async () => {
-              await poolEnv.returnFee("50");
-              mp = await poolEnv.mpHarness.maturityPool();
-            });
-
-            it("THEN the pool 'earningsMP' are 0", async () => {
-              expect(mp.earningsMP).to.equal(parseUnits("0"));
-            });
-          });
-          describe("AND WHEN another 50 fees are added to the SP", async () => {
-            beforeEach(async () => {
-              await poolEnv.addFeeSP("50");
-              mp = await poolEnv.mpHarness.maturityPool();
-            });
-
-            it("THEN the pool 'earningsUnassigned' are 0", async () => {
-              expect(mp.earningsUnassigned).to.equal(parseUnits("0"));
-            });
-            it("THEN the pool 'earningSP' are 50", async () => {
-              expect(mp.earningsSP).to.equal(parseUnits("50"));
             });
           });
         });
