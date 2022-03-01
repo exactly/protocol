@@ -117,6 +117,7 @@ export enum ProtocolError {
   INVALID_TIME_DIFFERENCE,
   INVALID_SP_FEE_RATE,
   INVALID_AMOUNT,
+  INVALID_TOKEN_FEE,
 }
 
 export type EnvConfig = {
