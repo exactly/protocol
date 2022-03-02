@@ -133,7 +133,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         earningsSP += pool.accrueEarnings(maturityDate, block.timestamp);
         smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
 
-        borrowVars.feeRate = interestRateModel.getRateToBorrow(
+        borrowVars.feeRate = interestRateModel.getFeeToBorrow(
             maturityDate,
             block.timestamp,
             pool.borrowed,
@@ -252,7 +252,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // We verify if there are any penalties/fee for him because of
         // early withdrawal - if so: discount
         if (block.timestamp < maturityDate) {
-            uint256 feeRate = interestRateModel.getRateToBorrow(
+            uint256 feeRate = interestRateModel.getFeeToBorrow(
                 maturityDate,
                 block.timestamp,
                 pool.borrowed + amount, // like asking for a loan full amount

@@ -131,41 +131,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         }
     }
 
-    /**
-     * @dev Function to update this model's parameters (DEFAULT_ADMIN_ROLE)
-     * @param _curveParameterA curve parameter
-     * @param _curveParameterB curve parameter
-     * @param _maxUtilizationRate % of MP supp
-     * @param _penaltyRate by-second rate charged on late repays, with 18 decimals
-     * @param _spFeeRate rate charged to the mp depositors to be accrued by the sp borrowers
-     */
-    function setParameters(
-        uint256 _curveParameterA,
-        int256 _curveParameterB,
-        uint256 _maxUtilizationRate,
-        uint256 _penaltyRate,
-        uint256 _spFeeRate
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        curveParameterA = _curveParameterA;
-        curveParameterB = _curveParameterB;
-        maxUtilizationRate = _maxUtilizationRate;
-        penaltyRate = _penaltyRate;
-        spFeeRate = _spFeeRate;
-        // we call the getRateToBorrow function with an utilization rate of
-        // zero to force it to revert in the tx that sets it, and not be able
-        // to set an invalid curve (such as one yielding a negative interest
-        // rate). Doing it works because it's a monotonously increasing function.
-        getRateToBorrow(block.timestamp + 1, block.timestamp, 0, 100, 100);
-
-        emit ParametersUpdated(
-            _curveParameterA,
-            _curveParameterB,
-            _maxUtilizationRate,
-            _penaltyRate,
-            _spFeeRate
-        );
-    }
-
     /// @dev updates this model's curve parameters
     /// @param curveA curve parameter
     /// @param curveB curve parameter
@@ -182,7 +147,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         // zero to force it to revert in the tx that sets it, and not be able
         // to set an invalid curve (such as one yielding a negative interest
         // rate). doing it works because it's a monotonously increasing function.
-        getRateToBorrow(block.timestamp + 1, block.timestamp, 0, 100, 100);
+        getFeeToBorrow(block.timestamp + 1, block.timestamp, 0, 100, 100);
 
         emit ParametersUpdated(
             curveA,
@@ -194,8 +159,8 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     }
 
     /**
-     * @notice Get current rate for borrow a certain amount in a certain maturity
-     *      with supply/demand values in the maturity pool and supply demand values
+     * @notice Get fee to borrow a certain amount in a certain maturity
+     *      with supply/demand values in the maturity pool and supply/demand values
      *      in the smart pool
      * @dev liquidity limits aren't checked, that's the responsibility of pool.takeMoney.
      * @param maturityDate maturity date for calculating days left to maturity
@@ -203,10 +168,9 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param borrowedMP total borrowed from this maturity
      * @param suppliedMP total supplied to this maturity
      * @param smartPoolLiquidityShare 'fair' share of the smart pool that this maturity can borrow
-     * @return rate to be applied to the amount to calculate the fee that the borrower will
-     *         have to pay
+     * @return fee the borrower will have to pay
      */
-    function getRateToBorrow(
+    function getFeeToBorrow(
         uint256 maturityDate,
         uint256 currentDate,
         uint256 borrowedMP,

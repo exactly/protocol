@@ -25,7 +25,7 @@ In this case, the user is trying to borrow DAI from the appropiate FixedLender c
     EXADAI -> EXADAI: pools(poolId)
     EXADAI <-- EXADAI: pool
     EXADAI -> Auditor: beforeBorrowMP(EXADAI.address, user.address, 100, poolId)
-    EXADAI -> InterestRateModel: getRateToBorrow(100, poolId, pool, pool)
+    EXADAI -> InterestRateModel: getFeeToBorrow(100, poolId, pool, pool)
     note right: the last parameter should be the pot
     EXADAI <-- InterestRateModel: 10
     note right: the requested amount is sent to the user, but\nin EXADAI's state, the borrowed amount is\nset to amount +commission = 110
