@@ -180,10 +180,19 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (currentDate >= maturityDate) {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
-        uint256 utilizationRate = borrowedMP.fdiv(
-            smartPoolLiquidityShare + suppliedMP,
-            1e18
-        );
+        uint256 supplied = smartPoolLiquidityShare + suppliedMP;
+        if (supplied == 0) {
+            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+        }
+        uint256 rate = getRateToBorrow(borrowedMP.fdiv(supplied, 1e18));
+        return (rate * (maturityDate - currentDate)) / YEAR;
+    }
+
+    function getRateToBorrow(uint256 utilizationRate)
+        internal
+        view
+        returns (uint256)
+    {
         if (utilizationRate >= maxUtilizationRate) {
             revert GenericError(ErrorCode.EXCEEDED_MAX_UTILIZATION_RATE);
         }
@@ -192,6 +201,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         ) + curveParameterB;
         // this curve _could_ go below zero if the parameters are set wrong.
         assert(rate >= 0);
-        return uint256(rate).fmul(maturityDate - currentDate, YEAR);
+        return uint256(rate);
     }
 }

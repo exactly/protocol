@@ -296,6 +296,62 @@ describe("InterestRateModel", () => {
     });
   });
 
+  describe("GIVEN an interest rate model harness with parameters yielding Ub=1, Umax=3, R0=0.02 and Rb=0.14", () => {
+    let IRMHarness: Contract;
+    beforeEach(async () => {
+      const IRMHarnessFactory = await ethers.getContractFactory(
+        "InterestRateModelHarness"
+      );
+      // A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
+      // A = ((3*(3-1))/1)*(0.14-0.02)
+      // A = .72000000000000000000
+
+      // B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
+      // B = ((3/1)*0.02) + (1-(3/1))*0.14
+      // B = -.22000000000000000000
+
+      const A = parseUnits("0.72"); // A parameter for the curve
+      const B = parseUnits("-0.22"); // B parameter for the curve
+      const maxUtilizationRate = parseUnits("3"); // Maximum utilization rate
+      const penaltyRate = parseUnits("0.025"); // Penalty rate
+      const spFee = parseUnits("0"); // not important for this tests
+      IRMHarness = await IRMHarnessFactory.deploy(
+        A,
+        B,
+        maxUtilizationRate,
+        penaltyRate,
+        spFee,
+      );
+      exactlyEnv.switchWallet(alice);
+    });
+
+    describe("getRateToBorrow clear box testing", () => {
+      it("WHEN asking R(0), THEN R0 is returned", async () => {
+        expect(await IRMHarness.internalGetRateToBorrow(parseUnits("0"))).to.eq(
+          parseUnits("0.02")
+        );
+      });
+
+      it("WHEN asking R(Ub), THEN Rb is returned", async () => {
+        expect(await IRMHarness.internalGetRateToBorrow(parseUnits("1"))).to.eq(
+          parseUnits("0.14")
+        );
+      });
+      // 0.72/(3-2.7)-0.22 = 2.18000000000000000000
+      it("WHEN asking R(2.7), THEN 2.18 is returned", async () => {
+        expect(
+          await IRMHarness.internalGetRateToBorrow(parseUnits("2.7"))
+        ).to.eq(parseUnits("2.18"));
+      });
+      // 0.72/(3-0.7)-0.22 = .09304347826086956521
+      it("WHEN asking R(0.7), THEN 0.93 is returned", async () => {
+        expect(
+          await IRMHarness.internalGetRateToBorrow(parseUnits("0.7"))
+        ).to.eq(parseUnits(".093043478260869565"));
+      });
+    });
+  });
+
   describe("GIVEN curve parameters yielding Ub=0.8, Umax=1.1, R0=0.02 and Rb=0.14", () => {
     beforeEach(async () => {
       // A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
