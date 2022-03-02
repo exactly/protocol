@@ -9,7 +9,7 @@ interface IInterestRateModel {
         uint256 currentDate,
         uint256 borrowedMP,
         uint256 suppliedMP,
-        uint256 borrowableFromSP
+        uint256 smartPoolLiquidityShare
     ) external view returns (uint256);
 
     function penaltyRate() external view returns (uint256);
