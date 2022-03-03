@@ -258,19 +258,15 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // We remove the supply from the offer
         smartPoolBorrowed += pool.withdrawMoney(
             position.copy().scaleProportionally(amount).principal,
-            position
-                .copy()
-                .scaleProportionally(redeemAmountDiscounted)
-                .principal,
             maxSPDebt
         );
 
         // All the fees go to unassigned or to the treasury
-        // TODO: should this be amountDiscounted?
         uint256 earnings = amount - redeemAmountDiscounted;
         earningsTreasury =
-            ((amount - Math.min(pool.suppliedSP, amount)) * earnings) /
-            amount;
+            ((redeemAmountDiscounted -
+                Math.min(pool.suppliedSP, redeemAmountDiscounted)) * earnings) /
+            redeemAmountDiscounted;
         maturityPools[maturityDate].addFee(earnings - earningsTreasury);
 
         // the user gets discounted the full amount
@@ -370,7 +366,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                     repayVars.scaleDebtCovered.principal
                 )) * repayVars.penalties) /
             repayVars.scaleDebtCovered.principal;
-        earningsSP = repayVars.penalties - earningsTreasury;
+        earningsSP += repayVars.penalties - earningsTreasury;
 
         // We reduce the borrowed and we might decrease the SP debt
         repayVars.smartPoolDebtReduction = pool.repayMoney(

@@ -8,7 +8,7 @@ contract PoolAccountingHarness is PoolAccounting {
     struct ReturnValues {
         uint256 totalOwedNewBorrow;
         uint256 currentTotalDeposit;
-        uint256 spareAmount;
+        uint256 spareRepayAmount;
         uint256 earningsSP;
         uint256 earningsTreasury;
         uint256 debtCovered;
@@ -79,7 +79,7 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 maxAmountAllowed
     ) external {
         (
-            returnValues.spareAmount,
+            returnValues.spareRepayAmount,
             returnValues.debtCovered,
             returnValues.earningsSP,
             returnValues.earningsTreasury
