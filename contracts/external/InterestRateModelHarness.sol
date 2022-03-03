@@ -20,12 +20,12 @@ contract InterestRateModelHarness is InterestRateModel {
         )
     {}
 
-    function internalGetRateToBorrow(uint256 utilizationRate)
+    function internalGetPointInCurve(uint256 utilizationRate)
         external
         view
         returns (uint256)
     {
-        return getRateToBorrow(utilizationRate);
+        return getPointInCurve(utilizationRate);
     }
 
     function internalTrapezoidIntegrator(uint256 ut, uint256 ut1)

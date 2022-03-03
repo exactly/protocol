@@ -143,11 +143,11 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         curveParameterA = curveA;
         curveParameterB = curveB;
         maxUtilizationRate = targetUtilizationRate;
-        // we call the getRateToBorrow function with an utilization rate of
+        // we call the getPointInCurve function with an utilization rate of
         // zero to force it to revert in the tx that sets it, and not be able
         // to set an invalid curve (such as one yielding a negative interest
-        // rate). doing it works because it's a monotonously increasing function.
-        getFeeToBorrow(block.timestamp + 1, block.timestamp, 0, 100, 100);
+        // rate). Doing it works because it's a monotonously increasing function.
+        getPointInCurve(0);
 
         emit ParametersUpdated(
             curveA,
@@ -184,11 +184,11 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (supplied == 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
-        uint256 rate = getRateToBorrow(borrowedMP.fdiv(supplied, 1e18));
+        uint256 rate = getPointInCurve(borrowedMP.fdiv(supplied, 1e18));
         return (rate * (maturityDate - currentDate)) / YEAR;
     }
 
-    function getRateToBorrow(uint256 utilizationRate)
+    function getPointInCurve(uint256 utilizationRate)
         internal
         view
         returns (uint256)
@@ -211,14 +211,14 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     {
         uint256 denominator = ut1 - ut;
         uint256 delta = denominator / 4;
-        uint256 numerator = getRateToBorrow(ut) +
+        uint256 numerator = getPointInCurve(ut) +
             2 *
-            getRateToBorrow(ut + delta) +
+            getPointInCurve(ut + delta) +
             2 *
-            getRateToBorrow(ut + 2 * delta) +
+            getPointInCurve(ut + 2 * delta) +
             2 *
-            getRateToBorrow(ut + 3 * delta) +
-            getRateToBorrow(ut1);
+            getPointInCurve(ut + 3 * delta) +
+            getPointInCurve(ut1);
         return ((delta / 2) * numerator) / denominator;
     }
 
@@ -229,10 +229,10 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     {
         uint256 denominator = ut1 - ut;
         uint256 delta = denominator / 4;
-        uint256 numerator = getRateToBorrow(ut + delta.mul_(0.5 ether)) +
-            getRateToBorrow(ut + delta.mul_(1.5 ether)) +
-            getRateToBorrow(ut + delta.mul_(2.5 ether)) +
-            getRateToBorrow(ut + delta.mul_(3.5 ether));
+        uint256 numerator = getPointInCurve(ut + delta.fmul(0.5 ether, 1 ether)) +
+            getPointInCurve(ut + delta.fmul(1.5 ether, 1 ether)) +
+            getPointInCurve(ut + delta.fmul(2.5 ether, 1 ether)) +
+            getPointInCurve(ut + delta.fmul(3.5 ether, 1 ether));
         return (delta * numerator) / denominator;
     }
 }

@@ -314,39 +314,38 @@ describe("InterestRateModel", () => {
       const B = parseUnits("-0.22"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("3"); // Maximum utilization rate
       const penaltyRate = parseUnits("0.025"); // Penalty rate
-      const spFee = parseUnits("0"); // not important for this tests
       IRMHarness = await IRMHarnessFactory.deploy(
         A,
         B,
         maxUtilizationRate,
         penaltyRate,
-        spFee,
+        parseUnits("0")
       );
       exactlyEnv.switchWallet(alice);
     });
 
-    describe("getRateToBorrow clear box testing", () => {
+    describe("getPointInCurve clear box testing", () => {
       it("WHEN asking R(0), THEN R0 is returned", async () => {
-        expect(await IRMHarness.internalGetRateToBorrow(parseUnits("0"))).to.eq(
+        expect(await IRMHarness.internalGetPointInCurve(parseUnits("0"))).to.eq(
           parseUnits("0.02")
         );
       });
 
       it("WHEN asking R(Ub), THEN Rb is returned", async () => {
-        expect(await IRMHarness.internalGetRateToBorrow(parseUnits("1"))).to.eq(
+        expect(await IRMHarness.internalGetPointInCurve(parseUnits("1"))).to.eq(
           parseUnits("0.14")
         );
       });
       // 0.72/(3-2.7)-0.22 = 2.18000000000000000000
       it("WHEN asking R(2.7), THEN 2.18 is returned", async () => {
         expect(
-          await IRMHarness.internalGetRateToBorrow(parseUnits("2.7"))
+          await IRMHarness.internalGetPointInCurve(parseUnits("2.7"))
         ).to.eq(parseUnits("2.18"));
       });
       // 0.72/(3-0.7)-0.22 = .09304347826086956521
       it("WHEN asking R(0.7), THEN 0.93 is returned", async () => {
         expect(
-          await IRMHarness.internalGetRateToBorrow(parseUnits("0.7"))
+          await IRMHarness.internalGetPointInCurve(parseUnits("0.7"))
         ).to.eq(parseUnits(".093043478260869565"));
       });
     });
