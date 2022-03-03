@@ -350,6 +350,31 @@ describe("InterestRateModel", () => {
         ).to.eq(parseUnits(".093043478260869565"));
       });
     });
+
+    describe("trapezoid integrator clear box testing", () => {
+      [
+        ["0", "0.1", "0.024094095130296869"],
+        ["0", "0.2", "0.028386666549483"],
+        ["0", "0.4", "0.037636731085006946"],
+        ["0", "0.8", "0.059425574425574425"],
+        ["0", "1.5", "0.114571428571428571"],
+        ["0", "2", "0.182"],
+        ["0", "2.6", "0.388906669050598962"],
+        ["1", "1.1", "0.149321847373146506"],
+        ["1", "2", "0.281857142857142857"],
+        ["1", "2.3", "0.369977204569487059"],
+        ["2", "2.5", "0.783714285714285714"],
+      ].forEach(([ut, ut1, expected]) => {
+        it(`WHEN asking the trapezoid integrator for the rate from U=${ut} to U=${ut1}, THEN ${expected} is returned`, async () => {
+          expect(
+            await IRMHarness.internalTrapezoidIntegrator(
+              parseUnits(ut),
+              parseUnits(ut1)
+            )
+          ).to.eq(parseUnits(expected));
+        });
+      });
+    });
   });
 
   describe("GIVEN curve parameters yielding Ub=0.8, Umax=1.1, R0=0.02 and Rb=0.14", () => {

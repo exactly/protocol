@@ -203,4 +203,22 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         assert(rate >= 0);
         return uint256(rate);
     }
+
+    function trapezoidIntegrator(uint256 ut, uint256 ut1)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 denominator = ut1 - ut;
+        uint256 delta = denominator / 4;
+        uint256 numerator = getRateToBorrow(ut) +
+            2 *
+            getRateToBorrow(ut + delta) +
+            2 *
+            getRateToBorrow(ut + 2 * delta) +
+            2 *
+            getRateToBorrow(ut + 3 * delta) +
+            getRateToBorrow(ut1);
+        return ((delta / 2) * numerator) / denominator;
+    }
 }
