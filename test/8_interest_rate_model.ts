@@ -399,6 +399,31 @@ describe("InterestRateModel", () => {
         });
       });
     });
+
+    describe("simpson integrator clear box testing", () => {
+      [
+        ["0", "0.1", "0.024091172075410733"],
+        ["0", "0.2", "0.028374337536894170"],
+        ["0", "0.4", "0.037581522125546798"],
+        ["0", "0.8", "0.059139525974608433"],
+        ["0", "1.5", "0.112714174714174713"],
+        ["0", "2", "0.175541125541125540"],
+        ["0", "2.6", "0.339877930678942013"],
+        ["1", "1.1", "0.149311719673751591"],
+        ["1", "2", "0.279071262071262071"],
+        ["1", "2.3", "0.361487099975571286"],
+        ["2", "2.5", "0.778142524142524142"],
+      ].forEach(([ut, ut1, expected]) => {
+        it(`WHEN asking the getRateToBorrow for the rate from U=${ut} to U=${ut1}, THEN ${expected} is returned`, async () => {
+          expect(
+            await IRMHarness.internalGetRateToBorrow(
+              parseUnits(ut),
+              parseUnits(ut1)
+            )
+          ).to.eq(parseUnits(expected));
+        });
+      });
+    });
   });
 
   describe("GIVEN curve parameters yielding Ub=0.8, Umax=1.1, R0=0.02 and Rb=0.14", () => {

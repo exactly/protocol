@@ -188,6 +188,16 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         return (rate * (maturityDate - currentDate)) / YEAR;
     }
 
+    function getRateToBorrow(
+        uint256 utilizationBefore,
+        uint256 utilizationAfter
+    ) internal view returns (uint256) {
+        return
+            (trapezoidIntegrator(utilizationBefore, utilizationAfter) +
+                2 *
+                midpointIntegrator(utilizationBefore, utilizationAfter)) / 3;
+    }
+
     function getPointInCurve(uint256 utilizationRate)
         internal
         view
