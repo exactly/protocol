@@ -35,4 +35,12 @@ contract InterestRateModelHarness is InterestRateModel {
     {
         return trapezoidIntegrator(ut, ut1);
     }
+
+    function internalMidpointIntegrator(uint256 ut, uint256 ut1)
+        external
+        view
+        returns (uint256)
+    {
+        return midpointIntegrator(ut, ut1);
+    }
 }

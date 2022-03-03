@@ -221,4 +221,18 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             getRateToBorrow(ut1);
         return ((delta / 2) * numerator) / denominator;
     }
+
+    function midpointIntegrator(uint256 ut, uint256 ut1)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 denominator = ut1 - ut;
+        uint256 delta = denominator / 4;
+        uint256 numerator = getRateToBorrow(ut + delta.mul_(0.5 ether)) +
+            getRateToBorrow(ut + delta.mul_(1.5 ether)) +
+            getRateToBorrow(ut + delta.mul_(2.5 ether)) +
+            getRateToBorrow(ut + delta.mul_(3.5 ether));
+        return (delta * numerator) / denominator;
+    }
 }

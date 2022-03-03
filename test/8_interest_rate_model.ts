@@ -375,6 +375,31 @@ describe("InterestRateModel", () => {
         });
       });
     });
+
+    describe("midpoint integrator clear box testing", () => {
+      [
+        ["0", "0.1", "0.024089710547967666"],
+        ["0", "0.2", "0.028368173030599755"],
+        ["0", "0.4", "0.037553917645816724"],
+        ["0", "0.8", "0.058996501749125437"],
+        ["0", "1.5", "0.111785547785547785"],
+        ["0", "2", "0.172311688311688311"],
+        ["0", "2.6", "0.315363561493113539"],
+        ["1", "1.1", "0.149306655824054134"],
+        ["1", "2", "0.277678321678321678"],
+        ["1", "2.3", "0.3572420476786134"],
+        ["2", "2.5", "0.775356643356643356"],
+      ].forEach(([ut, ut1, expected]) => {
+        it(`WHEN asking the midpoint integrator for the rate from U=${ut} to U=${ut1}, THEN ${expected} is returned`, async () => {
+          expect(
+            await IRMHarness.internalMidpointIntegrator(
+              parseUnits(ut),
+              parseUnits(ut1)
+            )
+          ).to.eq(parseUnits(expected));
+        });
+      });
+    });
   });
 
   describe("GIVEN curve parameters yielding Ub=0.8, Umax=1.1, R0=0.02 and Rb=0.14", () => {
