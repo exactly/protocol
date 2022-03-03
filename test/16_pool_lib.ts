@@ -292,19 +292,6 @@ describe("Pool Management Library", () => {
       });
     });
 
-    describe("reduceFees", async () => {
-      describe("GIVEN a 100 scaledDebtFee, WHEN 50 fees are reduced", async () => {
-        beforeEach(async () => {
-          await poolEnv.reduceFee("100", "50");
-          scaledDebt = await poolEnv.getMpHarness().scaledDebt();
-        });
-
-        it("THEN the scaledDebtFee is 50", async () => {
-          expect(scaledDebt.fee).to.equal(parseUnits("50"));
-        });
-      });
-    });
-
     describe("scaleProportionally", async () => {
       describe("GIVEN a 100 scaledDebtPrincipal AND a 100 scaledDebtFee", async () => {
         describe("WHEN 50 is proportionally scaled", async () => {

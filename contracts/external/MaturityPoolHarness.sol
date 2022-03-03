@@ -72,9 +72,4 @@ contract MaturityPoolHarness {
         scaledDebt.fee = _scaledDebtFee;
         scaledDebt = scaledDebt.reduceProportionally(_amount);
     }
-
-    function reduceFee(uint256 _scaledDebtFee, uint256 _feeToReduce) external {
-        scaledDebt.fee = _scaledDebtFee;
-        scaledDebt = scaledDebt.reduceFees(_feeToReduce);
-    }
 }
