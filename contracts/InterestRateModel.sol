@@ -111,7 +111,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             curveParameterA.div_(maxUtilizationRate - utilizationRate)
         ) + curveParameterB;
         // this curve _could_ go below zero if the parameters are set wrong.
-        assert(rate > 0);
+        assert(rate >= 0);
         return (uint256(rate) * (maturityDate - currentDate)) / YEAR;
     }
 }
