@@ -5,7 +5,6 @@ explicitTypes: always
 overrides: # TODO remove after refactor
   - files:
       - "*.sol"
-      - test/4_*
       - test/5_*
       - test/6_*
       - test/8_*
