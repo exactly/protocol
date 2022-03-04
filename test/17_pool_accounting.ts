@@ -32,7 +32,7 @@ describe("PoolAccounting", () => {
   describe("function calls not originating from the FixedLender contract", () => {
     it("WHEN invoking borrowMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
-        poolAccountingHarness.borrowMP(0, laura.address, 0, 0, 0)
+        poolAccountingHarness.borrowMP(0, laura.address, 0, 0, 0, 0)
       ).to.be.revertedWith(
         errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
       );
@@ -129,7 +129,6 @@ describe("PoolAccounting", () => {
       beforeEach(async () => {
         borrowAmount = 5000;
         borrowFees = 250;
-
         await mockedInterestRateModel.setBorrowRate(parseUnits("0.05"));
         await poolAccountingEnv.moveInTime(fourDaysToMaturity);
         await poolAccountingEnv.borrowMP(

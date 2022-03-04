@@ -1,6 +1,7 @@
 import { expect } from "chai";
+import { BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
-import { errorGeneric, ProtocolError } from "./exactlyUtils";
+import { errorGeneric, ExaTime, ProtocolError } from "./exactlyUtils";
 import { PoolEnv } from "./poolEnv";
 
 describe("Pool Management Library", () => {
@@ -14,10 +15,10 @@ describe("Pool Management Library", () => {
       poolEnv = await PoolEnv.create();
     });
 
-    describe("addMoney & takeMoney", async () => {
+    describe("depositMoney & borrowMoney", async () => {
       describe("WHEN 100 tokens are deposited", async () => {
         beforeEach(async () => {
-          await poolEnv.addMoney("100");
+          await poolEnv.depositMoney("100");
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
@@ -33,15 +34,6 @@ describe("Pool Management Library", () => {
         it("THEN the pool 'earningsUnassigned' are 0", async () => {
           expect(mp.earningsUnassigned).to.equal(parseUnits("0"));
         });
-        it("THEN the pool 'earningsSP' are 0", async () => {
-          expect(mp.earningsSP).to.equal(parseUnits("0"));
-        });
-        it("THEN the pool 'earningsMP' are 0", async () => {
-          expect(mp.earningsMP).to.equal(parseUnits("0"));
-        });
-        it("THEN the pool 'earningsTreasury' are 0", async () => {
-          expect(mp.earningsTreasury).to.equal(parseUnits("0"));
-        });
         it("THEN the smartPoolDebtReduction that is returned is 0", async () => {
           const smartPoolDebtReductionReturned = await poolEnv
             .getMpHarness()
@@ -50,7 +42,7 @@ describe("Pool Management Library", () => {
         });
         describe("AND WHEN 80 tokens are taken out", async () => {
           beforeEach(async () => {
-            await poolEnv.takeMoney("80", mockedMaxDebt);
+            await poolEnv.borrowMoney("80", mockedMaxDebt);
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -69,7 +61,7 @@ describe("Pool Management Library", () => {
           });
           describe("AND WHEN another 20 tokens are taken out", async () => {
             beforeEach(async () => {
-              await poolEnv.takeMoney("20", mockedMaxDebt);
+              await poolEnv.borrowMoney("20", mockedMaxDebt);
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -91,7 +83,7 @@ describe("Pool Management Library", () => {
             describe("AND WHEN more tokens are taken out than the max sp debt", async () => {
               let tx: any;
               beforeEach(async () => {
-                tx = poolEnv.takeMoney("5000", "1000");
+                tx = poolEnv.borrowMoney("5000", "1000");
               });
               it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
                 await expect(tx).to.be.revertedWith(
@@ -101,7 +93,7 @@ describe("Pool Management Library", () => {
             });
             describe("AND WHEN 50 tokens are taken out", async () => {
               beforeEach(async () => {
-                await poolEnv.takeMoney("50", mockedMaxDebt);
+                await poolEnv.borrowMoney("50", mockedMaxDebt);
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
@@ -157,10 +149,150 @@ describe("Pool Management Library", () => {
       });
     });
 
+    describe("accrueEarnings", async () => {
+      describe("GIVEN a fresh maturity date in 10 days", async () => {
+        let exaTime: ExaTime;
+        let now: number;
+        let sixDays: number;
+        let tenDays: number;
+        beforeEach(async () => {
+          exaTime = new ExaTime();
+          now = exaTime.timestamp;
+          tenDays = now + exaTime.ONE_DAY * 10;
+          sixDays = now + exaTime.ONE_DAY * 6;
+
+          await poolEnv.setNextTimestamp(now);
+          await poolEnv.accrueEarnings(tenDays);
+          mp = await poolEnv.mpHarness.maturityPool();
+        });
+
+        it("THEN the pool 'earningsUnassigned' are 0", async () => {
+          expect(mp.earningsUnassigned).to.equal(0);
+        });
+        it("THEN the pool 'lastAccrue' is now", async () => {
+          expect(mp.lastAccrue).to.equal(now);
+        });
+        it("THEN the last earnings SP is 0", async () => {
+          const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          expect(lastEarningsSP).to.equal(0);
+        });
+
+        describe("AND GIVEN that we add 100 in fees and 6 days went by", async () => {
+          beforeEach(async () => {
+            await poolEnv.addFee("100");
+            await poolEnv.setNextTimestamp(sixDays);
+            await poolEnv.accrueEarnings(tenDays);
+            mp = await poolEnv.mpHarness.maturityPool();
+          });
+
+          it("THEN the pool 'earningsUnassigned' are 40", async () => {
+            expect(mp.earningsUnassigned).to.equal(parseUnits("40"));
+          });
+          it("THEN the pool 'lastAccrue' is fiveDays", async () => {
+            expect(mp.lastAccrue).to.equal(sixDays);
+          });
+          it("THEN the last earnings SP is 60", async () => {
+            const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+            expect(lastEarningsSP).to.equal(parseUnits("60"));
+          });
+
+          describe("AND GIVEN that another 150 seconds go by", async () => {
+            beforeEach(async () => {
+              await poolEnv.setNextTimestamp(
+                sixDays + exaTime.ONE_SECOND * 150
+              );
+              await poolEnv.accrueEarnings(tenDays);
+              mp = await poolEnv.mpHarness.maturityPool();
+            });
+
+            it("THEN the pool 'earningsUnassigned' are ~= 39.98263", async () => {
+              // 10 / 86400           = 0.00011574074 (unassigned earnings per second)
+              // 0.00011574074 * 150  = 0.01736111111 (earnings accrued)
+              // 40 - 0.01736111111   = 39.9826388889 (unassigned earnings left)
+              expect(mp.earningsUnassigned).to.closeTo(
+                parseUnits("39.9826388"),
+                parseUnits("00.0000001").toNumber()
+              );
+            });
+            it("THEN the pool 'lastAccrue' is tenDays", async () => {
+              expect(mp.lastAccrue).to.equal(
+                sixDays + exaTime.ONE_SECOND * 150
+              );
+            });
+            it("THEN the last earnings SP is ~= 0.017361", async () => {
+              const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+              expect(lastEarningsSP).to.closeTo(
+                parseUnits("0.0173611"),
+                parseUnits("0.0000001").toNumber()
+              );
+            });
+          });
+
+          describe("AND GIVEN that we go over +1 day the maturity date", async () => {
+            beforeEach(async () => {
+              await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY);
+              await poolEnv.accrueEarnings(tenDays);
+              mp = await poolEnv.mpHarness.maturityPool();
+            });
+
+            it("THEN the pool 'earningsUnassigned' are 0", async () => {
+              expect(mp.earningsUnassigned).to.equal(0);
+            });
+            it("THEN the pool 'lastAccrue' is tenDays", async () => {
+              expect(mp.lastAccrue).to.equal(tenDays);
+            });
+            it("THEN the last earnings SP is 40 (the remaining)", async () => {
+              const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+              expect(lastEarningsSP).to.equal(parseUnits("40"));
+            });
+
+            describe("AND GIVEN that we go over another +1 day the maturity date", async () => {
+              beforeEach(async () => {
+                await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY * 2);
+                await poolEnv.accrueEarnings(tenDays);
+                mp = await poolEnv.mpHarness.maturityPool();
+              });
+
+              it("THEN the pool 'earningsUnassigned' are 0", async () => {
+                expect(mp.earningsUnassigned).to.equal(0);
+              });
+              it("THEN the pool 'lastAccrue' is tenDays", async () => {
+                expect(mp.lastAccrue).to.equal(tenDays);
+              });
+              it("THEN the last earnings SP is 0", async () => {
+                const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+                expect(lastEarningsSP).to.equal(parseUnits("0"));
+              });
+            });
+          });
+
+          describe("AND GIVEN that we remove 20 fees and we go over +1 day the maturity date", async () => {
+            beforeEach(async () => {
+              await poolEnv.removeFee("20");
+              await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY);
+              await poolEnv.accrueEarnings(tenDays);
+              mp = await poolEnv.mpHarness.maturityPool();
+            });
+
+            it("THEN the pool 'earningsUnassigned' are 0", async () => {
+              expect(mp.earningsUnassigned).to.equal(0);
+            });
+            it("THEN the pool 'lastAccrue' is tenDays", async () => {
+              expect(mp.lastAccrue).to.equal(tenDays);
+            });
+            it("THEN the last earnings SP is 20 (40 were remaining - 20 removed)", async () => {
+              const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+              expect(lastEarningsSP).to.equal(parseUnits("20"));
+            });
+          });
+        });
+      });
+    });
+
     describe("repayMoney", async () => {
       describe("WHEN 100 tokens are taken out", async () => {
         beforeEach(async () => {
-          await poolEnv.takeMoney("100", mockedMaxDebt);
+          await poolEnv.borrowMoney("100", mockedMaxDebt);
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
@@ -212,54 +344,10 @@ describe("Pool Management Library", () => {
       });
     });
 
-    describe("addFeeMP & addFeeSP", async () => {
-      describe("GIVEN 100 unassigned earnings are added", async () => {
-        beforeEach(async () => {
-          await poolEnv.addFee("100");
-        });
-        describe("WHEN 50 fees are added to the MP", async () => {
-          beforeEach(async () => {
-            await poolEnv.addFeeMP("50");
-            mp = await poolEnv.mpHarness.maturityPool();
-          });
-
-          it("THEN the pool 'earningsUnassigned' are 50", async () => {
-            expect(mp.earningsUnassigned).to.equal(parseUnits("50"));
-          });
-          it("THEN the pool 'earningsMP' are 50", async () => {
-            expect(mp.earningsMP).to.equal(parseUnits("50"));
-          });
-          describe("AND WHEN those 50 fees are returned", async () => {
-            beforeEach(async () => {
-              await poolEnv.returnFee("50");
-              mp = await poolEnv.mpHarness.maturityPool();
-            });
-
-            it("THEN the pool 'earningsMP' are 0", async () => {
-              expect(mp.earningsMP).to.equal(parseUnits("0"));
-            });
-          });
-          describe("AND WHEN another 50 fees are added to the SP", async () => {
-            beforeEach(async () => {
-              await poolEnv.addFeeSP("50");
-              mp = await poolEnv.mpHarness.maturityPool();
-            });
-
-            it("THEN the pool 'earningsUnassigned' are 0", async () => {
-              expect(mp.earningsUnassigned).to.equal(parseUnits("0"));
-            });
-            it("THEN the pool 'earningSP' are 50", async () => {
-              expect(mp.earningsSP).to.equal(parseUnits("50"));
-            });
-          });
-        });
-      });
-    });
-
     describe("withdrawMoney", async () => {
       describe("GIVEN 100 tokens are deposited", async () => {
         beforeEach(async () => {
-          await poolEnv.addMoney("100");
+          await poolEnv.depositMoney("100");
         });
         describe("WHEN 50 tokens are withdrawn", async () => {
           beforeEach(async () => {
@@ -276,7 +364,7 @@ describe("Pool Management Library", () => {
           });
           describe("AND GIVEN another 100 tokens are taken out", async () => {
             beforeEach(async () => {
-              await poolEnv.takeMoney("100", mockedMaxDebt);
+              await poolEnv.borrowMoney("100", mockedMaxDebt);
             });
             describe("WHEN another 50 tokens are withdrawn", async () => {
               beforeEach(async () => {
@@ -322,19 +410,6 @@ describe("Pool Management Library", () => {
               expect(newDebtSpReturned).to.equal(parseUnits("0"));
             });
           });
-        });
-      });
-    });
-
-    describe("reduceFees", async () => {
-      describe("GIVEN a 100 scaledDebtFee, WHEN 50 fees are reduced", async () => {
-        beforeEach(async () => {
-          await poolEnv.reduceFee("100", "50");
-          scaledDebt = await poolEnv.getMpHarness().scaledDebt();
-        });
-
-        it("THEN the scaledDebtFee is 50", async () => {
-          expect(scaledDebt.fee).to.equal(parseUnits("50"));
         });
       });
     });
@@ -472,6 +547,70 @@ describe("Pool Management Library", () => {
           it("THEN the scaledDebtFee is 0", async () => {
             expect(scaledDebt.fee).to.equal(parseUnits("0"));
           });
+        });
+      });
+    });
+
+    describe("distributeEarningsAccordingly", async () => {
+      let lastEarningsSP: BigNumber;
+      let lastEarningsTreasury: BigNumber;
+      describe("GIVEN 100 earnings, 1000 supplySP and 800 amountFunded", async () => {
+        beforeEach(async () => {
+          await poolEnv.distributeEarningsAccordingly("100", "1000", "800");
+          lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
+        });
+
+        it("THEN lastEarningsSP is 100", async () => {
+          expect(lastEarningsSP).to.equal(parseUnits("100"));
+        });
+        it("THEN lastEarningsTreasury is 0", async () => {
+          expect(lastEarningsTreasury).to.equal(0);
+        });
+      });
+
+      describe("GIVEN 100 earnings, 400 supplySP and 800 amountFunded", async () => {
+        beforeEach(async () => {
+          await poolEnv.distributeEarningsAccordingly("100", "400", "800");
+          lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
+        });
+
+        it("THEN lastEarningsSP is 50", async () => {
+          expect(lastEarningsSP).to.equal(parseUnits("50"));
+        });
+        it("THEN lastEarningsTreasury is 50", async () => {
+          expect(lastEarningsTreasury).to.equal(parseUnits("50"));
+        });
+      });
+
+      describe("GIVEN 100 earnings, 0 supplySP and 800 amountFunded", async () => {
+        beforeEach(async () => {
+          await poolEnv.distributeEarningsAccordingly("100", "0", "800");
+          lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
+        });
+
+        it("THEN lastEarningsSP is 0", async () => {
+          expect(lastEarningsSP).to.equal(0);
+        });
+        it("THEN lastEarningsTreasury is 100", async () => {
+          expect(lastEarningsTreasury).to.equal(parseUnits("100"));
+        });
+      });
+
+      describe("GIVEN 0 earnings, 0 supplySP and 800 amountFunded", async () => {
+        beforeEach(async () => {
+          await poolEnv.distributeEarningsAccordingly("0", "0", "800");
+          lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
+        });
+
+        it("THEN lastEarningsSP is 0", async () => {
+          expect(lastEarningsSP).to.equal(0);
+        });
+        it("THEN lastEarningsTreasury is 0", async () => {
+          expect(lastEarningsTreasury).to.equal(0);
         });
       });
     });

@@ -22,6 +22,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         PoolLib.Position position;
         uint256 feeRate;
         uint256 fee;
+        uint256 newUnassignedEarnings;
     }
 
     // Vars used in `repayMP` to avoid
@@ -95,7 +96,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
      * @param amount amount that the borrower will be borrowing
      * @param maxAmountAllowed maximum amount that the borrower is willing to pay
      *        at maturity
-     * @param maxSPDebt maximum amount of assset debt that the MP can have with the SP
+     * @param eTokenTotalSupply supply of the smart pool
+     * @param maxFuturePools # of enabled maturities
      * @return totalOwedNewBorrow : total amount that will need to be paid at maturity for this borrow
      */
     function borrowMP(
@@ -103,7 +105,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         address borrower,
         uint256 amount,
         uint256 maxAmountAllowed,
-        uint256 maxSPDebt
+        uint256 eTokenTotalSupply,
+        uint8 maxFuturePools
     )
         external
         override
@@ -115,18 +118,20 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         )
     {
         BorrowVars memory borrowVars;
-
         PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
+        uint256 maxSPDebt = eTokenTotalSupply - smartPoolBorrowed;
+        uint256 assignedSPLiquidity = maxSPDebt / maxFuturePools;
+
         earningsSP += pool.accrueEarnings(maturityDate, currentTimestamp());
-        smartPoolBorrowed += pool.takeMoney(amount, maxSPDebt);
+        smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
 
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
             block.timestamp,
             pool.borrowed,
             pool.supplied,
-            maxSPDebt
+            assignedSPLiquidity
         );
         borrowVars.fee = amount.mul_(borrowVars.feeRate);
         totalOwedNewBorrow = amount + borrowVars.fee;
@@ -144,10 +149,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         // We distribute to treasury and also to unassigned
-        earningsTreasury =
-            ((amount - Math.min(pool.suppliedSP, amount)) * borrowVars.fee) /
-            amount;
-        pool.addFee(borrowVars.fee - earningsTreasury);
+        (borrowVars.newUnassignedEarnings, earningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(
+                borrowVars.fee,
+                pool.suppliedSP,
+                amount
+            );
+        pool.addFee(borrowVars.newUnassignedEarnings);
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
             borrowVars.position.principal + amount,
@@ -191,7 +199,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        smartPoolBorrowed -= maturityPools[maturityDate].addMoney(amount);
+        smartPoolBorrowed -= maturityPools[maturityDate].depositMoney(amount);
         maturityPools[maturityDate].removeFee(fee + feeSP);
         earningsSP += feeSP;
 
@@ -262,12 +270,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         );
 
         // All the fees go to unassigned or to the treasury
-        uint256 earnings = amount - redeemAmountDiscounted;
-        earningsTreasury =
-            ((redeemAmountDiscounted -
-                Math.min(pool.suppliedSP, redeemAmountDiscounted)) * earnings) /
-            redeemAmountDiscounted;
-        maturityPools[maturityDate].addFee(earnings - earningsTreasury);
+        uint256 earningsUnassigned;
+        (earningsUnassigned, earningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(
+                amount - redeemAmountDiscounted,
+                pool.suppliedSP,
+                redeemAmountDiscounted
+            );
+        maturityPools[maturityDate].addFee(earningsUnassigned);
 
         // the user gets discounted the full amount
         mpUserSuppliedAmount[maturityDate][redeemer] = position
@@ -355,17 +365,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         // We distribute penalties to those that supported (pre-repayment)
-        repayVars.penalties =
-            repayAmount -
-            repayVars.scaleDebtCovered.fullAmount();
-        earningsTreasury =
-            ((repayVars.scaleDebtCovered.principal -
-                Math.min(
-                    pool.suppliedSP,
-                    repayVars.scaleDebtCovered.principal
-                )) * repayVars.penalties) /
-            repayVars.scaleDebtCovered.principal;
-        earningsSP += repayVars.penalties - earningsTreasury;
+        uint256 newEarningsSP;
+        (newEarningsSP, earningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(
+                repayAmount - repayVars.scaleDebtCovered.fullAmount(),
+                pool.suppliedSP,
+                repayVars.scaleDebtCovered.principal
+            );
+        earningsSP += newEarningsSP;
 
         // We reduce the borrowed and we might decrease the SP debt
         repayVars.smartPoolDebtReduction = pool.repayMoney(

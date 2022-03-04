@@ -21,7 +21,6 @@ describe("Validations", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   const exaTime: ExaTime = new ExaTime();
-  const nextPoolId: number = exaTime.nextPoolID();
 
   before(async () => {
     [owner, user] = await ethers.getSigners();
@@ -108,15 +107,6 @@ describe("Validations", function () {
     });
   });
   describe("FixedLender:", () => {
-    describe("GIVEN a NOT matured pool", () => {
-      it("WHEN trying to withdraw from MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
-        await expect(
-          exactlyEnv.withdrawMP("DAI", nextPoolId, "100")
-        ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.VALID, PoolState.MATURED)
-        );
-      });
-    });
     describe("GIVEN a NOT not-yet-enabled pool", () => {
       it("WHEN trying to deposit to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(
@@ -136,7 +126,11 @@ describe("Validations", function () {
         await expect(
           exactlyEnv.withdrawMP("DAI", exaTime.distantFuturePoolID(), "100")
         ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.NOT_READY, PoolState.MATURED)
+          errorUnmatchedPool(
+            PoolState.NOT_READY,
+            PoolState.VALID,
+            PoolState.MATURED
+          )
         );
       });
       it("WHEN trying to repay to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
@@ -188,7 +182,11 @@ describe("Validations", function () {
         await expect(
           exactlyEnv.withdrawMP("DAI", exaTime.invalidPoolID(), "100")
         ).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.MATURED)
+          errorUnmatchedPool(
+            PoolState.INVALID,
+            PoolState.VALID,
+            PoolState.MATURED
+          )
         );
       });
       it("WHEN trying to repay to MP, THEN it reverts with UnmatchedPoolState error", async () => {

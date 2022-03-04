@@ -135,9 +135,11 @@ describe("FixedLender", function () {
       );
     });
     it("AND the FixedLender registers a supply of 100 DAI for the user", async () => {
-      expect(
-        await poolAccounting.mpUserSuppliedAmount(nextPoolId, mariaUser.address)
-      ).to.be.equal(parseUnits("100"));
+      const position = await poolAccounting.mpUserSuppliedAmount(
+        nextPoolId,
+        mariaUser.address
+      );
+      expect(position[0]).to.be.equal(parseUnits("100"));
     });
     it("WHEN trying to borrow DAI THEN it reverts with INSUFFICIENT_LIQUIDITY since collateral was not deposited yet", async () => {
       await expect(
@@ -452,7 +454,7 @@ describe("FixedLender", function () {
 
   describe("GIVEN Maria has 10ETH collateral", () => {
     beforeEach(async () => {
-      await exactlyEnv.depositSP("WETH", "10");
+      await exactlyEnv.depositSP("WETH", "20");
       await exactlyEnv.enterMarkets(["WETH"]);
     });
     it("WHEN Maria tries to borrow 50 DAI on an empty maturity, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
@@ -468,9 +470,9 @@ describe("FixedLender", function () {
         await exactlyEnv.depositSP("DAI", "2400");
         exactlyEnv.switchWallet(mariaUser);
       });
-      it("WHEN Maria tries to borrow 300 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+      it("WHEN Maria tries to borrow 2500 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
         await expect(
-          exactlyEnv.borrowMP("DAI", nextPoolId, "300")
+          exactlyEnv.borrowMP("DAI", nextPoolId, "2500", "5000")
         ).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
         );
@@ -499,9 +501,9 @@ describe("FixedLender", function () {
           await exactlyEnv.depositSP("DAI", "1200");
           exactlyEnv.switchWallet(mariaUser);
         });
-        it("WHEN Maria tries to borrow 300 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+        it("WHEN Maria tries to borrow 1350 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
           await expect(
-            exactlyEnv.borrowMP("DAI", nextPoolId, "300")
+            exactlyEnv.borrowMP("DAI", nextPoolId, "1350", "2000")
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
           );
@@ -579,11 +581,11 @@ describe("FixedLender", function () {
             it("THEN the maturity pool doesnt have funds available", async () => {
               expect(maturityPool.borrowed).to.gt(maturityPool.supplied);
             });
-            it("THEN the maturity pool still owes 100 to the smart pool", async () => {
-              expect(maturityPool.suppliedSP).to.eq(parseUnits("100"));
+            it("THEN the maturity pool owes 50 to the smart pool", async () => {
+              expect(maturityPool.suppliedSP).to.eq(parseUnits("50"));
             });
-            it("THEN the smart pool was NOT repaid 50 DAI", async () => {
-              expect(smartPool.borrowed).to.eq(parseUnits("300"));
+            it("THEN the smart pool was repaid 50 DAI (SPborrowed=250)", async () => {
+              expect(smartPool.borrowed).to.eq(parseUnits("250"));
             });
           });
           describe("AND WHEN john deposits 800 to the later maturity", () => {
@@ -601,11 +603,11 @@ describe("FixedLender", function () {
                 parseUnits("700")
               );
             });
-            it("THEN the later maturity still owes 100 DAI to the smart pool", async () => {
-              expect(maturityPool.suppliedSP).to.eq(parseUnits("100"));
+            it("THEN the later maturity has no supply from the Smart Pool", async () => {
+              expect(maturityPool.suppliedSP).to.eq(0);
             });
-            it("THEN the smart pool was NOT repaid 100 DAI from the later maturity, and is still owed 300 from the current one", async () => {
-              expect(smartPool.borrowed).to.eq(parseUnits("300"));
+            it("THEN the smart pool was repaid, and is still owed 200 from the current one", async () => {
+              expect(smartPool.borrowed).to.eq(parseUnits("200"));
             });
           });
         });
@@ -622,11 +624,11 @@ describe("FixedLender", function () {
           it("THEN the maturity pool still doesnt have funds available", async () => {
             expect(maturityPool.borrowed).to.gt(maturityPool.supplied);
           });
-          it("THEN the maturity pool still owes 200 to the smart pool", async () => {
-            expect(maturityPool.suppliedSP).to.eq(parseUnits("200"));
+          it("THEN the maturity pool still owes 100 to the smart pool", async () => {
+            expect(maturityPool.suppliedSP).to.eq(parseUnits("100"));
           });
-          it("THEN the smart pool was NOT repaid the other 100 (is owed still 200)", async () => {
-            expect(smartPool.borrowed).to.eq(parseUnits("200"));
+          it("THEN the smart pool was repaid the other 100 (is owed still 100)", async () => {
+            expect(smartPool.borrowed).to.eq(parseUnits("100"));
           });
         });
         describe("AND WHEN john deposits 300 to the same maturity", () => {
@@ -644,8 +646,8 @@ describe("FixedLender", function () {
               parseUnits("100")
             );
           });
-          it("THEN the maturity pool still owes 200 to the smart pool", async () => {
-            expect(maturityPool.suppliedSP).to.eq(parseUnits("200"));
+          it("THEN the maturity pool doesn't owe the Smart Pool", async () => {
+            expect(maturityPool.suppliedSP).to.eq(0);
           });
         });
         describe("AND WHEN repaying 100 DAI", () => {
@@ -660,8 +662,8 @@ describe("FixedLender", function () {
           it("THEN the maturity pool doesnt have funds available", async () => {
             expect(maturityPool.borrowed).to.gt(maturityPool.supplied);
           });
-          it("THEN the maturity pool still owes 200 to the smart pool", async () => {
-            expect(maturityPool.suppliedSP).to.eq(parseUnits("200"));
+          it("THEN the maturity pool still owes 100 to the smart pool (100 repaid)", async () => {
+            expect(maturityPool.suppliedSP).to.eq(parseUnits("100"));
           });
         });
         describe("AND WHEN repaying 300 DAI", () => {
@@ -678,8 +680,8 @@ describe("FixedLender", function () {
               parseUnits("100")
             );
           });
-          it("THEN the maturity pool still owes 200 to the smart pool", async () => {
-            expect(maturityPool.suppliedSP).to.eq(parseUnits("200"));
+          it("THEN the maturity pool doesn't owe the Smart Pool", async () => {
+            expect(maturityPool.suppliedSP).to.eq(0);
           });
         });
         describe("AND WHEN repaying in full (1200 DAI)", () => {
@@ -767,12 +769,11 @@ describe("FixedLender", function () {
         });
 
         it("THEN the user receives 1800 on the maturity pool deposit", async () => {
-          expect(
-            await poolAccounting.mpUserSuppliedAmount(
-              nextPoolId,
-              johnUser.address
-            )
-          ).to.be.equal(parseUnits("1800"));
+          const position = await poolAccounting.mpUserSuppliedAmount(
+            nextPoolId,
+            johnUser.address
+          );
+          expect(position[0]).to.be.equal(parseUnits("1800"));
         });
 
         describe("AND GIVEN john has a 900 DAI borrows on a maturity pool", () => {

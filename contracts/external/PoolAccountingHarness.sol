@@ -27,7 +27,8 @@ contract PoolAccountingHarness is PoolAccounting {
         address borrower,
         uint256 amount,
         uint256 maxAmountAllowed,
-        uint256 maxSPDebt
+        uint256 eTokenTotalSupply,
+        uint8 maxFuturePools
     ) external {
         (
             returnValues.totalOwedNewBorrow,
@@ -38,7 +39,8 @@ contract PoolAccountingHarness is PoolAccounting {
             borrower,
             amount,
             maxAmountAllowed,
-            maxSPDebt
+            eTokenTotalSupply,
+            maxFuturePools
         );
     }
 

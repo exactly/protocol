@@ -59,9 +59,11 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         );
       });
       it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
-        expect(
-          await poolAccounting.mpUserSuppliedAmount(nextPoolId, alice.address)
-        ).to.be.equal(parseUnits("5"));
+        const position = await poolAccounting.mpUserSuppliedAmount(
+          nextPoolId,
+          alice.address
+        );
+        expect(position[0]).to.be.equal(parseUnits("5"));
       });
     });
 
@@ -93,9 +95,11 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           );
         });
         it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
-          expect(
-            await poolAccounting.mpUserSuppliedAmount(nextPoolId, alice.address)
-          ).to.be.equal(parseUnits("5"));
+          const position = await poolAccounting.mpUserSuppliedAmount(
+            nextPoolId,
+            alice.address
+          );
+          expect(position[0]).to.be.equal(parseUnits("5"));
         });
       });
     });

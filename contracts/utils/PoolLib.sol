@@ -47,7 +47,7 @@ library PoolLib {
      * @param pool maturity pool where money will be added
      * @param amount amount to be added to the maturity pool
      */
-    function addMoney(MaturityPool storage pool, uint256 amount)
+    function depositMoney(MaturityPool storage pool, uint256 amount)
         internal
         returns (uint256 smartPoolDebtReduction)
     {
@@ -87,7 +87,7 @@ library PoolLib {
      * @param amount amount to be taken out of the pool before it matures
      * @return newDebtSP amount of new debt that needs to be taken out of the SP
      */
-    function takeMoney(
+    function borrowMoney(
         MaturityPool storage pool,
         uint256 amount,
         uint256 maxDebt
@@ -145,7 +145,7 @@ library PoolLib {
     }
 
     /**
-     * @notice External function to add fee to be collected at maturity
+     * @notice Internal function to add fee to be collected at maturity
      * @param pool maturity pool that needs to be updated
      * @param fee fee to be added to the earnings for the pool at maturity
      */
@@ -154,7 +154,7 @@ library PoolLib {
     }
 
     /**
-     * @notice External function to remove fee to be collected from the maturity pool
+     * @notice Internal function to remove fee to be collected from the maturity pool
      * @param pool maturity pool that needs to be updated
      * @param fee fee to be removed from the unassigned earnings
      */
@@ -163,7 +163,7 @@ library PoolLib {
     }
 
     /**
-     * @notice External function to accrue Smart Pool earnings
+     * @notice Internal function to accrue Smart Pool earnings
      * @param pool maturity pool that needs to be updated
      * @param maturityID timestamp in which maturity pool matures
      */
@@ -200,55 +200,84 @@ library PoolLib {
         pool.earningsUnassigned = earningsUnassigned - earningsSP;
     }
 
-    function scaleProportionally(Position memory debt, uint256 amount)
+    /**
+     * @notice Internal function that it helps modify positions based on a certain amount,
+     *         keeping the original principal/fee ratio. This function modifies
+     *         the original struct and returns it.
+     * @param position original position to be scaled
+     * @param amount to be used as a full value (principal + interest)
+     */
+    function scaleProportionally(Position memory position, uint256 amount)
         internal
         pure
         returns (Position memory)
     {
-        // we proportionally reduce the values
-        uint256 principal = (debt.principal * amount) /
-            (debt.principal + debt.fee);
-        debt.principal = principal;
-        debt.fee = amount - principal;
-        return debt;
+        uint256 principal = (position.principal * amount) /
+            (position.principal + position.fee);
+        position.principal = principal;
+        position.fee = amount - principal;
+        return position;
     }
 
-    function reduceProportionally(Position memory debt, uint256 amount)
+    /**
+     * @notice Internal function that it helps reduce positions based on a certain amount,
+     *         keeping the original principal/debt ratio. This function modifies
+     *         the original struct and returns it.
+     * @param position original position to be reduced
+     * @param amount to be used as a full value (principal + interest)
+     */
+    function reduceProportionally(Position memory position, uint256 amount)
         internal
         pure
         returns (Position memory)
     {
-        // we proportionally reduce the values
-        uint256 principal = (debt.principal * amount) /
-            (debt.principal + debt.fee);
-        debt.principal -= principal;
-        debt.fee -= amount - principal;
-        return debt;
+        uint256 principal = (position.principal * amount) /
+            (position.principal + position.fee);
+        position.principal -= principal;
+        position.fee -= amount - principal;
+        return position;
     }
 
-    function reduceFees(Position memory debt, uint256 fee)
+    /**
+     * @notice Internal function that creates a new position based on another's
+     *         struct values
+     * @param position original position to be reduced copied
+     */
+    function copy(Position memory position)
         internal
         pure
         returns (Position memory)
     {
-        // we only reduce the fees
-        debt.fee = debt.fee - fee;
-        return debt;
+        return Position(position.principal, position.fee);
     }
 
-    function copy(Position memory debt)
-        internal
-        pure
-        returns (Position memory)
-    {
-        return Position(debt.principal, debt.fee);
-    }
-
-    function fullAmount(Position memory debt)
+    /**
+     * @notice Internal function returns the full amount in a position (principal and fee)
+     * @param position position to return its full amount
+     */
+    function fullAmount(Position memory position)
         internal
         pure
         returns (uint256 amount)
     {
-        amount = debt.principal + debt.fee;
+        amount = position.principal + position.fee;
+    }
+
+    /**
+     * @notice Internal function that returns what part belongs to the SP or the treasury. It
+     *         verifies what part was covered by the supply of the smart pool
+     * @param earnings amount to be distributed as earnings between the treasury and the smart pool
+     * @param suppliedSP current supply of the smart pool
+     * @param amountFunded amount that will be checked if it came from smart pool or not
+     */
+    function distributeEarningsAccordingly(
+        uint256 earnings,
+        uint256 suppliedSP,
+        uint256 amountFunded
+    ) internal pure returns (uint256 earningsSP, uint256 earningsTreasury) {
+        earningsTreasury =
+            ((amountFunded - Math.min(suppliedSP, amountFunded)) * earnings) /
+            amountFunded;
+        earningsSP = earnings - earningsTreasury;
     }
 }
