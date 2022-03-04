@@ -1394,7 +1394,7 @@ describe("PoolAccounting", () => {
           expect(mp.suppliedSP).to.eq(parseUnits("4772.727272727272727272"));
         });
         it("THEN the redeemAmountDiscounted returned is 4772", async () => {
-          // 5250 / 1.10 (1e18 + 5e16 feeRate) = 4772.72727272727272727272
+          // 5250 / 1.10 (1e18 + 1e17 feeRate) = 4772.72727272727272727272
           expect(returnValues.redeemAmountDiscounted).to.be.eq(
             parseUnits("4772.727272727272727272")
           );
