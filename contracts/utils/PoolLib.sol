@@ -241,7 +241,7 @@ library PoolLib {
     }
 
     /**
-     * @notice Internal function that created a new position based on another's
+     * @notice Internal function that creates a new position based on another's
      *         struct values
      * @param position original position to be reduced copied
      */
