@@ -327,7 +327,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
                 msg.sender,
                 amount,
                 maxAmountAllowed,
-                eToken.totalSupply() / MAX_FUTURE_POOLS
+                eToken.totalSupply(),
+                MAX_FUTURE_POOLS
             );
         totalMpBorrows += totalOwed;
 

@@ -454,7 +454,7 @@ describe("FixedLender", function () {
 
   describe("GIVEN Maria has 10ETH collateral", () => {
     beforeEach(async () => {
-      await exactlyEnv.depositSP("WETH", "10");
+      await exactlyEnv.depositSP("WETH", "20");
       await exactlyEnv.enterMarkets(["WETH"]);
     });
     it("WHEN Maria tries to borrow 50 DAI on an empty maturity, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
@@ -470,9 +470,9 @@ describe("FixedLender", function () {
         await exactlyEnv.depositSP("DAI", "2400");
         exactlyEnv.switchWallet(mariaUser);
       });
-      it("WHEN Maria tries to borrow 300 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+      it("WHEN Maria tries to borrow 2500 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
         await expect(
-          exactlyEnv.borrowMP("DAI", nextPoolId, "300")
+          exactlyEnv.borrowMP("DAI", nextPoolId, "2500", "5000")
         ).to.be.revertedWith(
           errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
         );
@@ -501,9 +501,9 @@ describe("FixedLender", function () {
           await exactlyEnv.depositSP("DAI", "1200");
           exactlyEnv.switchWallet(mariaUser);
         });
-        it("WHEN Maria tries to borrow 300 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+        it("WHEN Maria tries to borrow 1350 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
           await expect(
-            exactlyEnv.borrowMP("DAI", nextPoolId, "300")
+            exactlyEnv.borrowMP("DAI", nextPoolId, "1350", "2000")
           ).to.be.revertedWith(
             errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
           );
