@@ -19,6 +19,10 @@ export class PoolEnv {
     await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 
+  public async setNextTimestamp(timestamp: number) {
+    return this.mpHarness.setNextTimestamp(timestamp);
+  }
+
   public async accrueEarnings(timestamp: number) {
     return this.mpHarness.accrueEarnings(timestamp);
   }

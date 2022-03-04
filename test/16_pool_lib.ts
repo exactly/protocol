@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { parseUnits } from "ethers/lib/utils";
-import { errorGeneric, ProtocolError } from "./exactlyUtils";
+import { errorGeneric, ExaTime, ProtocolError } from "./exactlyUtils";
 import { PoolEnv } from "./poolEnv";
 
 describe("Pool Management Library", () => {
@@ -142,6 +142,95 @@ describe("Pool Management Library", () => {
             });
             it("THEN the pool 'earningsUnassigned' are 0", async () => {
               expect(mp.earningsUnassigned).to.equal(parseUnits("0"));
+            });
+          });
+        });
+      });
+    });
+
+    describe("accrueEarnings", async () => {
+      describe("GIVEN a fresh maturity date in 10 days", async () => {
+        let exaTime: ExaTime;
+        let now: number;
+        let sixDays: number;
+        let tenDays: number;
+        beforeEach(async () => {
+          exaTime = new ExaTime();
+          now = exaTime.timestamp;
+          tenDays = now + exaTime.ONE_DAY * 10;
+          sixDays = now + exaTime.ONE_DAY * 6;
+
+          await poolEnv.setNextTimestamp(now);
+          await poolEnv.accrueEarnings(tenDays);
+          mp = await poolEnv.mpHarness.maturityPool();
+        });
+
+        it("THEN the pool 'earningsUnassigned' are 0", async () => {
+          expect(mp.earningsUnassigned).to.equal(0);
+        });
+        it("THEN the pool 'lastAccrue' is now", async () => {
+          expect(mp.lastAccrue).to.equal(now);
+        });
+        it("THEN the last earnings SP is 0", async () => {
+          const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          expect(lastEarningsSP).to.equal(0);
+        });
+
+        describe("AND GIVEN that we add 100 in fees and 6 days went by", async () => {
+          beforeEach(async () => {
+            await poolEnv.addFee("100");
+            await poolEnv.setNextTimestamp(sixDays);
+            await poolEnv.accrueEarnings(tenDays);
+            mp = await poolEnv.mpHarness.maturityPool();
+          });
+
+          it("THEN the pool 'earningsUnassigned' are 40", async () => {
+            expect(mp.earningsUnassigned).to.equal(parseUnits("40"));
+          });
+          it("THEN the pool 'lastAccrue' is fiveDays", async () => {
+            expect(mp.lastAccrue).to.equal(sixDays);
+          });
+          it("THEN the last earnings SP is 60", async () => {
+            const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+            expect(lastEarningsSP).to.equal(parseUnits("60"));
+          });
+
+          describe("AND GIVEN that we go over +1 day the maturity date", async () => {
+            beforeEach(async () => {
+              await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY);
+              await poolEnv.accrueEarnings(tenDays);
+              mp = await poolEnv.mpHarness.maturityPool();
+            });
+
+            it("THEN the pool 'earningsUnassigned' are 0", async () => {
+              expect(mp.earningsUnassigned).to.equal(0);
+            });
+            it("THEN the pool 'lastAccrue' is tenDays", async () => {
+              expect(mp.lastAccrue).to.equal(tenDays);
+            });
+            it("THEN the last earnings SP is 40 (the remaining)", async () => {
+              const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+              expect(lastEarningsSP).to.equal(parseUnits("40"));
+            });
+          });
+
+          describe("AND GIVEN that we remove 20 fees and we go over +1 day the maturity date", async () => {
+            beforeEach(async () => {
+              await poolEnv.removeFee("20");
+              await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY);
+              await poolEnv.accrueEarnings(tenDays);
+              mp = await poolEnv.mpHarness.maturityPool();
+            });
+
+            it("THEN the pool 'earningsUnassigned' are 0", async () => {
+              expect(mp.earningsUnassigned).to.equal(0);
+            });
+            it("THEN the pool 'lastAccrue' is tenDays", async () => {
+              expect(mp.lastAccrue).to.equal(tenDays);
+            });
+            it("THEN the last earnings SP is 20 (40 were remaining - 20 removed)", async () => {
+              const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+              expect(lastEarningsSP).to.equal(parseUnits("20"));
             });
           });
         });

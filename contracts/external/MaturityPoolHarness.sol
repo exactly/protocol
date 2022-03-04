@@ -14,10 +14,11 @@ contract MaturityPoolHarness {
     uint256 public newDebtSP;
     uint256 public smartPoolDebtReduction;
     uint256 public nextTimestamp;
+    uint256 public lastEarningsSP;
     PoolLib.Position public scaledDebt;
 
     function accrueEarnings(uint256 _maturityID) external {
-        maturityPool.accrueEarnings(
+        lastEarningsSP = maturityPool.accrueEarnings(
             _maturityID,
             nextTimestamp != 0 ? nextTimestamp : block.timestamp
         );
