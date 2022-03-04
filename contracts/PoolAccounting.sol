@@ -144,10 +144,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         // We distribute to treasury and also to unassigned
-        earningsTreasury =
-            ((amount - Math.min(pool.suppliedSP, amount)) * borrowVars.fee) /
-            amount;
-        pool.addFee(borrowVars.fee - earningsTreasury);
+        uint256 unassignedEarnings;
+        (unassignedEarnings, earningsTreasury) = PoolLib.distributeAccordingly(
+            borrowVars.fee,
+            pool.suppliedSP,
+            amount
+        );
+        pool.addFee(unassignedEarnings);
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
             borrowVars.position.principal + amount,
@@ -263,12 +266,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         );
 
         // All the fees go to unassigned or to the treasury
-        // TODO: should this be amountDiscounted?
-        uint256 earnings = amount - redeemAmountDiscounted;
-        earningsTreasury =
-            ((amount - Math.min(pool.suppliedSP, amount)) * earnings) /
-            amount;
-        maturityPools[maturityDate].addFee(earnings - earningsTreasury);
+        uint256 unassignedEarnings;
+        (unassignedEarnings, earningsTreasury) = PoolLib.distributeAccordingly(
+            amount - redeemAmountDiscounted,
+            pool.suppliedSP,
+            amount
+        );
+        maturityPools[maturityDate].addFee(unassignedEarnings);
 
         // the user gets discounted the full amount
         mpUserSuppliedAmount[maturityDate][redeemer] = position
@@ -356,17 +360,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         // We distribute penalties to those that supported (pre-repayment)
-        repayVars.penalties =
-            repayAmount -
-            repayVars.scaleDebtCovered.fullAmount();
-        earningsTreasury =
-            ((repayVars.scaleDebtCovered.principal -
-                Math.min(
-                    pool.suppliedSP,
-                    repayVars.scaleDebtCovered.principal
-                )) * repayVars.penalties) /
-            repayVars.scaleDebtCovered.principal;
-        earningsSP = repayVars.penalties - earningsTreasury;
+        (earningsSP, earningsTreasury) = PoolLib.distributeAccordingly(
+            repayAmount - repayVars.scaleDebtCovered.fullAmount(),
+            pool.suppliedSP,
+            repayVars.scaleDebtCovered.principal
+        );
 
         // We reduce the borrowed and we might decrease the SP debt
         repayVars.smartPoolDebtReduction = pool.repayMoney(

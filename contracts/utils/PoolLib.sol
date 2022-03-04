@@ -269,4 +269,22 @@ library PoolLib {
     {
         amount = position.principal + position.fee;
     }
+
+    /**
+     * @notice Internal function that returns what part belongs to the SP or the treasury. It
+     *         verifies what part was covered by the supply of the smart pool
+     * @param earnings amount to be distributed as earnings between the treasury and the smart pool
+     * @param suppliedSP current supply of the smart pool
+     * @param amountFunded amount that will be checked if it came from smart pool or not
+     */
+    function distributeAccordingly(
+        uint256 earnings,
+        uint256 suppliedSP,
+        uint256 amountFunded
+    ) internal pure returns (uint256 earningsSP, uint256 earningsTreasury) {
+        earningsTreasury =
+            ((amountFunded - Math.min(suppliedSP, amountFunded)) * earnings) /
+            amountFunded;
+        earningsSP = earnings - earningsTreasury;
+    }
 }

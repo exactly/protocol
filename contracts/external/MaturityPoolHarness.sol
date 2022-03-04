@@ -15,6 +15,7 @@ contract MaturityPoolHarness {
     uint256 public smartPoolDebtReduction;
     uint256 public nextTimestamp;
     uint256 public lastEarningsSP;
+    uint256 public lastEarningsTreasury;
     PoolLib.Position public scaledDebt;
 
     function accrueEarnings(uint256 _maturityID) external {
@@ -34,6 +35,18 @@ contract MaturityPoolHarness {
 
     function borrowMoney(uint256 _amount, uint256 _maxDebt) external {
         newDebtSP = maturityPool.borrowMoney(_amount, _maxDebt);
+    }
+
+    function distributeAccordingly(
+        uint256 earnings,
+        uint256 suppliedSP,
+        uint256 amountFunded
+    ) external {
+        (lastEarningsSP, lastEarningsTreasury) = PoolLib.distributeAccordingly(
+            earnings,
+            suppliedSP,
+            amountFunded
+        );
     }
 
     function withdrawMoney(

@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { errorGeneric, ExaTime, ProtocolError } from "./exactlyUtils";
 import { PoolEnv } from "./poolEnv";
@@ -514,6 +515,70 @@ describe("Pool Management Library", () => {
           it("THEN the scaledDebtFee is 0", async () => {
             expect(scaledDebt.fee).to.equal(parseUnits("0"));
           });
+        });
+      });
+    });
+
+    describe("distributeAccordingly", async () => {
+      let lastEarningsSP: BigNumber;
+      let lastEarningsTreasury: BigNumber;
+      describe("GIVEN 100 earnings, 1000 supplySP and 800 amountFunded", async () => {
+        beforeEach(async () => {
+          await poolEnv.distributeAccordingly("100", "1000", "800");
+          lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
+        });
+
+        it("THEN lastEarningsSP is 100", async () => {
+          expect(lastEarningsSP).to.equal(parseUnits("100"));
+        });
+        it("THEN lastEarningsTreasury is 0", async () => {
+          expect(lastEarningsTreasury).to.equal(0);
+        });
+      });
+
+      describe("GIVEN 100 earnings, 400 supplySP and 800 amountFunded", async () => {
+        beforeEach(async () => {
+          await poolEnv.distributeAccordingly("100", "400", "800");
+          lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
+        });
+
+        it("THEN lastEarningsSP is 50", async () => {
+          expect(lastEarningsSP).to.equal(parseUnits("50"));
+        });
+        it("THEN lastEarningsTreasury is 50", async () => {
+          expect(lastEarningsTreasury).to.equal(parseUnits("50"));
+        });
+      });
+
+      describe("GIVEN 100 earnings, 0 supplySP and 800 amountFunded", async () => {
+        beforeEach(async () => {
+          await poolEnv.distributeAccordingly("100", "0", "800");
+          lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
+        });
+
+        it("THEN lastEarningsSP is 0", async () => {
+          expect(lastEarningsSP).to.equal(0);
+        });
+        it("THEN lastEarningsTreasury is 100", async () => {
+          expect(lastEarningsTreasury).to.equal(parseUnits("100"));
+        });
+      });
+
+      describe("GIVEN 0 earnings, 0 supplySP and 800 amountFunded", async () => {
+        beforeEach(async () => {
+          await poolEnv.distributeAccordingly("0", "0", "800");
+          lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+          lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
+        });
+
+        it("THEN lastEarningsSP is 0", async () => {
+          expect(lastEarningsSP).to.equal(0);
+        });
+        it("THEN lastEarningsTreasury is 0", async () => {
+          expect(lastEarningsTreasury).to.equal(0);
         });
       });
     });
