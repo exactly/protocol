@@ -222,7 +222,7 @@ library PoolLib {
 
     /**
      * @notice Internal function that it helps reduce positions based on a certain amount,
-     *         keeping the original principal/debt ratio. This function returns modifies
+     *         keeping the original principal/debt ratio. This function modifies
      *         the original struct and returns it.
      * @param position original position to be reduced
      * @param amount to be used as a full value (principal + interest)
