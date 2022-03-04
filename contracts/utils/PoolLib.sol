@@ -212,7 +212,6 @@ library PoolLib {
         pure
         returns (Position memory)
     {
-        // we proportionally reduce the values
         uint256 principal = (position.principal * amount) /
             (position.principal + position.fee);
         position.principal = principal;
@@ -232,7 +231,6 @@ library PoolLib {
         pure
         returns (Position memory)
     {
-        // we proportionally reduce the values
         uint256 principal = (position.principal * amount) /
             (position.principal + position.fee);
         position.principal -= principal;
