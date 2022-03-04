@@ -55,12 +55,12 @@ export class PoolEnv {
     return this.mpHarness.returnFee(parseUnits(amount));
   }
 
-  public async distributeAccordingly(
+  public async distributeEarningsAccordingly(
     earnings: string,
     suppliedSP: string,
     amountFunded: string
   ) {
-    return this.mpHarness.distributeAccordingly(
+    return this.mpHarness.distributeEarningsAccordingly(
       parseUnits(earnings),
       parseUnits(suppliedSP),
       parseUnits(amountFunded)

@@ -272,7 +272,7 @@ library PoolLib {
      * @param suppliedSP current supply of the smart pool
      * @param amountFunded amount that will be checked if it came from smart pool or not
      */
-    function distributeAccordingly(
+    function distributeEarningsAccordingly(
         uint256 earnings,
         uint256 suppliedSP,
         uint256 amountFunded

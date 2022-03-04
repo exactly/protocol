@@ -150,7 +150,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // We distribute to treasury and also to unassigned
         (borrowVars.newUnassignedEarnings, earningsTreasury) = PoolLib
-            .distributeAccordingly(borrowVars.fee, pool.suppliedSP, amount);
+            .distributeEarningsAccordingly(
+                borrowVars.fee,
+                pool.suppliedSP,
+                amount
+            );
         pool.addFee(borrowVars.newUnassignedEarnings);
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
@@ -267,11 +271,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // All the fees go to unassigned or to the treasury
         uint256 unassignedEarnings;
-        (unassignedEarnings, earningsTreasury) = PoolLib.distributeAccordingly(
-            amount - redeemAmountDiscounted,
-            pool.suppliedSP,
-            redeemAmountDiscounted
-        );
+        (unassignedEarnings, earningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(
+                amount - redeemAmountDiscounted,
+                pool.suppliedSP,
+                redeemAmountDiscounted
+            );
         maturityPools[maturityDate].addFee(unassignedEarnings);
 
         // the user gets discounted the full amount
@@ -361,11 +366,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // We distribute penalties to those that supported (pre-repayment)
         uint256 newEarningsSP;
-        (newEarningsSP, earningsTreasury) = PoolLib.distributeAccordingly(
-            repayAmount - repayVars.scaleDebtCovered.fullAmount(),
-            pool.suppliedSP,
-            repayVars.scaleDebtCovered.principal
-        );
+        (newEarningsSP, earningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(
+                repayAmount - repayVars.scaleDebtCovered.fullAmount(),
+                pool.suppliedSP,
+                repayVars.scaleDebtCovered.principal
+            );
         earningsSP += newEarningsSP;
 
         // We reduce the borrowed and we might decrease the SP debt

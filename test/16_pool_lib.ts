@@ -551,12 +551,12 @@ describe("Pool Management Library", () => {
       });
     });
 
-    describe("distributeAccordingly", async () => {
+    describe("distributeEarningsAccordingly", async () => {
       let lastEarningsSP: BigNumber;
       let lastEarningsTreasury: BigNumber;
       describe("GIVEN 100 earnings, 1000 supplySP and 800 amountFunded", async () => {
         beforeEach(async () => {
-          await poolEnv.distributeAccordingly("100", "1000", "800");
+          await poolEnv.distributeEarningsAccordingly("100", "1000", "800");
           lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
           lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
         });
@@ -571,7 +571,7 @@ describe("Pool Management Library", () => {
 
       describe("GIVEN 100 earnings, 400 supplySP and 800 amountFunded", async () => {
         beforeEach(async () => {
-          await poolEnv.distributeAccordingly("100", "400", "800");
+          await poolEnv.distributeEarningsAccordingly("100", "400", "800");
           lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
           lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
         });
@@ -586,7 +586,7 @@ describe("Pool Management Library", () => {
 
       describe("GIVEN 100 earnings, 0 supplySP and 800 amountFunded", async () => {
         beforeEach(async () => {
-          await poolEnv.distributeAccordingly("100", "0", "800");
+          await poolEnv.distributeEarningsAccordingly("100", "0", "800");
           lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
           lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
         });
@@ -601,7 +601,7 @@ describe("Pool Management Library", () => {
 
       describe("GIVEN 0 earnings, 0 supplySP and 800 amountFunded", async () => {
         beforeEach(async () => {
-          await poolEnv.distributeAccordingly("0", "0", "800");
+          await poolEnv.distributeEarningsAccordingly("0", "0", "800");
           lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
           lastEarningsTreasury = await poolEnv.mpHarness.lastEarningsTreasury();
         });

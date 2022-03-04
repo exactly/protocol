@@ -37,16 +37,13 @@ contract MaturityPoolHarness {
         newDebtSP = maturityPool.borrowMoney(_amount, _maxDebt);
     }
 
-    function distributeAccordingly(
+    function distributeEarningsAccordingly(
         uint256 earnings,
         uint256 suppliedSP,
         uint256 amountFunded
     ) external {
-        (lastEarningsSP, lastEarningsTreasury) = PoolLib.distributeAccordingly(
-            earnings,
-            suppliedSP,
-            amountFunded
-        );
+        (lastEarningsSP, lastEarningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(earnings, suppliedSP, amountFunded);
     }
 
     function withdrawMoney(uint256 _amountToDiscount, uint256 _maxDebt)
