@@ -1382,7 +1382,7 @@ describe("PoolAccounting", () => {
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
         });
-        it("THEN borrowed is 0", async () => {
+        it("THEN borrowed is 5000", async () => {
           expect(mp.borrowed).to.eq(parseUnits("5000"));
         });
         it("THEN earningsUnassigned should be 477 (250 + money left on the table)", async () => {
@@ -1390,8 +1390,11 @@ describe("PoolAccounting", () => {
             parseUnits("477.272727272727272728")
           );
         });
-        it("THEN suppliedSP should be 4772", async () => {
-          expect(mp.suppliedSP).to.eq(parseUnits("4772.727272727272727272"));
+        it("THEN suppliedSP should be 5000", async () => {
+          // 4772.72 is the real value that the smart pool needed to cover
+          // but for simplicity it will cover the full 5000
+          // the difference between 4772.72 and 5000 is the amount we added to the unassigned earnings due to the high borrow rate when withdrawing
+          expect(mp.suppliedSP).to.eq(parseUnits("5000"));
         });
         it("THEN the redeemAmountDiscounted returned is 4772", async () => {
           // 5250 / 1.10 (1e18 + 1e17 feeRate) = 4772.72727272727272727272
