@@ -47,7 +47,7 @@ library PoolLib {
      * @param pool maturity pool where money will be added
      * @param amount amount to be added to the maturity pool
      */
-    function addMoney(MaturityPool storage pool, uint256 amount)
+    function depositMoney(MaturityPool storage pool, uint256 amount)
         internal
         returns (uint256 smartPoolDebtReduction)
     {
@@ -87,7 +87,7 @@ library PoolLib {
      * @param amount amount to be taken out of the pool before it matures
      * @return newDebtSP amount of new debt that needs to be taken out of the SP
      */
-    function takeMoney(
+    function borrowMoney(
         MaturityPool storage pool,
         uint256 amount,
         uint256 maxDebt

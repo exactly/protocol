@@ -119,7 +119,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
         earningsSP += pool.accrueEarnings(maturityDate, currentTimestamp());
-        smartPoolBorrowed += pool.takeMoney(amount, maxSPDebt);
+        smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
 
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
@@ -191,7 +191,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        smartPoolBorrowed -= maturityPools[maturityDate].addMoney(amount);
+        smartPoolBorrowed -= maturityPools[maturityDate].depositMoney(amount);
         maturityPools[maturityDate].removeFee(fee + feeSP);
         earningsSP += feeSP;
 

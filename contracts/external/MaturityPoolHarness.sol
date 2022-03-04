@@ -13,24 +13,26 @@ contract MaturityPoolHarness {
     PoolLib.MaturityPool public maturityPool;
     uint256 public newDebtSP;
     uint256 public smartPoolDebtReduction;
+    uint256 public nextTimestamp;
     PoolLib.Position public scaledDebt;
 
     function accrueEarnings(uint256 _maturityID) external {
-        // TODO: convert block.number to a state variable to have
-        // more control over the tests
-        maturityPool.accrueEarnings(_maturityID, block.number);
+        maturityPool.accrueEarnings(
+            _maturityID,
+            nextTimestamp != 0 ? nextTimestamp : block.timestamp
+        );
     }
 
-    function addMoney(uint256 _amount) external {
-        smartPoolDebtReduction = maturityPool.addMoney(_amount);
+    function depositMoney(uint256 _amount) external {
+        smartPoolDebtReduction = maturityPool.depositMoney(_amount);
     }
 
     function repayMoney(uint256 _amount) external {
         smartPoolDebtReduction = maturityPool.repayMoney(_amount);
     }
 
-    function takeMoney(uint256 _amount, uint256 _maxDebt) external {
-        newDebtSP = maturityPool.takeMoney(_amount, _maxDebt);
+    function borrowMoney(uint256 _amount, uint256 _maxDebt) external {
+        newDebtSP = maturityPool.borrowMoney(_amount, _maxDebt);
     }
 
     function withdrawMoney(
@@ -71,5 +73,9 @@ contract MaturityPoolHarness {
         scaledDebt.principal = _scaledDebtPrincipal;
         scaledDebt.fee = _scaledDebtFee;
         scaledDebt = scaledDebt.reduceProportionally(_amount);
+    }
+
+    function setNextTimestamp(uint256 _nextTimestamp) external {
+        nextTimestamp = _nextTimestamp;
     }
 }

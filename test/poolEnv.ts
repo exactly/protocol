@@ -23,8 +23,8 @@ export class PoolEnv {
     return this.mpHarness.accrueEarnings(timestamp);
   }
 
-  public async addMoney(amount: string) {
-    return this.mpHarness.addMoney(parseUnits(amount));
+  public async depositMoney(amount: string) {
+    return this.mpHarness.depositMoney(parseUnits(amount));
   }
 
   public async repayMoney(amount: string) {
@@ -75,8 +75,8 @@ export class PoolEnv {
     );
   }
 
-  public async takeMoney(amount: string, maxDebt: string) {
-    return this.mpHarness.takeMoney(parseUnits(amount), parseUnits(maxDebt));
+  public async borrowMoney(amount: string, maxDebt: string) {
+    return this.mpHarness.borrowMoney(parseUnits(amount), parseUnits(maxDebt));
   }
 
   public async withdrawMoney(amount: string, maxDebt: string) {
