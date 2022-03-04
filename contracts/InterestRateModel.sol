@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "./interfaces/IInterestRateModel.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./utils/Errors.sol";
+import "./utils/PoolLib.sol";
 import "./utils/DecimalMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 

@@ -9,6 +9,7 @@ import "./interfaces/IPoolAccounting.sol";
 import "./interfaces/IFixedLender.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
+import "./utils/PoolLib.sol";
 import "./utils/Errors.sol";
 
 contract PoolAccounting is IPoolAccounting, AccessControl {
