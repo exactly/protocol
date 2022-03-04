@@ -53,6 +53,10 @@ describe("Auditor Admin", function () {
       await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.be.revertedWith("AccessControl");
     });
 
+    it("WHEN trying to set collateral factor, THEN the transaction should revert with Access Control", async () => {
+      await expect(auditor.setCollateralFactor(fixedLenderDAI.address, 1)).to.be.revertedWith("AccessControl");
+    });
+
     it("WHEN trying to set borrow caps, THEN the transaction should revert with Access Control", async () => {
       await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], ["1000000"])).to.be.revertedWith(
         "AccessControl",
@@ -128,6 +132,13 @@ describe("Auditor Admin", function () {
 
     it("WHEN setting new oracle, THEN the auditor should emit OracleChanged event", async () => {
       await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.emit(auditor, "OracleChanged");
+    });
+
+    it("WHEN setting collateral factor, THEN the auditor should emit NewCollateralFactor event", async () => {
+      await expect(auditor.setCollateralFactor(fixedLenderDAI.address, 1))
+        .to.emit(auditor, "NewCollateralFactor")
+        .withArgs(fixedLenderDAI.address, 1);
+      expect((await auditor.getMarketData(fixedLenderDAI.address))[3]).to.equal(1);
     });
 
     it("WHEN setting max borrow caps, THEN the auditor should emit NewBorrowCap event", async () => {
