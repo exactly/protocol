@@ -1347,7 +1347,7 @@ describe("PoolAccounting", () => {
         expect(returnValues.currentTotalDeposit).eq(parseUnits("5250"));
       });
 
-      describe("WHEN an early repayment of 5000", () => {
+      describe("WHEN an early repayment of 5250", () => {
         beforeEach(async () => {
           await poolAccountingEnv.repayMP(nextPoolID, "5250");
           returnValues = await poolAccountingHarness.returnValues();

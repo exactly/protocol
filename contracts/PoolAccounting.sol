@@ -271,7 +271,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // the user gets discounted the full amount
         mpUserSuppliedAmount[maturityDate][redeemer] = position
-            .copy()
             .reduceProportionally(amount);
     }
 
