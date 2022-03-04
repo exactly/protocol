@@ -20,6 +20,10 @@ esbonio = { version = "^0.8.0", optional = true }
 mypy = { version = "^0.931", optional = true }
 pylint = { version = "^2.12.2", optional = true }
 
+[tool.poetry.dev-dependencies]
+solc-select = "^0.2.1"
+slither-analyzer = "^0.8.2"
+
 [tool.poetry.extras]
 docs = ["matplotlib", "sphinx", "sphinxcontrib-plantuml", "sphinxcontrib-soliditydomain"]
 docs-dev = ["docs", "black", "esbonio", "mypy", "pylint"]
