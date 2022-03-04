@@ -1,5 +1,7 @@
 import { BigNumber } from "ethers";
+import { expect } from "chai";
 import { parseUnits } from "ethers/lib/utils";
+import assert from "assert";
 
 export interface BorrowFromMaturityPoolEventInterface {
   to: string;
@@ -17,13 +19,47 @@ export interface DepositToMaturityPoolEventInterface {
 
 export function errorUnmatchedPool(
   state: PoolState,
-  requiredState: PoolState
+  requiredState: PoolState,
+  alternativeState?: PoolState
 ): string {
+  if (alternativeState) {
+    return (
+      "UnmatchedPoolStateMultiple(" +
+      state +
+      ", " +
+      requiredState +
+      ", " +
+      alternativeState +
+      ")"
+    );
+  }
   return "UnmatchedPoolState(" + state + ", " + requiredState + ")";
 }
 
 export function errorGeneric(errorCode: ProtocolError): string {
   return "GenericError(" + errorCode + ")";
+}
+
+// it was impossible to find the type for a transaction populated with events,
+// in both ethers and hardhat-ethers
+export async function expectFee(tx: any, expectedFee: BigNumber) {
+  const { events } = await tx.wait();
+  const borrowEvents = events.filter(
+    (it: any) => it.event === "BorrowFromMaturityPool"
+  );
+  assert(
+    borrowEvents.length < 2,
+    "searched for one event, but many were found"
+  );
+  assert(
+    borrowEvents.length > 0,
+    "searched for one event, but none were found"
+  );
+  const event = borrowEvents[0];
+  const lowerBoundary = expectedFee.mul("99").div("100");
+  const higherBoundary = expectedFee.mul("101").div("100");
+  expect(event.args.fee).to.be.gt(lowerBoundary);
+  expect(event.args.fee).to.be.lt(higherBoundary);
 }
 
 export function applyMaxFee(amount: BigNumber): BigNumber {
@@ -74,6 +110,7 @@ export enum ProtocolError {
   CALLER_MUST_BE_FIXED_LENDER,
   CONTRACT_ALREADY_INITIALIZED,
   INSUFFICIENT_PROTOCOL_LIQUIDITY,
+  EXCEEDED_MAX_UTILIZATION_RATE,
   TOO_MUCH_SLIPPAGE,
   TOO_MUCH_REPAY_TRANSFER,
   SMART_POOL_FUNDS_LOCKED,

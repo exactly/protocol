@@ -19,12 +19,16 @@ export class PoolEnv {
     await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 
+  public async setNextTimestamp(timestamp: number) {
+    return this.mpHarness.setNextTimestamp(timestamp);
+  }
+
   public async accrueEarnings(timestamp: number) {
     return this.mpHarness.accrueEarnings(timestamp);
   }
 
-  public async addMoney(amount: string) {
-    return this.mpHarness.addMoney(parseUnits(amount));
+  public async depositMoney(amount: string) {
+    return this.mpHarness.depositMoney(parseUnits(amount));
   }
 
   public async repayMoney(amount: string) {
@@ -51,10 +55,15 @@ export class PoolEnv {
     return this.mpHarness.returnFee(parseUnits(amount));
   }
 
-  public async reduceFee(scaledDebtFee: string, feeToReduce: string) {
-    return this.mpHarness.reduceFee(
-      parseUnits(scaledDebtFee),
-      parseUnits(feeToReduce)
+  public async distributeEarningsAccordingly(
+    earnings: string,
+    suppliedSP: string,
+    amountFunded: string
+  ) {
+    return this.mpHarness.distributeEarningsAccordingly(
+      parseUnits(earnings),
+      parseUnits(suppliedSP),
+      parseUnits(amountFunded)
     );
   }
 
@@ -82,8 +91,8 @@ export class PoolEnv {
     );
   }
 
-  public async takeMoney(amount: string, maxDebt: string) {
-    return this.mpHarness.takeMoney(parseUnits(amount), parseUnits(maxDebt));
+  public async borrowMoney(amount: string, maxDebt: string) {
+    return this.mpHarness.borrowMoney(parseUnits(amount), parseUnits(maxDebt));
   }
 
   public async withdrawMoney(amount: string, maxDebt: string) {
@@ -110,70 +119,5 @@ export class PoolEnv {
     await maturityPoolHarness.deployed();
 
     return new PoolEnv(tsUtils, maturityPoolHarness);
-  }
-
-  /* Replicates PoolLib.sol calculation of unassigned earnings of a maturity pool when calling _accrueAndAddFee function */
-  public calculateUnassignedEarnings(
-    maturityPoolID: number,
-    blockTimestamp: number,
-    previousUnassignedEarnings: number,
-    secondsSinceLastAccrue: number,
-    newFee: number
-  ): number {
-    return (
-      previousUnassignedEarnings -
-      (previousUnassignedEarnings * secondsSinceLastAccrue) /
-        (maturityPoolID - blockTimestamp + secondsSinceLastAccrue) +
-      newFee
-    );
-  }
-
-  /* Replicates PoolLib.sol calculation of unassigned earnings of a maturity pool when calling addMoney function */
-  public calculateUnassignedEarningsWhenDepositingToMP(
-    maturityPoolID: number,
-    blockTimestamp: number,
-    previousUnassignedEarnings: number,
-    secondsSinceLastAccrue: number,
-    depositedAmount: number,
-    suppliedSP: number
-  ): number {
-    let unassignedEarnings = this.calculateUnassignedEarnings(
-      maturityPoolID,
-      blockTimestamp,
-      previousUnassignedEarnings,
-      secondsSinceLastAccrue,
-      0 // we calculate unassigned earnings but no new fee is added
-    );
-    return (
-      unassignedEarnings -
-      this.calculateLastFee(unassignedEarnings, depositedAmount, suppliedSP)
-    );
-  }
-
-  /* Replicates PoolLib.sol calculation of smart pool earnings of a maturity pool when calling _accrueAndAddFee function */
-  public calculateEarningsSP(
-    maturityPoolID: number,
-    blockTimestamp: number,
-    previousEarningsSP: number,
-    previousUnassignedEarnings: number,
-    secondsSinceLastAccrue: number
-  ): number {
-    return (
-      (previousUnassignedEarnings * secondsSinceLastAccrue) /
-        (maturityPoolID - blockTimestamp + secondsSinceLastAccrue) +
-      previousEarningsSP
-    );
-  }
-
-  /* Replicates PoolLib.sol calculation of earnings share that a depositor will receive after maturity */
-  public calculateLastFee(
-    previousUnassignedEarnings: number,
-    depositedAmount: number,
-    suppliedSP: number
-  ): number {
-    return (
-      (previousUnassignedEarnings * depositedAmount) /
-      (suppliedSP + depositedAmount)
-    );
   }
 }

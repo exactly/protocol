@@ -13,24 +13,37 @@ contract MaturityPoolHarness {
     PoolLib.MaturityPool public maturityPool;
     uint256 public newDebtSP;
     uint256 public smartPoolDebtReduction;
+    uint256 public nextTimestamp;
+    uint256 public lastEarningsSP;
+    uint256 public lastEarningsTreasury;
     PoolLib.Position public scaledDebt;
 
     function accrueEarnings(uint256 _maturityID) external {
-        // TODO: convert block.number to a state variable to have
-        // more control over the tests
-        maturityPool.accrueEarnings(_maturityID, block.number);
+        lastEarningsSP = maturityPool.accrueEarnings(
+            _maturityID,
+            nextTimestamp != 0 ? nextTimestamp : block.timestamp
+        );
     }
 
-    function addMoney(uint256 _amount) external {
-        smartPoolDebtReduction = maturityPool.addMoney(_amount);
+    function depositMoney(uint256 _amount) external {
+        smartPoolDebtReduction = maturityPool.depositMoney(_amount);
     }
 
     function repayMoney(uint256 _amount) external {
         smartPoolDebtReduction = maturityPool.repayMoney(_amount);
     }
 
-    function takeMoney(uint256 _amount, uint256 _maxDebt) external {
-        newDebtSP = maturityPool.takeMoney(_amount, _maxDebt);
+    function borrowMoney(uint256 _amount, uint256 _maxDebt) external {
+        newDebtSP = maturityPool.borrowMoney(_amount, _maxDebt);
+    }
+
+    function distributeEarningsAccordingly(
+        uint256 earnings,
+        uint256 suppliedSP,
+        uint256 amountFunded
+    ) external {
+        (lastEarningsSP, lastEarningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(earnings, suppliedSP, amountFunded);
     }
 
     function withdrawMoney(uint256 _amountToDiscount, uint256 _maxDebt)
@@ -67,8 +80,7 @@ contract MaturityPoolHarness {
         scaledDebt = scaledDebt.reduceProportionally(_amount);
     }
 
-    function reduceFee(uint256 _scaledDebtFee, uint256 _feeToReduce) external {
-        scaledDebt.fee = _scaledDebtFee;
-        scaledDebt = scaledDebt.reduceFees(_feeToReduce);
+    function setNextTimestamp(uint256 _nextTimestamp) external {
+        nextTimestamp = _nextTimestamp;
     }
 }

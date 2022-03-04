@@ -9,7 +9,8 @@ export class PoolAccountingEnv {
   realInterestRateModel: Contract;
   poolAccountingHarness: Contract;
   currentWallet: SignerWithAddress;
-  maxSPDebt = parseUnits("100000");
+  maxSPDebt = parseUnits("100000"); // we use a high maxSPDebt limit since max borrows are already tested
+  nMaturities = 12;
 
   constructor(
     _mockedInterestRateModel: Contract,
@@ -130,7 +131,8 @@ export class PoolAccountingEnv {
         this.currentWallet.address,
         amount,
         expectedAmount,
-        this.maxSPDebt
+        this.maxSPDebt,
+        this.nMaturities
       );
   }
 
