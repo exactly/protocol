@@ -269,7 +269,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         (unassignedEarnings, earningsTreasury) = PoolLib.distributeAccordingly(
             amount - redeemAmountDiscounted,
             pool.suppliedSP,
-            redeemAmountDiscounted // TODO: this is not the withdrawn principal?
+            redeemAmountDiscounted
         );
         maturityPools[maturityDate].addFee(unassignedEarnings);
 
