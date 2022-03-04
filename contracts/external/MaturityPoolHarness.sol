@@ -49,16 +49,10 @@ contract MaturityPoolHarness {
         );
     }
 
-    function withdrawMoney(
-        uint256 _amountToDiscount,
-        uint256 _amountToGive,
-        uint256 _maxDebt
-    ) external {
-        newDebtSP = maturityPool.withdrawMoney(
-            _amountToDiscount,
-            _amountToGive,
-            _maxDebt
-        );
+    function withdrawMoney(uint256 _amountToDiscount, uint256 _maxDebt)
+        external
+    {
+        newDebtSP = maturityPool.withdrawMoney(_amountToDiscount, _maxDebt);
     }
 
     function addFee(uint256 _fee) external {

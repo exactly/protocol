@@ -260,8 +260,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // We remove the supply from the offer
         smartPoolBorrowed += pool.withdrawMoney(
-            position.scaleProportionally(amount).principal,
-            redeemAmountDiscounted,
+            position.copy().scaleProportionally(amount).principal,
             maxSPDebt
         );
 
@@ -270,7 +269,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         (unassignedEarnings, earningsTreasury) = PoolLib.distributeAccordingly(
             amount - redeemAmountDiscounted,
             pool.suppliedSP,
-            amount
+            redeemAmountDiscounted // TODO: this is not the withdrawn principal?
         );
         maturityPools[maturityDate].addFee(unassignedEarnings);
 
@@ -360,11 +359,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         // We distribute penalties to those that supported (pre-repayment)
-        (earningsSP, earningsTreasury) = PoolLib.distributeAccordingly(
+        uint256 newEarningsSP;
+        (newEarningsSP, earningsTreasury) = PoolLib.distributeAccordingly(
             repayAmount - repayVars.scaleDebtCovered.fullAmount(),
             pool.suppliedSP,
             repayVars.scaleDebtCovered.principal
         );
+        earningsSP += newEarningsSP;
 
         // We reduce the borrowed and we might decrease the SP debt
         repayVars.smartPoolDebtReduction = pool.repayMoney(
