@@ -10,11 +10,11 @@ library TSUtils {
         NOT_READY
     }
 
-    error UnmatchedPoolState(State state, State requiredState);
+    error UnmatchedPoolState(uint8 state, uint8 requiredState);
     error UnmatchedPoolStateMultiple(
-        State state,
-        State requiredState,
-        State alternativeState
+        uint8 state,
+        uint8 requiredState,
+        uint8 alternativeState
     );
 
     uint32 public constant INTERVAL = 7 days;
@@ -96,12 +96,15 @@ library TSUtils {
 
         if (poolState != requiredState && poolState != alternativeState) {
             if (alternativeState == State.NONE) {
-                revert UnmatchedPoolState(poolState, requiredState);
+                revert UnmatchedPoolState(
+                    uint8(poolState),
+                    uint8(requiredState)
+                );
             }
             revert UnmatchedPoolStateMultiple(
-                poolState,
-                requiredState,
-                alternativeState
+                uint8(poolState),
+                uint8(requiredState),
+                uint8(alternativeState)
             );
         }
     }
