@@ -65,7 +65,7 @@ npx hardhat deploy --network rinkeby
 ## Docs
 
 you can view them by:
-- installing the dependencies with `pip3 install -r requirements.txt`
+- installing the dependencies with `poetry install -E docs`
 - calling sphinx: `make singlehtml`
 - opening it in `yourbrowser _build/singlehtml/index.html`
 
