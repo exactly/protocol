@@ -202,7 +202,7 @@ library PoolLib {
 
     /**
      * @notice Internal function that it helps modify positions based on a certain amount,
-     *         keeping the original principal/fee ratio. This function returns modifies
+     *         keeping the original principal/fee ratio. This function modifies
      *         the original struct and returns it.
      * @param position original position to be scaled
      * @param amount to be used as a full value (principal + interest)
@@ -222,7 +222,7 @@ library PoolLib {
 
     /**
      * @notice Internal function that it helps reduce positions based on a certain amount,
-     *         keeping the original principal/debt ratio. This function returns modifies
+     *         keeping the original principal/debt ratio. This function modifies
      *         the original struct and returns it.
      * @param position original position to be reduced
      * @param amount to be used as a full value (principal + interest)
@@ -241,7 +241,7 @@ library PoolLib {
     }
 
     /**
-     * @notice Internal function that created a new position based on another's
+     * @notice Internal function that creates a new position based on another's
      *         struct values
      * @param position original position to be reduced copied
      */
