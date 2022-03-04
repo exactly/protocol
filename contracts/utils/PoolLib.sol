@@ -118,21 +118,16 @@ library PoolLib {
      *         of the smart pool
      * @param pool maturity pool where money needs to be withdrawn
      * @param amountToDiscount previous amount that the user deposited
-     * @param amountToWithdraw amount that the user will withdraw
      * @return newDebtSP amount of new debt that needs to be taken out of the SP
      */
     function withdrawMoney(
         MaturityPool storage pool,
         uint256 amountToDiscount,
-        uint256 amountToWithdraw,
         uint256 maxDebt
     ) internal returns (uint256 newDebtSP) {
         uint256 borrowedMP = pool.borrowed;
         uint256 newSuppliedMP = pool.supplied - amountToDiscount;
-        uint256 newSuppliedALL = pool.suppliedSP +
-            newSuppliedMP +
-            amountToDiscount -
-            amountToWithdraw;
+        uint256 newSuppliedALL = pool.suppliedSP + newSuppliedMP;
 
         // by reducing supply we might need to take debt from SP
         if (borrowedMP > newSuppliedALL) {

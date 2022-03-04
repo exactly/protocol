@@ -8,11 +8,11 @@ contract PoolAccountingHarness is PoolAccounting {
     struct ReturnValues {
         uint256 totalOwedNewBorrow;
         uint256 currentTotalDeposit;
-        uint256 currentTotalWithdrawal;
-        uint256 spareAmount;
+        uint256 spareRepayAmount;
         uint256 earningsSP;
         uint256 earningsTreasury;
         uint256 debtCovered;
+        uint256 redeemAmountDiscounted;
     }
 
     ReturnValues public returnValues;
@@ -60,7 +60,7 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 maxSPDebt
     ) external {
         (
-            returnValues.currentTotalWithdrawal,
+            returnValues.redeemAmountDiscounted,
             returnValues.earningsSP,
             returnValues.earningsTreasury
         ) = this.withdrawMP(
@@ -79,7 +79,7 @@ contract PoolAccountingHarness is PoolAccounting {
         uint256 maxAmountAllowed
     ) external {
         (
-            returnValues.spareAmount,
+            returnValues.spareRepayAmount,
             returnValues.debtCovered,
             returnValues.earningsSP,
             returnValues.earningsTreasury
