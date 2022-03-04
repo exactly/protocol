@@ -196,6 +196,38 @@ describe("Pool Management Library", () => {
             expect(lastEarningsSP).to.equal(parseUnits("60"));
           });
 
+          describe("AND GIVEN that another 150 seconds go by", async () => {
+            beforeEach(async () => {
+              await poolEnv.setNextTimestamp(
+                sixDays + exaTime.ONE_SECOND * 150
+              );
+              await poolEnv.accrueEarnings(tenDays);
+              mp = await poolEnv.mpHarness.maturityPool();
+            });
+
+            it("THEN the pool 'earningsUnassigned' are ~= 39.98263", async () => {
+              // 10 / 86400           = 0.00011574074 (unassigned earnings per second)
+              // 0.00011574074 * 150  = 0.01736111111 (earnings accrued)
+              // 40 - 0.01736111111   = 39.9826388889 (unassigned earnings left)
+              expect(mp.earningsUnassigned).to.closeTo(
+                parseUnits("39.9826388"),
+                parseUnits("00.0000001").toNumber()
+              );
+            });
+            it("THEN the pool 'lastAccrue' is tenDays", async () => {
+              expect(mp.lastAccrue).to.equal(
+                sixDays + exaTime.ONE_SECOND * 150
+              );
+            });
+            it("THEN the last earnings SP is ~= 0.017361", async () => {
+              const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+              expect(lastEarningsSP).to.closeTo(
+                parseUnits("0.0173611"),
+                parseUnits("0.0000001").toNumber()
+              );
+            });
+          });
+
           describe("AND GIVEN that we go over +1 day the maturity date", async () => {
             beforeEach(async () => {
               await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY);
@@ -212,6 +244,25 @@ describe("Pool Management Library", () => {
             it("THEN the last earnings SP is 40 (the remaining)", async () => {
               const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
               expect(lastEarningsSP).to.equal(parseUnits("40"));
+            });
+
+            describe("AND GIVEN that we go over another +1 day the maturity date", async () => {
+              beforeEach(async () => {
+                await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY * 2);
+                await poolEnv.accrueEarnings(tenDays);
+                mp = await poolEnv.mpHarness.maturityPool();
+              });
+
+              it("THEN the pool 'earningsUnassigned' are 0", async () => {
+                expect(mp.earningsUnassigned).to.equal(0);
+              });
+              it("THEN the pool 'lastAccrue' is tenDays", async () => {
+                expect(mp.lastAccrue).to.equal(tenDays);
+              });
+              it("THEN the last earnings SP is 0", async () => {
+                const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
+                expect(lastEarningsSP).to.equal(parseUnits("0"));
+              });
             });
           });
 
