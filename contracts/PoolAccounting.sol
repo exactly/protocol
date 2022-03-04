@@ -270,14 +270,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         );
 
         // All the fees go to unassigned or to the treasury
-        uint256 unassignedEarnings;
-        (unassignedEarnings, earningsTreasury) = PoolLib
+        uint256 earningsUnassigned;
+        (earningsUnassigned, earningsTreasury) = PoolLib
             .distributeEarningsAccordingly(
                 amount - redeemAmountDiscounted,
                 pool.suppliedSP,
                 redeemAmountDiscounted
             );
-        maturityPools[maturityDate].addFee(unassignedEarnings);
+        maturityPools[maturityDate].addFee(earningsUnassigned);
 
         // the user gets discounted the full amount
         mpUserSuppliedAmount[maturityDate][redeemer] = position
