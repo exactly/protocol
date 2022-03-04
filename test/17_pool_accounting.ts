@@ -1374,6 +1374,49 @@ describe("PoolAccounting", () => {
           );
         });
       });
+
+      describe("WHEN an early withdrawal of 5250 (deposited + fees) and a borrow rate shoots to 10%", () => {
+        beforeEach(async () => {
+          await mockedInterestRateModel.setBorrowRate(parseUnits("0.1"));
+          await poolAccountingEnv.withdrawMP(nextPoolID, "5250", "4750");
+          returnValues = await poolAccountingHarness.returnValues();
+          mp = await poolAccountingHarness.maturityPools(nextPoolID);
+        });
+        it("THEN borrowed is 0", async () => {
+          expect(mp.borrowed).to.eq(parseUnits("5000"));
+        });
+        it("THEN earningsUnassigned should be 477 (250 + money left on the table)", async () => {
+          expect(mp.earningsUnassigned).to.eq(
+            parseUnits("477.272727272727272728")
+          );
+        });
+        it("THEN suppliedSP should be 4772", async () => {
+          expect(mp.suppliedSP).to.eq(parseUnits("4772.727272727272727272"));
+        });
+        it("THEN the redeemAmountDiscounted returned is 4772", async () => {
+          // 5250 / 1.10 (1e18 + 1e17 feeRate) = 4772.72727272727272727272
+          expect(returnValues.redeemAmountDiscounted).to.be.eq(
+            parseUnits("4772.727272727272727272")
+          );
+        });
+        it("THEN the earningsSP returned is 0", async () => {
+          expect(returnValues.earningsSP).eq(parseUnits("0"));
+        });
+        it("THEN the earningsTreasury returned is 0", async () => {
+          expect(returnValues.earningsTreasury).to.eq(parseUnits("0"));
+        });
+        it("THEN the mpUserSuppliedAmount is 0", async () => {
+          let mpUserSuppliedAmount =
+            await poolAccountingHarness.mpUserSuppliedAmount(
+              nextPoolID,
+              laura.address
+            );
+
+          expect(mpUserSuppliedAmount[0]).to.be.eq(parseUnits("0"));
+          expect(mpUserSuppliedAmount[1]).to.be.eq(parseUnits("0"));
+        });
+      });
+
       describe("WHEN an early withdrawal of 5250 (deposited + fees)", () => {
         beforeEach(async () => {
           await poolAccountingEnv.withdrawMP(nextPoolID, "5250", "5000");
