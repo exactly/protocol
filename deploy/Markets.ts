@@ -14,6 +14,9 @@ import executeOrPropose from "./.utils/executeOrPropose";
 import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
+  config: {
+    finance: { collateralFactor },
+  },
   ethers: {
     constants: { AddressZero },
     utils: { parseUnits },
@@ -81,13 +84,19 @@ const func: DeployFunction = async ({
       await executeOrPropose(deployer, timelockController, poolAccounting, "initialize", [fixedLender.address]);
     }
 
+    const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));
     if (!(await auditor.getMarketAddresses()).includes(fixedLender.address)) {
       await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
         fixedLender.address,
-        parseUnits("0.8"),
+        underlyingCollateralFactor,
         symbol,
         token,
         decimals,
+      ]);
+    } else if (!(await auditor.getMarketData(fixedLender.address))[3].eq(underlyingCollateralFactor)) {
+      await executeOrPropose(deployer, timelockController, auditor, "setCollateralFactor", [
+        fixedLender.address,
+        underlyingCollateralFactor,
       ]);
     }
 

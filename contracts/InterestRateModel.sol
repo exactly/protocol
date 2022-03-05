@@ -34,6 +34,26 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         );
     }
 
+    /// @notice gets this model's parameters
+    /// @return parameters (curveA, curveB, maxUtilizationRate, penaltyRate)
+    function getParameters()
+        external
+        view
+        returns (
+            uint256,
+            int256,
+            uint256,
+            uint256
+        )
+    {
+        return (
+            curveParameterA,
+            curveParameterB,
+            maxUtilizationRate,
+            penaltyRate
+        );
+    }
+
     /**
      * @dev Calculate the amount of revenue sharing between the smart pool and the new MP depositor.
      * @param suppliedSP amount of money currently being supplied in the maturity pool

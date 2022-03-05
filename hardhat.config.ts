@@ -7,9 +7,9 @@ import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
 import { env } from "process";
-import type { HardhatUserConfig } from "hardhat/types";
+import type { HardhatUserConfig as Config } from "hardhat/types";
 
-const config: HardhatUserConfig = {
+const config: Config = {
   solidity: { version: "0.8.4" },
   networks: {
     hardhat: {
@@ -29,6 +29,15 @@ const config: HardhatUserConfig = {
       rinkeby: "0x0820289Cb202DbF23B709D4AC1a346331cd590c4",
     },
   },
+  finance: {
+    collateralFactor: { default: 0.8, WBTC: 0.6 },
+    interestRateModel: {
+      curveA: 0.0495,
+      curveB: -0.025,
+      targetUtilizationRate: 1.1,
+      penaltyRatePerDay: 0.02,
+    },
+  },
   typechain: { outDir: "types", target: "ethers-v5" },
   gasReporter: {
     currency: "USD",
@@ -40,6 +49,24 @@ const config: HardhatUserConfig = {
 export default config;
 
 declare module "hardhat/types/config" {
+  export interface FinanceConfig {
+    collateralFactor: { default: number; [token: string]: number };
+    interestRateModel: {
+      curveA: number;
+      curveB: number;
+      targetUtilizationRate: number;
+      penaltyRatePerDay: number;
+    };
+  }
+
+  export interface HardhatUserConfig {
+    finance: FinanceConfig;
+  }
+
+  export interface HardhatConfig {
+    finance: FinanceConfig;
+  }
+
   export interface HardhatNetworkUserConfig {
     tokens: string[];
   }
