@@ -1374,6 +1374,18 @@ describe("PoolAccounting", () => {
         });
       });
 
+      describe("WHEN an early withdrawal of 5250 without enough slippage", () => {
+        let tx: any;
+        beforeEach(async () => {
+          tx = poolAccountingEnv.withdrawMP(nextPoolID, "5250", "5250");
+        });
+        it("THEN it should revert with error TOO_MUCH_SLIPPAGE", async () => {
+          await expect(tx).to.be.revertedWith(
+            errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
+          );
+        });
+      });
+
       describe("WHEN an early withdrawal of 5250 (deposited + fees) and a borrow rate shoots to 10%", () => {
         beforeEach(async () => {
           await mockedInterestRateModel.setBorrowRate(parseUnits("0.1"));
