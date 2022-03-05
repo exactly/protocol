@@ -1,25 +1,37 @@
 import type { DeployFunction } from "hardhat-deploy/types";
+import type { InterestRateModel, TimelockController } from "../types";
+import timelockPropose from "./.utils/timelockPropose";
 
 const func: DeployFunction = async ({
+  config: {
+    finance: {
+      interestRateModel: { curveA, curveB, targetUtilizationRate, penaltyRatePerDay },
+    },
+  },
   ethers: {
     utils: { parseUnits },
+    getContract,
   },
   deployments: { deploy },
   getNamedAccounts,
 }) => {
   const { deployer } = await getNamedAccounts();
-  await deploy("InterestRateModel", {
-    args: [
-      parseUnits("0.0495"), // A parameter for the curve
-      parseUnits("-0.025"), // B parameter for the curve
-      parseUnits("1.1"), // target utilization rate
-      parseUnits("0.0000002314814815"), // Penalty Rate per second. each day (86400) is 2%
-    ],
-    from: deployer,
-    log: true,
-  });
+  const args = [
+    parseUnits(String(curveA)),
+    parseUnits(String(curveB)),
+    parseUnits(String(targetUtilizationRate)),
+    parseUnits(String(penaltyRatePerDay)).div(86_400),
+  ];
+  await deploy("InterestRateModel", { skipIfAlreadyDeployed: true, args, from: deployer, log: true });
+
+  const interestRateModel = await getContract<InterestRateModel>("InterestRateModel", deployer);
+  if ((await interestRateModel.getParameters()).some((param, i) => !param.eq(args[i]))) {
+    const timelock = await getContract<TimelockController>("TimelockController", deployer);
+    await timelockPropose(timelock, interestRateModel, "setParameters", args);
+  }
 };
 
 func.tags = ["InterestRateModel"];
+func.dependencies = ["TimelockController"];
 
 export default func;
