@@ -3,16 +3,20 @@
   "scripts": {
     "lint": "run-p --aggregate-output --continue-on-error lint:**",
     "lint:ts": "eslint --ext .ts,.js,.cjs,.mjs .",
-    "lint:sol": "solhint 'contracts/**/*.sol'",
-    "fix:sol": "solhint 'contracts/**/*.sol' --fix",
+    "lint:sol": "solhint '{contracts,test}/**/*.sol'",
+    "fix:sol": "solhint '{contracts,test}/**/*.sol' --fix",
     "compile": "hardhat compile",
+    "snapshot": "forge snapshot",
     "test": "run-p --aggregate-output --continue-on-error test:**",
+    "test:foundry": "forge test",
     "test:hardhat": "hardhat test --deploy-fixture",
     "coverage": "run-p --aggregate-output --continue-on-error coverage:**",
+    "coverage:foundry": "FOUNDRY_PROFILE=production forge snapshot --check",
     "coverage:hardhat": "hardhat coverage",
     "deploy:kovan": "hardhat --network kovan deploy",
     "deploy:hardhat": "hardhat --network hardhat deploy",
     "postinstall": "path-exists .git && run-p --aggregate-output --continue-on-error postinstall:**",
+    "postinstall:foundry": "forge install || cd .",
     "postinstall:hardhat": "hardhat compile"
   },
   "engines": {
