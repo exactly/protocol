@@ -5,7 +5,6 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
   await deploy("Auditor", {
     libraries: {
       MarketsLib: (await get("MarketsLib")).address,
-      DecimalMath: (await get("DecimalMath")).address,
     },
     args: [(await get("ExactlyOracle")).address],
     from: deployer,
@@ -14,6 +13,6 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 };
 
 func.tags = ["Auditor"];
-func.dependencies = ["MarketsLib", "DecimalMath", "ExactlyOracle"];
+func.dependencies = ["MarketsLib", "ExactlyOracle"];
 
 export default func;

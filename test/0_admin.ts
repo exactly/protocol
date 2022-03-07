@@ -87,7 +87,7 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new fixedLender with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
       const newAuditor = await deploy("NewAuditor", {
         contract: "Auditor",
-        libraries: { MarketsLib: (await get("MarketsLib")).address, DecimalMath: (await get("DecimalMath")).address },
+        libraries: { MarketsLib: (await get("MarketsLib")).address },
         args: [laura.address],
         from: owner.address,
       });

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/IFixedLender.sol";
 import "../interfaces/IOracle.sol";
 import "../utils/Errors.sol";
-import "../utils/DecimalMath.sol";
 
 library MarketsLib {
-    using DecimalMath for uint256;
+    using FixedPointMathLib for uint256;
 
     // Struct to avoid stack too deep
     struct AccountLiquidity {
@@ -168,42 +168,33 @@ library MarketsLib {
             );
 
             // We sum all the collateral prices
-            vars.sumCollateral += DecimalMath
-                .getTokenAmountInUSD(
-                    vars.balance,
-                    vars.oraclePrice,
-                    market.decimals
-                )
-                .mul_(vars.collateralFactor);
+            vars.sumCollateral += vars
+                .balance
+                .fmul(vars.oraclePrice, 10**market.decimals)
+                .fmul(vars.collateralFactor, 1e18);
 
             // We sum all the debt
-            vars.sumDebt += DecimalMath.getTokenAmountInUSD(
-                vars.borrowBalance,
+            vars.sumDebt += vars.borrowBalance.fmul(
                 vars.oraclePrice,
-                market.decimals
+                10**market.decimals
             );
 
             // Simulate the effects of borrowing from/lending to a pool
             if (asset == IFixedLender(fixedLenderToSimulate)) {
                 // Calculate the effects of borrowing fixedLenders
                 if (borrowAmount != 0) {
-                    vars.sumDebt += DecimalMath.getTokenAmountInUSD(
-                        borrowAmount,
+                    vars.sumDebt += borrowAmount.fmul(
                         vars.oraclePrice,
-                        market.decimals
+                        10**market.decimals
                     );
                 }
 
                 // Calculate the effects of redeeming fixedLenders
                 // (having less collateral is the same as having more debt for this calculation)
                 if (withdrawAmount != 0) {
-                    vars.sumDebt += DecimalMath
-                        .getTokenAmountInUSD(
-                            withdrawAmount,
-                            vars.oraclePrice,
-                            market.decimals
-                        )
-                        .mul_(vars.collateralFactor);
+                    vars.sumDebt += withdrawAmount
+                        .fmul(vars.oraclePrice, 10**market.decimals)
+                        .fmul(vars.collateralFactor, 1e18);
                 }
             }
         }
