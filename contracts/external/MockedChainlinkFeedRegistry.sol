@@ -30,6 +30,7 @@ contract MockedChainlinkFeedRegistry is IChainlinkFeedRegistry {
         int256 _price
     ) public {
         assetsPricesByCurrency[_asset][_baseCurrency] = _price;
+        updatedAtTimestamp = block.timestamp;
     }
 
     function setUpdatedAtTimestamp(uint256 _updatedAtTimestamp) public {

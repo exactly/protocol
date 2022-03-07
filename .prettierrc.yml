@@ -1,0 +1,25 @@
+printWidth: 120
+trailingComma: all
+explicitTypes: always
+
+overrides: # TODO remove after refactor
+  - files:
+      - "*.sol"
+      - test/5_*
+      - test/6_*
+      - test/8_*
+      - test/9_*
+      - test/10_*
+      - test/11_*
+      - test/12_*
+      - test/13_*
+      - test/14_*
+      - test/15_*
+      - test/16_*
+      - test/17_*
+      - test/18_*
+      - test/*Env.ts
+      - test/*Utils.ts
+    options:
+      printWidth: 80
+      trailingComma: es5

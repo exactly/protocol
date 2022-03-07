@@ -1,96 +1,87 @@
-import { task } from "hardhat/config";
-import { HardhatUserConfig } from "hardhat/types";
+import "dotenv/config";
 import "@nomiclabs/hardhat-waffle";
-import "@openzeppelin/hardhat-upgrades";
+import "@typechain/hardhat";
 import "solidity-coverage";
-import "hardhat-abi-exporter";
 import "hardhat-deploy";
-import "hardhat-deploy-ethers";
+import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
+import { env } from "process";
+import type { HardhatUserConfig as Config } from "hardhat/types";
 
-import chai from "chai";
-import { solidity } from "ethereum-waffle";
-
-import * as dotnev from "dotenv";
-import assert from "assert";
-dotnev.config();
-
-chai.use(solidity);
-
-if (process.env.FORKING) {
-  assert(
-    process.env.MAINNET_NODE,
-    "specify a mainnet node for mainnet forking in your .env file"
-  );
-}
-
-task("accounts", "Prints the list of accounts", async (args, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    console.log(account.address);
-  }
-});
-
-const forkingHardhatConfig = {
-  initialBaseFeePerGas: 0,
-  forking: {
-    url: `${process.env.MAINNET_NODE}`,
-  },
-  accounts: {
-    mnemonic: process.env.MNEMONIC,
-    accountsBalance: "100000000000000000000000000000000",
-  },
-  chainId: 1337,
-};
-
-const standaloneHardhatConfig = {
-  initialBaseFeePerGas: 0,
-  accounts: {
-    mnemonic: process.env.MNEMONIC,
-    accountsBalance: "100000000000000000000000000000000",
-  },
-  chainId: 1337,
-};
-
-let config: HardhatUserConfig = {
-  solidity: {
-    compilers: [
-      {
-        version: "0.8.4",
-      },
-    ],
-  },
+const config: Config = {
+  solidity: { version: "0.8.4" },
   networks: {
-    hardhat:
-      process.env.FORKING === "true"
-        ? forkingHardhatConfig
-        : standaloneHardhatConfig,
+    hardhat: {
+      tokens: ["DAI", "WETH", "USDC", "WBTC"],
+      accounts: { accountsBalance: `1${"0".repeat(32)}` },
+    },
+    kovan: {
+      tokens: ["DAI", "WETH"],
+      url: env.KOVAN_NODE ?? "https://kovan.infura.io/",
+      ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
+    },
   },
+  namedAccounts: {
+    deployer: { default: 0 },
+    multisig: {
+      default: 0,
+      rinkeby: "0x0820289Cb202DbF23B709D4AC1a346331cd590c4",
+    },
+  },
+  finance: {
+    collateralFactor: { default: 0.8, WBTC: 0.6 },
+    interestRateModel: {
+      curveA: 0.0495,
+      curveB: -0.025,
+      targetUtilizationRate: 1.1,
+      penaltyRatePerDay: 0.02,
+      smartPoolRate: 0.1,
+    },
+  },
+  typechain: { outDir: "types", target: "ethers-v5" },
   gasReporter: {
     currency: "USD",
     gasPrice: 100,
-    enabled: process.env.REPORT_GAS ? true : false,
+    enabled: env.REPORT_GAS ? true : false,
   },
 };
-if (process.env.RINKEBY_NODE) {
-  config.networks!["rinkeby"] = {
-    url: `${process.env.RINKEBY_NODE}`,
-    gasPrice: 5000000000,
-    accounts: {
-      mnemonic: process.env.MNEMONIC,
-    },
-  };
-}
-if (process.env.KOVAN_NODE) {
-  config.networks!["kovan"] = {
-    url: `${process.env.KOVAN_NODE}`,
-    gasPrice: 5000000000,
-    accounts: {
-      mnemonic: process.env.MNEMONIC,
-    },
-  };
-}
 
 export default config;
+
+declare module "hardhat/types/config" {
+  export interface FinanceConfig {
+    collateralFactor: { default: number; [token: string]: number };
+    interestRateModel: {
+      curveA: number;
+      curveB: number;
+      targetUtilizationRate: number;
+      penaltyRatePerDay: number;
+      smartPoolRate: number;
+    };
+  }
+
+  export interface HardhatUserConfig {
+    finance: FinanceConfig;
+  }
+
+  export interface HardhatConfig {
+    finance: FinanceConfig;
+  }
+
+  export interface HardhatNetworkUserConfig {
+    tokens: string[];
+  }
+
+  export interface HttpNetworkUserConfig {
+    tokens: string[];
+  }
+
+  export interface HardhatNetworkConfig {
+    tokens: string[];
+  }
+
+  export interface HttpNetworkConfig {
+    tokens: string[];
+  }
+}

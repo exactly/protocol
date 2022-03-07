@@ -72,29 +72,14 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.092"); // A parameter for the curve
       const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate, not used
-      const tx = interestRateModel.setParameters(
-        A,
-        B,
-        maxUtilizationRate,
-        penaltyRate
-      );
+      const tx = interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
 
       await expect(tx).to.be.reverted;
     });
     describe("WHEN changing the penaltyRate", () => {
-      const A = parseUnits("0.037125"); // A parameter for the curve
-      const B = parseUnits("0.01625"); // B parameter for the curve
-      const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
       const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate
-
       beforeEach(async () => {
-        await interestRateModel.setParameters(
-          A,
-          B,
-          maxUtilizationRate,
-          penaltyRate
-        );
+        await interestRateModel.setPenaltyRate(penaltyRate);
       });
       it("THEN the new value is readable", async () => {
         expect(await interestRateModel.penaltyRate()).to.be.equal(penaltyRate);
@@ -114,15 +99,9 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.08"); // A parameter for the curve
       const B = parseUnits("-0.046666666666666666"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate, not relevant
 
       beforeEach(async () => {
-        await interestRateModel.setParameters(
-          A,
-          B,
-          maxUtilizationRate,
-          penaltyRate
-        );
+        await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
       });
       it("THEN the new maxUtilizationRate is readable", async () => {
         expect(await interestRateModel.maxUtilizationRate()).to.be.equal(
@@ -166,13 +145,15 @@ describe("InterestRateModel", () => {
       const B = parseUnits("0.01625"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
       const penaltyRate = parseUnits("0.025"); // Penalty rate
+      const spFeeRate = parseUnits("0.5"); // smart pool fee rate
 
       beforeEach(async () => {
         await interestRateModel.setParameters(
           A,
           B,
           maxUtilizationRate,
-          penaltyRate
+          penaltyRate,
+          spFeeRate
         );
       });
       it("THEN the new parameters are readable", async () => {
@@ -182,6 +163,7 @@ describe("InterestRateModel", () => {
           maxUtilizationRate
         );
         expect(await interestRateModel.penaltyRate()).to.be.equal(penaltyRate);
+        expect(await interestRateModel.spFeeRate()).to.equal(spFeeRate);
       });
       it("AND the curves R0 changed accordingly", async () => {
         const rate = await interestRateModel.getRateToBorrow(
@@ -230,13 +212,7 @@ describe("InterestRateModel", () => {
           const A = parseUnits("0.72"); // A parameter for the curve
           const B = parseUnits("-0.22"); // B parameter for the curve
           const maxUtilizationRate = parseUnits("3"); // Maximum utilization rate
-          const penaltyRate = parseUnits("0.025"); // Penalty rate
-          await interestRateModel.setParameters(
-            A,
-            B,
-            maxUtilizationRate,
-            penaltyRate
-          );
+          await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to 3.2, THEN it reverts because the utilization rate is too high", async () => {
@@ -282,13 +258,7 @@ describe("InterestRateModel", () => {
           const A = parseUnits("21.12"); // A parameter for the curve
           const B = parseUnits("-1.74"); // B parameter for the curve
           const maxUtilizationRate = parseUnits("12"); // Maximum utilization rate
-          const penaltyRate = parseUnits("0.025"); // Penalty rate
-          await interestRateModel.setParameters(
-            A,
-            B,
-            maxUtilizationRate,
-            penaltyRate
-          );
+          await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to 12, THEN it reverts because the utilization rate is too high", async () => {
@@ -351,13 +321,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.0495"); // A parameter for the curve
       const B = parseUnits("-0.025"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.025"); // Penalty rate
-      await interestRateModel.setParameters(
-        A,
-        B,
-        maxUtilizationRate,
-        penaltyRate
-      );
+      await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
     });
     describe("integration tests for contracts calling the InterestRateModel", () => {
       describe("AND GIVEN 1kDAI of SP liquidity", () => {
@@ -904,27 +868,20 @@ describe("InterestRateModel", () => {
     expect(await interestRateModel.spFeeRate()).to.eq(parseUnits("0.5"));
   });
 
-  it("WHEN calling setSPFeeRate function with a value higher than 100% (1), THEN it should revert with INVALID_SP_FEE_RATE error", async () => {
-    await expect(
-      interestRateModel.setSPFeeRate(parseUnits("1.01"))
-    ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_SP_FEE_RATE));
-  });
-
   it("WHEN an unauthorized user calls setSPFeeRate function, THEN it should revert", async () => {
     await expect(
       interestRateModel.connect(alice).setSPFeeRate(parseUnits("0"))
     ).to.be.revertedWith("AccessControl");
   });
 
-  it("WHEN an unauthorized user calls setParameters function, THEN it should revert", async () => {
+  it("WHEN an unauthorized user calls setCurveParameters function, THEN it should revert", async () => {
     const A = parseUnits("0.092"); // A parameter for the curve
     const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
     const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-    const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate, not used
     await expect(
       interestRateModel
         .connect(alice)
-        .setParameters(A, B, maxUtilizationRate, penaltyRate)
+        .setCurveParameters(A, B, maxUtilizationRate)
     ).to.be.revertedWith("AccessControl");
   });
 });

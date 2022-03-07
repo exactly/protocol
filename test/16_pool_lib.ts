@@ -458,7 +458,7 @@ describe("Pool Management Library", () => {
           });
         });
       });
-      describe("GIVEN a 0 scaledDebtPrincipal AND a 100 scaledDebtFee", async () => {
+      describe("GIVEN a 0 scaledDebtPrincipal AND a 50 scaledDebtFee", async () => {
         describe("WHEN 50 is proportionally scaled", async () => {
           beforeEach(async () => {
             await poolEnv.scaleProportionally("0", "100", "50");

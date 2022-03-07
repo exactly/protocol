@@ -48,4 +48,8 @@ contract MockedToken is ERC20 {
         amount = ((amount * (1e18 - transferCommission)) / 1e18);
         return super.transfer(recipient, amount);
     }
+
+    function decimals() public view virtual override returns (uint8) {
+        return storedDecimals;
+    }
 }

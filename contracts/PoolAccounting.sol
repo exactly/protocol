@@ -9,6 +9,7 @@ import "./interfaces/IPoolAccounting.sol";
 import "./interfaces/IFixedLender.sol";
 import "./utils/TSUtils.sol";
 import "./utils/DecimalMath.sol";
+import "./utils/PoolLib.sol";
 import "./utils/Errors.sol";
 
 contract PoolAccounting is IPoolAccounting, AccessControl {
@@ -46,7 +47,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
     uint256 public override smartPoolBorrowed;
 
-    address private fixedLenderAddress;
+    address public fixedLenderAddress;
     IInterestRateModel public interestRateModel;
 
     event Initialized(address indexed fixedLender);

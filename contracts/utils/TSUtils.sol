@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "./Errors.sol";
-
 library TSUtils {
     enum State {
         NONE,
@@ -11,6 +9,13 @@ library TSUtils {
         VALID,
         NOT_READY
     }
+
+    error UnmatchedPoolState(uint8 state, uint8 requiredState);
+    error UnmatchedPoolStateMultiple(
+        uint8 state,
+        uint8 requiredState,
+        uint8 alternativeState
+    );
 
     uint32 public constant INTERVAL = 7 days;
 
@@ -80,23 +85,26 @@ library TSUtils {
     function validateRequiredPoolState(
         uint8 maxFuturePools,
         uint256 maturityDate,
-        TSUtils.State requiredState,
-        TSUtils.State alternativeState
+        State requiredState,
+        State alternativeState
     ) internal view {
-        TSUtils.State poolState = getPoolState(
+        State poolState = getPoolState(
             block.timestamp,
             maturityDate,
             maxFuturePools
         );
 
         if (poolState != requiredState && poolState != alternativeState) {
-            if (alternativeState == TSUtils.State.NONE) {
-                revert UnmatchedPoolState(poolState, requiredState);
+            if (alternativeState == State.NONE) {
+                revert UnmatchedPoolState(
+                    uint8(poolState),
+                    uint8(requiredState)
+                );
             }
             revert UnmatchedPoolStateMultiple(
-                poolState,
-                requiredState,
-                alternativeState
+                uint8(poolState),
+                uint8(requiredState),
+                uint8(alternativeState)
             );
         }
     }

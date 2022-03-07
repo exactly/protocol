@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "exactly"
+version = "0.0.0"
+description = ""
+authors = []
+packages = [{ include = "docs" }]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+# docs
+matplotlib = { version = "^3.5.1", optional = true }
+sphinx = { version = "^4.4.0", optional = true }
+sphinxcontrib-plantuml = { version = "^0.23", optional = true }
+sphinxcontrib-soliditydomain = { version = "^0.5.1", optional = true }
+
+# docs-dev
+black = { version = "^22.1.0", optional = true }
+esbonio = { version = "^0.8.0", optional = true }
+mypy = { version = "^0.931", optional = true }
+pylint = { version = "^2.12.2", optional = true }
+
+[tool.poetry.dev-dependencies]
+solc-select = "^0.2.1"
+slither-analyzer = "^0.8.2"
+
+[tool.poetry.extras]
+docs = ["matplotlib", "sphinx", "sphinxcontrib-plantuml", "sphinxcontrib-soliditydomain"]
+docs-dev = ["docs", "black", "esbonio", "mypy", "pylint"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

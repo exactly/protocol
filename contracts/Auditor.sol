@@ -62,6 +62,14 @@ contract Auditor is IAuditor, AccessControl {
      */
     event NewBorrowCap(address indexed fixedLender, uint256 newBorrowCap);
 
+    /// @notice emitted when a collateral factor is changed by admin.
+    /// @param fixedLender address of the market that has a new collateral factor.
+    /// @param newCollateralFactor collateral factor for the underlying asset.
+    event NewCollateralFactor(
+        address indexed fixedLender,
+        uint256 newCollateralFactor
+    );
+
     constructor(address _priceOracleAddress) {
         oracle = IOracle(_priceOracleAddress);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -161,6 +169,17 @@ contract Auditor is IAuditor, AccessControl {
         marketsAddresses.push(fixedLender);
 
         emit MarketListed(fixedLender);
+    }
+
+    /// @notice sets the collateral factor for a certain fixedLender.
+    /// @param fixedLender address of the market to change collateral factor for.
+    /// @param collateralFactor collateral factor for the underlying asset.
+    function setCollateralFactor(address fixedLender, uint256 collateralFactor)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        book.markets[fixedLender].collateralFactor = collateralFactor;
+        emit NewCollateralFactor(fixedLender, collateralFactor);
     }
 
     /**
