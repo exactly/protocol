@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "./interfaces/IEToken.sol";
@@ -8,14 +9,13 @@ import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
 import "./interfaces/IFixedLender.sol";
 import "./utils/TSUtils.sol";
-import "./utils/DecimalMath.sol";
 import "./utils/PoolLib.sol";
 import "./utils/Errors.sol";
 
 contract PoolAccounting is IPoolAccounting, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
     using PoolLib for PoolLib.Position;
-    using DecimalMath for uint256;
+    using FixedPointMathLib for uint256;
 
     // Vars used in `borrowMP` to avoid
     // stack too deep problem
@@ -133,7 +133,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             pool.supplied,
             assignedSPLiquidity
         );
-        borrowVars.fee = amount.mul_(borrowVars.feeRate);
+        borrowVars.fee = amount.fmul(borrowVars.feeRate, 1e18);
         totalOwedNewBorrow = amount + borrowVars.fee;
 
         // We validate that the user is not taking arbitrary fees
@@ -254,7 +254,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 pool.supplied,
                 maxSPDebt
             );
-            redeemAmountDiscounted = amount.div_(1e18 + feeRate);
+            redeemAmountDiscounted = amount.fdiv(1e18 + feeRate, 1e18);
         } else {
             redeemAmountDiscounted = amount;
         }
@@ -479,8 +479,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             currentTimestamp()
         );
         if (secondsDelayed > 0) {
-            totalDebt += totalDebt.mul_(
-                secondsDelayed * interestRateModel.penaltyRate()
+            totalDebt += totalDebt.fmul(
+                secondsDelayed * interestRateModel.penaltyRate(),
+                1e18
             );
         }
     }

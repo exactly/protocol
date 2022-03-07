@@ -6,11 +6,8 @@ import "./interfaces/IEToken.sol";
 import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./utils/Errors.sol";
-import "./utils/DecimalMath.sol";
 
 contract EToken is IEToken, AccessControl {
-    using DecimalMath for uint256;
-
     // totalSupply = smart pool's balance
     uint256 public override totalSupply;
     // index = totalSupply / totalScaledBalance

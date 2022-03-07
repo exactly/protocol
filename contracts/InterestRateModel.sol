@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "./interfaces/IInterestRateModel.sol";
 import "./utils/Errors.sol";
 import "./utils/PoolLib.sol";
-import "./utils/DecimalMath.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
-    using DecimalMath for uint256;
+    using FixedPointMathLib for uint256;
     uint256 private constant YEAR = 365 days;
 
     // Parameters to the system, expressed with 1e18 decimals
@@ -124,7 +124,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             // User can't make more fees after the total borrowed amount
             earningsShare = ((Math.min(amount, suppliedSP) *
                 unassignedEarnings) / suppliedSP);
-            earningsShareSP = earningsShare.mul_(spFeeRate);
+            earningsShareSP = earningsShare.fmul(spFeeRate, 1e18);
             earningsShare -= earningsShareSP;
         }
     }
@@ -218,12 +218,12 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (supplied == 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
-        uint256 utilizationRate = borrowedMP.div_(supplied);
+        uint256 utilizationRate = borrowedMP.fdiv(supplied, 1e18);
         if (utilizationRate >= maxUtilizationRate) {
             revert GenericError(ErrorCode.EXCEEDED_MAX_UTILIZATION_RATE);
         }
         int256 rate = int256(
-            curveParameterA.div_(maxUtilizationRate - utilizationRate)
+            curveParameterA.fdiv(maxUtilizationRate - utilizationRate, 1e18)
         ) + curveParameterB;
         // this curve _could_ go below zero if the parameters are set wrong.
         assert(rate >= 0);
