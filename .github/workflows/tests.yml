@@ -18,7 +18,7 @@ jobs:
       - run: npm install
       - run: npm run lint:ts
       - run: npm run lint:sol
-      - name: test
-        run: |
-          npm run coverage
-          bash <(curl -s https://codecov.io/bash) -Z
+      - run: npm run coverage
+      - uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
