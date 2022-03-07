@@ -1,0 +1,4 @@
+@openzeppelin/=node_modules/@openzeppelin/
+@rari-capital/=node_modules/@rari-capital/
+forge-std/=lib/forge-std/src/
+ds-test/=lib/ds-test/src/
