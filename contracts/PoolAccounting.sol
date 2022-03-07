@@ -35,7 +35,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 discountFee;
         uint256 feeSP;
         uint256 amountStillBorrowed;
-        uint256 smartPoolDebtReduction;
     }
 
     mapping(uint256 => mapping(address => PoolLib.Position))
@@ -351,7 +350,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             }
 
             // We remove the fee from unassigned earnings
-            pool.removeFee(repayVars.discountFee);
+            pool.removeFee(repayVars.discountFee + repayVars.feeSP);
         }
 
         // user paid more than it should. The fee gets kicked back to the user
@@ -375,10 +374,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         earningsSP += newEarningsSP;
 
         // We reduce the borrowed and we might decrease the SP debt
-        repayVars.smartPoolDebtReduction = pool.repayMoney(
+        smartPoolBorrowed -= pool.repayMoney(
             repayVars.scaleDebtCovered.principal
         );
-        smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
 
         //
         // From now on: We update the user position

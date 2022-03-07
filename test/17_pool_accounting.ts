@@ -1311,6 +1311,44 @@ describe("PoolAccounting", () => {
             );
           });
         });
+        describe("AND WHEN an early repayment of 5250 with a spFeeRate of 10%", () => {
+          beforeEach(async () => {
+            await poolAccountingEnv
+              .getRealInterestRateModel()
+              .setSPFeeRate(parseUnits("0.1"));
+            await poolAccountingEnv.repayMP(nextPoolID, "5250");
+            returnValues = await poolAccountingHarness.returnValues();
+            mp = await poolAccountingHarness.maturityPools(nextPoolID);
+            maturityPoolState.earningsDiscounted =
+              maturityPoolState.earningsDiscounted.add(
+                returnValues.spareRepayAmount
+              );
+            maturityPoolState.earningsSP = returnValues.earningsSP;
+          });
+          it("THEN borrowed is 0", async () => {
+            expect(mp.borrowed).to.eq(0);
+          });
+          it("THEN suppliedSP is 0", async () => {
+            expect(mp.suppliedSP).to.eq(0);
+          });
+          it("THEN all earningsUnassigned should be 0", async () => {
+            expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+          });
+          it("THEN the debtCovered returned is 5250", async () => {
+            expect(returnValues.debtCovered).eq(parseUnits("5250"));
+          });
+          it("THEN the earningsSP returned are 25 (10% spFeeRate)", async () => {
+            expect(returnValues.earningsSP).eq(parseUnits("25"));
+          });
+          it("THEN the spareRepayAmount returned is 250 - 25 (10% spFeeRate)", async () => {
+            expect(returnValues.spareRepayAmount).to.eq(parseUnits("225"));
+          });
+          it("THEN the borrow fees are equal to all earnings distributed", async () => {
+            expect(maturityPoolState.borrowFees).to.eq(
+              poolAccountingEnv.getAllEarnings(maturityPoolState)
+            );
+          });
+        });
       });
     });
 
@@ -1351,6 +1389,7 @@ describe("PoolAccounting", () => {
           await poolAccountingEnv.repayMP(nextPoolID, "5250");
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
+          maturityPoolState.earningsSP = returnValues.earningsSP;
         });
         it("THEN borrowed is 0", async () => {
           expect(mp.borrowed).to.eq(parseUnits("0"));
