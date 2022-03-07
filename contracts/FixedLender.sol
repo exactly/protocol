@@ -415,7 +415,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
                 msg.sender,
                 redeemAmount,
                 minAmountRequired,
-                eToken.totalSupply() / maxFuturePools
+                eToken.totalSupply(),
+                maxFuturePools
             );
 
         eToken.accrueEarnings(earningsSP);

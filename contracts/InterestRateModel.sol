@@ -166,21 +166,18 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param maturityDate maturity date for calculating days left to maturity
      * @param currentDate the curent block timestamp. Recieved from caller for easier testing
      * @param borrowedMP total borrowed from this maturity
-     * @param suppliedMP total supplied to this maturity
-     * @param smartPoolLiquidityShare 'fair' share of the smart pool that this maturity can borrow
+     * @param supplied 'fair' supply (MP deposits + smart pool share)
      * @return fee the borrower will have to pay
      */
     function getFeeToBorrow(
         uint256 maturityDate,
         uint256 currentDate,
         uint256 borrowedMP,
-        uint256 suppliedMP,
-        uint256 smartPoolLiquidityShare
+        uint256 supplied
     ) public view override returns (uint256) {
         if (currentDate >= maturityDate) {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
-        uint256 supplied = smartPoolLiquidityShare + suppliedMP;
         if (supplied == 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }

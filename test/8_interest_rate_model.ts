@@ -113,7 +113,6 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
           parseUnits("0"),
-          parseUnits("0"),
           parseUnits("100")
         );
         expect(rate).to.eq(parseUnits("0.02"));
@@ -123,7 +122,6 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
           parseUnits("90"),
-          parseUnits("0"),
           parseUnits("100")
         );
         expect(rate).to.eq(parseUnits("0.22"));
@@ -133,8 +131,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
           parseUnits("110"), // 1.1 was previously an invalid UR
-          parseUnits("50"),
-          parseUnits("50")
+          parseUnits("100")
         );
         expect(rate).to.eq(parseUnits("0.753333333333333334"));
       });
@@ -160,7 +157,6 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
           parseUnits("0"),
-          parseUnits("0"),
           parseUnits("100")
         );
         expect(rate).to.eq(parseUnits("0.05"));
@@ -170,7 +166,6 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
           parseUnits("80"),
-          parseUnits("0"),
           parseUnits("100")
         );
         expect(rate).to.eq(parseUnits("0.14"));
@@ -612,8 +607,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
           parseUnits("0", 6), // 0 borrows, this is what makes U=0
-          parseUnits("0", 6), // no MP supply
-          parseUnits("100", 6) // 100 available from SP
+          parseUnits("100", 6) // 100 available liquidity
         );
         expect(rate).to.eq(parseUnits("0.02"));
       });
@@ -622,66 +616,9 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
           parseUnits("80", 6), // 80 borrowed, this is what makes U=0.8
-          parseUnits("0"), // no MP supply
-          parseUnits("100", 6) // 100 available from SP
+          parseUnits("100", 6) // 100 available liquidity
         );
         expect(rate).to.eq(parseUnits("0.14"));
-      });
-    });
-    describe("distinctions on where the liquidity comes from", () => {
-      it("WHEN asking for the interest with a liquidity of zero THEN it reverts", async () => {
-        const tx = interestRateModel.getFeeToBorrow(
-          nextPoolID,
-          nextPoolID - exaTime.ONE_DAY,
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("0"), // no MP supply
-          parseUnits("0") // nothing available from SP
-        );
-
-        await expect(tx).to.be.reverted;
-      });
-      it("WHEN asking for the interest with 80 tokens borrowed and 100 supplied to the MP, THEN it returns Rb=0.14 because U=Ub", async () => {
-        const rate = await interestRateModel.getFeeToBorrow(
-          nextPoolID,
-          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("100"), // 100 supplied to MP
-          parseUnits("0") // nothing available from SP
-        );
-        expect(rate).to.eq(parseUnits("0.14"));
-      });
-      it("WHEN asking for the interest with 80 tokens borrowed and 40 supplied to the MP AND 60 available from the SP, THEN it returns Rb=0.14 because U=Ub", async () => {
-        const rate = await interestRateModel.getFeeToBorrow(
-          nextPoolID,
-          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("40"), // 40 supplied to MP
-          parseUnits("60") // 60 available from SP
-        );
-        expect(rate).to.eq(parseUnits("0.14"));
-      });
-      it("WHEN asking for the interest with 80 tokens borrowed and 100 supplied to the MP AND 50 available from the SP, THEN it returns a lower rate because U<Ub", async () => {
-        const rate = await interestRateModel.getFeeToBorrow(
-          nextPoolID,
-          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("100"), // 100 supplied to MP
-          parseUnits("50") // 50 available from SP
-        );
-        // 0.0495/(1.1-(80/150))-0.025
-        expect(rate).to.be.closeTo(parseUnits(".06235294117647058"), 100);
-      });
-
-      it("WHEN asking for the interest with 80 tokens borrowed and 50 supplied to the MP AND 150 available from the SP, THEN it returns a lower rate because U<Ub", async () => {
-        const rate = await interestRateModel.getFeeToBorrow(
-          nextPoolID,
-          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("50"), // 50 supplied to MP
-          parseUnits("100") // 100 available from SP
-        );
-        // 0.0495/(1.1-(80/150))-0.025
-        expect(rate).to.be.closeTo(parseUnits(".06235294117647058"), 100);
       });
     });
 
@@ -690,8 +627,7 @@ describe("InterestRateModel", () => {
         nextPoolID,
         nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
         parseUnits("0"), // 0 borrows, this is what makes U=0
-        parseUnits("0"), // no MP supply
-        parseUnits("100") // 100 available from SP
+        parseUnits("100")
       );
       expect(rate).to.eq(parseUnits("0.02"));
     });
@@ -700,8 +636,7 @@ describe("InterestRateModel", () => {
         nextPoolID,
         nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
         parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-        parseUnits("0"), // no MP supply
-        parseUnits("100") // 100 available from SP
+        parseUnits("100")
       );
       expect(rate).to.eq(parseUnits("0.14"));
     });
@@ -711,17 +646,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
           parseUnits("90"), // 90 borrowed, this is what makes U=0.9
-          parseUnits("0"), // no MP supply
-          parseUnits("100") // 100 available from SP
-        );
-        expect(rate).to.eq(parseUnits("0.2225"));
-
-        rate = await interestRateModel.getFeeToBorrow(
-          nextPoolID,
-          nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
-          parseUnits("90"), // 90 borrowed, this is what makes U=0.9
-          parseUnits("100"), // MP supply
-          parseUnits("0") // nothing available from SP
+          parseUnits("100")
         );
         expect(rate).to.eq(parseUnits("0.2225"));
       });
@@ -730,8 +655,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY,
           parseUnits("100"),
-          parseUnits("10"),
-          parseUnits("90")
+          parseUnits("100")
         );
         expect(rate).to.eq(parseUnits("0.47"));
       });
@@ -740,7 +664,6 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY,
           parseUnits("105"),
-          parseUnits("0"),
           parseUnits("100")
         );
         expect(rate).to.eq(parseUnits("0.965"));
@@ -750,8 +673,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY,
           parseUnits("110"),
-          parseUnits("50"),
-          parseUnits("50")
+          parseUnits("100")
         );
 
         await expect(tx).to.be.revertedWith(
@@ -763,8 +685,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY,
           parseUnits("115"),
-          parseUnits("80"),
-          parseUnits("20")
+          parseUnits("100")
         );
 
         await expect(tx).to.be.revertedWith(
@@ -778,8 +699,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID + exaTime.ONE_DAY,
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("0"), // no MP supply
-          parseUnits("100") // 100 available from SP
+          parseUnits("100")
         );
 
         await expect(tx).to.be.revertedWith(
@@ -791,8 +711,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID,
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("0"), // no MP supply
-          parseUnits("100") // 100 available from SP
+          parseUnits("100")
         );
 
         await expect(tx).to.be.revertedWith(
@@ -804,8 +723,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 5 * exaTime.ONE_DAY,
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("0"), // no MP supply
-          parseUnits("100") // 100 available from SP
+          parseUnits("100")
         );
 
         // 0.14*5/365
@@ -816,8 +734,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 14 * exaTime.ONE_DAY,
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("0"), // no MP supply
-          parseUnits("100") // 100 available from SP
+          parseUnits("100")
         );
 
         // 0.14*14/365
@@ -828,8 +745,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - exaTime.ONE_DAY,
           parseUnits("0"), // 0 borrowed, this is what makes U=0
-          parseUnits("0"), // no MP supply
-          parseUnits("100") // 100 available from SP
+          parseUnits("100")
         );
 
         // 0.02*1/365
@@ -842,8 +758,7 @@ describe("InterestRateModel", () => {
           nextPoolID,
           nextPoolID - 5,
           parseUnits("0"), // 0 borrowed, this is what makes U=0
-          parseUnits("0"), // no MP supply
-          parseUnits("100") // 100 available from SP
+          parseUnits("100")
         );
 
         // 0.02*5/(365*24*60*60)

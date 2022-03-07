@@ -18,7 +18,6 @@ contract MockedInterestRateModel is IInterestRateModel {
         uint256,
         uint256,
         uint256,
-        uint256,
         uint256
     ) external view override returns (uint256) {
         return borrowRate;

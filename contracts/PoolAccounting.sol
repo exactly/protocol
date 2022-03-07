@@ -137,8 +137,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             maturityDate,
             block.timestamp,
             pool.borrowed,
-            pool.supplied,
-            assignedSPLiquidity
+            pool.supplied + assignedSPLiquidity
         );
         borrowVars.fee = amount.fmul(borrowVars.feeRate, 1e18);
         totalOwedNewBorrow = amount + borrowVars.fee;
@@ -230,7 +229,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         address redeemer,
         uint256 amount,
         uint256 minAmountRequired,
-        uint256 maxSPDebt
+        uint256 maxSPDebt,
+        uint8 maxFuturePools
     )
         external
         override
@@ -256,8 +256,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 maturityDate,
                 block.timestamp,
                 pool.borrowed + amount, // like asking for a loan full amount
-                pool.supplied,
-                maxSPDebt
+                pool.supplied + maxSPDebt / maxFuturePools
             );
             redeemAmountDiscounted = amount.fdiv(1e18 + feeRate, 1e18);
         } else {
