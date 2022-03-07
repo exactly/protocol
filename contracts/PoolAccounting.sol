@@ -351,12 +351,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
             // We remove the fee from unassigned earnings
             pool.removeFee(repayVars.discountFee + repayVars.feeSP);
-        }
 
-        // user paid more than it should. The fee gets kicked back to the user
-        // through _spareRepayAmount_ and on the pool side it was removed by
-        // calling _removeFee_ a few lines before ^
-        spareRepayAmount = repayVars.discountFee;
+            // user paid more than it should. The fee gets kicked back to the user
+            // through _spareRepayAmount_ and on the pool side it was removed by
+            // calling _removeFee_ a few lines before ^
+            spareRepayAmount = repayVars.discountFee;
+        }
 
         if (repayAmount > repayVars.amountOwed) {
             spareRepayAmount += repayAmount - repayVars.amountOwed;
