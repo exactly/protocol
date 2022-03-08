@@ -317,14 +317,18 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
         repayVars.position = mpUserBorrowedAmount[maturityDate][borrower];
 
+        if (repayAmount > repayVars.amountOwed) {
+            spareRepayAmount = repayAmount - repayVars.amountOwed;
+            repayAmount = repayVars.amountOwed;
+        }
+
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
         // then amountBorrowed is what should be discounted to the users account
         // Math.min to not go over repayAmount since we return exceeding money, but
         // hasn't been calculated yet
         debtCovered =
-            (repayVars.position.fullAmount() *
-                Math.min(repayAmount, repayVars.amountOwed)) /
+            (repayVars.position.fullAmount() * repayAmount) /
             repayVars.amountOwed;
         repayVars.scaleDebtCovered = repayVars
             .position
@@ -356,23 +360,18 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             // user paid more than it should. The fee gets kicked back to the user
             // through _spareRepayAmount_ and on the pool side it was removed by
             // calling _removeFee_ a few lines before ^
-            spareRepayAmount = repayVars.discountFee;
+            spareRepayAmount += repayVars.discountFee;
+        } else {
+            // We distribute penalties to those that supported (pre-repayment)
+            uint256 newEarningsSP;
+            (newEarningsSP, earningsTreasury) = PoolLib
+                .distributeEarningsAccordingly(
+                    repayAmount - repayVars.scaleDebtCovered.fullAmount(),
+                    pool.suppliedSP,
+                    repayVars.scaleDebtCovered.principal
+                );
+            earningsSP += newEarningsSP;
         }
-
-        if (repayAmount > repayVars.amountOwed) {
-            spareRepayAmount += repayAmount - repayVars.amountOwed;
-            repayAmount = repayVars.amountOwed;
-        }
-
-        // We distribute penalties to those that supported (pre-repayment)
-        uint256 newEarningsSP;
-        (newEarningsSP, earningsTreasury) = PoolLib
-            .distributeEarningsAccordingly(
-                repayAmount - repayVars.scaleDebtCovered.fullAmount(),
-                pool.suppliedSP,
-                repayVars.scaleDebtCovered.principal
-            );
-        earningsSP += newEarningsSP;
 
         // We reduce the borrowed and we might decrease the SP debt
         smartPoolBorrowed -= pool.repayMoney(

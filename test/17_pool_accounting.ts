@@ -506,7 +506,7 @@ describe("PoolAccounting", () => {
               expect(mpUserBorrowedAmount[0]).to.be.eq(0);
               expect(mpUserBorrowedAmount[1]).to.be.eq(0);
             });
-            it("THEN the earningsTreasury returned is 0", async () => {
+            it("THEN the earningsTreasury returned are closed to 1050", async () => {
               // 17325 - 15750 = 1575 (10% of the debt) * 1/3 = 1050
               expect(returnValues.earningsTreasury).to.gt(parseUnits("1049"));
               expect(returnValues.earningsTreasury).to.lt(parseUnits("1050"));
