@@ -418,6 +418,43 @@ describe("InterestRateModel", () => {
       });
     });
   });
+  describe("GIVEN curve parameters with an Umax(20) > nMaturities(12) AND enough collateral AND SP liquidity", () => {
+    beforeEach(async () => {
+      // umax = 20
+      // ub = 1
+      // r0 = 0
+      // rb = 22
+      // A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
+      // A = ((20*(20-1))/1)*(22-0)
+      // A = 8360.00000000000000000000
+
+      // B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
+      // B = ((20/1)*0) + (1-(20/1))*22
+      // B = -418.00000000000000000000
+
+      const A = parseUnits("8360");
+      const B = parseUnits("-418");
+      const maxUtilizationRate = parseUnits("20");
+      const penaltyRate = parseUnits("0.025");
+      await interestRateModel.setParameters(
+        A,
+        B,
+        maxUtilizationRate,
+        penaltyRate
+      );
+      await exactlyEnv.depositSP("WETH", "10");
+      await exactlyEnv.enterMarkets(["WETH"]);
+      await exactlyEnv.depositSP("DAI", "1200");
+    });
+    it("WHEN borrowing more than whats available in the SP, THEN it reverts with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+      // this'd push U to 15
+      await expect(
+        exactlyEnv.borrowMP("DAI", secondPoolID, "1500")
+      ).to.be.revertedWith(
+        errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+      );
+    });
+  });
 
   describe("GIVEN curve parameters yielding Ub=0.8, Umax=1.1, R0=0.02 and Rb=0.14", () => {
     beforeEach(async () => {
