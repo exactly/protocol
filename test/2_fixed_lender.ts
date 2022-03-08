@@ -44,7 +44,9 @@ describe("FixedLender", function () {
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", owner);
     penaltyRate = await interestRateModel.penaltyRate();
 
-    await timelockExecute(owner, interestRateModel, "setParameters", [0, 0, parseUnits("10"), penaltyRate, 0]);
+    await timelockExecute(owner, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10")]);
+    await timelockExecute(owner, interestRateModel, "setPenaltyRate", [penaltyRate]);
+    await timelockExecute(owner, interestRateModel, "setSPFeeRate", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).transfer(signer.address, parseUnits("10000"));
       await dai.connect(signer).approve(fixedLenderDAI.address, parseUnits("10000"));
@@ -108,7 +110,7 @@ describe("FixedLender", function () {
       );
     });
     it("WHEN trying to borrow DAI THEN it reverts with INSUFFICIENT_LIQUIDITY since collateral was not deposited yet", async () => {
-      await expect(fixedLenderDAI.borrowFromMaturityPool(1, futurePools(1)[0], 2)).to.be.revertedWith(
+      await expect(fixedLenderDAI.borrowFromMaturityPool(1000, futurePools(1)[0], 2000)).to.be.revertedWith(
         "InsufficientLiquidity()",
       );
     });
@@ -322,19 +324,28 @@ describe("FixedLender", function () {
     });
   });
 
-  describe("GIVEN Maria has 10ETH collateral", () => {
+  describe("GIVEN Maria has 10ETH collateral AND john deposited 12 to the smart pool AND Umax is set to 20( > nMaturities)", () => {
     beforeEach(async () => {
       await fixedLenderWETH.depositToSmartPoolEth({ value: parseUnits("10") });
       await auditor.enterMarkets([fixedLenderWETH.address]);
+
+      penaltyRate = await interestRateModel.penaltyRate();
+      await timelockExecute(owner, interestRateModel, "setCurveParameters", [
+        parseUnits("0"),
+        parseUnits("0"),
+        parseUnits("20"),
+      ]);
+      await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("12"));
     });
-    it("WHEN Maria tries to borrow 10 DAI on an empty maturity, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+    it("WHEN Maria tries to borrow 15 DAI on an empty maturity, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+      // await fixedLenderDAI.borrowFromMaturityPool(parseUnits("10"), futurePools(1)[0], parseUnits("10"));
       await expect(
-        fixedLenderDAI.borrowFromMaturityPool(parseUnits("10"), futurePools(1)[0], parseUnits("10")),
+        fixedLenderDAI.borrowFromMaturityPool(parseUnits("15"), futurePools(1)[0], parseUnits("15")),
       ).to.be.revertedWith("InsufficientProtocolLiquidity()");
     });
-    describe("AND John deposited 2400 DAI to the smart pool", () => {
+    describe("AND John deposited 2388 DAI to the smart pool", () => {
       beforeEach(async () => {
-        await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("2400"));
+        await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("2388"));
       });
       it("WHEN Maria tries to borrow 2500 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
         await expect(
