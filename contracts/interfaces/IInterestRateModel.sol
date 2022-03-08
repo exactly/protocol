@@ -5,6 +5,7 @@ interface IInterestRateModel {
     function getFeeToBorrow(
         uint256 maturityDate,
         uint256 currentDate,
+        uint256 amount,
         uint256 borrowedMP,
         uint256 supplied
     ) external view returns (uint256);

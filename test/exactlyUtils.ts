@@ -116,6 +116,7 @@ export enum ProtocolError {
   SMART_POOL_FUNDS_LOCKED,
   INVALID_TIME_DIFFERENCE,
   INVALID_SP_FEE_RATE,
+  INVALID_AMOUNT,
 }
 
 export type EnvConfig = {

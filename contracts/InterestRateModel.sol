@@ -165,13 +165,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @dev liquidity limits aren't checked, that's the responsibility of pool.takeMoney.
      * @param maturityDate maturity date for calculating days left to maturity
      * @param currentDate the curent block timestamp. Recieved from caller for easier testing
-     * @param borrowedMP total borrowed from this maturity
+     * @param amount the current borrow's amount
+     * @param borrowedMP ex-ante amount borrowed from this maturity
      * @param supplied 'fair' supply (MP deposits + smart pool share)
-     * @return fee the borrower will have to pay
+     * @return fee the borrower will have to pay, as a factor (1% interest is represented as the wad for 0.01 == 10^16)
      */
     function getFeeToBorrow(
         uint256 maturityDate,
         uint256 currentDate,
+        uint256 amount,
         uint256 borrowedMP,
         uint256 supplied
     ) public view override returns (uint256) {
@@ -181,7 +183,12 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (supplied == 0) {
             revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
         }
-        uint256 rate = getPointInCurve(borrowedMP.fdiv(supplied, 1e18));
+        uint256 utilizationBefore = borrowedMP.fdiv(supplied, 1e18);
+        uint256 utilizationAfter = (borrowedMP + amount).fdiv(supplied, 1e18);
+        if (utilizationAfter >= maxUtilizationRate) {
+            revert GenericError(ErrorCode.EXCEEDED_MAX_UTILIZATION_RATE);
+        }
+        uint256 rate = getRateToBorrow(utilizationBefore, utilizationAfter);
         return (rate * (maturityDate - currentDate)) / YEAR;
     }
 
@@ -189,6 +196,11 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 utilizationBefore,
         uint256 utilizationAfter
     ) internal view returns (uint256) {
+        // there's no domain reason to forbid amounts of zero, but that'd
+        // cause the denominator in bot`
+        if (utilizationAfter <= utilizationBefore) {
+            revert GenericError(ErrorCode.INVALID_AMOUNT);
+        }
         return
             (trapezoidIntegrator(utilizationBefore, utilizationAfter) +
                 2 *
@@ -200,9 +212,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         view
         returns (uint256)
     {
-        if (utilizationRate >= maxUtilizationRate) {
-            revert GenericError(ErrorCode.EXCEEDED_MAX_UTILIZATION_RATE);
-        }
         int256 rate = int256(
             curveParameterA.fdiv(maxUtilizationRate - utilizationRate, 1e18)
         ) + curveParameterB;
@@ -236,7 +245,9 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     {
         uint256 denominator = ut1 - ut;
         uint256 delta = denominator / 4;
-        uint256 numerator = getPointInCurve(ut + delta.fmul(0.5 ether, 1 ether)) +
+        uint256 numerator = getPointInCurve(
+            ut + delta.fmul(0.5 ether, 1 ether)
+        ) +
             getPointInCurve(ut + delta.fmul(1.5 ether, 1 ether)) +
             getPointInCurve(ut + delta.fmul(2.5 ether, 1 ether)) +
             getPointInCurve(ut + delta.fmul(3.5 ether, 1 ether));

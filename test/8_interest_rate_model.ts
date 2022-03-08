@@ -112,28 +112,34 @@ describe("InterestRateModel", () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0.00000000000001"),
           parseUnits("0"),
           parseUnits("100")
         );
-        expect(rate).to.eq(parseUnits("0.02"));
+        expect(rate).to.gt(parseUnits("0.019"));
+        expect(rate).to.lt(parseUnits("0.021"));
       });
       it("AND the curves Rb and Ub changed accordingly", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0.00000000000001"),
           parseUnits("90"),
           parseUnits("100")
         );
-        expect(rate).to.eq(parseUnits("0.22"));
+        expect(rate).to.gt(parseUnits("0.21"));
+        expect(rate).to.lt(parseUnits("0.23"));
       });
       it("AND the curves Umax changed", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0.00000000000001"),
           parseUnits("110"), // 1.1 was previously an invalid UR
           parseUnits("100")
         );
-        expect(rate).to.eq(parseUnits("0.753333333333333334"));
+        expect(rate).to.gt(parseUnits("0.74"));
+        expect(rate).to.lt(parseUnits("0.76"));
       });
     });
 
@@ -156,19 +162,23 @@ describe("InterestRateModel", () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0.000000000001"),
           parseUnits("0"),
           parseUnits("100")
         );
-        expect(rate).to.eq(parseUnits("0.05"));
+        expect(rate).to.gt(parseUnits("0.049"));
+        expect(rate).to.lt(parseUnits("0.051"));
       });
       it("AND the curves Rb stays the same", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0.0000000001"),
           parseUnits("80"),
           parseUnits("100")
         );
-        expect(rate).to.eq(parseUnits("0.14"));
+        expect(rate).to.gt(parseUnits("0.139"));
+        expect(rate).to.lt(parseUnits("0.141"));
       });
     });
   });
@@ -214,11 +224,6 @@ describe("InterestRateModel", () => {
             errorGeneric(ProtocolError.EXCEEDED_MAX_UTILIZATION_RATE)
           );
         });
-        it("WHEN doing a borrow which pushes U to 15 (>nMaturities), THEN it reverts because there isnt enough liquidity", async () => {
-          await expect(
-            exactlyEnv.borrowMP("DAI", secondPoolID, "15000", "100000")
-          ).to.be.revertedWith("InsufficientProtocolLiquidity()");
-        });
         it("AND WHEN doing a borrow which pushes U to 2.9, THEN it succeeds", async () => {
           await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "2900", "4000"))
             .to.not.be.reverted;
@@ -261,12 +266,8 @@ describe("InterestRateModel", () => {
               "16000"
             );
           });
-          // r = (21.12/(12-(11000/(12000/12)))) - 1.74
-          // 19.38
-          it("THEN the fee charged (193800%) implies an utilization rate of 11 ", async () => {
-            // 11000* (19.38 * 7) / 365
-            // 4088.38356164383561643835
-            await expectFee(tx, parseUnits("4080"));
+          it("THEN the fee charged (300%) implies an utilization rate of 11 ", async () => {
+            await expectFee(tx, parseUnits("652"));
           });
         });
         describe("GIVEN a borrow of 2000 DAI in the closest maturity", () => {
@@ -279,11 +280,8 @@ describe("InterestRateModel", () => {
               tx = await exactlyEnv.borrowMP("DAI", thirdPoolID, "1000");
             });
             // 10k should be available, since 2k were already lent out
-            // (21.12/(12-(1000/(10000/12)))) - 1.74
-            // .21555555555555555555
-            it("THEN the fee charged (21.5%) implies U > 1, since the available liquidity is less", async () => {
-              // 1000* (.21555555555555555555 * 14) / 365
-              await expectFee(tx, parseUnits("8.267"));
+            it("THEN the fee charged (11%) implies U 0->1.2, since the available liquidity is less", async () => {
+              await expectFee(tx, parseUnits("4.387"));
             });
           });
         });
@@ -464,32 +462,28 @@ describe("InterestRateModel", () => {
           beforeEach(async () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "300");
           });
-          it("THEN a yearly interest of 3.6% (U=0.3) is charged over a week (0.03*7/365)", async () => {
+          it("THEN a yearly interest of 2.57% (U 0->0.3) is charged over a week (0.03*7/365)", async () => {
             const [, borrowed] = await exactlyEnv.accountSnapshot(
               "DAI",
               secondPoolID
             );
 
-            // 0.0495/(1.1-(300/1000))-0.025 =  .03687500000000000000
-            // (300*0.036875 * 7) / 365 .21215753424657534246
-            expect(borrowed).to.be.gt(parseUnits("300.212"));
-            expect(borrowed).to.be.lt(parseUnits("300.214"));
+            expect(borrowed).to.be.gt(parseUnits("300.158"));
+            expect(borrowed).to.be.lt(parseUnits("300.159"));
           });
         });
         describe("WHEN borrowing 900 DAI in the following maturity", () => {
           beforeEach(async () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "900");
           });
-          it("THEN a yearly interest of 22% (U=0.9) is charged over a week (0.2225*7/365)", async () => {
+          it("THEN a yearly interest of 6.8% (U 0 -> 0.9) is charged over a week (0.2225*7/365)", async () => {
             const [, borrowed] = await exactlyEnv.accountSnapshot(
               "DAI",
               secondPoolID
             );
 
-            // 0.0495/(1.1-(900/1000))-0.025 =.22250000000000000000
-            // (900*0.2225 * 7) / 365 = 3.84041095890410958904
-            expect(borrowed).to.be.gt(parseUnits("903.84"));
-            expect(borrowed).to.be.lt(parseUnits("903.85"));
+            expect(borrowed).to.be.gt(parseUnits("901.18"));
+            expect(borrowed).to.be.lt(parseUnits("901.19"));
           });
         });
       });
@@ -507,16 +501,14 @@ describe("InterestRateModel", () => {
           beforeEach(async () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1050");
           });
-          it("THEN a yearly interest of 9.875% (U=0.7) is charged over a week", async () => {
+          it("THEN a yearly interest of 4.65% (U 0->0.7) is charged over a week", async () => {
             const [, borrowed] = await exactlyEnv.accountSnapshot(
               "DAI",
               secondPoolID
             );
 
-            // 0.0495/(1.1-(1050/1500))-0.025 = .09875000000000000000
-            // (1050*0.9875 * 7) / 365 = 19.88527397260273972602
-            expect(borrowed).to.be.gt(parseUnits("1051.9"));
-            expect(borrowed).to.be.lt(parseUnits("1052"));
+            expect(borrowed).to.be.gt(parseUnits("1050.9"));
+            expect(borrowed).to.be.lt(parseUnits("1051"));
           });
         });
       });
@@ -534,17 +526,14 @@ describe("InterestRateModel", () => {
           beforeEach(async () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1200");
           });
-          it("THEN a yearly interest of 4.5% (U=0.4) is charged over a week", async () => {
+          it("THEN a yearly interest of 3% (U 0->0.4) is charged over a week", async () => {
             const [, borrowed] = await exactlyEnv.accountSnapshot(
               "DAI",
               secondPoolID
             );
 
-            // U:  0.4
-            // rate:  0.045714285714285714
-            // fee:  1.0520547945205478
-            expect(borrowed).to.be.gt(parseUnits("1201.05"));
-            expect(borrowed).to.be.lt(parseUnits("1201.06"));
+            expect(borrowed).to.be.gt(parseUnits("1200.7"));
+            expect(borrowed).to.be.lt(parseUnits("1200.75"));
           });
           describe("previous borrows are accounted for when computing the utilization rate", () => {
             describe("AND WHEN another user borrows 400 more DAI", () => {
@@ -556,17 +545,14 @@ describe("InterestRateModel", () => {
                 await exactlyEnv.enterMarkets(["WETH"]);
                 await exactlyEnv.borrowMP("DAI", secondPoolID, "400");
               });
-              it("THEN a yearly interest of 6.2% (U=0.53, considering both borrows) is charged over a week", async () => {
+              it("THEN a yearly interest of 4.1% (U 0.4->0.53, considering both borrows) is charged over a week", async () => {
                 const [, borrowed] = await exactlyEnv.accountSnapshot(
                   "DAI",
                   secondPoolID
                 );
 
-                // U:  0.5363128491620113
-                // rate:  0.06281466798810703
-                // fee:  0.4818659462101361
-                expect(borrowed).to.be.gt(parseUnits("400.48"));
-                expect(borrowed).to.be.lt(parseUnits("400.49"));
+                expect(borrowed).to.be.gt(parseUnits("400.410"));
+                expect(borrowed).to.be.lt(parseUnits("400.415"));
               });
             });
           });
@@ -586,17 +572,14 @@ describe("InterestRateModel", () => {
           beforeEach(async () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1000");
           });
-          it("THEN a yearly interest of 3.9% (U=0.333) is charged over a week", async () => {
+          it("THEN a yearly interest of 2.8% (U 0->0.333) is charged over a week", async () => {
             const [, borrowed] = await exactlyEnv.accountSnapshot(
               "DAI",
               secondPoolID
             );
 
-            // U:  0.3333333333333333
-            // rate:  0.03956521739130433
-            // fee:  0.7587849910661105
-            expect(borrowed).to.be.gt(parseUnits("1000.75"));
-            expect(borrowed).to.be.lt(parseUnits("1000.76"));
+            expect(borrowed).to.be.gt(parseUnits("1000.548"));
+            expect(borrowed).to.be.lt(parseUnits("1000.549"));
           });
         });
       });
@@ -606,19 +589,23 @@ describe("InterestRateModel", () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
-          parseUnits("0", 6), // 0 borrows, this is what makes U=0
+          parseUnits("0.00001", 6),
+          parseUnits("0", 6), // 0 previous borrows
           parseUnits("100", 6) // 100 available liquidity
         );
-        expect(rate).to.eq(parseUnits("0.02"));
+        expect(rate).to.gt(parseUnits("0.02"));
+        expect(rate).to.lt(parseUnits("0.020001"));
       });
       it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0.00001", 6),
           parseUnits("80", 6), // 80 borrowed, this is what makes U=0.8
           parseUnits("100", 6) // 100 available liquidity
         );
-        expect(rate).to.eq(parseUnits("0.14"));
+        expect(rate).to.gt(parseUnits("0.14"));
+        expect(rate).to.lt(parseUnits("0.140001"));
       });
     });
 
@@ -626,52 +613,63 @@ describe("InterestRateModel", () => {
       const rate = await interestRateModel.getFeeToBorrow(
         nextPoolID,
         nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
-        parseUnits("0"), // 0 borrows, this is what makes U=0
+        parseUnits("0.0000000000001"),
+        parseUnits("0"),
         parseUnits("100")
       );
-      expect(rate).to.eq(parseUnits("0.02"));
+      expect(rate).to.gt(parseUnits("0.02"));
+      expect(rate).to.lt(parseUnits("0.0200001"));
     });
     it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
       const rate = await interestRateModel.getFeeToBorrow(
         nextPoolID,
         nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+        parseUnits("0.0000001"),
         parseUnits("80"), // 80 borrowed, this is what makes U=0.8
         parseUnits("100")
       );
-      expect(rate).to.eq(parseUnits("0.14"));
+      expect(rate).to.gt(parseUnits("0.14"));
+      expect(rate).to.lt(parseUnits("0.141"));
     });
     describe("high utilization rates", () => {
       it("AND WHEN asking for the interest at 90% (>Ub)utilization rate THEN it returns R=0.22 (price hike)", async () => {
         let rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY, // force yearly calculation
+          parseUnits("0.0000001"),
           parseUnits("90"), // 90 borrowed, this is what makes U=0.9
           parseUnits("100")
         );
-        expect(rate).to.eq(parseUnits("0.2225"));
+        expect(rate).to.gt(parseUnits("0.2225"));
+        expect(rate).to.lt(parseUnits("0.2226"));
       });
       it("AND WHEN asking for the interest at 100% (>Ub)utilization rate THEN it returns R=0.47 (price hike)", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("0.000000001"),
           parseUnits("100"),
           parseUnits("100")
         );
-        expect(rate).to.eq(parseUnits("0.47"));
+        expect(rate).to.gt(parseUnits("0.47"));
+        expect(rate).to.lt(parseUnits("0.471"));
       });
       it("AND WHEN asking for the interest at 105% (close to Umax)utilization rate THEN it returns R=0.965 (price hike)", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("0.0000001"),
           parseUnits("105"),
           parseUnits("100")
         );
-        expect(rate).to.eq(parseUnits("0.965"));
+        expect(rate).to.gt(parseUnits("0.965"));
+        expect(rate).to.lt(parseUnits("0.966"));
       });
       it("AND WHEN asking for the interest at Umax, THEN it reverts", async () => {
         const tx = interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("0.000001"),
           parseUnits("110"),
           parseUnits("100")
         );
@@ -684,6 +682,7 @@ describe("InterestRateModel", () => {
         const tx = interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 365 * exaTime.ONE_DAY,
+          parseUnits("0.0000001"),
           parseUnits("115"),
           parseUnits("100")
         );
@@ -698,6 +697,7 @@ describe("InterestRateModel", () => {
         const tx = interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID + exaTime.ONE_DAY,
+          parseUnits("0.00000001"),
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
           parseUnits("100")
         );
@@ -710,6 +710,7 @@ describe("InterestRateModel", () => {
         const tx = interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID,
+          parseUnits("0.00000001"),
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
           parseUnits("100")
         );
@@ -722,47 +723,55 @@ describe("InterestRateModel", () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 5 * exaTime.ONE_DAY,
+          parseUnits("0.00000001"),
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
           parseUnits("100")
         );
 
         // 0.14*5/365
-        expect(rate).to.closeTo(parseUnits(".00191780821917808"), 100);
+        expect(rate).to.gt(parseUnits(".0019178"));
+        expect(rate).to.lt(parseUnits(".0019179"));
       });
       it("WHEN asking for the interest for a two-week period at Ub, THEN it returns Rb*(14/365)", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 14 * exaTime.ONE_DAY,
+          parseUnits("0.00000001"),
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
           parseUnits("100")
         );
 
         // 0.14*14/365
-        expect(rate).to.be.closeTo(parseUnits(".00536986301369863"), 100);
+        expect(rate).to.be.gt(parseUnits(".00536986"));
+        expect(rate).to.be.lt(parseUnits(".00536987"));
       });
       it("WHEN asking for the interest for a one-day period at U0, THEN it returns R0*(1/365)", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - exaTime.ONE_DAY,
-          parseUnits("0"), // 0 borrowed, this is what makes U=0
+          parseUnits("0.00000001"),
+          parseUnits("0.0000000000001"), // 0 borrowed, this is what makes U=0
           parseUnits("100")
         );
 
         // 0.02*1/365
         // .00005479452054794520
-        expect(rate).to.be.closeTo(parseUnits(".00005479452054794"), 100);
+        expect(rate).to.be.gt(parseUnits(".0000547945"));
+        expect(rate).to.be.lt(parseUnits(".0000547946"));
       });
 
       it("WHEN asking for the interest for a five-second period at U0, THEN it returns R0*(5/(365*24*60*60))", async () => {
         const rate = await interestRateModel.getFeeToBorrow(
           nextPoolID,
           nextPoolID - 5,
-          parseUnits("0"), // 0 borrowed, this is what makes U=0
+          parseUnits("0.0000000000001"),
+          parseUnits("0"),
           parseUnits("100")
         );
 
         // 0.02*5/(365*24*60*60)
-        expect(rate).to.be.closeTo(parseUnits(".00000000317097919"), 100);
+        expect(rate).to.be.gt(parseUnits(".00000000317097"));
+        expect(rate).to.be.lt(parseUnits(".00000000317098"));
       });
     });
   });
