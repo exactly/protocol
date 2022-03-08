@@ -501,6 +501,55 @@ describe("InterestRateModel", () => {
             .reverted;
         });
       });
+      describe("small amounts", () => {
+        describe("GIVEN a 120 DAI SP deposit", () => {
+          beforeEach(async () => {
+            await exactlyEnv.depositSP("DAI", "120");
+          });
+          it("WHEN trying to borrow 9 wei of a DAI, THEN it reverts with INVALID_AMOUNT error, since the U difference rounds down to zero", async () => {
+            await expect(
+              exactlyEnv
+                .getFixedLender("DAI")
+                .borrowFromMaturityPool(9, secondPoolID, 100)
+            ).to.be.revertedWith(errorGeneric(ProtocolError.INVALID_AMOUNT));
+          });
+          describe("WHEN borrowing 11 wei of a DAI", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = exactlyEnv
+                .getFixedLender("DAI")
+                .borrowFromMaturityPool(11, secondPoolID, 100000);
+              await tx;
+            });
+            it("THEN it doesnt revert because theres a difference in utilization rate", async () => {
+              await expect(tx).to.not.be.reverted;
+            });
+            it("AND the fee charged is zero, since the fee rounded down to zero", async () => {
+              // not using expectFee because I want the fee to be *exactly* zero
+              const { fee } = (await (await tx).wait()).events.filter(
+                (it: any) => it.event === "BorrowFromMaturityPool"
+              )[0].args;
+              expect(fee).to.eq(0);
+            });
+          });
+          describe("WHEN borrowing 10000 wei of a DAI", () => {
+            let tx: any;
+            beforeEach(async () => {
+              tx = exactlyEnv
+                .getFixedLender("DAI")
+                .borrowFromMaturityPool(10000, secondPoolID, 100000);
+              await tx;
+            });
+            it("THEN the fee didnt round down to zero", async () => {
+              const { fee } = (await (await tx).wait()).events.filter(
+                (it: any) => it.event === "BorrowFromMaturityPool"
+              )[0].args;
+              expect(fee).to.gt(0);
+              expect(fee).to.lt(10);
+            });
+          });
+        });
+      });
     });
     describe("integration tests for contracts calling the InterestRateModel", () => {
       describe("AND GIVEN 1kDAI of SP liquidity", () => {
