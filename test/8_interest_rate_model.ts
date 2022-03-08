@@ -434,6 +434,37 @@ describe("InterestRateModel", () => {
       const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
       await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
     });
+    describe("GIVEN enough collateral", () => {
+      beforeEach(async () => {
+        await exactlyEnv.depositSP("WETH", "10");
+        await exactlyEnv.enterMarkets(["WETH"]);
+      });
+      it("WHEN asking to borrow without a previous MP/SP deposit THEN it reverts with INSUFFICIENT_PROTOCOL_LIQUIDITY ", async () => {
+        await expect(
+          exactlyEnv.borrowMP("DAI", secondPoolID, "1")
+        ).to.be.revertedWith(
+          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+        );
+      });
+      describe("GIVEN a 1 DAI MP deposit", () => {
+        beforeEach(async () => {
+          await exactlyEnv.depositMP("DAI", secondPoolID, "1");
+        });
+        it("WHEN borrowing 1 DAI, then it succeeds", async () => {
+          await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "1", "2")).to
+            .not.be.reverted;
+        });
+      });
+      describe("GIVEN a 12 DAI SP deposit", () => {
+        beforeEach(async () => {
+          await exactlyEnv.depositSP("DAI", "12");
+        });
+        it("WHEN borrowing 1 DAI, then it succeeds", async () => {
+          await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "1")).to.not.be
+            .reverted;
+        });
+      });
+    });
     describe("integration tests for contracts calling the InterestRateModel", () => {
       describe("AND GIVEN 1kDAI of SP liquidity", () => {
         beforeEach(async () => {
