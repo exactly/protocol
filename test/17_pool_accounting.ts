@@ -63,6 +63,22 @@ describe("PoolAccounting", () => {
     });
   });
 
+  describe("setProtocolSpreadFee", () => {
+    it("WHEN calling setProtocolSpreadFee, THEN the protocolSpreadFee should be updated", async () => {
+      await poolAccountingHarness.setProtocolSpreadFee(parseUnits("0.04"));
+      expect(await poolAccountingHarness.protocolSpreadFee()).to.be.equal(
+        parseUnits("0.04")
+      );
+    });
+    it("WHEN calling setProtocolSpreadFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        poolAccountingHarness
+          .connect(laura)
+          .setProtocolSpreadFee(parseUnits("0.04"))
+      ).to.be.revertedWith("AccessControl");
+    });
+  });
+
   describe("GIVEN a depositMP with an amount of 10000 (0 fees earned)", () => {
     const sixDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
     let depositAmount: any;

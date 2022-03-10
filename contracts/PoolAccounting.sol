@@ -50,6 +50,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     address public fixedLenderAddress;
     IInterestRateModel public interestRateModel;
 
+    uint256 public protocolSpreadFee = 2.8e16; // 2.8%
+
     event Initialized(address indexed fixedLender);
 
     /**
@@ -85,6 +87,17 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         fixedLenderAddress = _fixedLenderAddress;
 
         emit Initialized(_fixedLenderAddress);
+    }
+
+    /**
+     * @dev Sets the protocol's spread fee used on loan repayment
+     * @param _protocolSpreadFee percentage amount represented with 1e18 decimals
+     */
+    function setProtocolSpreadFee(uint256 _protocolSpreadFee)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        protocolSpreadFee = _protocolSpreadFee;
     }
 
     /**
