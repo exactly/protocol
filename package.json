@@ -1,15 +1,19 @@
 {
   "name": "@exactly-finance/protocol",
   "scripts": {
+    "lint": "run-p --aggregate-output --continue-on-error lint:**",
     "lint:ts": "eslint --ext .ts,.js,.cjs,.mjs .",
     "lint:sol": "solhint 'contracts/**/*.sol'",
     "fix:sol": "solhint 'contracts/**/*.sol' --fix",
     "compile": "hardhat compile",
-    "test": "hardhat test --deploy-fixture",
-    "coverage": "hardhat coverage",
+    "test": "run-p --aggregate-output --continue-on-error test:**",
+    "test:hardhat": "hardhat test --deploy-fixture",
+    "coverage": "run-p --aggregate-output --continue-on-error coverage:**",
+    "coverage:hardhat": "hardhat coverage",
     "deploy:kovan": "hardhat --network kovan deploy",
     "deploy:hardhat": "hardhat --network hardhat deploy",
-    "postinstall": "hardhat compile"
+    "postinstall": "path-exists .git && run-p --aggregate-output --continue-on-error postinstall:**",
+    "postinstall:hardhat": "hardhat compile"
   },
   "engines": {
     "node": ">=16"
@@ -47,6 +51,8 @@
     "hardhat-contract-sizer": "^2.5.0",
     "hardhat-deploy": "^0.10.5",
     "hardhat-gas-reporter": "^1.0.8",
+    "npm-run-all": "^4.1.5",
+    "path-exists-cli": "^2.0.0",
     "prettier": "^2.5.1",
     "prettier-plugin-solidity": "^1.0.0-beta.19",
     "solhint": "^3.3.7",

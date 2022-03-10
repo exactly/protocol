@@ -16,8 +16,7 @@ jobs:
           node-version: 16
           cache: npm
       - run: npm install
-      - run: npm run lint:ts
-      - run: npm run lint:sol
+      - run: npm run lint
       - run: npm run coverage
       - uses: codecov/codecov-action@v2
         with:
