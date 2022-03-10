@@ -165,15 +165,6 @@ export class PoolAccountingEnv {
     );
     await mockedInterestRateModel.deployed();
 
-    const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
-    const realPoolAccounting = await PoolAccounting.deploy(
-      mockedInterestRateModel.address
-    );
-    await realPoolAccounting.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
       "PoolAccountingHarness",
       {
