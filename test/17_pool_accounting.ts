@@ -1166,6 +1166,144 @@ describe("PoolAccounting", () => {
     });
   });
 
+  describe("GIVEN a protocolSpreadFee of 10%", () => {
+    let borrowAmount: number;
+    let borrowFees: number;
+    let returnValues: any;
+    let mpUserBorrowedAmount: any;
+    let mp: any;
+
+    beforeEach(async () => {
+      await poolAccountingHarness.setProtocolSpreadFee(parseUnits("0.1"));
+      await mockedInterestRateModel.setBorrowRate(parseUnits("0.05"));
+      poolAccountingEnv.switchWallet(laura);
+    });
+    describe("AND GIVEN borrowMP with an amount of 5000 (250 charged in fees, where 25 goes to treasury)", () => {
+      beforeEach(async () => {
+        borrowAmount = 5000;
+        borrowFees = 250;
+
+        await poolAccountingEnv.borrowMP(
+          nextPoolID,
+          borrowAmount.toString(),
+          (borrowAmount + borrowFees).toString()
+        );
+
+        mpUserBorrowedAmount = await poolAccountingHarness.mpUserBorrowedAmount(
+          nextPoolID,
+          laura.address
+        );
+        returnValues = await poolAccountingHarness.returnValues();
+        mp = await poolAccountingHarness.maturityPools(nextPoolID);
+      });
+      it("THEN earningsUnassigned are 225", async () => {
+        expect(mp.earningsUnassigned).to.eq(parseUnits("225"));
+      });
+      it("THEN the mpUserBorrowedAmount is correctly updated", async () => {
+        expect(mpUserBorrowedAmount[0]).to.equal(
+          parseUnits(borrowAmount.toString())
+        );
+        expect(mpUserBorrowedAmount[1]).to.equal(
+          parseUnits(borrowFees.toString())
+        );
+      });
+      it("THEN the earningsTreasury returned are 25", async () => {
+        expect(returnValues.earningsTreasury).to.equal(parseUnits("25"));
+      });
+      it("THEN the earningsSP returned are 0", async () => {
+        expect(returnValues.earningsSP).to.equal(parseUnits("0"));
+      });
+      it("THEN the totalOwedNewBorrow returned is equal to the amount plus fees charged", async () => {
+        expect(returnValues.totalOwedNewBorrow).to.equal(
+          parseUnits((borrowAmount + borrowFees).toString())
+        );
+      });
+    });
+    describe("GIVEN a depositMP with an amount of 5000", () => {
+      beforeEach(async () => {
+        await poolAccountingEnv.depositMP(nextPoolID, "5000");
+      });
+      describe("AND GIVEN a borrowMP with an amount of 5000", () => {
+        beforeEach(async () => {
+          borrowAmount = 5000;
+          borrowFees = 250;
+
+          await poolAccountingEnv.borrowMP(
+            nextPoolID,
+            borrowAmount.toString(),
+            (borrowAmount + borrowFees).toString()
+          );
+
+          mpUserBorrowedAmount =
+            await poolAccountingHarness.mpUserBorrowedAmount(
+              nextPoolID,
+              laura.address
+            );
+          returnValues = await poolAccountingHarness.returnValues();
+          mp = await poolAccountingHarness.maturityPools(nextPoolID);
+        });
+        it("THEN earningsUnassigned are 0", async () => {
+          expect(mp.earningsUnassigned).to.equal(0);
+        });
+        it("THEN the mpUserBorrowedAmount is correctly updated", async () => {
+          expect(mpUserBorrowedAmount[0]).to.equal(
+            parseUnits(borrowAmount.toString())
+          );
+          expect(mpUserBorrowedAmount[1]).to.equal(
+            parseUnits(borrowFees.toString())
+          );
+        });
+        it("THEN the earningsTreasury returned are 250", async () => {
+          expect(returnValues.earningsTreasury).to.equal(parseUnits("250"));
+        });
+        it("THEN the totalOwedNewBorrow returned is equal to the amount plus fees charged", async () => {
+          expect(returnValues.totalOwedNewBorrow).to.equal(
+            parseUnits((borrowAmount + borrowFees).toString())
+          );
+        });
+      });
+      describe("AND GIVEN a borrowMP with an amount of 10000 (500 charged in fees, 50 + 225 to treasury, 225 to unassigned)", () => {
+        beforeEach(async () => {
+          borrowAmount = 10000;
+          borrowFees = 500;
+
+          await poolAccountingEnv.borrowMP(
+            nextPoolID,
+            borrowAmount.toString(),
+            (borrowAmount + borrowFees).toString()
+          );
+
+          mpUserBorrowedAmount =
+            await poolAccountingHarness.mpUserBorrowedAmount(
+              nextPoolID,
+              laura.address
+            );
+          returnValues = await poolAccountingHarness.returnValues();
+          mp = await poolAccountingHarness.maturityPools(nextPoolID);
+        });
+        it("THEN earningsUnassigned are 225", async () => {
+          expect(mp.earningsUnassigned).to.equal(parseUnits("225"));
+        });
+        it("THEN the mpUserBorrowedAmount is correctly updated", async () => {
+          expect(mpUserBorrowedAmount[0]).to.equal(
+            parseUnits(borrowAmount.toString())
+          );
+          expect(mpUserBorrowedAmount[1]).to.equal(
+            parseUnits(borrowFees.toString())
+          );
+        });
+        it("THEN the earningsTreasury returned are 275", async () => {
+          expect(returnValues.earningsTreasury).to.equal(parseUnits("275"));
+        });
+        it("THEN the totalOwedNewBorrow returned is equal to the amount plus fees charged", async () => {
+          expect(returnValues.totalOwedNewBorrow).to.equal(
+            parseUnits((borrowAmount + borrowFees).toString())
+          );
+        });
+      });
+    });
+  });
+
   describe("Assignment of earnings over time", () => {
     describe("GIVEN a borrowMP of 10000 (600 fees owed by user) - 6 days to maturity", () => {
       const sixDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 6;

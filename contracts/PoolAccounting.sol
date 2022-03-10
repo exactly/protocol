@@ -24,6 +24,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 feeRate;
         uint256 fee;
         uint256 newUnassignedEarnings;
+        uint256 earningsTreasury;
     }
 
     // Vars used in `repayMP` to avoid
@@ -154,7 +155,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        // If used doesn't have a current position, we add it to the list
+        // If user doesn't have a current position, we add it to the list
         // of all of them
         borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
         if (borrowVars.position.principal == 0) {
@@ -162,12 +163,16 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         // We distribute to treasury and also to unassigned
-        (borrowVars.newUnassignedEarnings, earningsTreasury) = PoolLib
-            .distributeEarningsAccordingly(
-                borrowVars.fee,
-                pool.suppliedSP,
-                amount
-            );
+        earningsTreasury = borrowVars.fee.fmul(protocolSpreadFee, 1e18);
+        (
+            borrowVars.newUnassignedEarnings,
+            borrowVars.earningsTreasury
+        ) = PoolLib.distributeEarningsAccordingly(
+            borrowVars.fee - earningsTreasury,
+            pool.suppliedSP,
+            amount
+        );
+        earningsTreasury += borrowVars.earningsTreasury;
         pool.addFee(borrowVars.newUnassignedEarnings);
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(

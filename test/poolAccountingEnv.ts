@@ -177,6 +177,7 @@ export class PoolAccountingEnv {
       mockedInterestRateModel.address
     );
     await poolAccountingHarness.deployed();
+    await poolAccountingHarness.setProtocolSpreadFee(0);
     // We initialize it with itself, so it can call the methods from within
     await poolAccountingHarness.initialize(poolAccountingHarness.address);
 
