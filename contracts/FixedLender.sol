@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
+import { InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
 import "./EToken.sol";
 import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
@@ -287,9 +288,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         if (
             eToken.totalSupply() - amountToWithdraw <
             poolAccounting.smartPoolBorrowed()
-        ) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-        }
+        ) revert InsufficientProtocolLiquidity();
 
         eToken.burn(msg.sender, amountToWithdraw);
         doTransferOut(msg.sender, amountToWithdraw);
@@ -683,7 +682,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             eToken.totalSupply() - amountToTransfer <
             poolAccounting.smartPoolBorrowed()
         ) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+            revert InsufficientProtocolLiquidity();
         }
 
         // That seize amount diminishes liquidity in the pool

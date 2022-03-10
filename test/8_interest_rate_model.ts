@@ -232,9 +232,7 @@ describe("InterestRateModel", () => {
         it("WHEN doing a borrow which pushes U to 15 (>nMaturities), THEN it reverts because there isnt enough liquidity", async () => {
           await expect(
             exactlyEnv.borrowMP("DAI", secondPoolID, "15000", "100000")
-          ).to.be.revertedWith(
-            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-          );
+          ).to.be.revertedWith("InsufficientProtocolLiquidity()");
         });
         it("AND WHEN doing a borrow which pushes U to 2.9, THEN it succeeds", async () => {
           await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "2900", "4000"))

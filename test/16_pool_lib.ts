@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
-import { errorGeneric, ExaTime, ProtocolError } from "./exactlyUtils";
+import { ExaTime } from "./exactlyUtils";
 import { PoolEnv } from "./poolEnv";
 
 describe("Pool Management Library", () => {
@@ -87,7 +87,7 @@ describe("Pool Management Library", () => {
               });
               it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
                 await expect(tx).to.be.revertedWith(
-                  errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+                  "InsufficientProtocolLiquidity()"
                 );
               });
             });
@@ -389,7 +389,7 @@ describe("Pool Management Library", () => {
               });
               it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
                 await expect(tx).to.be.revertedWith(
-                  errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
+                  "InsufficientProtocolLiquidity()"
                 );
               });
             });

@@ -796,9 +796,7 @@ describe("Liquidations", function () {
                 fixedLenderDAI.address,
                 nextPoolID
               )
-          ).to.be.revertedWith(
-            errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-          );
+          ).to.be.revertedWith("InsufficientProtocolLiquidity()");
         });
         describe("AND GIVEN a DAI liquidity deposit to the smart pool", () => {
           beforeEach(async () => {
