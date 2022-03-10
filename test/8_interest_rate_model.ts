@@ -520,9 +520,7 @@ describe("InterestRateModel", () => {
           parseUnits("0") // nothing available from SP
         );
 
-        await expect(tx).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-        );
+        await expect(tx).to.be.reverted;
       });
       it("WHEN asking for the interest with 80 tokens borrowed and 100 supplied to the MP, THEN it returns Rb=0.14 because U=Ub", async () => {
         const rate = await interestRateModel.getRateToBorrow(

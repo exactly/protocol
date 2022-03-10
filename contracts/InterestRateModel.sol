@@ -214,11 +214,10 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (currentDate >= maturityDate) {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
-        uint256 supplied = smartPoolLiquidityShare + suppliedMP;
-        if (supplied == 0) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-        }
-        uint256 utilizationRate = borrowedMP.fdiv(supplied, 1e18);
+        uint256 utilizationRate = borrowedMP.fdiv(
+            smartPoolLiquidityShare + suppliedMP,
+            1e18
+        );
         if (utilizationRate >= maxUtilizationRate) {
             revert GenericError(ErrorCode.EXCEEDED_MAX_UTILIZATION_RATE);
         }
