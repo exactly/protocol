@@ -3,7 +3,8 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./TSUtils.sol";
-import "./Errors.sol";
+
+error InsufficientProtocolLiquidity();
 
 library PoolLib {
     /**
@@ -99,9 +100,7 @@ library PoolLib {
         if (newBorrowedMP > suppliedALL) {
             uint256 newSupplySP = newBorrowedMP - suppliedMP;
 
-            if (newSupplySP > maxDebt) {
-                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-            }
+            if (newSupplySP > maxDebt) revert InsufficientProtocolLiquidity();
 
             // We take money out from the Smart Pool
             // because there's not enough in the MP
@@ -135,9 +134,7 @@ library PoolLib {
             // because there's not enough in the MP
             newDebtSP = borrowedMP - newSuppliedALL;
             uint256 newSupplySP = pool.suppliedSP + newDebtSP;
-            if (newSupplySP > maxDebt) {
-                revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-            }
+            if (newSupplySP > maxDebt) revert InsufficientProtocolLiquidity();
             pool.suppliedSP = newSupplySP;
         }
 
