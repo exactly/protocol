@@ -1,29 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "../interfaces/IPoolAccounting.sol";
+import "../PoolAccounting.sol";
 import "../interfaces/IFixedLender.sol";
 
-contract PoolAccountingHarness {
+contract PoolAccountingHarness is PoolAccounting {
     struct ReturnValues {
         uint256 totalOwedNewBorrow;
         uint256 currentTotalDeposit;
-        uint256 penalties;
+        uint256 spareRepayAmount;
+        uint256 earningsSP;
+        uint256 earningsTreasury;
         uint256 debtCovered;
-        uint256 fee;
-        uint256 earningsRepay;
+        uint256 redeemAmountDiscounted;
     }
 
     ReturnValues public returnValues;
-    IPoolAccounting public poolAccounting;
-    IFixedLender public fixedLender;
+    uint256 public timestamp;
 
-    constructor(address _poolAccounting, address _fixedLender) {
-        poolAccounting = IPoolAccounting(_poolAccounting);
-        fixedLender = IFixedLender(_fixedLender);
+    constructor(address interestRateModel) PoolAccounting(interestRateModel) {
+        timestamp = block.timestamp;
     }
 
-    function borrowMP(
+    function borrowMPWithReturnValues(
         uint256 maturityDate,
         address borrower,
         uint256 amount,
@@ -31,7 +30,11 @@ contract PoolAccountingHarness {
         uint256 eTokenTotalSupply,
         uint8 maxFuturePools
     ) external {
-        returnValues.totalOwedNewBorrow = poolAccounting.borrowMP(
+        (
+            returnValues.totalOwedNewBorrow,
+            returnValues.earningsSP,
+            returnValues.earningsTreasury
+        ) = this.borrowMP(
             maturityDate,
             borrower,
             amount,
@@ -41,43 +44,55 @@ contract PoolAccountingHarness {
         );
     }
 
-    function depositMP(
+    function depositMPWithReturnValues(
         uint256 maturityDate,
         address supplier,
         uint256 amount,
         uint256 minAmountRequired
     ) external {
-        returnValues.currentTotalDeposit = poolAccounting.depositMP(
-            maturityDate,
-            supplier,
-            amount,
-            minAmountRequired
-        );
+        (returnValues.currentTotalDeposit, returnValues.earningsSP) = this
+            .depositMP(maturityDate, supplier, amount, minAmountRequired);
     }
 
-    function withdrawMP(
+    function withdrawMPWithReturnValues(
         uint256 maturityDate,
         address redeemer,
         uint256 amount,
+        uint256 minAmountRequired,
         uint256 maxSPDebt
     ) external {
-        poolAccounting.withdrawMP(maturityDate, redeemer, amount, maxSPDebt);
+        (
+            returnValues.redeemAmountDiscounted,
+            returnValues.earningsSP,
+            returnValues.earningsTreasury
+        ) = this.withdrawMP(
+            maturityDate,
+            redeemer,
+            amount,
+            minAmountRequired,
+            maxSPDebt
+        );
     }
 
-    function repayMP(
+    function repayMPWithReturnValues(
         uint256 maturityDate,
         address borrower,
-        uint256 repayAmount
+        uint256 repayAmount,
+        uint256 maxAmountAllowed
     ) external {
         (
-            returnValues.penalties,
+            returnValues.spareRepayAmount,
             returnValues.debtCovered,
-            returnValues.fee,
-            returnValues.earningsRepay
-        ) = poolAccounting.repayMP(maturityDate, borrower, repayAmount);
+            returnValues.earningsSP,
+            returnValues.earningsTreasury
+        ) = this.repayMP(maturityDate, borrower, repayAmount, maxAmountAllowed);
     }
 
-    function mpDepositDistributionWeighter() external view returns (uint256) {
-        return fixedLender.mpDepositDistributionWeighter();
+    function setCurrentTimestamp(uint256 _timestamp) external {
+        timestamp = _timestamp;
+    }
+
+    function currentTimestamp() internal view override returns (uint256) {
+        return timestamp;
     }
 }

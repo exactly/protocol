@@ -25,13 +25,15 @@ interface IFixedLender {
     function withdrawFromMaturityPool(
         address payable redeemer,
         uint256 redeemAmount,
+        uint256 minAmountRequired,
         uint256 maturityDate
     ) external;
 
     function repayToMaturityPool(
         address borrower,
         uint256 maturityDate,
-        uint256 repayAmount
+        uint256 repayAmount,
+        uint256 maxAmountAllowed
     ) external;
 
     function seize(
@@ -43,6 +45,7 @@ interface IFixedLender {
     function liquidate(
         address borrower,
         uint256 repayAmount,
+        uint256 maxAmountAllowed,
         IFixedLender fixedLenderCollateral,
         uint256 maturityDate
     ) external returns (uint256);
@@ -68,6 +71,4 @@ interface IFixedLender {
     function eToken() external view returns (IEToken);
 
     function totalMpBorrows() external view returns (uint256);
-
-    function mpDepositDistributionWeighter() external view returns (uint256);
 }

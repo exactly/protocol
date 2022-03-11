@@ -59,9 +59,11 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         );
       });
       it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
-        expect(
-          await poolAccounting.mpUserSuppliedAmount(nextPoolId, alice.address)
-        ).to.be.equal(parseUnits("5"));
+        const position = await poolAccounting.mpUserSuppliedAmount(
+          nextPoolId,
+          alice.address
+        );
+        expect(position[0]).to.be.equal(parseUnits("5"));
       });
     });
 
@@ -93,9 +95,11 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           );
         });
         it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
-          expect(
-            await poolAccounting.mpUserSuppliedAmount(nextPoolId, alice.address)
-          ).to.be.equal(parseUnits("5"));
+          const position = await poolAccounting.mpUserSuppliedAmount(
+            nextPoolId,
+            alice.address
+          );
+          expect(position[0]).to.be.equal(parseUnits("5"));
         });
       });
     });
@@ -234,7 +238,12 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         it("THEN a WithdrawFromMaturityPool event is emmitted", async () => {
           await expect(tx)
             .to.emit(ethFixedLender, "WithdrawFromMaturityPool")
-            .withArgs(alice.address, parseUnits("10"), nextPoolId);
+            .withArgs(
+              alice.address,
+              parseUnits("10"),
+              parseUnits("10"),
+              nextPoolId
+            );
         });
         it("AND alices ETH balance increases accordingly", async () => {
           const newBalance = await ethers.provider.getBalance(alice.address);
@@ -257,7 +266,12 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         it("THEN a WithdrawFromMaturityPool event is emmitted", async () => {
           await expect(tx)
             .to.emit(ethFixedLender, "WithdrawFromMaturityPool")
-            .withArgs(alice.address, parseUnits("10"), nextPoolId);
+            .withArgs(
+              alice.address,
+              parseUnits("10"),
+              parseUnits("10"),
+              nextPoolId
+            );
         });
         it("AND alices WETH balance increases accordingly", async () => {
           expect(await weth.balanceOf(alice.address)).to.equal(

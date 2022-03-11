@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { BigNumber } from "ethers";
 import type {
   Auditor,
   ETHFixedLender,
@@ -37,7 +36,6 @@ describe("Liquidity computations", function () {
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
   let multisig: SignerWithAddress;
-  let penaltyRate: BigNumber;
 
   before(async () => {
     multisig = await getNamedSigner("multisig");
@@ -57,9 +55,8 @@ describe("Liquidity computations", function () {
     fixedLenderWBTC = await getContract<FixedLender>("FixedLenderWBTC", laura);
     fixedLenderWETH = await getContract<ETHFixedLender>("FixedLenderWETH", laura);
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", multisig);
-    penaltyRate = await interestRateModel.penaltyRate();
 
-    await timelockExecute(multisig, interestRateModel, "setParameters", [0, 0, parseUnits("10"), penaltyRate]);
+    await timelockExecute(multisig, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10")]);
     for (const signer of [bob, laura]) {
       for (const [underlying, fixedLender, decimals = 18] of [
         [dai, fixedLenderDAI],
@@ -95,11 +92,10 @@ describe("Liquidity computations", function () {
       });
       describe("AND GIVEN a 1% borrow interest rate", () => {
         beforeEach(async () => {
-          await timelockExecute(multisig, interestRateModel, "setParameters", [
+          await timelockExecute(multisig, interestRateModel, "setCurveParameters", [
             0,
             parseUnits("0.01"),
             parseUnits("10"),
-            penaltyRate,
           ]);
           // we add liquidity to the maturity
           await fixedLenderDAI.depositToMaturityPool(parseUnits("800"), futurePools(1)[0], parseUnits("800"));
@@ -134,7 +130,12 @@ describe("Liquidity computations", function () {
           );
         });
         it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
-          await fixedLenderDAI.repayToMaturityPool(laura.address, futurePools(1)[0], parseUnits("800"));
+          await fixedLenderDAI.repayToMaturityPool(
+            laura.address,
+            futurePools(1)[0],
+            parseUnits("800"),
+            parseUnits("800"),
+          );
           await expect(auditor.exitMarket(fixedLenderDAI.address)).to.not.be.reverted;
         });
         describe("AND GIVEN laura deposits more collateral for another asset", () => {

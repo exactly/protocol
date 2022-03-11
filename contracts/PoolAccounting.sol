@@ -14,27 +14,34 @@ import "./utils/Errors.sol";
 
 contract PoolAccounting is IPoolAccounting, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
+    using PoolLib for PoolLib.Position;
     using DecimalMath for uint256;
 
     // Vars used in `borrowMP` to avoid
     // stack too deep problem
     struct BorrowVars {
-        uint256 borrowerDebt;
+        PoolLib.Position position;
         uint256 feeRate;
         uint256 fee;
+        uint256 newUnassignedEarnings;
     }
 
     // Vars used in `repayMP` to avoid
     // stack too deep problem
     struct RepayVars {
+        PoolLib.Position position;
+        PoolLib.Position scaleDebtCovered;
         uint256 amountOwed;
-        uint256 amountBorrowed;
+        uint256 penalties;
+        uint256 discountFee;
+        uint256 feeSP;
         uint256 amountStillBorrowed;
-        uint256 smartPoolDebtReduction;
     }
 
-    mapping(uint256 => mapping(address => uint256)) public mpUserSuppliedAmount;
-    mapping(uint256 => mapping(address => uint256)) public mpUserBorrowedAmount;
+    mapping(uint256 => mapping(address => PoolLib.Position))
+        public mpUserSuppliedAmount;
+    mapping(uint256 => mapping(address => PoolLib.Position))
+        public mpUserBorrowedAmount;
 
     mapping(address => uint256[]) public userMpBorrowed;
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
@@ -100,15 +107,24 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 maxAmountAllowed,
         uint256 eTokenTotalSupply,
         uint8 maxFuturePools
-    ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow) {
+    )
+        external
+        override
+        onlyFixedLender
+        returns (
+            uint256 totalOwedNewBorrow,
+            uint256 earningsSP,
+            uint256 earningsTreasury
+        )
+    {
         BorrowVars memory borrowVars;
         PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+
         uint256 maxSPDebt = eTokenTotalSupply - smartPoolBorrowed;
         uint256 assignedSPLiquidity = maxSPDebt / maxFuturePools;
 
-        pool.accrueEarningsToSP(maturityDate);
-
-        smartPoolBorrowed += pool.takeMoney(amount, maxSPDebt);
+        earningsSP += pool.accrueEarnings(maturityDate, currentTimestamp());
+        smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
 
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
@@ -120,20 +136,31 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         borrowVars.fee = amount.mul_(borrowVars.feeRate);
         totalOwedNewBorrow = amount + borrowVars.fee;
 
+        // We validate that the user is not taking arbitrary fees
         if (totalOwedNewBorrow > maxAmountAllowed) {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        borrowVars.borrowerDebt = mpUserBorrowedAmount[maturityDate][borrower];
-        if (borrowVars.borrowerDebt == 0) {
+        // If used doesn't have a current position, we add it to the list
+        // of all of them
+        borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
+        if (borrowVars.position.principal == 0) {
             userMpBorrowed[borrower].push(maturityDate);
         }
 
-        pool.addFee(borrowVars.fee);
+        // We distribute to treasury and also to unassigned
+        (borrowVars.newUnassignedEarnings, earningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(
+                borrowVars.fee,
+                pool.suppliedSP,
+                amount
+            );
+        pool.addFee(borrowVars.newUnassignedEarnings);
 
-        mpUserBorrowedAmount[maturityDate][borrower] =
-            borrowVars.borrowerDebt +
-            totalOwedNewBorrow;
+        mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
+            borrowVars.position.principal + amount,
+            borrowVars.position.fee + borrowVars.fee
+        );
     }
 
     /**
@@ -150,14 +177,21 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         address supplier,
         uint256 amount,
         uint256 minAmountRequired
-    ) external override onlyFixedLender returns (uint256 currentTotalDeposit) {
-        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
+    )
+        external
+        override
+        onlyFixedLender
+        returns (uint256 currentTotalDeposit, uint256 earningsSP)
+    {
+        earningsSP = maturityPools[maturityDate].accrueEarnings(
+            maturityDate,
+            currentTimestamp()
+        );
 
-        uint256 fee = interestRateModel.getYieldForDeposit(
+        (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
             maturityPools[maturityDate].suppliedSP,
-            maturityPools[maturityDate].unassignedEarnings,
-            amount,
-            IFixedLender(fixedLenderAddress).mpDepositDistributionWeighter()
+            maturityPools[maturityDate].earningsUnassigned,
+            amount
         );
 
         currentTotalDeposit = amount + fee;
@@ -165,10 +199,18 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        maturityPools[maturityDate].addMoney(amount);
-        maturityPools[maturityDate].takeFee(fee);
+        smartPoolBorrowed -= maturityPools[maturityDate].depositMoney(amount);
+        maturityPools[maturityDate].removeFee(fee + feeSP);
+        earningsSP += feeSP;
 
-        mpUserSuppliedAmount[maturityDate][supplier] += currentTotalDeposit;
+        // We update users's position
+        PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][
+            supplier
+        ];
+        mpUserSuppliedAmount[maturityDate][supplier] = PoolLib.Position(
+            position.principal + amount,
+            position.fee + fee
+        );
     }
 
     /**
@@ -182,14 +224,64 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 maturityDate,
         address redeemer,
         uint256 amount,
+        uint256 minAmountRequired,
         uint256 maxSPDebt
-    ) external override onlyFixedLender {
-        smartPoolBorrowed += maturityPools[maturityDate].takeMoney(
-            amount,
+    )
+        external
+        override
+        onlyFixedLender
+        returns (
+            uint256 redeemAmountDiscounted,
+            uint256 earningsSP,
+            uint256 earningsTreasury
+        )
+    {
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+
+        earningsSP = pool.accrueEarnings(maturityDate, currentTimestamp());
+
+        PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][
+            redeemer
+        ];
+
+        // We verify if there are any penalties/fee for him because of
+        // early withdrawal - if so: discount
+        if (currentTimestamp() < maturityDate) {
+            uint256 feeRate = interestRateModel.getRateToBorrow(
+                maturityDate,
+                block.timestamp,
+                pool.borrowed + amount, // like asking for a loan full amount
+                pool.supplied,
+                maxSPDebt
+            );
+            redeemAmountDiscounted = amount.div_(1e18 + feeRate);
+        } else {
+            redeemAmountDiscounted = amount;
+        }
+
+        if (redeemAmountDiscounted < minAmountRequired) {
+            revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
+        }
+
+        // We remove the supply from the offer
+        smartPoolBorrowed += pool.withdrawMoney(
+            position.copy().scaleProportionally(amount).principal,
             maxSPDebt
         );
 
-        mpUserSuppliedAmount[maturityDate][redeemer] -= amount;
+        // All the fees go to unassigned or to the treasury
+        uint256 earningsUnassigned;
+        (earningsUnassigned, earningsTreasury) = PoolLib
+            .distributeEarningsAccordingly(
+                amount - redeemAmountDiscounted,
+                pool.suppliedSP,
+                redeemAmountDiscounted
+            );
+        maturityPools[maturityDate].addFee(earningsUnassigned);
+
+        // the user gets discounted the full amount
+        mpUserSuppliedAmount[maturityDate][redeemer] = position
+            .reduceProportionally(amount);
     }
 
     /**
@@ -201,7 +293,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     function repayMP(
         uint256 maturityDate,
         address borrower,
-        uint256 repayAmount
+        uint256 repayAmount,
+        uint256 maxAmountAllowed
     )
         external
         override
@@ -209,66 +302,92 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         returns (
             uint256 spareRepayAmount,
             uint256 debtCovered,
-            uint256 fee,
-            uint256 earningsRepay
+            uint256 earningsSP,
+            uint256 earningsTreasury
         )
     {
         RepayVars memory repayVars;
+
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+
+        // SP supply needs to accrue its interests
+        earningsSP = pool.accrueEarnings(maturityDate, currentTimestamp());
+
+        // Amount Owed is (principal+fees)*penalties
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
+        repayVars.position = mpUserBorrowedAmount[maturityDate][borrower];
 
         if (repayAmount > repayVars.amountOwed) {
             spareRepayAmount = repayAmount - repayVars.amountOwed;
             repayAmount = repayVars.amountOwed;
         }
 
-        repayVars.amountBorrowed = mpUserBorrowedAmount[maturityDate][borrower];
-
         // We calculate the amount of the debt this covers, paying proportionally
         // the amount of interests on the overdue debt. If repay amount = amount owed,
         // then amountBorrowed is what should be discounted to the users account
+        // Math.min to not go over repayAmount since we return exceeding money, but
+        // hasn't been calculated yet
         debtCovered =
-            (repayAmount * repayVars.amountBorrowed) /
+            (repayVars.position.fullAmount() * repayAmount) /
             repayVars.amountOwed;
+        repayVars.scaleDebtCovered = repayVars
+            .position
+            .copy()
+            .scaleProportionally(debtCovered);
 
-        repayVars.amountStillBorrowed = repayVars.amountBorrowed - debtCovered;
+        // Early repayment allows you to get a discount from the unassigned earnings
+        if (currentTimestamp() < maturityDate) {
+            // We calculate the deposit fee considering the amount
+            // of debt he'll pay
+            (repayVars.discountFee, repayVars.feeSP) = interestRateModel
+                .getYieldForDeposit(
+                    pool.suppliedSP,
+                    pool.earningsUnassigned,
+                    repayVars.scaleDebtCovered.principal
+                    // ^ this case shouldn't contain penalties since is before maturity date
+                );
 
-        if (repayVars.amountStillBorrowed == 0) {
-            uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[
-                borrower
-            ];
-            uint256 len = userMaturitiesBorrowedList.length;
-            uint256 maturityIndex = len;
-            for (uint256 i = 0; i < len; i++) {
-                if (userMaturitiesBorrowedList[i] == maturityDate) {
-                    maturityIndex = i;
-                    break;
-                }
+            earningsSP += repayVars.feeSP;
+
+            // We verify that the user agrees to this discount
+            if (debtCovered - repayVars.discountFee > maxAmountAllowed) {
+                revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
             }
 
-            // We *must* have found the maturity in the list or our redundant data structure is broken
-            assert(maturityIndex < len);
+            // We remove the fee from unassigned earnings
+            pool.removeFee(repayVars.discountFee + repayVars.feeSP);
 
-            // copy last item in list to location of item to be removed, reduce length by 1
-            uint256[] storage storedList = userMpBorrowed[borrower];
-            storedList[maturityIndex] = storedList[storedList.length - 1];
-            storedList.pop();
+            // user paid more than it should. The fee gets kicked back to the user
+            // through _spareRepayAmount_ and on the pool side it was removed by
+            // calling _removeFee_ a few lines before ^
+            spareRepayAmount += repayVars.discountFee;
+        } else {
+            // We distribute penalties to those that supported (pre-repayment)
+            uint256 newEarningsSP;
+            (newEarningsSP, earningsTreasury) = PoolLib
+                .distributeEarningsAccordingly(
+                    repayAmount - repayVars.scaleDebtCovered.fullAmount(),
+                    pool.suppliedSP,
+                    repayVars.scaleDebtCovered.principal
+                );
+            earningsSP += newEarningsSP;
         }
 
-        mpUserBorrowedAmount[maturityDate][borrower] = repayVars
-            .amountStillBorrowed;
+        // We reduce the borrowed and we might decrease the SP debt
+        smartPoolBorrowed -= pool.repayMoney(
+            repayVars.scaleDebtCovered.principal
+        );
 
-        // SP supply needs to accrue its interests
-        maturityPools[maturityDate].accrueEarningsToSP(maturityDate);
-
-        // Pays back in the following order:
-        //       1) Maturity Pool Depositors
-        //       2) Smart Pool Debt
-        //       3) Earnings Smart Pool the rest
-        (repayVars.smartPoolDebtReduction, fee, earningsRepay) = maturityPools[
-            maturityDate
-        ].repay(repayAmount);
-
-        smartPoolBorrowed -= repayVars.smartPoolDebtReduction;
+        //
+        // From now on: We update the user position
+        //
+        repayVars.position.reduceProportionally(debtCovered);
+        if (repayVars.position.fullAmount() == 0) {
+            cleanPosition(borrower, maturityDate);
+        } else {
+            // we proportionally reduce the values
+            mpUserBorrowedAmount[maturityDate][borrower] = repayVars.position;
+        }
     }
 
     /**
@@ -314,23 +433,64 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     }
 
     /**
+     * @dev Cleans user's position from the blockchain making sure space is freed
+     * @param borrower user's wallet
+     * @param maturityDate maturity date
+     */
+    function cleanPosition(address borrower, uint256 maturityDate) internal {
+        uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[borrower];
+        uint256 len = userMaturitiesBorrowedList.length;
+        uint256 maturityIndex = len;
+        for (uint256 i = 0; i < len; i++) {
+            if (userMaturitiesBorrowedList[i] == maturityDate) {
+                maturityIndex = i;
+                break;
+            }
+        }
+
+        // We *must* have found the maturity in the list or our redundant data structure is broken
+        assert(maturityIndex < len);
+
+        // copy last item in list to location of item to be removed, reduce length by 1
+        uint256[] storage storedList = userMpBorrowed[borrower];
+        storedList[maturityIndex] = storedList[storedList.length - 1];
+        storedList.pop();
+
+        delete mpUserBorrowedAmount[maturityDate][borrower];
+    }
+
+    /**
      * @notice Internal function to get the debt + penalties of an account for a certain maturityDate
      * @param who wallet to return debt status for the specified maturityDate
      * @param maturityDate amount to be transfered
-     * @return debt the total owed denominated in number of tokens
+     * @return totalDebt : the total debt denominated in number of tokens
      */
     function getAccountDebt(address who, uint256 maturityDate)
         internal
         view
-        returns (uint256 debt)
+        returns (uint256 totalDebt)
     {
-        debt = mpUserBorrowedAmount[maturityDate][who];
+        PoolLib.Position memory position = mpUserBorrowedAmount[maturityDate][
+            who
+        ];
+        totalDebt = position.principal + position.fee;
         uint256 secondsDelayed = TSUtils.secondsPre(
             maturityDate,
-            block.timestamp
+            currentTimestamp()
         );
         if (secondsDelayed > 0) {
-            debt += debt.mul_(secondsDelayed * interestRateModel.penaltyRate());
+            totalDebt += totalDebt.mul_(
+                secondsDelayed * interestRateModel.penaltyRate()
+            );
         }
+    }
+
+    /**
+     * @notice Internal/virtual function to get the current timestamp (it gets overriden
+     *         when writing tests)
+     * @return current timestamp
+     */
+    function currentTimestamp() internal view virtual returns (uint256) {
+        return block.timestamp;
     }
 }

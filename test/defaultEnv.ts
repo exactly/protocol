@@ -6,8 +6,10 @@ import {
   applyMaxFee,
   applyMinFee,
   defaultMockedTokens,
+  discountMaxFee,
   EnvConfig,
   MockedTokenSpec,
+  noDiscount,
 } from "./exactlyUtils";
 import assert from "assert";
 
@@ -25,7 +27,6 @@ export class DefaultEnv {
   auditor: Contract;
   interestRateModel: Contract;
   tsUtils: Contract;
-  poolLib: Contract;
   marketsLib: Contract;
   fixedLenderContracts: Map<string, Contract>;
   poolAccountingContracts: Map<string, Contract>;
@@ -45,7 +46,6 @@ export class DefaultEnv {
     _auditor: Contract,
     _interestRateModel: Contract,
     _tsUtils: Contract,
-    _poolLib: Contract,
     _marketsLib: Contract,
     _fixedLenderContracts: Map<string, Contract>,
     _poolAccountingContracts: Map<string, Contract>,
@@ -62,7 +62,6 @@ export class DefaultEnv {
     this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
-    this.poolLib = _poolLib;
     this.mockedTokens = _mockedTokens;
     this.marketsLib = _marketsLib;
     this.baseRate = parseUnits("0.02");
@@ -89,14 +88,6 @@ export class DefaultEnv {
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
 
-    const PoolLib = await ethers.getContractFactory("PoolLib", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
-    const poolLib = await PoolLib.deploy();
-    await poolLib.deployed();
-
     const MarketsLib = await ethers.getContractFactory("MarketsLib");
     let marketsLib = await MarketsLib.deploy();
     await marketsLib.deployed();
@@ -113,14 +104,19 @@ export class DefaultEnv {
       "InterestRateModel"
     );
 
+    const realInterestRateModel = await InterestRateModelFactory.deploy(
+      parseUnits("0.0495"), // A parameter for the curve
+      parseUnits("-0.025"), // B parameter for the curve
+      parseUnits("1.1"), // Max utilization rate
+      parseUnits("0.0000002315"), // Penalty Rate per second (86400 is ~= 2%)
+      parseUnits("0") // SP rate if 0 then no fees charged for the mp depositors' yield
+    );
+
     const interestRateModel = useRealInterestRateModel
-      ? await InterestRateModelFactory.deploy(
-          parseUnits("0.0495"), // A parameter for the curve
-          parseUnits("-0.025"), // B parameter for the curve
-          parseUnits("1.1"), // Max utilization rate
-          parseUnits("0.0000002315") // Penalty Rate per second (86400 is ~= 2%)
-        )
-      : await MockedInterestRateModelFactory.deploy();
+      ? realInterestRateModel
+      : await MockedInterestRateModelFactory.deploy(
+          realInterestRateModel.address
+        );
     await interestRateModel.deployed();
 
     const Auditor = await ethers.getContractFactory("Auditor", {
@@ -166,7 +162,6 @@ export class DefaultEnv {
           {
             libraries: {
               TSUtils: tsUtils.address,
-              PoolLib: poolLib.address,
             },
           }
         );
@@ -215,7 +210,6 @@ export class DefaultEnv {
       auditor,
       interestRateModel,
       tsUtils,
-      poolLib,
       marketsLib,
       fixedLenderContracts,
       poolAccountingContracts,
@@ -357,16 +351,27 @@ export class DefaultEnv {
   public async withdrawMPETH(
     assetString: string,
     maturityPool: number,
-    units: string
+    units: string,
+    expectedAtMaturity?: string
   ) {
     assert(assetString === "WETH");
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = discountMaxFee(amount);
+    }
     return fixedLender
       .connect(this.currentWallet)
       .withdrawFromMaturityPoolEth(
         this.currentWallet.address,
         amount,
+        expectedAmount,
         maturityPool
       );
   }
@@ -374,15 +379,26 @@ export class DefaultEnv {
   public async withdrawMP(
     assetString: string,
     maturityPool: number,
-    units: string
+    units: string,
+    expectedAtMaturity?: string
   ) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = discountMaxFee(amount);
+    }
     return fixedLender
       .connect(this.currentWallet)
       .withdrawFromMaturityPool(
         this.currentWallet.address,
         amount,
+        expectedAmount,
         maturityPool
       );
   }
@@ -437,17 +453,32 @@ export class DefaultEnv {
   public async repayMP(
     assetString: string,
     maturityPool: number,
-    units: string
+    units: string,
+    expectedAtMaturity?: string
   ) {
     const asset = this.getUnderlying(assetString);
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
+    let expectedAmount: BigNumber;
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(
+        expectedAtMaturity,
+        this.digitsForAsset(assetString)
+      );
+    } else {
+      expectedAmount = noDiscount(amount);
+    }
     await asset
       .connect(this.currentWallet)
       .approve(fixedLender.address, amount);
     return fixedLender
       .connect(this.currentWallet)
-      .repayToMaturityPool(this.currentWallet.address, maturityPool, amount);
+      .repayToMaturityPool(
+        this.currentWallet.address,
+        maturityPool,
+        amount,
+        expectedAmount
+      );
   }
 
   public async repayMPETH(
@@ -528,12 +559,6 @@ export class DefaultEnv {
       .setMarketBorrowCaps(markets, borrowCapsBigNumber);
   }
 
-  public async setExaSpeed(asset: string, speed: string) {
-    return this.auditor
-      .connect(this.currentWallet)
-      .setExaSpeed(this.getFixedLender(asset).address, parseUnits(speed));
-  }
-
   public async deployDuplicatedAuditor() {
     const Auditor = await ethers.getContractFactory("Auditor", {
       libraries: {
@@ -563,7 +588,6 @@ export class DefaultEnv {
     const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
       libraries: {
         TSUtils: this.tsUtils.address,
-        PoolLib: this.poolLib.address,
       },
     });
     const poolAccounting = await PoolAccounting.deploy(

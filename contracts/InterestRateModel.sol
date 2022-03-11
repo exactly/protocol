@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "./interfaces/IInterestRateModel.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+
+import "./interfaces/IInterestRateModel.sol";
 import "./utils/Errors.sol";
 import "./utils/PoolLib.sol";
 import "./utils/DecimalMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
@@ -18,30 +19,76 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     int256 public curveParameterB;
     uint256 public maxUtilizationRate;
     uint256 public override penaltyRate;
+    uint256 public spFeeRate;
+
+    event ParametersUpdated(
+        uint256 a,
+        int256 b,
+        uint256 maxUtilizationRate,
+        uint256 penaltyRate,
+        uint256 spFeeRate
+    );
 
     constructor(
         uint256 _curveParameterA,
         int256 _curveParameterB,
         uint256 _maxUtilizationRate,
-        uint256 _penaltyRate
+        uint256 _penaltyRate,
+        uint256 _spFeeRate
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        setParameters(
-            _curveParameterA,
-            _curveParameterB,
-            _maxUtilizationRate,
-            _penaltyRate
+        curveParameterA = _curveParameterA;
+        curveParameterB = _curveParameterB;
+        maxUtilizationRate = _maxUtilizationRate;
+        penaltyRate = _penaltyRate;
+        spFeeRate = _spFeeRate;
+    }
+
+    /**
+     * @dev Sets the rate charged to the mp depositors to be accrued by the sp borrowers
+     * @param _spFeeRate percentage amount represented with 1e18 decimals
+     */
+    function setSPFeeRate(uint256 _spFeeRate)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        spFeeRate = _spFeeRate;
+
+        emit ParametersUpdated(
+            curveParameterA,
+            curveParameterB,
+            maxUtilizationRate,
+            penaltyRate,
+            _spFeeRate
+        );
+    }
+
+    /// @notice sets the penalty rate per second
+    /// @param penaltyRate_ percentage represented with 18 decimals
+    function setPenaltyRate(uint256 penaltyRate_)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        penaltyRate = penaltyRate_;
+
+        emit ParametersUpdated(
+            curveParameterA,
+            curveParameterB,
+            maxUtilizationRate,
+            penaltyRate_,
+            spFeeRate
         );
     }
 
     /// @notice gets this model's parameters
-    /// @return parameters (curveA, curveB, maxUtilizationRate, penaltyRate)
+    /// @return parameters (curveA, curveB, maxUtilizationRate, penaltyRate, spFeeRate)
     function getParameters()
         external
         view
         returns (
             uint256,
             int256,
+            uint256,
             uint256,
             uint256
         )
@@ -50,7 +97,8 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             curveParameterA,
             curveParameterB,
             maxUtilizationRate,
-            penaltyRate
+            penaltyRate,
+            spFeeRate
         );
     }
 
@@ -65,12 +113,20 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     function getYieldForDeposit(
         uint256 suppliedSP,
         uint256 unassignedEarnings,
-        uint256 amount,
-        uint256 mpDepositsWeighter
-    ) external pure override returns (uint256 earningsShare) {
-        amount = amount.mul_(mpDepositsWeighter);
-        uint256 supply = suppliedSP + amount;
-        earningsShare = (amount * unassignedEarnings) / supply;
+        uint256 amount
+    )
+        external
+        view
+        override
+        returns (uint256 earningsShare, uint256 earningsShareSP)
+    {
+        if (suppliedSP != 0) {
+            // User can't make more fees after the total borrowed amount
+            earningsShare = ((Math.min(amount, suppliedSP) *
+                unassignedEarnings) / suppliedSP);
+            earningsShareSP = earningsShare.mul_(spFeeRate);
+            earningsShare -= earningsShareSP;
+        }
     }
 
     /**
@@ -79,22 +135,60 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param _curveParameterB curve parameter
      * @param _maxUtilizationRate % of MP supp
      * @param _penaltyRate by-second rate charged on late repays, with 18 decimals
+     * @param _spFeeRate rate charged to the mp depositors to be accrued by the sp borrowers
      */
     function setParameters(
         uint256 _curveParameterA,
         int256 _curveParameterB,
         uint256 _maxUtilizationRate,
-        uint256 _penaltyRate
+        uint256 _penaltyRate,
+        uint256 _spFeeRate
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         curveParameterA = _curveParameterA;
         curveParameterB = _curveParameterB;
         maxUtilizationRate = _maxUtilizationRate;
         penaltyRate = _penaltyRate;
+        spFeeRate = _spFeeRate;
         // we call the getRateToBorrow function with an utilization rate of
         // zero to force it to revert in the tx that sets it, and not be able
         // to set an invalid curve (such as one yielding a negative interest
         // rate). Doing it works because it's a monotonously increasing function.
         getRateToBorrow(block.timestamp + 1, block.timestamp, 0, 100, 100);
+
+        emit ParametersUpdated(
+            _curveParameterA,
+            _curveParameterB,
+            _maxUtilizationRate,
+            _penaltyRate,
+            _spFeeRate
+        );
+    }
+
+    /// @dev updates this model's curve parameters
+    /// @param curveA curve parameter
+    /// @param curveB curve parameter
+    /// @param targetUtilizationRate % of MP supp
+    function setCurveParameters(
+        uint256 curveA,
+        int256 curveB,
+        uint256 targetUtilizationRate
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        curveParameterA = curveA;
+        curveParameterB = curveB;
+        maxUtilizationRate = targetUtilizationRate;
+        // we call the getRateToBorrow function with an utilization rate of
+        // zero to force it to revert in the tx that sets it, and not be able
+        // to set an invalid curve (such as one yielding a negative interest
+        // rate). doing it works because it's a monotonously increasing function.
+        getRateToBorrow(block.timestamp + 1, block.timestamp, 0, 100, 100);
+
+        emit ParametersUpdated(
+            curveA,
+            curveB,
+            targetUtilizationRate,
+            penaltyRate,
+            spFeeRate
+        );
     }
 
     /**

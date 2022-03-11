@@ -19,8 +19,20 @@ export interface DepositToMaturityPoolEventInterface {
 
 export function errorUnmatchedPool(
   state: PoolState,
-  requiredState: PoolState
+  requiredState: PoolState,
+  alternativeState?: PoolState
 ): string {
+  if (alternativeState) {
+    return (
+      "UnmatchedPoolStateMultiple(" +
+      state +
+      ", " +
+      requiredState +
+      ", " +
+      alternativeState +
+      ")"
+    );
+  }
   return "UnmatchedPoolState(" + state + ", " + requiredState + ")";
 }
 
@@ -52,6 +64,14 @@ export async function expectFee(tx: any, expectedFee: BigNumber) {
 
 export function applyMaxFee(amount: BigNumber): BigNumber {
   return amount.add(amount.div(10)); // 10%
+}
+
+export function discountMaxFee(amount: BigNumber): BigNumber {
+  return amount.sub(amount.div(10)); // 10%
+}
+
+export function noDiscount(amount: BigNumber): BigNumber {
+  return amount; // 0%
 }
 
 export function applyMinFee(amount: BigNumber): BigNumber {
@@ -95,6 +115,7 @@ export enum ProtocolError {
   TOO_MUCH_REPAY_TRANSFER,
   SMART_POOL_FUNDS_LOCKED,
   INVALID_TIME_DIFFERENCE,
+  INVALID_SP_FEE_RATE,
 }
 
 export type EnvConfig = {
@@ -106,6 +127,15 @@ export type MockedTokenSpec = {
   decimals: BigNumber | number;
   collateralRate: BigNumber;
   usdPrice: BigNumber;
+};
+
+export type MaturityPoolState = {
+  borrowFees: BigNumber;
+  earningsTreasury: BigNumber;
+  earningsUnassigned: BigNumber;
+  earningsSP: BigNumber;
+  earningsMP: BigNumber;
+  earningsDiscounted: BigNumber;
 };
 
 export const defaultMockedTokens: Map<string, MockedTokenSpec> = new Map([

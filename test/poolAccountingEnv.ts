@@ -1,81 +1,201 @@
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
+import { BigNumber, Contract } from "ethers";
+import { applyMaxFee, noDiscount, MaturityPoolState } from "./exactlyUtils";
+import { parseUnits } from "ethers/lib/utils";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 export class PoolAccountingEnv {
-  interestRateModel: Contract;
-  realPoolAccounting: Contract;
+  mockedInterestRateModel: Contract;
+  realInterestRateModel: Contract;
   poolAccountingHarness: Contract;
-  fixedLender: Contract;
+  currentWallet: SignerWithAddress;
+  maxSPDebt = parseUnits("100000"); // we use a high maxSPDebt limit since max borrows are already tested
+  nMaturities = 12;
 
   constructor(
-    _interestRateModel: Contract,
-    _realPoolAccounting: Contract,
+    _mockedInterestRateModel: Contract,
+    _realInterestRateModel: Contract,
     _poolAccountingHarness: Contract,
-    _fixedLender: Contract
+    _currentWallet: SignerWithAddress
   ) {
-    this.interestRateModel = _interestRateModel;
-    this.realPoolAccounting = _realPoolAccounting;
+    this.mockedInterestRateModel = _mockedInterestRateModel;
+    this.realInterestRateModel = _realInterestRateModel;
     this.poolAccountingHarness = _poolAccountingHarness;
-    this.fixedLender = _fixedLender;
+    this.currentWallet = _currentWallet;
   }
 
   public async moveInTime(timestamp: number) {
-    await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
+    await this.poolAccountingHarness.setCurrentTimestamp(timestamp);
+    return ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
+  }
+
+  public switchWallet(wallet: SignerWithAddress) {
+    this.currentWallet = wallet;
+  }
+
+  public getRealInterestRateModel(): Contract {
+    return this.realInterestRateModel;
+  }
+
+  public getAllEarnings(maturityPoolState: MaturityPoolState): BigNumber {
+    return maturityPoolState.earningsSP
+      .add(maturityPoolState.earningsMP)
+      .add(maturityPoolState.earningsTreasury)
+      .add(maturityPoolState.earningsUnassigned)
+      .add(maturityPoolState.earningsDiscounted);
+  }
+
+  public async repayMP(
+    maturityPool: number,
+    units: string,
+    expectedUnits?: string
+  ) {
+    let expectedAmount: BigNumber;
+    let amount = parseUnits(units);
+    if (expectedUnits) {
+      expectedAmount = parseUnits(expectedUnits);
+    } else {
+      expectedAmount = noDiscount(amount);
+    }
+    return this.poolAccountingHarness
+      .connect(this.currentWallet)
+      .repayMPWithReturnValues(
+        maturityPool,
+        this.currentWallet.address,
+        amount,
+        expectedAmount
+      );
+  }
+
+  public async depositMP(
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    let expectedAmount: BigNumber;
+    let amount = parseUnits(units);
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(expectedAtMaturity);
+    } else {
+      expectedAmount = noDiscount(amount);
+    }
+    return this.poolAccountingHarness
+      .connect(this.currentWallet)
+      .depositMPWithReturnValues(
+        maturityPool,
+        this.currentWallet.address,
+        amount,
+        expectedAmount
+      );
+  }
+
+  public async withdrawMP(
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    let minAmountRequired: BigNumber;
+    let amount = parseUnits(units);
+    if (expectedAtMaturity) {
+      minAmountRequired = parseUnits(expectedAtMaturity);
+    } else {
+      minAmountRequired = noDiscount(amount);
+    }
+    return this.poolAccountingHarness
+      .connect(this.currentWallet)
+      .withdrawMPWithReturnValues(
+        maturityPool,
+        this.currentWallet.address,
+        amount,
+        minAmountRequired,
+        this.maxSPDebt
+      );
+  }
+
+  public async borrowMP(
+    maturityPool: number,
+    units: string,
+    expectedAtMaturity?: string
+  ) {
+    let expectedAmount: BigNumber;
+    let amount = parseUnits(units);
+    if (expectedAtMaturity) {
+      expectedAmount = parseUnits(expectedAtMaturity);
+    } else {
+      expectedAmount = applyMaxFee(amount);
+    }
+    return this.poolAccountingHarness
+      .connect(this.currentWallet)
+      .borrowMPWithReturnValues(
+        maturityPool,
+        this.currentWallet.address,
+        amount,
+        expectedAmount,
+        this.maxSPDebt,
+        this.nMaturities
+      );
   }
 
   static async create(): Promise<PoolAccountingEnv> {
-    const MockedInterestRateModel = await ethers.getContractFactory(
-      "MockedInterestRateModel"
-    );
-    const mockedInterestRateModel = await MockedInterestRateModel.deploy();
-    await mockedInterestRateModel.deployed();
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     let tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
-    const PoolLib = await ethers.getContractFactory("PoolLib", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
-    let poolLib = await PoolLib.deploy();
-    await poolLib.deployed();
+
+    const MockedInterestRateModelFactory = await ethers.getContractFactory(
+      "MockedInterestRateModel"
+    );
+    const InterestRateModelFactory = await ethers.getContractFactory(
+      "InterestRateModel"
+    );
+
+    const realInterestRateModel = await InterestRateModelFactory.deploy(
+      parseUnits("0.07"), // Maturity pool slope rate
+      parseUnits("0.07"), // Smart pool slope rate
+      parseUnits("0.02"), // Base rate
+      parseUnits("0.0000002315"), // Penalty Rate per second (86400 is ~= 2%)
+      parseUnits("0") // SP rate if 0 then no fees charged for the mp depositors' yield
+    );
+    await realInterestRateModel.deployed();
+
+    // MockedInterestRateModel is wrapping the real IRM since getYieldToDeposit
+    // wants to be tested while we might want to hardcode the borrowing rate
+    // for testing simplicity
+    const mockedInterestRateModel = await MockedInterestRateModelFactory.deploy(
+      realInterestRateModel.address
+    );
+    await mockedInterestRateModel.deployed();
 
     const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
       libraries: {
         TSUtils: tsUtils.address,
-        PoolLib: poolLib.address,
       },
     });
     const realPoolAccounting = await PoolAccounting.deploy(
       mockedInterestRateModel.address
     );
     await realPoolAccounting.deployed();
-    const FixedLender = await ethers.getContractFactory("FixedLender");
-    const addressZero = "0x0000000000000000000000000000000000000000";
-    // We only deploy a FixedLender to be able to access mpDepositDistributionWeighter parameter and to also call setMpDepositDistributionWeighter
-    const fixedLender = await FixedLender.deploy(
-      addressZero,
-      "DAI",
-      addressZero,
-      addressZero,
-      addressZero
-    );
-    await fixedLender.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
-      "PoolAccountingHarness"
+      "PoolAccountingHarness",
+      {
+        libraries: {
+          TSUtils: tsUtils.address,
+        },
+      }
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
-      realPoolAccounting.address,
-      fixedLender.address
+      mockedInterestRateModel.address
     );
     await poolAccountingHarness.deployed();
+    // We initialize it with itself, so it can call the methods from within
+    await poolAccountingHarness.initialize(poolAccountingHarness.address);
 
-    await realPoolAccounting.initialize(poolAccountingHarness.address);
+    const [owner] = await ethers.getSigners();
+
     return new PoolAccountingEnv(
       mockedInterestRateModel,
-      realPoolAccounting,
+      realInterestRateModel,
       poolAccountingHarness,
-      fixedLender
+      owner
     );
   }
 }

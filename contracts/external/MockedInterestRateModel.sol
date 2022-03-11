@@ -10,6 +10,12 @@ contract MockedInterestRateModel is IInterestRateModel {
 
     uint256 public borrowRate;
     uint256 public override penaltyRate;
+    uint256 public spFeeRate;
+    IInterestRateModel public realInterestRateModel;
+
+    constructor(address _realInterestRateModel) {
+        realInterestRateModel = IInterestRateModel(_realInterestRateModel);
+    }
 
     function getRateToBorrow(
         uint256,
@@ -24,14 +30,21 @@ contract MockedInterestRateModel is IInterestRateModel {
     function getYieldForDeposit(
         uint256 suppliedSP,
         uint256 unassignedEarnings,
-        uint256 amount,
-        uint256 mpDepositDistributionWeighter
-    ) external pure override returns (uint256 earningsShare) {
-        amount = amount.mul_(mpDepositDistributionWeighter);
-        uint256 supply = suppliedSP + amount;
-        earningsShare = supply == 0
-            ? 0
-            : (amount * unassignedEarnings) / supply;
+        uint256 amount
+    )
+        external
+        view
+        override
+        returns (uint256 earningsShare, uint256 earningsShareSP)
+    {
+        // we call the real implementation since it has a certain specific logic
+        // that makes the whole system stable
+        return
+            realInterestRateModel.getYieldForDeposit(
+                suppliedSP,
+                unassignedEarnings,
+                amount
+            );
     }
 
     function setBorrowRate(uint256 newRate) public {

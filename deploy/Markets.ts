@@ -34,14 +34,13 @@ const func: DeployFunction = async ({
     timelockController,
     { deployer, multisig },
     { address: tsUtilsAddress },
-    { address: poolLibAddress },
   ] = await Promise.all([
     getContract<Auditor>("Auditor"),
     getContract<ExactlyOracle>("ExactlyOracle"),
     getContract<InterestRateModel>("InterestRateModel"),
     getContract<TimelockController>("TimelockController"),
     getNamedAccounts(),
-    ...["TSUtils", "PoolLib"].map(get),
+    get("TSUtils"),
   ]);
 
   for (const token of config.tokens) {
@@ -60,7 +59,7 @@ const func: DeployFunction = async ({
     const poolAccountingName = `PoolAccounting${symbol}`;
     await deploy(poolAccountingName, {
       contract: "PoolAccounting",
-      libraries: { TSUtils: tsUtilsAddress, PoolLib: poolLibAddress },
+      libraries: { TSUtils: tsUtilsAddress },
       args: [interestRateModel.address],
       from: deployer,
       log: true,
