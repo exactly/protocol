@@ -163,16 +163,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         // We distribute to treasury and also to unassigned
-        earningsTreasury = borrowVars.fee.fmul(protocolSpreadFee, 1e18);
         (
             borrowVars.newUnassignedEarnings,
-            borrowVars.earningsTreasury
-        ) = PoolLib.distributeEarningsAccordingly(
-            borrowVars.fee - earningsTreasury,
+            earningsTreasury
+        ) = distributeProtocolSpreadEarningsAccordingly(
+            borrowVars.fee,
             pool.suppliedSP,
             amount
         );
-        earningsTreasury += borrowVars.earningsTreasury;
         pool.addFee(borrowVars.newUnassignedEarnings);
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
@@ -469,6 +467,27 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         storedList.pop();
 
         delete mpUserBorrowedAmount[maturityDate][borrower];
+    }
+
+    /**
+     * @notice Internal function that receives an amount of earnings and returns their distribution
+     *         among the smart pool and protocol's treasury
+     *         It also adds to the treasury the protocol's spread profit
+     * @param earnings amount to be distributed as earnings between the treasury and the smart pool
+     * @param suppliedSP current supply of the smart pool
+     * @param amountFunded amount that will be checked if came from smart pool or not
+     */
+    function distributeProtocolSpreadEarningsAccordingly(
+        uint256 earnings,
+        uint256 suppliedSP,
+        uint256 amountFunded
+    ) internal view returns (uint256 earningsSP, uint256 earningsTreasury) {
+        earningsTreasury = earnings.fmul(protocolSpreadFee, 1e18);
+        earningsTreasury +=
+            ((amountFunded - Math.min(suppliedSP, amountFunded)) *
+                (earnings - earningsTreasury)) /
+            amountFunded;
+        earningsSP = earnings - earningsTreasury;
     }
 
     /**
