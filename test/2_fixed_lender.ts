@@ -631,10 +631,9 @@ describe("FixedLender", function () {
       });
 
       describe("WHEN depositing 2000 DAI on a maturity pool and on a smart pool", () => {
-        let tx: any;
+        let tx: Promise<ContractTransaction>;
         beforeEach(async () => {
-          exactlyEnv.switchWallet(johnUser);
-          tx = exactlyEnv.depositMP("DAI", nextPoolId, "2000", "1800");
+          tx = fixedLenderDAI.depositToMaturityPool(parseUnits("100"), futurePools(1)[0], parseUnits("100"));
         });
 
         it("THEN the transaction reverts with INVALID_TOKEN_FEE", async () => {

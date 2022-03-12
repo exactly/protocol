@@ -28,6 +28,7 @@ export enum ErrorCode {
   SMART_POOL_FUNDS_LOCKED,
   INVALID_TIME_DIFFERENCE,
   INVALID_SP_FEE_RATE,
+  INVALID_TOKEN_FEE,
 }
 
 const GenericError = (code: ErrorCode) => `GenericError(${code})`;
