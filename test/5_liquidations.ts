@@ -10,7 +10,7 @@ describe("Liquidations", function () {
   let auditor: Contract;
   let exactlyEnv: DefaultEnv;
   let nextPoolID: number;
-  let exaTime = new ExaTime();
+  const exaTime = new ExaTime();
 
   let bob: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -222,7 +222,7 @@ describe("Liquidations", function () {
           });
 
           it("THEN john DID NOT collected the penalty fees because there's still SP debt", async () => {
-            let johnBalanceEDAI = await exactlyEnv
+            const johnBalanceEDAI = await exactlyEnv
               .getEToken("DAI")
               .balanceOf(john.address);
 
@@ -285,7 +285,7 @@ describe("Liquidations", function () {
           });
         });
 
-        describe("AND the position is liquidated a first time (19kdai)", () => {
+        describe("AND the position is liquidated a second time (19kdai)", () => {
           let tx: any;
           let balancePreBTC: BigNumber;
           beforeEach(async () => {
@@ -328,7 +328,7 @@ describe("Liquidations", function () {
 
           it("THEN john DID NOT collect the penalty fees because there's still debt", async () => {
             await tx;
-            let johnBalanceEDAI = await exactlyEnv
+            const johnBalanceEDAI = await exactlyEnv
               .getEToken("DAI")
               .balanceOf(john.address);
 
@@ -345,11 +345,11 @@ describe("Liquidations", function () {
               parseFloat(penaltyRate)
             );
             // we calculate how much the 19000 DAI cover from the current debt + penalties
-            let debtCovered =
+            const debtCovered =
               (19000 * totalBorrowAmount) /
               (totalBorrowAmount + firstPenalties);
             // since we are calling the accountSnapshot again, we now have to calculate what is owed with the debt that has been covered
-            let currentPenalties = exactlyEnv.calculatePenaltiesForDebt(
+            const currentPenalties = exactlyEnv.calculatePenaltiesForDebt(
               totalBorrowAmount - debtCovered,
               exaTime.ONE_DAY * 20 + exaTime.ONE_SECOND * 2,
               parseFloat(penaltyRate)
@@ -376,7 +376,7 @@ describe("Liquidations", function () {
           });
 
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
-            let shortfall = (
+            const shortfall = (
               await auditor.getAccountLiquidity(alice.address)
             )[1];
             expect(shortfall).to.eq(parseUnits("1050"));
@@ -419,60 +419,6 @@ describe("Liquidations", function () {
                 await auditor.getAccountLiquidity(alice.address)
               )[0];
               expect(liquidity).to.be.lt(parseUnits("5410.1"));
-              expect(liquidity).to.be.gt(parseUnits("5410"));
-            });
-          });
-        });
-
-        describe("AND WHEN WETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850)", () => {
-          beforeEach(async () => {
-            await exactlyEnv.setOracleMockPrice("WETH", "1500");
-          });
-          it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
-            let shortfall = (
-              await auditor.getAccountLiquidity(alice.address)
-            )[1];
-            expect(shortfall).to.eq(parseUnits("1050"));
-          });
-          // The liquidator has an incentive to repay as much of the debt as
-          // possible (assuming he has an incentive to repay the debt in the
-          // first place, see below), since _as soon as the position is
-          // undercollateralized_, liquidators can repay half of its debt,
-          // regardless of the user's shortfall
-          describe("AND WHEN a liquidator repays the max amount (19kDAI - 10% fee)", () => {
-            let tx: any;
-            beforeEach(async () => {
-              tx = await fixedLenderDAI
-                .connect(bob)
-                .liquidate(
-                  alice.address,
-                  parseUnits("19000"),
-                  parseUnits("19000"),
-                  fixedLenderWBTC.address,
-                  nextPoolID
-                );
-            });
-            it("THEN alice no longer has a liquidity shortfall", async () => {
-              const shortfall = (
-                await auditor.getAccountLiquidity(alice.address)
-              )[1];
-              expect(shortfall).to.eq(0);
-            });
-            it("AND the liquidator seized (19k) + 10% = 20100 of collateral (WBTC)", async () => {
-              // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
-              const seizedWBTC = parseUnits("33174603", 0);
-              await expect(tx)
-                .to.emit(fixedLenderWBTC, "SeizeAsset")
-                .withArgs(bob.address, alice.address, seizedWBTC);
-            });
-            // debt: 39900-19000 = 20900
-            // liquidity: (1-0.33174603)*0.6*63000+1500*0.7 = 26310
-            // diff =>> 5410
-            it("AND she has some liquidity", async () => {
-              const liquidity = (
-                await auditor.getAccountLiquidity(alice.address)
-              )[0];
-              expect(liquidity).to.be.lt(parseUnits("5411"));
               expect(liquidity).to.be.gt(parseUnits("5410"));
             });
           });
@@ -573,13 +519,15 @@ describe("Liquidations", function () {
 
         it("THEN alices liquidity is zero", async () => {
           // We expect liquidity to be equal to zero
-          let liquidityAfterOracleChange = (
+          const liquidityAfterOracleChange = (
             await auditor.getAccountLiquidity(alice.address)
           )[0];
           expect(liquidityAfterOracleChange).to.be.lt("1");
         });
         it("AND alice has a big (18k) liquidity shortfall", async () => {
-          let shortfall = (await auditor.getAccountLiquidity(alice.address))[1];
+          const shortfall = (
+            await auditor.getAccountLiquidity(alice.address)
+          )[1];
           expect(shortfall).to.eq(parseUnits("18300"));
         });
 
@@ -886,14 +834,14 @@ describe("Liquidations", function () {
           // 2 + 0.2 - 0.0616 = 2.1384 ETH
           // but if john ACTUALLY repays aprox 1400, then he seizes almost 1 ETH + liquidation incentive (10%) - protocol revenue (2.8%)
           // 0.93 + 0.093 - 0.028644 = 0.994356 ETH
-          let johnETHBalanceAfter = await eth.balanceOf(john.address);
+          const johnETHBalanceAfter = await eth.balanceOf(john.address);
           expect(johnETHBalanceBefore).to.not.equal(johnETHBalanceAfter);
           expect(johnETHBalanceAfter).to.be.lt(parseUnits("1"));
           expect(johnETHBalanceAfter).to.be.gt(parseUnits("0.99"));
         });
         it("THEN the liquidator receives back any DAI spare repayment amount", async () => {
           // liquidator tried to repay 3000 but only spent aprox 1400 (total owed by maria)
-          let johnDAIBalanceAfter = await dai.balanceOf(john.address);
+          const johnDAIBalanceAfter = await dai.balanceOf(john.address);
           expect(johnDAIBalanceBefore).to.not.equal(johnDAIBalanceAfter);
           expect(johnDAIBalanceAfter).to.be.lt(
             johnDAIBalanceBefore.sub(parseUnits("1400"))
