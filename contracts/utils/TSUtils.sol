@@ -44,7 +44,7 @@ library TSUtils {
         uint256 currentTimestamp,
         uint256 timestamp,
         uint8 maxPools
-    ) public pure returns (State) {
+    ) private pure returns (State) {
         if (timestamp % INTERVAL != 0) {
             return State.INVALID;
         }
@@ -53,26 +53,16 @@ library TSUtils {
             return State.MATURED;
         }
 
-        uint256 totalSecondsForEnabledPools = INTERVAL * maxPools;
         if (
             timestamp >
             currentTimestamp -
                 (currentTimestamp % INTERVAL) +
-                totalSecondsForEnabledPools
+                (INTERVAL * maxPools)
         ) {
             return State.NOT_READY;
         }
 
         return State.VALID;
-    }
-
-    /**
-     * @notice Function that validates if a certain timestamp is a POOLID based on the INTERVALS
-     *         configured for this library
-     * @param timestamp to validate if is a POOLID
-     */
-    function isPoolID(uint256 timestamp) public pure returns (bool) {
-        return (timestamp % INTERVAL) == 0;
     }
 
     /**

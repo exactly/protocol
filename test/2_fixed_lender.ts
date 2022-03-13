@@ -296,6 +296,10 @@ describe("FixedLender", function () {
       await expect(fixedLenderDAI.setProtocolLiquidationFee(parseUnits("0.04"))).to.be.revertedWith("AccessControl");
     });
 
+    it("WHEN calling setMaxFuturePools from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(fixedLenderDAI.setMaxFuturePools(12)).to.be.revertedWith("AccessControl");
+    });
+
     it("WHEN calling withdrawEarnings from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(fixedLenderDAI.withdrawFromTreasury(owner.address, parseUnits("0.04"))).to.be.revertedWith(
         "AccessControl",
