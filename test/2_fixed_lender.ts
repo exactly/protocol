@@ -288,20 +288,6 @@ describe("FixedLender", function () {
   });
 
   describe("simple validations:", () => {
-    describe("invalid pool ids", () => {
-      it("WHEN calling getAccountSnapshot on an invalid pool, THEN it reverts with INVALID_POOL_ID", async () => {
-        await expect(fixedLenderDAI.getAccountSnapshot(owner.address, futurePools(1)[0].add(3))).to.be.revertedWith(
-          GenericError(ErrorCode.INVALID_POOL_ID),
-        );
-      });
-
-      it("WHEN calling getTotalMpBorrows on an invalid pool, THEN it reverts with INVALID_POOL_ID", async () => {
-        await expect(fixedLenderDAI.getTotalMpBorrows(futurePools(1)[0].add(3))).to.be.revertedWith(
-          GenericError(ErrorCode.INVALID_POOL_ID),
-        );
-      });
-    });
-
     it("WHEN calling setProtocolSpreadFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(fixedLenderDAI.setProtocolSpreadFee(parseUnits("0.04"))).to.be.revertedWith("AccessControl");
     });

@@ -409,9 +409,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 debt += getAccountDebt(who, userMpBorrowed[who][i]);
             }
         } else {
-            if (!TSUtils.isPoolID(maturityDate)) {
-                revert GenericError(ErrorCode.INVALID_POOL_ID);
-            }
             debt = getAccountDebt(who, maturityDate);
         }
     }
@@ -426,9 +423,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         override
         returns (uint256)
     {
-        if (!TSUtils.isPoolID(maturityDate)) {
-            revert GenericError(ErrorCode.INVALID_POOL_ID);
-        }
         return maturityPools[maturityDate].borrowed;
     }
 
