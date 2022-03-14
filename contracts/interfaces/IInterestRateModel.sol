@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 interface IInterestRateModel {
-    function getFeeToBorrow(
+    function getRateToBorrow(
         uint256 maturityDate,
         uint256 currentDate,
         uint256 amount,

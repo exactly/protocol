@@ -170,7 +170,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
      * @param supplied 'fair' supply (MP deposits + smart pool share)
      * @return fee the borrower will have to pay, as a factor (1% interest is represented as the wad for 0.01 == 10^16)
      */
-    function getFeeToBorrow(
+    function getRateToBorrow(
         uint256 maturityDate,
         uint256 currentDate,
         uint256 amount,
@@ -188,11 +188,11 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (utilizationAfter >= maxUtilizationRate) {
             revert GenericError(ErrorCode.EXCEEDED_MAX_UTILIZATION_RATE);
         }
-        uint256 rate = getRateToBorrow(utilizationBefore, utilizationAfter);
+        uint256 rate = simpsonIntegrator(utilizationBefore, utilizationAfter);
         return (rate * (maturityDate - currentDate)) / YEAR;
     }
 
-    function getRateToBorrow(
+    function simpsonIntegrator(
         uint256 utilizationBefore,
         uint256 utilizationAfter
     ) internal view returns (uint256) {

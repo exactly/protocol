@@ -14,7 +14,7 @@ contract MockedInterestRateModel is IInterestRateModel {
         realInterestRateModel = IInterestRateModel(_realInterestRateModel);
     }
 
-    function getFeeToBorrow(
+    function getRateToBorrow(
         uint256,
         uint256,
         uint256,
