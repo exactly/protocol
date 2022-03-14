@@ -369,10 +369,10 @@ contract Auditor is IAuditor, AccessControl {
     ) external view override returns (uint256) {
         /* Read oracle prices for borrowed and collateral markets */
         uint256 priceBorrowed = oracle.getAssetPrice(
-            IFixedLender(fixedLenderBorrowed).underlyingTokenName()
+            IFixedLender(fixedLenderBorrowed).underlyingTokenSymbol()
         );
         uint256 priceCollateral = oracle.getAssetPrice(
-            IFixedLender(fixedLenderCollateral).underlyingTokenName()
+            IFixedLender(fixedLenderCollateral).underlyingTokenSymbol()
         );
 
         uint256 amountInUSD = actualRepayAmount.fmul(

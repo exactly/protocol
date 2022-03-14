@@ -22,14 +22,14 @@ contract ETHFixedLender is FixedLender {
 
     constructor(
         address payable _tokenAddress,
-        string memory _underlyingTokenName,
+        string memory _underlyingTokenSymbol,
         address _eTokenAddress,
         address _auditorAddress,
         address _interestRateModelAddress
     )
         FixedLender(
             _tokenAddress,
-            _underlyingTokenName,
+            _underlyingTokenSymbol,
             _eTokenAddress,
             _auditorAddress,
             _interestRateModelAddress
