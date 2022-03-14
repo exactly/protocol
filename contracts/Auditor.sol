@@ -38,7 +38,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLender address of the market that the user entered
      * @param account address of the user that just entered a market
      */
-    event MarketEntered(address fixedLender, address account);
+    event MarketEntered(address indexed fixedLender, address account);
 
     /**
      * @notice Event emitted when a user leaves a market. This means that he would stop using
@@ -46,7 +46,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLender address of the market that the user just left
      * @param account address of the user that just left a market
      */
-    event MarketExited(address fixedLender, address account);
+    event MarketExited(address indexed fixedLender, address account);
 
     /**
      * @notice Event emitted when a new Oracle has been set
