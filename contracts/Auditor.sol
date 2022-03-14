@@ -10,6 +10,7 @@ import "./interfaces/IAuditor.sol";
 import "./interfaces/IOracle.sol";
 import "./utils/Errors.sol";
 import "./utils/MarketsLib.sol";
+import { PoolLib } from "./utils/PoolLib.sol";
 
 contract Auditor is IAuditor, AccessControl {
     using FixedPointMathLib for uint256;
@@ -99,7 +100,7 @@ contract Auditor is IAuditor, AccessControl {
 
         IFixedLender fixedLender = IFixedLender(fixedLenderAddress);
         (uint256 amountHeld, uint256 borrowBalance) = fixedLender
-            .getAccountSnapshot(msg.sender, MarketsLib.ALL_MATURITIES);
+            .getAccountSnapshot(msg.sender, PoolLib.MATURITY_ALL);
 
         /* Fail if the sender has a borrow balance */
         if (borrowBalance != 0) {
@@ -277,7 +278,7 @@ contract Auditor is IAuditor, AccessControl {
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
         (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed)
-            .getAccountSnapshot(borrower, MarketsLib.ALL_MATURITIES);
+            .getAccountSnapshot(borrower, PoolLib.MATURITY_ALL);
         uint256 maxClose = closeFactor.fmul(borrowBalance, 1e18);
         if (repayAmount > maxClose) {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
