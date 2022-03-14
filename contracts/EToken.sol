@@ -281,7 +281,7 @@ contract EToken is IEToken, AccessControl {
             "ERC20: transfer amount exceeds balance"
         );
         // reverts on failure
-        auditor.validateAccountShortfall(address(fixedLender), sender, amount);
+        auditor.validateAccountShortfall(fixedLender, sender, amount);
 
         uint256 senderRemainingBalance = senderBalance - amount;
         userScaledBalance[sender] =

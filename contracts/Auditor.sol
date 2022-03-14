@@ -4,17 +4,17 @@ pragma solidity ^0.8.4;
 import {
     FixedPointMathLib
 } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
+import {
+    AccessControl
+} from "@openzeppelin/contracts/access/AccessControl.sol";
 import { IFixedLender, NotFixedLender } from "./interfaces/IFixedLender.sol";
 import { IOracle } from "./interfaces/IOracle.sol";
-import { MarketsLib } from "./utils/MarketsLib.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
 import {
     IAuditor,
     AuditorMismatch,
     BalanceOwed,
+    BorrowCapReached,
     InsufficientLiquidity,
     InsufficientShortfall,
     InvalidBorrowCaps,
@@ -26,15 +26,35 @@ import {
 
 contract Auditor is IAuditor, AccessControl {
     using FixedPointMathLib for uint256;
-    using SafeCast for uint256;
-    using MarketsLib for MarketsLib.Book;
+
+    // Struct to avoid stack too deep
+    struct AccountLiquidity {
+        uint256 balance;
+        uint256 borrowBalance;
+        uint256 oraclePrice;
+        uint256 sumCollateral;
+        uint256 sumDebt;
+    }
+
+    // Struct for FixedLender's markets
+    struct Market {
+        string symbol;
+        string name;
+        uint8 decimals;
+        bool isListed;
+        uint256 collateralFactor;
+    }
 
     // Protocol Management
-    MarketsLib.Book private book;
+    mapping(address => IFixedLender[]) private accountAssets;
+    mapping(IFixedLender => Market) private markets;
+    mapping(IFixedLender => uint256) private borrowCaps;
+    mapping(IFixedLender => mapping(address => bool))
+        private accountMemberships;
 
     uint256 public closeFactor = 5e17;
-    uint256 public liquidationIncentive = 1e18 + 1e17;
-    address[] public marketsAddresses;
+    uint256 public liquidationIncentive = 1.1e18;
+    IFixedLender[] public marketAddresses;
 
     IOracle public oracle;
 
@@ -42,7 +62,7 @@ contract Auditor is IAuditor, AccessControl {
      * @notice Event emitted when a new market is listed for borrow/lending
      * @param fixedLender address of the fixedLender market that it was listed
      */
-    event MarketListed(address fixedLender);
+    event MarketListed(IFixedLender fixedLender);
 
     /**
      * @notice Event emitted when a user enters a market to use his deposit as collateral
@@ -50,7 +70,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLender address of the market that the user entered
      * @param account address of the user that just entered a market
      */
-    event MarketEntered(address indexed fixedLender, address account);
+    event MarketEntered(IFixedLender indexed fixedLender, address account);
 
     /**
      * @notice Event emitted when a user leaves a market. This means that he would stop using
@@ -58,13 +78,13 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLender address of the market that the user just left
      * @param account address of the user that just left a market
      */
-    event MarketExited(address indexed fixedLender, address account);
+    event MarketExited(IFixedLender indexed fixedLender, address account);
 
     /**
      * @notice Event emitted when a new Oracle has been set
      * @param newOracle address of the new oracle that is used to calculate liquidity
      */
-    event OracleChanged(address newOracle);
+    event OracleChanged(IOracle newOracle);
 
     /**
      * @notice Event emitted when a new borrow cap has been set for a certain fixedLender
@@ -73,13 +93,13 @@ contract Auditor is IAuditor, AccessControl {
      * @param newBorrowCap new borrow cap expressed with 1e18 precision for the given market.
      *                     0 = means no cap
      */
-    event NewBorrowCap(address indexed fixedLender, uint256 newBorrowCap);
+    event NewBorrowCap(IFixedLender indexed fixedLender, uint256 newBorrowCap);
 
     /// @notice emitted when a collateral factor is changed by admin.
     /// @param fixedLender address of the market that has a new collateral factor.
     /// @param newCollateralFactor collateral factor for the underlying asset.
     event NewCollateralFactor(
-        address indexed fixedLender,
+        IFixedLender indexed fixedLender,
         uint256 newCollateralFactor
     );
 
@@ -93,11 +113,15 @@ contract Auditor is IAuditor, AccessControl {
      *      By performing this action, the wallet's money could be used as collateral
      * @param fixedLenders contracts addresses to enable for `msg.sender`
      */
-    function enterMarkets(address[] calldata fixedLenders) external {
+    function enterMarkets(IFixedLender[] calldata fixedLenders) external {
         uint256 len = fixedLenders.length;
         for (uint256 i = 0; i < len; i++) {
             validateMarketListed(fixedLenders[i]);
-            book.addToMarket(fixedLenders[i], msg.sender);
+            if (accountMemberships[fixedLenders[i]][msg.sender]) return;
+
+            accountMemberships[fixedLenders[i]][msg.sender] = true;
+            accountAssets[msg.sender].push(fixedLenders[i]);
+            emit MarketEntered(fixedLenders[i], msg.sender);
         }
     }
 
@@ -105,12 +129,11 @@ contract Auditor is IAuditor, AccessControl {
      * @notice Removes fixedLender from sender's account liquidity calculation
      * @dev Sender must not have an outstanding borrow balance in the asset,
      *      or be providing necessary collateral for an outstanding borrow.
-     * @param fixedLenderAddress The address of the asset to be removed
+     * @param fixedLender The address of the asset to be removed
      */
-    function exitMarket(address fixedLenderAddress) external {
-        validateMarketListed(fixedLenderAddress);
+    function exitMarket(IFixedLender fixedLender) external {
+        validateMarketListed(fixedLender);
 
-        IFixedLender fixedLender = IFixedLender(fixedLenderAddress);
         (uint256 amountHeld, uint256 borrowBalance) = fixedLender
             .getAccountSnapshot(msg.sender, PoolLib.MATURITY_ALL);
 
@@ -118,20 +141,43 @@ contract Auditor is IAuditor, AccessControl {
         if (borrowBalance != 0) revert BalanceOwed();
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
-        validateAccountShortfall(fixedLenderAddress, msg.sender, amountHeld);
+        validateAccountShortfall(fixedLender, msg.sender, amountHeld);
 
-        book.exitMarket(fixedLenderAddress, msg.sender);
+        if (!accountMemberships[fixedLender][msg.sender]) return;
+
+        delete accountMemberships[fixedLender][msg.sender];
+
+        // load into memory for faster iteration
+        IFixedLender[] memory userAssetList = accountAssets[msg.sender];
+        uint256 len = userAssetList.length;
+        uint256 assetIndex = len;
+        for (uint256 i = 0; i < len; i++) {
+            if (userAssetList[i] == IFixedLender(fixedLender)) {
+                assetIndex = i;
+                break;
+            }
+        }
+
+        // We *must* have found the asset in the list or our redundant data structure is broken
+        assert(assetIndex < len);
+
+        // copy last item in list to location of item to be removed, reduce length by 1
+        IFixedLender[] storage storedList = accountAssets[msg.sender];
+        storedList[assetIndex] = storedList[storedList.length - 1];
+        storedList.pop();
+
+        emit MarketExited(fixedLender, msg.sender);
     }
 
     /**
      * @dev Function to set Oracle's to be used
      * @param _priceOracleAddress address of the new oracle
      */
-    function setOracle(address _priceOracleAddress)
+    function setOracle(IOracle _priceOracleAddress)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        oracle = IOracle(_priceOracleAddress);
+        oracle = _priceOracleAddress;
         emit OracleChanged(_priceOracleAddress);
     }
 
@@ -155,27 +201,25 @@ contract Auditor is IAuditor, AccessControl {
      * @param decimals decimals of the market's underlying asset
      */
     function enableMarket(
-        address fixedLender,
+        IFixedLender fixedLender,
         uint256 collateralFactor,
         string memory symbol,
         string memory name,
         uint8 decimals
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        MarketsLib.Market storage market = book.markets[fixedLender];
+        if (fixedLender.getAuditor() != this) revert AuditorMismatch();
 
-        if (IFixedLender(fixedLender).getAuditor() != this) {
-            revert AuditorMismatch();
-        }
+        if (markets[fixedLender].isListed) revert MarketAlreadyListed();
 
-        if (market.isListed) revert MarketAlreadyListed();
+        markets[fixedLender] = Market({
+            isListed: true,
+            collateralFactor: collateralFactor,
+            symbol: symbol,
+            name: name,
+            decimals: decimals
+        });
 
-        market.isListed = true;
-        market.collateralFactor = collateralFactor;
-        market.symbol = symbol;
-        market.name = name;
-        market.decimals = decimals;
-
-        marketsAddresses.push(fixedLender);
+        marketAddresses.push(fixedLender);
 
         emit MarketListed(fixedLender);
     }
@@ -183,11 +227,11 @@ contract Auditor is IAuditor, AccessControl {
     /// @notice sets the collateral factor for a certain fixedLender.
     /// @param fixedLender address of the market to change collateral factor for.
     /// @param collateralFactor collateral factor for the underlying asset.
-    function setCollateralFactor(address fixedLender, uint256 collateralFactor)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        book.markets[fixedLender].collateralFactor = collateralFactor;
+    function setCollateralFactor(
+        IFixedLender fixedLender,
+        uint256 collateralFactor
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        markets[fixedLender].collateralFactor = collateralFactor;
         emit NewCollateralFactor(fixedLender, collateralFactor);
     }
 
@@ -197,7 +241,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
      */
     function setMarketBorrowCaps(
-        address[] calldata fixedLenders,
+        IFixedLender[] calldata fixedLenders,
         uint256[] calldata newBorrowCaps
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint256 numMarkets = fixedLenders.length;
@@ -210,7 +254,7 @@ contract Auditor is IAuditor, AccessControl {
         for (uint256 i = 0; i < numMarkets; i++) {
             validateMarketListed(fixedLenders[i]);
 
-            book.borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
+            borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
             emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
         }
     }
@@ -218,25 +262,41 @@ contract Auditor is IAuditor, AccessControl {
     /**
      * @dev Hook function to be called after calling the poolAccounting borrowMP function. Validates
      *      that the current state of the position and system are valid (liquidity)
-     * @param fixedLenderAddress address of the fixedLender that will lend money in a maturity
+     * @param fixedLender address of the fixedLender that will lend money in a maturity
      * @param borrower address of the user that will borrow money from a maturity date
      */
-    function validateBorrowMP(address fixedLenderAddress, address borrower)
+    function validateBorrowMP(IFixedLender fixedLender, address borrower)
         external
         override
     {
-        validateMarketListed(fixedLenderAddress);
+        validateMarketListed(fixedLender);
+
         // we validate borrow state
-        book.validateBorrow(fixedLenderAddress, borrower);
+        if (!accountMemberships[fixedLender][borrower]) {
+            // only fixedLenders may call borrowAllowed if borrower not in market
+            if (msg.sender != address(fixedLender)) revert NotFixedLender();
+
+            // attempt to add borrower to the market // reverts if error
+            if (!accountMemberships[fixedLender][borrower]) {
+                accountMemberships[fixedLender][borrower] = true;
+                accountAssets[borrower].push(fixedLender);
+                emit MarketEntered(fixedLender, borrower);
+            }
+
+            // it should be impossible to break the important invariant
+            // TODO: is this tested?
+            assert(accountMemberships[fixedLender][borrower]);
+        }
+
+        uint256 borrowCap = borrowCaps[fixedLender];
+        // Borrow cap of 0 corresponds to unlimited borrowing
+        if (borrowCap != 0) {
+            uint256 totalBorrows = fixedLender.totalMpBorrows();
+            if (totalBorrows >= borrowCap) revert BorrowCapReached();
+        }
 
         // We verify that current liquidity is not short
-        (, uint256 shortfall) = book.accountLiquidity(
-            oracle,
-            borrower,
-            fixedLenderAddress,
-            0,
-            0
-        );
+        (, uint256 shortfall) = accountLiquidity(borrower, fixedLender, 0, 0);
 
         if (shortfall > 0) revert InsufficientLiquidity();
     }
@@ -251,8 +311,8 @@ contract Auditor is IAuditor, AccessControl {
      * @param repayAmount amount to be repaid from the debt (outstanding debt * close factor should be bigger than this value)
      */
     function liquidateAllowed(
-        address fixedLenderBorrowed,
-        address fixedLenderCollateral,
+        IFixedLender fixedLenderBorrowed,
+        IFixedLender fixedLenderCollateral,
         address liquidator,
         address borrower,
         uint256 repayAmount
@@ -261,15 +321,14 @@ contract Auditor is IAuditor, AccessControl {
 
         // if markets are listed, they have the same auditor
         if (
-            !book.markets[fixedLenderBorrowed].isListed ||
-            !book.markets[fixedLenderCollateral].isListed
+            !markets[fixedLenderBorrowed].isListed ||
+            !markets[fixedLenderCollateral].isListed
         ) revert MarketNotListed();
 
         /* The borrower must have shortfall in order to be liquidatable */
-        (, uint256 shortfall) = book.accountLiquidity(
-            oracle,
+        (, uint256 shortfall) = accountLiquidity(
             borrower,
-            address(0),
+            IFixedLender(address(0)),
             0,
             0
         );
@@ -292,8 +351,8 @@ contract Auditor is IAuditor, AccessControl {
      * @param borrower address to validate where the assets will be removed
      */
     function seizeAllowed(
-        address fixedLenderCollateral,
-        address fixedLenderBorrowed,
+        IFixedLender fixedLenderCollateral,
+        IFixedLender fixedLenderBorrowed,
         address liquidator,
         address borrower
     ) external view override {
@@ -301,16 +360,16 @@ contract Auditor is IAuditor, AccessControl {
 
         // If markets are listed, they have also the same Auditor
         if (
-            !book.markets[fixedLenderCollateral].isListed ||
-            !book.markets[fixedLenderBorrowed].isListed
+            !markets[fixedLenderCollateral].isListed ||
+            !markets[fixedLenderBorrowed].isListed
         ) revert MarketNotListed();
     }
 
     /**
      * @dev Given a fixedLender address, it returns the corresponding market data
-     * @param fixedLenderAddress Address of the contract where we are getting the data
+     * @param fixedLender Address of the contract where we are getting the data
      */
-    function getMarketData(address fixedLenderAddress)
+    function getMarketData(IFixedLender fixedLender)
         external
         view
         returns (
@@ -319,19 +378,19 @@ contract Auditor is IAuditor, AccessControl {
             bool,
             uint256,
             uint8,
-            address
+            IFixedLender
         )
     {
-        validateMarketListed(fixedLenderAddress);
+        validateMarketListed(fixedLender);
 
-        MarketsLib.Market storage marketData = book.markets[fixedLenderAddress];
+        Market memory marketData = markets[fixedLender];
         return (
             marketData.symbol,
             marketData.name,
             marketData.isListed,
             marketData.collateralFactor,
             marketData.decimals,
-            fixedLenderAddress
+            fixedLender
         );
     }
 
@@ -345,7 +404,7 @@ contract Auditor is IAuditor, AccessControl {
         override
         returns (uint256, uint256)
     {
-        return book.accountLiquidity(oracle, account, address(0), 0, 0);
+        return accountLiquidity(account, IFixedLender(address(0)), 0, 0);
     }
 
     /**
@@ -357,8 +416,8 @@ contract Auditor is IAuditor, AccessControl {
      * @param actualRepayAmount repay amount in the borrowed asset
      */
     function liquidateCalculateSeizeAmount(
-        address fixedLenderBorrowed,
-        address fixedLenderCollateral,
+        IFixedLender fixedLenderBorrowed,
+        IFixedLender fixedLenderCollateral,
         uint256 actualRepayAmount
     ) external view override returns (uint256) {
         /* Read oracle prices for borrowed and collateral markets */
@@ -371,11 +430,11 @@ contract Auditor is IAuditor, AccessControl {
 
         uint256 amountInUSD = actualRepayAmount.fmul(
             priceBorrowed,
-            10**book.markets[fixedLenderBorrowed].decimals
+            10**markets[fixedLenderBorrowed].decimals
         );
         // 10**18: usd amount decimals
         uint256 seizeTokens = amountInUSD.fmul(
-            10**book.markets[fixedLenderCollateral].decimals,
+            10**markets[fixedLenderCollateral].decimals,
             priceCollateral
         );
 
@@ -389,9 +448,9 @@ contract Auditor is IAuditor, AccessControl {
         external
         view
         override
-        returns (address[] memory)
+        returns (IFixedLender[] memory)
     {
-        return marketsAddresses;
+        return marketAddresses;
     }
 
     /**
@@ -399,25 +458,22 @@ contract Auditor is IAuditor, AccessControl {
      *      This function checks if the user has no outstanding debts.
      *      This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
      *      this contract when the user wants to exit a market.
-     * @param fixedLenderAddress address of the fixedLender where the smart pool belongs
+     * @param fixedLender address of the fixedLender where the smart pool belongs
      * @param account address of the user to check for possible shortfall
      * @param amount amount that the user wants to withdraw or transfer
      */
     function validateAccountShortfall(
-        address fixedLenderAddress,
+        IFixedLender fixedLender,
         address account,
         uint256 amount
     ) public view override {
         /* If the user is not 'in' the market, then we can bypass the liquidity check */
-        if (!book.markets[fixedLenderAddress].accountMembership[account]) {
-            return;
-        }
+        if (!accountMemberships[fixedLender][account]) return;
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (, uint256 shortfall) = book.accountLiquidity(
-            oracle,
+        (, uint256 shortfall) = accountLiquidity(
             account,
-            fixedLenderAddress,
+            fixedLender,
             amount,
             0
         );
@@ -425,12 +481,82 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     /**
-     * @dev This function verifies if market is listed as valid
-     * @param fixedLenderAddress address of the fixedLender to be validated by the auditor
+     * @dev Function to get account's liquidity for a certain market/maturity pool
+     * @param account wallet which the liquidity will be calculated
+     * @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args)
+     * @param withdrawAmount amount to simulate withdraw
+     * @param borrowAmount amount to simulate borrow
      */
-    function validateMarketListed(address fixedLenderAddress) internal view {
-        if (!book.markets[fixedLenderAddress].isListed) {
-            revert MarketNotListed();
+    function accountLiquidity(
+        address account,
+        IFixedLender fixedLenderToSimulate,
+        uint256 withdrawAmount,
+        uint256 borrowAmount
+    ) internal view returns (uint256, uint256) {
+        AccountLiquidity memory vars; // Holds all our calculation results
+
+        // For each asset the account is in
+        IFixedLender[] memory assets = accountAssets[account];
+        for (uint256 i = 0; i < assets.length; i++) {
+            IFixedLender asset = assets[i];
+            Market memory market = markets[asset];
+
+            // Read the balances
+            (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
+                account,
+                PoolLib.MATURITY_ALL
+            );
+
+            // Get the normalized price of the asset (18 decimals)
+            vars.oraclePrice = oracle.getAssetPrice(
+                asset.underlyingTokenSymbol()
+            );
+
+            // We sum all the collateral prices
+            vars.sumCollateral += vars
+                .balance
+                .fmul(vars.oraclePrice, 10**market.decimals)
+                .fmul(market.collateralFactor, 1e18);
+
+            // We sum all the debt
+            vars.sumDebt += vars.borrowBalance.fmul(
+                vars.oraclePrice,
+                10**market.decimals
+            );
+
+            // Simulate the effects of borrowing from/lending to a pool
+            if (asset == IFixedLender(fixedLenderToSimulate)) {
+                // Calculate the effects of borrowing fixedLenders
+                if (borrowAmount != 0) {
+                    vars.sumDebt += borrowAmount.fmul(
+                        vars.oraclePrice,
+                        10**market.decimals
+                    );
+                }
+
+                // Calculate the effects of redeeming fixedLenders
+                // (having less collateral is the same as having more debt for this calculation)
+                if (withdrawAmount != 0) {
+                    vars.sumDebt += withdrawAmount
+                        .fmul(vars.oraclePrice, 10**market.decimals)
+                        .fmul(market.collateralFactor, 1e18);
+                }
+            }
         }
+
+        // These are safe, as the underflow condition is checked first
+        if (vars.sumCollateral > vars.sumDebt) {
+            return (vars.sumCollateral - vars.sumDebt, 0);
+        } else {
+            return (0, vars.sumDebt - vars.sumCollateral);
+        }
+    }
+
+    /**
+     * @dev This function verifies if market is listed as valid
+     * @param fixedLender address of the fixedLender to be validated by the auditor
+     */
+    function validateMarketListed(IFixedLender fixedLender) internal view {
+        if (!markets[fixedLender].isListed) revert MarketNotListed();
     }
 }

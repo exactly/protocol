@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import { IFixedLender } from "./IFixedLender.sol";
+
 error AuditorMismatch();
 error BalanceOwed();
+error BorrowCapReached();
 error InsufficientLiquidity();
 error InsufficientShortfall();
 error InvalidBorrowCaps();
@@ -13,7 +16,7 @@ error TooMuchRepay();
 
 interface IAuditor {
     // this one validates post liquidity check
-    function validateBorrowMP(address fixedLenderAddress, address borrower)
+    function validateBorrowMP(IFixedLender fixedLender, address borrower)
         external;
 
     function getAccountLiquidity(address account)
@@ -22,30 +25,30 @@ interface IAuditor {
         returns (uint256, uint256);
 
     function liquidateAllowed(
-        address fixedLenderBorrowed,
-        address fixedLenderCollateral,
+        IFixedLender fixedLenderBorrowed,
+        IFixedLender fixedLenderCollateral,
         address liquidator,
         address borrower,
         uint256 repayAmount
     ) external view;
 
     function seizeAllowed(
-        address fixedLenderCollateral,
-        address fixedLenderBorrowed,
+        IFixedLender fixedLenderCollateral,
+        IFixedLender fixedLenderBorrowed,
         address liquidator,
         address borrower
     ) external view;
 
     function liquidateCalculateSeizeAmount(
-        address fixedLenderBorrowed,
-        address fixedLenderCollateral,
+        IFixedLender fixedLenderBorrowed,
+        IFixedLender fixedLenderCollateral,
         uint256 actualRepayAmount
     ) external view returns (uint256);
 
-    function getMarketAddresses() external view returns (address[] memory);
+    function getMarketAddresses() external view returns (IFixedLender[] memory);
 
     function validateAccountShortfall(
-        address fixedLenderAddress,
+        IFixedLender fixedLender,
         address account,
         uint256 amount
     ) external view;

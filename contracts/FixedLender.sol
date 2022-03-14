@@ -243,7 +243,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         address borrower,
         uint256 seizeAmount
     ) external override nonReentrant whenNotPaused {
-        _seize(msg.sender, liquidator, borrower, seizeAmount);
+        _seize(IFixedLender(msg.sender), liquidator, borrower, seizeAmount);
     }
 
     /**
@@ -275,7 +275,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      */
     function withdrawFromSmartPool(uint256 amount) public override {
         // reverts on failure
-        auditor.validateAccountShortfall(address(this), msg.sender, amount);
+        auditor.validateAccountShortfall(this, msg.sender, amount);
 
         uint256 userBalance = eToken.balanceOf(msg.sender);
         uint256 amountToWithdraw = amount;
@@ -332,7 +332,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         treasury += earningsTreasury;
         eToken.accrueEarnings(earningsSP);
-        auditor.validateBorrowMP(address(this), msg.sender);
+        auditor.validateBorrowMP(this, msg.sender);
 
         doTransferOut(msg.sender, amount);
 
@@ -593,8 +593,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     ) internal returns (uint256) {
         // reverts on failure
         auditor.liquidateAllowed(
-            address(this),
-            address(fixedLenderCollateral),
+            this,
+            fixedLenderCollateral,
             liquidator,
             borrower,
             repayAmount
@@ -610,8 +610,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         // reverts on failure
         uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(
-            address(this),
-            address(fixedLenderCollateral),
+            this,
+            fixedLenderCollateral,
             repayAmount
         );
 
@@ -628,7 +628,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         // run seizeInternal to avoid re-entrancy, otherwise make an external call
         // both revert on failure
         if (address(fixedLenderCollateral) == address(this)) {
-            _seize(address(this), liquidator, borrower, seizeTokens);
+            _seize(this, liquidator, borrower, seizeTokens);
         } else {
             fixedLenderCollateral.seize(liquidator, borrower, seizeTokens);
         }
@@ -657,18 +657,13 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param seizeAmount amount to be removed from borrower's posession
      */
     function _seize(
-        address seizerFixedLender,
+        IFixedLender seizerFixedLender,
         address liquidator,
         address borrower,
         uint256 seizeAmount
     ) internal {
         // reverts on failure
-        auditor.seizeAllowed(
-            address(this),
-            seizerFixedLender,
-            liquidator,
-            borrower
-        );
+        auditor.seizeAllowed(this, seizerFixedLender, liquidator, borrower);
 
         uint256 protocolAmount = seizeAmount.fmul(protocolLiquidationFee, 1e18);
         uint256 amountToTransfer = seizeAmount - protocolAmount;

@@ -27,7 +27,6 @@ export class DefaultEnv {
   auditor: Contract;
   interestRateModel: Contract;
   tsUtils: Contract;
-  marketsLib: Contract;
   fixedLenderContracts: Map<string, Contract>;
   poolAccountingContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
@@ -46,7 +45,6 @@ export class DefaultEnv {
     _auditor: Contract,
     _interestRateModel: Contract,
     _tsUtils: Contract,
-    _marketsLib: Contract,
     _fixedLenderContracts: Map<string, Contract>,
     _poolAccountingContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
@@ -63,7 +61,6 @@ export class DefaultEnv {
     this.interestRateModel = _interestRateModel;
     this.tsUtils = _tsUtils;
     this.mockedTokens = _mockedTokens;
-    this.marketsLib = _marketsLib;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
@@ -87,10 +84,6 @@ export class DefaultEnv {
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
     const tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
-
-    const MarketsLib = await ethers.getContractFactory("MarketsLib");
-    const marketsLib = await MarketsLib.deploy();
-    await marketsLib.deployed();
 
     const MockedOracle = await ethers.getContractFactory("MockedOracle");
     const oracle = await MockedOracle.deploy();
@@ -119,11 +112,7 @@ export class DefaultEnv {
         );
     await interestRateModel.deployed();
 
-    const Auditor = await ethers.getContractFactory("Auditor", {
-      libraries: {
-        MarketsLib: marketsLib.address,
-      },
-    });
+    const Auditor = await ethers.getContractFactory("Auditor");
     const auditor = await Auditor.deploy(oracle.address);
     await auditor.deployed();
 
@@ -210,7 +199,6 @@ export class DefaultEnv {
       auditor,
       interestRateModel,
       tsUtils,
-      marketsLib,
       fixedLenderContracts,
       poolAccountingContracts,
       underlyingContracts,
@@ -550,11 +538,7 @@ export class DefaultEnv {
   }
 
   public async deployDuplicatedAuditor() {
-    const Auditor = await ethers.getContractFactory("Auditor", {
-      libraries: {
-        MarketsLib: this.marketsLib.address,
-      },
-    });
+    const Auditor = await ethers.getContractFactory("Auditor");
 
     const newAuditor = await Auditor.deploy(this.oracle.address);
     await newAuditor.deployed();
