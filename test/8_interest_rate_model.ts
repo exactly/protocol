@@ -435,13 +435,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("8360");
       const B = parseUnits("-418");
       const maxUtilizationRate = parseUnits("20");
-      const penaltyRate = parseUnits("0.025");
-      await interestRateModel.setParameters(
-        A,
-        B,
-        maxUtilizationRate,
-        penaltyRate
-      );
+      await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarkets(["WETH"]);
       await exactlyEnv.depositSP("DAI", "1200");
@@ -450,9 +444,7 @@ describe("InterestRateModel", () => {
       // this'd push U to 15
       await expect(
         exactlyEnv.borrowMP("DAI", secondPoolID, "1500")
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-      );
+      ).to.be.revertedWith("InsufficientProtocolLiquidity()");
     });
   });
 
