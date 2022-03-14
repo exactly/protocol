@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import { PoolLib } from "./PoolLib.sol";
 import "../interfaces/IFixedLender.sol";
 import "../interfaces/IOracle.sol";
 import "../utils/Errors.sol";
@@ -36,8 +37,6 @@ library MarketsLib {
         uint8 decimals;
         mapping(address => bool) accountMembership;
     }
-
-    uint256 internal constant ALL_MATURITIES = 0;
 
     event MarketEntered(address fixedLender, address account);
     event MarketExited(address fixedLender, address account);
@@ -155,7 +154,7 @@ library MarketsLib {
             // Read the balances
             (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
                 account,
-                ALL_MATURITIES
+                PoolLib.MATURITY_ALL
             );
 
             vars.collateralFactor = book

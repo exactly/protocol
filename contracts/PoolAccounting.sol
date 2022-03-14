@@ -409,7 +409,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     }
 
     /**
-     * @dev Gets all borrows for a wallet in certain maturity (or ALL_MATURITIES)
+     * @dev Gets all borrows for a wallet in certain maturity (or MATURITY_ALL)
      * @param who wallet to return status snapshot in the specified maturity date
      * @param maturityDate maturityDate where the borrow is taking place.
      * - Send the value 0 in order to get the snapshot for all maturities where the user borrowed
@@ -421,7 +421,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         override
         returns (uint256 debt)
     {
-        if (maturityDate == 0) {
+        if (maturityDate == PoolLib.MATURITY_ALL) {
             uint256 borrowsLength = userMpBorrowed[who].length;
             for (uint256 i = 0; i < borrowsLength; i++) {
                 debt += getAccountDebt(who, userMpBorrowed[who][i]);

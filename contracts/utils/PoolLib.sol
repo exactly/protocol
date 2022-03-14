@@ -42,6 +42,8 @@ library PoolLib {
         uint256 fee;
     }
 
+    uint256 public constant MATURITY_ALL = type(uint256).max;
+
     /**
      * @notice function that registers an operation to add money to
      *         maturity pool
