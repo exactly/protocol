@@ -134,15 +134,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     /// @dev updates this model's curve parameters
     /// @param curveA curve parameter
     /// @param curveB curve parameter
-    /// @param targetUtilizationRate % of MP supp
+    /// @param _maxUtilizationRate % of MP supp
     function setCurveParameters(
         uint256 curveA,
         int256 curveB,
-        uint256 targetUtilizationRate
+        uint256 _maxUtilizationRate
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         curveParameterA = curveA;
         curveParameterB = curveB;
-        maxUtilizationRate = targetUtilizationRate;
+        maxUtilizationRate = _maxUtilizationRate;
         // we call the getPointInCurve function with an utilization rate of
         // zero to force it to revert in the tx that sets it, and not be able
         // to set an invalid curve (such as one yielding a negative interest
@@ -152,7 +152,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         emit ParametersUpdated(
             curveA,
             curveB,
-            targetUtilizationRate,
+            _maxUtilizationRate,
             penaltyRate,
             spFeeRate
         );
