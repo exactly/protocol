@@ -107,7 +107,8 @@ export class PoolAccountingEnv {
         this.currentWallet.address,
         amount,
         minAmountRequired,
-        this.maxSPDebt
+        this.maxSPDebt,
+        this.nMaturities
       );
   }
 
