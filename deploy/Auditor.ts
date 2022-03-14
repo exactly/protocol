@@ -3,9 +3,6 @@ import type { DeployFunction } from "hardhat-deploy/types";
 const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
   await deploy("Auditor", {
-    libraries: {
-      MarketsLib: (await get("MarketsLib")).address,
-    },
     args: [(await get("ExactlyOracle")).address],
     from: deployer,
     log: true,
@@ -13,6 +10,6 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 };
 
 func.tags = ["Auditor"];
-func.dependencies = ["MarketsLib", "ExactlyOracle"];
+func.dependencies = ["ExactlyOracle"];
 
 export default func;
