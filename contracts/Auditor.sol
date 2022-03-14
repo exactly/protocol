@@ -1,16 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
+import {
+    FixedPointMathLib
+} from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import "./interfaces/IFixedLender.sol";
-import "./interfaces/IAuditor.sol";
-import "./interfaces/IOracle.sol";
-import "./utils/Errors.sol";
-import "./utils/MarketsLib.sol";
+import { IFixedLender, NotFixedLender } from "./interfaces/IFixedLender.sol";
+import { IOracle } from "./interfaces/IOracle.sol";
+import { MarketsLib } from "./utils/MarketsLib.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
+import {
+    IAuditor,
+    AuditorMismatch,
+    BalanceOwed,
+    InsufficientLiquidity,
+    InsufficientShortfall,
+    InvalidBorrowCaps,
+    LiquidatorNotBorrower,
+    MarketAlreadyListed,
+    MarketNotListed,
+    TooMuchRepay
+} from "./interfaces/IAuditor.sol";
 
 contract Auditor is IAuditor, AccessControl {
     using FixedPointMathLib for uint256;
@@ -103,9 +115,7 @@ contract Auditor is IAuditor, AccessControl {
             .getAccountSnapshot(msg.sender, PoolLib.MATURITY_ALL);
 
         /* Fail if the sender has a borrow balance */
-        if (borrowBalance != 0) {
-            revert GenericError(ErrorCode.EXIT_MARKET_BALANCE_OWED);
-        }
+        if (borrowBalance != 0) revert BalanceOwed();
 
         /* Fail if the sender is not permitted to redeem all of their tokens */
         validateAccountShortfall(fixedLenderAddress, msg.sender, amountHeld);
@@ -153,13 +163,11 @@ contract Auditor is IAuditor, AccessControl {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         MarketsLib.Market storage market = book.markets[fixedLender];
 
-        if (market.isListed) {
-            revert GenericError(ErrorCode.MARKET_ALREADY_LISTED);
+        if (IFixedLender(fixedLender).getAuditor() != this) {
+            revert AuditorMismatch();
         }
 
-        if (IFixedLender(fixedLender).getAuditor() != this) {
-            revert GenericError(ErrorCode.AUDITOR_MISMATCH);
-        }
+        if (market.isListed) revert MarketAlreadyListed();
 
         market.isListed = true;
         market.collateralFactor = collateralFactor;
@@ -196,7 +204,7 @@ contract Auditor is IAuditor, AccessControl {
         uint256 numBorrowCaps = newBorrowCaps.length;
 
         if (numMarkets == 0 || numMarkets != numBorrowCaps) {
-            revert GenericError(ErrorCode.INVALID_SET_BORROW_CAP);
+            revert InvalidBorrowCaps();
         }
 
         for (uint256 i = 0; i < numMarkets; i++) {
@@ -230,9 +238,7 @@ contract Auditor is IAuditor, AccessControl {
             0
         );
 
-        if (shortfall > 0) {
-            revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
-        }
+        if (shortfall > 0) revert InsufficientLiquidity();
     }
 
     /**
@@ -251,17 +257,13 @@ contract Auditor is IAuditor, AccessControl {
         address borrower,
         uint256 repayAmount
     ) external view override {
-        if (borrower == liquidator) {
-            revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
-        }
+        if (borrower == liquidator) revert LiquidatorNotBorrower();
 
         // if markets are listed, they have the same auditor
         if (
             !book.markets[fixedLenderBorrowed].isListed ||
             !book.markets[fixedLenderCollateral].isListed
-        ) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        ) revert MarketNotListed();
 
         /* The borrower must have shortfall in order to be liquidatable */
         (, uint256 shortfall) = book.accountLiquidity(
@@ -272,17 +274,13 @@ contract Auditor is IAuditor, AccessControl {
             0
         );
 
-        if (shortfall == 0) {
-            revert GenericError(ErrorCode.INSUFFICIENT_SHORTFALL);
-        }
+        if (shortfall == 0) revert InsufficientShortfall();
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
         (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed)
             .getAccountSnapshot(borrower, PoolLib.MATURITY_ALL);
         uint256 maxClose = closeFactor.fmul(borrowBalance, 1e18);
-        if (repayAmount > maxClose) {
-            revert GenericError(ErrorCode.TOO_MUCH_REPAY);
-        }
+        if (repayAmount > maxClose) revert TooMuchRepay();
     }
 
     /**
@@ -299,17 +297,13 @@ contract Auditor is IAuditor, AccessControl {
         address liquidator,
         address borrower
     ) external view override {
-        if (borrower == liquidator) {
-            revert GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER);
-        }
+        if (borrower == liquidator) revert LiquidatorNotBorrower();
 
         // If markets are listed, they have also the same Auditor
         if (
             !book.markets[fixedLenderCollateral].isListed ||
             !book.markets[fixedLenderBorrowed].isListed
-        ) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
-        }
+        ) revert MarketNotListed();
     }
 
     /**
@@ -427,9 +421,7 @@ contract Auditor is IAuditor, AccessControl {
             amount,
             0
         );
-        if (shortfall > 0) {
-            revert GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY);
-        }
+        if (shortfall > 0) revert InsufficientLiquidity();
     }
 
     /**
@@ -438,7 +430,7 @@ contract Auditor is IAuditor, AccessControl {
      */
     function validateMarketListed(address fixedLenderAddress) internal view {
         if (!book.markets[fixedLenderAddress].isListed) {
-            revert GenericError(ErrorCode.MARKET_NOT_LISTED);
+            revert MarketNotListed();
         }
     }
 }

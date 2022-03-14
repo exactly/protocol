@@ -66,7 +66,7 @@ describe("FixedLender", function () {
       });
       it("AND its not possible to borrow 2 wei of a dai", async () => {
         await expect(fixedLenderDAI.borrowFromMaturityPool(2, futurePools(1)[0], 2)).to.be.revertedWith(
-          GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY),
+          "InsufficientLiquidity()",
         );
       });
       describe("AND WHEN borrowing 1 wei of DAI", () => {
@@ -109,7 +109,7 @@ describe("FixedLender", function () {
     });
     it("WHEN trying to borrow DAI THEN it reverts with INSUFFICIENT_LIQUIDITY since collateral was not deposited yet", async () => {
       await expect(fixedLenderDAI.borrowFromMaturityPool(1, futurePools(1)[0], 2)).to.be.revertedWith(
-        GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY),
+        "InsufficientLiquidity()",
       );
     });
     describe("AND WHEN depositing 50 DAI to the same maturity, as the same user", () => {

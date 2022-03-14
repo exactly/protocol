@@ -9,7 +9,6 @@ import type {
   MockedChainlinkFeedRegistry,
   MockedToken,
 } from "../types";
-import GenericError, { ErrorCode } from "./utils/GenericError";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
@@ -103,7 +102,7 @@ describe("Liquidity computations", function () {
         it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
           await expect(
             fixedLenderDAI.borrowFromMaturityPool(parseUnits("800"), futurePools(1)[0], parseUnits("1000")),
-          ).to.be.revertedWith(GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY));
+          ).to.be.revertedWith("InsufficientLiquidity()");
         });
       });
 
@@ -125,9 +124,7 @@ describe("Liquidity computations", function () {
           expect(borrowed).to.equal(parseUnits("800"));
         });
         it("AND WHEN laura tries to exit her collateral DAI market it reverts since there's unpaid debt", async () => {
-          await expect(auditor.exitMarket(fixedLenderDAI.address)).to.be.revertedWith(
-            GenericError(ErrorCode.EXIT_MARKET_BALANCE_OWED),
-          );
+          await expect(auditor.exitMarket(fixedLenderDAI.address)).to.be.revertedWith("BalanceOwed()");
         });
         it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
           await fixedLenderDAI.repayToMaturityPool(
@@ -149,9 +146,7 @@ describe("Liquidity computations", function () {
             await expect(auditor.exitMarket(fixedLenderWETH.address)).to.not.be.reverted;
           });
           it("THEN it reverts when she tries to exit her collateral DAI market since it's the same that she borrowed from", async () => {
-            await expect(auditor.exitMarket(fixedLenderDAI.address)).to.be.revertedWith(
-              GenericError(ErrorCode.EXIT_MARKET_BALANCE_OWED),
-            );
+            await expect(auditor.exitMarket(fixedLenderDAI.address)).to.be.revertedWith("BalanceOwed()");
           });
         });
       });
@@ -246,7 +241,7 @@ describe("Liquidity computations", function () {
           // We expect liquidity to be equal to zero
           await expect(
             fixedLenderUSDC.connect(bob).borrowFromMaturityPool("400", futurePools(1)[0], "400"),
-          ).to.be.revertedWith(GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY));
+          ).to.be.revertedWith("InsufficientLiquidity()");
         });
         describe("AND WHEN he takes a 3*10^14 USDC loan", () => {
           beforeEach(async () => {
@@ -282,7 +277,7 @@ describe("Liquidity computations", function () {
             fixedLenderWBTC
               .connect(bob)
               .borrowFromMaturityPool(parseUnits("1", 8), futurePools(1)[0], parseUnits("1", 8)),
-          ).to.be.revertedWith(GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY));
+          ).to.be.revertedWith("InsufficientLiquidity()");
         });
       });
 
@@ -304,7 +299,7 @@ describe("Liquidity computations", function () {
           it("WHEN he tries to withdraw the usdc (6 decimals) collateral, THEN it reverts ()", async () => {
             // We expect liquidity to be equal to zero
             await expect(fixedLenderUSDC.withdrawFromSmartPool(parseUnits("40000", 6))).to.be.revertedWith(
-              GenericError(ErrorCode.INSUFFICIENT_LIQUIDITY),
+              "InsufficientLiquidity()",
             );
           });
         });
