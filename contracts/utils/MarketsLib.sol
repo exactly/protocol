@@ -163,7 +163,7 @@ library MarketsLib {
 
             // Get the normalized price of the asset (18 decimals)
             vars.oraclePrice = oracle.getAssetPrice(
-                asset.underlyingTokenName()
+                asset.underlyingTokenSymbol()
             );
 
             // We sum all the collateral prices

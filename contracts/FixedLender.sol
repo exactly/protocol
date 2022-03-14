@@ -28,7 +28,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     IERC20 public override trustedUnderlying;
     IEToken public override eToken;
-    string public override underlyingTokenName;
+    string public override underlyingTokenSymbol;
     IPoolAccounting public poolAccounting;
 
     IAuditor public auditor;
@@ -153,14 +153,14 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     constructor(
         address _tokenAddress,
-        string memory _underlyingTokenName,
+        string memory _underlyingTokenSymbol,
         address _eTokenAddress,
         address _auditorAddress,
         address _poolAccounting
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         trustedUnderlying = IERC20(_tokenAddress);
-        underlyingTokenName = _underlyingTokenName;
+        underlyingTokenSymbol = _underlyingTokenSymbol;
 
         auditor = IAuditor(_auditorAddress);
         eToken = IEToken(_eTokenAddress);

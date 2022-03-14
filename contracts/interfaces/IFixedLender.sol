@@ -51,7 +51,7 @@ interface IFixedLender {
 
     function withdrawFromTreasury(address who, uint256 amount) external;
 
-    function underlyingTokenName() external view returns (string calldata);
+    function underlyingTokenSymbol() external view returns (string calldata);
 
     function trustedUnderlying() external view returns (IERC20);
 
