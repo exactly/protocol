@@ -77,13 +77,13 @@ describe("Auditor from User Space", function () {
   it("SeizeAllowed should fail when liquidator is borrower", async () => {
     await expect(
       auditor.seizeAllowed(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, owner.address),
-    ).to.be.revertedWith(GenericError(ErrorCode.LIQUIDATOR_NOT_BORROWER));
+    ).to.be.revertedWith("LiquidatorNotBorrower()");
   });
 
   it("LiquidateAllowed should revert with INSUFFICIENT_SHORTFALL if user has no shortfall", async () => {
     await expect(
       auditor.liquidateAllowed(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, user.address, 100),
-    ).to.be.revertedWith(GenericError(ErrorCode.INSUFFICIENT_SHORTFALL)); // Any failure except MARKET_NOT_LISTED
+    ).to.be.revertedWith("InsufficientShortfall()"); // Any failure except MARKET_NOT_LISTED
   });
 
   it("Auto-adding a market should only be allowed from a fixedLender", async () => {
@@ -93,7 +93,7 @@ describe("Auditor from User Space", function () {
 
     // we make it count as collateral (DAI)
     await expect(auditor.validateBorrowMP(fixedLenderDAI.address, owner.address)).to.be.revertedWith(
-      GenericError(ErrorCode.NOT_A_FIXED_LENDER_SENDER),
+      "NotFixedLender()",
     );
   });
 
@@ -104,7 +104,7 @@ describe("Auditor from User Space", function () {
     await expect(
       // user tries to borrow more than the cap
       fixedLenderDAI.borrowFromMaturityPool(20, futurePools(1)[0], 22),
-    ).to.be.revertedWith(GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED));
+    ).to.be.revertedWith("BorrowCapReached()");
   });
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
@@ -171,6 +171,6 @@ describe("Auditor from User Space", function () {
   });
 
   it("Try to get data from wrong address", async () => {
-    await expect(auditor.getMarketData(user.address)).to.be.revertedWith(GenericError(ErrorCode.MARKET_NOT_LISTED));
+    await expect(auditor.getMarketData(user.address)).to.be.revertedWith("MarketNotListed()");
   });
 });

@@ -81,7 +81,7 @@ describe("Auditor Admin", function () {
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MARKET_ALREADY_LISTED", async () => {
       await expect(
         auditor.enableMarket(fixedLenderDAI.address, 0, "DAI", "DAI", await dai.decimals()),
-      ).to.be.revertedWith(GenericError(ErrorCode.MARKET_ALREADY_LISTED));
+      ).to.be.revertedWith("MarketAlreadyListed()");
     });
 
     it("WHEN trying to set a new fixedLender with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
@@ -98,19 +98,17 @@ describe("Auditor Admin", function () {
       });
       await expect(
         auditor.enableMarket(fixedLender.address, 0, "Parallel DAI", "Parallel DAI", await dai.decimals()),
-      ).to.be.revertedWith(GenericError(ErrorCode.AUDITOR_MISMATCH));
+      ).to.be.revertedWith("AuditorMismatch()");
     });
 
     it("WHEN trying to set borrow caps on an unlisted market, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(auditor.setMarketBorrowCaps([laura.address], [parseUnits("1000")])).to.be.revertedWith(
-        GenericError(ErrorCode.MARKET_NOT_LISTED),
+        "MarketNotListed()",
       );
     });
 
     it("WHEN trying to set borrow caps with arguments mismatch, THEN the transaction should revert with INVALID_SET_BORROW_CAP", async () => {
-      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], [])).to.be.revertedWith(
-        GenericError(ErrorCode.INVALID_SET_BORROW_CAP),
-      );
+      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], [])).to.be.revertedWith("InvalidBorrowCaps()");
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {

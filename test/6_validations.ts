@@ -2,13 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import {
-  ProtocolError,
-  errorGeneric,
-  ExaTime,
-  errorUnmatchedPool,
-  PoolState,
-} from "./exactlyUtils";
+import { ExaTime, errorUnmatchedPool, PoolState } from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -44,12 +38,12 @@ describe("Validations", function () {
     it("WHEN trying to enter markets, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
         auditor.enterMarkets([exactlyEnv.notAnFixedLenderAddress])
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to exit market, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
         auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress)
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call validateBorrowMP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
@@ -57,7 +51,7 @@ describe("Validations", function () {
           exactlyEnv.notAnFixedLenderAddress,
           owner.address
         )
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to set borrow caps, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
@@ -65,7 +59,7 @@ describe("Validations", function () {
           [exactlyEnv.notAnFixedLenderAddress],
           [parseUnits("1000")]
         )
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call liquidateAllowed, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
@@ -76,7 +70,7 @@ describe("Validations", function () {
           user.address,
           100
         )
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      ).to.be.revertedWith("MarketNotListed()");
       await expect(
         auditor.liquidateAllowed(
           fixedLender.address,
@@ -85,7 +79,7 @@ describe("Validations", function () {
           user.address,
           100
         )
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call seizeAllowed, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
@@ -95,7 +89,7 @@ describe("Validations", function () {
           owner.address,
           user.address
         )
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      ).to.be.revertedWith("MarketNotListed()");
       await expect(
         auditor.seizeAllowed(
           fixedLender.address,
@@ -103,7 +97,7 @@ describe("Validations", function () {
           owner.address,
           user.address
         )
-      ).to.be.revertedWith(errorGeneric(ProtocolError.MARKET_NOT_LISTED));
+      ).to.be.revertedWith("MarketNotListed()");
     });
   });
   describe("FixedLender:", () => {

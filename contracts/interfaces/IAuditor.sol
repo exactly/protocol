@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+error AuditorMismatch();
+error BalanceOwed();
+error InsufficientLiquidity();
+error InsufficientShortfall();
+error InvalidBorrowCaps();
+error LiquidatorNotBorrower();
+error MarketAlreadyListed();
+error MarketNotListed();
+error TooMuchRepay();
+
 interface IAuditor {
     // this one validates post liquidity check
     function validateBorrowMP(address fixedLenderAddress, address borrower)

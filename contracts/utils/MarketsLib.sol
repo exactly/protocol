@@ -3,10 +3,9 @@ pragma solidity ^0.8.4;
 
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import { IFixedLender, NotFixedLender } from "../interfaces/IFixedLender.sol";
 import { PoolLib } from "./PoolLib.sol";
-import "../interfaces/IFixedLender.sol";
 import "../interfaces/IOracle.sol";
-import "../utils/Errors.sol";
 
 library MarketsLib {
     using FixedPointMathLib for uint256;
@@ -101,9 +100,7 @@ library MarketsLib {
     ) external {
         if (!book.markets[fixedLenderAddress].accountMembership[borrower]) {
             // only fixedLenders may call borrowAllowed if borrower not in market
-            if (msg.sender != fixedLenderAddress) {
-                revert GenericError(ErrorCode.NOT_A_FIXED_LENDER_SENDER);
-            }
+            if (msg.sender != fixedLenderAddress) revert NotFixedLender();
 
             // attempt to add borrower to the market // reverts if error
             addToMarket(book, fixedLenderAddress, borrower);
@@ -120,9 +117,7 @@ library MarketsLib {
         if (borrowCap != 0) {
             uint256 totalBorrows = IFixedLender(fixedLenderAddress)
                 .totalMpBorrows();
-            if (totalBorrows >= borrowCap) {
-                revert GenericError(ErrorCode.MARKET_BORROW_CAP_REACHED);
-            }
+            if (totalBorrows >= borrowCap) revert BorrowCapReached();
         }
     }
 
@@ -231,3 +226,5 @@ library MarketsLib {
         emit MarketEntered(fixedLenderAddress, who);
     }
 }
+
+error BorrowCapReached();

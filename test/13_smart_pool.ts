@@ -215,9 +215,7 @@ describe("Smart Pool", function () {
       it("WHEN trying to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(
           eDAI.connect(bob).transfer(john.address, parseUnits("100"))
-        ).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
-        );
+        ).to.be.revertedWith("InsufficientLiquidity()");
       });
       it("AND WHEN trying to transfer a small amount that doesnt cause a shortfall (10 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
         await expect(eDAI.connect(bob).transfer(john.address, parseUnits("10")))
@@ -225,7 +223,7 @@ describe("Smart Pool", function () {
       });
       it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_LIQUIDITY)
+          "InsufficientLiquidity()"
         );
       });
       it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (10 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {

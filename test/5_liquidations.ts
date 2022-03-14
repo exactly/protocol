@@ -621,9 +621,7 @@ describe("Liquidations", function () {
               fixedLenderETH.address,
               nextPoolID
             )
-          ).to.be.revertedWith(
-            errorGeneric(ProtocolError.LIQUIDATOR_NOT_BORROWER)
-          );
+          ).to.be.revertedWith("LiquidatorNotBorrower()");
         });
 
         describe("GIVEN an insufficient allowance on the liquidator", () => {
@@ -679,7 +677,7 @@ describe("Liquidations", function () {
                   fixedLenderWBTC.address,
                   nextPoolID
                 )
-            ).to.be.revertedWith(errorGeneric(ProtocolError.TOO_MUCH_REPAY));
+            ).to.be.revertedWith("TooMuchRepay()");
           });
         });
         // TODO: I think this should eventually be 'a position can be wiped out
