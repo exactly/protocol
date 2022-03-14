@@ -38,8 +38,8 @@ library MarketsLib {
         mapping(address => bool) accountMembership;
     }
 
-    event MarketEntered(address fixedLender, address account);
-    event MarketExited(address fixedLender, address account);
+    event MarketEntered(address indexed fixedLender, address account);
+    event MarketExited(address indexed fixedLender, address account);
 
     /**
      * @dev Allows wallet to exit certain markets (fixedLenderDAI, fixedLenderETH, etc)
