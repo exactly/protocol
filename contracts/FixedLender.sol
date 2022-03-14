@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
+import { InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
 import "./EToken.sol";
 import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
-import "./utils/DecimalMath.sol";
 import "./utils/TSUtils.sol";
 import "./utils/Errors.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
-    using DecimalMath for uint256;
+    using FixedPointMathLib for uint256;
 
     uint256 public protocolSpreadFee = 2.8e16; // 2.8%
     uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
@@ -298,9 +299,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         if (
             eToken.totalSupply() - amountToWithdraw <
             poolAccounting.smartPoolBorrowed()
-        ) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-        }
+        ) revert InsufficientProtocolLiquidity();
 
         eToken.burn(msg.sender, amountToWithdraw);
         doTransferOut(msg.sender, amountToWithdraw);
@@ -685,7 +684,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             borrower
         );
 
-        uint256 protocolAmount = seizeAmount.mul_(protocolLiquidationFee);
+        uint256 protocolAmount = seizeAmount.fmul(protocolLiquidationFee, 1e18);
         uint256 amountToTransfer = seizeAmount - protocolAmount;
         treasury += protocolAmount;
 
@@ -694,7 +693,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             eToken.totalSupply() - amountToTransfer <
             poolAccounting.smartPoolBorrowed()
         ) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
+            revert InsufficientProtocolLiquidity();
         }
 
         // That seize amount diminishes liquidity in the pool

@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IOracle.sol";
-import "./utils/DecimalMath.sol";
 import "./utils/Errors.sol";
 import "./utils/MarketsLib.sol";
 
 contract Auditor is IAuditor, AccessControl {
-    using DecimalMath for uint256;
+    using FixedPointMathLib for uint256;
     using SafeCast for uint256;
     using MarketsLib for MarketsLib.Book;
 
@@ -278,7 +278,7 @@ contract Auditor is IAuditor, AccessControl {
         /* The liquidator may not repay more than what is allowed by the closeFactor */
         (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed)
             .getAccountSnapshot(borrower, MarketsLib.ALL_MATURITIES);
-        uint256 maxClose = closeFactor.mul_(borrowBalance);
+        uint256 maxClose = closeFactor.fmul(borrowBalance, 1e18);
         if (repayAmount > maxClose) {
             revert GenericError(ErrorCode.TOO_MUCH_REPAY);
         }
@@ -374,19 +374,17 @@ contract Auditor is IAuditor, AccessControl {
             IFixedLender(fixedLenderCollateral).underlyingTokenName()
         );
 
-        uint256 amountInUSD = DecimalMath.getTokenAmountInUSD(
-            actualRepayAmount,
+        uint256 amountInUSD = actualRepayAmount.fmul(
             priceBorrowed,
-            book.markets[fixedLenderBorrowed].decimals
+            10**book.markets[fixedLenderBorrowed].decimals
         );
         // 10**18: usd amount decimals
-        uint256 seizeTokens = DecimalMath.getTokenAmountFromUsd(
-            amountInUSD,
-            priceCollateral,
-            book.markets[fixedLenderCollateral].decimals
+        uint256 seizeTokens = amountInUSD.fmul(
+            10**book.markets[fixedLenderCollateral].decimals,
+            priceCollateral
         );
 
-        return seizeTokens.mul_(liquidationIncentive);
+        return seizeTokens.fmul(liquidationIncentive, 1e18);
     }
 
     /**

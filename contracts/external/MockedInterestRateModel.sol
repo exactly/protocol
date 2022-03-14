@@ -3,11 +3,8 @@ pragma solidity ^0.8.4;
 
 import "../interfaces/IInterestRateModel.sol";
 import "../utils/Errors.sol";
-import "../utils/DecimalMath.sol";
 
 contract MockedInterestRateModel is IInterestRateModel {
-    using DecimalMath for uint256;
-
     uint256 public borrowRate;
     uint256 public override penaltyRate;
     uint256 public spFeeRate;

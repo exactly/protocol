@@ -344,7 +344,7 @@ describe("FixedLender", function () {
     it("WHEN Maria tries to borrow 10 DAI on an empty maturity, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
       await expect(
         fixedLenderDAI.borrowFromMaturityPool(parseUnits("10"), futurePools(1)[0], parseUnits("10")),
-      ).to.be.revertedWith(GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY));
+      ).to.be.revertedWith("InsufficientProtocolLiquidity()");
     });
     describe("AND John deposited 2400 DAI to the smart pool", () => {
       beforeEach(async () => {
@@ -353,7 +353,7 @@ describe("FixedLender", function () {
       it("WHEN Maria tries to borrow 2500 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
         await expect(
           fixedLenderDAI.borrowFromMaturityPool(parseUnits("2500"), futurePools(1)[0], parseUnits("5000")),
-        ).to.be.revertedWith(GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY));
+        ).to.be.revertedWith("InsufficientProtocolLiquidity()");
       });
       it("WHEN Maria tries to borrow 150 DAI, THEN it succeeds", async () => {
         await expect(fixedLenderDAI.borrowFromMaturityPool(parseUnits("150"), futurePools(1)[0], parseUnits("150"))).to
@@ -369,7 +369,7 @@ describe("FixedLender", function () {
       it("WHEN Maria tries to borrow 150 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
         await expect(
           fixedLenderDAI.borrowFromMaturityPool(parseUnits("150"), futurePools(1)[0], parseUnits("150")),
-        ).to.be.revertedWith(GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY));
+        ).to.be.revertedWith("InsufficientProtocolLiquidity()");
       });
       describe("AND John deposited 1200 DAI to the smart pool", () => {
         beforeEach(async () => {
@@ -380,7 +380,7 @@ describe("FixedLender", function () {
         it("WHEN Maria tries to borrow 1350 DAI, THEN it fails with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
           await expect(
             fixedLenderDAI.borrowFromMaturityPool(parseUnits("1350"), futurePools(1)[0], parseUnits("2000")),
-          ).to.be.revertedWith(GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY));
+          ).to.be.revertedWith("InsufficientProtocolLiquidity()");
         });
         it("WHEN Maria tries to borrow 200 DAI, THEN it succeeds", async () => {
           await expect(fixedLenderDAI.borrowFromMaturityPool(parseUnits("200"), futurePools(1)[0], parseUnits("200")))
@@ -423,7 +423,7 @@ describe("FixedLender", function () {
         });
         it("AND WHEN trying to withdraw 5900 >(6000 total, 200 borrowed to MP) from the smart pool, THEN it reverts because 100 of those 5900 are still lent to the maturity pool", async () => {
           await expect(fixedLenderDAI.withdrawFromSmartPool(parseUnits("5900"))).to.be.revertedWith(
-            GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY),
+            "InsufficientProtocolLiquidity()",
           );
         });
         describe("AND borrowing 1100 in a later maturity ", () => {

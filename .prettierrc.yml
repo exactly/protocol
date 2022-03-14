@@ -1,10 +1,12 @@
+tabWidth: 2
 printWidth: 120
 trailingComma: all
 explicitTypes: always
+bracketSpacing: true
 
 overrides: # TODO remove after refactor
   - files:
-      - "*.sol"
+      - contracts/**/*.sol
       - test/5_*
       - test/6_*
       - test/8_*
@@ -23,3 +25,6 @@ overrides: # TODO remove after refactor
     options:
       printWidth: 80
       trailingComma: es5
+  - files: contracts/**/*.sol
+    options:
+      tabWidth: 4

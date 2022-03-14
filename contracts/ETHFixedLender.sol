@@ -97,7 +97,7 @@ contract ETHFixedLender is FixedLender {
             // giving it some tought, we kind of can trust WETH9 to mint
             // exactly the requested amount. But I'll leave this here for now
             uint256 balanceBefore = trustedUnderlying.balanceOf(address(this));
-            weth.deposit{value: msg.value}();
+            weth.deposit{ value: msg.value }();
             uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
 
             return balanceAfter - balanceBefore;
