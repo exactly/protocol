@@ -9,3 +9,9 @@ verbosity = 3
 src = 'test/solidity'
 out = 'artifacts/foundry'
 fuzz_runs = 66_666
+
+[development]
+src = 'test/solidity'
+out = 'artifacts/foundry'
+fuzz_runs = 666
+verbosity = 5
