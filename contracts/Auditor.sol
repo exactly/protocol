@@ -115,13 +115,17 @@ contract Auditor is IAuditor, AccessControl {
      */
     function enterMarkets(IFixedLender[] calldata fixedLenders) external {
         uint256 len = fixedLenders.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ) {
             validateMarketListed(fixedLenders[i]);
             if (accountMemberships[fixedLenders[i]][msg.sender]) return;
 
             accountMemberships[fixedLenders[i]][msg.sender] = true;
             accountAssets[msg.sender].push(fixedLenders[i]);
             emit MarketEntered(fixedLenders[i], msg.sender);
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -151,10 +155,14 @@ contract Auditor is IAuditor, AccessControl {
         IFixedLender[] memory userAssetList = accountAssets[msg.sender];
         uint256 len = userAssetList.length;
         uint256 assetIndex = len;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ) {
             if (userAssetList[i] == IFixedLender(fixedLender)) {
                 assetIndex = i;
                 break;
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
@@ -251,11 +259,15 @@ contract Auditor is IAuditor, AccessControl {
             revert InvalidBorrowCaps();
         }
 
-        for (uint256 i = 0; i < numMarkets; i++) {
+        for (uint256 i = 0; i < numMarkets; ) {
             validateMarketListed(fixedLenders[i]);
 
             borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
             emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -497,7 +509,7 @@ contract Auditor is IAuditor, AccessControl {
 
         // For each asset the account is in
         IFixedLender[] memory assets = accountAssets[account];
-        for (uint256 i = 0; i < assets.length; i++) {
+        for (uint256 i = 0; i < assets.length; ) {
             IFixedLender asset = assets[i];
             Market memory market = markets[asset];
 
@@ -541,6 +553,10 @@ contract Auditor is IAuditor, AccessControl {
                         .fmul(vars.oraclePrice, 10**market.decimals)
                         .fmul(market.collateralFactor, 1e18);
                 }
+            }
+
+            unchecked {
+                ++i;
             }
         }
 
