@@ -13,22 +13,6 @@ contract PoolLibTest is DSTest {
   Vm internal vm = Vm(HEVM_ADDRESS);
   PoolLib.MaturityPool private mp;
 
-  function testAtomicAddRemoveFee() external {
-    mp.addFee(1 ether);
-    assertEq(mp.borrowed, 0);
-    assertEq(mp.supplied, 0);
-    assertEq(mp.suppliedSP, 0);
-    assertEq(mp.earningsUnassigned, 1 ether);
-    assertEq(mp.lastAccrue, 0);
-
-    mp.removeFee(1 ether);
-    assertEq(mp.borrowed, 0);
-    assertEq(mp.supplied, 0);
-    assertEq(mp.suppliedSP, 0);
-    assertEq(mp.earningsUnassigned, 0);
-    assertEq(mp.lastAccrue, 0);
-  }
-
   function testAtomicDepositBorrowRepayWithdraw() external {
     uint256 smartPoolDebtReduction = mp.depositMoney(1 ether);
     assertEq(mp.borrowed, 0);
@@ -74,7 +58,7 @@ contract PoolLibTest is DSTest {
   }
 
   function testEarningsAccrual() external {
-    mp.addFee(1 ether);
+    mp.earningsUnassigned = 1 ether;
     uint256 earnings = mp.accrueEarnings(1 days, 1 days);
     assertEq(mp.borrowed, 0);
     assertEq(mp.supplied, 0);

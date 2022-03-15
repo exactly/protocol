@@ -144,24 +144,6 @@ library PoolLib {
     }
 
     /**
-     * @notice Internal function to add fee to be collected at maturity
-     * @param pool maturity pool that needs to be updated
-     * @param fee fee to be added to the earnings for the pool at maturity
-     */
-    function addFee(MaturityPool storage pool, uint256 fee) internal {
-        pool.earningsUnassigned += fee;
-    }
-
-    /**
-     * @notice Internal function to remove fee to be collected from the maturity pool
-     * @param pool maturity pool that needs to be updated
-     * @param fee fee to be removed from the unassigned earnings
-     */
-    function removeFee(MaturityPool storage pool, uint256 fee) internal {
-        pool.earningsUnassigned -= fee;
-    }
-
-    /**
      * @notice Internal function to accrue Smart Pool earnings
      * @param pool maturity pool that needs to be updated
      * @param maturityID timestamp in which maturity pool matures
@@ -235,31 +217,6 @@ library PoolLib {
         position.principal -= principal;
         position.fee -= amount - principal;
         return position;
-    }
-
-    /**
-     * @notice Internal function that creates a new position based on another's
-     *         struct values
-     * @param position original position to be reduced copied
-     */
-    function copy(Position memory position)
-        internal
-        pure
-        returns (Position memory)
-    {
-        return Position(position.principal, position.fee);
-    }
-
-    /**
-     * @notice Internal function returns the full amount in a position (principal and fee)
-     * @param position position to return its full amount
-     */
-    function fullAmount(Position memory position)
-        internal
-        pure
-        returns (uint256 amount)
-    {
-        amount = position.principal + position.fee;
     }
 
     /**
