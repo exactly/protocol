@@ -53,11 +53,11 @@ contract MaturityPoolHarness {
     }
 
     function addFee(uint256 _fee) external {
-        maturityPool.addFee(_fee);
+        maturityPool.earningsUnassigned += _fee;
     }
 
     function removeFee(uint256 _fee) external {
-        maturityPool.removeFee(_fee);
+        maturityPool.earningsUnassigned -= _fee;
     }
 
     function scaleProportionally(

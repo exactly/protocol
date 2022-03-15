@@ -173,7 +173,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             amount
         );
         earningsTreasury += borrowVars.newTreasuryEarnings;
-        pool.addFee(borrowVars.newUnassignedEarnings);
+        pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
             borrowVars.position.principal + amount,
@@ -218,7 +218,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         smartPoolBorrowed -= maturityPools[maturityDate].depositMoney(amount);
-        maturityPools[maturityDate].removeFee(fee + feeSP);
+        maturityPools[maturityDate].earningsUnassigned -= fee + feeSP;
         earningsSP += feeSP;
 
         // We update users's position
@@ -283,7 +283,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // We remove the supply from the offer
         smartPoolBorrowed += pool.withdrawMoney(
-            position.copy().scaleProportionally(amount).principal,
+            PoolLib
+                .Position(position.principal, position.fee)
+                .scaleProportionally(amount)
+                .principal,
             maxSPDebt
         );
 
@@ -295,7 +298,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 pool.suppliedSP,
                 redeemAmountDiscounted
             );
-        maturityPools[maturityDate].addFee(earningsUnassigned);
+        maturityPools[maturityDate].earningsUnassigned += earningsUnassigned;
 
         // the user gets discounted the full amount
         mpUserSuppliedAmount[maturityDate][redeemer] = position
@@ -346,11 +349,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // Math.min to not go over repayAmount since we return exceeding money, but
         // hasn't been calculated yet
         debtCovered =
-            (repayVars.position.fullAmount() * repayAmount) /
+            ((repayVars.position.principal + repayVars.position.fee) *
+                repayAmount) /
             repayVars.amountOwed;
-        repayVars.scaleDebtCovered = repayVars
-            .position
-            .copy()
+        repayVars.scaleDebtCovered = PoolLib
+            .Position(repayVars.position.principal, repayVars.position.fee)
             .scaleProportionally(debtCovered);
 
         // Early repayment allows you to get a discount from the unassigned earnings
@@ -373,7 +376,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             }
 
             // We remove the fee from unassigned earnings
-            pool.removeFee(repayVars.discountFee + repayVars.feeSP);
+            pool.earningsUnassigned -= repayVars.discountFee + repayVars.feeSP;
 
             // user paid more than it should. The fee gets kicked back to the user
             // through _spareRepayAmount_ and on the pool side it was removed by
@@ -384,7 +387,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             uint256 newEarningsSP;
             (newEarningsSP, earningsTreasury) = PoolLib
                 .distributeEarningsAccordingly(
-                    repayAmount - repayVars.scaleDebtCovered.fullAmount(),
+                    repayAmount -
+                        (repayVars.scaleDebtCovered.principal +
+                            repayVars.scaleDebtCovered.fee),
                     pool.suppliedSP,
                     repayVars.scaleDebtCovered.principal
                 );
@@ -400,7 +405,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // From now on: We update the user position
         //
         repayVars.position.reduceProportionally(debtCovered);
-        if (repayVars.position.fullAmount() == 0) {
+        if (repayVars.position.principal + repayVars.position.fee == 0) {
             cleanPosition(borrower, maturityDate);
         } else {
             // we proportionally reduce the values
