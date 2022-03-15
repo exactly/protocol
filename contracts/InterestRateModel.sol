@@ -122,8 +122,10 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     {
         if (suppliedSP != 0) {
             // User can't make more fees after the total borrowed amount
-            earningsShare = ((Math.min(amount, suppliedSP) *
-                unassignedEarnings) / suppliedSP);
+            earningsShare = unassignedEarnings.fmul(
+                Math.min(amount, suppliedSP),
+                suppliedSP
+            );
             earningsShareSP = earningsShare.fmul(spFeeRate, 1e18);
             earningsShare -= earningsShareSP;
         }
@@ -226,6 +228,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         ) + curveParameterB;
         // this curve _could_ go below zero if the parameters are set wrong.
         assert(rate >= 0);
-        return (uint256(rate) * (maturityDate - currentDate)) / YEAR;
+        return uint256(rate).fmul(maturityDate - currentDate, YEAR);
     }
 }
