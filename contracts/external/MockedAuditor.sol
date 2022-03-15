@@ -2,11 +2,11 @@
 pragma solidity ^0.8.4;
 
 contract MockedAuditor {
-    constructor() {}
+    constructor() {} // solhint-disable-line no-empty-blocks
 
     function validateAccountShortfall(
         address,
         address,
         uint256
-    ) external {}
+    ) external {} // solhint-disable-line no-empty-blocks
 }
