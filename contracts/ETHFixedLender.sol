@@ -86,7 +86,7 @@ contract ETHFixedLender is FixedLender {
         if (wrapOnOurSide) {
             weth.deposit{ value: msg.value }();
         } else {
-            return super.doTransferIn(from, amount);
+            super.doTransferIn(from, amount);
         }
     }
 

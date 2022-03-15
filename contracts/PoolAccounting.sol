@@ -367,11 +367,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
             // We remove the fee from unassigned earnings
             pool.earningsUnassigned -= repayVars.discountFee + repayVars.feeSP;
-
-            // user paid more than it should. The fee gets discounted from the user
-            // through _actualRepayAmount_ and on the pool side it was removed by
-            // calling _removeFee_ a few lines before ^
-            //actualRepayAmount -= repayVars.discountFee;
         } else {
             // We distribute penalties to those that supported (pre-repayment)
             uint256 newEarningsSP;
@@ -385,6 +380,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 );
             earningsSP += newEarningsSP;
         }
+        // user paid more than it should. The fee gets discounted from the user
+        // through _actualRepayAmount_ and on the pool side it was removed by
+        // calling _removeFee_ a few lines before ^
         actualRepayAmount = repayAmount - repayVars.discountFee;
 
         // We reduce the borrowed and we might decrease the SP debt
