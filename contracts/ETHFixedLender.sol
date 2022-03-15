@@ -66,17 +66,11 @@ contract ETHFixedLender is FixedLender {
     }
 
     function withdrawFromMaturityPoolEth(
-        address payable redeemer,
         uint256 redeemAmount,
         uint256 minAmountRequired,
         uint256 maturityDate
     ) external usingETH {
-        withdrawFromMaturityPool(
-            redeemer,
-            redeemAmount,
-            minAmountRequired,
-            maturityDate
-        );
+        withdrawFromMaturityPool(redeemAmount, minAmountRequired, maturityDate);
     }
 
     function repayToMaturityPoolEth(address borrower, uint256 maturityDate)

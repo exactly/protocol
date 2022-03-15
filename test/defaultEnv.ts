@@ -79,21 +79,21 @@ export class DefaultEnv {
     if (mockedTokens === undefined) {
       mockedTokens = defaultMockedTokens;
     }
-    let fixedLenderContracts = new Map<string, Contract>();
-    let poolAccountingContracts = new Map<string, Contract>();
-    let underlyingContracts = new Map<string, Contract>();
-    let eTokenContracts = new Map<string, Contract>();
+    const fixedLenderContracts = new Map<string, Contract>();
+    const poolAccountingContracts = new Map<string, Contract>();
+    const underlyingContracts = new Map<string, Contract>();
+    const eTokenContracts = new Map<string, Contract>();
 
     const TSUtilsLib = await ethers.getContractFactory("TSUtils");
-    let tsUtils = await TSUtilsLib.deploy();
+    const tsUtils = await TSUtilsLib.deploy();
     await tsUtils.deployed();
 
     const MarketsLib = await ethers.getContractFactory("MarketsLib");
-    let marketsLib = await MarketsLib.deploy();
+    const marketsLib = await MarketsLib.deploy();
     await marketsLib.deployed();
 
     const MockedOracle = await ethers.getContractFactory("MockedOracle");
-    let oracle = await MockedOracle.deploy();
+    const oracle = await MockedOracle.deploy();
     await oracle.deployed();
 
     const MockedInterestRateModelFactory = await ethers.getContractFactory(
@@ -124,7 +124,7 @@ export class DefaultEnv {
         MarketsLib: marketsLib.address,
       },
     });
-    let auditor = await Auditor.deploy(oracle.address);
+    const auditor = await Auditor.deploy(oracle.address);
     await auditor.deployed();
 
     // We have to enable all the FixedLenders in the auditor
@@ -368,12 +368,7 @@ export class DefaultEnv {
     }
     return fixedLender
       .connect(this.currentWallet)
-      .withdrawFromMaturityPoolEth(
-        this.currentWallet.address,
-        amount,
-        expectedAmount,
-        maturityPool
-      );
+      .withdrawFromMaturityPoolEth(amount, expectedAmount, maturityPool);
   }
 
   public async withdrawMP(
@@ -395,12 +390,7 @@ export class DefaultEnv {
     }
     return fixedLender
       .connect(this.currentWallet)
-      .withdrawFromMaturityPool(
-        this.currentWallet.address,
-        amount,
-        expectedAmount,
-        maturityPool
-      );
+      .withdrawFromMaturityPool(amount, expectedAmount, maturityPool);
   }
 
   public async borrowMP(
@@ -566,7 +556,7 @@ export class DefaultEnv {
       },
     });
 
-    let newAuditor = await Auditor.deploy(this.oracle.address);
+    const newAuditor = await Auditor.deploy(this.oracle.address);
     await newAuditor.deployed();
     return newAuditor;
   }

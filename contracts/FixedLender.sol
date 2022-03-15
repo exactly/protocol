@@ -384,13 +384,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @notice User collects a certain amount of underlying asset after having
      *         supplied tokens until a certain maturity date
      * @dev The pool that the user is trying to retrieve the money should be matured
-     * @param redeemer The address of the account which is redeeming the tokens
      * @param redeemAmount The number of underlying tokens to receive
      * @param minAmountRequired minimum amount required by the user (if penalty fees for early withdrawal)
      * @param maturityDate The matured date for which we're trying to retrieve the funds
      */
     function withdrawFromMaturityPool(
-        address payable redeemer,
         uint256 redeemAmount,
         uint256 minAmountRequired,
         uint256 maturityDate
@@ -414,7 +412,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             uint256 earningsTreasury
         ) = poolAccounting.withdrawMP(
                 maturityDate,
-                redeemer,
+                msg.sender,
                 redeemAmount,
                 minAmountRequired,
                 eToken.totalSupply() / maxFuturePools
@@ -423,10 +421,10 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         eToken.accrueEarnings(earningsSP);
         treasury += earningsTreasury;
 
-        doTransferOut(redeemer, redeemAmountDiscounted);
+        doTransferOut(msg.sender, redeemAmountDiscounted);
 
         emit WithdrawFromMaturityPool(
-            redeemer,
+            msg.sender,
             redeemAmount,
             redeemAmountDiscounted,
             maturityDate
