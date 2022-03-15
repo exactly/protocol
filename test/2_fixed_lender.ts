@@ -147,6 +147,25 @@ describe("FixedLender", function () {
       it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
         expect(await poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.equal(futurePools(1)[0]);
       });
+      describe("AND WHEN trying to repay 100 (too much)", () => {
+        let balanceBefore: BigNumber;
+
+        beforeEach(async () => {
+          balanceBefore = await dai.balanceOf(maria.address);
+          await fixedLenderDAI.repayToMaturityPool(
+            maria.address,
+            futurePools(1)[0],
+            parseUnits("100"),
+            parseUnits("100"),
+          );
+        });
+        it("THEN all debt is repaid", async () => {
+          expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[1]).to.equal(0);
+        });
+        it("THEN the 40 spare amount is not discounted from the user balance", async () => {
+          expect(await dai.balanceOf(maria.address)).to.equal(balanceBefore.sub(parseUnits("60")));
+        });
+      });
       describe("AND WHEN borrowing 60 DAI from another maturity AND repaying only first debt", () => {
         beforeEach(async () => {
           await fixedLenderDAI.depositToSmartPool(parseUnits("1000"));
