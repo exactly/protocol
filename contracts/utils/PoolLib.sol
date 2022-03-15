@@ -198,12 +198,12 @@ library PoolLib {
         pure
         returns (Position memory)
     {
-        uint256 principal = position.principal.fmul(
-            amount,
+        uint256 fee = amount.fmul(
+            position.fee,
             position.principal + position.fee
         );
-        position.principal = principal;
-        position.fee = amount - principal;
+        position.principal = amount - fee;
+        position.fee = fee;
         return position;
     }
 
@@ -219,12 +219,12 @@ library PoolLib {
         pure
         returns (Position memory)
     {
-        uint256 principal = position.principal.fmul(
-            amount,
+        uint256 fee = amount.fmul(
+            position.fee,
             position.principal + position.fee
         );
-        position.principal -= principal;
-        position.fee -= amount - principal;
+        position.principal -= amount - fee;
+        position.fee -= fee;
         return position;
     }
 
