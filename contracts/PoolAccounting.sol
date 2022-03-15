@@ -137,7 +137,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 maxSPDebt = eTokenTotalSupply - smartPoolBorrowed;
         uint256 assignedSPLiquidity = maxSPDebt / maxFuturePools;
 
-        earningsSP += pool.accrueEarnings(maturityDate, currentTimestamp());
+        earningsSP += pool.accrueEarnings(maturityDate, block.timestamp);
         smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
 
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
@@ -203,7 +203,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     {
         earningsSP = maturityPools[maturityDate].accrueEarnings(
             maturityDate,
-            currentTimestamp()
+            block.timestamp
         );
 
         (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
@@ -256,7 +256,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     {
         PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
-        earningsSP = pool.accrueEarnings(maturityDate, currentTimestamp());
+        earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
 
         PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][
             redeemer
@@ -264,7 +264,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
         // We verify if there are any penalties/fee for him because of
         // early withdrawal - if so: discount
-        if (currentTimestamp() < maturityDate) {
+        if (block.timestamp < maturityDate) {
             uint256 feeRate = interestRateModel.getRateToBorrow(
                 maturityDate,
                 block.timestamp,
@@ -332,7 +332,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
         // SP supply needs to accrue its interests
-        earningsSP = pool.accrueEarnings(maturityDate, currentTimestamp());
+        earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
 
         // Amount Owed is (principal+fees)*penalties
         repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
@@ -357,7 +357,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             .scaleProportionally(debtCovered);
 
         // Early repayment allows you to get a discount from the unassigned earnings
-        if (currentTimestamp() < maturityDate) {
+        if (block.timestamp < maturityDate) {
             // We calculate the deposit fee considering the amount
             // of debt he'll pay
             (repayVars.discountFee, repayVars.feeSP) = interestRateModel
@@ -493,7 +493,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         totalDebt = position.principal + position.fee;
         uint256 secondsDelayed = TSUtils.secondsPre(
             maturityDate,
-            currentTimestamp()
+            block.timestamp
         );
         if (secondsDelayed > 0) {
             totalDebt += totalDebt.fmul(
@@ -501,14 +501,5 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 1e18
             );
         }
-    }
-
-    /**
-     * @notice Internal/virtual function to get the current timestamp (it gets overriden
-     *         when writing tests)
-     * @return current timestamp
-     */
-    function currentTimestamp() internal view virtual returns (uint256) {
-        return block.timestamp;
     }
 }

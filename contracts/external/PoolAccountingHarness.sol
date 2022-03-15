@@ -87,12 +87,4 @@ contract PoolAccountingHarness is PoolAccounting {
             returnValues.earningsTreasury
         ) = this.repayMP(maturityDate, borrower, repayAmount, maxAmountAllowed);
     }
-
-    function setCurrentTimestamp(uint256 _timestamp) external {
-        timestamp = _timestamp;
-    }
-
-    function currentTimestamp() internal view override returns (uint256) {
-        return timestamp;
-    }
 }
