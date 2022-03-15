@@ -192,22 +192,20 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         onlyFixedLender
         returns (uint256 currentTotalDeposit, uint256 earningsSP)
     {
-        earningsSP = maturityPools[maturityDate].accrueEarnings(
-            maturityDate,
-            block.timestamp
-        );
+        PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+        earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
 
         (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
-            maturityPools[maturityDate].suppliedSP,
-            maturityPools[maturityDate].earningsUnassigned,
+            pool.suppliedSP,
+            pool.earningsUnassigned,
             amount
         );
 
         currentTotalDeposit = amount + fee;
         if (currentTotalDeposit < minAmountRequired) revert TooMuchSlippage();
 
-        smartPoolBorrowed -= maturityPools[maturityDate].depositMoney(amount);
-        maturityPools[maturityDate].earningsUnassigned -= fee + feeSP;
+        smartPoolBorrowed -= pool.depositMoney(amount);
+        pool.earningsUnassigned -= fee + feeSP;
         earningsSP += feeSP;
 
         // We update users's position
@@ -287,7 +285,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                 pool.suppliedSP,
                 redeemAmountDiscounted
             );
-        maturityPools[maturityDate].earningsUnassigned += earningsUnassigned;
+        pool.earningsUnassigned += earningsUnassigned;
 
         // the user gets discounted the full amount
         mpUserSuppliedAmount[maturityDate][redeemer] = position
