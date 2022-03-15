@@ -544,7 +544,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         }
 
         (
-            uint256 spareRepayAmount,
+            uint256 actualRepayAmount,
             uint256 debtCovered,
             uint256 earningsSP,
             uint256 earningsTreasury
@@ -555,7 +555,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
                 maxAmountAllowed
             );
 
-        doTransferIn(payer, repayAmount - spareRepayAmount);
+        doTransferIn(payer, actualRepayAmount);
 
         eToken.accrueEarnings(earningsSP);
         treasury += earningsTreasury;
@@ -565,12 +565,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         emit RepayToMaturityPool(
             payer,
             borrower,
-            repayAmount,
+            actualRepayAmount,
             debtCovered,
             maturityDate
         );
 
-        return repayAmount - spareRepayAmount;
+        return actualRepayAmount;
     }
 
     /**
