@@ -84,15 +84,7 @@ contract ETHFixedLender is FixedLender {
 
     function doTransferIn(address from, uint256 amount) internal override {
         if (wrapOnOurSide) {
-            // giving it some tought, we kind of can trust WETH9 to mint
-            // exactly the requested amount. But I'll leave this here for now
-            uint256 balanceBefore = trustedUnderlying.balanceOf(address(this));
             weth.deposit{ value: msg.value }();
-            uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
-
-            if (balanceAfter - balanceBefore != amount) {
-                revert GenericError(ErrorCode.INVALID_TOKEN_FEE);
-            }
         } else {
             return super.doTransferIn(from, amount);
         }

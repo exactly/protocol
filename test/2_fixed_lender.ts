@@ -636,8 +636,8 @@ describe("FixedLender", function () {
           tx = fixedLenderDAI.depositToMaturityPool(parseUnits("100"), futurePools(1)[0], parseUnits("100"));
         });
 
-        it("THEN the transaction reverts with INVALID_TOKEN_FEE", async () => {
-          await expect(tx).to.be.revertedWith(GenericError(ErrorCode.INVALID_TOKEN_FEE));
+        it("THEN the transaction reverts with InvalidTokenFee()", async () => {
+          await expect(tx).to.be.revertedWith("InvalidTokenFee()");
         });
       });
     });

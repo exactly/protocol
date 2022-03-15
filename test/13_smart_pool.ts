@@ -249,10 +249,8 @@ describe("Smart Pool", function () {
         tx = fixedLenderDAI.connect(john).depositToSmartPool(amount);
       });
 
-      it("THEN the transaction reverts with INVALID_TOKEN_FEE", async () => {
-        await expect(tx).to.be.revertedWith(
-          errorGeneric(ProtocolError.INVALID_TOKEN_FEE)
-        );
+      it("THEN the transaction reverts with InvalidTokenFee()", async () => {
+        await expect(tx).to.be.revertedWith("InvalidTokenFee()");
       });
     });
   });
