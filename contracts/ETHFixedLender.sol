@@ -25,14 +25,14 @@ contract ETHFixedLender is FixedLender {
         string memory _underlyingTokenSymbol,
         address _eTokenAddress,
         address _auditorAddress,
-        address _interestRateModelAddress
+        address _poolAccounting
     )
         FixedLender(
             _tokenAddress,
             _underlyingTokenSymbol,
             _eTokenAddress,
             _auditorAddress,
-            _interestRateModelAddress
+            _poolAccounting
         )
     {
         // just to be explicit uwu I know it is zero/falsy by default
