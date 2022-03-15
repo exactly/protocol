@@ -2,7 +2,6 @@ import { expect } from "chai";
 import { ethers, deployments, network } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { Auditor, FixedLender, MockedToken, PoolAccounting } from "../types";
-import GenericError, { ErrorCode } from "./utils/GenericError";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
@@ -143,9 +142,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN initializing a poolAccounting contract, THEN it should revert with CONTRACT_ALREADY_INITIALIZED", async () => {
-      await expect(poolAccountingDAI.initialize(owner.address)).to.be.revertedWith(
-        GenericError(ErrorCode.CONTRACT_ALREADY_INITIALIZED),
-      );
+      await expect(poolAccountingDAI.initialize(owner.address)).to.be.revertedWith("AlreadyInitialized()");
     });
   });
 });
