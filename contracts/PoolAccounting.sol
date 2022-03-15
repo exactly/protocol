@@ -415,8 +415,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     {
         if (maturityDate == PoolLib.MATURITY_ALL) {
             uint256 borrowsLength = userMpBorrowed[who].length;
-            for (uint256 i = 0; i < borrowsLength; i++) {
+            for (uint256 i = 0; i < borrowsLength; ) {
                 debt += getAccountDebt(who, userMpBorrowed[who][i]);
+                unchecked {
+                    ++i;
+                }
             }
         } else {
             debt = getAccountDebt(who, maturityDate);
@@ -445,10 +448,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[borrower];
         uint256 len = userMaturitiesBorrowedList.length;
         uint256 maturityIndex = len;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ) {
             if (userMaturitiesBorrowedList[i] == maturityDate) {
                 maturityIndex = i;
                 break;
+            }
+            unchecked {
+                ++i;
             }
         }
 
