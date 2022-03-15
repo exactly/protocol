@@ -11,7 +11,7 @@ contract FlashLoanAttacker is IFlashBorrower {
     uint256 private maturityDate;
     uint256 private amount;
     address private borrower;
-    uint256 constant FLASHLOAN_AMOUNT = 1e9 ether;
+    uint256 private constant FLASHLOAN_AMOUNT = 1e9 ether;
 
     function attack(
         IFixedLender fixedLender_,

@@ -9,7 +9,7 @@ contract ETokenHarness is EToken {
         string memory name,
         string memory symbol,
         uint8 decimals
-    ) EToken(name, symbol, decimals) {}
+    ) EToken(name, symbol, decimals) {} // solhint-disable-line no-empty-blocks
 
     function callInternalTransfer(
         address from,
