@@ -52,7 +52,7 @@ contract Auditor is IAuditor, AccessControl {
     mapping(IFixedLender => mapping(address => bool))
         private accountMemberships;
 
-    uint256 public closeFactor = 5e17;
+    uint256 public constant CLOSE_FACTOR = 5e17;
     uint256 public liquidationIncentive = 1.1e18;
     IFixedLender[] public marketAddresses;
 
@@ -347,10 +347,10 @@ contract Auditor is IAuditor, AccessControl {
 
         if (shortfall == 0) revert InsufficientShortfall();
 
-        /* The liquidator may not repay more than what is allowed by the closeFactor */
+        /* The liquidator may not repay more than what is allowed by the CLOSE_FACTOR */
         (, uint256 borrowBalance) = IFixedLender(fixedLenderBorrowed)
             .getAccountSnapshot(borrower, PoolLib.MATURITY_ALL);
-        uint256 maxClose = closeFactor.fmul(borrowBalance, 1e18);
+        uint256 maxClose = CLOSE_FACTOR.fmul(borrowBalance, 1e18);
         if (repayAmount > maxClose) revert TooMuchRepay();
     }
 
