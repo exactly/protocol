@@ -278,10 +278,6 @@ describe("FixedLender", function () {
   });
 
   describe("simple validations:", () => {
-    it("WHEN calling setProtocolSpreadFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
-      await expect(fixedLenderDAI.setProtocolSpreadFee(parseUnits("0.04"))).to.be.revertedWith("AccessControl");
-    });
-
     it("WHEN calling setProtocolLiquidationFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(fixedLenderDAI.setProtocolLiquidationFee(parseUnits("0.04"))).to.be.revertedWith("AccessControl");
     });

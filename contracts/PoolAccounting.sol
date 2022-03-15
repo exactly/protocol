@@ -24,6 +24,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 feeRate;
         uint256 fee;
         uint256 newUnassignedEarnings;
+        uint256 newTreasuryEarnings;
     }
 
     // Vars used in `repayMP` to avoid
@@ -49,6 +50,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
     address public fixedLenderAddress;
     IInterestRateModel public interestRateModel;
+
+    uint256 public protocolSpreadFee = 2.8e16; // 2.8%
 
     event Initialized(address indexed fixedLender);
 
@@ -85,6 +88,17 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         fixedLenderAddress = _fixedLenderAddress;
 
         emit Initialized(_fixedLenderAddress);
+    }
+
+    /**
+     * @dev Sets the protocol's spread fee used on loan repayment
+     * @param _protocolSpreadFee percentage amount represented with 1e18 decimals
+     */
+    function setProtocolSpreadFee(uint256 _protocolSpreadFee)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        protocolSpreadFee = _protocolSpreadFee;
     }
 
     /**
@@ -141,7 +155,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
         }
 
-        // If used doesn't have a current position, we add it to the list
+        // If user doesn't have a current position, we add it to the list
         // of all of them
         borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
         if (borrowVars.position.principal == 0) {
@@ -149,12 +163,16 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         // We distribute to treasury and also to unassigned
-        (borrowVars.newUnassignedEarnings, earningsTreasury) = PoolLib
-            .distributeEarningsAccordingly(
-                borrowVars.fee,
-                pool.suppliedSP,
-                amount
-            );
+        earningsTreasury = borrowVars.fee.fmul(protocolSpreadFee, 1e18);
+        (
+            borrowVars.newUnassignedEarnings,
+            borrowVars.newTreasuryEarnings
+        ) = PoolLib.distributeEarningsAccordingly(
+            borrowVars.fee - earningsTreasury,
+            pool.suppliedSP,
+            amount
+        );
+        earningsTreasury += borrowVars.newTreasuryEarnings;
         pool.addFee(borrowVars.newUnassignedEarnings);
 
         mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
