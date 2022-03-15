@@ -9,16 +9,14 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 import { InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
+import { InvalidTokenFee } from "./interfaces/IFixedLender.sol";
 import "./EToken.sol";
-import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 import "./utils/Errors.sol";
-
-error InvalidTokenFee();
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using FixedPointMathLib for uint256;
