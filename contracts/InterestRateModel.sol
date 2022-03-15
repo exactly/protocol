@@ -192,6 +192,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         return (rate * (maturityDate - currentDate)) / YEAR;
     }
 
+    /**
+     * @notice Returns the interest rate integral from u_{t} to u_{t+1},
+     * approximated via the simpson method
+     * @dev calls the other two integrators, and also checks there is an actual
+     * difference in utilization rate
+     * @param utilizationBefore ex-ante utilization rate, with 18 decimals precision
+     * @param utilizationAfter ex-post utilization rate, with 18 decimals precision
+     * @return fee the approximated fee, with 18 decimals precision
+     */
     function simpsonIntegrator(
         uint256 utilizationBefore,
         uint256 utilizationAfter
@@ -207,6 +216,15 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
                 midpointIntegrator(utilizationBefore, utilizationAfter)) / 3;
     }
 
+    /**
+     * @notice Returns the interest rate for an utilization rate, reading the
+     * A, B and U_{max} parameters from storage
+     * @dev reverts if the curve has invalid parameters (those returning a
+     * negative interest rate)
+     * @param utilizationRate already-computed utilization rate, with 18
+     * decimals precision
+     * @return fee the fee corresponding to that utilization rate, with 18 decimals precision
+     */
     function getPointInCurve(uint256 utilizationRate)
         internal
         view
@@ -220,6 +238,14 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         return uint256(rate);
     }
 
+    /**
+     * @notice Returns the interest rate integral from u_{t} to u_{t+1},
+     * approximated via the trapezoid method
+     * @dev calls the getPointInCurve function many times
+     * @param ut ex-ante utilization rate, with 18 decimals precision
+     * @param ut1 ex-post utilization rate, with 18 decimals precision
+     * @return fee the approximated fee, with 18 decimals precision
+     */
     function trapezoidIntegrator(uint256 ut, uint256 ut1)
         internal
         view
@@ -238,6 +264,14 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         return ((delta / 2) * numerator) / denominator;
     }
 
+    /**
+     * @notice Returns the interest rate integral from u_{t} to u_{t+1},
+     * approximated via the midpoint method
+     * @dev calls the getPointInCurve function many times
+     * @param ut ex-ante utilization rate, with 18 decimals precision
+     * @param ut1 ex-post utilization rate, with 18 decimals precision
+     * @return fee the approximated fee, with 18 decimals precision
+     */
     function midpointIntegrator(uint256 ut, uint256 ut1)
         internal
         view
