@@ -25,7 +25,6 @@ export class PoolAccountingEnv {
   }
 
   public async moveInTime(timestamp: number) {
-    await this.poolAccountingHarness.setCurrentTimestamp(timestamp);
     return ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 

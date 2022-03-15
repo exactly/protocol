@@ -11,6 +11,8 @@ import {
 } from "./exactlyUtils";
 import { PoolAccountingEnv } from "./poolAccountingEnv";
 
+const { provider } = ethers;
+
 describe("PoolAccounting", () => {
   let laura: SignerWithAddress;
   let tina: SignerWithAddress;
@@ -1443,6 +1445,14 @@ describe("PoolAccounting", () => {
       earningsDiscounted: parseUnits("0"),
     };
 
+    beforeEach(async () => {
+      await provider.send("evm_setAutomine", [false]);
+    });
+
+    afterEach(async () => {
+      await provider.send("evm_setAutomine", [true]);
+    });
+
     describe("GIVEN a borrowMP of 10000 (500 fees owed by user)", () => {
       const fiveDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
 
@@ -1453,6 +1463,7 @@ describe("PoolAccounting", () => {
         await mockedInterestRateModel.setBorrowRate(parseUnits("0.05"));
         await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
         await poolAccountingEnv.borrowMP(nextPoolID, borrowAmount.toString());
+        await provider.send("hardhat_mine", ["0x2", "0x0"]);
 
         mp = await poolAccountingHarness.maturityPools(nextPoolID);
         returnValues = await poolAccountingHarness.returnValues();
@@ -1468,6 +1479,7 @@ describe("PoolAccounting", () => {
       describe("WHEN an early repayment of 5250", () => {
         beforeEach(async () => {
           await poolAccountingEnv.repayMP(nextPoolID, "5250");
+          await provider.send("hardhat_mine", ["0x2", "0x0"]);
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
           maturityPoolState.earningsDiscounted = returnValues.spareRepayAmount;
@@ -1491,6 +1503,7 @@ describe("PoolAccounting", () => {
         describe("AND WHEN an early repayment of 5250", () => {
           beforeEach(async () => {
             await poolAccountingEnv.repayMP(nextPoolID, "5250");
+            await provider.send("hardhat_mine", ["0x2", "0x0"]);
             returnValues = await poolAccountingHarness.returnValues();
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
             maturityPoolState.earningsDiscounted =
@@ -1528,6 +1541,7 @@ describe("PoolAccounting", () => {
               .getRealInterestRateModel()
               .setSPFeeRate(parseUnits("0.1"));
             await poolAccountingEnv.repayMP(nextPoolID, "5250");
+            await provider.send("hardhat_mine", ["0x2", "0x0"]);
             returnValues = await poolAccountingHarness.returnValues();
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
             maturityPoolState.earningsDiscounted =
@@ -1574,6 +1588,7 @@ describe("PoolAccounting", () => {
         await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
         await poolAccountingEnv.borrowMP(nextPoolID, borrowAmount.toString());
         await poolAccountingEnv.depositMP(nextPoolID, "5000");
+        await provider.send("hardhat_mine", ["0x2", "0x0"]);
 
         returnValues = await poolAccountingHarness.returnValues();
         mp = await poolAccountingHarness.maturityPools(nextPoolID);
@@ -1598,6 +1613,7 @@ describe("PoolAccounting", () => {
       describe("WHEN an early repayment of 5250", () => {
         beforeEach(async () => {
           await poolAccountingEnv.repayMP(nextPoolID, "5250");
+          await provider.send("hardhat_mine", ["0x2", "0x0"]);
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
           maturityPoolState.earningsSP = returnValues.earningsSP;
@@ -1627,6 +1643,7 @@ describe("PoolAccounting", () => {
       describe("WHEN an early withdrawal of 5250 without enough slippage", () => {
         let tx: any;
         beforeEach(async () => {
+          await provider.send("evm_setAutomine", [true]);
           tx = poolAccountingEnv.withdrawMP(nextPoolID, "5250", "5250");
         });
         it("THEN it should revert with error TOO_MUCH_SLIPPAGE", async () => {
@@ -1640,6 +1657,7 @@ describe("PoolAccounting", () => {
         beforeEach(async () => {
           await mockedInterestRateModel.setBorrowRate(parseUnits("0.1"));
           await poolAccountingEnv.withdrawMP(nextPoolID, "5250", "4750");
+          await provider.send("hardhat_mine", ["0x2", "0x0"]);
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
         });
@@ -1684,6 +1702,7 @@ describe("PoolAccounting", () => {
       describe("WHEN an early withdrawal of 5250 (deposited + fees)", () => {
         beforeEach(async () => {
           await poolAccountingEnv.withdrawMP(nextPoolID, "5250", "5000");
+          await provider.send("hardhat_mine", ["0x2", "0x0"]);
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
         });
@@ -1727,6 +1746,7 @@ describe("PoolAccounting", () => {
           await mockedInterestRateModel.setBorrowRate(parseUnits("0.05"));
           await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
           await poolAccountingEnv.borrowMP(nextPoolID, "10000");
+          await provider.send("hardhat_mine", ["0x2", "0x0"]);
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
         });
 
@@ -1739,6 +1759,7 @@ describe("PoolAccounting", () => {
             poolAccountingEnv.switchWallet(tina);
             await mockedInterestRateModel.setBorrowRate(parseUnits("1")); // Crazy FEE
             await poolAccountingEnv.borrowMP(nextPoolID, "10000", "20000"); // ... and we accept it
+            await provider.send("hardhat_mine", ["0x2", "0x0"]);
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
           });
 
@@ -1750,6 +1771,7 @@ describe("PoolAccounting", () => {
             beforeEach(async () => {
               poolAccountingEnv.switchWallet(laura);
               await poolAccountingEnv.repayMP(nextPoolID, "10500");
+              await provider.send("hardhat_mine", ["0x2", "0x0"]);
               returnValues = await poolAccountingHarness.returnValues();
               mp = await poolAccountingHarness.maturityPools(nextPoolID);
             });
