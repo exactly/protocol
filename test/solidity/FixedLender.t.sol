@@ -99,7 +99,7 @@ contract FixedLenderTest is DSTest {
     fixedLender.borrowFromMaturityPool(1 ether, nextMaturityDate, 2 ether);
 
     vm.expectEmit(true, false, false, true);
-    emit RepayToMaturityPool(address(this), address(this), 109013698630136986, 109013698630136986, nextMaturityDate);
+    emit RepayToMaturityPool(address(this), address(this), 108840468276156681, 109013698630136986, nextMaturityDate);
     fixedLender.repayToMaturityPool(address(this), nextMaturityDate, 109013698630136986, 109013698630136986);
   }
 }
