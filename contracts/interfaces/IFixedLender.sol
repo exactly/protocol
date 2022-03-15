@@ -23,7 +23,6 @@ interface IFixedLender {
     function withdrawFromSmartPool(uint256 amount) external;
 
     function withdrawFromMaturityPool(
-        address payable redeemer,
         uint256 redeemAmount,
         uint256 minAmountRequired,
         uint256 maturityDate

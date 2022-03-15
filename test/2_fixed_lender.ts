@@ -181,12 +181,7 @@ describe("FixedLender", function () {
           beforeEach(async () => {
             await fixedLenderDAI.withdrawFromSmartPool(parseUnits("100"));
             await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
-            await fixedLenderDAI.withdrawFromMaturityPool(
-              maria.address,
-              parseUnits("100"),
-              parseUnits("100"),
-              futurePools(1)[0],
-            );
+            await fixedLenderDAI.withdrawFromMaturityPool(parseUnits("100"), parseUnits("100"), futurePools(1)[0]);
           });
           // TODO tests for partial/excessive withdrawal?
           it("THEN the collateral is returned to Maria", async () => {
@@ -200,9 +195,9 @@ describe("FixedLender", function () {
           await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
         });
         it("WHEN trying to withdraw an amount of zero THEN it reverts", async () => {
-          await expect(
-            fixedLenderDAI.withdrawFromMaturityPool(maria.address, 0, 0, futurePools(1)[0]),
-          ).to.be.revertedWith(GenericError(ErrorCode.REDEEM_CANT_BE_ZERO));
+          await expect(fixedLenderDAI.withdrawFromMaturityPool(0, 0, futurePools(1)[0])).to.be.revertedWith(
+            GenericError(ErrorCode.REDEEM_CANT_BE_ZERO),
+          );
         });
       });
 
@@ -268,12 +263,7 @@ describe("FixedLender", function () {
     describe("AND WHEN moving in time to maturity AND withdrawing from the maturity pool", () => {
       beforeEach(async () => {
         await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
-        tx = await fixedLenderDAI.withdrawFromMaturityPool(
-          maria.address,
-          parseUnits("100"),
-          parseUnits("100"),
-          futurePools(1)[0],
-        );
+        tx = await fixedLenderDAI.withdrawFromMaturityPool(parseUnits("100"), parseUnits("100"), futurePools(1)[0]);
       });
       it("THEN 100 DAI are returned to Maria", async () => {
         expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("10000"));
