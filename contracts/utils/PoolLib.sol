@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./TSUtils.sol";
 
 error InsufficientProtocolLiquidity();
 
 library PoolLib {
+    using FixedPointMathLib for uint256;
+
     /**
      * @notice struct that helps manage the maturity pools and also keep
      * @param borrowed total amount borrowed at the MP
@@ -176,8 +179,10 @@ library PoolLib {
         uint256 earningsUnassigned = pool.earningsUnassigned;
         earningsSP = secondsTotalToMaturity == 0
             ? 0
-            : (earningsUnassigned * secondsSinceLastAccrue) /
-                secondsTotalToMaturity;
+            : earningsUnassigned.fmul(
+                secondsSinceLastAccrue,
+                secondsTotalToMaturity
+            );
         pool.earningsUnassigned = earningsUnassigned - earningsSP;
     }
 
@@ -193,8 +198,10 @@ library PoolLib {
         pure
         returns (Position memory)
     {
-        uint256 principal = (position.principal * amount) /
-            (position.principal + position.fee);
+        uint256 principal = position.principal.fmul(
+            amount,
+            position.principal + position.fee
+        );
         position.principal = principal;
         position.fee = amount - principal;
         return position;
@@ -212,8 +219,10 @@ library PoolLib {
         pure
         returns (Position memory)
     {
-        uint256 principal = (position.principal * amount) /
-            (position.principal + position.fee);
+        uint256 principal = position.principal.fmul(
+            amount,
+            position.principal + position.fee
+        );
         position.principal -= principal;
         position.fee -= amount - principal;
         return position;
@@ -231,9 +240,10 @@ library PoolLib {
         uint256 suppliedSP,
         uint256 amountFunded
     ) internal pure returns (uint256 earningsSP, uint256 earningsTreasury) {
-        earningsTreasury =
-            ((amountFunded - Math.min(suppliedSP, amountFunded)) * earnings) /
-            amountFunded;
+        earningsTreasury = earnings.fmul(
+            amountFunded - Math.min(suppliedSP, amountFunded),
+            amountFunded
+        );
         earningsSP = earnings - earningsTreasury;
     }
 }
