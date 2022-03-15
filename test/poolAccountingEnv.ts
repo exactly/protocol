@@ -165,15 +165,6 @@ export class PoolAccountingEnv {
     );
     await mockedInterestRateModel.deployed();
 
-    const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
-      libraries: {
-        TSUtils: tsUtils.address,
-      },
-    });
-    const realPoolAccounting = await PoolAccounting.deploy(
-      mockedInterestRateModel.address
-    );
-    await realPoolAccounting.deployed();
     const PoolAccountingHarness = await ethers.getContractFactory(
       "PoolAccountingHarness",
       {
@@ -186,6 +177,7 @@ export class PoolAccountingEnv {
       mockedInterestRateModel.address
     );
     await poolAccountingHarness.deployed();
+    await poolAccountingHarness.setProtocolSpreadFee(0);
     // We initialize it with itself, so it can call the methods from within
     await poolAccountingHarness.initialize(poolAccountingHarness.address);
 

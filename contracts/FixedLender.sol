@@ -21,7 +21,6 @@ import "./utils/Errors.sol";
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using FixedPointMathLib for uint256;
 
-    uint256 public protocolSpreadFee = 2.8e16; // 2.8%
     uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
     uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
     uint256 public treasury;
@@ -166,17 +165,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         auditor = IAuditor(_auditorAddress);
         eToken = IEToken(_eTokenAddress);
         poolAccounting = IPoolAccounting(_poolAccounting);
-    }
-
-    /**
-     * @dev Sets the protocol's spread fee used on loan repayment
-     * @param _protocolSpreadFee percentage amount represented with 1e18 decimals
-     */
-    function setProtocolSpreadFee(uint256 _protocolSpreadFee)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        protocolSpreadFee = _protocolSpreadFee;
     }
 
     /**
