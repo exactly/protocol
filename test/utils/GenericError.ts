@@ -27,8 +27,6 @@ export enum ErrorCode {
   TOO_MUCH_REPAY_TRANSFER,
   SMART_POOL_FUNDS_LOCKED,
   INVALID_TIME_DIFFERENCE,
-  INVALID_SP_FEE_RATE,
-  INVALID_TOKEN_FEE,
 }
 
 const GenericError = (code: ErrorCode) => `GenericError(${code})`;

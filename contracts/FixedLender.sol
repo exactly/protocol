@@ -18,6 +18,8 @@ import "./interfaces/IPoolAccounting.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 import "./utils/Errors.sol";
 
+error InvalidTokenFee();
+
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using FixedPointMathLib for uint256;
 
@@ -701,9 +703,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         // Calculate the amount that was *actually* transferred
         uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
-        if (balanceAfter - balanceBefore != amount) {
-            revert GenericError(ErrorCode.INVALID_TOKEN_FEE);
-        }
+        if (balanceAfter - balanceBefore != amount) revert InvalidTokenFee();
     }
 
     function doTransferOut(address to, uint256 amount) internal virtual {
