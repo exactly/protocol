@@ -323,7 +323,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
 
         // Amount Owed is (principal+fees)*penalties
-        repayVars.amountOwed = getAccountBorrows(borrower, maturityDate);
+        repayVars.amountOwed = getAccountDebt(borrower, maturityDate);
         repayVars.position = mpUserBorrowedAmount[maturityDate][borrower];
 
         if (repayAmount > repayVars.amountOwed) {
@@ -336,10 +336,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // then amountBorrowed is what should be discounted to the users account
         // Math.min to not go over repayAmount since we return exceeding money, but
         // hasn't been calculated yet
-        debtCovered =
-            ((repayVars.position.principal + repayVars.position.fee) *
-                repayAmount) /
-            repayVars.amountOwed;
+        debtCovered = repayAmount.fmul(
+            repayVars.position.principal + repayVars.position.fee,
+            repayVars.amountOwed
+        );
         repayVars.scaleDebtCovered = PoolLib
             .Position(repayVars.position.principal, repayVars.position.fee)
             .scaleProportionally(debtCovered);
