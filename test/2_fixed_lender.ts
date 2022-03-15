@@ -312,13 +312,13 @@ describe("FixedLender", function () {
     it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
       await expect(
         fixedLenderDAI.borrowFromMaturityPool(parseUnits("0.8"), futurePools(1)[0], parseUnits("0.8")),
-      ).to.be.revertedWith(GenericError(ErrorCode.TOO_MUCH_SLIPPAGE));
+      ).to.be.revertedWith("TooMuchSlippage()");
     });
 
     it("WHEN trying to deposit 100 DAI with a minimum required amount to be received of 103, THEN 102 are received instead AND the transaction reverts with TOO_MUCH_SLIPPAGE", async () => {
       await expect(
         fixedLenderDAI.depositToMaturityPool(parseUnits("100"), futurePools(1)[0], parseUnits("103")),
-      ).to.be.revertedWith(GenericError(ErrorCode.TOO_MUCH_SLIPPAGE));
+      ).to.be.revertedWith("TooMuchSlippage()");
     });
   });
 

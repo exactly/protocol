@@ -3,12 +3,7 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  ProtocolError,
-  errorGeneric,
-  ExaTime,
-  MaturityPoolState,
-} from "./exactlyUtils";
+import { ExaTime, MaturityPoolState } from "./exactlyUtils";
 import { PoolAccountingEnv } from "./poolAccountingEnv";
 
 const { provider } = ethers;
@@ -35,33 +30,25 @@ describe("PoolAccounting", () => {
     it("WHEN invoking borrowMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         poolAccountingHarness.borrowMP(0, laura.address, 0, 0, 0, 0)
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
-      );
+      ).to.be.revertedWith("NotFixedLender()");
     });
 
     it("WHEN invoking depositMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         poolAccountingHarness.depositMP(0, laura.address, 0, 0)
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
-      );
+      ).to.be.revertedWith("NotFixedLender()");
     });
 
     it("WHEN invoking repayMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         poolAccountingHarness.repayMP(0, laura.address, 0, 0)
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
-      );
+      ).to.be.revertedWith("NotFixedLender()");
     });
 
     it("WHEN invoking withdrawMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
         poolAccountingHarness.withdrawMP(0, laura.address, 0, 0, 0)
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
-      );
+      ).to.be.revertedWith("NotFixedLender()");
     });
   });
 
@@ -466,9 +453,7 @@ describe("PoolAccounting", () => {
             });
 
             it("THEN the tx is reverted with TOO_MUCH_SLIPPAGE", async () => {
-              await expect(tx).to.be.revertedWith(
-                errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
-              );
+              await expect(tx).to.be.revertedWith("TooMuchSlippage()");
             });
           });
 
@@ -1647,9 +1632,7 @@ describe("PoolAccounting", () => {
           tx = poolAccountingEnv.withdrawMP(nextPoolID, "5250", "5250");
         });
         it("THEN it should revert with error TOO_MUCH_SLIPPAGE", async () => {
-          await expect(tx).to.be.revertedWith(
-            errorGeneric(ProtocolError.TOO_MUCH_SLIPPAGE)
-          );
+          await expect(tx).to.be.revertedWith("TooMuchSlippage()");
         });
       });
 

@@ -2,15 +2,12 @@
 pragma solidity ^0.8.4;
 
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-
-import "./interfaces/IEToken.sol";
-import "./interfaces/IInterestRateModel.sol";
-import "./interfaces/IPoolAccounting.sol";
-import "./interfaces/IFixedLender.sol";
-import "./utils/TSUtils.sol";
-import "./utils/PoolLib.sol";
-import "./utils/Errors.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { IPoolAccounting, AlreadyInitialized, TooMuchSlippage } from "./interfaces/IPoolAccounting.sol";
+import { IFixedLender, NotFixedLender } from "./interfaces/IFixedLender.sol";
+import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
+import { TSUtils } from "./utils/TSUtils.sol";
+import { PoolLib } from "./utils/PoolLib.sol";
 
 contract PoolAccounting is IPoolAccounting, AccessControl {
     using PoolLib for PoolLib.MaturityPool;
@@ -61,9 +58,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
      * through `initialize` method
      */
     modifier onlyFixedLender() {
-        if (msg.sender != address(fixedLenderAddress)) {
-            revert GenericError(ErrorCode.CALLER_MUST_BE_FIXED_LENDER);
-        }
+        if (msg.sender != address(fixedLenderAddress)) revert NotFixedLender();
         _;
     }
 
@@ -81,9 +76,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        if (fixedLenderAddress != address(0)) {
-            revert GenericError(ErrorCode.CONTRACT_ALREADY_INITIALIZED);
-        }
+        if (fixedLenderAddress != address(0)) revert AlreadyInitialized();
 
         fixedLenderAddress = _fixedLenderAddress;
 
@@ -151,9 +144,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         totalOwedNewBorrow = amount + borrowVars.fee;
 
         // We validate that the user is not taking arbitrary fees
-        if (totalOwedNewBorrow > maxAmountAllowed) {
-            revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
-        }
+        if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
         // If user doesn't have a current position, we add it to the list
         // of all of them
@@ -213,9 +204,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         );
 
         currentTotalDeposit = amount + fee;
-        if (currentTotalDeposit < minAmountRequired) {
-            revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
-        }
+        if (currentTotalDeposit < minAmountRequired) revert TooMuchSlippage();
 
         smartPoolBorrowed -= maturityPools[maturityDate].depositMoney(amount);
         maturityPools[maturityDate].earningsUnassigned -= fee + feeSP;
@@ -278,7 +267,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         }
 
         if (redeemAmountDiscounted < minAmountRequired) {
-            revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
+            revert TooMuchSlippage();
         }
 
         // We remove the supply from the offer
@@ -372,7 +361,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
             // We verify that the user agrees to this discount
             if (debtCovered - repayVars.discountFee > maxAmountAllowed) {
-                revert GenericError(ErrorCode.TOO_MUCH_SLIPPAGE);
+                revert TooMuchSlippage();
             }
 
             // We remove the fee from unassigned earnings
