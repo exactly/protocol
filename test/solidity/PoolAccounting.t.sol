@@ -30,7 +30,7 @@ contract PoolAccountingTest is DSTest {
     pool.depositMP(POOL_ID, address(this), 1 ether, 1 ether);
     pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 0, 1);
     pool.repayMP(POOL_ID, address(this), 1 ether, 1.01 ether);
-    pool.withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 0);
+    pool.withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 0, 12);
   }
 
   function testFailUnauthorizedDeposit() external {
@@ -50,7 +50,7 @@ contract PoolAccountingTest is DSTest {
 
   function testFailUnauthorizedWithdraw() external {
     vm.prank(address(0));
-    pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0);
+    pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0, 12);
   }
 
   function testFailAlreadyInitialized() external {
@@ -74,7 +74,7 @@ contract PoolAccountingTest is DSTest {
 
   function testFailTooMuchSlippageWithdraw() external {
     pool.depositMP(POOL_ID, address(this), 1 ether, 1 ether);
-    pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0);
+    pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0, 12);
   }
 
   function testBorrowRepayMultiplePools() external {

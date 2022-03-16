@@ -59,7 +59,8 @@ contract PoolAccountingHarness is PoolAccounting {
         address redeemer,
         uint256 amount,
         uint256 minAmountRequired,
-        uint256 maxSPDebt
+        uint256 eTokenTotalSupply,
+        uint8 maxFuturePools
     ) external {
         (
             returnValues.redeemAmountDiscounted,
@@ -70,7 +71,8 @@ contract PoolAccountingHarness is PoolAccounting {
             redeemer,
             amount,
             minAmountRequired,
-            maxSPDebt
+            eTokenTotalSupply,
+            maxFuturePools
         );
     }
 

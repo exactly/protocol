@@ -32,7 +32,8 @@ interface IPoolAccounting {
         address redeemer,
         uint256 amount,
         uint256 minAmountRequired,
-        uint256 maxSPDebt
+        uint256 eTokenTotalSupply,
+        uint8 maxFuturePools
     )
         external
         returns (

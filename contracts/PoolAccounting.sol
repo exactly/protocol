@@ -131,18 +131,18 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         uint256 assignedSPLiquidity = maxSPDebt / maxFuturePools;
 
         earningsSP += pool.accrueEarnings(maturityDate, block.timestamp);
-        smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
 
         borrowVars.feeRate = interestRateModel.getRateToBorrow(
             maturityDate,
             block.timestamp,
+            amount,
             pool.borrowed,
-            pool.supplied,
-            assignedSPLiquidity
+            pool.supplied + assignedSPLiquidity
         );
         borrowVars.fee = amount.fmul(borrowVars.feeRate, 1e18);
         totalOwedNewBorrow = amount + borrowVars.fee;
 
+        smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
         // We validate that the user is not taking arbitrary fees
         if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
@@ -230,7 +230,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         address redeemer,
         uint256 amount,
         uint256 minAmountRequired,
-        uint256 maxSPDebt
+        uint256 maxSPDebt,
+        uint8 maxFuturePools
     )
         external
         override
@@ -255,9 +256,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             uint256 feeRate = interestRateModel.getRateToBorrow(
                 maturityDate,
                 block.timestamp,
+                amount,
                 pool.borrowed + amount, // like asking for a loan full amount
-                pool.supplied,
-                maxSPDebt
+                pool.supplied + maxSPDebt / maxFuturePools
             );
             redeemAmountDiscounted = amount.fdiv(1e18 + feeRate, 1e18);
         } else {

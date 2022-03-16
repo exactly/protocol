@@ -9,7 +9,7 @@ Contracts' API
     :members: constructor, borrowFromMaturityPool, depositToMaturityPool, withdrawFromMaturityPool, repayToMaturityPool, liquidate, seize, depositToSmartPool, withdrawFromSmartPool, getUserMaturitiesOwed, setLiquidationFee, pause, unpause, getAccountSnapshot, getTotalMpBorrows, getAuditor, _repayLiquidate, _liquidate, _seize
 
 .. autosolcontract:: InterestRateModel
-    :members: constructor, setParameters, getRateToBorrow, getRateToSupply
+    :members: constructor, setParameters, getFeeToBorrow, getRateToSupply
 
 .. autosolcontract:: Auditor
     :members: constructor, enterMarkets, exitMarket, setOracle, setLiquidationIncentive, setExaSpeed, enableMarket, setMarketBorrowCaps, beforeDepositSP, beforeWithdrawSP, beforeDepositMP, beforeBorrowMP, beforeWithdrawMP, beforeRepayMP, liquidateAllowed, seizeAllowed, getMarketData, getAccountLiquidity, liquidateCalculateSeizeAmount, requirePoolState, getFuturePools, getMarketAddresses, claimExa, _requirePoolState, _beforeWithdrawSP

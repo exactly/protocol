@@ -58,8 +58,8 @@ export async function expectFee(tx: any, expectedFee: BigNumber) {
   const event = borrowEvents[0];
   const lowerBoundary = expectedFee.mul("99").div("100");
   const higherBoundary = expectedFee.mul("101").div("100");
-  expect(event.args.fee).to.be.gt(lowerBoundary);
-  expect(event.args.fee).to.be.lt(higherBoundary);
+  expect(event.args.fee).to.be.gte(lowerBoundary);
+  expect(event.args.fee).to.be.lte(higherBoundary);
 }
 
 export function applyMaxFee(amount: BigNumber): BigNumber {
@@ -116,6 +116,7 @@ export enum ProtocolError {
   SMART_POOL_FUNDS_LOCKED,
   INVALID_TIME_DIFFERENCE,
   INVALID_SP_FEE_RATE,
+  INVALID_AMOUNT,
 }
 
 export type EnvConfig = {

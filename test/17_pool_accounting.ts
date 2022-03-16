@@ -47,7 +47,7 @@ describe("PoolAccounting", () => {
 
     it("WHEN invoking withdrawMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(
-        poolAccountingHarness.withdrawMP(0, laura.address, 0, 0, 0)
+        poolAccountingHarness.withdrawMP(0, laura.address, 0, 0, 0, 0)
       ).to.be.revertedWith("NotFixedLender()");
     });
   });
