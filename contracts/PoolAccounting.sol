@@ -359,7 +359,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             earningsSP += repayVars.feeSP;
 
             // We verify that the user agrees to this discount
-            if (debtCovered - repayVars.discountFee > maxAmountAllowed) {
+            if (debtCovered > repayVars.discountFee + maxAmountAllowed) {
                 revert TooMuchSlippage();
             }
 
