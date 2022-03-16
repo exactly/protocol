@@ -32,9 +32,9 @@ const config: Config = {
   finance: {
     collateralFactor: { default: 0.8, WBTC: 0.6 },
     interestRateModel: {
-      curveA: 0.0495,
-      curveB: -0.025,
-      maxUtilizationRate: 1.1,
+      curveA: 0.72,
+      curveB: -0.22,
+      maxUtilizationRate: 3,
       penaltyRatePerDay: 0.02,
       smartPoolRate: 0.1,
     },
