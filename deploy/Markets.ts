@@ -27,20 +27,12 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [
-    auditor,
-    exactlyOracle,
-    interestRateModel,
-    timelockController,
-    { deployer, multisig },
-    { address: tsUtilsAddress },
-  ] = await Promise.all([
+  const [auditor, exactlyOracle, interestRateModel, timelockController, { deployer, multisig }] = await Promise.all([
     getContract<Auditor>("Auditor"),
     getContract<ExactlyOracle>("ExactlyOracle"),
     getContract<InterestRateModel>("InterestRateModel"),
     getContract<TimelockController>("TimelockController"),
     getNamedAccounts(),
-    get("TSUtils"),
   ]);
 
   for (const token of config.tokens) {
@@ -59,7 +51,6 @@ const func: DeployFunction = async ({
     const poolAccountingName = `PoolAccounting${symbol}`;
     await deploy(poolAccountingName, {
       contract: "PoolAccounting",
-      libraries: { TSUtils: tsUtilsAddress },
       args: [interestRateModel.address],
       from: deployer,
       log: true,
@@ -112,14 +103,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Markets"];
-func.dependencies = [
-  "TSUtils",
-  "PoolLib",
-  "Auditor",
-  "ExactlyOracle",
-  "InterestRateModel",
-  "TimelockController",
-  "Tokens",
-];
+func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "TimelockController", "Tokens"];
 
 export default func;

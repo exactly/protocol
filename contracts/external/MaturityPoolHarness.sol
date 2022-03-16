@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "../utils/PoolLib.sol";
+import { PoolLib } from "../utils/PoolLib.sol";
 import "../interfaces/IEToken.sol";
 import "../interfaces/IInterestRateModel.sol";
 import "@openzeppelin/contracts/governance/TimelockController.sol";

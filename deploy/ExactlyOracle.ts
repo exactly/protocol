@@ -17,9 +17,6 @@ const func: DeployFunction = async ({
 
   const { deployer } = await getNamedAccounts();
   await deploy("ExactlyOracle", {
-    libraries: {
-      TSUtils: (await get("TSUtils")).address,
-    },
     skipIfAlreadyDeployed: true,
     args: [(await get("FeedRegistry")).address, config.tokens, await addresses(config.tokens), USD_ADDRESS, 86_400],
     from: deployer,
@@ -34,6 +31,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["ExactlyOracle"];
-func.dependencies = ["TSUtils", "FeedRegistry", "Tokens", "TimelockController"];
+func.dependencies = ["FeedRegistry", "Tokens", "TimelockController"];
 
 export default func;

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.4;
 
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
-import "./TSUtils.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { TSUtils } from "./TSUtils.sol";
 
 error InsufficientProtocolLiquidity();
 

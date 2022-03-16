@@ -3,11 +3,9 @@ import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 
 export class PoolEnv {
-  tsUtils: Contract;
   mpHarness: Contract;
 
-  constructor(_tsUtils: Contract, _mpHarness: Contract) {
-    this.tsUtils = _tsUtils;
+  constructor(_mpHarness: Contract) {
     this.mpHarness = _mpHarness;
   }
 
@@ -103,21 +101,12 @@ export class PoolEnv {
   }
 
   static async create(): Promise<PoolEnv> {
-    const TSUtilsLib = await ethers.getContractFactory("TSUtils");
-    let tsUtils = await TSUtilsLib.deploy();
-    await tsUtils.deployed();
-
     const MaturityPoolHarness = await ethers.getContractFactory(
-      "MaturityPoolHarness",
-      {
-        libraries: {
-          TSUtils: tsUtils.address,
-        },
-      }
+      "MaturityPoolHarness"
     );
     let maturityPoolHarness = await MaturityPoolHarness.deploy();
     await maturityPoolHarness.deployed();
 
-    return new PoolEnv(tsUtils, maturityPoolHarness);
+    return new PoolEnv(maturityPoolHarness);
   }
 }

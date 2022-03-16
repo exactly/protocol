@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "./interfaces/IInterestRateModel.sol";
 import "./utils/Errors.sol";
-import "./utils/PoolLib.sol";
+import { PoolLib } from "./utils/PoolLib.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
     using PoolLib for PoolLib.MaturityPool;

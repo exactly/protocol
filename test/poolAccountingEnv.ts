@@ -137,10 +137,6 @@ export class PoolAccountingEnv {
   }
 
   static async create(): Promise<PoolAccountingEnv> {
-    const TSUtilsLib = await ethers.getContractFactory("TSUtils");
-    let tsUtils = await TSUtilsLib.deploy();
-    await tsUtils.deployed();
-
     const MockedInterestRateModelFactory = await ethers.getContractFactory(
       "MockedInterestRateModel"
     );
@@ -166,12 +162,7 @@ export class PoolAccountingEnv {
     await mockedInterestRateModel.deployed();
 
     const PoolAccountingHarness = await ethers.getContractFactory(
-      "PoolAccountingHarness",
-      {
-        libraries: {
-          TSUtils: tsUtils.address,
-        },
-      }
+      "PoolAccountingHarness"
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
       mockedInterestRateModel.address
