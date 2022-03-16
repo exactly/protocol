@@ -15,7 +15,7 @@ import "./interfaces/IAuditor.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
 import "./interfaces/IPoolAccounting.sol";
-import "./utils/TSUtils.sol";
+import { TSUtils } from "./utils/TSUtils.sol";
 import "./utils/Errors.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {

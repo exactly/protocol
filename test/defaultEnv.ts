@@ -26,7 +26,6 @@ export class DefaultEnv {
   oracle: Contract;
   auditor: Contract;
   interestRateModel: Contract;
-  tsUtils: Contract;
   fixedLenderContracts: Map<string, Contract>;
   poolAccountingContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
@@ -44,7 +43,6 @@ export class DefaultEnv {
     _oracle: Contract,
     _auditor: Contract,
     _interestRateModel: Contract,
-    _tsUtils: Contract,
     _fixedLenderContracts: Map<string, Contract>,
     _poolAccountingContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
@@ -59,7 +57,6 @@ export class DefaultEnv {
     this.underlyingContracts = _underlyingContracts;
     this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
-    this.tsUtils = _tsUtils;
     this.mockedTokens = _mockedTokens;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
@@ -80,10 +77,6 @@ export class DefaultEnv {
     const poolAccountingContracts = new Map<string, Contract>();
     const underlyingContracts = new Map<string, Contract>();
     const eTokenContracts = new Map<string, Contract>();
-
-    const TSUtilsLib = await ethers.getContractFactory("TSUtils");
-    const tsUtils = await TSUtilsLib.deploy();
-    await tsUtils.deployed();
 
     const MockedOracle = await ethers.getContractFactory("MockedOracle");
     const oracle = await MockedOracle.deploy();
@@ -147,12 +140,7 @@ export class DefaultEnv {
         await eToken.deployed();
 
         const PoolAccounting = await ethers.getContractFactory(
-          "PoolAccounting",
-          {
-            libraries: {
-              TSUtils: tsUtils.address,
-            },
-          }
+          "PoolAccounting"
         );
         const poolAccounting = await PoolAccounting.deploy(
           interestRateModel.address
@@ -198,7 +186,6 @@ export class DefaultEnv {
       oracle,
       auditor,
       interestRateModel,
-      tsUtils,
       fixedLenderContracts,
       poolAccountingContracts,
       underlyingContracts,
@@ -559,11 +546,7 @@ export class DefaultEnv {
     underlyingAddress: string,
     underlyingTokenName: string
   ) {
-    const PoolAccounting = await ethers.getContractFactory("PoolAccounting", {
-      libraries: {
-        TSUtils: this.tsUtils.address,
-      },
-    });
+    const PoolAccounting = await ethers.getContractFactory("PoolAccounting");
     const poolAccounting = await PoolAccounting.deploy(
       interestRateModelAddress
     );

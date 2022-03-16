@@ -25,7 +25,7 @@ library TSUtils {
      * @param timestampTo to calculate the difference in seconds to a date
      */
     function secondsPre(uint256 timestampFrom, uint256 timestampTo)
-        public
+        internal
         pure
         returns (uint256)
     {
