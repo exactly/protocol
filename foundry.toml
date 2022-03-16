@@ -1,4 +1,5 @@
 [default]
+solc-version = '0.8.12'
 src = 'test/solidity'
 out = 'artifacts/.foundry'
 cache_path = 'cache/.foundry'
