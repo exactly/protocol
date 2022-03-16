@@ -67,6 +67,19 @@ describe("PoolAccounting", () => {
       ).to.be.revertedWith("AccessControl");
     });
   });
+  describe("setPenaltyRate", () => {
+    it("WHEN calling setPenaltyRate, THEN the penaltyRate should be updated", async () => {
+      await poolAccountingHarness.setPenaltyRate(parseUnits("0.04"));
+      expect(await poolAccountingHarness.penaltyRate()).to.be.equal(
+        parseUnits("0.04")
+      );
+    });
+    it("WHEN calling setPenaltyRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        poolAccountingHarness.connect(laura).setPenaltyRate(parseUnits("0.04"))
+      ).to.be.revertedWith("AccessControl");
+    });
+  });
 
   describe("GIVEN a depositMP with an amount of 10000 (0 fees earned)", () => {
     const sixDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
@@ -467,7 +480,7 @@ describe("PoolAccounting", () => {
             // was supported by the MP
             let mp: any;
             beforeEach(async () => {
-              await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
+              await poolAccountingHarness.setPenaltyRate(
                 parseUnits("0.1").div(exaTime.ONE_DAY)
               );
               await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
@@ -528,7 +541,7 @@ describe("PoolAccounting", () => {
             });
 
             afterEach(async () => {
-              await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(0);
+              await poolAccountingHarness.setPenaltyRate(0);
             });
           });
 
@@ -997,7 +1010,7 @@ describe("PoolAccounting", () => {
             describe("AND GIVEN a partial repayMP at maturity(+1 DAY) with an amount of 8000 (partial late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
+                await poolAccountingHarness.setPenaltyRate(
                   parseUnits("0.1").div(exaTime.ONE_DAY)
                 );
 
@@ -1048,16 +1061,14 @@ describe("PoolAccounting", () => {
               });
 
               afterEach(async () => {
-                await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
-                  0
-                );
+                await poolAccountingHarness.setPenaltyRate(0);
               });
             });
 
             describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 15750*1.1=17325 (total late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
+                await poolAccountingHarness.setPenaltyRate(
                   parseUnits("0.1").div(exaTime.ONE_DAY)
                 );
 
@@ -1111,7 +1122,7 @@ describe("PoolAccounting", () => {
             describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 2000 on a debt 15750*0.1=17325 (way more money late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingEnv.mockedInterestRateModel.setPenaltyRate(
+                await poolAccountingHarness.setPenaltyRate(
                   parseUnits("0.1").div(exaTime.ONE_DAY)
                 );
 

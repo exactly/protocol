@@ -54,7 +54,6 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.092"); // A parameter for the curve
       const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate, not used
       const InterestRateModelFactory = await ethers.getContractFactory(
         "InterestRateModel",
         {}
@@ -62,8 +61,7 @@ describe("InterestRateModel", () => {
       const tx = InterestRateModelFactory.deploy(
         A, // A parameter for the curve
         B, // B parameter for the curve
-        maxUtilizationRate, // High UR slope rate
-        penaltyRate // Penalty Rate
+        maxUtilizationRate // High UR slope rate
       );
       await expect(tx).to.be.reverted;
     });
@@ -75,15 +73,6 @@ describe("InterestRateModel", () => {
       const tx = interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
 
       await expect(tx).to.be.reverted;
-    });
-    describe("WHEN changing the penaltyRate", () => {
-      const penaltyRate = parseUnits("0.0000002314814815"); // Penalty rate
-      beforeEach(async () => {
-        await interestRateModel.setPenaltyRate(penaltyRate);
-      });
-      it("THEN the new value is readable", async () => {
-        expect(await interestRateModel.penaltyRate()).to.be.equal(penaltyRate);
-      });
     });
     // - U_{b}: 0.9
     // - U_{max}: 1.2
@@ -306,12 +295,10 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.72"); // A parameter for the curve
       const B = parseUnits("-0.22"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("3"); // Maximum utilization rate
-      const penaltyRate = parseUnits("0.025"); // Penalty rate
       IRMHarness = await IRMHarnessFactory.deploy(
         A,
         B,
         maxUtilizationRate,
-        penaltyRate,
         parseUnits("0")
       );
       exactlyEnv.switchWallet(alice);
