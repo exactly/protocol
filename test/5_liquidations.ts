@@ -201,7 +201,12 @@ describe("Liquidations", function () {
 
         describe("AND the position is liquidated a first time (19kdai)", () => {
           let tx: any;
+          let balancePreBTC: BigNumber;
           beforeEach(async () => {
+            balancePreBTC = await exactlyEnv
+              .getUnderlying("WBTC")
+              .connect(bob)
+              .balanceOf(bob.address);
             tx = fixedLenderDAI
               .connect(bob)
               .liquidate(
@@ -228,6 +233,19 @@ describe("Liquidations", function () {
 
             // John initial balance on the smart pool was 10000
             expect(johnBalanceEDAI).to.equal(parseUnits("10000"));
+          });
+
+          it("THEN liquidator receives WBTC", async () => {
+            // 19000 + 10% liquidation incentive = 20900 usd
+            // 20900 USD / 63000 USD/BTC = 0.33174603 BTC (or 33174603*10^18)
+            // 0.33174603 - 2.8% liquidation fee = 32245715 btc
+            await tx;
+            const receivedBTC = parseUnits("32245715", 0);
+            const balancePostBTC = await exactlyEnv
+              .getUnderlying("WBTC")
+              .connect(bob)
+              .balanceOf(bob.address);
+            expect(balancePostBTC.sub(balancePreBTC)).to.equal(receivedBTC);
           });
 
           it("AND 19k DAI of debt has been repaid, making debt ~36860 DAI", async () => {
@@ -282,89 +300,6 @@ describe("Liquidations", function () {
               expect(debt).to.be.lt(parseUnits("19000"));
               expect(debt).to.be.gt(parseUnits("18000"));
             });
-          });
-        });
-
-        describe("AND the position is liquidated a second time (19kdai)", () => {
-          let tx: any;
-          let balancePreBTC: BigNumber;
-          beforeEach(async () => {
-            balancePreBTC = await exactlyEnv
-              .getUnderlying("WBTC")
-              .connect(bob)
-              .balanceOf(bob.address);
-            tx = fixedLenderDAI
-              .connect(bob)
-              .liquidate(
-                alice.address,
-                parseUnits("19000"),
-                parseUnits("19000"),
-                fixedLenderWBTC.address,
-                nextPoolID
-              );
-          });
-
-          it("THEN the liquidator seizes (19k) +10% of collateral (WBTC)", async () => {
-            // 19000 + 10% liquidation incentive = 20900 usd
-            // 20900 USD / 63000 USD/BTC = 0.33174603 BTC (or 33174603*10^18)
-            const seizedWBTC = parseUnits("33174603", 0);
-            await expect(tx)
-              .to.emit(fixedLenderWBTC, "SeizeAsset")
-              .withArgs(bob.address, alice.address, seizedWBTC);
-          });
-
-          it("THEN liquidator receives WBTC", async () => {
-            // 19000 + 10% liquidation incentive = 20900 usd
-            // 20900 USD / 63000 USD/BTC = 0.33174603 BTC (or 33174603*10^18)
-            // 0.33174603 - 2.8% liquidation fee = 32245715 btc
-            await tx;
-            const receivedBTC = parseUnits("32245715", 0);
-            const balancePostBTC = await exactlyEnv
-              .getUnderlying("WBTC")
-              .connect(bob)
-              .balanceOf(bob.address);
-            expect(balancePostBTC.sub(balancePreBTC)).to.equal(receivedBTC);
-          });
-
-          it("THEN john DID NOT collect the penalty fees because there's still debt", async () => {
-            await tx;
-            const johnBalanceEDAI = await exactlyEnv
-              .getEToken("DAI")
-              .balanceOf(john.address);
-
-            // John initial balance on the smart pool was 10000
-            expect(johnBalanceEDAI).to.equal(parseUnits("10000"));
-          });
-
-          it("AND 19000 DAI of debt has been repaid, making debt ~36860 DAI", async () => {
-            await tx;
-            const totalBorrowAmount = 39900;
-            const firstPenalties = exactlyEnv.calculatePenaltiesForDebt(
-              totalBorrowAmount,
-              exaTime.ONE_DAY * 20 + exaTime.ONE_SECOND * 2, // 2 seconds passed since there are 2 extra txs in the beforeEach
-              parseFloat(penaltyRate)
-            );
-            // we calculate how much the 19000 DAI cover from the current debt + penalties
-            const debtCovered =
-              (19000 * totalBorrowAmount) /
-              (totalBorrowAmount + firstPenalties);
-            // since we are calling the accountSnapshot again, we now have to calculate what is owed with the debt that has been covered
-            const currentPenalties = exactlyEnv.calculatePenaltiesForDebt(
-              totalBorrowAmount - debtCovered,
-              exaTime.ONE_DAY * 20 + exaTime.ONE_SECOND * 2,
-              parseFloat(penaltyRate)
-            );
-            const [, debt] = await fixedLenderDAI.getAccountSnapshot(
-              alice.address,
-              nextPoolID
-            );
-
-            // debt should be approximately 38760
-            const calculatedDebt = parseUnits(
-              (totalBorrowAmount - debtCovered + currentPenalties).toString()
-            );
-            expect(debt).to.be.gt(calculatedDebt.sub(parseUnits("0.1")));
-            expect(debt).to.be.lt(calculatedDebt.add(parseUnits("0.1")));
           });
         });
       });

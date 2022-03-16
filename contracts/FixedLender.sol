@@ -528,7 +528,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param borrower the address of the account that has the debt
      * @param repayAmount the amount of debt of the pool that should be paid
      * @param maturityDate the maturityDate to access the pool
-     * @return the actual amount that it was transferred into the protocol
+     * @return the actual amount that was transferred into the protocol
      */
     function _repay(
         address payer,
