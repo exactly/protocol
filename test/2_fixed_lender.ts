@@ -649,7 +649,7 @@ describe("FixedLender", function () {
         await dai.setCommission(parseUnits("0.1"));
       });
 
-      describe("WHEN depositing 2000 DAI on a maturity pool and on a smart pool", () => {
+      describe("WHEN trying to deposit 100 DAI on a maturity pool", () => {
         let tx: Promise<ContractTransaction>;
         beforeEach(async () => {
           tx = fixedLenderDAI.depositToMaturityPool(parseUnits("100"), futurePools(1)[0], parseUnits("100"));

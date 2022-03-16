@@ -301,6 +301,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
      * @param maturityDate maturity date / pool id where the asset should be accounted for
      * @param borrower address where the debt will be reduced
      * @param repayAmount amount that it will be repaid in the MP
+     * @return actualRepayAmount the amount with discounts included that will finally be transferred
+     * @return debtCovered the sum of principal and fees that this repayment covers
+     * @return earningsSP amount of earnings to be accrued by the smart pool depositors
+     * @return earningsTreasury amount of earnings to be accrued by the protocol's treasury
      */
     function repayMP(
         uint256 maturityDate,
@@ -381,8 +385,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             earningsSP += newEarningsSP;
         }
         // user paid more than it should. The fee gets discounted from the user
-        // through _actualRepayAmount_ and on the pool side it was removed by
-        // calling _removeFee_ a few lines before ^
+        // through _actualRepayAmount_ and on the pool side it was removed from
+        // the unassignedEarnings a few lines before ^
         actualRepayAmount = repayAmount - repayVars.discountFee;
 
         // We reduce the borrowed and we might decrease the SP debt
