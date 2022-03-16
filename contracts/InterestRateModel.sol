@@ -180,16 +180,13 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         if (currentDate >= maturityDate) {
             revert GenericError(ErrorCode.INVALID_TIME_DIFFERENCE);
         }
-        if (supplied == 0) {
-            revert GenericError(ErrorCode.INSUFFICIENT_PROTOCOL_LIQUIDITY);
-        }
         uint256 utilizationBefore = borrowedMP.fdiv(supplied, 1e18);
         uint256 utilizationAfter = (borrowedMP + amount).fdiv(supplied, 1e18);
         if (utilizationAfter >= maxUtilizationRate) {
             revert GenericError(ErrorCode.EXCEEDED_MAX_UTILIZATION_RATE);
         }
         uint256 rate = simpsonIntegrator(utilizationBefore, utilizationAfter);
-        return (rate * (maturityDate - currentDate)) / YEAR;
+        return rate.fmul(maturityDate - currentDate, YEAR);
     }
 
     /**
@@ -212,8 +209,8 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         }
         return
             (trapezoidIntegrator(utilizationBefore, utilizationAfter) +
-                2 *
-                midpointIntegrator(utilizationBefore, utilizationAfter)) / 3;
+                (midpointIntegrator(utilizationBefore, utilizationAfter) <<
+                    1)) / 3;
     }
 
     /**
@@ -252,16 +249,16 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         returns (uint256)
     {
         uint256 denominator = ut1 - ut;
-        uint256 delta = denominator / 4;
-        uint256 numerator = getPointInCurve(ut) +
-            2 *
-            getPointInCurve(ut + delta) +
-            2 *
-            getPointInCurve(ut + 2 * delta) +
-            2 *
-            getPointInCurve(ut + 3 * delta) +
-            getPointInCurve(ut1);
-        return ((delta / 2) * numerator) / denominator;
+        uint256 delta = denominator >> 2;
+        return
+            (delta >> 1).fmul(
+                getPointInCurve(ut) +
+                    (getPointInCurve(ut + delta) << 1) +
+                    (getPointInCurve(ut + (delta << 1)) << 1) +
+                    (getPointInCurve(ut + 3 * delta) << 1) +
+                    getPointInCurve(ut1),
+                denominator
+            );
     }
 
     /**
@@ -278,13 +275,14 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         returns (uint256)
     {
         uint256 denominator = ut1 - ut;
-        uint256 delta = denominator / 4;
-        uint256 numerator = getPointInCurve(
-            ut + delta.fmul(0.5 ether, 1 ether)
-        ) +
-            getPointInCurve(ut + delta.fmul(1.5 ether, 1 ether)) +
-            getPointInCurve(ut + delta.fmul(2.5 ether, 1 ether)) +
-            getPointInCurve(ut + delta.fmul(3.5 ether, 1 ether));
-        return (delta * numerator) / denominator;
+        uint256 delta = denominator >> 2;
+        return
+            delta.fmul(
+                getPointInCurve(ut + delta.fmul(0.5e18, 1e18)) +
+                    getPointInCurve(ut + delta.fmul(1.5e18, 1e18)) +
+                    getPointInCurve(ut + delta.fmul(2.5e18, 1e18)) +
+                    getPointInCurve(ut + delta.fmul(3.5e18, 1e18)),
+                denominator
+            );
     }
 }
