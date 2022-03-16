@@ -1783,7 +1783,7 @@ describe("PoolAccounting", () => {
   });
 
   afterEach(async () => {
-    await ethers.provider.send("evm_revert", [snapshot]);
-    await ethers.provider.send("evm_mine", []);
+    await provider.send("evm_revert", [snapshot]);
+    await provider.send("hardhat_mine", ["0x2", "0x0"]);
   });
 });
