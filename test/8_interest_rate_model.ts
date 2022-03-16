@@ -468,12 +468,9 @@ describe("InterestRateModel", () => {
         await exactlyEnv.depositSP("WETH", "10");
         await exactlyEnv.enterMarkets(["WETH"]);
       });
-      it("WHEN asking to borrow without a previous MP/SP deposit THEN it reverts with INSUFFICIENT_PROTOCOL_LIQUIDITY ", async () => {
-        await expect(
-          exactlyEnv.borrowMP("DAI", secondPoolID, "1")
-        ).to.be.revertedWith(
-          errorGeneric(ProtocolError.INSUFFICIENT_PROTOCOL_LIQUIDITY)
-        );
+      it("WHEN asking to borrow without a previous MP/SP deposit THEN it reverts with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
+        await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "1")).to.be
+          .reverted;
       });
       describe("GIVEN a 1 DAI MP deposit", () => {
         beforeEach(async () => {
