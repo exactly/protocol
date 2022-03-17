@@ -2,8 +2,7 @@
 pragma solidity ^0.8.4;
 
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -20,6 +19,7 @@ import "./utils/Errors.sol";
 
 contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     using FixedPointMathLib for uint256;
+    using SafeERC20 for IERC20;
 
     uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
     uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
@@ -692,12 +692,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      */
     function doTransferIn(address from, uint256 amount) internal virtual {
         uint256 balanceBefore = trustedUnderlying.balanceOf(address(this));
-        SafeERC20.safeTransferFrom(
-            trustedUnderlying,
-            from,
-            address(this),
-            amount
-        );
+        trustedUnderlying.safeTransferFrom(from, address(this), amount);
 
         // Calculate the amount that was *actually* transferred
         uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
@@ -705,6 +700,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     }
 
     function doTransferOut(address to, uint256 amount) internal virtual {
-        SafeERC20.safeTransfer(trustedUnderlying, to, amount);
+        trustedUnderlying.safeTransfer(to, amount);
     }
 }
