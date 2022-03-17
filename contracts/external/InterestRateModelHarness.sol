@@ -8,14 +8,12 @@ contract InterestRateModelHarness is InterestRateModel {
         uint256 _curveParameterA,
         int256 _curveParameterB,
         uint256 _maxUtilizationRate,
-        uint256 _penaltyRate,
         uint256 _spFeeRate
     )
         InterestRateModel(
             _curveParameterA,
             _curveParameterB,
             _maxUtilizationRate,
-            _penaltyRate,
             _spFeeRate
         )
     {}

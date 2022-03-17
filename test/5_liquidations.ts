@@ -26,7 +26,6 @@ describe("Liquidations", function () {
   let amountToBorrowDAI: string;
 
   let snapshot: any;
-  const penaltyRate = "0.0000002314814815"; // Penalty Rate per second. each day (86400) is 2%
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
   });
@@ -45,10 +44,6 @@ describe("Liquidations", function () {
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
     nextPoolID = exaTime.nextPoolID();
-
-    await exactlyEnv
-      .getInterestRateModel()
-      .setPenaltyRate(parseUnits(penaltyRate));
 
     // From alice to bob
     await dai.transfer(bob.address, parseUnits("200000"));

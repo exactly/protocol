@@ -6,7 +6,6 @@ import "../utils/Errors.sol";
 
 contract MockedInterestRateModel is IInterestRateModel {
     uint256 public borrowRate;
-    uint256 public override penaltyRate;
     uint256 public spFeeRate;
     IInterestRateModel public realInterestRateModel;
 
@@ -46,9 +45,5 @@ contract MockedInterestRateModel is IInterestRateModel {
 
     function setBorrowRate(uint256 newRate) public {
         borrowRate = newRate;
-    }
-
-    function setPenaltyRate(uint256 newRate) public {
-        penaltyRate = newRate;
     }
 }

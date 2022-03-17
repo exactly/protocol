@@ -148,7 +148,6 @@ export class PoolAccountingEnv {
       parseUnits("0.07"), // Maturity pool slope rate
       parseUnits("0.07"), // Smart pool slope rate
       parseUnits("0.02"), // Base rate
-      parseUnits("0.0000002315"), // Penalty Rate per second (86400 is ~= 2%)
       parseUnits("0") // SP rate if 0 then no fees charged for the mp depositors' yield
     );
     await realInterestRateModel.deployed();
@@ -165,7 +164,8 @@ export class PoolAccountingEnv {
       "PoolAccountingHarness"
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
-      mockedInterestRateModel.address
+      mockedInterestRateModel.address,
+      parseUnits("0.02").div(86_400)
     );
     await poolAccountingHarness.deployed();
     await poolAccountingHarness.setProtocolSpreadFee(0);

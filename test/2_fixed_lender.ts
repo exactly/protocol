@@ -42,10 +42,9 @@ describe("FixedLender", function () {
     fixedLenderWETH = await getContract<ETHFixedLender>("FixedLenderWETH", maria);
     poolAccountingDAI = await getContract<PoolAccounting>("PoolAccountingDAI", maria);
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", owner);
-    penaltyRate = await interestRateModel.penaltyRate();
+    penaltyRate = await poolAccountingDAI.penaltyRate();
 
     await timelockExecute(owner, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10")]);
-    await timelockExecute(owner, interestRateModel, "setPenaltyRate", [penaltyRate]);
     await timelockExecute(owner, interestRateModel, "setSPFeeRate", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).transfer(signer.address, parseUnits("10000"));
@@ -348,7 +347,6 @@ describe("FixedLender", function () {
       await fixedLenderWETH.depositToSmartPoolEth({ value: parseUnits("10") });
       await auditor.enterMarkets([fixedLenderWETH.address]);
 
-      penaltyRate = await interestRateModel.penaltyRate();
       await timelockExecute(owner, interestRateModel, "setCurveParameters", [
         parseUnits("0"),
         parseUnits("0"),

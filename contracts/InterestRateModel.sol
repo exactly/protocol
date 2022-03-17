@@ -18,14 +18,12 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 public curveParameterA;
     int256 public curveParameterB;
     uint256 public maxUtilizationRate;
-    uint256 public override penaltyRate;
     uint256 public spFeeRate;
 
     event ParametersUpdated(
         uint256 a,
         int256 b,
         uint256 maxUtilizationRate,
-        uint256 penaltyRate,
         uint256 spFeeRate
     );
 
@@ -33,14 +31,12 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         uint256 _curveParameterA,
         int256 _curveParameterB,
         uint256 _maxUtilizationRate,
-        uint256 _penaltyRate,
         uint256 _spFeeRate
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         curveParameterA = _curveParameterA;
         curveParameterB = _curveParameterB;
         maxUtilizationRate = _maxUtilizationRate;
-        penaltyRate = _penaltyRate;
         spFeeRate = _spFeeRate;
     }
 
@@ -58,37 +54,18 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             curveParameterA,
             curveParameterB,
             maxUtilizationRate,
-            penaltyRate,
             _spFeeRate
         );
     }
 
-    /// @notice sets the penalty rate per second
-    /// @param penaltyRate_ percentage represented with 18 decimals
-    function setPenaltyRate(uint256 penaltyRate_)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        penaltyRate = penaltyRate_;
-
-        emit ParametersUpdated(
-            curveParameterA,
-            curveParameterB,
-            maxUtilizationRate,
-            penaltyRate_,
-            spFeeRate
-        );
-    }
-
     /// @notice gets this model's parameters
-    /// @return parameters (curveA, curveB, maxUtilizationRate, penaltyRate, spFeeRate)
+    /// @return parameters (curveA, curveB, maxUtilizationRate, spFeeRate)
     function getParameters()
         external
         view
         returns (
             uint256,
             int256,
-            uint256,
             uint256,
             uint256
         )
@@ -97,7 +74,6 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
             curveParameterA,
             curveParameterB,
             maxUtilizationRate,
-            penaltyRate,
             spFeeRate
         );
     }
@@ -149,13 +125,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
         // rate). Doing it works because it's a monotonously increasing function.
         getPointInCurve(0);
 
-        emit ParametersUpdated(
-            curveA,
-            curveB,
-            _maxUtilizationRate,
-            penaltyRate,
-            spFeeRate
-        );
+        emit ParametersUpdated(curveA, curveB, _maxUtilizationRate, spFeeRate);
     }
 
     /**
