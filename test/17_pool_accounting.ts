@@ -58,6 +58,13 @@ describe("PoolAccounting", () => {
         parseUnits("0.04")
       );
     });
+    it("WHEN calling setPenaltyRate, THEN it should emit UpdatedPenaltyRate event", async () => {
+      await expect(
+        await poolAccountingHarness.setPenaltyRate(parseUnits("0.04"))
+      )
+        .to.emit(poolAccountingHarness, "UpdatedPenaltyRate")
+        .withArgs(parseUnits("0.04"));
+    });
     it("WHEN calling setPenaltyRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(
         poolAccountingHarness.connect(laura).setPenaltyRate(parseUnits("0.04"))
