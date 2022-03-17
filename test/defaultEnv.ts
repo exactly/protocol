@@ -94,7 +94,6 @@ export class DefaultEnv {
       parseUnits("0.0495"), // A parameter for the curve
       parseUnits("-0.025"), // B parameter for the curve
       parseUnits("1.1"), // Max utilization rate
-      parseUnits("0.0000002315"), // Penalty Rate per second (86400 is ~= 2%)
       parseUnits("0") // SP rate if 0 then no fees charged for the mp depositors' yield
     );
 
@@ -143,7 +142,8 @@ export class DefaultEnv {
           "PoolAccounting"
         );
         const poolAccounting = await PoolAccounting.deploy(
-          interestRateModel.address
+          interestRateModel.address,
+          parseUnits("0.02").div(86_400)
         );
 
         const FixedLender = await ethers.getContractFactory(

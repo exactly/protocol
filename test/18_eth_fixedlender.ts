@@ -368,6 +368,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
       describe("repayToMaturityPoolEth vs repayToMaturityPool", () => {
         describe("AND she borrows some WETH (erc20) AND maturity is reached", () => {
           beforeEach(async () => {
+            await poolAccounting.setPenaltyRate(0);
             await exactlyEnv.borrowMP("WETH", nextPoolId, "5");
             await exactlyEnv.moveInTime(nextPoolId);
           });

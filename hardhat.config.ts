@@ -35,8 +35,10 @@ const config: Config = {
       curveA: 0.72,
       curveB: -0.22,
       maxUtilizationRate: 3,
-      penaltyRatePerDay: 0.02,
       smartPoolRate: 0.1,
+    },
+    poolAccounting: {
+      penaltyRatePerDay: 0.02,
     },
   },
   typechain: { outDir: "types", target: "ethers-v5" },
@@ -56,8 +58,10 @@ declare module "hardhat/types/config" {
       curveA: number;
       curveB: number;
       maxUtilizationRate: number;
-      penaltyRatePerDay: number;
       smartPoolRate: number;
+    };
+    poolAccounting: {
+      penaltyRatePerDay: number;
     };
   }
 

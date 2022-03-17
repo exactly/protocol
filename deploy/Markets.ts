@@ -15,7 +15,10 @@ import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
   config: {
-    finance: { collateralFactor },
+    finance: {
+      collateralFactor,
+      poolAccounting: { penaltyRatePerDay },
+    },
   },
   ethers: {
     constants: { AddressZero },
@@ -51,7 +54,7 @@ const func: DeployFunction = async ({
     const poolAccountingName = `PoolAccounting${symbol}`;
     await deploy(poolAccountingName, {
       contract: "PoolAccounting",
-      args: [interestRateModel.address],
+      args: [interestRateModel.address, parseUnits(String(penaltyRatePerDay)).div(86_400)],
       from: deployer,
       log: true,
     });

@@ -49,6 +49,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     IInterestRateModel public interestRateModel;
 
     uint256 public protocolSpreadFee = 2.8e16; // 2.8%
+    uint256 public penaltyRate;
 
     event Initialized(address indexed fixedLender);
 
@@ -62,9 +63,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         _;
     }
 
-    constructor(address _interestRateModelAddress) {
+    constructor(address _interestRateModelAddress, uint256 _penaltyRate) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         interestRateModel = IInterestRateModel(_interestRateModelAddress);
+        penaltyRate = _penaltyRate;
     }
 
     /**
@@ -81,6 +83,15 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         fixedLenderAddress = _fixedLenderAddress;
 
         emit Initialized(_fixedLenderAddress);
+    }
+
+    /// @notice sets the penalty rate per second
+    /// @param penaltyRate_ percentage represented with 18 decimals
+    function setPenaltyRate(uint256 penaltyRate_)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        penaltyRate = penaltyRate_;
     }
 
     /**
@@ -495,10 +506,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             block.timestamp
         );
         if (secondsDelayed > 0) {
-            totalDebt += totalDebt.fmul(
-                secondsDelayed * interestRateModel.penaltyRate(),
-                1e18
-            );
+            totalDebt += totalDebt.fmul(secondsDelayed * penaltyRate, 1e18);
         }
     }
 }

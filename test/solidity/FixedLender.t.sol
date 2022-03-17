@@ -39,11 +39,11 @@ contract FixedLenderTest is DSTest {
     mockedOracle.setPrice("DAI", 1e8);
     Auditor auditor = new Auditor(address(mockedOracle));
     EToken eToken = new EToken("DAI", "DAI", 18);
-    InterestRateModel interestRateModel = new InterestRateModel(0.0495e18, -0.025e18, 1.1e18, 0.00000023148e18, 0);
+    InterestRateModel interestRateModel = new InterestRateModel(0.0495e18, -0.025e18, 1.1e18, 0);
     MockedInterestRateModel mockedInterestRateModel = new MockedInterestRateModel(address(interestRateModel));
     mockedInterestRateModel.setBorrowRate(0.05e18);
 
-    PoolAccounting poolAccounting = new PoolAccounting(address(mockedInterestRateModel));
+    PoolAccounting poolAccounting = new PoolAccounting(address(mockedInterestRateModel), 0.02e18 / uint256(1 days));
     fixedLender = new FixedLender(
       address(mockedToken),
       "DAI",

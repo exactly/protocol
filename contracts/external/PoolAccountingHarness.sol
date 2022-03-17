@@ -18,7 +18,9 @@ contract PoolAccountingHarness is PoolAccounting {
     ReturnValues public returnValues;
     uint256 public timestamp;
 
-    constructor(address interestRateModel) PoolAccounting(interestRateModel) {
+    constructor(address interestRateModel, uint256 penaltyRate)
+        PoolAccounting(interestRateModel, penaltyRate)
+    {
         timestamp = block.timestamp;
     }
 
