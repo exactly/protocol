@@ -1430,13 +1430,9 @@ describe("PoolAccounting", () => {
       earningsDiscounted: parseUnits("0"),
     };
 
-    beforeEach(async () => {
-      await provider.send("evm_setAutomine", [false]);
-    });
+    beforeEach(() => provider.send("evm_setAutomine", [false]));
 
-    afterEach(async () => {
-      await provider.send("evm_setAutomine", [true]);
-    });
+    afterEach(() => provider.send("evm_setAutomine", [true]));
 
     describe("GIVEN a borrowMP of 10000 (500 fees owed by user)", () => {
       const fiveDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
@@ -1631,6 +1627,9 @@ describe("PoolAccounting", () => {
           await provider.send("evm_setAutomine", [true]);
           tx = poolAccountingEnv.withdrawMP(nextPoolID, "5250", "5250");
         });
+
+        afterEach(() => provider.send("evm_setAutomine", [false]));
+
         it("THEN it should revert with error TOO_MUCH_SLIPPAGE", async () => {
           await expect(tx).to.be.revertedWith("TooMuchSlippage()");
         });
