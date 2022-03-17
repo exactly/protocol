@@ -51,6 +51,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 public protocolSpreadFee = 2.8e16; // 2.8%
     uint256 public penaltyRate;
 
+    /**
+     * @notice emitted when a penaltyRate is changed by admin.
+     * @param newPenaltyRate penaltyRate percentage per second
+     */
+    event UpdatedPenaltyRate(uint256 newPenaltyRate);
     event Initialized(address indexed fixedLender);
 
     /**
@@ -86,12 +91,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     }
 
     /// @notice sets the penalty rate per second
-    /// @param penaltyRate_ percentage represented with 18 decimals
-    function setPenaltyRate(uint256 penaltyRate_)
+    /// @param _penaltyRate percentage represented with 18 decimals
+    function setPenaltyRate(uint256 _penaltyRate)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        penaltyRate = penaltyRate_;
+        penaltyRate = _penaltyRate;
+        emit UpdatedPenaltyRate(_penaltyRate);
     }
 
     /**
