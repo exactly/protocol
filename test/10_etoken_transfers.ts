@@ -32,17 +32,17 @@ describe("EToken transfers", () => {
     });
 
     it("THEN balance of eDAI in bob's address is 500", async () => {
-      let bobBalance = await eDAI.balanceOf(bob.address);
+      const bobBalance = await eDAI.balanceOf(bob.address);
 
       expect(bobBalance).to.equal(parseUnits("500"));
     });
     it("THEN balance of eDAI in laura's address is 500", async () => {
-      let lauraBalance = await eDAI.balanceOf(laura.address);
+      const lauraBalance = await eDAI.balanceOf(laura.address);
 
       expect(lauraBalance).to.equal(parseUnits("500"));
     });
     it("THEN balance supply in contract is still 1000", async () => {
-      let totalSupply = await eDAI.totalSupply();
+      const totalSupply = await eDAI.totalSupply();
 
       expect(totalSupply).to.equal(parseUnits("1000"));
     });
@@ -62,17 +62,17 @@ describe("EToken transfers", () => {
       });
 
       it("THEN balance of eDAI in bob's address is 1000", async () => {
-        let bobBalance = await eDAI.balanceOf(bob.address);
+        const bobBalance = await eDAI.balanceOf(bob.address);
 
         expect(bobBalance).to.equal(parseUnits("1000"));
       });
       it("THEN balance of eDAI in laura's address is 1000", async () => {
-        let lauraBalance = await eDAI.balanceOf(laura.address);
+        const lauraBalance = await eDAI.balanceOf(laura.address);
 
         expect(lauraBalance).to.equal(parseUnits("1000"));
       });
       it("THEN balance supply in contract is 2000", async () => {
-        let totalSupply = await eDAI.totalSupply();
+        const totalSupply = await eDAI.totalSupply();
 
         expect(totalSupply).to.equal(parseUnits("2000"));
       });
@@ -83,28 +83,28 @@ describe("EToken transfers", () => {
         });
 
         it("THEN balance of eDAI in laura's address is 0", async () => {
-          let lauraBalance = await eDAI.balanceOf(laura.address);
+          const lauraBalance = await eDAI.balanceOf(laura.address);
 
           expect(lauraBalance).to.equal(parseUnits("0"));
         });
         it("THEN balance of eDAI in tito's address is 1500", async () => {
-          let titoBalance = await eDAI.balanceOf(tito.address);
+          const titoBalance = await eDAI.balanceOf(tito.address);
 
           expect(titoBalance).to.equal(parseUnits("1500"));
         });
         it("THEN balance of eDAI in bob's address is 1500", async () => {
-          let bobBalance = await eDAI.balanceOf(bob.address);
+          const bobBalance = await eDAI.balanceOf(bob.address);
 
           expect(bobBalance).to.equal(parseUnits("1500"));
         });
         it("THEN balance supply in contract is 3000", async () => {
-          let totalSupply = await eDAI.totalSupply();
+          const totalSupply = await eDAI.totalSupply();
 
           expect(totalSupply).to.equal(parseUnits("3000"));
         });
         it("AND WHEN tito burns all his tokens THEN balance of eDAI in his address is 0", async () => {
           await eDAI.burn(tito.address, parseUnits("1500"));
-          let titoBalance = await eDAI.balanceOf(tito.address);
+          const titoBalance = await eDAI.balanceOf(tito.address);
 
           expect(titoBalance).to.equal(parseUnits("0"));
         });
@@ -120,22 +120,22 @@ describe("EToken transfers", () => {
             });
 
             it("THEN balance of eDAI in tito's address is 4250", async () => {
-              let titoBalance = await eDAI.balanceOf(tito.address);
+              const titoBalance = await eDAI.balanceOf(tito.address);
 
               expect(titoBalance).to.equal(parseUnits("4250"));
             });
             it("THEN balance of eDAI in bob's address is 0", async () => {
-              let bobBalance = await eDAI.balanceOf(bob.address);
+              const bobBalance = await eDAI.balanceOf(bob.address);
 
               expect(bobBalance).to.equal(parseUnits("0"));
             });
             it("THEN balance of eDAI in laura's address is 0", async () => {
-              let lauraBalance = await eDAI.balanceOf(laura.address);
+              const lauraBalance = await eDAI.balanceOf(laura.address);
 
               expect(lauraBalance).to.equal(parseUnits("0"));
             });
             it("THEN balance supply in contract is 4250", async () => {
-              let totalSupply = await eDAI.totalSupply();
+              const totalSupply = await eDAI.totalSupply();
 
               expect(totalSupply).to.equal(parseUnits("4250"));
             });
@@ -159,17 +159,17 @@ describe("EToken transfers", () => {
     });
 
     it("THEN balance of eDAI in bob's address is 500", async () => {
-      let bobBalance = await eDAI.balanceOf(bob.address);
+      const bobBalance = await eDAI.balanceOf(bob.address);
 
       expect(bobBalance).to.equal(parseUnits("500"));
     });
     it("THEN balance of eDAI in laura's address is 500", async () => {
-      let lauraBalance = await eDAI.balanceOf(laura.address);
+      const lauraBalance = await eDAI.balanceOf(laura.address);
 
       expect(lauraBalance).to.equal(parseUnits("500"));
     });
     it("THEN balance supply in contract is still 1000", async () => {
-      let totalSupply = await eDAI.totalSupply();
+      const totalSupply = await eDAI.totalSupply();
 
       expect(totalSupply).to.equal(parseUnits("1000"));
     });
@@ -203,17 +203,17 @@ describe("EToken transfers", () => {
       });
 
       it("THEN balance of eDAI in bob's address is 1000", async () => {
-        let bobBalance = await eDAI.balanceOf(bob.address);
+        const bobBalance = await eDAI.balanceOf(bob.address);
 
         expect(bobBalance).to.equal(parseUnits("1000"));
       });
       it("THEN balance of eDAI in laura's address is 1000", async () => {
-        let lauraBalance = await eDAI.balanceOf(laura.address);
+        const lauraBalance = await eDAI.balanceOf(laura.address);
 
         expect(lauraBalance).to.equal(parseUnits("1000"));
       });
       it("THEN balance supply in contract is 2000", async () => {
-        let totalSupply = await eDAI.totalSupply();
+        const totalSupply = await eDAI.totalSupply();
 
         expect(totalSupply).to.equal(parseUnits("2000"));
       });
@@ -227,22 +227,22 @@ describe("EToken transfers", () => {
         });
 
         it("THEN balance of eDAI in laura's address is 0", async () => {
-          let lauraBalance = await eDAI.balanceOf(laura.address);
+          const lauraBalance = await eDAI.balanceOf(laura.address);
 
           expect(lauraBalance).to.equal(parseUnits("0"));
         });
         it("THEN balance of eDAI in tito's address is 1500", async () => {
-          let titoBalance = await eDAI.balanceOf(tito.address);
+          const titoBalance = await eDAI.balanceOf(tito.address);
 
           expect(titoBalance).to.equal(parseUnits("1500"));
         });
         it("THEN balance of eDAI in bob's address is 1500", async () => {
-          let bobBalance = await eDAI.balanceOf(bob.address);
+          const bobBalance = await eDAI.balanceOf(bob.address);
 
           expect(bobBalance).to.equal(parseUnits("1500"));
         });
         it("THEN balance supply in contract is 3000", async () => {
-          let totalSupply = await eDAI.totalSupply();
+          const totalSupply = await eDAI.totalSupply();
 
           expect(totalSupply).to.equal(parseUnits("3000"));
         });
@@ -257,22 +257,22 @@ describe("EToken transfers", () => {
           });
 
           it("THEN balance of eDAI in tito's address is 5000", async () => {
-            let titoBalance = await eDAI.balanceOf(tito.address);
+            const titoBalance = await eDAI.balanceOf(tito.address);
 
             expect(titoBalance).to.equal(parseUnits("5000"));
           });
           it("THEN balance of eDAI in bob's address is 0", async () => {
-            let bobBalance = await eDAI.balanceOf(bob.address);
+            const bobBalance = await eDAI.balanceOf(bob.address);
 
             expect(bobBalance).to.equal(parseUnits("0"));
           });
           it("THEN balance of eDAI in laura's address is 0", async () => {
-            let lauraBalance = await eDAI.balanceOf(laura.address);
+            const lauraBalance = await eDAI.balanceOf(laura.address);
 
             expect(lauraBalance).to.equal(parseUnits("0"));
           });
           it("THEN balance supply in contract is 5000", async () => {
-            let totalSupply = await eDAI.totalSupply();
+            const totalSupply = await eDAI.totalSupply();
 
             expect(totalSupply).to.equal(parseUnits("5000"));
           });
