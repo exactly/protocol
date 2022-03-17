@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-
-import "./FixedLender.sol";
-import "./external/WETH9.sol";
+import { FixedLender } from "./FixedLender.sol";
+import { WETH9 } from "./external/WETH9.sol";
 
 contract ETHFixedLender is FixedLender {
     bool private wrapOnOurSide;
