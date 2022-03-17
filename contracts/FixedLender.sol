@@ -468,9 +468,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param amount The amount to be deposited
      */
     function depositToSmartPool(uint256 amount) public override whenNotPaused {
-        doTransferIn(msg.sender, amount);
-        eToken.mint(msg.sender, amount);
         emit DepositToSmartPool(msg.sender, amount);
+        eToken.mint(msg.sender, amount);
+        doTransferIn(msg.sender, amount);
     }
 
     /**
