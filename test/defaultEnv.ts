@@ -143,7 +143,8 @@ export class DefaultEnv {
         );
         const poolAccounting = await PoolAccounting.deploy(
           interestRateModel.address,
-          parseUnits("0.02").div(86_400)
+          parseUnits("0.02").div(86_400),
+          parseUnits("0.028")
         );
 
         const FixedLender = await ethers.getContractFactory(

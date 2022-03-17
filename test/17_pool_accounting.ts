@@ -79,6 +79,13 @@ describe("PoolAccounting", () => {
         parseUnits("0.04")
       );
     });
+    it("WHEN calling setProtocolSpreadFee, THEN it should emit UpdatedProtocolSpreadFee event", async () => {
+      await expect(
+        await poolAccountingHarness.setProtocolSpreadFee(parseUnits("0.04"))
+      )
+        .to.emit(poolAccountingHarness, "UpdatedProtocolSpreadFee")
+        .withArgs(parseUnits("0.04"));
+    });
     it("WHEN calling setProtocolSpreadFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(
         poolAccountingHarness

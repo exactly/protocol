@@ -165,10 +165,10 @@ export class PoolAccountingEnv {
     );
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
       mockedInterestRateModel.address,
-      parseUnits("0.02").div(86_400)
+      parseUnits("0.02").div(86_400),
+      0
     );
     await poolAccountingHarness.deployed();
-    await poolAccountingHarness.setProtocolSpreadFee(0);
     // We initialize it with itself, so it can call the methods from within
     await poolAccountingHarness.initialize(poolAccountingHarness.address);
 

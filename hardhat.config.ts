@@ -39,6 +39,7 @@ const config: Config = {
     },
     poolAccounting: {
       penaltyRatePerDay: 0.02,
+      protocolSpreadFee: 0.028,
     },
   },
   typechain: { outDir: "types", target: "ethers-v5" },
@@ -62,6 +63,7 @@ declare module "hardhat/types/config" {
     };
     poolAccounting: {
       penaltyRatePerDay: number;
+      protocolSpreadFee: number;
     };
   }
 

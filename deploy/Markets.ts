@@ -17,7 +17,7 @@ const func: DeployFunction = async ({
   config: {
     finance: {
       collateralFactor,
-      poolAccounting: { penaltyRatePerDay },
+      poolAccounting: { penaltyRatePerDay, protocolSpreadFee },
     },
   },
   ethers: {
@@ -54,7 +54,11 @@ const func: DeployFunction = async ({
     const poolAccountingName = `PoolAccounting${symbol}`;
     await deploy(poolAccountingName, {
       contract: "PoolAccounting",
-      args: [interestRateModel.address, parseUnits(String(penaltyRatePerDay)).div(86_400)],
+      args: [
+        interestRateModel.address,
+        parseUnits(String(penaltyRatePerDay)).div(86_400),
+        parseUnits(String(protocolSpreadFee)),
+      ],
       from: deployer,
       log: true,
     });
