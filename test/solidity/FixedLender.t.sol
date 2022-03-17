@@ -10,6 +10,7 @@ import { Auditor } from "../../contracts/Auditor.sol";
 import { EToken } from "../../contracts/EToken.sol";
 import { MockedToken } from "../../contracts/external/MockedToken.sol";
 import { MockedOracle } from "../../contracts/external/MockedOracle.sol";
+import { MockedInterestRateModel } from "../../contracts/external/MockedInterestRateModel.sol";
 
 contract FixedLenderTest is DSTest {
   Vm internal vm = Vm(HEVM_ADDRESS);
@@ -38,8 +39,11 @@ contract FixedLenderTest is DSTest {
     mockedOracle.setPrice("DAI", 1e8);
     Auditor auditor = new Auditor(address(mockedOracle));
     EToken eToken = new EToken("DAI", "DAI", 18);
-    InterestRateModel interestRateModel = new InterestRateModel(0.0495e18, -0.025e18, 1.1e18, 0.00000023148e18, 0.1e18);
-    PoolAccounting poolAccounting = new PoolAccounting(address(interestRateModel));
+    InterestRateModel interestRateModel = new InterestRateModel(0.0495e18, -0.025e18, 1.1e18, 0.00000023148e18, 0);
+    MockedInterestRateModel mockedInterestRateModel = new MockedInterestRateModel(address(interestRateModel));
+    mockedInterestRateModel.setBorrowRate(0.05e18);
+
+    PoolAccounting poolAccounting = new PoolAccounting(address(mockedInterestRateModel));
     fixedLender = new FixedLender(
       address(mockedToken),
       "DAI",
@@ -48,9 +52,11 @@ contract FixedLenderTest is DSTest {
       address(poolAccounting)
     );
     poolAccounting.initialize(address(fixedLender));
+    poolAccounting.setProtocolSpreadFee(0);
+
     eToken.initialize(address(fixedLender), address(auditor));
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
-    nextMaturityDate = block.timestamp - (block.timestamp % INTERVAL) + INTERVAL;
+    nextMaturityDate = INTERVAL;
 
     mockedToken.approve(address(fixedLender), 100 ether);
   }
@@ -78,28 +84,28 @@ contract FixedLenderTest is DSTest {
   }
 
   function testWithdrawFromMaturityPool() external {
-    fixedLender.depositToSmartPool(10 ether);
     fixedLender.depositToMaturityPool(1 ether, nextMaturityDate, 1 ether);
 
     vm.expectEmit(true, false, false, true);
-    emit WithdrawFromMaturityPool(address(this), 1 ether, 991549837178779841, nextMaturityDate);
-    fixedLender.withdrawFromMaturityPool(1 ether, 0.9 ether, nextMaturityDate);
+    // TODO: fix wrong hardcoded value
+    emit WithdrawFromMaturityPool(address(this), 1 ether, 952380952380952380, nextMaturityDate);
+    fixedLender.withdrawFromMaturityPool(1 ether, 0.95 ether, nextMaturityDate);
   }
 
   function testBorrowFromMaturityPool() external {
     fixedLender.depositToSmartPool(12 ether);
 
     vm.expectEmit(true, false, false, true);
-    emit BorrowFromMaturityPool(address(this), 1 ether, 1819800394287518, nextMaturityDate);
+    emit BorrowFromMaturityPool(address(this), 1 ether, 0.05 ether, nextMaturityDate);
     fixedLender.borrowFromMaturityPool(1 ether, nextMaturityDate, 2 ether);
   }
 
   function testRepayToMaturityPool() external {
     fixedLender.depositToSmartPool(12 ether);
-    fixedLender.borrowFromMaturityPool(1 ether, nextMaturityDate, 2 ether);
+    fixedLender.borrowFromMaturityPool(1 ether, nextMaturityDate, 1.05 ether);
 
     vm.expectEmit(true, false, false, true);
-    emit RepayToMaturityPool(address(this), address(this), 108840468276156681, 109013698630136986, nextMaturityDate);
-    fixedLender.repayToMaturityPool(address(this), nextMaturityDate, 109013698630136986, 109013698630136986);
+    emit RepayToMaturityPool(address(this), address(this), 1 ether, 1.05 ether, nextMaturityDate);
+    fixedLender.repayToMaturityPool(address(this), nextMaturityDate, 1.5 ether, 1.5 ether);
   }
 }
