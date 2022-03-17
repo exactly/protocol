@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { BigNumber, Contract } from "ethers";
+import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ExaTime, errorGeneric, ProtocolError } from "./exactlyUtils";
@@ -240,40 +240,17 @@ describe("Smart Pool", function () {
 
     describe("WHEN depositing 1000 DAI on a smart pool", () => {
       const amount = parseUnits("1000");
+      let tx: any;
 
       beforeEach(async () => {
         await underlyingTokenDAI
           .connect(john)
           .approve(fixedLenderDAI.address, amount);
-        await fixedLenderDAI.connect(john).depositToSmartPool(amount);
+        tx = fixedLenderDAI.connect(john).depositToSmartPool(amount);
       });
 
-      it("THEN the user receives 900 on smart pool deposit", async () => {
-        const supplied = await exactlyEnv
-          .getEToken("DAI")
-          .connect(john)
-          .balanceOf(john.address);
-        expect(supplied).to.eq(
-          amount.mul(parseUnits("0.9")).div(parseUnits("1"))
-        );
-      });
-
-      describe("AND WHEN withdrawing 900 DAI from a smart pool", () => {
-        const amount = parseUnits("900");
-        let balancePre: BigNumber;
-        beforeEach(async () => {
-          balancePre = await underlyingTokenDAI
-            .connect(john)
-            .balanceOf(john.address);
-          await fixedLenderDAI.connect(john).withdrawFromSmartPool(amount);
-        });
-
-        it("THEN the user receives 810 on his wallet", async () => {
-          const balancePost = await underlyingTokenDAI
-            .connect(john)
-            .balanceOf(john.address);
-          expect(balancePost.sub(balancePre)).to.eq(parseUnits("810"));
-        });
+      it("THEN the transaction reverts with InvalidTokenFee()", async () => {
+        await expect(tx).to.be.revertedWith("InvalidTokenFee()");
       });
     });
   });

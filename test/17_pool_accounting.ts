@@ -372,12 +372,14 @@ describe("PoolAccounting", () => {
             it("THEN the earningsTreasury returned is 0", async () => {
               expect(returnValues.earningsTreasury).to.eq(0);
             });
-            it("THEN the spareRepayAmount returned is 125", async () => {
+            it("THEN the actualRepayAmount returned is 15750 - 125", async () => {
               // Takes all the unassignedEarnings
               // first 500 were taken by the treasury
               // then 125 was accrued and earned by the SP
               // then the repay takes the rest as a discount
-              expect(returnValues.spareRepayAmount).to.eq(parseUnits("125"));
+              expect(returnValues.actualRepayAmount).to.eq(
+                parseUnits((repayAmount - 125).toString())
+              );
             });
           });
 
@@ -430,12 +432,14 @@ describe("PoolAccounting", () => {
             it("THEN the earningsTreasury returned is 0", async () => {
               expect(returnValues.earningsTreasury).to.eq(0);
             });
-            it("THEN the spareRepayAmount returned is 125", async () => {
+            it("THEN the actualRepayAmount returned is 8000 - 125", async () => {
               // Takes all the unassignedEarnings
               // first 500 were taken by the treasury
               // then 125 was accrued and earned by the SP
               // then the repay takes the rest as a discount
-              expect(returnValues.spareRepayAmount).to.eq(parseUnits("125"));
+              expect(returnValues.actualRepayAmount).to.eq(
+                parseUnits((repayAmount - 125).toString())
+              );
             });
           });
 
@@ -514,8 +518,13 @@ describe("PoolAccounting", () => {
               expect(returnValues.earningsTreasury).to.gt(parseUnits("1049"));
               expect(returnValues.earningsTreasury).to.lt(parseUnits("1050"));
             });
-            it("THEN the spareRepayAmount returned is almost 0", async () => {
-              expect(returnValues.spareRepayAmount).to.lt(parseUnits("0.1"));
+            it("THEN the actualRepayAmount returned is almost 17325", async () => {
+              expect(returnValues.actualRepayAmount).to.lt(
+                parseUnits(repayAmount.toString())
+              );
+              expect(returnValues.actualRepayAmount).to.gt(
+                parseUnits((repayAmount - 0.1).toString())
+              );
             });
 
             afterEach(async () => {
@@ -1089,8 +1098,13 @@ describe("PoolAccounting", () => {
               it("THEN the earningsSP returned are 0", async () => {
                 expect(returnValues.earningsSP).to.eq(parseUnits("0"));
               });
-              it("THEN the spareRepayAmount returned is almost 0", async () => {
-                expect(returnValues.spareRepayAmount).to.lt(parseUnits("0.1"));
+              it("THEN the actualRepayAmount returned is almost 17325", async () => {
+                expect(returnValues.actualRepayAmount).to.lt(
+                  parseUnits(repayAmount.toString())
+                );
+                expect(returnValues.actualRepayAmount).to.gt(
+                  parseUnits((repayAmount - 0.1).toString())
+                );
               });
             });
 
@@ -1138,12 +1152,12 @@ describe("PoolAccounting", () => {
               it("THEN the earningsSP returned are 0", async () => {
                 expect(returnValues.earningsSP).to.eq(parseUnits("0"));
               });
-              it("THEN the spareRepayAmount returned is 2675 (paid 20000 on a 17325 debt)", async () => {
-                expect(returnValues.spareRepayAmount).to.be.gt(
-                  parseUnits("2675.0")
+              it("THEN the actualRepayAmount returned is ~= 17325 (paid 20000 on a 17325 debt)", async () => {
+                expect(returnValues.actualRepayAmount).to.be.gt(
+                  parseUnits("17324.9")
                 );
-                expect(returnValues.spareRepayAmount).to.be.lt(
-                  parseUnits("2675.1")
+                expect(returnValues.actualRepayAmount).to.be.lt(
+                  parseUnits("17325")
                 );
               });
             });
@@ -1378,8 +1392,10 @@ describe("PoolAccounting", () => {
               it("THEN the earningsSP returned are 303", async () => {
                 expect(returnValues.earningsSP).to.eq(parseUnits("303")); // 909 / 3
               });
-              it("THEN the spareRepayAmount returned is 303", async () => {
-                expect(returnValues.spareRepayAmount).to.eq(parseUnits("303")); // (909 - 303) / 2
+              it("THEN the actualRepayAmount returned is 10600.75 - 303", async () => {
+                expect(returnValues.actualRepayAmount).to.eq(
+                  parseUnits("10297.75") // 10600.75 - (909 - 303) / 2
+                );
               });
               it("THEN the debtCovered returned is 10600.75", async () => {
                 expect(returnValues.debtCovered).to.eq(parseUnits("10600.75"));
@@ -1399,9 +1415,9 @@ describe("PoolAccounting", () => {
                 it("THEN the earningsSP returned are 151.5", async () => {
                   expect(returnValues.earningsSP).to.eq(parseUnits("151.5")); // 303 / 2
                 });
-                it("THEN the spareRepayAmount returned is 151.5", async () => {
-                  expect(returnValues.spareRepayAmount).to.eq(
-                    parseUnits("151.5")
+                it("THEN the actualRepayAmount returned is 10600.75 - 151.5", async () => {
+                  expect(returnValues.actualRepayAmount).to.eq(
+                    parseUnits("10449.25")
                   );
                 });
                 it("THEN the debtCovered returned is 10600.75", async () => {
@@ -1467,7 +1483,9 @@ describe("PoolAccounting", () => {
           await provider.send("hardhat_mine", ["0x2", "0x0"]);
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
-          maturityPoolState.earningsDiscounted = returnValues.spareRepayAmount;
+          maturityPoolState.earningsDiscounted = parseUnits("5250").sub(
+            returnValues.actualRepayAmount
+          );
         });
         it("THEN borrowed is 5000", async () => {
           expect(mp.borrowed).to.eq(parseUnits("5000"));
@@ -1481,8 +1499,8 @@ describe("PoolAccounting", () => {
         it("THEN the earningsSP returned are 0", async () => {
           expect(returnValues.earningsSP).eq(parseUnits("0")); // no seconds passed since last accrual
         });
-        it("THEN the spareRepayAmount returned is 250 (got a discount)", async () => {
-          expect(returnValues.spareRepayAmount).to.eq(parseUnits("250"));
+        it("THEN the actualRepayAmount returned is 5000 (got a 250 discount)", async () => {
+          expect(returnValues.actualRepayAmount).to.eq(parseUnits("5000"));
         });
 
         describe("AND WHEN an early repayment of 5250", () => {
@@ -1493,7 +1511,7 @@ describe("PoolAccounting", () => {
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
             maturityPoolState.earningsDiscounted =
               maturityPoolState.earningsDiscounted.add(
-                returnValues.spareRepayAmount
+                parseUnits("5250").sub(returnValues.actualRepayAmount)
               );
           });
           it("THEN borrowed is 0", async () => {
@@ -1511,8 +1529,8 @@ describe("PoolAccounting", () => {
           it("THEN the earningsSP returned are 0", async () => {
             expect(returnValues.earningsSP).eq(parseUnits("0")); // no seconds passed since last accrual
           });
-          it("THEN the spareRepayAmount returned is 250 (got a discount)", async () => {
-            expect(returnValues.spareRepayAmount).to.eq(parseUnits("250"));
+          it("THEN the actualRepayAmount returned is 5000 (got a 250 discount)", async () => {
+            expect(returnValues.actualRepayAmount).to.eq(parseUnits("5000"));
           });
           it("THEN the borrow fees are equal to all earnings distributed", async () => {
             expect(maturityPoolState.borrowFees).to.eq(
@@ -1531,7 +1549,7 @@ describe("PoolAccounting", () => {
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
             maturityPoolState.earningsDiscounted =
               maturityPoolState.earningsDiscounted.add(
-                returnValues.spareRepayAmount
+                parseUnits("5250").sub(returnValues.actualRepayAmount)
               );
             maturityPoolState.earningsSP = returnValues.earningsSP;
           });
@@ -1550,8 +1568,8 @@ describe("PoolAccounting", () => {
           it("THEN the earningsSP returned are 25 (10% spFeeRate)", async () => {
             expect(returnValues.earningsSP).eq(parseUnits("25"));
           });
-          it("THEN the spareRepayAmount returned is 250 - 25 (10% spFeeRate)", async () => {
-            expect(returnValues.spareRepayAmount).to.eq(parseUnits("225"));
+          it("THEN the actualRepayAmount returned is 5025 = 5250 - 250 - 25 (10% spFeeRate)", async () => {
+            expect(returnValues.actualRepayAmount).to.eq(parseUnits("5025"));
           });
           it("THEN the borrow fees are equal to all earnings distributed", async () => {
             expect(maturityPoolState.borrowFees).to.eq(
@@ -1615,8 +1633,8 @@ describe("PoolAccounting", () => {
         it("THEN the debtCovered returned is 5250", async () => {
           expect(returnValues.debtCovered).eq(parseUnits("5250"));
         });
-        it("THEN the spareRepayAmount returned is 0 (didn't get a discount since it was gotten all before)", async () => {
-          expect(returnValues.spareRepayAmount).to.eq(parseUnits("0"));
+        it("THEN the actualRepayAmount returned is 5250 (didn't get a discount since it was gotten all before)", async () => {
+          expect(returnValues.actualRepayAmount).to.eq(parseUnits("5250"));
         });
         it("THEN the borrow fees are equal to all earnings distributed", async () => {
           expect(maturityPoolState.borrowFees).to.eq(
@@ -1773,8 +1791,8 @@ describe("PoolAccounting", () => {
             it("THEN the earningsTreasury returned are 0", async () => {
               expect(returnValues.earningsTreasury).eq(parseUnits("0"));
             });
-            it("THEN the spareRepayAmount returned is 5250 (got a BIG discount)", async () => {
-              expect(returnValues.spareRepayAmount).to.eq(parseUnits("5250"));
+            it("THEN the actualRepayAmount returned is 5250 (got a 5250 BIG discount)", async () => {
+              expect(returnValues.actualRepayAmount).to.eq(parseUnits("5250"));
             });
           });
         });

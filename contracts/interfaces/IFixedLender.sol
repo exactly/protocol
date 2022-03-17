@@ -7,6 +7,8 @@ import { IEToken } from "./IEToken.sol";
 
 error NotFixedLender();
 
+error InvalidTokenFee();
+
 interface IFixedLender {
     function borrowFromMaturityPool(
         uint256 amount,

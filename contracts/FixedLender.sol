@@ -9,8 +9,8 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 import { InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
+import { InvalidTokenFee } from "./interfaces/IFixedLender.sol";
 import "./EToken.sol";
-import "./interfaces/IFixedLender.sol";
 import "./interfaces/IAuditor.sol";
 import "./interfaces/IEToken.sol";
 import "./interfaces/IInterestRateModel.sol";
@@ -365,7 +365,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             TSUtils.State.NONE
         );
 
-        amount = doTransferIn(msg.sender, amount);
+        doTransferIn(msg.sender, amount);
 
         (uint256 currentTotalDeposit, uint256 earningsSP) = poolAccounting
             .depositMP(maturityDate, msg.sender, amount, minAmountRequired);
@@ -468,9 +468,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param amount The amount to be deposited
      */
     function depositToSmartPool(uint256 amount) public override whenNotPaused {
-        amount = doTransferIn(msg.sender, amount);
-        eToken.mint(msg.sender, amount);
         emit DepositToSmartPool(msg.sender, amount);
+        eToken.mint(msg.sender, amount);
+        doTransferIn(msg.sender, amount);
     }
 
     /**
@@ -528,7 +528,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      * @param borrower the address of the account that has the debt
      * @param repayAmount the amount of debt of the pool that should be paid
      * @param maturityDate the maturityDate to access the pool
-     * @return the actual amount that it was transferred into the protocol
+     * @return the actual amount that was transferred into the protocol
      */
     function _repay(
         address payer,
@@ -541,10 +541,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
             revert GenericError(ErrorCode.REPAY_ZERO);
         }
 
-        repayAmount = doTransferIn(payer, repayAmount);
-
         (
-            uint256 spareRepayAmount,
+            uint256 actualRepayAmount,
             uint256 debtCovered,
             uint256 earningsSP,
             uint256 earningsTreasury
@@ -555,9 +553,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
                 maxAmountAllowed
             );
 
-        if (spareRepayAmount > 0) {
-            doTransferOut(payer, spareRepayAmount);
-        }
+        doTransferIn(payer, actualRepayAmount);
 
         eToken.accrueEarnings(earningsSP);
         treasury += earningsTreasury;
@@ -567,12 +563,12 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
         emit RepayToMaturityPool(
             payer,
             borrower,
-            repayAmount,
+            actualRepayAmount,
             debtCovered,
             maturityDate
         );
 
-        return repayAmount - spareRepayAmount;
+        return actualRepayAmount;
     }
 
     /**
@@ -693,13 +689,8 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
      *      This function takes into account this scenario
      * @param from address which will transfer funds in (approve needed on underlying token)
      * @param amount amount to be transferred
-     * @return amount actually transferred by the protocol
      */
-    function doTransferIn(address from, uint256 amount)
-        internal
-        virtual
-        returns (uint256)
-    {
+    function doTransferIn(address from, uint256 amount) internal virtual {
         uint256 balanceBefore = trustedUnderlying.balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             trustedUnderlying,
@@ -710,7 +701,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
         // Calculate the amount that was *actually* transferred
         uint256 balanceAfter = trustedUnderlying.balanceOf(address(this));
-        return balanceAfter - balanceBefore;
+        if (balanceAfter - balanceBefore != amount) revert InvalidTokenFee();
     }
 
     function doTransferOut(address to, uint256 amount) internal virtual {
