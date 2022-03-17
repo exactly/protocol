@@ -589,13 +589,4 @@ export class DefaultEnv {
     const fixedLender = this.getFixedLender(assetString);
     return fixedLender.treasury();
   }
-
-  /* Replicates PoolAccounting.sol calculation of debt penalties per second when a user is delayed and did not repay before maturity (getAccountDebt) */
-  public calculatePenaltiesForDebt(
-    debt: number,
-    secondsDelayed: number,
-    penaltyRate: number
-  ): number {
-    return secondsDelayed > 0 ? debt * (secondsDelayed * penaltyRate) : 0;
-  }
 }
