@@ -48,12 +48,17 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     address public fixedLenderAddress;
     IInterestRateModel public interestRateModel;
 
-    uint256 public protocolSpreadFee = 2.8e16; // 2.8%
+    uint256 public protocolSpreadFee;
     uint256 public penaltyRate;
 
     /**
-     * @notice emitted when a penaltyRate is changed by admin.
-     * @param newPenaltyRate penaltyRate percentage per second
+     * @notice emitted when the protocolSpreadFee is changed by admin.
+     * @param newProtocolSpreadFee percentage represented with 1e18 decimals
+     */
+    event UpdatedProtocolSpreadFee(uint256 newProtocolSpreadFee);
+    /**
+     * @notice emitted when the penaltyRate is changed by admin.
+     * @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals
      */
     event UpdatedPenaltyRate(uint256 newPenaltyRate);
     event Initialized(address indexed fixedLender);
@@ -68,10 +73,16 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         _;
     }
 
-    constructor(address _interestRateModelAddress, uint256 _penaltyRate) {
+    constructor(
+        address _interestRateModelAddress,
+        uint256 _penaltyRate,
+        uint256 _protocolSpreadFee
+    ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         interestRateModel = IInterestRateModel(_interestRateModelAddress);
+
         penaltyRate = _penaltyRate;
+        protocolSpreadFee = _protocolSpreadFee;
     }
 
     /**
@@ -101,7 +112,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     }
 
     /**
-     * @dev Sets the protocol's spread fee used on loan repayment
+     * @dev Sets the protocol's spread fee that the treasury earns on borrows
      * @param _protocolSpreadFee percentage amount represented with 1e18 decimals
      */
     function setProtocolSpreadFee(uint256 _protocolSpreadFee)
@@ -109,6 +120,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         protocolSpreadFee = _protocolSpreadFee;
+        emit UpdatedProtocolSpreadFee(_protocolSpreadFee);
     }
 
     /**

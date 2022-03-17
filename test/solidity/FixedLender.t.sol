@@ -43,7 +43,11 @@ contract FixedLenderTest is DSTest {
     MockedInterestRateModel mockedInterestRateModel = new MockedInterestRateModel(address(interestRateModel));
     mockedInterestRateModel.setBorrowRate(0.05e18);
 
-    PoolAccounting poolAccounting = new PoolAccounting(address(mockedInterestRateModel), 0.02e18 / uint256(1 days));
+    PoolAccounting poolAccounting = new PoolAccounting(
+      address(mockedInterestRateModel),
+      0.02e18 / uint256(1 days),
+      0.028e18
+    );
     fixedLender = new FixedLender(
       address(mockedToken),
       "DAI",
