@@ -43,14 +43,13 @@ contract Auditor is IAuditor, AccessControl {
         uint8 decimals;
         bool isListed;
         uint256 collateralFactor;
+        uint8 index;
     }
 
     // Protocol Management
-    mapping(address => IFixedLender[]) private accountAssets;
+    mapping(address => uint256) private accountAssets;
     mapping(IFixedLender => Market) private markets;
     mapping(IFixedLender => uint256) private borrowCaps;
-    mapping(IFixedLender => mapping(address => bool))
-        private accountMemberships;
 
     uint256 public constant CLOSE_FACTOR = 5e17;
     uint256 public liquidationIncentive = 1.1e18;
@@ -114,13 +113,14 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLenders contracts addresses to enable for `msg.sender`
      */
     function enterMarkets(IFixedLender[] calldata fixedLenders) external {
-        uint256 len = fixedLenders.length;
+        uint8 len = uint8(fixedLenders.length);
         for (uint256 i = 0; i < len; ) {
-            validateMarketListed(fixedLenders[i]);
-            if (accountMemberships[fixedLenders[i]][msg.sender]) return;
+            uint8 marketIndex = validateMarketListed(fixedLenders[i]);
+            uint256 assets = accountAssets[msg.sender];
 
-            accountMemberships[fixedLenders[i]][msg.sender] = true;
-            accountAssets[msg.sender].push(fixedLenders[i]);
+            if ((assets & (1 << marketIndex)) == 1) return;
+            accountAssets[msg.sender] = assets | 1 << marketIndex;
+
             emit MarketEntered(fixedLenders[i], msg.sender);
 
             unchecked {
@@ -136,7 +136,7 @@ contract Auditor is IAuditor, AccessControl {
      * @param fixedLender The address of the asset to be removed
      */
     function exitMarket(IFixedLender fixedLender) external {
-        validateMarketListed(fixedLender);
+        uint8 marketIndex = validateMarketListed(fixedLender);
 
         (uint256 amountHeld, uint256 borrowBalance) = fixedLender
             .getAccountSnapshot(msg.sender, PoolLib.MATURITY_ALL);
@@ -147,32 +147,10 @@ contract Auditor is IAuditor, AccessControl {
         /* Fail if the sender is not permitted to redeem all of their tokens */
         validateAccountShortfall(fixedLender, msg.sender, amountHeld);
 
-        if (!accountMemberships[fixedLender][msg.sender]) return;
+        uint256 assets = accountAssets[msg.sender];
 
-        delete accountMemberships[fixedLender][msg.sender];
-
-        // load into memory for faster iteration
-        IFixedLender[] memory userAssetList = accountAssets[msg.sender];
-        uint256 len = userAssetList.length;
-        uint256 assetIndex = len;
-        for (uint256 i = 0; i < len; ) {
-            if (userAssetList[i] == IFixedLender(fixedLender)) {
-                assetIndex = i;
-                break;
-            }
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        // We *must* have found the asset in the list or our redundant data structure is broken
-        assert(assetIndex < len);
-
-        // copy last item in list to location of item to be removed, reduce length by 1
-        IFixedLender[] storage storedList = accountAssets[msg.sender];
-        storedList[assetIndex] = storedList[storedList.length - 1];
-        storedList.pop();
+        if ((assets & (1 << marketIndex)) == 0) return;
+        accountAssets[msg.sender] = assets & ~(1 << marketIndex);
 
         emit MarketExited(fixedLender, msg.sender);
     }
@@ -219,15 +197,16 @@ contract Auditor is IAuditor, AccessControl {
 
         if (markets[fixedLender].isListed) revert MarketAlreadyListed();
 
+        marketAddresses.push(fixedLender);
+
         markets[fixedLender] = Market({
             isListed: true,
             collateralFactor: collateralFactor,
             symbol: symbol,
             name: name,
-            decimals: decimals
+            decimals: decimals,
+            index: uint8(marketAddresses.length - 1)
         });
-
-        marketAddresses.push(fixedLender);
 
         emit MarketListed(fixedLender);
     }
@@ -281,23 +260,15 @@ contract Auditor is IAuditor, AccessControl {
         external
         override
     {
-        validateMarketListed(fixedLender);
+        uint8 index = validateMarketListed(fixedLender);
+        uint256 assets = accountAssets[borrower];
 
         // we validate borrow state
-        if (!accountMemberships[fixedLender][borrower]) {
+        if ((assets & (1 << index)) == 0) {
             // only fixedLenders may call borrowAllowed if borrower not in market
             if (msg.sender != address(fixedLender)) revert NotFixedLender();
-
-            // attempt to add borrower to the market // reverts if error
-            if (!accountMemberships[fixedLender][borrower]) {
-                accountMemberships[fixedLender][borrower] = true;
-                accountAssets[borrower].push(fixedLender);
-                emit MarketEntered(fixedLender, borrower);
-            }
-
-            // it should be impossible to break the important invariant
-            // TODO: is this tested?
-            assert(accountMemberships[fixedLender][borrower]);
+            accountAssets[borrower] = assets | 1 << index;
+            emit MarketEntered(fixedLender, borrower);
         }
 
         uint256 borrowCap = borrowCaps[fixedLender];
@@ -480,7 +451,7 @@ contract Auditor is IAuditor, AccessControl {
         uint256 amount
     ) public view override {
         /* If the user is not 'in' the market, then we can bypass the liquidity check */
-        if (!accountMemberships[fixedLender][account]) return;
+        // if (!accountMemberships[fixedLender][account]) return;
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
         (, uint256 shortfall) = accountLiquidity(
@@ -508,9 +479,17 @@ contract Auditor is IAuditor, AccessControl {
         AccountLiquidity memory vars; // Holds all our calculation results
 
         // For each asset the account is in
-        IFixedLender[] memory assets = accountAssets[account];
-        for (uint256 i = 0; i < assets.length; ) {
-            IFixedLender asset = assets[i];
+        uint256 assets = accountAssets[account];
+        uint8 maxValue = uint8(marketAddresses.length);
+        for (uint8 i = 0; i < maxValue;) {
+            if ((assets & (1 << i)) == 0) {
+                if (i > assets) break;
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+            IFixedLender asset = marketAddresses[i];
             Market memory market = markets[asset];
 
             // Read the balances
@@ -572,7 +551,8 @@ contract Auditor is IAuditor, AccessControl {
      * @dev This function verifies if market is listed as valid
      * @param fixedLender address of the fixedLender to be validated by the auditor
      */
-    function validateMarketListed(IFixedLender fixedLender) internal view {
+    function validateMarketListed(IFixedLender fixedLender) internal view returns (uint8) {
         if (!markets[fixedLender].isListed) revert MarketNotListed();
+        return markets[fixedLender].index;
     }
 }
