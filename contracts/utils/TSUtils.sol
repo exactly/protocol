@@ -19,6 +19,36 @@ library TSUtils {
 
     uint32 public constant INTERVAL = 7 days;
 
+
+    /**
+     * @notice Function to calculate how many seconds are left to a certain date
+     * @param maturityHolder to calculate the difference in seconds from a date
+     * @param maturityDate to calculate the difference in seconds to a date
+     */
+    function addMaturity(uint256 maturityHolder, uint256 maturityDate)
+        internal
+        pure
+        returns (uint256)
+    {
+        if (maturityHolder == 0) {
+            // we initialize the maturity date with also the 1st bit
+            // on the 33nd position ON
+            return maturityDate | (1 << 32);
+        }
+
+        uint32 baseTimestamp = uint32(maturityHolder % (2 ** 32));
+        if (maturityDate < baseTimestamp) {
+            // If the new maturity date if lower than the base, then we need to
+            // set it as the new base. We wipe clean the last 32 bits, we shift
+            // the amount of INTERVALS and we set the new value with the 33rd bit ON
+            maturityHolder = ((maturityHolder >> 32) << 32);
+            maturityHolder = maturityHolder << uint32((baseTimestamp - maturityDate) / INTERVAL);
+            return maturityDate | maturityHolder | (1 << 32);
+        } else {
+            return maturityHolder | 1 << (32 + ((maturityDate - baseTimestamp) / INTERVAL));
+        }
+    }
+
     /**
      * @notice Function to calculate how many seconds are left to a certain date
      * @param timestampFrom to calculate the difference in seconds from a date

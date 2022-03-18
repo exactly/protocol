@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { ExaTime } from "./exactlyUtils";
+import { ExaTime, unpackMaturities } from "./exactlyUtils";
 import { Contract, BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -323,11 +323,10 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           ).to.equal(parseUnits("5"));
         });
         it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
-          expect(
-            await exactlyEnv
-              .getPoolAccounting("WETH")
-              .userMpBorrowed(alice.address, 0)
-          ).to.equal(nextPoolId);
+          const maturities = await exactlyEnv
+            .getPoolAccounting("WETH")
+            .userMpBorrowed(alice.address);
+          expect(unpackMaturities(maturities)).contains(nextPoolId);
         });
       });
       describe("WHEN borrowing with WETH (erc20)", () => {
@@ -336,7 +335,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           tx = exactlyEnv.borrowMP("WETH", nextPoolId, "5");
           await tx;
         });
-        it("THEN a BorrowFromMaturityPool event is emmitted", async () => {
+        it("THEN a BorrowFromMaturityPool event is emitted", async () => {
           await expect(tx)
             .to.emit(
               exactlyEnv.getFixedLender("WETH"),
@@ -357,11 +356,10 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           ).to.equal(parseUnits("5"));
         });
         it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
-          expect(
-            await exactlyEnv
-              .getPoolAccounting("WETH")
-              .userMpBorrowed(alice.address, 0)
-          ).to.equal(nextPoolId);
+          const maturities = await exactlyEnv
+            .getPoolAccounting("WETH")
+            .userMpBorrowed(alice.address);
+          expect(unpackMaturities(maturities)).contains(nextPoolId);
         });
       });
 

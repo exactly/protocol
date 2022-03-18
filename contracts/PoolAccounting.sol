@@ -179,7 +179,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // of all of them
         borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
         if (borrowVars.position.principal == 0) {
-            addMaturity(borrower, maturityDate);
+            userMpBorrowed[borrower] = PoolLib.addMaturity(userMpBorrowed[borrower], maturityDate);
         }
 
         // We distribute to treasury and also to unassigned
@@ -428,7 +428,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         //
         repayVars.position.reduceProportionally(debtCovered);
         if (repayVars.position.principal + repayVars.position.fee == 0) {
-            cleanPosition(borrower, maturityDate);
+            delete mpUserBorrowedAmount[maturityDate][borrower];
+            userMpBorrowed[borrower] = PoolLib.cleanPosition(userMpBorrowed[borrower], maturityDate);
         } else {
             // we proportionally reduce the values
             mpUserBorrowedAmount[maturityDate][borrower] = repayVars.position;
@@ -483,75 +484,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         returns (uint256)
     {
         return maturityPools[maturityDate].borrowed;
-    }
-
-    /**
-     * @dev Cleans user's position from the blockchain making sure space is freed
-     * @param borrower user's wallet
-     * @param maturityDate maturity date
-     */
-    function cleanPosition(address borrower, uint256 maturityDate) internal {
-        uint256 userBorrows = userMpBorrowed[borrower];
-        if (userBorrows == 0) return;
-        // if only the baseTimestamp is ON
-        if (userBorrows == maturityDate | (1 << 32)) {
-            delete userMpBorrowed[borrower];
-            return;
-        }
-
-        // Trying to delete a maturityDate that it's not present
-        uint32 baseTimestamp = uint32(userBorrows % (2 ** 32));
-        if (baseTimestamp > maturityDate) {
-            return;
-        }
-
-        // if the baseTimestamp is the one being cleaned
-        if (maturityDate == baseTimestamp) {
-            uint224 moreMaturities = uint224(userBorrows >> 32);
-            uint224 intervalDiff = 0;
-            while ((moreMaturities & 1) == 0) {
-                unchecked {
-                    ++intervalDiff;
-                }
-                moreMaturities >>= 1;
-            }
-
-            userBorrows = userBorrows >> intervalDiff;
-            userMpBorrowed[borrower] = (maturityDate * (intervalDiff * TSUtils.INTERVAL)) | userBorrows;
-        } else {
-            // ...otherwise just set the bit OFF
-            userMpBorrowed[borrower] = userBorrows & ~(1 << (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL)));
-        }
-    }
-
-    /**
-     * @notice Function to add a maturityDate to the borrow positions of the user
-     * @param borrower user in which we need to add the maturityDate
-     * @param maturityDate to calculate the difference in seconds to a date
-     */
-    function addMaturity(address borrower, uint256 maturityDate) internal
-    {
-        uint256 userBorrows = userMpBorrowed[borrower];
-        if (userBorrows == 0) {
-            // we initialize the maturity date with also the 1st bit
-            // on the 33nd position ON
-            userMpBorrowed[borrower] = maturityDate | (1 << 32);
-            return;
-        }
-
-        uint32 baseTimestamp = uint32(userBorrows % (2 ** 32));
-        if (maturityDate < baseTimestamp) {
-            // If the new maturity date if lower than the base, then we need to
-            // set it as the new base. We wipe clean the last 32 bits, we shift
-            // the amount of INTERVALS and we set the new value with the 33rd bit ON
-            userBorrows = ((userBorrows >> 32) << 32);
-            userBorrows = userBorrows << uint32((baseTimestamp - maturityDate) / TSUtils.INTERVAL);
-            userMpBorrowed[borrower] = maturityDate | userBorrows | (1 << 32);
-            return;
-        } else {
-            userMpBorrowed[borrower] = userBorrows | 1 << (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL));
-            return;
-        }
     }
 
     /**
