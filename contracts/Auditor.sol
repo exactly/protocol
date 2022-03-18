@@ -34,6 +34,8 @@ contract Auditor is IAuditor, AccessControl {
         uint256 oraclePrice;
         uint256 sumCollateral;
         uint256 sumDebt;
+        uint8 decimals;
+        uint256 collateralFactor;
     }
 
     // Struct for FixedLender's markets
@@ -490,7 +492,8 @@ contract Auditor is IAuditor, AccessControl {
                 continue;
             }
             IFixedLender asset = marketAddresses[i];
-            Market memory market = markets[asset];
+            vars.decimals = markets[asset].decimals;
+            vars.collateralFactor = markets[asset].collateralFactor;
 
             // Read the balances
             (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(
@@ -506,13 +509,13 @@ contract Auditor is IAuditor, AccessControl {
             // We sum all the collateral prices
             vars.sumCollateral += vars
                 .balance
-                .fmul(vars.oraclePrice, 10**market.decimals)
-                .fmul(market.collateralFactor, 1e18);
+                .fmul(vars.oraclePrice, 10**vars.decimals)
+                .fmul(vars.collateralFactor, 1e18);
 
             // We sum all the debt
             vars.sumDebt += vars.borrowBalance.fmul(
                 vars.oraclePrice,
-                10**market.decimals
+                10**vars.decimals
             );
 
             // Simulate the effects of borrowing from/lending to a pool
@@ -521,7 +524,7 @@ contract Auditor is IAuditor, AccessControl {
                 if (borrowAmount != 0) {
                     vars.sumDebt += borrowAmount.fmul(
                         vars.oraclePrice,
-                        10**market.decimals
+                        10**vars.decimals
                     );
                 }
 
@@ -529,8 +532,8 @@ contract Auditor is IAuditor, AccessControl {
                 // (having less collateral is the same as having more debt for this calculation)
                 if (withdrawAmount != 0) {
                     vars.sumDebt += withdrawAmount
-                        .fmul(vars.oraclePrice, 10**market.decimals)
-                        .fmul(market.collateralFactor, 1e18);
+                        .fmul(vars.oraclePrice, 10**vars.decimals)
+                        .fmul(vars.collateralFactor, 1e18);
                 }
             }
 
