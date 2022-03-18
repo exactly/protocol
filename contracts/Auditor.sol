@@ -32,20 +32,20 @@ contract Auditor is IAuditor, AccessControl {
         uint256 balance;
         uint256 borrowBalance;
         uint256 oraclePrice;
-        uint256 sumCollateral;
         uint256 sumDebt;
+        uint256 sumCollateral;
         uint8 decimals;
-        uint256 collateralFactor;
+        uint128 collateralFactor;
     }
 
     // Struct for FixedLender's markets
     struct Market {
         string symbol;
         string name;
+        uint128 collateralFactor;
         uint8 decimals;
-        bool isListed;
-        uint256 collateralFactor;
         uint8 index;
+        bool isListed;
     }
 
     // Protocol Management
@@ -190,7 +190,7 @@ contract Auditor is IAuditor, AccessControl {
      */
     function enableMarket(
         IFixedLender fixedLender,
-        uint256 collateralFactor,
+        uint128 collateralFactor,
         string memory symbol,
         string memory name,
         uint8 decimals
@@ -218,7 +218,7 @@ contract Auditor is IAuditor, AccessControl {
     /// @param collateralFactor collateral factor for the underlying asset.
     function setCollateralFactor(
         IFixedLender fixedLender,
-        uint256 collateralFactor
+        uint128 collateralFactor
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         markets[fixedLender].collateralFactor = collateralFactor;
         emit NewCollateralFactor(fixedLender, collateralFactor);
@@ -452,9 +452,6 @@ contract Auditor is IAuditor, AccessControl {
         address account,
         uint256 amount
     ) public view override {
-        /* If the user is not 'in' the market, then we can bypass the liquidity check */
-        // if (!accountMemberships[fixedLender][account]) return;
-
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
         (, uint256 shortfall) = accountLiquidity(
             account,
