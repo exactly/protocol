@@ -252,7 +252,10 @@ library PoolLib {
      * @param userBorrows packed maturity dates where the user borrowed
      * @param maturityDate to calculate the difference in seconds to a date
      */
-    function addMaturity(uint256 userBorrows, uint256 maturityDate) internal pure returns (uint256)
+    function addMaturity(uint256 userBorrows, uint256 maturityDate)
+        internal
+        pure
+        returns (uint256)
     {
         if (userBorrows == 0) {
             // we initialize the maturity date with also the 1st bit
@@ -260,16 +263,21 @@ library PoolLib {
             return maturityDate | (1 << 32);
         }
 
-        uint32 baseTimestamp = uint32(userBorrows % (2 ** 32));
+        uint32 baseTimestamp = uint32(userBorrows % (2**32));
         if (maturityDate < baseTimestamp) {
             // If the new maturity date if lower than the base, then we need to
             // set it as the new base. We wipe clean the last 32 bits, we shift
             // the amount of INTERVALS and we set the new value with the 33rd bit ON
             userBorrows = ((userBorrows >> 32) << 32);
-            userBorrows = userBorrows << uint32((baseTimestamp - maturityDate) / TSUtils.INTERVAL);
+            userBorrows =
+                userBorrows <<
+                uint32((baseTimestamp - maturityDate) / TSUtils.INTERVAL);
             return maturityDate | userBorrows | (1 << 32);
         } else {
-            return userBorrows | 1 << (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL));
+            return
+                userBorrows |
+                (1 <<
+                    (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL)));
         }
     }
 
@@ -278,14 +286,18 @@ library PoolLib {
      * @param userBorrows packed maturity dates where the user borrowed
      * @param maturityDate maturity date
      */
-    function cleanPosition(uint256 userBorrows, uint256 maturityDate) internal pure returns (uint256) {
+    function cleanPosition(uint256 userBorrows, uint256 maturityDate)
+        internal
+        pure
+        returns (uint256)
+    {
         // if only the baseTimestamp is ON or is already 0
         if (userBorrows == 0 || userBorrows == maturityDate | (1 << 32)) {
             return 0;
         }
 
         // Trying to delete a maturityDate that it's not present
-        uint32 baseTimestamp = uint32(userBorrows % (2 ** 32));
+        uint32 baseTimestamp = uint32(userBorrows % (2**32));
         if (baseTimestamp > maturityDate) {
             return userBorrows;
         }
@@ -302,10 +314,15 @@ library PoolLib {
             }
 
             userBorrows = userBorrows >> intervalDiff;
-            return (maturityDate * (intervalDiff * TSUtils.INTERVAL)) | userBorrows;
+            return
+                (maturityDate * (intervalDiff * TSUtils.INTERVAL)) |
+                userBorrows;
         } else {
             // ...otherwise just set the bit OFF
-            return userBorrows & ~(1 << (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL)));
+            return
+                userBorrows &
+                ~(1 <<
+                    (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL)));
         }
     }
 }

@@ -179,7 +179,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // of all of them
         borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
         if (borrowVars.position.principal == 0) {
-            userMpBorrowed[borrower] = PoolLib.addMaturity(userMpBorrowed[borrower], maturityDate);
+            userMpBorrowed[borrower] = PoolLib.addMaturity(
+                userMpBorrowed[borrower],
+                maturityDate
+            );
         }
 
         // We distribute to treasury and also to unassigned
@@ -429,7 +432,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         repayVars.position.reduceProportionally(debtCovered);
         if (repayVars.position.principal + repayVars.position.fee == 0) {
             delete mpUserBorrowedAmount[maturityDate][borrower];
-            userMpBorrowed[borrower] = PoolLib.cleanPosition(userMpBorrowed[borrower], maturityDate);
+            userMpBorrowed[borrower] = PoolLib.cleanPosition(
+                userMpBorrowed[borrower],
+                maturityDate
+            );
         } else {
             // we proportionally reduce the values
             mpUserBorrowedAmount[maturityDate][borrower] = repayVars.position;
@@ -451,11 +457,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     {
         if (maturityDate == PoolLib.MATURITY_ALL) {
             uint256 userBorrows = userMpBorrowed[who];
-            uint32 baseTimestamp = uint32(userBorrows % (2 ** 32));
+            uint32 baseTimestamp = uint32(userBorrows % (2**32));
             uint224 moreMaturities = uint224(userBorrows >> 32);
             // We calculate all the timestamps using the baseTimestamp
             // and the following bits representing the following weeks
-            for (uint224 i = 0; i < 224;) {
+            for (uint224 i = 0; i < 224; ) {
                 if ((moreMaturities & (1 << i)) == 0) {
                     if (i > moreMaturities) break;
                     unchecked {
@@ -463,7 +469,10 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
                     }
                     continue;
                 }
-                debt += getAccountDebt(who, baseTimestamp + (i * TSUtils.INTERVAL));
+                debt += getAccountDebt(
+                    who,
+                    baseTimestamp + (i * TSUtils.INTERVAL)
+                );
                 unchecked {
                     ++i;
                 }

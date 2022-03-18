@@ -121,7 +121,7 @@ contract Auditor is IAuditor, AccessControl {
             uint256 assets = accountAssets[msg.sender];
 
             if ((assets & (1 << marketIndex)) == 1) return;
-            accountAssets[msg.sender] = assets | 1 << marketIndex;
+            accountAssets[msg.sender] = assets | (1 << marketIndex);
 
             emit MarketEntered(fixedLenders[i], msg.sender);
 
@@ -269,7 +269,7 @@ contract Auditor is IAuditor, AccessControl {
         if ((assets & (1 << index)) == 0) {
             // only fixedLenders may call borrowAllowed if borrower not in market
             if (msg.sender != address(fixedLender)) revert NotFixedLender();
-            accountAssets[borrower] = assets | 1 << index;
+            accountAssets[borrower] = assets | (1 << index);
             emit MarketEntered(fixedLender, borrower);
         }
 
@@ -480,7 +480,7 @@ contract Auditor is IAuditor, AccessControl {
         // For each asset the account is in
         uint256 assets = accountAssets[account];
         uint8 maxValue = uint8(marketAddresses.length);
-        for (uint8 i = 0; i < maxValue;) {
+        for (uint8 i = 0; i < maxValue; ) {
             if ((assets & (1 << i)) == 0) {
                 if (i > assets) break;
                 unchecked {
@@ -551,7 +551,11 @@ contract Auditor is IAuditor, AccessControl {
      * @dev This function verifies if market is listed as valid
      * @param fixedLender address of the fixedLender to be validated by the auditor
      */
-    function validateMarketListed(IFixedLender fixedLender) internal view returns (uint8) {
+    function validateMarketListed(IFixedLender fixedLender)
+        internal
+        view
+        returns (uint8)
+    {
         if (!markets[fixedLender].isListed) revert MarketNotListed();
         return markets[fixedLender].index;
     }
