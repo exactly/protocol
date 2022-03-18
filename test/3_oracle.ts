@@ -1,8 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { ExactlyOracle, MockedChainlinkFeedRegistry, MockedToken } from "../types";
-import GenericError, { ErrorCode } from "./utils/GenericError";
+import type { ExactlyOracle, MockChainlinkFeedRegistry, MockToken } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import USD_ADDRESS from "./utils/USD_ADDRESS";
 
@@ -15,8 +14,8 @@ const {
 } = ethers;
 
 describe("ExactlyOracle", function () {
-  let dai: MockedToken;
-  let feedRegistry: MockedChainlinkFeedRegistry;
+  let dai: MockToken;
+  let feedRegistry: MockChainlinkFeedRegistry;
   let exactlyOracle: ExactlyOracle;
 
   let user: SignerWithAddress;
@@ -31,8 +30,8 @@ describe("ExactlyOracle", function () {
   beforeEach(async () => {
     await deployments.fixture(["Markets"]);
 
-    dai = await getContract<MockedToken>("DAI", user);
-    feedRegistry = await getContract<MockedChainlinkFeedRegistry>("FeedRegistry", user);
+    dai = await getContract<MockToken>("DAI", user);
+    feedRegistry = await getContract<MockChainlinkFeedRegistry>("FeedRegistry", user);
     exactlyOracle = await getContract<ExactlyOracle>("ExactlyOracle", user);
 
     await dai.connect(owner).transfer(user.address, parseUnits("100000"));
@@ -63,21 +62,21 @@ describe("ExactlyOracle", function () {
     await feedRegistry.setUpdatedAtTimestamp(timestamp - (86_400 + 1));
     await provider.send("evm_setNextBlockTimestamp", [timestamp]);
     await provider.send("evm_mine", []);
-    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(GenericError(ErrorCode.PRICE_ERROR));
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith("InvalidPrice()");
   });
 
   it("GetAssetPrice should fail when price value is zero", async () => {
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
-    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(GenericError(ErrorCode.PRICE_ERROR));
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith("InvalidPrice()");
   });
 
   it("GetAssetPrice should fail when price value is lower than zero", async () => {
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, -10);
-    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith(GenericError(ErrorCode.PRICE_ERROR));
+    await expect(exactlyOracle.getAssetPrice("DAI")).to.be.revertedWith("InvalidPrice()");
   });
 
   it("GetAssetPrice should fail when asset symbol is invalid", async () => {
-    await expect(exactlyOracle.getAssetPrice("INVALID")).to.be.revertedWith(GenericError(ErrorCode.PRICE_ERROR));
+    await expect(exactlyOracle.getAssetPrice("INVALID")).to.be.revertedWith("InvalidPrice()");
   });
 
   it("SetAssetSources should set the address source of an asset", async () => {
@@ -98,7 +97,7 @@ describe("ExactlyOracle", function () {
     await timelockExecute(owner, exactlyOracle, "grantRole", [await exactlyOracle.DEFAULT_ADMIN_ROLE(), owner.address]);
     await expect(
       exactlyOracle.connect(owner).setAssetSources(["WETH", "BTC"], ["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]),
-    ).to.be.revertedWith(GenericError(ErrorCode.INCONSISTENT_PARAMS_LENGTH));
+    ).to.be.revertedWith("InvalidSources()");
   });
 
   it("SetAssetSources should fail when called from third parties", async () => {

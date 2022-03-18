@@ -9,7 +9,7 @@ describe("EToken ERC20 API", () => {
   let account: SignerWithAddress;
   let token: Contract;
   let tokenHarness: Contract;
-  let mockedAuditor: Contract;
+  let mockAuditor: Contract;
 
   const { AddressZero } = ethers.constants;
   const name = "eToken DAI";
@@ -25,10 +25,10 @@ describe("EToken ERC20 API", () => {
     token = await EToken.deploy(name, symbol, decimals);
     await token.deployed();
 
-    const MockedAuditor = await ethers.getContractFactory("MockedAuditor");
-    mockedAuditor = await MockedAuditor.deploy();
+    const MockAuditor = await ethers.getContractFactory("MockAuditor");
+    mockAuditor = await MockAuditor.deploy();
 
-    await token.initialize(initialHolder.address, mockedAuditor.address); // We simulate that the address of user bob is the fixedLender
+    await token.initialize(initialHolder.address, mockAuditor.address); // We simulate that the address of user bob is the fixedLender
     await token.mint(initialHolder.address, initialSupply);
   });
 
@@ -49,11 +49,9 @@ describe("EToken ERC20 API", () => {
       function shouldDecreaseApproval(amount: any) {
         describe("when there was no approved amount before", function () {
           it("reverts", async function () {
-            await expect(
-              token
-                .connect(initialHolder)
-                .decreaseAllowance(account.address, amount)
-            ).to.be.revertedWith("ERC20: decreased allowance below zero");
+            await expect(token.connect(initialHolder).decreaseAllowance(account.address, amount)).to.be.revertedWith(
+              "ERC20: allowance underflow",
+            );
           });
         });
 
@@ -61,53 +59,30 @@ describe("EToken ERC20 API", () => {
           const approvedAmount = amount;
 
           beforeEach(async function () {
-            await token
-              .connect(initialHolder)
-              .approve(account.address, approvedAmount);
+            await token.connect(initialHolder).approve(account.address, approvedAmount);
           });
 
           it("emits an approval event", async function () {
-            await expect(
-              await token
-                .connect(initialHolder)
-                .decreaseAllowance(account.address, approvedAmount)
-            )
+            await expect(await token.connect(initialHolder).decreaseAllowance(account.address, approvedAmount))
               .to.emit(token, "Approval")
-              .withArgs(
-                initialHolder.address,
-                account.address,
-                parseUnits("0")
-              );
+              .withArgs(initialHolder.address, account.address, parseUnits("0"));
           });
 
           it("decreases the spender allowance subtracting the requested amount", async function () {
-            await token
-              .connect(initialHolder)
-              .decreaseAllowance(
-                account.address,
-                approvedAmount.sub(parseUnits("1"))
-              );
+            await token.connect(initialHolder).decreaseAllowance(account.address, approvedAmount.sub(parseUnits("1")));
 
-            expect(
-              await token.allowance(initialHolder.address, account.address)
-            ).to.be.equal(parseUnits("1"));
+            expect(await token.allowance(initialHolder.address, account.address)).to.be.equal(parseUnits("1"));
           });
 
           it("sets the allowance to zero when all allowance is removed", async function () {
-            await token
-              .connect(initialHolder)
-              .decreaseAllowance(account.address, approvedAmount);
-            expect(
-              await token.allowance(initialHolder.address, account.address)
-            ).to.be.equal(parseUnits("0"));
+            await token.connect(initialHolder).decreaseAllowance(account.address, approvedAmount);
+            expect(await token.allowance(initialHolder.address, account.address)).to.be.equal(parseUnits("0"));
           });
 
           it("reverts when more than the full allowance is removed", async function () {
             await expect(
-              token
-                .connect(initialHolder)
-                .decreaseAllowance(account.address, amount.add(parseUnits("1")))
-            ).to.be.revertedWith("ERC20: decreased allowance below zero");
+              token.connect(initialHolder).decreaseAllowance(account.address, amount.add(parseUnits("1"))),
+            ).to.be.revertedWith("ERC20: allowance underflow");
           });
         });
       }
@@ -129,9 +104,9 @@ describe("EToken ERC20 API", () => {
       const amount = initialSupply;
 
       it("reverts", async function () {
-        await expect(
-          token.connect(initialHolder).decreaseAllowance(AddressZero, amount)
-        ).to.be.revertedWith("ERC20: decreased allowance below zero");
+        await expect(token.connect(initialHolder).decreaseAllowance(AddressZero, amount)).to.be.revertedWith(
+          "ERC20: allowance underflow",
+        );
       });
     });
   });
@@ -142,42 +117,30 @@ describe("EToken ERC20 API", () => {
     describe("when the spender is not the zero address", function () {
       describe("when the sender has enough balance", function () {
         it("emits an approval event", async function () {
-          await expect(
-            await token
-              .connect(initialHolder)
-              .increaseAllowance(account.address, amount)
-          )
+          await expect(await token.connect(initialHolder).increaseAllowance(account.address, amount))
             .to.emit(token, "Approval")
             .withArgs(initialHolder.address, account.address, amount);
         });
 
         describe("when there was no approved amount before", function () {
           it("approves the requested amount", async function () {
-            await token
-              .connect(initialHolder)
-              .increaseAllowance(account.address, amount);
+            await token.connect(initialHolder).increaseAllowance(account.address, amount);
 
-            expect(
-              await token.allowance(initialHolder.address, account.address)
-            ).to.be.equal(amount);
+            expect(await token.allowance(initialHolder.address, account.address)).to.be.equal(amount);
           });
         });
 
         describe("when the spender had an approved amount", function () {
           beforeEach(async function () {
-            await token
-              .connect(initialHolder)
-              .approve(account.address, parseUnits("1"));
+            await token.connect(initialHolder).approve(account.address, parseUnits("1"));
           });
 
           it("increases the spender allowance adding the requested amount", async function () {
-            await token
-              .connect(initialHolder)
-              .increaseAllowance(account.address, amount);
+            await token.connect(initialHolder).increaseAllowance(account.address, amount);
 
-            expect(
-              await token.allowance(initialHolder.address, account.address)
-            ).to.be.equal(amount.add(parseUnits("1")));
+            expect(await token.allowance(initialHolder.address, account.address)).to.be.equal(
+              amount.add(parseUnits("1")),
+            );
           });
         });
       });
@@ -186,42 +149,30 @@ describe("EToken ERC20 API", () => {
         const amount = initialSupply.add(parseUnits("1"));
 
         it("emits an approval event", async function () {
-          await expect(
-            await token
-              .connect(initialHolder)
-              .increaseAllowance(account.address, amount)
-          )
+          await expect(await token.connect(initialHolder).increaseAllowance(account.address, amount))
             .to.emit(token, "Approval")
             .withArgs(initialHolder.address, account.address, amount);
         });
 
         describe("when there was no approved amount before", function () {
           it("approves the requested amount", async function () {
-            await token
-              .connect(initialHolder)
-              .increaseAllowance(account.address, amount);
+            await token.connect(initialHolder).increaseAllowance(account.address, amount);
 
-            expect(
-              await token.allowance(initialHolder.address, account.address)
-            ).to.be.equal(amount);
+            expect(await token.allowance(initialHolder.address, account.address)).to.be.equal(amount);
           });
         });
 
         describe("when the spender had an approved amount", function () {
           beforeEach(async function () {
-            await token
-              .connect(initialHolder)
-              .approve(account.address, parseUnits("1"));
+            await token.connect(initialHolder).approve(account.address, parseUnits("1"));
           });
 
           it("increases the spender allowance adding the requested amount", async function () {
-            await token
-              .connect(initialHolder)
-              .increaseAllowance(account.address, amount);
+            await token.connect(initialHolder).increaseAllowance(account.address, amount);
 
-            expect(
-              await token.allowance(initialHolder.address, account.address)
-            ).to.be.equal(amount.add(parseUnits("1")));
+            expect(await token.allowance(initialHolder.address, account.address)).to.be.equal(
+              amount.add(parseUnits("1")),
+            );
           });
         });
       });
@@ -229,9 +180,9 @@ describe("EToken ERC20 API", () => {
 
     describe("when the spender is the zero address", function () {
       it("reverts", async function () {
-        await expect(
-          token.connect(initialHolder).increaseAllowance(AddressZero, amount)
-        ).to.be.revertedWith("ERC20: approve to the zero address");
+        await expect(token.connect(initialHolder).increaseAllowance(AddressZero, amount)).to.be.revertedWith(
+          "ERC20: zero address",
+        );
       });
     });
   });
@@ -239,9 +190,7 @@ describe("EToken ERC20 API", () => {
   describe("_mint", function () {
     const amount = parseUnits("50");
     it("rejects a null account", async function () {
-      await expect(token.mint(AddressZero, amount)).to.be.revertedWith(
-        "ERC20: mint to the zero address"
-      );
+      await expect(token.mint(AddressZero, amount)).to.be.revertedWith("ERC20: zero address");
     });
 
     let tx: any;
@@ -261,34 +210,28 @@ describe("EToken ERC20 API", () => {
       });
 
       it("emits Transfer event", async function () {
-        await expect(tx)
-          .to.emit(token, "Transfer")
-          .withArgs(AddressZero, account.address, amount);
+        await expect(tx).to.emit(token, "Transfer").withArgs(AddressZero, account.address, amount);
       });
     });
   });
 
   describe("_burn", function () {
     it("rejects a null account", async function () {
-      await expect(token.burn(AddressZero, parseUnits("1"))).to.be.revertedWith(
-        "ERC20: burn from the zero address"
-      );
+      await expect(token.burn(AddressZero, parseUnits("1"))).to.be.revertedWith("ERC20: zero address");
     });
 
     describe("for a non zero account", function () {
       it("rejects burning more than balance", async function () {
-        await expect(
-          token.burn(initialHolder.address, initialSupply.add(parseUnits("1")))
-        ).to.be.revertedWith("ERC20: burn amount exceeds balance");
+        await expect(token.burn(initialHolder.address, initialSupply.add(parseUnits("1")))).to.be.revertedWith(
+          "ERC20: balance exceeded",
+        );
       });
 
       const describeBurn = function (description: string, amount: any) {
         describe(description, function () {
           let tx: any;
           beforeEach("burning", async function () {
-            tx = token
-              .connect(initialHolder)
-              .burn(initialHolder.address, amount);
+            tx = token.connect(initialHolder).burn(initialHolder.address, amount);
             await tx;
           });
 
@@ -299,24 +242,17 @@ describe("EToken ERC20 API", () => {
 
           it("decrements initialHolder balance", async function () {
             const expectedBalance = initialSupply.sub(amount);
-            expect(await token.balanceOf(initialHolder.address)).to.be.equal(
-              expectedBalance
-            );
+            expect(await token.balanceOf(initialHolder.address)).to.be.equal(expectedBalance);
           });
 
           it("emits Transfer event", async function () {
-            await expect(tx)
-              .to.emit(token, "Transfer")
-              .withArgs(initialHolder.address, AddressZero, amount);
+            await expect(tx).to.emit(token, "Transfer").withArgs(initialHolder.address, AddressZero, amount);
           });
         });
       };
 
       describeBurn("for entire balance", initialSupply);
-      describeBurn(
-        "for less amount than balance",
-        initialSupply.sub(parseUnits("1"))
-      );
+      describeBurn("for less amount than balance", initialSupply.sub(parseUnits("1")));
     });
   });
   describe("_transfer", function () {
@@ -330,12 +266,8 @@ describe("EToken ERC20 API", () => {
       describe("when the sender is the zero address", function () {
         it("reverts", async function () {
           await expect(
-            tokenHarness.callInternalTransfer(
-              AddressZero,
-              initialHolder.address,
-              initialSupply
-            )
-          ).to.be.revertedWith("ERC20: transfer from the zero address");
+            tokenHarness.callInternalTransfer(AddressZero, initialHolder.address, initialSupply),
+          ).to.be.revertedWith("ERC20: zero address");
         });
       });
     });
@@ -344,12 +276,8 @@ describe("EToken ERC20 API", () => {
       describe("when the owner is the zero address", function () {
         it("reverts", async function () {
           await expect(
-            tokenHarness.callInternalApprove(
-              AddressZero,
-              initialHolder.address,
-              initialSupply
-            )
-          ).to.be.revertedWith("ERC20: approve from the zero address");
+            tokenHarness.callInternalApprove(AddressZero, initialHolder.address, initialSupply),
+          ).to.be.revertedWith("ERC20: zero address");
         });
       });
     });

@@ -3,7 +3,6 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ProtocolError, errorGeneric } from "./exactlyUtils";
 
 describe("EToken accounting (mint, burn & accrueEarnings)", () => {
   let bob: SignerWithAddress;
@@ -16,8 +15,8 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
   beforeEach(async () => {
     [bob, laura, tito] = await ethers.getSigners();
 
-    const MockedEToken = await ethers.getContractFactory("EToken");
-    eDAI = await MockedEToken.deploy("eFake DAI", "eFDAI", 18);
+    const MockEToken = await ethers.getContractFactory("EToken");
+    eDAI = await MockEToken.deploy("eFake DAI", "eFDAI", 18);
     await eDAI.deployed();
   });
 
@@ -27,16 +26,10 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
       await eDAI.initialize(bob.address, bob.address);
     });
     it("THEN it should revert with CONTRACT_ALREADY_INITIALIZED error when trying to set again", async () => {
-      await expect(
-        eDAI.initialize(laura.address, laura.address)
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.CONTRACT_ALREADY_INITIALIZED)
-      );
+      await expect(eDAI.initialize(laura.address, laura.address)).to.be.revertedWith("AlreadyInitialized()");
     });
     it("AND WHEN trying to initialize from third parties, THEN it should revert with AccessControl error", async () => {
-      await expect(
-        eDAI.connect(laura).initialize(laura.address, AddressZero)
-      ).to.be.revertedWith("AccessControl");
+      await expect(eDAI.connect(laura).initialize(laura.address, AddressZero)).to.be.revertedWith("AccessControl");
     });
     describe("AND GIVEN bob mints 1000 eDAI", () => {
       beforeEach(async () => {
@@ -59,10 +52,7 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
         expect(totalSupply).to.equal(parseUnits("1000"));
       });
       it("AND WHEN bob mints 100 eDAI more, THEN his balance increases & event Transfer is emitted", async () => {
-        await expect(await eDAI.mint(bob.address, parseUnits("100"))).to.emit(
-          eDAI,
-          "Transfer"
-        );
+        await expect(await eDAI.mint(bob.address, parseUnits("100"))).to.emit(eDAI, "Transfer");
         let bobBalance = await eDAI.balanceOf(bob.address);
 
         expect(bobBalance).to.equal(parseUnits("1100"));
@@ -178,14 +168,10 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
               expect(bobBalance).to.equal(parseUnits("0"));
             });
             it("AND WHEN bob burns more than his balance, THEN it reverts with error ERC20 burn error", async () => {
-              await expect(
-                eDAI.burn(bob.address, parseUnits("1000"))
-              ).to.be.revertedWith("ERC20: burn amount exceeds balance");
+              await expect(eDAI.burn(bob.address, parseUnits("1000"))).to.be.revertedWith("ERC20: balance exceeded");
             });
             it("AND WHEN another burn is made, THEN event Transfer is emitted", async () => {
-              await expect(
-                await eDAI.burn(laura.address, parseUnits("100"))
-              ).to.emit(eDAI, "Transfer");
+              await expect(await eDAI.burn(laura.address, parseUnits("100"))).to.emit(eDAI, "Transfer");
             });
             describe("AND GIVEN tito mints 1250 eDAI", () => {
               beforeEach(async () => {
@@ -220,9 +206,7 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
     });
     describe("AND GIVEN a mint from the zero address", () => {
       it("THEN it reverts with an ERC20 mint error", async () => {
-        await expect(
-          eDAI.mint(AddressZero, parseUnits("100"))
-        ).to.be.revertedWith("ERC20: mint to the zero address");
+        await expect(eDAI.mint(AddressZero, parseUnits("100"))).to.be.revertedWith("ERC20: zero address");
       });
       it("THEN balance of address should return zero if never minted", async () => {
         let userBalance = await eDAI.balanceOf(AddressZero);
@@ -234,44 +218,27 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
 
   describe("GIVEN a not initialized eDAI", () => {
     it("THEN it should emit Initialized event when initialized", async () => {
-      await expect(await eDAI.initialize(bob.address, bob.address)).to.emit(
-        eDAI,
-        "Initialized"
-      );
+      await expect(await eDAI.initialize(bob.address, bob.address)).to.emit(eDAI, "Initialized");
     });
     it("WHEN initialized with only a fixedLender address it should be able to be called again", async () => {
       await eDAI.initialize(bob.address, AddressZero);
-      await expect(eDAI.initialize(bob.address, bob.address)).to.not.be
-        .reverted;
+      await expect(eDAI.initialize(bob.address, bob.address)).to.not.be.reverted;
     });
     it("WHEN initialized with only an auditor address it should be able to be called again", async () => {
       await eDAI.initialize(AddressZero, bob.address);
-      await expect(eDAI.initialize(bob.address, bob.address)).to.not.be
-        .reverted;
+      await expect(eDAI.initialize(bob.address, bob.address)).to.not.be.reverted;
     });
   });
 
   describe("GIVEN function calls not being the FixedLender contract", () => {
     it("AND invoking mint, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(
-        eDAI.connect(laura).mint(laura.address, "100")
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
-      );
+      await expect(eDAI.connect(laura).mint(laura.address, "100")).to.be.revertedWith("NotFixedLender()");
     });
     it("AND invoking accrueEarnings, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(
-        eDAI.connect(laura).accrueEarnings("100")
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
-      );
+      await expect(eDAI.connect(laura).accrueEarnings("100")).to.be.revertedWith("NotFixedLender()");
     });
     it("AND invoking burn, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(
-        eDAI.connect(laura).burn(laura.address, "100")
-      ).to.be.revertedWith(
-        errorGeneric(ProtocolError.CALLER_MUST_BE_FIXED_LENDER)
-      );
+      await expect(eDAI.connect(laura).burn(laura.address, "100")).to.be.revertedWith("NotFixedLender()");
     });
   });
 });

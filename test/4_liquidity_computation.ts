@@ -6,8 +6,8 @@ import type {
   ETHFixedLender,
   FixedLender,
   InterestRateModel,
-  MockedChainlinkFeedRegistry,
-  MockedToken,
+  MockChainlinkFeedRegistry,
+  MockToken,
 } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
@@ -21,11 +21,11 @@ const {
 } = ethers;
 
 describe("Liquidity computations", function () {
-  let dai: MockedToken;
-  let usdc: MockedToken;
-  let wbtc: MockedToken;
+  let dai: MockToken;
+  let usdc: MockToken;
+  let wbtc: MockToken;
   let auditor: Auditor;
-  let feedRegistry: MockedChainlinkFeedRegistry;
+  let feedRegistry: MockChainlinkFeedRegistry;
   let fixedLenderDAI: FixedLender;
   let fixedLenderUSDC: FixedLender;
   let fixedLenderWBTC: FixedLender;
@@ -44,11 +44,11 @@ describe("Liquidity computations", function () {
   beforeEach(async () => {
     await deployments.fixture(["Markets"]);
 
-    dai = await getContract<MockedToken>("DAI", laura);
-    usdc = await getContract<MockedToken>("USDC", laura);
-    wbtc = await getContract<MockedToken>("WBTC", laura);
+    dai = await getContract<MockToken>("DAI", laura);
+    usdc = await getContract<MockToken>("USDC", laura);
+    wbtc = await getContract<MockToken>("WBTC", laura);
     auditor = await getContract<Auditor>("Auditor", laura);
-    feedRegistry = await getContract<MockedChainlinkFeedRegistry>("FeedRegistry");
+    feedRegistry = await getContract<MockChainlinkFeedRegistry>("FeedRegistry");
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", laura);
     fixedLenderUSDC = await getContract<FixedLender>("FixedLenderUSDC", laura);
     fixedLenderWBTC = await getContract<FixedLender>("FixedLenderWBTC", laura);
@@ -61,7 +61,7 @@ describe("Liquidity computations", function () {
         [dai, fixedLenderDAI],
         [usdc, fixedLenderUSDC, 6],
         [wbtc, fixedLenderWBTC, 8],
-      ] as [MockedToken, FixedLender, number?][]) {
+      ] as [MockToken, FixedLender, number?][]) {
         await underlying.connect(multisig).transfer(signer.address, parseUnits("100000", decimals));
         await underlying.connect(signer).approve(fixedLender.address, parseUnits("100000", decimals));
       }

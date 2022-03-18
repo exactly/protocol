@@ -8,7 +8,7 @@ describe("Pool Management Library", () => {
   let poolEnv: PoolEnv;
   let mp: any;
   let scaledDebt: any;
-  const mockedMaxDebt = "5000";
+  const mockMaxDebt = "5000";
 
   describe("GIVEN a clean maturity pool", () => {
     beforeEach(async () => {
@@ -35,14 +35,12 @@ describe("Pool Management Library", () => {
           expect(mp.earningsUnassigned).to.equal(parseUnits("0"));
         });
         it("THEN the smartPoolDebtReduction that is returned is 0", async () => {
-          const smartPoolDebtReductionReturned = await poolEnv
-            .getMpHarness()
-            .smartPoolDebtReduction();
+          const smartPoolDebtReductionReturned = await poolEnv.getMpHarness().smartPoolDebtReduction();
           expect(smartPoolDebtReductionReturned).to.equal(parseUnits("0"));
         });
         describe("AND WHEN 80 tokens are taken out", async () => {
           beforeEach(async () => {
-            await poolEnv.borrowMoney("80", mockedMaxDebt);
+            await poolEnv.borrowMoney("80", mockMaxDebt);
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -61,14 +59,12 @@ describe("Pool Management Library", () => {
           });
           describe("AND WHEN another 20 tokens are taken out", async () => {
             beforeEach(async () => {
-              await poolEnv.borrowMoney("20", mockedMaxDebt);
+              await poolEnv.borrowMoney("20", mockMaxDebt);
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
             it("THEN the newDebtSP that is returned is 0", async () => {
-              const newDebtSpReturned = await poolEnv
-                .getMpHarness()
-                .newDebtSP();
+              const newDebtSpReturned = await poolEnv.getMpHarness().newDebtSP();
               expect(newDebtSpReturned).to.equal(parseUnits("0"));
             });
             it("THEN the pool 'borrowed' is 100", async () => {
@@ -86,21 +82,17 @@ describe("Pool Management Library", () => {
                 tx = poolEnv.borrowMoney("5000", "1000");
               });
               it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
-                await expect(tx).to.be.revertedWith(
-                  "InsufficientProtocolLiquidity()"
-                );
+                await expect(tx).to.be.revertedWith("InsufficientProtocolLiquidity()");
               });
             });
             describe("AND WHEN 50 tokens are taken out", async () => {
               beforeEach(async () => {
-                await poolEnv.borrowMoney("50", mockedMaxDebt);
+                await poolEnv.borrowMoney("50", mockMaxDebt);
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
               it("THEN the newDebtSP that is returned is 0", async () => {
-                const newDebtSpReturned = await poolEnv
-                  .getMpHarness()
-                  .newDebtSP();
+                const newDebtSpReturned = await poolEnv.getMpHarness().newDebtSP();
                 expect(newDebtSpReturned).to.equal(parseUnits("50"));
               });
               it("THEN the pool 'borrowed' is 150", async () => {
@@ -198,9 +190,7 @@ describe("Pool Management Library", () => {
 
           describe("AND GIVEN that another 150 seconds go by", async () => {
             beforeEach(async () => {
-              await poolEnv.setNextTimestamp(
-                sixDays + exaTime.ONE_SECOND * 150
-              );
+              await poolEnv.setNextTimestamp(sixDays + exaTime.ONE_SECOND * 150);
               await poolEnv.accrueEarnings(tenDays);
               mp = await poolEnv.mpHarness.maturityPool();
             });
@@ -209,22 +199,14 @@ describe("Pool Management Library", () => {
               // 10 / 86400           = 0.00011574074 (unassigned earnings per second)
               // 0.00011574074 * 150  = 0.01736111111 (earnings accrued)
               // 40 - 0.01736111111   = 39.9826388889 (unassigned earnings left)
-              expect(mp.earningsUnassigned).to.closeTo(
-                parseUnits("39.9826388"),
-                parseUnits("00.0000001").toNumber()
-              );
+              expect(mp.earningsUnassigned).to.closeTo(parseUnits("39.9826388"), parseUnits("00.0000001").toNumber());
             });
             it("THEN the pool 'lastAccrue' is tenDays", async () => {
-              expect(mp.lastAccrue).to.equal(
-                sixDays + exaTime.ONE_SECOND * 150
-              );
+              expect(mp.lastAccrue).to.equal(sixDays + exaTime.ONE_SECOND * 150);
             });
             it("THEN the last earnings SP is ~= 0.017361", async () => {
               const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
-              expect(lastEarningsSP).to.closeTo(
-                parseUnits("0.0173611"),
-                parseUnits("0.0000001").toNumber()
-              );
+              expect(lastEarningsSP).to.closeTo(parseUnits("0.0173611"), parseUnits("0.0000001").toNumber());
             });
           });
 
@@ -292,7 +274,7 @@ describe("Pool Management Library", () => {
     describe("repayMoney", async () => {
       describe("WHEN 100 tokens are taken out", async () => {
         beforeEach(async () => {
-          await poolEnv.borrowMoney("100", mockedMaxDebt);
+          await poolEnv.borrowMoney("100", mockMaxDebt);
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
@@ -316,9 +298,7 @@ describe("Pool Management Library", () => {
             expect(mp.suppliedSP).to.equal(parseUnits("50"));
           });
           it("THEN the smartPoolDebtReduction that is returned is 50", async () => {
-            const smartPoolDebtReductionReturned = await poolEnv
-              .getMpHarness()
-              .smartPoolDebtReduction();
+            const smartPoolDebtReductionReturned = await poolEnv.getMpHarness().smartPoolDebtReduction();
             expect(smartPoolDebtReductionReturned).to.equal(parseUnits("50"));
           });
           describe("AND WHEN another 50 tokens are repaid", async () => {
@@ -334,9 +314,7 @@ describe("Pool Management Library", () => {
               expect(mp.suppliedSP).to.equal(parseUnits("0"));
             });
             it("THEN the smartPoolDebtReduction that is returned is 50", async () => {
-              const smartPoolDebtReductionReturned = await poolEnv
-                .getMpHarness()
-                .smartPoolDebtReduction();
+              const smartPoolDebtReductionReturned = await poolEnv.getMpHarness().smartPoolDebtReduction();
               expect(smartPoolDebtReductionReturned).to.equal(parseUnits("50"));
             });
           });
@@ -351,7 +329,7 @@ describe("Pool Management Library", () => {
         });
         describe("WHEN 50 tokens are withdrawn", async () => {
           beforeEach(async () => {
-            await poolEnv.withdrawMoney("50", mockedMaxDebt);
+            await poolEnv.withdrawMoney("50", mockMaxDebt);
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -364,11 +342,11 @@ describe("Pool Management Library", () => {
           });
           describe("AND GIVEN another 100 tokens are taken out", async () => {
             beforeEach(async () => {
-              await poolEnv.borrowMoney("100", mockedMaxDebt);
+              await poolEnv.borrowMoney("100", mockMaxDebt);
             });
             describe("WHEN another 50 tokens are withdrawn", async () => {
               beforeEach(async () => {
-                await poolEnv.withdrawMoney("50", mockedMaxDebt);
+                await poolEnv.withdrawMoney("50", mockMaxDebt);
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
@@ -376,9 +354,7 @@ describe("Pool Management Library", () => {
                 expect(mp.supplied).to.equal(parseUnits("0"));
               });
               it("THEN the newDebtSP that is returned is 50", async () => {
-                const newDebtSpReturned = await poolEnv
-                  .getMpHarness()
-                  .newDebtSP();
+                const newDebtSpReturned = await poolEnv.getMpHarness().newDebtSP();
                 expect(newDebtSpReturned).to.equal(parseUnits("50"));
               });
             });
@@ -388,15 +364,13 @@ describe("Pool Management Library", () => {
                 tx = poolEnv.withdrawMoney("50", "49");
               });
               it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
-                await expect(tx).to.be.revertedWith(
-                  "InsufficientProtocolLiquidity()"
-                );
+                await expect(tx).to.be.revertedWith("InsufficientProtocolLiquidity()");
               });
             });
           });
           describe("AND WHEN another 50 tokens are withdrawn", async () => {
             beforeEach(async () => {
-              await poolEnv.withdrawMoney("50", mockedMaxDebt);
+              await poolEnv.withdrawMoney("50", mockMaxDebt);
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -404,9 +378,7 @@ describe("Pool Management Library", () => {
               expect(mp.supplied).to.equal(parseUnits("0"));
             });
             it("THEN the newDebtSP that is returned is 0", async () => {
-              const newDebtSpReturned = await poolEnv
-                .getMpHarness()
-                .newDebtSP();
+              const newDebtSpReturned = await poolEnv.getMpHarness().newDebtSP();
               expect(newDebtSpReturned).to.equal(parseUnits("0"));
             });
           });

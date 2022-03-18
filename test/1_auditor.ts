@@ -1,8 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, ETHFixedLender, FixedLender, MockedChainlinkFeedRegistry, MockedToken, WETH9 } from "../types";
-import GenericError, { ErrorCode } from "./utils/GenericError";
+import type { Auditor, ETHFixedLender, FixedLender, MockChainlinkFeedRegistry, MockToken, WETH } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 import USD_ADDRESS from "./utils/USD_ADDRESS";
@@ -15,10 +14,10 @@ const {
 } = ethers;
 
 describe("Auditor from User Space", function () {
-  let dai: MockedToken;
-  let weth: WETH9;
+  let dai: MockToken;
+  let weth: WETH;
   let auditor: Auditor;
-  let feedRegistry: MockedChainlinkFeedRegistry;
+  let feedRegistry: MockChainlinkFeedRegistry;
   let fixedLenderDAI: FixedLender;
   let fixedLenderWETH: ETHFixedLender;
 
@@ -33,10 +32,10 @@ describe("Auditor from User Space", function () {
   beforeEach(async () => {
     await deployments.fixture(["Markets"]);
 
-    dai = await getContract<MockedToken>("DAI", user);
-    weth = await getContract<WETH9>("WETH", user);
+    dai = await getContract<MockToken>("DAI", user);
+    weth = await getContract<WETH>("WETH", user);
     auditor = await getContract<Auditor>("Auditor", user);
-    feedRegistry = await getContract<MockedChainlinkFeedRegistry>("FeedRegistry", user);
+    feedRegistry = await getContract<MockChainlinkFeedRegistry>("FeedRegistry", user);
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", user);
     fixedLenderWETH = await getContract<ETHFixedLender>("FixedLenderWETH", user);
 
@@ -69,9 +68,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositToSmartPool(666);
     await auditor.enterMarkets([fixedLenderDAI.address]);
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
-    await expect(fixedLenderDAI.borrowFromMaturityPool(1, futurePools(1)[0], 1)).to.be.revertedWith(
-      GenericError(ErrorCode.PRICE_ERROR),
-    );
+    await expect(fixedLenderDAI.borrowFromMaturityPool(1, futurePools(1)[0], 1)).to.be.revertedWith("InvalidPrice()");
   });
 
   it("SeizeAllowed should fail when liquidator is borrower", async () => {
@@ -111,7 +108,7 @@ describe("Auditor from User Space", function () {
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
     await expect(
       auditor.liquidateCalculateSeizeAmount(fixedLenderDAI.address, fixedLenderDAI.address, 100),
-    ).to.be.revertedWith(GenericError(ErrorCode.PRICE_ERROR));
+    ).to.be.revertedWith("InvalidPrice()");
   });
 
   it("Future pools should match JS generated ones", async () => {
@@ -157,7 +154,7 @@ describe("Auditor from User Space", function () {
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address]);
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
-    await expect(auditor.getAccountLiquidity(user.address)).to.revertedWith(GenericError(ErrorCode.PRICE_ERROR));
+    await expect(auditor.getAccountLiquidity(user.address)).to.revertedWith("InvalidPrice()");
   });
 
   it("Get data from correct market", async () => {

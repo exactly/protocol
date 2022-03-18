@@ -26,14 +26,10 @@ describe("FixedLender - Pausable", function () {
       fixedLender.grantRole(PAUSER_ROLE, owner.address);
     });
     it("AND WHEN a pause is called from third parties, THEN it should revert with AccessControl error", async () => {
-      await expect(fixedLender.connect(user).pause()).to.be.revertedWith(
-        "AccessControl"
-      );
+      await expect(fixedLender.connect(user).pause()).to.be.revertedWith("AccessControl");
     });
     it("AND WHEN an unpause is called from third parties, THEN it should revert with AccessControl error", async () => {
-      await expect(fixedLender.connect(user).unpause()).to.be.revertedWith(
-        "AccessControl"
-      );
+      await expect(fixedLender.connect(user).unpause()).to.be.revertedWith("AccessControl");
     });
     describe("AND GIVEN a grant in the PAUSER role to another user", () => {
       beforeEach(async () => {
@@ -52,49 +48,32 @@ describe("FixedLender - Pausable", function () {
         await fixedLender.pause();
       });
       it("THEN it should revert when trying to deposit to a smart pool", async () => {
-        await expect(fixedLender.depositToSmartPool("0")).to.be.revertedWith(
-          "Pausable: paused"
-        );
+        await expect(fixedLender.depositToSmartPool("0")).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should revert when trying to deposit to a maturity pool", async () => {
-        await expect(
-          fixedLender.depositToMaturityPool("0", nextPoolId, "0")
-        ).to.be.revertedWith("Pausable: paused");
+        await expect(fixedLender.depositToMaturityPool("0", nextPoolId, "0")).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should revert when trying to borrow from a maturity pool", async () => {
-        await expect(
-          fixedLender.borrowFromMaturityPool("0", nextPoolId, "0")
-        ).to.be.revertedWith("Pausable: paused");
+        await expect(fixedLender.borrowFromMaturityPool("0", nextPoolId, "0")).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should revert when trying to repay to a maturity pool", async () => {
-        await expect(
-          fixedLender.repayToMaturityPool(owner.address, nextPoolId, "0", "0")
-        ).to.be.revertedWith("Pausable: paused");
+        await expect(fixedLender.repayToMaturityPool(owner.address, nextPoolId, "0", "0")).to.be.revertedWith(
+          "Pausable: paused",
+        );
       });
       it("THEN it should revert when trying to liquidate a maturity pool position", async () => {
         await expect(
-          fixedLender.liquidate(
-            owner.address,
-            "0",
-            "0",
-            fixedLender.address,
-            nextPoolId
-          )
+          fixedLender.liquidate(owner.address, "0", "0", fixedLender.address, nextPoolId),
         ).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should revert when trying to seize a maturity pool position", async () => {
-        await expect(
-          fixedLender.seize(owner.address, owner.address, "0")
-        ).to.be.revertedWith("Pausable: paused");
+        await expect(fixedLender.seize(owner.address, owner.address, "0")).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should NOT revert when calling a function that doesn't have whenNotPaused modifier", async () => {
-        await expect(fixedLender.setProtocolLiquidationFee("0")).to.not.be
-          .reverted;
+        await expect(fixedLender.setProtocolLiquidationFee("0")).to.not.be.reverted;
       });
       it("AND WHEN a pause is called again, THEN it should revert with Pausable error", async () => {
-        await expect(fixedLender.pause()).to.be.revertedWith(
-          "Pausable: paused"
-        );
+        await expect(fixedLender.pause()).to.be.revertedWith("Pausable: paused");
       });
       describe("AND GIVEN an unpause for all actions that have whenNotPaused modifier", () => {
         beforeEach(async () => {
@@ -104,9 +83,7 @@ describe("FixedLender - Pausable", function () {
           await expect(exactlyEnv.depositSP("DAI", "100")).to.not.be.reverted;
         });
         it("AND WHEN an unpause is called again, THEN it should revert with Pausable error", async () => {
-          await expect(fixedLender.unpause()).to.be.revertedWith(
-            "Pausable: not paused"
-          );
+          await expect(fixedLender.unpause()).to.be.revertedWith("Pausable: not paused");
         });
       });
     });

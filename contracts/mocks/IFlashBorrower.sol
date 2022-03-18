@@ -2,5 +2,5 @@
 pragma solidity ^0.8.4;
 
 interface IFlashBorrower {
-    function doThingsWithFlashLoan() external;
+  function doThingsWithFlashLoan() external;
 }

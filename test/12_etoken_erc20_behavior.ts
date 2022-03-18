@@ -9,7 +9,7 @@ describe("EToken ERC20 Behavior", () => {
   let account: SignerWithAddress;
   let anotherAccount: SignerWithAddress;
   let token: Contract;
-  let mockedAuditor: Contract;
+  let mockAuditor: Contract;
 
   const { AddressZero } = ethers.constants;
   const name = "eToken DAI";
@@ -24,10 +24,10 @@ describe("EToken ERC20 Behavior", () => {
     token = await EToken.deploy(name, symbol, "18");
     await token.deployed();
 
-    const MockedAuditor = await ethers.getContractFactory("MockedAuditor");
-    mockedAuditor = await MockedAuditor.deploy();
+    const MockAuditor = await ethers.getContractFactory("MockAuditor");
+    mockAuditor = await MockAuditor.deploy();
 
-    await token.initialize(tokenOwner.address, mockedAuditor.address); // We simulate that the address of user tokenOwner is the fixedLender contract
+    await token.initialize(tokenOwner.address, mockAuditor.address); // We simulate that the address of user tokenOwner is the fixedLender contract
     await token.mint(tokenOwner.address, initialSupply);
   });
 
@@ -46,9 +46,7 @@ describe("EToken ERC20 Behavior", () => {
 
     describe("when the requested account has some tokens", function () {
       it("returns the total amount of tokens", async function () {
-        expect(await token.balanceOf(tokenOwner.address)).to.be.equal(
-          initialSupply
-        );
+        expect(await token.balanceOf(tokenOwner.address)).to.be.equal(initialSupply);
       });
     });
   });
@@ -59,9 +57,7 @@ describe("EToken ERC20 Behavior", () => {
         const amount = initialSupply.add(parseUnits("1"));
 
         it("reverts", async function () {
-          await expect(
-            token.transfer(account.address, amount)
-          ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+          await expect(token.transfer(account.address, amount)).to.be.revertedWith("ERC20: balance exceeded");
         });
       });
 
@@ -90,9 +86,7 @@ describe("EToken ERC20 Behavior", () => {
       it("transfers the requested amount", async function () {
         await token.transfer(account.address, amount);
 
-        expect(await token.balanceOf(tokenOwner.address)).to.be.equal(
-          initialSupply
-        );
+        expect(await token.balanceOf(tokenOwner.address)).to.be.equal(initialSupply);
 
         expect(await token.balanceOf(account.address)).to.be.equal("0");
       });
@@ -105,9 +99,7 @@ describe("EToken ERC20 Behavior", () => {
     });
     describe("when the recipient is the zero address", function () {
       it("reverts", async function () {
-        await expect(
-          token.transfer(AddressZero, initialSupply)
-        ).to.be.revertedWith("ERC20: transfer to the zero address");
+        await expect(token.transfer(AddressZero, initialSupply)).to.be.revertedWith("ERC20: zero address");
       });
     });
   });
@@ -117,55 +109,29 @@ describe("EToken ERC20 Behavior", () => {
       describe("when the recipient is not the zero address", function () {
         describe("when the spender has enough approved balance", function () {
           beforeEach(async function () {
-            await token
-              .connect(tokenOwner)
-              .approve(account.address, initialSupply);
+            await token.connect(tokenOwner).approve(account.address, initialSupply);
           });
 
           describe("when the token owner has enough balance", function () {
             const amount = initialSupply;
 
             it("transfers the requested amount", async function () {
-              await token
-                .connect(account)
-                .transferFrom(
-                  tokenOwner.address,
-                  anotherAccount.address,
-                  amount
-                );
+              await token.connect(account).transferFrom(tokenOwner.address, anotherAccount.address, amount);
 
-              expect(await token.balanceOf(tokenOwner.address)).to.be.equal(
-                "0"
-              );
+              expect(await token.balanceOf(tokenOwner.address)).to.be.equal("0");
 
-              expect(await token.balanceOf(anotherAccount.address)).to.be.equal(
-                amount
-              );
+              expect(await token.balanceOf(anotherAccount.address)).to.be.equal(amount);
             });
 
             it("decreases the spender allowance", async function () {
-              await token
-                .connect(account)
-                .transferFrom(
-                  tokenOwner.address,
-                  anotherAccount.address,
-                  amount
-                );
+              await token.connect(account).transferFrom(tokenOwner.address, anotherAccount.address, amount);
 
-              expect(
-                await token.allowance(tokenOwner.address, account.address)
-              ).to.be.equal("0");
+              expect(await token.allowance(tokenOwner.address, account.address)).to.be.equal("0");
             });
 
             it("emits a transfer event", async function () {
               await expect(
-                await token
-                  .connect(account)
-                  .transferFrom(
-                    tokenOwner.address,
-                    anotherAccount.address,
-                    amount
-                  )
+                await token.connect(account).transferFrom(tokenOwner.address, anotherAccount.address, amount),
               )
                 .to.emit(token, "Transfer")
                 .withArgs(tokenOwner.address, anotherAccount.address, amount);
@@ -173,19 +139,13 @@ describe("EToken ERC20 Behavior", () => {
 
             it("emits an approval event", async function () {
               await expect(
-                await token
-                  .connect(account)
-                  .transferFrom(
-                    tokenOwner.address,
-                    anotherAccount.address,
-                    amount
-                  )
+                await token.connect(account).transferFrom(tokenOwner.address, anotherAccount.address, amount),
               )
                 .to.emit(token, "Approval")
                 .withArgs(
                   tokenOwner.address,
                   account.address,
-                  await token.allowance(tokenOwner.address, account.address)
+                  await token.allowance(tokenOwner.address, account.address),
                 );
             });
           });
@@ -195,23 +155,15 @@ describe("EToken ERC20 Behavior", () => {
 
             it("reverts", async function () {
               await expect(
-                token
-                  .connect(account)
-                  .transferFrom(
-                    tokenOwner.address,
-                    anotherAccount.address,
-                    amount
-                  )
-              ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+                token.connect(account).transferFrom(tokenOwner.address, anotherAccount.address, amount),
+              ).to.be.revertedWith("ERC20: balance exceeded");
             });
           });
         });
 
         describe("when the spender does not have enough approved balance", function () {
           beforeEach(async function () {
-            await token
-              .connect(tokenOwner)
-              .approve(account.address, initialSupply.sub(parseUnits("1")));
+            await token.connect(tokenOwner).approve(account.address, initialSupply.sub(parseUnits("1")));
           });
 
           describe("when the token owner has enough balance", function () {
@@ -219,14 +171,8 @@ describe("EToken ERC20 Behavior", () => {
 
             it("reverts", async function () {
               await expect(
-                token
-                  .connect(account)
-                  .transferFrom(
-                    tokenOwner.address,
-                    anotherAccount.address,
-                    amount
-                  )
-              ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+                token.connect(account).transferFrom(tokenOwner.address, anotherAccount.address, amount),
+              ).to.be.revertedWith("ERC20: allowance exceeded");
             });
           });
 
@@ -235,14 +181,8 @@ describe("EToken ERC20 Behavior", () => {
 
             it("reverts", async function () {
               await expect(
-                token
-                  .connect(account)
-                  .transferFrom(
-                    tokenOwner.address,
-                    anotherAccount.address,
-                    amount
-                  )
-              ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+                token.connect(account).transferFrom(tokenOwner.address, anotherAccount.address, amount),
+              ).to.be.revertedWith("ERC20: balance exceeded");
             });
           });
         });
@@ -256,11 +196,9 @@ describe("EToken ERC20 Behavior", () => {
         });
 
         it("reverts", async function () {
-          await expect(
-            token
-              .connect(account)
-              .transferFrom(tokenOwner.address, AddressZero, amount)
-          ).to.be.revertedWith("ERC20: transfer to the zero address");
+          await expect(token.connect(account).transferFrom(tokenOwner.address, AddressZero, amount)).to.be.revertedWith(
+            "ERC20: zero address",
+          );
         });
       });
     });
@@ -269,11 +207,9 @@ describe("EToken ERC20 Behavior", () => {
       const amount = 0;
 
       it("reverts", async function () {
-        await expect(
-          token
-            .connect(account)
-            .transferFrom(AddressZero, account.address, amount)
-        ).to.be.revertedWith("ERC20: transfer from the zero address");
+        await expect(token.connect(account).transferFrom(AddressZero, account.address, amount)).to.be.revertedWith(
+          "ERC20: zero address",
+        );
       });
     });
   });
@@ -292,9 +228,7 @@ describe("EToken ERC20 Behavior", () => {
           it("approves the requested amount", async function () {
             await token.approve(account.address, amount);
 
-            expect(
-              await token.allowance(tokenOwner.address, account.address)
-            ).to.be.equal(amount);
+            expect(await token.allowance(tokenOwner.address, account.address)).to.be.equal(amount);
           });
         });
 
@@ -306,9 +240,7 @@ describe("EToken ERC20 Behavior", () => {
           it("approves the requested amount and replaces the previous one", async function () {
             await token.approve(account.address, initialSupply);
 
-            expect(
-              await token.allowance(tokenOwner.address, account.address)
-            ).to.be.equal(initialSupply);
+            expect(await token.allowance(tokenOwner.address, account.address)).to.be.equal(initialSupply);
           });
         });
       });
@@ -326,9 +258,7 @@ describe("EToken ERC20 Behavior", () => {
           it("approves the requested amount", async function () {
             await token.approve(account.address, amount);
 
-            expect(
-              await token.allowance(tokenOwner.address, account.address)
-            ).to.be.equal(amount);
+            expect(await token.allowance(tokenOwner.address, account.address)).to.be.equal(amount);
           });
         });
 
@@ -340,9 +270,7 @@ describe("EToken ERC20 Behavior", () => {
           it("approves the requested amount and replaces the previous one", async function () {
             await token.approve(account.address, initialSupply);
 
-            expect(
-              await token.allowance(tokenOwner.address, account.address)
-            ).to.be.equal(initialSupply);
+            expect(await token.allowance(tokenOwner.address, account.address)).to.be.equal(initialSupply);
           });
         });
       });
@@ -350,9 +278,7 @@ describe("EToken ERC20 Behavior", () => {
 
     describe("when the spender is the zero address", function () {
       it("reverts", async function () {
-        await expect(
-          token.approve(AddressZero, initialSupply)
-        ).to.be.revertedWith("ERC20: approve to the zero address");
+        await expect(token.approve(AddressZero, initialSupply)).to.be.revertedWith("ERC20: zero address");
       });
     });
   });
