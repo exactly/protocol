@@ -38,6 +38,11 @@ const func: DeployFunction = async ({
     getNamedAccounts(),
   ]);
 
+  const poolAccountingArgs = [
+    interestRateModel.address,
+    parseUnits(String(penaltyRatePerDay)).div(86_400),
+    parseUnits(String(protocolSpreadFee)),
+  ];
   for (const token of config.tokens) {
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
     const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
@@ -53,12 +58,9 @@ const func: DeployFunction = async ({
 
     const poolAccountingName = `PoolAccounting${symbol}`;
     await deploy(poolAccountingName, {
+      skipIfAlreadyDeployed: true,
       contract: "PoolAccounting",
-      args: [
-        interestRateModel.address,
-        parseUnits(String(penaltyRatePerDay)).div(86_400),
-        parseUnits(String(protocolSpreadFee)),
-      ],
+      args: poolAccountingArgs,
       from: deployer,
       log: true,
     });
@@ -79,6 +81,14 @@ const func: DeployFunction = async ({
 
     if ((await poolAccounting.fixedLenderAddress()) === AddressZero) {
       await executeOrPropose(deployer, timelockController, poolAccounting, "initialize", [fixedLender.address]);
+    }
+    if (!(await poolAccounting.penaltyRate()).eq(poolAccountingArgs[1])) {
+      await executeOrPropose(deployer, timelockController, poolAccounting, "setPenaltyRate", [poolAccountingArgs[1]]);
+    }
+    if (!(await poolAccounting.protocolSpreadFee()).eq(poolAccountingArgs[2])) {
+      await executeOrPropose(deployer, timelockController, poolAccounting, "setProtocolSpreadFee", [
+        poolAccountingArgs[2],
+      ]);
     }
 
     const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));
