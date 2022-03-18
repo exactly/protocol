@@ -1,11 +1,10 @@
 import "dotenv/config";
 import "@nomiclabs/hardhat-waffle";
+import "@primitivefi/hardhat-dodoc";
 import "@typechain/hardhat";
 import "solidity-coverage";
 import "hardhat-deploy";
-import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
-import "hardhat-contract-sizer";
 import { env } from "process";
 import type { HardhatUserConfig as Config } from "hardhat/types";
 
@@ -42,11 +41,12 @@ const config: Config = {
       protocolSpreadFee: 0.028,
     },
   },
+  dodoc: { exclude: ["mocks", "k", "elin", "ital"] },
   typechain: { outDir: "types", target: "ethers-v5" },
   gasReporter: {
     currency: "USD",
     gasPrice: 100,
-    enabled: env.REPORT_GAS ? true : false,
+    enabled: !!JSON.parse(env.REPORT_GAS ?? "false"),
   },
 };
 

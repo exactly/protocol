@@ -4,7 +4,6 @@ pragma solidity ^0.8.4;
 import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
 import { InsufficientProtocolLiquidity } from "../../contracts/utils/PoolLib.sol";
-import { GenericError, ErrorCode } from "../../contracts/utils/Errors.sol";
 import { PoolLib } from "../../contracts/utils/PoolLib.sol";
 
 contract PoolLibTest is DSTest {

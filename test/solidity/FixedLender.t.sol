@@ -8,14 +8,14 @@ import { PoolAccounting } from "../../contracts/PoolAccounting.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor } from "../../contracts/Auditor.sol";
 import { EToken } from "../../contracts/EToken.sol";
-import { MockedToken } from "../../contracts/external/MockedToken.sol";
-import { MockedOracle } from "../../contracts/external/MockedOracle.sol";
-import { MockedInterestRateModel } from "../../contracts/external/MockedInterestRateModel.sol";
+import { MockToken } from "../../contracts/mocks/MockToken.sol";
+import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
+import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 
 contract FixedLenderTest is DSTest {
   Vm internal vm = Vm(HEVM_ADDRESS);
   FixedLender internal fixedLender;
-  MockedToken internal mockedToken;
+  MockToken internal mockToken;
 
   uint32 public constant INTERVAL = 7 days;
   uint256 public nextMaturityDate;
@@ -34,35 +34,25 @@ contract FixedLenderTest is DSTest {
   );
 
   function setUp() external {
-    mockedToken = new MockedToken("DAI", "DAI", 18, 100 ether);
-    MockedOracle mockedOracle = new MockedOracle();
-    mockedOracle.setPrice("DAI", 1e8);
-    Auditor auditor = new Auditor(address(mockedOracle));
+    mockToken = new MockToken("DAI", "DAI", 18, 100 ether);
+    MockOracle mockOracle = new MockOracle();
+    mockOracle.setPrice("DAI", 1e8);
+    Auditor auditor = new Auditor(mockOracle);
     EToken eToken = new EToken("DAI", "DAI", 18);
     InterestRateModel interestRateModel = new InterestRateModel(0.0495e18, -0.025e18, 1.1e18, 0);
-    MockedInterestRateModel mockedInterestRateModel = new MockedInterestRateModel(address(interestRateModel));
-    mockedInterestRateModel.setBorrowRate(0.05e18);
+    MockInterestRateModel mockInterestRateModel = new MockInterestRateModel(address(interestRateModel));
+    mockInterestRateModel.setBorrowRate(0.05e18);
 
-    PoolAccounting poolAccounting = new PoolAccounting(
-      address(mockedInterestRateModel),
-      0.02e18 / uint256(1 days),
-      0.028e18
-    );
-    fixedLender = new FixedLender(
-      address(mockedToken),
-      "DAI",
-      address(eToken),
-      address(auditor),
-      address(poolAccounting)
-    );
-    poolAccounting.initialize(address(fixedLender));
+    PoolAccounting poolAccounting = new PoolAccounting(mockInterestRateModel, 0.02e18 / uint256(1 days), 0.028e18);
+    fixedLender = new FixedLender(mockToken, "DAI", eToken, auditor, poolAccounting);
+    poolAccounting.initialize(fixedLender);
     poolAccounting.setProtocolSpreadFee(0);
 
-    eToken.initialize(address(fixedLender), address(auditor));
+    eToken.initialize(fixedLender, auditor);
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
     nextMaturityDate = INTERVAL;
 
-    mockedToken.approve(address(fixedLender), 100 ether);
+    mockToken.approve(address(fixedLender), 100 ether);
   }
 
   function testDepositToSmartPool() external {

@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import { Auditor, IAuditor, IFixedLender } from "../../contracts/Auditor.sol";
+import { Auditor, IAuditor, IFixedLender, IOracle } from "../../contracts/Auditor.sol";
 
 contract AuditorTest is DSTest {
   using FixedPointMathLib for uint256;
@@ -19,7 +19,7 @@ contract AuditorTest is DSTest {
   event NewBorrowCap(IFixedLender indexed fixedLender, uint256 newBorrowCap);
 
   function setUp() external {
-    auditor = new Auditor(address(new MockOracle()));
+    auditor = new Auditor(IOracle(address(new MockOracle())));
     fixedLender = new MockFixedLender(auditor);
   }
 
@@ -37,15 +37,15 @@ contract AuditorTest is DSTest {
       uint8 decimals,
       IFixedLender lender
     ) = auditor.getMarketData(IFixedLender(address(fixedLender)));
-    IFixedLender[] memory marketAddresses = auditor.getMarketAddresses();
+    IFixedLender[] memory markets = auditor.getAllMarkets();
     assertTrue(isListed);
     assertEq(name, "x");
     assertEq(symbol, "X");
     assertEq(decimals, 18);
     assertEq(collateralFactor, 0.8e18);
-    assertEq(marketAddresses.length, 1);
+    assertEq(markets.length, 1);
     assertEq(address(lender), address(fixedLender));
-    assertEq(address(marketAddresses[0]), address(fixedLender));
+    assertEq(address(markets[0]), address(fixedLender));
   }
 
   function testEnterExitMarket() external {

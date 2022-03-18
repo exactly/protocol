@@ -79,7 +79,7 @@ const func: DeployFunction = async ({
       await eToken.initialize(fixedLender.address, auditor.address);
     }
 
-    if ((await poolAccounting.fixedLenderAddress()) === AddressZero) {
+    if ((await poolAccounting.fixedLender()) === AddressZero) {
       await executeOrPropose(deployer, timelockController, poolAccounting, "initialize", [fixedLender.address]);
     }
     if (!(await poolAccounting.penaltyRate()).eq(poolAccountingArgs[1])) {
@@ -92,7 +92,7 @@ const func: DeployFunction = async ({
     }
 
     const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));
-    if (!(await auditor.getMarketAddresses()).includes(fixedLender.address)) {
+    if (!(await auditor.getAllMarkets()).includes(fixedLender.address)) {
       await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
         fixedLender.address,
         underlyingCollateralFactor,

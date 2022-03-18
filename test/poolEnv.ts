@@ -53,39 +53,27 @@ export class PoolEnv {
     return this.mpHarness.returnFee(parseUnits(amount));
   }
 
-  public async distributeEarningsAccordingly(
-    earnings: string,
-    suppliedSP: string,
-    amountFunded: string
-  ) {
+  public async distributeEarningsAccordingly(earnings: string, suppliedSP: string, amountFunded: string) {
     return this.mpHarness.distributeEarningsAccordingly(
       parseUnits(earnings),
       parseUnits(suppliedSP),
-      parseUnits(amountFunded)
+      parseUnits(amountFunded),
     );
   }
 
-  public async scaleProportionally(
-    scaledDebtPrincipal: string,
-    scaledDebtFee: string,
-    amount: string
-  ) {
+  public async scaleProportionally(scaledDebtPrincipal: string, scaledDebtFee: string, amount: string) {
     return this.mpHarness.scaleProportionally(
       parseUnits(scaledDebtPrincipal),
       parseUnits(scaledDebtFee),
-      parseUnits(amount)
+      parseUnits(amount),
     );
   }
 
-  public async reduceProportionally(
-    scaledDebtPrincipal: string,
-    scaledDebtFee: string,
-    amount: string
-  ) {
+  public async reduceProportionally(scaledDebtPrincipal: string, scaledDebtFee: string, amount: string) {
     return this.mpHarness.reduceProportionally(
       parseUnits(scaledDebtPrincipal),
       parseUnits(scaledDebtFee),
-      parseUnits(amount)
+      parseUnits(amount),
     );
   }
 
@@ -94,16 +82,11 @@ export class PoolEnv {
   }
 
   public async withdrawMoney(amount: string, maxDebt: string) {
-    return this.mpHarness.withdrawMoney(
-      parseUnits(amount),
-      parseUnits(maxDebt)
-    );
+    return this.mpHarness.withdrawMoney(parseUnits(amount), parseUnits(maxDebt));
   }
 
   static async create(): Promise<PoolEnv> {
-    const MaturityPoolHarness = await ethers.getContractFactory(
-      "MaturityPoolHarness"
-    );
+    const MaturityPoolHarness = await ethers.getContractFactory("MaturityPoolHarness");
     let maturityPoolHarness = await MaturityPoolHarness.deploy();
     await maturityPoolHarness.deployed();
 

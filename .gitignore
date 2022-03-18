@@ -1,25 +1,16 @@
-mainnet_private_key
-.secret
-build
-.env
-docs/_build
-tags
-.DS_Store
-
-.vscode/
-
-
-node_modules
-
-#Hardhat files
-cache
-artifacts
-coverage/
-coverage.json
-abi
-/types/
+/artifacts/
+/coverage/
+/coverage.json
 /deployments/localhost/
 /deployments/*/solcInputs/
+/docs/
+/types/
 
+.vscode/
+cache/
+node_modules/
+.DS_Store
+.env
+*.log
 *.code-workspace
 .*-version*

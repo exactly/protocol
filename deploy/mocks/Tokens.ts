@@ -13,7 +13,7 @@ const func: DeployFunction = async ({
     const decimals = { USDC: 6, WBTC: 8 }[token] ?? 18;
     await deploy(token, {
       skipIfAlreadyDeployed: true,
-      contract: token === "WETH" ? "WETH9" : "MockedToken",
+      contract: token === "WETH" ? "WETH" : "MockToken",
       ...(token !== "WETH" && { args: [token, token, decimals, parseUnits("100000000000", decimals)] }),
       from: deployer,
       log: true,

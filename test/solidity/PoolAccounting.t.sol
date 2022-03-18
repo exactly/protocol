@@ -5,8 +5,8 @@ import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { PoolLib } from "../../contracts/utils/PoolLib.sol";
+import { PoolAccounting, IFixedLender } from "../../contracts/PoolAccounting.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
-import { PoolAccounting } from "../../contracts/PoolAccounting.sol";
 
 contract PoolAccountingTest is DSTest {
   using FixedPointMathLib for uint256;
@@ -22,8 +22,8 @@ contract PoolAccountingTest is DSTest {
   function setUp() external {
     vm.label(address(this), "Test");
     irm = new InterestRateModel(0, int256(FEE_MP), type(uint256).max, FEE_SP);
-    pool = new PoolAccounting(address(irm), 0.02e18 / uint256(1 days), 0.028e18);
-    pool.initialize(address(this));
+    pool = new PoolAccounting(irm, 0.02e18 / uint256(1 days), 0.028e18);
+    pool.initialize(IFixedLender(address(this)));
   }
 
   function testAtomicDepositBorrowRepayWithdraw() external {
@@ -54,7 +54,7 @@ contract PoolAccountingTest is DSTest {
   }
 
   function testFailAlreadyInitialized() external {
-    pool.initialize(address(this));
+    pool.initialize(IFixedLender(address(this)));
   }
 
   function testFailTooMuchSlippageDeposit() external {

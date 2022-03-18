@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments, network } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, FixedLender, MockedToken, PoolAccounting } from "../types";
+import type { Auditor, FixedLender, MockToken, PoolAccounting } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
@@ -14,7 +14,7 @@ const {
 const { deploy, fixture, get } = deployments;
 
 describe("Auditor Admin", function () {
-  let dai: MockedToken;
+  let dai: MockToken;
   let auditor: Auditor;
   let fixedLenderDAI: FixedLender;
   let poolAccountingDAI: PoolAccounting;
@@ -29,7 +29,7 @@ describe("Auditor Admin", function () {
   beforeEach(async () => {
     await fixture(["Markets"]);
 
-    dai = await getContract<MockedToken>("DAI", laura);
+    dai = await getContract<MockToken>("DAI", laura);
     auditor = await getContract<Auditor>("Auditor", laura);
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", laura);
     poolAccountingDAI = await getContract<PoolAccounting>("PoolAccountingDAI", laura);
@@ -110,7 +110,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
-      expect(await auditor.getMarketAddresses()).to.deep.equal(
+      expect(await auditor.getAllMarkets()).to.deep.equal(
         await Promise.all(network.config.tokens.map(async (token) => (await get(`FixedLender${token}`)).address)),
       );
     });

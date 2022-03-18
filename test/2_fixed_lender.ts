@@ -2,8 +2,7 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { BigNumber, ContractTransaction } from "ethers";
-import type { Auditor, ETHFixedLender, FixedLender, InterestRateModel, MockedToken, PoolAccounting } from "../types";
-import GenericError, { ErrorCode } from "./utils/GenericError";
+import type { Auditor, ETHFixedLender, FixedLender, InterestRateModel, MockToken, PoolAccounting } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
@@ -16,7 +15,7 @@ const {
 } = ethers;
 
 describe("FixedLender", function () {
-  let dai: MockedToken;
+  let dai: MockToken;
   let auditor: Auditor;
   let fixedLenderDAI: FixedLender;
   let fixedLenderWETH: ETHFixedLender;
@@ -36,7 +35,7 @@ describe("FixedLender", function () {
   beforeEach(async () => {
     await deployments.fixture(["Markets"]);
 
-    dai = await getContract<MockedToken>("DAI", maria);
+    dai = await getContract<MockToken>("DAI", maria);
     auditor = await getContract<Auditor>("Auditor", maria);
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", maria);
     fixedLenderWETH = await getContract<ETHFixedLender>("FixedLenderWETH", maria);
@@ -216,7 +215,7 @@ describe("FixedLender", function () {
         });
         it("WHEN trying to withdraw an amount of zero THEN it reverts", async () => {
           await expect(fixedLenderDAI.withdrawFromMaturityPool(0, 0, futurePools(1)[0])).to.be.revertedWith(
-            GenericError(ErrorCode.REDEEM_CANT_BE_ZERO),
+            "ZeroRedeem()",
           );
         });
       });

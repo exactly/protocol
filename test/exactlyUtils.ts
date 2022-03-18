@@ -17,44 +17,20 @@ export interface DepositToMaturityPoolEventInterface {
   maturityDate: BigNumber;
 }
 
-export function errorUnmatchedPool(
-  state: PoolState,
-  requiredState: PoolState,
-  alternativeState?: PoolState
-): string {
+export function errorUnmatchedPool(state: PoolState, requiredState: PoolState, alternativeState?: PoolState): string {
   if (alternativeState) {
-    return (
-      "UnmatchedPoolStateMultiple(" +
-      state +
-      ", " +
-      requiredState +
-      ", " +
-      alternativeState +
-      ")"
-    );
+    return "UnmatchedPoolStateMultiple(" + state + ", " + requiredState + ", " + alternativeState + ")";
   }
   return "UnmatchedPoolState(" + state + ", " + requiredState + ")";
-}
-
-export function errorGeneric(errorCode: ProtocolError): string {
-  return "GenericError(" + errorCode + ")";
 }
 
 // it was impossible to find the type for a transaction populated with events,
 // in both ethers and hardhat-ethers
 export async function expectFee(tx: any, expectedFee: BigNumber) {
   const { events } = await tx.wait();
-  const borrowEvents = events.filter(
-    (it: any) => it.event === "BorrowFromMaturityPool"
-  );
-  assert(
-    borrowEvents.length < 2,
-    "searched for one event, but many were found"
-  );
-  assert(
-    borrowEvents.length > 0,
-    "searched for one event, but none were found"
-  );
+  const borrowEvents = events.filter((it: any) => it.event === "BorrowFromMaturityPool");
+  assert(borrowEvents.length < 2, "searched for one event, but many were found");
+  assert(borrowEvents.length > 0, "searched for one event, but none were found");
   const event = borrowEvents[0];
   const lowerBoundary = expectedFee.mul("99").div("100");
   const higherBoundary = expectedFee.mul("101").div("100");
@@ -86,44 +62,12 @@ export enum PoolState {
   NOT_READY,
 }
 
-export enum ProtocolError {
-  NO_ERROR,
-  MARKET_NOT_LISTED,
-  MARKET_ALREADY_LISTED,
-  SNAPSHOT_ERROR,
-  PRICE_ERROR,
-  INSUFFICIENT_LIQUIDITY,
-  INSUFFICIENT_SHORTFALL,
-  AUDITOR_MISMATCH,
-  TOO_MUCH_REPAY,
-  REPAY_ZERO,
-  TOKENS_MORE_THAN_BALANCE,
-  INVALID_POOL_STATE,
-  INVALID_POOL_ID,
-  LIQUIDATOR_NOT_BORROWER,
-  NOT_A_FIXED_LENDER_SENDER,
-  INVALID_SET_BORROW_CAP,
-  MARKET_BORROW_CAP_REACHED,
-  INCONSISTENT_PARAMS_LENGTH,
-  REDEEM_CANT_BE_ZERO,
-  EXIT_MARKET_BALANCE_OWED,
-  CALLER_MUST_BE_FIXED_LENDER,
-  CONTRACT_ALREADY_INITIALIZED,
-  INSUFFICIENT_PROTOCOL_LIQUIDITY,
-  EXCEEDED_MAX_UTILIZATION_RATE,
-  TOO_MUCH_SLIPPAGE,
-  TOO_MUCH_REPAY_TRANSFER,
-  SMART_POOL_FUNDS_LOCKED,
-  INVALID_TIME_DIFFERENCE,
-  INVALID_AMOUNT,
-}
-
 export type EnvConfig = {
-  mockedTokens?: Map<string, MockedTokenSpec>;
+  mockTokens?: Map<string, MockTokenSpec>;
   useRealInterestRateModel?: boolean;
 };
 
-export type MockedTokenSpec = {
+export type MockTokenSpec = {
   decimals: BigNumber | number;
   collateralRate: BigNumber;
   usdPrice: BigNumber;
@@ -138,7 +82,7 @@ export type MaturityPoolState = {
   earningsDiscounted: BigNumber;
 };
 
-export const defaultMockedTokens: Map<string, MockedTokenSpec> = new Map([
+export const defaultMockTokens: Map<string, MockTokenSpec> = new Map([
   [
     "DAI",
     {
@@ -194,11 +138,7 @@ export class ExaTime {
   }
 
   public poolIDByNumberOfWeek(weekNumber: number): number {
-    return (
-      this.timestamp -
-      (this.timestamp % this.INTERVAL) +
-      this.INTERVAL * weekNumber
-    );
+    return this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL * weekNumber;
   }
 
   public isPoolID(): boolean {
@@ -210,9 +150,7 @@ export class ExaTime {
   }
 
   public invalidPoolID(): number {
-    return (
-      this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL + 33
-    );
+    return this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL + 33;
   }
 
   public distantFuturePoolID(): number {
