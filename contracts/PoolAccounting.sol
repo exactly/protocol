@@ -41,7 +41,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     mapping(uint256 => mapping(address => PoolLib.Position))
         public mpUserBorrowedAmount;
 
-    mapping(address => uint256[]) public userMpBorrowed;
+    mapping(address => uint256) public userMpBorrowed;
     mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
     uint256 public override smartPoolBorrowed;
 
@@ -179,7 +179,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         // of all of them
         borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
         if (borrowVars.position.principal == 0) {
-            userMpBorrowed[borrower].push(maturityDate);
+            addMaturity(borrower, maturityDate);
         }
 
         // We distribute to treasury and also to unassigned
@@ -449,9 +449,20 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
         returns (uint256 debt)
     {
         if (maturityDate == PoolLib.MATURITY_ALL) {
-            uint256 borrowsLength = userMpBorrowed[who].length;
-            for (uint256 i = 0; i < borrowsLength; ) {
-                debt += getAccountDebt(who, userMpBorrowed[who][i]);
+            uint256 userBorrows = userMpBorrowed[who];
+            uint32 baseTimestamp = uint32(userBorrows % (2 ** 32));
+            uint224 moreMaturities = uint224(userBorrows >> 32);
+            // We calculate all the timestamps using the baseTimestamp
+            // and the following bits representing the following weeks
+            for (uint224 i = 0; i < 224;) {
+                if ((moreMaturities & (1 << i)) == 0) {
+                    if (i > moreMaturities) break;
+                    unchecked {
+                        ++i;
+                    }
+                    continue;
+                }
+                debt += getAccountDebt(who, baseTimestamp + (i * TSUtils.INTERVAL));
                 unchecked {
                     ++i;
                 }
@@ -480,28 +491,67 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
      * @param maturityDate maturity date
      */
     function cleanPosition(address borrower, uint256 maturityDate) internal {
-        uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[borrower];
-        uint256 len = userMaturitiesBorrowedList.length;
-        uint256 maturityIndex = len;
-        for (uint256 i = 0; i < len; ) {
-            if (userMaturitiesBorrowedList[i] == maturityDate) {
-                maturityIndex = i;
-                break;
-            }
-            unchecked {
-                ++i;
-            }
+        uint256 userBorrows = userMpBorrowed[borrower];
+        if (userBorrows == 0) return;
+        // if only the baseTimestamp is ON
+        if (userBorrows == maturityDate | (1 << 32)) {
+            delete userMpBorrowed[borrower];
+            return;
         }
 
-        // We *must* have found the maturity in the list or our redundant data structure is broken
-        assert(maturityIndex < len);
+        // Trying to delete a maturityDate that it's not present
+        uint32 baseTimestamp = uint32(userBorrows % (2 ** 32));
+        if (baseTimestamp > maturityDate) {
+            return;
+        }
 
-        // copy last item in list to location of item to be removed, reduce length by 1
-        uint256[] storage storedList = userMpBorrowed[borrower];
-        storedList[maturityIndex] = storedList[storedList.length - 1];
-        storedList.pop();
+        // if the baseTimestamp is the one being cleaned
+        if (maturityDate == baseTimestamp) {
+            uint224 moreMaturities = uint224(userBorrows >> 32);
+            uint224 intervalDiff = 0;
+            while ((moreMaturities & 1) == 0) {
+                unchecked {
+                    ++intervalDiff;
+                }
+                moreMaturities >>= 1;
+            }
 
-        delete mpUserBorrowedAmount[maturityDate][borrower];
+            userBorrows = userBorrows >> intervalDiff;
+            userMpBorrowed[borrower] = (maturityDate * (intervalDiff * TSUtils.INTERVAL)) | userBorrows;
+        } else {
+            // ...otherwise just set the bit OFF
+            userMpBorrowed[borrower] = userBorrows & ~(1 << (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL)));
+        }
+    }
+
+    /**
+     * @notice Function to add a maturityDate to the borrow positions of the user
+     * @param borrower user in which we need to add the maturityDate
+     * @param maturityDate to calculate the difference in seconds to a date
+     */
+    function addMaturity(address borrower, uint256 maturityDate) internal
+    {
+        uint256 userBorrows = userMpBorrowed[borrower];
+        if (userBorrows == 0) {
+            // we initialize the maturity date with also the 1st bit
+            // on the 33nd position ON
+            userMpBorrowed[borrower] = maturityDate | (1 << 32);
+            return;
+        }
+
+        uint32 baseTimestamp = uint32(userBorrows % (2 ** 32));
+        if (maturityDate < baseTimestamp) {
+            // If the new maturity date if lower than the base, then we need to
+            // set it as the new base. We wipe clean the last 32 bits, we shift
+            // the amount of INTERVALS and we set the new value with the 33rd bit ON
+            userBorrows = ((userBorrows >> 32) << 32);
+            userBorrows = userBorrows << uint32((baseTimestamp - maturityDate) / TSUtils.INTERVAL);
+            userMpBorrowed[borrower] = maturityDate | userBorrows | (1 << 32);
+            return;
+        } else {
+            userMpBorrowed[borrower] = userBorrows | 1 << (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL));
+            return;
+        }
     }
 
     /**

@@ -143,9 +143,9 @@ describe("FixedLender", function () {
       it("AND a 60 DAI borrow is registered", async () => {
         expect(await fixedLenderDAI.getTotalMpBorrows(futurePools(1)[0])).to.equal(parseUnits("60"));
       });
-      it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
-        expect(await poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.equal(futurePools(1)[0]);
-      });
+      // it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
+      //   expect(await poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.equal(futurePools(1)[0]);
+      // });
       describe("AND WHEN trying to repay 100 (too much)", () => {
         let balanceBefore: BigNumber;
 
@@ -176,9 +176,9 @@ describe("FixedLender", function () {
             parseUnits("60"),
           );
         });
-        it("THEN contract's state variable userMpBorrowed registers the second maturity where the user borrowed from", async () => {
-          expect(await poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.equal(futurePools(2)[1]);
-        });
+        // it("THEN contract's state variable userMpBorrowed registers the second maturity where the user borrowed from", async () => {
+        //   expect(await poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.equal(futurePools(2)[1]);
+        // });
       });
       describe("AND WHEN fully repaying the debt", () => {
         beforeEach(async () => {
@@ -194,9 +194,9 @@ describe("FixedLender", function () {
             .to.emit(fixedLenderDAI, "RepayToMaturityPool")
             .withArgs(maria.address, maria.address, parseUnits("60"), parseUnits("60"), futurePools(1)[0]);
         });
-        it("AND contract's state variable userMpBorrowed does not register the maturity where the user borrowed from anymore", async () => {
-          await expect(poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.be.reverted;
-        });
+        // it("AND contract's state variable userMpBorrowed does not register the maturity where the user borrowed from anymore", async () => {
+        //   await expect(poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.be.reverted;
+        // });
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {
             await fixedLenderDAI.withdrawFromSmartPool(parseUnits("100"));
