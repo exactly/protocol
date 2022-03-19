@@ -5,6 +5,7 @@ import type { BigNumber, ContractTransaction } from "ethers";
 import type { Auditor, ETHFixedLender, FixedLender, InterestRateModel, MockToken, PoolAccounting } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
+import { unpackMaturities } from "./exactlyUtils";
 
 const {
   utils: { parseUnits },
@@ -143,7 +144,8 @@ describe("FixedLender", function () {
         expect(await fixedLenderDAI.getTotalMpBorrows(futurePools(1)[0])).to.equal(parseUnits("60"));
       });
       it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
-        expect(await poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.equal(futurePools(1)[0]);
+        const maturities = await poolAccountingDAI.userMpBorrowed(maria.address);
+        expect(unpackMaturities(maturities)).contains(futurePools(1)[0].toNumber());
       });
       describe("AND WHEN trying to repay 100 (too much)", () => {
         let balanceBefore: BigNumber;
@@ -176,7 +178,8 @@ describe("FixedLender", function () {
           );
         });
         it("THEN contract's state variable userMpBorrowed registers the second maturity where the user borrowed from", async () => {
-          expect(await poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.equal(futurePools(2)[1]);
+          const maturities = await poolAccountingDAI.userMpBorrowed(maria.address);
+          expect(unpackMaturities(maturities)).contains(futurePools(2)[1].toNumber());
         });
       });
       describe("AND WHEN fully repaying the debt", () => {
@@ -194,7 +197,8 @@ describe("FixedLender", function () {
             .withArgs(maria.address, maria.address, parseUnits("60"), parseUnits("60"), futurePools(1)[0]);
         });
         it("AND contract's state variable userMpBorrowed does not register the maturity where the user borrowed from anymore", async () => {
-          await expect(poolAccountingDAI.userMpBorrowed(maria.address, 0)).to.be.reverted;
+          const maturities = await poolAccountingDAI.userMpBorrowed(maria.address);
+          expect(unpackMaturities(maturities).length).eq(0);
         });
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {

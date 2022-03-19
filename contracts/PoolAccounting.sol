@@ -39,7 +39,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   mapping(uint256 => mapping(address => PoolLib.Position)) public mpUserSuppliedAmount;
   mapping(uint256 => mapping(address => PoolLib.Position)) public mpUserBorrowedAmount;
 
-  mapping(address => uint256[]) public userMpBorrowed;
+  mapping(address => uint256) public userMpBorrowed;
   mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
   uint256 public override smartPoolBorrowed;
 
@@ -150,7 +150,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // If user doesn't have a current position, we add it to the list
     // of all of them
     borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
-    if (borrowVars.position.principal == 0) userMpBorrowed[borrower].push(maturityDate);
+    if (borrowVars.position.principal == 0) {
+      userMpBorrowed[borrower] = PoolLib.addMaturity(userMpBorrowed[borrower], maturityDate);
+    }
 
     // We distribute to treasury and also to unassigned
     earningsTreasury = borrowVars.fee.fmul(protocolSpreadFee, 1e18);
@@ -356,7 +358,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     //
     repayVars.position.reduceProportionally(debtCovered);
     if (repayVars.position.principal + repayVars.position.fee == 0) {
-      cleanPosition(borrower, maturityDate);
+      delete mpUserBorrowedAmount[maturityDate][borrower];
+      userMpBorrowed[borrower] = PoolLib.removeMaturity(userMpBorrowed[borrower], maturityDate);
     } else {
       // we proportionally reduce the values
       mpUserBorrowedAmount[maturityDate][borrower] = repayVars.position;
@@ -369,9 +372,20 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @return debt the amount the user deposited to the smart pool and the total money he owes from maturities.
   function getAccountBorrows(address who, uint256 maturityDate) public view override returns (uint256 debt) {
     if (maturityDate == PoolLib.MATURITY_ALL) {
-      uint256 borrowsLength = userMpBorrowed[who].length;
-      for (uint256 i = 0; i < borrowsLength; ) {
-        debt += getAccountDebt(who, userMpBorrowed[who][i]);
+      uint256 userBorrows = userMpBorrowed[who];
+      uint32 baseTimestamp = uint32(userBorrows % (2**32));
+      uint224 moreMaturities = uint224(userBorrows >> 32);
+      // We calculate all the timestamps using the baseTimestamp
+      // and the following bits representing the following weeks
+      for (uint224 i = 0; i < 224; ) {
+        if ((moreMaturities & (1 << i)) == 0) {
+          if (i > moreMaturities) break;
+          unchecked {
+            ++i;
+          }
+          continue;
+        }
+        debt += getAccountDebt(who, baseTimestamp + (i * TSUtils.INTERVAL));
         unchecked {
           ++i;
         }
@@ -383,34 +397,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param maturityDate maturity date.
   function getTotalMpBorrows(uint256 maturityDate) public view override returns (uint256) {
     return maturityPools[maturityDate].borrowed;
-  }
-
-  /// @dev Cleans user's position from the blockchain making sure space is freed.
-  /// @param borrower user's wallet.
-  /// @param maturityDate maturity date.
-  function cleanPosition(address borrower, uint256 maturityDate) internal {
-    uint256[] memory userMaturitiesBorrowedList = userMpBorrowed[borrower];
-    uint256 len = userMaturitiesBorrowedList.length;
-    uint256 maturityIndex = len;
-    for (uint256 i = 0; i < len; ) {
-      if (userMaturitiesBorrowedList[i] == maturityDate) {
-        maturityIndex = i;
-        break;
-      }
-      unchecked {
-        ++i;
-      }
-    }
-
-    // We *must* have found the maturity in the list or our redundant data structure is broken
-    assert(maturityIndex < len);
-
-    // copy last item in list to location of item to be removed, reduce length by 1
-    uint256[] storage storedList = userMpBorrowed[borrower];
-    storedList[maturityIndex] = storedList[storedList.length - 1];
-    storedList.pop();
-
-    delete mpUserBorrowedAmount[maturityDate][borrower];
   }
 
   /// @notice Internal function to get the debt + penalties of an account for a certain maturityDate.

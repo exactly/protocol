@@ -201,11 +201,11 @@ describe("InterestRateModel", () => {
           await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "2900", "4000")).to.not.be.reverted;
         });
 
-        it("WHEN borrowing 1050 DAI THEN it succeds", async () => {
+        it("WHEN borrowing 1050 DAI THEN it succeeds", async () => {
           await exactlyEnv.borrowMP("DAI", secondPoolID, "1050");
         });
       });
-      describe("GIVEN curve parameters yiending Ub=1, Umax=12 (==nMaturities), R0=0.02, Rb=0.18", () => {
+      describe("GIVEN curve parameters yielding Ub=1, Umax=12 (==nMaturities), R0=0.02, Rb=0.18", () => {
         beforeEach(async () => {
           // A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
           // A = ((12*(12-1))/1)*(0.18-0.02)

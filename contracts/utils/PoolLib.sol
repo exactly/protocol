@@ -178,6 +178,67 @@ library PoolLib {
     earningsTreasury = earnings.fmul(amountFunded - Math.min(suppliedSP, amountFunded), amountFunded);
     earningsSP = earnings - earningsTreasury;
   }
+
+  /// @notice Function to add a maturityDate to the borrow positions of the user
+  /// @param userBorrows packed maturity dates where the user borrowed
+  /// @param maturityDate to calculate the difference in seconds to a date
+  function addMaturity(uint256 userBorrows, uint256 maturityDate) internal pure returns (uint256) {
+    if (userBorrows == 0) {
+      // we initialize the maturity date with also the 1st bit
+      // on the 33nd position ON
+      return maturityDate | (1 << 32);
+    }
+
+    uint32 baseTimestamp = uint32(userBorrows % (2**32));
+    if (maturityDate < baseTimestamp) {
+      // If the new maturity date if lower than the base, then we need to
+      // set it as the new base. We wipe clean the last 32 bits, we shift
+      // the amount of INTERVALS and we set the new value with the 33rd bit ON
+      uint256 weekDiff = uint32((baseTimestamp - maturityDate) / TSUtils.INTERVAL);
+      if (userBorrows >> (256 - weekDiff) != 0) revert MaturityRangeTooWide();
+      userBorrows = ((userBorrows >> 32) << (32 + weekDiff));
+      return maturityDate | userBorrows | (1 << 32);
+    } else {
+      uint256 weekDiff = uint32((maturityDate - baseTimestamp) / TSUtils.INTERVAL);
+      if (weekDiff > 223) revert MaturityRangeTooWide();
+      return userBorrows | (1 << (32 + weekDiff));
+    }
+  }
+
+  /// @dev Cleans user's position from packed maturity pools
+  /// @param userBorrows packed maturity dates where the user borrowed
+  /// @param maturityDate maturity date
+  function removeMaturity(uint256 userBorrows, uint256 maturityDate) internal pure returns (uint256) {
+    // if only the baseTimestamp is ON or is already 0
+    if (userBorrows == 0 || userBorrows == maturityDate | (1 << 32)) {
+      return 0;
+    }
+
+    // Trying to delete a maturityDate that it's not present
+    uint32 baseTimestamp = uint32(userBorrows % (2**32));
+    if (baseTimestamp > maturityDate) {
+      return userBorrows;
+    }
+
+    // if the baseTimestamp is the one being cleaned
+    if (maturityDate == baseTimestamp) {
+      // We're wiping 32 bytes + 1 for the old base flag
+      uint224 moreMaturities = uint224(userBorrows >> 33);
+      uint224 intervalDiff = 1;
+      while ((moreMaturities & 1) == 0 && moreMaturities != 0) {
+        unchecked {
+          ++intervalDiff;
+        }
+        moreMaturities >>= 1;
+      }
+      userBorrows = ((userBorrows >> (32 + intervalDiff)) << 32);
+      return (maturityDate + (intervalDiff * TSUtils.INTERVAL)) | userBorrows;
+    } else {
+      // ...otherwise just set the bit OFF
+      return userBorrows & ~(1 << (32 + ((maturityDate - baseTimestamp) / TSUtils.INTERVAL)));
+    }
+  }
 }
 
 error InsufficientProtocolLiquidity();
+error MaturityRangeTooWide();
