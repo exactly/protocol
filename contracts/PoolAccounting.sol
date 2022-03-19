@@ -51,15 +51,15 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
-  event UpdatedInterestRateModel(IInterestRateModel newInterestRateModel);
+  event InterestRateModelUpdated(IInterestRateModel newInterestRateModel);
 
   /// @notice emitted when the protocolSpreadFee is changed by admin.
   /// @param newProtocolSpreadFee percentage represented with 1e18 decimals.
-  event UpdatedProtocolSpreadFee(uint256 newProtocolSpreadFee);
+  event ProtocolSpreadFeeUpdated(uint256 newProtocolSpreadFee);
 
   /// @notice emitted when the penaltyRate is changed by admin.
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
-  event UpdatedPenaltyRate(uint256 newPenaltyRate);
+  event PenaltyRateUpdated(uint256 newPenaltyRate);
 
   /// @notice emitted when the PoolAccounting is initialized with a FixedLender.
   /// @param fixedLender the FixedLender that is only authorized to call the PoolAccounting functions.
@@ -96,21 +96,21 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param _interestRateModel new interest rate model.
   function setInterestRateModel(IInterestRateModel _interestRateModel) external onlyRole(DEFAULT_ADMIN_ROLE) {
     interestRateModel = _interestRateModel;
-    emit UpdatedInterestRateModel(_interestRateModel);
+    emit InterestRateModelUpdated(_interestRateModel);
   }
 
   /// @notice Sets the penalty rate per second.
   /// @param _penaltyRate percentage represented with 18 decimals.
   function setPenaltyRate(uint256 _penaltyRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
     penaltyRate = _penaltyRate;
-    emit UpdatedPenaltyRate(_penaltyRate);
+    emit PenaltyRateUpdated(_penaltyRate);
   }
 
   /// @dev Sets the protocol's spread fee that the treasury earns on borrows.
   /// @param _protocolSpreadFee percentage amount represented with 1e18 decimals.
   function setProtocolSpreadFee(uint256 _protocolSpreadFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
     protocolSpreadFee = _protocolSpreadFee;
-    emit UpdatedProtocolSpreadFee(_protocolSpreadFee);
+    emit ProtocolSpreadFeeUpdated(_protocolSpreadFee);
   }
 
   /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the
