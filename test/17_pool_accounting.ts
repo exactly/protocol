@@ -61,7 +61,6 @@ describe("PoolAccounting", () => {
       );
     });
   });
-
   describe("setProtocolSpreadFee", () => {
     it("WHEN calling setProtocolSpreadFee, THEN the protocolSpreadFee should be updated", async () => {
       await poolAccountingHarness.setProtocolSpreadFee(parseUnits("0.04"));
@@ -76,6 +75,30 @@ describe("PoolAccounting", () => {
       await expect(poolAccountingHarness.connect(laura).setProtocolSpreadFee(parseUnits("0.04"))).to.be.revertedWith(
         "AccessControl",
       );
+    });
+  });
+  describe("setInterestRateModel", () => {
+    let newInterestRateModel: Contract;
+    before(async () => {
+      const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
+      newInterestRateModel = await InterestRateModelFactory.deploy(0, 0, 0, 0);
+      await newInterestRateModel.deployed();
+    });
+
+    it("WHEN calling setInterestRateModel, THEN the interestRateModel should be updated", async () => {
+      const interestRateModelBefore = await poolAccountingHarness.interestRateModel();
+      await poolAccountingHarness.setInterestRateModel(newInterestRateModel.address);
+      expect(await poolAccountingHarness.interestRateModel()).to.not.equal(interestRateModelBefore);
+    });
+    it("WHEN calling setInterestRateModel, THEN it should emit UpdatedInterestRateModel event", async () => {
+      await expect(await poolAccountingHarness.setInterestRateModel(newInterestRateModel.address))
+        .to.emit(poolAccountingHarness, "UpdatedInterestRateModel")
+        .withArgs(newInterestRateModel.address);
+    });
+    it("WHEN calling setInterestRateModel from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        poolAccountingHarness.connect(laura).setInterestRateModel(newInterestRateModel.address),
+      ).to.be.revertedWith("AccessControl");
     });
   });
 
