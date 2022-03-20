@@ -101,7 +101,7 @@ contract Auditor is IAuditor, AccessControl {
 
       uint256 assets = accountAssets[msg.sender];
 
-      if ((assets & (1 << marketIndex)) == 1) return;
+      if ((assets & (1 << marketIndex)) != 0) return;
       accountAssets[msg.sender] = assets | (1 << marketIndex);
 
       emit MarketEntered(fixedLenders[i], msg.sender);
@@ -233,7 +233,7 @@ contract Auditor is IAuditor, AccessControl {
       accountAssets[borrower] = assets | (1 << marketIndex);
       emit MarketEntered(fixedLender, borrower);
 
-      assert((assets & (1 << marketIndex)) == 0);
+      assert((accountAssets[borrower] & (1 << marketIndex)) != 0);
     }
 
     uint256 borrowCap = borrowCaps[fixedLender];

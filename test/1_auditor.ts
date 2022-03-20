@@ -50,6 +50,14 @@ describe("Auditor from User Space", function () {
     );
   });
 
+  it("We enter WETH market (market index 1) twice without failing", async () => {
+    await auditor.enterMarkets([fixedLenderWETH.address]);
+    await expect(auditor.enterMarkets([fixedLenderWETH.address])).to.not.be.reverted.and.to.not.emit(
+      auditor,
+      "MarketEntered",
+    );
+  });
+
   it("EnterMarkets should emit event", async () => {
     await expect(auditor.enterMarkets([fixedLenderDAI.address]))
       .to.emit(auditor, "MarketEntered")
