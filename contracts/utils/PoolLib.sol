@@ -181,7 +181,7 @@ library PoolLib {
 
   /// @notice Function to add a maturityDate to the borrow positions of the user
   /// @param userBorrows packed maturity dates where the user borrowed
-  /// @param maturityDate to calculate the difference in seconds to a date
+  /// @param maturityDate the maturityDate where the user will borrow from
   function addMaturity(uint256 userBorrows, uint256 maturityDate) internal pure returns (uint256) {
     if (userBorrows == 0) {
       // we initialize the maturity date with also the 1st bit
