@@ -1186,20 +1186,10 @@ describe("PoolAccounting", () => {
     let returnValues: any;
     let mp: any;
     let borrowAmount: number;
-    let maturityPoolState: MaturityPoolState = {
-      borrowFees: parseUnits("0"),
-      earningsTreasury: parseUnits("0"),
-      earningsUnassigned: parseUnits("0"),
-      earningsSP: parseUnits("0"),
-      earningsMP: parseUnits("0"),
-      earningsDiscounted: parseUnits("0"),
-    };
+    let maturityPoolState: MaturityPoolState;
 
     beforeEach(async () => {
       await provider.send("evm_setAutomine", [false]);
-    });
-
-    afterEach(async () => {
       maturityPoolState = {
         borrowFees: parseUnits("0"),
         earningsTreasury: parseUnits("0"),
@@ -1208,6 +1198,9 @@ describe("PoolAccounting", () => {
         earningsMP: parseUnits("0"),
         earningsDiscounted: parseUnits("0"),
       };
+    });
+
+    afterEach(async () => {
       await provider.send("evm_setAutomine", [true]);
     });
 
