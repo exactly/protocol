@@ -209,7 +209,6 @@ library PoolLib {
   /// @param userBorrows packed maturity dates where the user borrowed
   /// @param maturityDate maturity date
   function removeMaturity(uint256 userBorrows, uint256 maturityDate) internal pure returns (uint256) {
-    // if only the baseTimestamp is ON or is already 0
     if (userBorrows == 0 || userBorrows == maturityDate | (1 << 32)) {
       return 0;
     }
