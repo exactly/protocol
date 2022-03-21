@@ -378,17 +378,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       // We calculate all the timestamps using the baseTimestamp
       // and the following bits representing the following weeks
       for (uint224 i = 0; i < 224; ) {
-        if ((moreMaturities & (1 << i)) == 0) {
-          if (i > moreMaturities) break;
-          unchecked {
-            ++i;
-          }
-          continue;
+        if ((moreMaturities & (1 << i)) != 0) {
+          debt += getAccountDebt(who, baseTimestamp + (i * TSUtils.INTERVAL));
         }
-        debt += getAccountDebt(who, baseTimestamp + (i * TSUtils.INTERVAL));
         unchecked {
           ++i;
         }
+        if ((1 << i) > moreMaturities) break;
       }
     } else debt = getAccountDebt(who, maturityDate);
   }

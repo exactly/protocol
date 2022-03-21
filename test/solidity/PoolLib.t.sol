@@ -111,7 +111,7 @@ contract PoolLibTest is DSTest {
     return PoolLib.addMaturity(packedMaturities, maturity);
   }
 
-  function testAddRemoveMaturity(uint8[12] calldata weekArray) external {
+  function testFuzzAddRemoveMaturity(uint8[12] calldata weekArray) external {
     uint256 packedMaturities;
     uint256 length = weekArray.length;
     for (uint256 i = 0; i < length; i++) {

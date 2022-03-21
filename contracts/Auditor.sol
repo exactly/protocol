@@ -423,11 +423,10 @@ contract Auditor is IAuditor, AccessControl {
           }
         }
       }
-
-      if ((1 << i) > assets) break;
       unchecked {
         ++i;
       }
+      if ((1 << i) > assets) break;
     }
 
     // These are safe, as the underflow condition is checked first

@@ -85,23 +85,6 @@ contract AuditorTest is DSTest {
     }
   }
 
-  function testAccountLiquidityLargeMarkets() external {
-    IFixedLender[] memory markets = new IFixedLender[](255);
-    IFixedLender[] memory marketsToEnter = new IFixedLender[](1);
-    for (uint256 i = 0; i < markets.length; i++) {
-      markets[i] = IFixedLender(address(new MockFixedLender(auditor)));
-      auditor.enableMarket(markets[i], 0.8e18, "X", "x", 18);
-      if (i < 10) {
-        marketsToEnter[0] = markets[i];
-        auditor.enterMarkets(marketsToEnter);
-      }
-    }
-
-    uint256 startGas = gasleft();
-    auditor.getAccountLiquidity(address(this));
-    assertLt(startGas - gasleft(), 120_000);
-  }
-
   function testFailExitMarketOwning() external {
     auditor.enableMarket(IFixedLender(address(fixedLender)), 0.8e18, "X", "x", 18);
     IFixedLender[] memory markets = new IFixedLender[](1);
