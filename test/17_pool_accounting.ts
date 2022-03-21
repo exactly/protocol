@@ -1250,8 +1250,8 @@ describe("PoolAccounting", () => {
         });
 
         describe("AND WHEN an early repayment of 5250", () => {
-          const fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
           beforeEach(async () => {
+            const fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
             await poolAccountingEnv.moveInTime(fourDaysToMaturity);
             await poolAccountingEnv.repayMP(nextPoolID, "5250");
             await provider.send("hardhat_mine", ["0x2", "0x0"]);
@@ -1287,10 +1287,13 @@ describe("PoolAccounting", () => {
         describe("AND WHEN an early repayment of 5250 with a spFeeRate of 10%", () => {
           beforeEach(async () => {
             await poolAccountingEnv.getRealInterestRateModel().setSPFeeRate(parseUnits("0.1"));
+            const fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
+            await poolAccountingEnv.moveInTime(fourDaysToMaturity);
             await poolAccountingEnv.repayMP(nextPoolID, "5250");
             await provider.send("hardhat_mine", ["0x2", "0x0"]);
             returnValues = await poolAccountingHarness.returnValues();
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
+            maturityPoolState.earningsSP = maturityPoolState.earningsSP.add(returnValues.earningsSP);
             maturityPoolState.earningsDiscounted = maturityPoolState.earningsDiscounted.add(
               parseUnits("5250").sub(returnValues.actualRepayAmount),
             );
@@ -1308,11 +1311,11 @@ describe("PoolAccounting", () => {
           it("THEN the debtCovered returned is 5250", async () => {
             expect(returnValues.debtCovered).eq(parseUnits("5250"));
           });
-          it("THEN the earningsSP returned are 25 (10% spFeeRate)", async () => {
-            expect(returnValues.earningsSP).eq(parseUnits("25"));
+          it("THEN the earningsSP returned are 50 accrued + 20 (10% spFeeRate) = 70", async () => {
+            expect(returnValues.earningsSP).eq(parseUnits("70"));
           });
-          it("THEN the actualRepayAmount returned is 5025 = 5250 - 250 - 25 (10% spFeeRate)", async () => {
-            expect(returnValues.actualRepayAmount).to.eq(parseUnits("5025"));
+          it("THEN the actualRepayAmount returned is 5070 = 5250 - discount - earningsSP", async () => {
+            expect(returnValues.actualRepayAmount).to.eq(parseUnits("5070"));
           });
           it("THEN the borrow fees are equal to all earnings distributed", async () => {
             expect(maturityPoolState.borrowFees).to.eq(poolAccountingEnv.getAllEarnings(maturityPoolState));
