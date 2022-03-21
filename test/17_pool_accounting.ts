@@ -1275,7 +1275,7 @@ describe("PoolAccounting", () => {
             expect(returnValues.debtCovered).eq(parseUnits("5250"));
           });
           it("THEN the earningsSP returned are 50", async () => {
-            expect(returnValues.earningsSP).eq(parseUnits("50")); // no seconds passed since last accrual
+            expect(returnValues.earningsSP).eq(parseUnits("50")); // 1 day passed (1/5) since last accrual
           });
           it("THEN the actualRepayAmount returned is 5000 (got a 200 discount)", async () => {
             expect(returnValues.actualRepayAmount).to.eq(parseUnits("5050"));
