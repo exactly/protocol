@@ -391,7 +391,7 @@ contract Auditor is IAuditor, AccessControl {
     uint8 maxValue = uint8(allMarkets.length);
     for (uint8 i = 0; i < maxValue; ) {
       if ((assets & (1 << i)) == 0) {
-        if (i > assets) break;
+        if ((1 << i) > assets) break;
         unchecked {
           ++i;
         }
