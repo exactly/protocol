@@ -394,41 +394,37 @@ contract Auditor is IAuditor, AccessControl {
     uint256 assets = accountAssets[account];
     uint8 maxValue = uint8(allMarkets.length);
     for (uint8 i = 0; i < maxValue; ) {
-      if ((assets & (1 << i)) == 0) {
-        if ((1 << i) > assets) break;
-        unchecked {
-          ++i;
-        }
-        continue;
-      }
-      IFixedLender asset = allMarkets[i];
-      vars.decimals = markets[asset].decimals;
-      vars.collateralFactor = markets[asset].collateralFactor;
+      if ((assets & (1 << i)) != 0) {
+        IFixedLender asset = allMarkets[i];
+        vars.decimals = markets[asset].decimals;
+        vars.collateralFactor = markets[asset].collateralFactor;
 
-      // Read the balances
-      (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
+        // Read the balances
+        (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
 
-      // Get the normalized price of the asset (18 decimals)
-      vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenSymbol());
+        // Get the normalized price of the asset (18 decimals)
+        vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenSymbol());
 
-      // We sum all the collateral prices
-      vars.sumCollateral += vars.balance.fmul(vars.oraclePrice, 10**vars.decimals).fmul(vars.collateralFactor, 1e18);
+        // We sum all the collateral prices
+        vars.sumCollateral += vars.balance.fmul(vars.oraclePrice, 10**vars.decimals).fmul(vars.collateralFactor, 1e18);
 
-      // We sum all the debt
-      vars.sumDebt += vars.borrowBalance.fmul(vars.oraclePrice, 10**vars.decimals);
+        // We sum all the debt
+        vars.sumDebt += vars.borrowBalance.fmul(vars.oraclePrice, 10**vars.decimals);
 
-      // Simulate the effects of borrowing from/lending to a pool
-      if (asset == IFixedLender(fixedLenderToSimulate)) {
-        // Calculate the effects of borrowing fixedLenders
-        if (borrowAmount != 0) vars.sumDebt += borrowAmount.fmul(vars.oraclePrice, 10**vars.decimals);
+        // Simulate the effects of borrowing from/lending to a pool
+        if (asset == IFixedLender(fixedLenderToSimulate)) {
+          // Calculate the effects of borrowing fixedLenders
+          if (borrowAmount != 0) vars.sumDebt += borrowAmount.fmul(vars.oraclePrice, 10**vars.decimals);
 
-        // Calculate the effects of redeeming fixedLenders
-        // (having less collateral is the same as having more debt for this calculation)
-        if (withdrawAmount != 0) {
-          vars.sumDebt += withdrawAmount.fmul(vars.oraclePrice, 10**vars.decimals).fmul(vars.collateralFactor, 1e18);
+          // Calculate the effects of redeeming fixedLenders
+          // (having less collateral is the same as having more debt for this calculation)
+          if (withdrawAmount != 0) {
+            vars.sumDebt += withdrawAmount.fmul(vars.oraclePrice, 10**vars.decimals).fmul(vars.collateralFactor, 1e18);
+          }
         }
       }
 
+      if ((1 << i) > assets) break;
       unchecked {
         ++i;
       }
