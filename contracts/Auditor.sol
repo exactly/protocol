@@ -227,7 +227,7 @@ contract Auditor is IAuditor, AccessControl {
 
     // we validate borrow state
     if ((assets & (1 << marketIndex)) == 0) {
-      // only fixedLenders may call borrowAllowed if borrower not in market
+      // only fixedLenders may call validateBorrowMP if borrower not in market
       if (msg.sender != address(fixedLender)) revert NotFixedLender();
 
       accountAssets[borrower] = assets | (1 << marketIndex);
