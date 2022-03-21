@@ -369,6 +369,9 @@ contract Auditor is IAuditor, AccessControl {
     address account,
     uint256 amount
   ) public view override {
+    // If the user is not 'in' the market, then we can bypass the liquidity check
+    if ((accountAssets[account] & (1 << markets[fixedLender].index)) == 0) return;
+
     // Otherwise, perform a hypothetical liquidity check to guard against shortfall
     (, uint256 shortfall) = accountLiquidity(account, fixedLender, amount, 0);
     if (shortfall > 0) revert InsufficientLiquidity();

@@ -5,7 +5,6 @@ import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
 import { InsufficientProtocolLiquidity, MaturityRangeTooWide } from "../../contracts/utils/PoolLib.sol";
 import { PoolLib } from "../../contracts/utils/PoolLib.sol";
-import "forge-std/console.sol";
 
 contract PoolLibTest is DSTest {
   using PoolLib for PoolLib.MaturityPool;
