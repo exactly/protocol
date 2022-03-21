@@ -233,6 +233,7 @@ contract Auditor is IAuditor, AccessControl {
       accountAssets[borrower] = assets | (1 << marketIndex);
       emit MarketEntered(fixedLender, borrower);
 
+      // it should be impossible to break this invariant
       assert((accountAssets[borrower] & (1 << marketIndex)) != 0);
     }
 
