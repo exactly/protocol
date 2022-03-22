@@ -3,9 +3,9 @@ pragma solidity ^0.8.4;
 
 import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
+import { ReentrancyGuard } from "@rari-capital/solmate/src/utils/ReentrancyGuard.sol";
 
 import { IFixedLender, BalanceExceeded, InvalidTokenFee, ZeroRedeem, ZeroRepay } from "./interfaces/IFixedLender.sol";
 import { InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
@@ -192,7 +192,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
   /// @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned.
   /// @param amount The underlying amount to be withdrawn. `type(uint256).max` for the whole balance.
-  function withdrawFromSmartPool(uint256 amount) public override {
+  function withdrawFromSmartPool(uint256 amount) public override nonReentrant {
     // reverts on failure
     auditor.validateAccountShortfall(this, msg.sender, amount);
 
