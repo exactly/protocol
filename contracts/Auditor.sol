@@ -94,8 +94,7 @@ contract Auditor is IAuditor, AccessControl {
   /// By performing this action, the wallet's money could be used as collateral.
   /// @param fixedLenders contracts addresses to enable for `msg.sender`.
   function enterMarkets(IFixedLender[] calldata fixedLenders) external {
-    uint16 len = uint16(fixedLenders.length);
-    for (uint256 i = 0; i < len; ) {
+    for (uint256 i = 0; i < fixedLenders.length; ) {
       validateMarketListed(fixedLenders[i]);
       uint8 marketIndex = markets[fixedLenders[i]].index;
 
@@ -199,12 +198,9 @@ contract Auditor is IAuditor, AccessControl {
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
-    uint256 numMarkets = fixedLenders.length;
-    uint256 numBorrowCaps = newBorrowCaps.length;
+    if (fixedLenders.length == 0 || fixedLenders.length != newBorrowCaps.length) revert InvalidBorrowCaps();
 
-    if (numMarkets == 0 || numMarkets != numBorrowCaps) revert InvalidBorrowCaps();
-
-    for (uint256 i = 0; i < numMarkets; ) {
+    for (uint256 i = 0; i < fixedLenders.length; ) {
       validateMarketListed(fixedLenders[i]);
 
       borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
