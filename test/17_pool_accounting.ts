@@ -81,7 +81,7 @@ describe("PoolAccounting", () => {
     let newInterestRateModel: Contract;
     before(async () => {
       const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
-      newInterestRateModel = await InterestRateModelFactory.deploy(0, 0, 0, 0);
+      newInterestRateModel = await InterestRateModelFactory.deploy(0, 0, 0, 0, 0);
       await newInterestRateModel.deployed();
     });
 

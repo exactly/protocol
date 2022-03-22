@@ -87,6 +87,7 @@ export class DefaultEnv {
       parseUnits("0.0495"), // A parameter for the curve
       parseUnits("-0.025"), // B parameter for the curve
       parseUnits("1.1"), // Max utilization rate
+      parseUnits("1"), // Full utilization rate
       parseUnits("0"), // SP rate if 0 then no fees charged for the mp depositors' yield
     );
 

@@ -44,7 +44,7 @@ describe("FixedLender", function () {
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", owner);
     penaltyRate = await poolAccountingDAI.penaltyRate();
 
-    await timelockExecute(owner, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10")]);
+    await timelockExecute(owner, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10"), parseUnits("1")]);
     await timelockExecute(owner, interestRateModel, "setSPFeeRate", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).transfer(signer.address, parseUnits("10000"));
@@ -326,7 +326,12 @@ describe("FixedLender", function () {
 
   describe("GIVEN an interest rate of 2%", () => {
     beforeEach(async () => {
-      await timelockExecute(owner, interestRateModel, "setCurveParameters", [0, parseUnits("0.02"), parseUnits("10")]);
+      await timelockExecute(owner, interestRateModel, "setCurveParameters", [
+        0,
+        parseUnits("0.02"),
+        parseUnits("10"),
+        parseUnits("1"),
+      ]);
       await fixedLenderDAI.depositToSmartPool(parseUnits("1"));
       await auditor.enterMarkets([fixedLenderDAI.address]);
       // we add liquidity to the maturity
@@ -354,6 +359,7 @@ describe("FixedLender", function () {
         parseUnits("0"),
         parseUnits("0"),
         parseUnits("20"),
+        parseUnits("1"),
       ]);
       await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("12"));
     });

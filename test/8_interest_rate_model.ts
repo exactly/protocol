@@ -18,6 +18,7 @@ describe("InterestRateModel", () => {
   let bob: SignerWithAddress;
   let interestRateModel: Contract;
   let snapshot: any;
+  const fullUtilizationRate = parseUnits("1");
 
   beforeEach(async () => {
     exactlyEnv = await DefaultEnv.create({
@@ -62,7 +63,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.092"); // A parameter for the curve
       const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-      const tx = interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
+      const tx = interestRateModel.setCurveParameters(A, B, maxUtilizationRate, fullUtilizationRate);
 
       await expect(tx).to.be.reverted;
     });
@@ -82,7 +83,7 @@ describe("InterestRateModel", () => {
       const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
 
       beforeEach(async () => {
-        await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
+        await interestRateModel.setCurveParameters(A, B, maxUtilizationRate, fullUtilizationRate);
       });
       it("THEN the new maxUtilizationRate is readable", async () => {
         expect(await interestRateModel.maxUtilizationRate()).to.be.equal(maxUtilizationRate);
@@ -128,7 +129,7 @@ describe("InterestRateModel", () => {
       const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
 
       beforeEach(async () => {
-        await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
+        await interestRateModel.setCurveParameters(A, B, maxUtilizationRate, fullUtilizationRate);
       });
       it("THEN the new parameters are readable", async () => {
         expect(await interestRateModel.curveParameterA()).to.be.equal(A);
@@ -184,7 +185,7 @@ describe("InterestRateModel", () => {
           const A = parseUnits("0.72"); // A parameter for the curve
           const B = parseUnits("-0.22"); // B parameter for the curve
           const maxUtilizationRate = parseUnits("3"); // Maximum utilization rate
-          await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
+          await interestRateModel.setCurveParameters(A, B, maxUtilizationRate, fullUtilizationRate);
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to 3.2, THEN it reverts because the utilization rate is too high", async () => {
@@ -218,7 +219,7 @@ describe("InterestRateModel", () => {
           const A = parseUnits("21.12"); // A parameter for the curve
           const B = parseUnits("-1.74"); // B parameter for the curve
           const maxUtilizationRate = parseUnits("12"); // Maximum utilization rate
-          await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
+          await interestRateModel.setCurveParameters(A, B, maxUtilizationRate, fullUtilizationRate);
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to 12, THEN it reverts because the utilization rate is too high", async () => {
@@ -269,7 +270,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.72"); // A parameter for the curve
       const B = parseUnits("-0.22"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("3"); // Maximum utilization rate
-      IRMHarness = await IRMHarnessFactory.deploy(A, B, maxUtilizationRate, parseUnits("0"));
+      IRMHarness = await IRMHarnessFactory.deploy(A, B, maxUtilizationRate, parseUnits("0"), fullUtilizationRate);
       exactlyEnv.switchWallet(alice);
     });
 
@@ -374,7 +375,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("8360");
       const B = parseUnits("-418");
       const maxUtilizationRate = parseUnits("20");
-      await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
+      await interestRateModel.setCurveParameters(A, B, maxUtilizationRate, fullUtilizationRate);
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarkets(["WETH"]);
       await exactlyEnv.depositSP("DAI", "1200");
@@ -400,7 +401,7 @@ describe("InterestRateModel", () => {
       const A = parseUnits("0.0495"); // A parameter for the curve
       const B = parseUnits("-0.025"); // B parameter for the curve
       const maxUtilizationRate = parseUnits("1.1"); // Maximum utilization rate
-      await interestRateModel.setCurveParameters(A, B, maxUtilizationRate);
+      await interestRateModel.setCurveParameters(A, B, maxUtilizationRate, fullUtilizationRate);
     });
     describe("GIVEN enough collateral", () => {
       beforeEach(async () => {
@@ -893,6 +894,23 @@ describe("InterestRateModel", () => {
     await interestRateModel.setSPFeeRate(parseUnits("0.5"));
     expect(await interestRateModel.spFeeRate()).to.eq(parseUnits("0.5"));
   });
+  it("WHEN calling setSPFeeRate function, THEN it should emit SpFeeRateUpdated", async () => {
+    await expect(interestRateModel.setSPFeeRate(parseUnits("0.5")))
+      .to.emit(interestRateModel, "SpFeeRateUpdated")
+      .withArgs(parseUnits("0.5"));
+  });
+  it("WHEN calling setCurveParameters function, THEN it should emit CurveParametersUpdated", async () => {
+    await expect(
+      interestRateModel.setCurveParameters(
+        parseUnits("0.08"),
+        parseUnits("-0.046"),
+        parseUnits("1.2"),
+        parseUnits("1"),
+      ),
+    )
+      .to.emit(interestRateModel, "CurveParametersUpdated")
+      .withArgs(parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2"), parseUnits("1"));
+  });
 
   it("WHEN an unauthorized user calls setSPFeeRate function, THEN it should revert", async () => {
     await expect(interestRateModel.connect(alice).setSPFeeRate(parseUnits("0"))).to.be.revertedWith("AccessControl");
@@ -902,8 +920,8 @@ describe("InterestRateModel", () => {
     const A = parseUnits("0.092"); // A parameter for the curve
     const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
     const maxUtilizationRate = parseUnits("1.2"); // Maximum utilization rate
-    await expect(interestRateModel.connect(alice).setCurveParameters(A, B, maxUtilizationRate)).to.be.revertedWith(
-      "AccessControl",
-    );
+    await expect(
+      interestRateModel.connect(alice).setCurveParameters(A, B, maxUtilizationRate, fullUtilizationRate),
+    ).to.be.revertedWith("AccessControl");
   });
 });
