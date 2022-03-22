@@ -168,16 +168,16 @@ export class ExaTime {
   }
 }
 
-export function unpackMaturities(maturitiesPacked: BigNumber): number[] {
+export function decodeMaturities(encodedMaturities: BigNumber): number[] {
   const maturities: number[] = [];
-  const baseMaturity = maturitiesPacked.mod(BigNumber.from(1).shl(32));
-  let moreMaturities = maturitiesPacked.shr(32);
+  const baseMaturity = encodedMaturities.mod(BigNumber.from(1).shl(32));
+  let packedMaturities = encodedMaturities.shr(32);
   let i = 0;
-  while (!moreMaturities.eq(0)) {
-    if (moreMaturities.and(1).toNumber() == 1) {
+  while (!packedMaturities.eq(0)) {
+    if (packedMaturities.and(1).toNumber() == 1) {
       maturities.push(baseMaturity.add(i * 86400 * 7).toNumber());
     }
-    moreMaturities = moreMaturities.shr(1);
+    packedMaturities = packedMaturities.shr(1);
     i++;
   }
   return maturities;

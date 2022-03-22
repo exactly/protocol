@@ -523,7 +523,7 @@ describe("Pool Management Library", () => {
       });
     });
 
-    describe("addMaturity", () => {
+    describe("setMaturity", () => {
       let newUserBorrows: number;
       const userBorrowsWith21DayMaturity = 4_296_781_696;
       const userBorrowsWith21And35DayMaturity = 21_476_650_880;
@@ -531,7 +531,7 @@ describe("Pool Management Library", () => {
 
       describe("GIVEN a 21 days maturity is added to the userBorrows", () => {
         beforeEach(async () => {
-          await poolEnv.addMaturity(0, 86_400 * 21);
+          await poolEnv.setMaturity(0, 86_400 * 21);
           newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
         });
         it("THEN newUserBorrows is userBorrowsWith21DayMaturity", async () => {
@@ -539,7 +539,7 @@ describe("Pool Management Library", () => {
         });
         describe("AND GIVEN another 21 days maturity is added to the userBorrows", () => {
           beforeEach(async () => {
-            await poolEnv.addMaturity(userBorrowsWith21DayMaturity, 86_400 * 21);
+            await poolEnv.setMaturity(userBorrowsWith21DayMaturity, 86_400 * 21);
             newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
           });
           it("THEN newUserBorrows is equal to the previous value", async () => {
@@ -548,7 +548,7 @@ describe("Pool Management Library", () => {
         });
         describe("AND GIVEN a 35 days maturity is added to the userBorrows", () => {
           beforeEach(async () => {
-            await poolEnv.addMaturity(userBorrowsWith21DayMaturity, 86_400 * 35);
+            await poolEnv.setMaturity(userBorrowsWith21DayMaturity, 86_400 * 35);
             newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
           });
           it("THEN newUserBorrows has the result of both maturities", async () => {
@@ -556,7 +556,7 @@ describe("Pool Management Library", () => {
           });
           describe("AND GIVEN a 7 days maturity is added to the userBorrows", () => {
             beforeEach(async () => {
-              await poolEnv.addMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 7);
+              await poolEnv.setMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 7);
               newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
             });
             it("THEN newUserBorrows has the result of the three maturities added", async () => {
@@ -564,7 +564,7 @@ describe("Pool Management Library", () => {
             });
             describe("AND GIVEN the 7 days maturity is removed from the userBorrows", () => {
               beforeEach(async () => {
-                await poolEnv.removeMaturity(userBorrowsWith7And21And35DayMaturity, 86_400 * 7);
+                await poolEnv.clearMaturity(userBorrowsWith7And21And35DayMaturity, 86_400 * 7);
                 newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
               });
               it("THEN newUserBorrows has the result of the 21 and 35 days maturity", async () => {
@@ -572,7 +572,7 @@ describe("Pool Management Library", () => {
               });
               describe("AND GIVEN the 7 days maturity is removed again from the userBorrows", () => {
                 beforeEach(async () => {
-                  await poolEnv.removeMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 7);
+                  await poolEnv.clearMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 7);
                   newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
                 });
                 it("THEN newUserBorrows has the result of the 21 and 35 days maturity", async () => {
@@ -581,7 +581,7 @@ describe("Pool Management Library", () => {
               });
               describe("AND GIVEN the 35 days maturity is removed from the userBorrows", () => {
                 beforeEach(async () => {
-                  await poolEnv.removeMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 35);
+                  await poolEnv.clearMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 35);
                   newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
                 });
                 it("THEN newUserBorrows has the result of the 21 days maturity", async () => {
@@ -589,7 +589,7 @@ describe("Pool Management Library", () => {
                 });
                 describe("AND GIVEN the 35 days maturity is removed again from the userBorrows", () => {
                   beforeEach(async () => {
-                    await poolEnv.removeMaturity(userBorrowsWith21DayMaturity, 86_400 * 35);
+                    await poolEnv.clearMaturity(userBorrowsWith21DayMaturity, 86_400 * 35);
                     newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
                   });
                   it("THEN newUserBorrows has the result of the 21 days maturity", async () => {
@@ -598,7 +598,7 @@ describe("Pool Management Library", () => {
                 });
                 describe("AND GIVEN the 21 days maturity is removed from the userBorrows", () => {
                   beforeEach(async () => {
-                    await poolEnv.removeMaturity(userBorrowsWith21DayMaturity, 86_400 * 21);
+                    await poolEnv.clearMaturity(userBorrowsWith21DayMaturity, 86_400 * 21);
                     newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
                   });
                   it("THEN newUserBorrows has the result of the 21 days maturity", async () => {
@@ -609,7 +609,7 @@ describe("Pool Management Library", () => {
             });
             describe("AND GIVEN the 7a days maturity is removed from the userBorrows", () => {
               beforeEach(async () => {
-                await poolEnv.removeMaturity(userBorrowsWith7And21And35DayMaturity, 86_400 * 7);
+                await poolEnv.clearMaturity(userBorrowsWith7And21And35DayMaturity, 86_400 * 7);
                 newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
               });
               it("THEN newUserBorrows has the result of the 21 and 35 days maturity", async () => {
@@ -621,7 +621,7 @@ describe("Pool Management Library", () => {
       });
       describe("GIVEN a 7 days maturity is tried to remove from the userBorrows that it's 0", () => {
         beforeEach(async () => {
-          await poolEnv.removeMaturity(0, 86_400 * 7);
+          await poolEnv.clearMaturity(0, 86_400 * 7);
           newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
         });
         it("THEN newUserBorrows should still be 0", async () => {

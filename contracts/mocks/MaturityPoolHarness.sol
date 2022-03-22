@@ -9,6 +9,7 @@ import { PoolLib } from "../utils/PoolLib.sol";
 contract MaturityPoolHarness {
   using PoolLib for PoolLib.MaturityPool;
   using PoolLib for PoolLib.Position;
+  using PoolLib for uint256;
 
   PoolLib.MaturityPool public maturityPool;
   uint256 public newDebtSP;
@@ -47,12 +48,12 @@ contract MaturityPoolHarness {
     newDebtSP = maturityPool.withdrawMoney(_amountToDiscount, _maxDebt);
   }
 
-  function addMaturity(uint256 _userBorrows, uint256 _maturityDate) external {
-    newUserBorrows = PoolLib.addMaturity(_userBorrows, _maturityDate);
+  function setMaturity(uint256 _userBorrows, uint256 _maturityDate) external {
+    newUserBorrows = _userBorrows.setMaturity(_maturityDate);
   }
 
-  function removeMaturity(uint256 _userBorrows, uint256 _maturityDate) external {
-    newUserBorrows = PoolLib.removeMaturity(_userBorrows, _maturityDate);
+  function clearMaturity(uint256 _userBorrows, uint256 _maturityDate) external {
+    newUserBorrows = _userBorrows.clearMaturity(_maturityDate);
   }
 
   function addFee(uint256 _fee) external {

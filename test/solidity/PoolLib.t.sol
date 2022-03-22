@@ -3,11 +3,12 @@ pragma solidity ^0.8.4;
 
 import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
-import { InsufficientProtocolLiquidity, MaturityRangeTooWide } from "../../contracts/utils/PoolLib.sol";
-import { PoolLib } from "../../contracts/utils/PoolLib.sol";
+import { stdError } from "forge-std/stdlib.sol";
+import { PoolLib, InsufficientProtocolLiquidity, MaturityOverflow } from "../../contracts/utils/PoolLib.sol";
 
 contract PoolLibTest is DSTest {
   using PoolLib for PoolLib.MaturityPool;
+  using PoolLib for uint256;
 
   Vm internal vm = Vm(HEVM_ADDRESS);
   PoolLib.MaturityPool private mp;
@@ -79,87 +80,71 @@ contract PoolLibTest is DSTest {
   }
 
   function testMaturityRangeLimit() external {
-    uint256 packedMaturities;
-    packedMaturities = this.addMaturity(packedMaturities, 7 days);
-    packedMaturities = this.addMaturity(packedMaturities, 7 days * 224);
-    assertTrue(this.checkMaturity(packedMaturities, 7 days));
-    assertTrue(this.checkMaturity(packedMaturities, 7 days * 224));
+    uint256 maturities;
+    maturities = maturities.setMaturity(7 days);
+    maturities = maturities.setMaturity(7 days * 224);
+    assertTrue(maturities.hasMaturity(7 days));
+    assertTrue(maturities.hasMaturity(7 days * 224));
 
-    uint256 packedMaturitiesReverse;
-    packedMaturitiesReverse = this.addMaturity(packedMaturitiesReverse, 7 days * 224);
-    packedMaturitiesReverse = this.addMaturity(packedMaturitiesReverse, 7 days);
-    assertTrue(this.checkMaturity(packedMaturitiesReverse, 7 days * 224));
-    assertTrue(this.checkMaturity(packedMaturitiesReverse, 7 days));
+    uint256 maturitiesReverse;
+    maturitiesReverse = maturitiesReverse.setMaturity(7 days * 224);
+    maturitiesReverse = maturitiesReverse.setMaturity(7 days);
+    assertTrue(maturities.hasMaturity(7 days * 224));
+    assertTrue(maturities.hasMaturity(7 days));
 
-    packedMaturitiesReverse = PoolLib.removeMaturity(packedMaturitiesReverse, 7 days * 224);
-    assertTrue(this.checkMaturity(packedMaturitiesReverse, 7 days));
+    maturitiesReverse = maturitiesReverse.clearMaturity(7 days * 224);
+    assertTrue(maturities.hasMaturity(7 days));
   }
 
   function testMaturityRangeTooWide() external {
-    uint256 packedMaturities;
-    packedMaturities = this.addMaturity(packedMaturities, 7 days);
-    vm.expectRevert(MaturityRangeTooWide.selector);
-    this.addMaturity(packedMaturities, 7 days * (224 + 1));
+    uint256 maturities;
+    maturities = maturities.setMaturity(7 days);
+    vm.expectRevert(MaturityOverflow.selector);
+    this.setMaturity(maturities, 7 days * (224 + 1));
 
-    uint256 packedMaturitiesReverse;
-    packedMaturitiesReverse = this.addMaturity(packedMaturitiesReverse, 7 days * (224 + 1));
-    vm.expectRevert(MaturityRangeTooWide.selector);
-    this.addMaturity(packedMaturitiesReverse, 7 days);
+    uint256 maturitiesReverse;
+    maturitiesReverse = maturitiesReverse.setMaturity(7 days * (224 + 1));
+    vm.expectRevert(MaturityOverflow.selector);
+    this.setMaturity(maturitiesReverse, 7 days);
   }
 
-  function addMaturity(uint256 packedMaturities, uint256 maturity) public pure returns (uint256) {
-    return PoolLib.addMaturity(packedMaturities, maturity);
-  }
+  function testFuzzAddRemoveAll(uint8[12] calldata indexes) external {
+    uint256 maturities;
 
-  function testFuzzAddRemoveMaturity(uint8[12] calldata weekArray) external {
-    uint256 packedMaturities;
-    uint256 length = weekArray.length;
-    for (uint256 i = 0; i < length; i++) {
-      // to have values within a range and non zero
-      uint256 normalizedTimestamp = ((uint256(weekArray[i]) + 1) * 7 days);
-      // avoid having timestamps that are repeated and the packed version doesn't support
-      // more than a 223 week range
-      if (this.checkMaturity(packedMaturities, normalizedTimestamp) || weekArray[i] > 223) {
-        continue;
-      }
-      packedMaturities = PoolLib.addMaturity(packedMaturities, normalizedTimestamp);
-      assertTrue(this.checkMaturity(packedMaturities, normalizedTimestamp));
+    for (uint256 i = 0; i < indexes.length; i++) {
+      if (indexes[i] > 223) continue;
+
+      uint32 maturity = ((uint32(indexes[i]) + 1) * 7 days);
+      maturities = maturities.setMaturity(maturity);
+      assertTrue(maturities.hasMaturity(maturity));
     }
 
-    for (uint256 i = 0; i < length; i++) {
-      uint256 normalizedTimestamp = ((uint256(weekArray[i]) + 1) * 7 days);
-      // avoid having timestamps that are repeated and the packed version doesn't support
-      // more than a 223 week range
-      if (!this.checkMaturity(packedMaturities, normalizedTimestamp) || weekArray[i] > 223) {
-        continue;
-      }
-      packedMaturities = PoolLib.removeMaturity(packedMaturities, normalizedTimestamp);
-      assertTrue(!this.checkMaturity(packedMaturities, normalizedTimestamp));
+    for (uint256 i = 0; i < indexes.length; i++) {
+      if (indexes[i] > 223) continue;
+
+      uint256 maturity = ((uint256(indexes[i]) + 1) * 7 days);
+      uint256 base = maturities % (1 << 32);
+
+      if (maturity < base) vm.expectRevert(stdError.arithmeticError);
+      uint256 newMaturities = this.clearMaturity(maturities, maturity);
+      if (maturity < base) continue;
+
+      maturities = newMaturities;
+      assertTrue(!maturities.hasMaturity(maturity));
     }
-    assertEq(packedMaturities, 0);
+
+    assertEq(maturities, 0);
   }
 
-  function borrowMoney(uint256 amount, uint256 maxDebt) public returns (uint256) {
+  function borrowMoney(uint256 amount, uint256 maxDebt) external returns (uint256) {
     return mp.borrowMoney(amount, maxDebt);
   }
 
-  function checkMaturity(uint256 packedMaturities, uint256 timestamp) public pure returns (bool) {
-    uint32 baseTimestamp = uint32(packedMaturities % (2**32));
-    uint224 moreMaturities = uint224(packedMaturities >> 32);
-    // We calculate all the timestamps using the baseTimestamp
-    // and the following bits representing the following weeks
-    if (timestamp < baseTimestamp) {
-      return false;
-    }
-    uint256 weekDiff = (timestamp - baseTimestamp) / 7 days;
-    if (weekDiff > 223) {
-      return false;
-    }
+  function setMaturity(uint256 encoded, uint256 maturity) external pure returns (uint256) {
+    return encoded.setMaturity(maturity);
+  }
 
-    if ((moreMaturities & (1 << weekDiff)) != 0) {
-      return true;
-    }
-
-    return false;
+  function clearMaturity(uint256 encoded, uint256 maturity) external pure returns (uint256) {
+    return encoded.clearMaturity(maturity);
   }
 }

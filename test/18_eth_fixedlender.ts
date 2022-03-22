@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { ExaTime, unpackMaturities } from "./exactlyUtils";
+import { ExaTime, decodeMaturities } from "./exactlyUtils";
 import { Contract, BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -258,7 +258,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         });
         it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
           const maturities = await exactlyEnv.getPoolAccounting("WETH").userMpBorrowed(alice.address);
-          expect(unpackMaturities(maturities)).contains(nextPoolId);
+          expect(decodeMaturities(maturities)).contains(nextPoolId);
         });
       });
       describe("WHEN borrowing with WETH (erc20)", () => {
@@ -277,7 +277,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         });
         it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
           const maturities = await exactlyEnv.getPoolAccounting("WETH").userMpBorrowed(alice.address);
-          expect(unpackMaturities(maturities)).contains(nextPoolId);
+          expect(decodeMaturities(maturities)).contains(nextPoolId);
         });
       });
 

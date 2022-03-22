@@ -5,7 +5,7 @@ import type { BigNumber, ContractTransaction } from "ethers";
 import type { Auditor, ETHFixedLender, FixedLender, InterestRateModel, MockToken, PoolAccounting } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
-import { unpackMaturities } from "./exactlyUtils";
+import { decodeMaturities } from "./exactlyUtils";
 
 const {
   utils: { parseUnits },
@@ -145,7 +145,7 @@ describe("FixedLender", function () {
       });
       it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
         const maturities = await poolAccountingDAI.userMpBorrowed(maria.address);
-        expect(unpackMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+        expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
       });
       describe("AND WHEN trying to repay 100 (too much)", () => {
         let balanceBefore: BigNumber;
@@ -179,7 +179,7 @@ describe("FixedLender", function () {
         });
         it("THEN contract's state variable userMpBorrowed registers the second maturity where the user borrowed from", async () => {
           const maturities = await poolAccountingDAI.userMpBorrowed(maria.address);
-          expect(unpackMaturities(maturities)).contains(futurePools(2)[1].toNumber());
+          expect(decodeMaturities(maturities)).contains(futurePools(2)[1].toNumber());
         });
       });
       describe("AND WHEN fully repaying the debt", () => {
@@ -198,7 +198,7 @@ describe("FixedLender", function () {
         });
         it("AND contract's state variable userMpBorrowed does not register the maturity where the user borrowed from anymore", async () => {
           const maturities = await poolAccountingDAI.userMpBorrowed(maria.address);
-          expect(unpackMaturities(maturities).length).eq(0);
+          expect(decodeMaturities(maturities).length).eq(0);
         });
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {

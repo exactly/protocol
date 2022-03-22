@@ -12,6 +12,7 @@ import { PoolLib } from "./utils/PoolLib.sol";
 contract PoolAccounting is IPoolAccounting, AccessControl {
   using PoolLib for PoolLib.MaturityPool;
   using PoolLib for PoolLib.Position;
+  using PoolLib for uint256;
   using FixedPointMathLib for uint256;
 
   // Vars used in `borrowMP` to avoid
@@ -165,7 +166,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // of all of them
     borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
     if (borrowVars.position.principal == 0) {
-      userMpBorrowed[borrower] = PoolLib.addMaturity(userMpBorrowed[borrower], maturityDate);
+      userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturityDate);
     }
 
     // We distribute to treasury and also to unassigned
@@ -373,7 +374,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     repayVars.position.reduceProportionally(debtCovered);
     if (repayVars.position.principal + repayVars.position.fee == 0) {
       delete mpUserBorrowedAmount[maturityDate][borrower];
-      userMpBorrowed[borrower] = PoolLib.removeMaturity(userMpBorrowed[borrower], maturityDate);
+      userMpBorrowed[borrower] = userMpBorrowed[borrower].clearMaturity(maturityDate);
     } else {
       // we proportionally reduce the values
       mpUserBorrowedAmount[maturityDate][borrower] = repayVars.position;
@@ -386,19 +387,19 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @return debt the amount the user deposited to the smart pool and the total money he owes from maturities.
   function getAccountBorrows(address who, uint256 maturityDate) public view override returns (uint256 debt) {
     if (maturityDate == PoolLib.MATURITY_ALL) {
-      uint256 userBorrows = userMpBorrowed[who];
-      uint32 baseTimestamp = uint32(userBorrows % (2**32));
-      uint224 moreMaturities = uint224(userBorrows >> 32);
-      // We calculate all the timestamps using the baseTimestamp
+      uint256 encodedMaturities = userMpBorrowed[who];
+      uint32 baseMaturity = uint32(encodedMaturities % (1 << 32));
+      uint224 packedMaturities = uint224(encodedMaturities >> 32);
+      // We calculate all the timestamps using the baseMaturity
       // and the following bits representing the following weeks
       for (uint224 i = 0; i < 224; ) {
-        if ((moreMaturities & (1 << i)) != 0) {
-          debt += getAccountDebt(who, baseTimestamp + (i * TSUtils.INTERVAL));
+        if ((packedMaturities & (1 << i)) != 0) {
+          debt += getAccountDebt(who, baseMaturity + (i * TSUtils.INTERVAL));
         }
         unchecked {
           ++i;
         }
-        if ((1 << i) > moreMaturities) break;
+        if ((1 << i) > packedMaturities) break;
       }
     } else debt = getAccountDebt(who, maturityDate);
   }
