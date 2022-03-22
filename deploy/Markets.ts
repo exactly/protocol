@@ -90,6 +90,11 @@ const func: DeployFunction = async ({
         poolAccountingArgs[2],
       ]);
     }
+    if (!((await poolAccounting.interestRateModel()) === interestRateModel.address)) {
+      await executeOrPropose(deployer, timelockController, poolAccounting, "setInterestRateModel", [
+        interestRateModel.address,
+      ]);
+    }
 
     const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));
     if (!(await auditor.getAllMarkets()).includes(fixedLender.address)) {
