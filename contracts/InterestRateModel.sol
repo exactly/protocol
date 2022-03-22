@@ -47,19 +47,18 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     emit ParametersUpdated(curveParameterA, curveParameterB, maxUtilizationRate, _spFeeRate);
   }
 
-  /// @notice gets this model's parameters.
-  /// @return parameters (curveA, curveB, maxUtilizationRate, spFeeRate).
-  function getParameters()
+  /// @notice gets this model's curve parameters.
+  /// @return parameters (curveA, curveB, maxUtilizationRate).
+  function getCurveParameters()
     external
     view
     returns (
       uint256,
       int256,
-      uint256,
       uint256
     )
   {
-    return (curveParameterA, curveParameterB, maxUtilizationRate, spFeeRate);
+    return (curveParameterA, curveParameterB, maxUtilizationRate);
   }
 
   /// @dev Calculate the amount of revenue sharing between the smart pool and the new MP depositor.

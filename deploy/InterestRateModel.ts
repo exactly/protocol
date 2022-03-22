@@ -16,18 +16,20 @@ const func: DeployFunction = async ({
   getNamedAccounts,
 }) => {
   const { deployer } = await getNamedAccounts();
-  const args = [
-    parseUnits(String(curveA)),
-    parseUnits(String(curveB)),
-    parseUnits(String(maxUtilizationRate)),
-    parseUnits(String(smartPoolRate)),
-  ];
+  const curveArgs = [parseUnits(String(curveA)), parseUnits(String(curveB)), parseUnits(String(maxUtilizationRate))];
+  const args = curveArgs.slice();
+  args.push(parseUnits(String(smartPoolRate)));
+
   await deploy("InterestRateModel", { skipIfAlreadyDeployed: true, args, from: deployer, log: true });
 
   const interestRateModel = await getContract<InterestRateModel>("InterestRateModel", deployer);
-  if ((await interestRateModel.getParameters()).some((param, i) => !param.eq(args[i]))) {
+  if ((await interestRateModel.getCurveParameters()).some((param, i) => !param.eq(curveArgs[i]))) {
     const timelock = await getContract<TimelockController>("TimelockController", deployer);
-    await timelockPropose(timelock, interestRateModel, "setParameters", args);
+    await timelockPropose(timelock, interestRateModel, "setCurveParameters", curveArgs);
+  }
+  if (!(await interestRateModel.spFeeRate()).eq(parseUnits(String(smartPoolRate)))) {
+    const timelock = await getContract<TimelockController>("TimelockController", deployer);
+    await timelockPropose(timelock, interestRateModel, "setSPFeeRate", [parseUnits(String(smartPoolRate))]);
   }
 };
 

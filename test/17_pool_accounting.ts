@@ -50,9 +50,9 @@ describe("PoolAccounting", () => {
       await poolAccountingHarness.setPenaltyRate(parseUnits("0.04"));
       expect(await poolAccountingHarness.penaltyRate()).to.be.equal(parseUnits("0.04"));
     });
-    it("WHEN calling setPenaltyRate, THEN it should emit UpdatedPenaltyRate event", async () => {
+    it("WHEN calling setPenaltyRate, THEN it should emit PenaltyRateUpdated event", async () => {
       await expect(await poolAccountingHarness.setPenaltyRate(parseUnits("0.04")))
-        .to.emit(poolAccountingHarness, "UpdatedPenaltyRate")
+        .to.emit(poolAccountingHarness, "PenaltyRateUpdated")
         .withArgs(parseUnits("0.04"));
     });
     it("WHEN calling setPenaltyRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
@@ -61,21 +61,44 @@ describe("PoolAccounting", () => {
       );
     });
   });
-
   describe("setProtocolSpreadFee", () => {
     it("WHEN calling setProtocolSpreadFee, THEN the protocolSpreadFee should be updated", async () => {
       await poolAccountingHarness.setProtocolSpreadFee(parseUnits("0.04"));
       expect(await poolAccountingHarness.protocolSpreadFee()).to.be.equal(parseUnits("0.04"));
     });
-    it("WHEN calling setProtocolSpreadFee, THEN it should emit UpdatedProtocolSpreadFee event", async () => {
+    it("WHEN calling setProtocolSpreadFee, THEN it should emit ProtocolSpreadFeeUpdated event", async () => {
       await expect(await poolAccountingHarness.setProtocolSpreadFee(parseUnits("0.04")))
-        .to.emit(poolAccountingHarness, "UpdatedProtocolSpreadFee")
+        .to.emit(poolAccountingHarness, "ProtocolSpreadFeeUpdated")
         .withArgs(parseUnits("0.04"));
     });
     it("WHEN calling setProtocolSpreadFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(poolAccountingHarness.connect(laura).setProtocolSpreadFee(parseUnits("0.04"))).to.be.revertedWith(
         "AccessControl",
       );
+    });
+  });
+  describe("setInterestRateModel", () => {
+    let newInterestRateModel: Contract;
+    before(async () => {
+      const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
+      newInterestRateModel = await InterestRateModelFactory.deploy(0, 0, 0, 0);
+      await newInterestRateModel.deployed();
+    });
+
+    it("WHEN calling setInterestRateModel, THEN the interestRateModel should be updated", async () => {
+      const interestRateModelBefore = await poolAccountingHarness.interestRateModel();
+      await poolAccountingHarness.setInterestRateModel(newInterestRateModel.address);
+      expect(await poolAccountingHarness.interestRateModel()).to.not.equal(interestRateModelBefore);
+    });
+    it("WHEN calling setInterestRateModel, THEN it should emit InterestRateModelUpdated event", async () => {
+      await expect(await poolAccountingHarness.setInterestRateModel(newInterestRateModel.address))
+        .to.emit(poolAccountingHarness, "InterestRateModelUpdated")
+        .withArgs(newInterestRateModel.address);
+    });
+    it("WHEN calling setInterestRateModel from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        poolAccountingHarness.connect(laura).setInterestRateModel(newInterestRateModel.address),
+      ).to.be.revertedWith("AccessControl");
     });
   });
 
