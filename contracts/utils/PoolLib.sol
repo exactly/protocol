@@ -178,6 +178,67 @@ library PoolLib {
     earningsTreasury = earnings.fmul(amountFunded - Math.min(suppliedSP, amountFunded), amountFunded);
     earningsSP = earnings - earningsTreasury;
   }
+
+  /// @notice Function to add a maturity date to the borrow positions of the user
+  /// @param encoded encoded maturity dates where the user borrowed
+  /// @param maturity the maturity date where the user will borrow from
+  function setMaturity(uint256 encoded, uint256 maturity) internal pure returns (uint256) {
+    // we initialize the maturity date with also the 1st bit on the 33th position set
+    if (encoded == 0) return maturity | (1 << 32);
+
+    uint32 baseMaturity = uint32(encoded % (1 << 32));
+    if (maturity < baseMaturity) {
+      // If the new maturity date if lower than the base, then we need to set it as the new base. We wipe clean the
+      // last 32 bits, we shift the amount of INTERVALS and we set the new value with the 33rd bit set
+      uint256 range = uint32((baseMaturity - maturity) / TSUtils.INTERVAL);
+      if (encoded >> (256 - range) != 0) revert MaturityOverflow();
+      encoded = ((encoded >> 32) << (32 + range));
+      return maturity | encoded | (1 << 32);
+    } else {
+      uint256 range = uint32((maturity - baseMaturity) / TSUtils.INTERVAL);
+      if (range > 223) revert MaturityOverflow();
+      return encoded | (1 << (32 + range));
+    }
+  }
+
+  /// @dev Cleans user's position from encoded maturity pools
+  /// @param encoded encoded maturity dates where the user borrowed
+  /// @param maturity maturity date
+  function clearMaturity(uint256 encoded, uint256 maturity) internal pure returns (uint256) {
+    if (encoded == 0 || encoded == maturity | (1 << 32)) return 0;
+
+    uint32 baseMaturity = uint32(encoded % (1 << 32));
+    // if the baseMaturity is the one being cleaned
+    if (maturity == baseMaturity) {
+      // We're wiping 32 bytes + 1 for the old base flag
+      uint224 packed = uint224(encoded >> 33);
+      uint224 range = 1;
+      while ((packed & 1) == 0 && packed != 0) {
+        unchecked {
+          ++range;
+        }
+        packed >>= 1;
+      }
+      encoded = ((encoded >> (32 + range)) << 32);
+      return (maturity + (range * TSUtils.INTERVAL)) | encoded;
+    } else {
+      // otherwise just clear the bit
+      return encoded & ~(1 << (32 + ((maturity - baseMaturity) / TSUtils.INTERVAL)));
+    }
+  }
+
+  /// @dev Cleans user's position from encoded maturity pools
+  /// @param encoded encoded maturity dates where the user borrowed
+  /// @param maturity maturity date
+  function hasMaturity(uint256 encoded, uint256 maturity) internal pure returns (bool) {
+    uint32 baseMaturity = uint32(encoded % (1 << 32));
+    if (maturity < baseMaturity) return false;
+
+    uint256 range = (maturity - baseMaturity) / TSUtils.INTERVAL;
+    if (range > 223) return false;
+    return (uint224(encoded >> 32) & (1 << range)) != 0;
+  }
 }
 
 error InsufficientProtocolLiquidity();
+error MaturityOverflow();

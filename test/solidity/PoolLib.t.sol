@@ -3,11 +3,12 @@ pragma solidity ^0.8.4;
 
 import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
-import { InsufficientProtocolLiquidity } from "../../contracts/utils/PoolLib.sol";
-import { PoolLib } from "../../contracts/utils/PoolLib.sol";
+import { stdError } from "forge-std/stdlib.sol";
+import { PoolLib, InsufficientProtocolLiquidity, MaturityOverflow } from "../../contracts/utils/PoolLib.sol";
 
 contract PoolLibTest is DSTest {
   using PoolLib for PoolLib.MaturityPool;
+  using PoolLib for uint256;
 
   Vm internal vm = Vm(HEVM_ADDRESS);
   PoolLib.MaturityPool private mp;
@@ -78,7 +79,72 @@ contract PoolLibTest is DSTest {
     this.borrowMoney(1 ether, 1 ether - 1);
   }
 
-  function borrowMoney(uint256 amount, uint256 maxDebt) public returns (uint256) {
+  function testMaturityRangeLimit() external {
+    uint256 maturities;
+    maturities = maturities.setMaturity(7 days);
+    maturities = maturities.setMaturity(7 days * 224);
+    assertTrue(maturities.hasMaturity(7 days));
+    assertTrue(maturities.hasMaturity(7 days * 224));
+
+    uint256 maturitiesReverse;
+    maturitiesReverse = maturitiesReverse.setMaturity(7 days * 224);
+    maturitiesReverse = maturitiesReverse.setMaturity(7 days);
+    assertTrue(maturities.hasMaturity(7 days * 224));
+    assertTrue(maturities.hasMaturity(7 days));
+
+    maturitiesReverse = maturitiesReverse.clearMaturity(7 days * 224);
+    assertTrue(maturities.hasMaturity(7 days));
+  }
+
+  function testMaturityRangeTooWide() external {
+    uint256 maturities;
+    maturities = maturities.setMaturity(7 days);
+    vm.expectRevert(MaturityOverflow.selector);
+    this.setMaturity(maturities, 7 days * (224 + 1));
+
+    uint256 maturitiesReverse;
+    maturitiesReverse = maturitiesReverse.setMaturity(7 days * (224 + 1));
+    vm.expectRevert(MaturityOverflow.selector);
+    this.setMaturity(maturitiesReverse, 7 days);
+  }
+
+  function testFuzzAddRemoveAll(uint8[12] calldata indexes) external {
+    uint256 maturities;
+
+    for (uint256 i = 0; i < indexes.length; i++) {
+      if (indexes[i] > 223) continue;
+
+      uint32 maturity = ((uint32(indexes[i]) + 1) * 7 days);
+      maturities = maturities.setMaturity(maturity);
+      assertTrue(maturities.hasMaturity(maturity));
+    }
+
+    for (uint256 i = 0; i < indexes.length; i++) {
+      if (indexes[i] > 223) continue;
+
+      uint256 maturity = ((uint256(indexes[i]) + 1) * 7 days);
+      uint256 base = maturities % (1 << 32);
+
+      if (maturity < base) vm.expectRevert(stdError.arithmeticError);
+      uint256 newMaturities = this.clearMaturity(maturities, maturity);
+      if (maturity < base) continue;
+
+      maturities = newMaturities;
+      assertTrue(!maturities.hasMaturity(maturity));
+    }
+
+    assertEq(maturities, 0);
+  }
+
+  function borrowMoney(uint256 amount, uint256 maxDebt) external returns (uint256) {
     return mp.borrowMoney(amount, maxDebt);
+  }
+
+  function setMaturity(uint256 encoded, uint256 maturity) external pure returns (uint256) {
+    return encoded.setMaturity(maturity);
+  }
+
+  function clearMaturity(uint256 encoded, uint256 maturity) external pure returns (uint256) {
+    return encoded.clearMaturity(maturity);
   }
 }

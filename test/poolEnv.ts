@@ -37,6 +37,14 @@ export class PoolEnv {
     return this.mpHarness.addFee(parseUnits(amount));
   }
 
+  public async setMaturity(userBorrows: number, timestamp: number) {
+    this.mpHarness.setMaturity(userBorrows, timestamp);
+  }
+
+  public async clearMaturity(userBorrows: number, timestamp: number) {
+    this.mpHarness.clearMaturity(userBorrows, timestamp);
+  }
+
   public async addFeeMP(amount: string) {
     return this.mpHarness.addFeeMP(parseUnits(amount));
   }

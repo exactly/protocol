@@ -30,22 +30,24 @@ contract Auditor is IAuditor, AccessControl {
     uint256 oraclePrice;
     uint256 sumCollateral;
     uint256 sumDebt;
+    uint8 decimals;
+    uint128 collateralFactor;
   }
 
   // Struct for FixedLender's markets
   struct Market {
     string symbol;
     string name;
+    uint128 collateralFactor;
     uint8 decimals;
+    uint8 index;
     bool isListed;
-    uint256 collateralFactor;
   }
 
   // Protocol Management
-  mapping(address => IFixedLender[]) private accountAssets;
+  mapping(address => uint256) private accountAssets;
   mapping(IFixedLender => Market) private markets;
   mapping(IFixedLender => uint256) private borrowCaps;
-  mapping(IFixedLender => mapping(address => bool)) private accountMemberships;
 
   uint256 public constant CLOSE_FACTOR = 5e17;
   uint256 public liquidationIncentive = 1.1e18;
@@ -92,13 +94,15 @@ contract Auditor is IAuditor, AccessControl {
   /// By performing this action, the wallet's money could be used as collateral.
   /// @param fixedLenders contracts addresses to enable for `msg.sender`.
   function enterMarkets(IFixedLender[] calldata fixedLenders) external {
-    uint256 len = fixedLenders.length;
-    for (uint256 i = 0; i < len; ) {
+    for (uint256 i = 0; i < fixedLenders.length; ) {
       validateMarketListed(fixedLenders[i]);
-      if (accountMemberships[fixedLenders[i]][msg.sender]) return;
+      uint8 marketIndex = markets[fixedLenders[i]].index;
 
-      accountMemberships[fixedLenders[i]][msg.sender] = true;
-      accountAssets[msg.sender].push(fixedLenders[i]);
+      uint256 assets = accountAssets[msg.sender];
+
+      if ((assets & (1 << marketIndex)) != 0) return;
+      accountAssets[msg.sender] = assets | (1 << marketIndex);
+
       emit MarketEntered(fixedLenders[i], msg.sender);
 
       unchecked {
@@ -113,6 +117,7 @@ contract Auditor is IAuditor, AccessControl {
   /// @param fixedLender The address of the asset to be removed.
   function exitMarket(IFixedLender fixedLender) external {
     validateMarketListed(fixedLender);
+    uint8 marketIndex = markets[fixedLender].index;
 
     (uint256 amountHeld, uint256 borrowBalance) = fixedLender.getAccountSnapshot(msg.sender, PoolLib.MATURITY_ALL);
 
@@ -122,32 +127,10 @@ contract Auditor is IAuditor, AccessControl {
     // Fail if the sender is not permitted to redeem all of their tokens
     validateAccountShortfall(fixedLender, msg.sender, amountHeld);
 
-    if (!accountMemberships[fixedLender][msg.sender]) return;
+    uint256 assets = accountAssets[msg.sender];
 
-    delete accountMemberships[fixedLender][msg.sender];
-
-    // load into memory for faster iteration
-    IFixedLender[] memory userAssetList = accountAssets[msg.sender];
-    uint256 len = userAssetList.length;
-    uint256 assetIndex = len;
-    for (uint256 i = 0; i < len; ) {
-      if (userAssetList[i] == IFixedLender(fixedLender)) {
-        assetIndex = i;
-        break;
-      }
-
-      unchecked {
-        ++i;
-      }
-    }
-
-    // We *must* have found the asset in the list or our redundant data structure is broken
-    assert(assetIndex < len);
-
-    // copy last item in list to location of item to be removed, reduce length by 1
-    IFixedLender[] storage storedList = accountAssets[msg.sender];
-    storedList[assetIndex] = storedList[storedList.length - 1];
-    storedList.pop();
+    if ((assets & (1 << marketIndex)) == 0) return;
+    accountAssets[msg.sender] = assets & ~(1 << marketIndex);
 
     emit MarketExited(fixedLender, msg.sender);
   }
@@ -173,7 +156,7 @@ contract Auditor is IAuditor, AccessControl {
   /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
     IFixedLender fixedLender,
-    uint256 collateralFactor,
+    uint128 collateralFactor,
     string memory symbol,
     string memory name,
     uint8 decimals
@@ -187,7 +170,8 @@ contract Auditor is IAuditor, AccessControl {
       collateralFactor: collateralFactor,
       symbol: symbol,
       name: name,
-      decimals: decimals
+      decimals: decimals,
+      index: uint8(allMarkets.length)
     });
 
     allMarkets.push(fixedLender);
@@ -198,7 +182,7 @@ contract Auditor is IAuditor, AccessControl {
   /// @notice sets the collateral factor for a certain fixedLender.
   /// @param fixedLender address of the market to change collateral factor for.
   /// @param collateralFactor collateral factor for the underlying asset.
-  function setCollateralFactor(IFixedLender fixedLender, uint256 collateralFactor)
+  function setCollateralFactor(IFixedLender fixedLender, uint128 collateralFactor)
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
@@ -214,12 +198,9 @@ contract Auditor is IAuditor, AccessControl {
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
-    uint256 numMarkets = fixedLenders.length;
-    uint256 numBorrowCaps = newBorrowCaps.length;
+    if (fixedLenders.length == 0 || fixedLenders.length != newBorrowCaps.length) revert InvalidBorrowCaps();
 
-    if (numMarkets == 0 || numMarkets != numBorrowCaps) revert InvalidBorrowCaps();
-
-    for (uint256 i = 0; i < numMarkets; ) {
+    for (uint256 i = 0; i < fixedLenders.length; ) {
       validateMarketListed(fixedLenders[i]);
 
       borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
@@ -237,22 +218,19 @@ contract Auditor is IAuditor, AccessControl {
   /// @param borrower address of the user that will borrow money from a maturity date.
   function validateBorrowMP(IFixedLender fixedLender, address borrower) external override {
     validateMarketListed(fixedLender);
+    uint8 marketIndex = markets[fixedLender].index;
+    uint256 assets = accountAssets[borrower];
 
     // we validate borrow state
-    if (!accountMemberships[fixedLender][borrower]) {
-      // only fixedLenders may call borrowAllowed if borrower not in market
+    if ((assets & (1 << marketIndex)) == 0) {
+      // only fixedLenders may call validateBorrowMP if borrower not in market
       if (msg.sender != address(fixedLender)) revert NotFixedLender();
 
-      // attempt to add borrower to the market // reverts if error
-      if (!accountMemberships[fixedLender][borrower]) {
-        accountMemberships[fixedLender][borrower] = true;
-        accountAssets[borrower].push(fixedLender);
-        emit MarketEntered(fixedLender, borrower);
-      }
+      accountAssets[borrower] = assets | (1 << marketIndex);
+      emit MarketEntered(fixedLender, borrower);
 
-      // it should be impossible to break the important invariant
-      // TODO: is this tested?
-      assert(accountMemberships[fixedLender][borrower]);
+      // it should be impossible to break this invariant
+      assert((accountAssets[borrower] & (1 << marketIndex)) != 0);
     }
 
     uint256 borrowCap = borrowCaps[fixedLender];
@@ -388,7 +366,7 @@ contract Auditor is IAuditor, AccessControl {
     uint256 amount
   ) public view override {
     // If the user is not 'in' the market, then we can bypass the liquidity check
-    if (!accountMemberships[fixedLender][account]) return;
+    if ((accountAssets[account] & (1 << markets[fixedLender].index)) == 0) return;
 
     // Otherwise, perform a hypothetical liquidity check to guard against shortfall
     (, uint256 shortfall) = accountLiquidity(account, fixedLender, amount, 0);
@@ -409,44 +387,42 @@ contract Auditor is IAuditor, AccessControl {
     AccountLiquidity memory vars; // Holds all our calculation results
 
     // For each asset the account is in
-    IFixedLender[] memory assets = accountAssets[account];
-    for (uint256 i = 0; i < assets.length; ) {
-      IFixedLender asset = assets[i];
-      Market memory market = markets[asset];
+    uint256 assets = accountAssets[account];
+    uint8 maxValue = uint8(allMarkets.length);
+    for (uint8 i = 0; i < maxValue; ) {
+      if ((assets & (1 << i)) != 0) {
+        IFixedLender asset = allMarkets[i];
+        vars.decimals = markets[asset].decimals;
+        vars.collateralFactor = markets[asset].collateralFactor;
 
-      // Read the balances
-      (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
+        // Read the balances
+        (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
 
-      // Get the normalized price of the asset (18 decimals)
-      vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenSymbol());
+        // Get the normalized price of the asset (18 decimals)
+        vars.oraclePrice = oracle.getAssetPrice(asset.underlyingTokenSymbol());
 
-      // We sum all the collateral prices
-      vars.sumCollateral += vars.balance.fmul(vars.oraclePrice, 10**market.decimals).fmul(
-        market.collateralFactor,
-        1e18
-      );
+        // We sum all the collateral prices
+        vars.sumCollateral += vars.balance.fmul(vars.oraclePrice, 10**vars.decimals).fmul(vars.collateralFactor, 1e18);
 
-      // We sum all the debt
-      vars.sumDebt += vars.borrowBalance.fmul(vars.oraclePrice, 10**market.decimals);
+        // We sum all the debt
+        vars.sumDebt += vars.borrowBalance.fmul(vars.oraclePrice, 10**vars.decimals);
 
-      // Simulate the effects of borrowing from/lending to a pool
-      if (asset == IFixedLender(fixedLenderToSimulate)) {
-        // Calculate the effects of borrowing fixedLenders
-        if (borrowAmount != 0) vars.sumDebt += borrowAmount.fmul(vars.oraclePrice, 10**market.decimals);
+        // Simulate the effects of borrowing from/lending to a pool
+        if (asset == IFixedLender(fixedLenderToSimulate)) {
+          // Calculate the effects of borrowing fixedLenders
+          if (borrowAmount != 0) vars.sumDebt += borrowAmount.fmul(vars.oraclePrice, 10**vars.decimals);
 
-        // Calculate the effects of redeeming fixedLenders
-        // (having less collateral is the same as having more debt for this calculation)
-        if (withdrawAmount != 0) {
-          vars.sumDebt += withdrawAmount.fmul(vars.oraclePrice, 10**market.decimals).fmul(
-            market.collateralFactor,
-            1e18
-          );
+          // Calculate the effects of redeeming fixedLenders
+          // (having less collateral is the same as having more debt for this calculation)
+          if (withdrawAmount != 0) {
+            vars.sumDebt += withdrawAmount.fmul(vars.oraclePrice, 10**vars.decimals).fmul(vars.collateralFactor, 1e18);
+          }
         }
       }
-
       unchecked {
         ++i;
       }
+      if ((1 << i) > assets) break;
     }
 
     // These are safe, as the underflow condition is checked first

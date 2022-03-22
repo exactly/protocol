@@ -119,11 +119,11 @@ export const defaultMockTokens: Map<string, MockTokenSpec> = new Map([
 
 export class ExaTime {
   timestamp: number;
-  ONE_HOUR: number = 3600;
-  ONE_DAY: number = 86400;
-  ONE_SECOND: number = 1;
+  ONE_HOUR = 3600;
+  ONE_DAY = 86400;
+  ONE_SECOND = 1;
   INTERVAL: number = 86400 * 7;
-  MAX_POOLS: number = 12;
+  MAX_POOLS = 12;
 
   constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
     this.timestamp = timestamp;
@@ -159,11 +159,26 @@ export class ExaTime {
 
   public futurePools(): number[] {
     let nextPoolID = this.nextPoolID();
-    var allPools: number[] = [];
+    const allPools: number[] = [];
     for (let i = 0; i < this.MAX_POOLS; i++) {
       allPools.push(nextPoolID);
       nextPoolID += this.INTERVAL;
     }
     return allPools;
   }
+}
+
+export function decodeMaturities(encodedMaturities: BigNumber): number[] {
+  const maturities: number[] = [];
+  const baseMaturity = encodedMaturities.mod(BigNumber.from(1).shl(32));
+  let packedMaturities = encodedMaturities.shr(32);
+  let i = 0;
+  while (!packedMaturities.eq(0)) {
+    if (packedMaturities.and(1).toNumber() == 1) {
+      maturities.push(baseMaturity.add(i * 86400 * 7).toNumber());
+    }
+    packedMaturities = packedMaturities.shr(1);
+    i++;
+  }
+  return maturities;
 }
