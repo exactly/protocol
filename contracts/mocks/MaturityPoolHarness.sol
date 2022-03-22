@@ -12,6 +12,7 @@ contract MaturityPoolHarness {
 
   PoolLib.MaturityPool public maturityPool;
   uint256 public newDebtSP;
+  uint256 public newUserBorrows;
   uint256 public smartPoolDebtReduction;
   uint256 public nextTimestamp;
   uint256 public lastEarningsSP;
@@ -44,6 +45,14 @@ contract MaturityPoolHarness {
 
   function withdrawMoney(uint256 _amountToDiscount, uint256 _maxDebt) external {
     newDebtSP = maturityPool.withdrawMoney(_amountToDiscount, _maxDebt);
+  }
+
+  function addMaturity(uint256 _userBorrows, uint256 _maturityDate) external {
+    newUserBorrows = PoolLib.addMaturity(_userBorrows, _maturityDate);
+  }
+
+  function removeMaturity(uint256 _userBorrows, uint256 _maturityDate) external {
+    newUserBorrows = PoolLib.removeMaturity(_userBorrows, _maturityDate);
   }
 
   function addFee(uint256 _fee) external {
