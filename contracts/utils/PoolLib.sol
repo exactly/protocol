@@ -213,12 +213,7 @@ library PoolLib {
       return 0;
     }
 
-    // Trying to delete a maturityDate that it's not present
     uint32 baseTimestamp = uint32(userBorrows % (2**32));
-    if (baseTimestamp > maturityDate) {
-      return userBorrows;
-    }
-
     // if the baseTimestamp is the one being cleaned
     if (maturityDate == baseTimestamp) {
       // We're wiping 32 bytes + 1 for the old base flag
