@@ -114,9 +114,10 @@ export class PoolAccountingEnv {
     const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
-      parseUnits("0.07"), // Maturity pool slope rate
-      parseUnits("0.07"), // Smart pool slope rate
-      parseUnits("0.02"), // Base rate
+      parseUnits("0.07"), // A parameter for the curve
+      parseUnits("0.07"), // B parameter for the curve
+      parseUnits("0.02"), // Max utilization rate
+      parseUnits("0.01"), // Full utilization rate
       parseUnits("0"), // SP rate if 0 then no fees charged for the mp depositors' yield
     );
     await realInterestRateModel.deployed();

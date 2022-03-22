@@ -21,7 +21,7 @@ contract PoolAccountingTest is DSTest {
 
   function setUp() external {
     vm.label(address(this), "Test");
-    irm = new InterestRateModel(0, int256(FEE_MP), type(uint256).max, FEE_SP);
+    irm = new InterestRateModel(0, int256(FEE_MP), type(uint256).max, 1e18, FEE_SP);
     pool = new PoolAccounting(irm, 0.02e18 / uint256(1 days));
     pool.initialize(IFixedLender(address(this)));
   }

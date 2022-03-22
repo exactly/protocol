@@ -22,20 +22,33 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   uint256 public curveParameterA;
   int256 public curveParameterB;
   uint256 public maxUtilizationRate;
+  uint256 public fullUtilizationRate;
   uint256 public spFeeRate;
 
-  event ParametersUpdated(uint256 a, int256 b, uint256 maxUtilizationRate, uint256 spFeeRate);
+  /// @notice emitted when the curve parameters are changed by admin.
+  /// @param a new curve parameter A.
+  /// @param b new curve parameter B.
+  /// @param maxUtilizationRate new max utilization rate.
+  /// @param fullUtilizationRate new full utilization rate.
+  event CurveParametersUpdated(uint256 a, int256 b, uint256 maxUtilizationRate, uint256 fullUtilizationRate);
+
+  /// @notice emitted when the spFeeRate parameter is changed by admin.
+  /// @param spFeeRate rate charged to the mp depositors to be accrued by the sp borrowers.
+  event SpFeeRateUpdated(uint256 spFeeRate);
 
   constructor(
     uint256 _curveParameterA,
     int256 _curveParameterB,
     uint256 _maxUtilizationRate,
+    uint256 _fullUtilizationRate,
     uint256 _spFeeRate
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
     curveParameterA = _curveParameterA;
     curveParameterB = _curveParameterB;
     maxUtilizationRate = _maxUtilizationRate;
+    fullUtilizationRate = _fullUtilizationRate;
     spFeeRate = _spFeeRate;
   }
 
@@ -44,21 +57,22 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   function setSPFeeRate(uint256 _spFeeRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
     spFeeRate = _spFeeRate;
 
-    emit ParametersUpdated(curveParameterA, curveParameterB, maxUtilizationRate, _spFeeRate);
+    emit SpFeeRateUpdated(_spFeeRate);
   }
 
   /// @notice gets this model's curve parameters.
-  /// @return parameters (curveA, curveB, maxUtilizationRate).
+  /// @return parameters (curveA, curveB, maxUtilizationRate, fullUtilizationRate).
   function getCurveParameters()
     external
     view
     returns (
       uint256,
       int256,
+      uint256,
       uint256
     )
   {
-    return (curveParameterA, curveParameterB, maxUtilizationRate);
+    return (curveParameterA, curveParameterB, maxUtilizationRate, fullUtilizationRate);
   }
 
   /// @dev Calculate the amount of revenue sharing between the smart pool and the new MP depositor.
@@ -83,21 +97,24 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   /// @param curveA curve parameter A.
   /// @param curveB curve parameter B.
   /// @param _maxUtilizationRate % of MP supp.
+  /// @param _fullUtilizationRate full UR.
   function setCurveParameters(
     uint256 curveA,
     int256 curveB,
-    uint256 _maxUtilizationRate
+    uint256 _maxUtilizationRate,
+    uint256 _fullUtilizationRate
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     curveParameterA = curveA;
     curveParameterB = curveB;
     maxUtilizationRate = _maxUtilizationRate;
+    fullUtilizationRate = _fullUtilizationRate;
     // we call the getPointInCurve function with an utilization rate of
     // zero to force it to revert in the tx that sets it, and not be able
     // to set an invalid curve (such as one yielding a negative interest
     // rate). Doing it works because it's a monotonously increasing function.
     getPointInCurve(0);
 
-    emit ParametersUpdated(curveA, curveB, _maxUtilizationRate, spFeeRate);
+    emit CurveParametersUpdated(curveA, curveB, _maxUtilizationRate, _fullUtilizationRate);
   }
 
   /// @notice Get fee to borrow a certain amount in a certain maturity with supply/demand values in the maturity pool
@@ -122,6 +139,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 utilizationAfter = (borrowedMP + amount).fdiv(supplied, 1e18);
 
     if (utilizationAfter >= maxUtilizationRate) revert MaxUtilizationExceeded();
+    // amount < (etoken supply - smart pool borrowed) + mp.supplied
 
     uint256 rate = simpsonIntegrator(utilizationBefore, utilizationAfter);
     return rate.fmul(maturityDate - currentDate, YEAR);

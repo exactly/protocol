@@ -55,7 +55,7 @@ describe("Liquidity computations", function () {
     fixedLenderWETH = await getContract<ETHFixedLender>("FixedLenderWETH", laura);
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", multisig);
 
-    await timelockExecute(multisig, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10")]);
+    await timelockExecute(multisig, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10"), parseUnits("1")]);
     for (const signer of [bob, laura]) {
       for (const [underlying, fixedLender, decimals = 18] of [
         [dai, fixedLenderDAI],
@@ -95,6 +95,7 @@ describe("Liquidity computations", function () {
             0,
             parseUnits("0.01"),
             parseUnits("10"),
+            parseUnits("1"),
           ]);
           // we add liquidity to the maturity
           await fixedLenderDAI.depositToMaturityPool(parseUnits("800"), futurePools(1)[0], parseUnits("800"));
