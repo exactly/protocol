@@ -166,16 +166,16 @@ contract Auditor is IAuditor, AccessControl {
 
     if (markets[fixedLender].isListed) revert MarketAlreadyListed();
 
-    allMarkets.push(fixedLender);
-
     markets[fixedLender] = Market({
       isListed: true,
       collateralFactor: collateralFactor,
       symbol: symbol,
       name: name,
       decimals: decimals,
-      index: uint8(allMarkets.length - 1)
+      index: uint8(allMarkets.length)
     });
+
+    allMarkets.push(fixedLender);
 
     emit MarketListed(fixedLender);
   }
