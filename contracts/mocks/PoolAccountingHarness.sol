@@ -28,16 +28,14 @@ contract PoolAccountingHarness is PoolAccounting {
     address borrower,
     uint256 amount,
     uint256 maxAmountAllowed,
-    uint256 eTokenTotalSupply,
-    uint8 maxFuturePools
+    uint256 eTokenTotalSupply
   ) external {
     (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = this.borrowMP(
       maturityDate,
       borrower,
       amount,
       maxAmountAllowed,
-      eTokenTotalSupply,
-      maxFuturePools
+      eTokenTotalSupply
     );
   }
 
@@ -60,16 +58,14 @@ contract PoolAccountingHarness is PoolAccounting {
     address redeemer,
     uint256 amount,
     uint256 minAmountRequired,
-    uint256 eTokenTotalSupply,
-    uint8 maxFuturePools
+    uint256 eTokenTotalSupply
   ) external {
     (returnValues.redeemAmountDiscounted, returnValues.earningsSP) = this.withdrawMP(
       maturityDate,
       redeemer,
       amount,
       minAmountRequired,
-      eTokenTotalSupply,
-      maxFuturePools
+      eTokenTotalSupply
     );
   }
 

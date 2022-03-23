@@ -45,10 +45,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    curveParameterA = _curveParameterA;
-    curveParameterB = _curveParameterB;
-    maxUtilizationRate = _maxUtilizationRate;
-    fullUtilizationRate = _fullUtilizationRate;
+    setCurveParameters(_curveParameterA, _curveParameterB, _maxUtilizationRate, _fullUtilizationRate);
     spFeeRate = _spFeeRate;
   }
 
@@ -124,22 +121,24 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   /// @param currentDate the curent block timestamp. Recieved from caller for easier testing.
   /// @param amount the current borrow's amount.
   /// @param borrowedMP ex-ante amount borrowed from this maturity.
-  /// @param supplied 'fair' supply (MP deposits + smart pool share).
+  /// @param suppliedMP deposits in maturity pool.
+  /// @param totalSupplySP total supply in the smart pool.
   /// @return fee the borrower will have to pay, as a factor (1% interest is represented as the wad for 0.01 == 10^16).
   function getRateToBorrow(
     uint256 maturityDate,
     uint256 currentDate,
     uint256 amount,
     uint256 borrowedMP,
-    uint256 supplied
+    uint256 suppliedMP,
+    uint256 totalSupplySP
   ) public view override returns (uint256) {
     if (currentDate >= maturityDate) revert AlreadyMatured();
 
+    uint256 supplied = suppliedMP + totalSupplySP.fdiv(fullUtilizationRate, 1e18);
     uint256 utilizationBefore = borrowedMP.fdiv(supplied, 1e18);
     uint256 utilizationAfter = (borrowedMP + amount).fdiv(supplied, 1e18);
 
-    if (utilizationAfter >= maxUtilizationRate) revert MaxUtilizationExceeded();
-    // amount < (etoken supply - smart pool borrowed) + mp.supplied
+    if (utilizationAfter > fullUtilizationRate) revert MaxUtilizationExceeded();
 
     uint256 rate = simpsonIntegrator(utilizationBefore, utilizationAfter);
     return rate.fmul(maturityDate - currentDate, YEAR);
