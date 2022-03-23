@@ -28,7 +28,7 @@ describe("PoolAccounting", () => {
 
   describe("function calls not originating from the FixedLender contract", () => {
     it("WHEN invoking borrowMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(poolAccountingHarness.borrowMP(0, laura.address, 0, 0, 0, 0)).to.be.revertedWith("NotFixedLender()");
+      await expect(poolAccountingHarness.borrowMP(0, laura.address, 0, 0, 0)).to.be.revertedWith("NotFixedLender()");
     });
 
     it("WHEN invoking depositMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
@@ -40,9 +40,7 @@ describe("PoolAccounting", () => {
     });
 
     it("WHEN invoking withdrawMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(poolAccountingHarness.withdrawMP(0, laura.address, 0, 0, 0, 0)).to.be.revertedWith(
-        "NotFixedLender()",
-      );
+      await expect(poolAccountingHarness.withdrawMP(0, laura.address, 0, 0, 0)).to.be.revertedWith("NotFixedLender()");
     });
   });
   describe("setPenaltyRate", () => {
@@ -77,11 +75,18 @@ describe("PoolAccounting", () => {
       );
     });
   });
-  describe("setInterestRateModel", () => {
+  describe.only("setInterestRateModel", () => {
     let newInterestRateModel: Contract;
     before(async () => {
       const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
-      newInterestRateModel = await InterestRateModelFactory.deploy(0, 0, 0, 0, 0);
+
+      newInterestRateModel = await InterestRateModelFactory.deploy(
+        parseUnits("0.0495"),
+        parseUnits("-0.025"),
+        parseUnits("1.1"),
+        parseUnits("0"),
+        parseUnits("0"),
+      );
       await newInterestRateModel.deployed();
     });
 

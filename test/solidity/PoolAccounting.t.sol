@@ -28,9 +28,9 @@ contract PoolAccountingTest is DSTest {
 
   function testAtomicDepositBorrowRepayWithdraw() external {
     pool.depositMP(POOL_ID, address(this), 1 ether, 1 ether);
-    pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 0, 1);
+    pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 1 ether);
     pool.repayMP(POOL_ID, address(this), 1 ether, 1.01 ether);
-    pool.withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 0, 12);
+    pool.withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 1 ether);
   }
 
   function testFailUnauthorizedDeposit() external {
@@ -40,7 +40,7 @@ contract PoolAccountingTest is DSTest {
 
   function testFailUnauthorizedBorrow() external {
     vm.prank(address(0));
-    pool.borrowMP(POOL_ID, address(this), 1 ether, 1 ether, 0, 1);
+    pool.borrowMP(POOL_ID, address(this), 1 ether, 1 ether, 0);
   }
 
   function testFailUnauthorizedRepay() external {
@@ -50,7 +50,7 @@ contract PoolAccountingTest is DSTest {
 
   function testFailUnauthorizedWithdraw() external {
     vm.prank(address(0));
-    pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0, 12);
+    pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0);
   }
 
   function testFailAlreadyInitialized() external {
@@ -63,24 +63,24 @@ contract PoolAccountingTest is DSTest {
 
   function testFailTooMuchSlippageBorrow() external {
     pool.depositMP(POOL_ID, address(this), 1 ether, 1 ether);
-    pool.borrowMP(POOL_ID, address(this), 1 ether, 1 ether, 0, 1);
+    pool.borrowMP(POOL_ID, address(this), 1 ether, 1 ether, 0);
   }
 
   function testFailTooMuchSlippageRepay() external {
     pool.depositMP(POOL_ID, address(this), 1 ether, 1 ether);
-    pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 0, 1);
+    pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 0);
     pool.repayMP(POOL_ID, address(this), 1 ether, 0.99 ether);
   }
 
   function testFailTooMuchSlippageWithdraw() external {
     pool.depositMP(POOL_ID, address(this), 1 ether, 1 ether);
-    pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0, 12);
+    pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0);
   }
 
   function testBorrowRepayMultiplePools() external {
     uint256 total = 0;
     for (uint256 i = 1; i < 6 + 1; i++) {
-      (uint256 borrowed, , ) = pool.borrowMP(i * POOL_ID, address(this), 1 ether, 1.01 ether, 100 ether, 6);
+      (uint256 borrowed, , ) = pool.borrowMP(i * POOL_ID, address(this), 1 ether, 1.01 ether, 100 ether);
       total += borrowed;
     }
 

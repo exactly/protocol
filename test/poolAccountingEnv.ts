@@ -10,7 +10,6 @@ export class PoolAccountingEnv {
   poolAccountingHarness: Contract;
   currentWallet: SignerWithAddress;
   maxSPDebt = parseUnits("100000"); // we use a high maxSPDebt limit since max borrows are already tested
-  nMaturities = 12;
 
   constructor(
     _mockInterestRateModel: Contract,
@@ -80,14 +79,7 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .withdrawMPWithReturnValues(
-        maturityPool,
-        this.currentWallet.address,
-        amount,
-        minAmountRequired,
-        this.maxSPDebt,
-        this.nMaturities,
-      );
+      .withdrawMPWithReturnValues(maturityPool, this.currentWallet.address, amount, minAmountRequired, this.maxSPDebt);
   }
 
   public async borrowMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -100,14 +92,7 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .borrowMPWithReturnValues(
-        maturityPool,
-        this.currentWallet.address,
-        amount,
-        expectedAmount,
-        this.maxSPDebt,
-        this.nMaturities,
-      );
+      .borrowMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount, this.maxSPDebt);
   }
 
   static async create(): Promise<PoolAccountingEnv> {

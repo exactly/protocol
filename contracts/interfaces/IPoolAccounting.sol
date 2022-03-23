@@ -7,8 +7,7 @@ interface IPoolAccounting {
     address borrower,
     uint256 amount,
     uint256 maxAmountAllowed,
-    uint256 eTokenTotalSupply,
-    uint8 maxFuturePools
+    uint256 eTokenTotalSupply
   )
     external
     returns (
@@ -29,8 +28,7 @@ interface IPoolAccounting {
     address redeemer,
     uint256 amount,
     uint256 minAmountRequired,
-    uint256 eTokenTotalSupply,
-    uint8 maxFuturePools
+    uint256 eTokenTotalSupply
   )
     external
     returns (

@@ -121,15 +121,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param amount amount that the borrower will be borrowing.
   /// @param maxAmountAllowed maximum amount that the borrower is willing to pay at maturity.
   /// @param eTokenTotalSupply supply of the smart pool.
-  /// @param maxFuturePools # of enabled maturities.
   /// @return totalOwedNewBorrow : total amount that will need to be paid at maturity for this borrow.
   function borrowMP(
     uint256 maturityDate,
     address borrower,
     uint256 amount,
     uint256 maxAmountAllowed,
-    uint256 eTokenTotalSupply,
-    uint8 maxFuturePools
+    uint256 eTokenTotalSupply
   )
     external
     override
@@ -144,8 +142,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
     uint256 maxSPDebt = eTokenTotalSupply - smartPoolBorrowed;
-    uint256 assignedSPLiquidity = maxSPDebt / maxFuturePools;
-
     earningsSP += pool.accrueEarnings(maturityDate, block.timestamp);
 
     borrowVars.feeRate = interestRateModel.getRateToBorrow(
@@ -153,7 +149,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       block.timestamp,
       amount,
       pool.borrowed,
-      pool.supplied + assignedSPLiquidity
+      pool.supplied,
+      eTokenTotalSupply
     );
     borrowVars.fee = amount.fmul(borrowVars.feeRate, 1e18);
     totalOwedNewBorrow = amount + borrowVars.fee;
@@ -228,8 +225,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     address redeemer,
     uint256 amount,
     uint256 minAmountRequired,
-    uint256 maxSPDebt,
-    uint8 maxFuturePools
+    uint256 maxSPDebt
   )
     external
     override
@@ -256,7 +252,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             block.timestamp,
             amount,
             pool.borrowed + amount, // like asking for a loan full amount
-            pool.supplied + maxSPDebt / maxFuturePools
+            pool.supplied,
+            maxSPDebt
           ),
         1e18
       );
