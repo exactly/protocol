@@ -9,13 +9,7 @@ interface IPoolAccounting {
     uint256 maxAmountAllowed,
     uint256 eTokenTotalSupply,
     uint8 maxFuturePools
-  )
-    external
-    returns (
-      uint256,
-      uint256,
-      uint256
-    );
+  ) external returns (uint256, uint256);
 
   function depositMP(
     uint256 maturityDate,

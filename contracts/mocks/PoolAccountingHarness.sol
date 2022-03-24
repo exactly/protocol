@@ -10,7 +10,6 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 currentTotalDeposit;
     uint256 actualRepayAmount;
     uint256 earningsSP;
-    uint256 earningsTreasury;
     uint256 debtCovered;
     uint256 redeemAmountDiscounted;
   }
@@ -18,11 +17,9 @@ contract PoolAccountingHarness is PoolAccounting {
   ReturnValues public returnValues;
   uint256 public timestamp;
 
-  constructor(
-    IInterestRateModel interestRateModel,
-    uint256 penaltyRate,
-    uint256 protocolSpreadFee
-  ) PoolAccounting(interestRateModel, penaltyRate, protocolSpreadFee) {
+  constructor(IInterestRateModel interestRateModel, uint256 penaltyRate)
+    PoolAccounting(interestRateModel, penaltyRate)
+  {
     timestamp = block.timestamp;
   }
 
@@ -34,7 +31,7 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 eTokenTotalSupply,
     uint8 maxFuturePools
   ) external {
-    (returnValues.totalOwedNewBorrow, returnValues.earningsSP, returnValues.earningsTreasury) = this.borrowMP(
+    (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = this.borrowMP(
       maturityDate,
       borrower,
       amount,

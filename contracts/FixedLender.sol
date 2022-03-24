@@ -21,7 +21,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
   uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
   uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
-  uint256 public treasury;
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
   IERC20 public override trustedUnderlying;
@@ -182,14 +181,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     return TSUtils.futurePools(maxFuturePools);
   }
 
-  /// @notice public function to transfer funds from protocol earnings to a specified wallet.
-  /// @param who address which will receive the funds.
-  /// @param amount amount to be transferred.
-  function withdrawFromTreasury(address who, uint256 amount) public override onlyRole(DEFAULT_ADMIN_ROLE) {
-    treasury -= amount;
-    SafeERC20.safeTransfer(trustedUnderlying, who, amount);
-  }
-
   /// @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned.
   /// @param amount The underlying amount to be withdrawn. `type(uint256).max` for the whole balance.
   function withdrawFromSmartPool(uint256 amount) public override nonReentrant {
@@ -223,7 +214,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    (uint256 totalOwed, uint256 earningsSP, uint256 earningsTreasury) = poolAccounting.borrowMP(
+    (uint256 totalOwed, uint256 earningsSP) = poolAccounting.borrowMP(
       maturityDate,
       msg.sender,
       amount,
@@ -233,7 +224,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     );
     totalMpBorrows += totalOwed;
 
-    treasury += earningsTreasury;
     eToken.accrueEarnings(earningsSP);
     auditor.validateBorrowMP(this, msg.sender);
 
@@ -443,9 +433,9 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     // reverts on failure
     auditor.seizeAllowed(this, seizerFixedLender, liquidator, borrower);
 
+    // TODO: What do we do with this
     uint256 protocolAmount = seizeAmount.fmul(protocolLiquidationFee, 1e18);
     uint256 amountToTransfer = seizeAmount - protocolAmount;
-    treasury += protocolAmount;
 
     // We check if the underlying liquidity that the user wants to seize is borrowed
     if (eToken.totalSupply() - amountToTransfer < poolAccounting.smartPoolBorrowed()) {

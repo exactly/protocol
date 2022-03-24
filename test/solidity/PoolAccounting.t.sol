@@ -22,7 +22,7 @@ contract PoolAccountingTest is DSTest {
   function setUp() external {
     vm.label(address(this), "Test");
     irm = new InterestRateModel(0, int256(FEE_MP), type(uint256).max, FEE_SP);
-    pool = new PoolAccounting(irm, 0.02e18 / uint256(1 days), 0.028e18);
+    pool = new PoolAccounting(irm, 0.02e18 / uint256(1 days));
     pool.initialize(IFixedLender(address(this)));
   }
 
@@ -80,7 +80,7 @@ contract PoolAccountingTest is DSTest {
   function testBorrowRepayMultiplePools() external {
     uint256 total = 0;
     for (uint256 i = 1; i < 6 + 1; i++) {
-      (uint256 borrowed, , ) = pool.borrowMP(i * POOL_ID, address(this), 1 ether, 1.01 ether, 100 ether, 6);
+      (uint256 borrowed, ) = pool.borrowMP(i * POOL_ID, address(this), 1 ether, 1.01 ether, 100 ether, 6);
       total += borrowed;
     }
 

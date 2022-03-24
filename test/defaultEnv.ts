@@ -125,11 +125,7 @@ export class DefaultEnv {
         await eToken.deployed();
 
         const PoolAccounting = await ethers.getContractFactory("PoolAccounting");
-        const poolAccounting = await PoolAccounting.deploy(
-          interestRateModel.address,
-          parseUnits("0.02").div(86_400),
-          parseUnits("0.028"),
-        );
+        const poolAccounting = await PoolAccounting.deploy(interestRateModel.address, parseUnits("0.02").div(86_400));
 
         const FixedLender = await ethers.getContractFactory(tokenName === "WETH" ? "ETHFixedLender" : "FixedLender");
         const fixedLender = await FixedLender.deploy(
@@ -448,10 +444,5 @@ export class DefaultEnv {
   public async accountSnapshot(assetString: string, maturityPoolID: number) {
     const fixedLender = this.getFixedLender(assetString);
     return fixedLender.getAccountSnapshot(this.currentWallet.address, maturityPoolID);
-  }
-
-  public async treasury(assetString: string) {
-    const fixedLender = this.getFixedLender(assetString);
-    return fixedLender.treasury();
   }
 }

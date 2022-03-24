@@ -39,7 +39,6 @@ export class PoolAccountingEnv {
   public getAllEarnings(maturityPoolState: MaturityPoolState): BigNumber {
     return maturityPoolState.earningsSP
       .add(maturityPoolState.earningsMP)
-      .add(maturityPoolState.earningsTreasury)
       .add(maturityPoolState.earningsUnassigned)
       .add(maturityPoolState.earningsDiscounted);
   }
@@ -132,7 +131,6 @@ export class PoolAccountingEnv {
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
       mockInterestRateModel.address,
       parseUnits("0.02").div(86_400),
-      0,
     );
     await poolAccountingHarness.deployed();
     // We initialize it with itself, so it can call the methods from within

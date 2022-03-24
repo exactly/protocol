@@ -17,7 +17,7 @@ const func: DeployFunction = async ({
   config: {
     finance: {
       collateralFactor,
-      poolAccounting: { penaltyRatePerDay, protocolSpreadFee },
+      poolAccounting: { penaltyRatePerDay },
     },
   },
   ethers: {
@@ -38,11 +38,7 @@ const func: DeployFunction = async ({
     getNamedAccounts(),
   ]);
 
-  const poolAccountingArgs = [
-    interestRateModel.address,
-    parseUnits(String(penaltyRatePerDay)).div(86_400),
-    parseUnits(String(protocolSpreadFee)),
-  ];
+  const poolAccountingArgs = [interestRateModel.address, parseUnits(String(penaltyRatePerDay)).div(86_400)];
   for (const token of config.tokens) {
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
     const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
@@ -84,11 +80,6 @@ const func: DeployFunction = async ({
     }
     if (!(await poolAccounting.penaltyRate()).eq(poolAccountingArgs[1])) {
       await executeOrPropose(deployer, timelockController, poolAccounting, "setPenaltyRate", [poolAccountingArgs[1]]);
-    }
-    if (!(await poolAccounting.protocolSpreadFee()).eq(poolAccountingArgs[2])) {
-      await executeOrPropose(deployer, timelockController, poolAccounting, "setProtocolSpreadFee", [
-        poolAccountingArgs[2],
-      ]);
     }
     if (!((await poolAccounting.interestRateModel()) === interestRateModel.address)) {
       await executeOrPropose(deployer, timelockController, poolAccounting, "setInterestRateModel", [

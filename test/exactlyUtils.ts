@@ -75,7 +75,6 @@ export type MockTokenSpec = {
 
 export type MaturityPoolState = {
   borrowFees: BigNumber;
-  earningsTreasury: BigNumber;
   earningsUnassigned: BigNumber;
   earningsSP: BigNumber;
   earningsMP: BigNumber;

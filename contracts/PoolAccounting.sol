@@ -48,16 +48,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   IFixedLender public fixedLender;
   IInterestRateModel public interestRateModel;
 
-  uint256 public protocolSpreadFee;
   uint256 public penaltyRate;
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
   event InterestRateModelUpdated(IInterestRateModel newInterestRateModel);
-
-  /// @notice emitted when the protocolSpreadFee is changed by admin.
-  /// @param newProtocolSpreadFee percentage represented with 1e18 decimals.
-  event ProtocolSpreadFeeUpdated(uint256 newProtocolSpreadFee);
 
   /// @notice emitted when the penaltyRate is changed by admin.
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
@@ -73,16 +68,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     _;
   }
 
-  constructor(
-    IInterestRateModel _interestRateModel,
-    uint256 _penaltyRate,
-    uint256 _protocolSpreadFee
-  ) {
+  constructor(IInterestRateModel _interestRateModel, uint256 _penaltyRate) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     interestRateModel = _interestRateModel;
 
     penaltyRate = _penaltyRate;
-    protocolSpreadFee = _protocolSpreadFee;
   }
 
   /// @dev Initializes the PoolAccounting setting the FixedLender address. Only able to initialize once.
@@ -108,13 +98,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     emit PenaltyRateUpdated(_penaltyRate);
   }
 
-  /// @dev Sets the protocol's spread fee that the treasury earns on borrows.
-  /// @param _protocolSpreadFee percentage amount represented with 1e18 decimals.
-  function setProtocolSpreadFee(uint256 _protocolSpreadFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    protocolSpreadFee = _protocolSpreadFee;
-    emit ProtocolSpreadFeeUpdated(_protocolSpreadFee);
-  }
-
   /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the
   /// borrower, so the `fixedLender` should call `validateBorrowMP` immediately after calling this function.
   /// @param maturityDate maturity date / pool id where the asset will be borrowed.
@@ -131,16 +114,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 maxAmountAllowed,
     uint256 eTokenTotalSupply,
     uint8 maxFuturePools
-  )
-    external
-    override
-    onlyFixedLender
-    returns (
-      uint256 totalOwedNewBorrow,
-      uint256 earningsSP,
-      uint256 earningsTreasury
-    )
-  {
+  ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
     BorrowVars memory borrowVars;
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
@@ -170,10 +144,9 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturityDate);
     }
 
-    // We distribute to treasury and also to unassigned
-    earningsTreasury = borrowVars.fee.fmul(protocolSpreadFee, 1e18);
+    // We distribute to smart pool and also to unassigned
     (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
-      borrowVars.fee - earningsTreasury,
+      borrowVars.fee,
       pool.suppliedSP,
       amount
     );
@@ -266,7 +239,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       maxSPDebt
     );
 
-    // All the fees go to unassigned or to the treasury
+    // All the fees go to unassigned or to the smart pool
     (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
       amount - redeemAmountDiscounted,
       pool.suppliedSP,
