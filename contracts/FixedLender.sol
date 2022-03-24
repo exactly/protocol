@@ -320,7 +320,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
   /// @dev Deposits an `amount` of underlying asset into the smart pool, receiving in return overlying eTokens.
   /// @param amount The amount to be deposited.
-  function depositToSmartPool(uint256 amount) public override whenNotPaused {
+  function depositToSmartPool(uint256 amount) public override nonReentrant whenNotPaused {
     emit DepositToSmartPool(msg.sender, amount);
     eToken.mint(msg.sender, amount);
     doTransferIn(msg.sender, amount);
