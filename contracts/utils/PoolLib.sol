@@ -145,24 +145,24 @@ library PoolLib {
   }
 
   /// @notice modify positions based on a certain amount, keeping the original principal/fee ratio.
-  /// @dev modifies the original struct and returns it.
+  /// @dev modifies the original struct and returns it. Needs for the amount to be less than the principal and the fee
   /// @param position original position to be scaled.
   /// @param amount to be used as a full value (principal + interest).
   function scaleProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
-    uint256 fee = amount.fmul(position.fee, position.principal + position.fee);
-    position.principal = amount - fee;
-    position.fee = fee;
+    uint256 principal = amount.fmul(position.principal, position.principal + position.fee);
+    position.principal = principal;
+    position.fee = amount - principal;
     return position;
   }
 
   /// @notice reduce positions based on a certain amount, keeping the original principal/fee ratio.
-  /// @dev modifies the original struct and returns it.
+  /// @dev modifies the original struct and returns it. Needs for the amount to be less than the principal and the fee
   /// @param position original position to be reduced.
   /// @param amount to be used as a full value (principal + interest).
   function reduceProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
-    uint256 fee = amount.fmul(position.fee, position.principal + position.fee);
-    position.principal -= amount - fee;
-    position.fee -= fee;
+    uint256 principal = amount.fmul(position.principal, position.principal + position.fee);
+    position.principal -= principal;
+    position.fee -= amount - principal;
     return position;
   }
 

@@ -46,7 +46,7 @@ export class PoolAccountingEnv {
 
   public async repayMP(maturityPool: number, units: string, expectedUnits?: string) {
     let expectedAmount: BigNumber;
-    let amount = parseUnits(units);
+    const amount = parseUnits(units);
     if (expectedUnits) {
       expectedAmount = parseUnits(expectedUnits);
     } else {
@@ -59,7 +59,7 @@ export class PoolAccountingEnv {
 
   public async depositMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
     let expectedAmount: BigNumber;
-    let amount = parseUnits(units);
+    const amount = parseUnits(units);
     if (expectedAtMaturity) {
       expectedAmount = parseUnits(expectedAtMaturity);
     } else {
@@ -72,7 +72,7 @@ export class PoolAccountingEnv {
 
   public async withdrawMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
     let minAmountRequired: BigNumber;
-    let amount = parseUnits(units);
+    const amount = parseUnits(units);
     if (expectedAtMaturity) {
       minAmountRequired = parseUnits(expectedAtMaturity);
     } else {
@@ -92,7 +92,7 @@ export class PoolAccountingEnv {
 
   public async borrowMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
     let expectedAmount: BigNumber;
-    let amount = parseUnits(units);
+    const amount = parseUnits(units);
     if (expectedAtMaturity) {
       expectedAmount = parseUnits(expectedAtMaturity);
     } else {
