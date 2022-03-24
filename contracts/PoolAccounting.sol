@@ -265,7 +265,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // We remove the supply from the offer
     smartPoolBorrowed += pool.withdrawMoney(
       PoolLib.Position(position.principal, position.fee).scaleProportionally(amount).principal,
-      smartPoolTotalSupply
+      smartPoolTotalSupply - smartPoolBorrowed
     );
 
     // All the fees go to unassigned or to the treasury
