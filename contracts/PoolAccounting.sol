@@ -120,14 +120,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param borrower borrower that it will take the debt.
   /// @param amount amount that the borrower will be borrowing.
   /// @param maxAmountAllowed maximum amount that the borrower is willing to pay at maturity.
-  /// @param eTokenTotalSupply supply of the smart pool.
+  /// @param smartPoolTotalSupply total supply in the smart pool.
   /// @return totalOwedNewBorrow : total amount that will need to be paid at maturity for this borrow.
   function borrowMP(
     uint256 maturityDate,
     address borrower,
     uint256 amount,
     uint256 maxAmountAllowed,
-    uint256 eTokenTotalSupply
+    uint256 smartPoolTotalSupply
   )
     external
     override
@@ -149,12 +149,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       amount,
       pool.borrowed,
       pool.supplied,
-      eTokenTotalSupply
+      smartPoolTotalSupply
     );
     borrowVars.fee = amount.fmul(borrowVars.feeRate, 1e18);
     totalOwedNewBorrow = amount + borrowVars.fee;
 
-    smartPoolBorrowed += pool.borrowMoney(amount, eTokenTotalSupply - smartPoolBorrowed);
+    smartPoolBorrowed += pool.borrowMoney(amount, smartPoolTotalSupply - smartPoolBorrowed);
     // We validate that the user is not taking arbitrary fees
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
@@ -218,13 +218,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param maturityDate maturity date / pool id where the asset should be accounted for.
   /// @param redeemer address that should have the assets withdrawn.
   /// @param amount amount that the redeemer will be extracting.
-  /// @param maxSPDebt max amount of debt that can be taken from the SP in case of illiquidity.
+  /// @param smartPoolTotalSupply total supply in the smart pool.
   function withdrawMP(
     uint256 maturityDate,
     address redeemer,
     uint256 amount,
     uint256 minAmountRequired,
-    uint256 maxSPDebt
+    uint256 smartPoolTotalSupply
   )
     external
     override
@@ -252,7 +252,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             amount,
             pool.borrowed + amount, // like asking for a loan full amount
             pool.supplied,
-            maxSPDebt
+            smartPoolTotalSupply
           ),
         1e18
       );
@@ -265,7 +265,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // We remove the supply from the offer
     smartPoolBorrowed += pool.withdrawMoney(
       PoolLib.Position(position.principal, position.fee).scaleProportionally(amount).principal,
-      maxSPDebt
+      smartPoolTotalSupply
     );
 
     // All the fees go to unassigned or to the treasury

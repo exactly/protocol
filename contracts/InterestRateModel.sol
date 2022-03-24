@@ -10,7 +10,7 @@ import {
   IInterestRateModel,
   AlreadyMatured,
   InvalidAmount,
-  MaxUtilizationExceeded
+  FullUtilizationExceeded
 } from "./interfaces/IInterestRateModel.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
@@ -138,7 +138,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 utilizationBefore = borrowedMP.fdiv(supplied, 1e18);
     uint256 utilizationAfter = (borrowedMP + amount).fdiv(supplied, 1e18);
 
-    if (utilizationAfter > fullUtilizationRate) revert MaxUtilizationExceeded();
+    if (utilizationAfter > fullUtilizationRate) revert FullUtilizationExceeded();
 
     uint256 rate = simpsonIntegrator(utilizationBefore, utilizationAfter);
     return rate.fmul(maturityDate - currentDate, YEAR);
