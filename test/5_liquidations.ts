@@ -178,16 +178,16 @@ describe("Liquidations", function () {
             await tx;
           });
           it("THEN the liquidator seizes 19k+10% of collateral (WBTC)", async () => {
-            // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+            // 19000 USD of btc at its current price of 63000 USD + 10% incentive for liquidators
             const seizedWBTC = parseUnits("33174603", 0);
             await expect(tx).to.emit(fixedLenderWBTC, "SeizeAsset").withArgs(bob.address, alice.address, seizedWBTC);
           });
 
-          it("THEN john DID NOT collected the penalty fees because there's still SP debt", async () => {
+          it("THEN john DID collect the penalty fees because there's still SP debt", async () => {
             const johnBalanceEDAI = await exactlyEnv.getEToken("DAI").balanceOf(john.address);
-
             // John initial balance on the smart pool was 10000
-            expect(johnBalanceEDAI).to.equal(parseUnits("10000"));
+            expect(johnBalanceEDAI).to.gt(parseUnits("15428"));
+            expect(johnBalanceEDAI).to.lt(parseUnits("15429"));
           });
 
           it("THEN liquidator receives WBTC", async () => {

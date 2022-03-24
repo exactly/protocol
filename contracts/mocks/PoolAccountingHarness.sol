@@ -66,7 +66,7 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 eTokenTotalSupply,
     uint8 maxFuturePools
   ) external {
-    (returnValues.redeemAmountDiscounted, returnValues.earningsSP, returnValues.earningsTreasury) = this.withdrawMP(
+    (returnValues.redeemAmountDiscounted, returnValues.earningsSP) = this.withdrawMP(
       maturityDate,
       redeemer,
       amount,
@@ -82,11 +82,11 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 repayAmount,
     uint256 maxAmountAllowed
   ) external {
-    (
-      returnValues.actualRepayAmount,
-      returnValues.debtCovered,
-      returnValues.earningsSP,
-      returnValues.earningsTreasury
-    ) = this.repayMP(maturityDate, borrower, repayAmount, maxAmountAllowed);
+    (returnValues.actualRepayAmount, returnValues.debtCovered, returnValues.earningsSP) = this.repayMP(
+      maturityDate,
+      borrower,
+      repayAmount,
+      maxAmountAllowed
+    );
   }
 }

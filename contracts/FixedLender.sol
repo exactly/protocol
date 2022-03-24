@@ -284,7 +284,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.MATURED);
 
     // We check if there's any discount to be applied for early withdrawal
-    (uint256 redeemAmountDiscounted, uint256 earningsSP, uint256 earningsTreasury) = poolAccounting.withdrawMP(
+    (uint256 redeemAmountDiscounted, uint256 earningsSP) = poolAccounting.withdrawMP(
       maturityDate,
       msg.sender,
       redeemAmount,
@@ -294,7 +294,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     );
 
     eToken.accrueEarnings(earningsSP);
-    treasury += earningsTreasury;
 
     doTransferOut(msg.sender, redeemAmountDiscounted);
 
@@ -367,13 +366,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
   ) internal returns (uint256) {
     if (repayAmount == 0) revert ZeroRepay();
 
-    (uint256 actualRepayAmount, uint256 debtCovered, uint256 earningsSP, uint256 earningsTreasury) = poolAccounting
-      .repayMP(maturityDate, borrower, repayAmount, maxAmountAllowed);
+    (uint256 actualRepayAmount, uint256 debtCovered, uint256 earningsSP) = poolAccounting.repayMP(
+      maturityDate,
+      borrower,
+      repayAmount,
+      maxAmountAllowed
+    );
 
     doTransferIn(payer, actualRepayAmount);
 
     eToken.accrueEarnings(earningsSP);
-    treasury += earningsTreasury;
 
     totalMpBorrows -= debtCovered;
 

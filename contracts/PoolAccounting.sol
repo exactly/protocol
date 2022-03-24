@@ -23,7 +23,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 feeRate;
     uint256 fee;
     uint256 newUnassignedEarnings;
-    uint256 newTreasuryEarnings;
+    uint256 earningsSP;
   }
 
   // Vars used in `repayMP` to avoid
@@ -172,12 +172,12 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
     // We distribute to treasury and also to unassigned
     earningsTreasury = borrowVars.fee.fmul(protocolSpreadFee, 1e18);
-    (borrowVars.newUnassignedEarnings, borrowVars.newTreasuryEarnings) = PoolLib.distributeEarningsAccordingly(
+    (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
       borrowVars.fee - earningsTreasury,
       pool.suppliedSP,
       amount
     );
-    earningsTreasury += borrowVars.newTreasuryEarnings;
+    earningsSP += borrowVars.earningsSP;
     pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
 
     mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
@@ -231,16 +231,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 minAmountRequired,
     uint256 maxSPDebt,
     uint8 maxFuturePools
-  )
-    external
-    override
-    onlyFixedLender
-    returns (
-      uint256 redeemAmountDiscounted,
-      uint256 earningsSP,
-      uint256 earningsTreasury
-    )
-  {
+  ) external override onlyFixedLender returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
     earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
@@ -276,13 +267,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     );
 
     // All the fees go to unassigned or to the treasury
-    uint256 earningsUnassigned;
-    (earningsUnassigned, earningsTreasury) = PoolLib.distributeEarningsAccordingly(
+    (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
       amount - redeemAmountDiscounted,
       pool.suppliedSP,
       redeemAmountDiscounted
     );
     pool.earningsUnassigned += earningsUnassigned;
+    earningsSP += newEarningsSP;
 
     // the user gets discounted the full amount
     mpUserSuppliedAmount[maturityDate][redeemer] = position.reduceProportionally(amount);
@@ -295,7 +286,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @return actualRepayAmount the amount with discounts included that will finally be transferred.
   /// @return debtCovered the sum of principal and fees that this repayment covers.
   /// @return earningsSP amount of earnings to be accrued by the smart pool depositors.
-  /// @return earningsTreasury amount of earnings to be accrued by the protocol's treasury.
   function repayMP(
     uint256 maturityDate,
     address borrower,
@@ -308,8 +298,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     returns (
       uint256 actualRepayAmount,
       uint256 debtCovered,
-      uint256 earningsSP,
-      uint256 earningsTreasury
+      uint256 earningsSP
     )
   {
     RepayVars memory repayVars;
@@ -354,14 +343,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       // We remove the fee from unassigned earnings
       pool.earningsUnassigned -= repayVars.discountFee + repayVars.feeSP;
     } else {
-      // We distribute penalties to those that supported (pre-repayment)
-      uint256 newEarningsSP;
-      (newEarningsSP, earningsTreasury) = PoolLib.distributeEarningsAccordingly(
-        repayAmount - (repayVars.scaleDebtCovered.principal + repayVars.scaleDebtCovered.fee),
-        pool.suppliedSP,
-        repayVars.scaleDebtCovered.principal
-      );
-      earningsSP += newEarningsSP;
+      // All penalties go to the smart pool
+      earningsSP += repayAmount - (repayVars.scaleDebtCovered.principal + repayVars.scaleDebtCovered.fee);
     }
     // user paid more than it should. The fee gets discounted from the user
     // through _actualRepayAmount_ and on the pool side it was removed from
