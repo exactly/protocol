@@ -10,6 +10,7 @@ import {
   IInterestRateModel,
   AlreadyMatured,
   InvalidAmount,
+  InvalidFullUtilizationRate,
   FullUtilizationExceeded
 } from "./interfaces/IInterestRateModel.sol";
 
@@ -101,6 +102,8 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 _maxUtilizationRate,
     uint256 _fullUtilizationRate
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (_fullUtilizationRate >= _maxUtilizationRate) revert InvalidFullUtilizationRate();
+
     curveParameterA = curveA;
     curveParameterB = curveB;
     maxUtilizationRate = _maxUtilizationRate;

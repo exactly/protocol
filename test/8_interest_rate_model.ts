@@ -70,6 +70,20 @@ describe("InterestRateModel", () => {
 
       await expect(tx).to.be.reverted;
     });
+    it("WHEN setting an UFullRate equal to the UMax THEN it reverts", async () => {
+      const maxUtilizationRate = parseUnits("1"); // Maximum utilization rate
+      const fullUtilizationRate = parseUnits("1"); // Full utilization rate
+      const tx = interestRateModel.setCurveParameters(0, 0, maxUtilizationRate, fullUtilizationRate);
+
+      await expect(tx).to.be.revertedWith("InvalidFullUtilizationRate()");
+    });
+    it("WHEN setting an UFullRate higher than the UMax THEN it reverts", async () => {
+      const maxUtilizationRate = parseUnits("1"); // Maximum utilization rate
+      const fullUtilizationRate = parseUnits("1.01"); // Full utilization rate
+      const tx = interestRateModel.setCurveParameters(0, 0, maxUtilizationRate, fullUtilizationRate);
+
+      await expect(tx).to.be.revertedWith("InvalidFullUtilizationRate()");
+    });
     // - U_{b}: 0.9
     // - U_{max}: 1.2
     // - R_{0}: 0.02

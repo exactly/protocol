@@ -20,4 +20,5 @@ interface IInterestRateModel {
 
 error AlreadyMatured();
 error InvalidAmount();
+error InvalidFullUtilizationRate();
 error FullUtilizationExceeded();
