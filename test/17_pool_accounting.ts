@@ -75,7 +75,7 @@ describe("PoolAccounting", () => {
       );
     });
   });
-  describe.only("setInterestRateModel", () => {
+  describe("setInterestRateModel", () => {
     let newInterestRateModel: Contract;
     before(async () => {
       const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");

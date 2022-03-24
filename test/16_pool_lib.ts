@@ -85,6 +85,15 @@ describe("Pool Management Library", () => {
                 await expect(tx).to.be.revertedWith("InsufficientProtocolLiquidity()");
               });
             });
+            describe("AND WHEN the exact amount of max sp debt is taken out", () => {
+              let tx: any;
+              beforeEach(async () => {
+                tx = poolEnv.borrowMoney("1000", "1000");
+              });
+              it("THEN it should not revert", async () => {
+                await expect(tx).to.not.be.reverted;
+              });
+            });
             describe("AND WHEN 50 tokens are taken out", () => {
               beforeEach(async () => {
                 await poolEnv.borrowMoney("50", mockMaxDebt);
@@ -365,6 +374,15 @@ describe("Pool Management Library", () => {
               });
               it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
                 await expect(tx).to.be.revertedWith("InsufficientProtocolLiquidity()");
+              });
+            });
+            describe("AND WHEN the exact amount of max sp debt is taken out", () => {
+              let tx: any;
+              beforeEach(async () => {
+                tx = poolEnv.withdrawMoney("50", "100");
+              });
+              it("THEN it should not revert", async () => {
+                await expect(tx).to.not.be.reverted;
               });
             });
           });

@@ -141,7 +141,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     BorrowVars memory borrowVars;
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
-    uint256 maxSPDebt = eTokenTotalSupply - smartPoolBorrowed;
     earningsSP += pool.accrueEarnings(maturityDate, block.timestamp);
 
     borrowVars.feeRate = interestRateModel.getRateToBorrow(
@@ -155,7 +154,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     borrowVars.fee = amount.fmul(borrowVars.feeRate, 1e18);
     totalOwedNewBorrow = amount + borrowVars.fee;
 
-    smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
+    smartPoolBorrowed += pool.borrowMoney(amount, eTokenTotalSupply - smartPoolBorrowed);
     // We validate that the user is not taking arbitrary fees
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
