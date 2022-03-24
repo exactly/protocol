@@ -1377,6 +1377,58 @@ describe("PoolAccounting", () => {
     });
   });
 
+  describe("Operations in more than one pool", () => {
+    describe("GIVEN a smart pool supply of 100 AND a borrow of 30 in a first maturity pool", () => {
+      const secondPoolID = nextPoolID + exaTime.ONE_DAY * 7;
+
+      beforeEach(async () => {
+        poolAccountingEnv.switchWallet(laura);
+        poolAccountingEnv.maxSPDebt = parseUnits("100");
+        await poolAccountingEnv.borrowMP(nextPoolID, "30");
+      });
+      it("WHEN a borrow of 70 is made to the second mp, THEN it should not revert", async () => {
+        await expect(poolAccountingEnv.borrowMP(secondPoolID, "70")).to.not.be.reverted;
+      });
+      it("WHEN a borrow of 70.01 is made to the second mp, THEN it should fail with error InsufficientProtocolLiquidity", async () => {
+        await expect(poolAccountingEnv.borrowMP(secondPoolID, "70.01")).to.be.revertedWith(
+          "InsufficientProtocolLiquidity()",
+        );
+      });
+      describe("AND GIVEN a deposit to the first mp of 30 AND a borrow of 70 in the second mp", () => {
+        beforeEach(async () => {
+          await poolAccountingEnv.depositMP(nextPoolID, "30");
+          await poolAccountingEnv.borrowMP(secondPoolID, "70");
+        });
+        it("WHEN a borrow of 30 is made to the first mp, THEN it should not revert", async () => {
+          await expect(poolAccountingEnv.borrowMP(nextPoolID, "30")).to.not.be.reverted;
+        });
+        it("WHEN a borrow of 30.01 is made to the first mp, THEN it should fail with error InsufficientProtocolLiquidity", async () => {
+          await expect(poolAccountingEnv.borrowMP(secondPoolID, "31")).to.be.revertedWith(
+            "InsufficientProtocolLiquidity()",
+          );
+        });
+        describe("AND GIVEN a borrow of 30 in the first mp", () => {
+          beforeEach(async () => {
+            await poolAccountingEnv.borrowMP(nextPoolID, "30");
+          });
+          it("WHEN a withdraw of 30 is made to the first mp, THEN it should revert", async () => {
+            await expect(poolAccountingEnv.withdrawMP(nextPoolID, "30")).to.be.revertedWith(
+              "InsufficientProtocolLiquidity()",
+            );
+          });
+          it("AND WHEN a supply of 30 is added to the sp, THEN the withdraw of 30 is not reverted", async () => {
+            poolAccountingEnv.maxSPDebt = parseUnits("130");
+            await expect(poolAccountingEnv.withdrawMP(nextPoolID, "30")).to.not.be.reverted;
+          });
+          it("AND WHEN a deposit of 30 is added to the mp, THEN the withdraw of 30 is not reverted", async () => {
+            await poolAccountingEnv.depositMP(nextPoolID, "30");
+            await expect(poolAccountingEnv.withdrawMP(nextPoolID, "30")).to.not.be.reverted;
+          });
+        });
+      });
+    });
+  });
+
   afterEach(async () => {
     await provider.send("evm_revert", [snapshot]);
   });
