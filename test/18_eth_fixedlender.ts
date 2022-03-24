@@ -351,6 +351,53 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     });
   });
 
+  describe("slippage control", () => {
+    let tx: any;
+    beforeEach(async () => {
+      exactlyEnv.switchWallet(owner);
+    });
+    describe("WHEN trying to deposit a high rate amount expected", () => {
+      beforeEach(async () => {
+        tx = exactlyEnv.depositMPETH("WETH", nextPoolId, "5", "10");
+      });
+      it("THEN the tx should revert with TooMuchSlippage", async () => {
+        await expect(tx).to.be.revertedWith("TooMuchSlippage()");
+      });
+    });
+    describe("WHEN trying to borrow with a low rate amount expected", () => {
+      beforeEach(async () => {
+        await exactlyEnv.depositSP("WETH", "60");
+        await exactlyEnv.enterMarkets(["WETH"]);
+        await exactlyEnv.interestRateModel.setBorrowRate(parseUnits("5"));
+        tx = exactlyEnv.borrowMPETH("WETH", nextPoolId, "5", "5");
+      });
+      it("THEN the tx should revert with TooMuchSlippage", async () => {
+        await expect(tx).to.be.revertedWith("TooMuchSlippage()");
+      });
+    });
+    describe("WHEN trying to withdraw with a high rate amount expected", () => {
+      beforeEach(async () => {
+        await exactlyEnv.depositMPETH("WETH", nextPoolId, "5");
+        tx = exactlyEnv.withdrawMPETH("WETH", nextPoolId, "5", "10");
+      });
+      it("THEN the tx should revert with TooMuchSlippage", async () => {
+        await expect(tx).to.be.revertedWith("TooMuchSlippage()");
+      });
+    });
+    describe("WHEN trying to repay with a low rate amount expected", () => {
+      beforeEach(async () => {
+        await exactlyEnv.depositSP("WETH", "60");
+        await exactlyEnv.enterMarkets(["WETH"]);
+        await exactlyEnv.interestRateModel.setBorrowRate(parseUnits("0.05"));
+        await exactlyEnv.borrowMPETH("WETH", nextPoolId, "5");
+        tx = exactlyEnv.repayMPETH("WETH", nextPoolId, "5", "4");
+      });
+      it("THEN the tx should revert with TooMuchSlippage", async () => {
+        await expect(tx).to.be.revertedWith("TooMuchSlippage()");
+      });
+    });
+  });
+
   afterEach(async () => {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
