@@ -12,7 +12,6 @@
     "test:hardhat": "hardhat test --deploy-fixture",
     "coverage": "run-s --continue-on-error coverage:**",
     "coverage:foundry": "FOUNDRY_PROFILE=production forge snapshot --check --no-match-test Fuzz",
-    "coverage:foundry:fuzz": "FOUNDRY_PROFILE=production forge test --match-test Fuzz",
     "coverage:hardhat": "hardhat coverage",
     "deploy:kovan": "hardhat --network kovan deploy",
     "deploy:hardhat": "hardhat --network hardhat deploy",
