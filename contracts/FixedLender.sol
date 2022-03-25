@@ -19,7 +19,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
   using FixedPointMathLib for uint256;
   using SafeERC20 for IERC20;
 
-  uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
   uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -91,11 +90,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
   /// @param seizedAmount amount seized of the collateral.
   event SeizeAsset(address liquidator, address borrower, uint256 seizedAmount);
 
-  /// @notice Event emitted reserves have been added to the protocol.
-  /// @param benefactor address added a certain amount to its reserves.
-  /// @param addAmount amount added as reserves as part of the liquidation event.
-  event AddReserves(address benefactor, uint256 addAmount);
-
   /// @notice Event emitted when a user contributed to the smart pool.
   /// @param user address that added a certain amount to the smart pool.
   /// @param amount amount added to the smart pool.
@@ -120,12 +114,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     auditor = _auditor;
     eToken = _eToken;
     poolAccounting = _poolAccounting;
-  }
-
-  /// @dev Sets the protocol's collateral liquidation fee used on liquidations.
-  /// @param _protocolLiquidationFee percentage amount represented with 1e18 decimals.
-  function setProtocolLiquidationFee(uint256 _protocolLiquidationFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    protocolLiquidationFee = _protocolLiquidationFee;
   }
 
   /// @dev Sets the protocol's max future weekly pools for borrowing and lending.
@@ -433,21 +421,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     // reverts on failure
     auditor.seizeAllowed(this, seizerFixedLender, liquidator, borrower);
 
-    // TODO: What do we do with this
-    uint256 protocolAmount = seizeAmount.fmul(protocolLiquidationFee, 1e18);
-    uint256 amountToTransfer = seizeAmount - protocolAmount;
-
     // We check if the underlying liquidity that the user wants to seize is borrowed
-    if (eToken.totalSupply() - amountToTransfer < poolAccounting.smartPoolBorrowed()) {
+    if (eToken.totalSupply() - seizeAmount < poolAccounting.smartPoolBorrowed()) {
       revert InsufficientProtocolLiquidity();
     }
 
     // That seize amount diminishes liquidity in the pool
     eToken.burn(borrower, seizeAmount);
-    doTransferOut(liquidator, amountToTransfer);
+    doTransferOut(liquidator, seizeAmount);
 
     emit SeizeAsset(liquidator, borrower, seizeAmount);
-    emit AddReserves(address(this), protocolAmount);
   }
 
   /// @notice Private function to safely transfer funds into this contract.
