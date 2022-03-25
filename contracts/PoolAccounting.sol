@@ -2,7 +2,6 @@
 pragma solidity ^0.8.4;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { IPoolAccounting, AlreadyInitialized, TooMuchSlippage } from "./interfaces/IPoolAccounting.sol";
 import { IFixedLender, NotFixedLender } from "./interfaces/IFixedLender.sol";
@@ -247,7 +246,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
     PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][redeemer];
 
-    amount = Math.min(amount, position.principal + position.fee);
+    if (amount > position.principal + position.fee) amount = position.principal + position.fee;
 
     // We verify if there are any penalties/fee for him because of
     // early withdrawal - if so: discount
