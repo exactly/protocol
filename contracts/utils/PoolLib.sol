@@ -166,17 +166,17 @@ library PoolLib {
     return position;
   }
 
-  /// @notice returns what part belongs to the SP or the treasury based on who supplied.
-  /// @param earnings amount to be distributed as earnings between the treasury and the smart pool.
+  /// @notice Returns what proportional of earnings would amountFunded represent considering suppliedSP the total
+  /// @param earnings amount to be distributed as earnings between the two participants
   /// @param suppliedSP current supply of the smart pool.
   /// @param amountFunded amount that will be checked if it came from smart pool or not.
   function distributeEarningsAccordingly(
     uint256 earnings,
     uint256 suppliedSP,
     uint256 amountFunded
-  ) internal pure returns (uint256 earningsSP, uint256 earningsTreasury) {
-    earningsTreasury = earnings.fmul(amountFunded - Math.min(suppliedSP, amountFunded), amountFunded);
-    earningsSP = earnings - earningsTreasury;
+  ) internal pure returns (uint256 earningsA, uint256 earningsB) {
+    earningsB = earnings.fmul(amountFunded - Math.min(suppliedSP, amountFunded), amountFunded);
+    earningsA = earnings - earningsB;
   }
 
   /// @notice Function to add a maturity date to the borrow positions of the user

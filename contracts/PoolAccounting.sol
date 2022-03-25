@@ -143,7 +143,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturityDate);
     }
 
-    // We distribute to smart pool and also to unassigned
+    // We calculate what part of the fees are to be accrued and what part goes to earnings directly
     (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
       borrowVars.fee,
       pool.suppliedSP,
