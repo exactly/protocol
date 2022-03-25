@@ -22,12 +22,11 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
   uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-  IERC20 public override trustedUnderlying;
-  IEToken public override eToken;
+  IERC20 public immutable override trustedUnderlying;
+  IEToken public immutable override eToken;
   string public override underlyingTokenSymbol;
-  IPoolAccounting public poolAccounting;
-
-  IAuditor public auditor;
+  IPoolAccounting public immutable poolAccounting;
+  IAuditor public immutable auditor;
 
   // Total borrows in all maturities
   uint256 public override totalMpBorrows;
