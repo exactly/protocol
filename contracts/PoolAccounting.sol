@@ -246,6 +246,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
     PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][redeemer];
 
+    if (amount > position.principal + position.fee) amount = position.principal + position.fee;
+
     // We verify if there are any penalties/fee for him because of
     // early withdrawal - if so: discount
     if (block.timestamp < maturityDate) {
