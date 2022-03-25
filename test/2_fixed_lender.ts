@@ -206,10 +206,30 @@ describe("FixedLender", function () {
             await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
             await fixedLenderDAI.withdrawFromMaturityPool(parseUnits("100"), parseUnits("100"), futurePools(1)[0]);
           });
-          // TODO tests for partial/excessive withdrawal?
-          it("THEN the collateral is returned to Maria", async () => {
+          it("THEN the collateral & deposits are returned to Maria (10000)", async () => {
             expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("10000"));
             expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(0);
+          });
+        });
+
+        describe("AND WHEN withdrawing MORE from maturity pool than maria has", () => {
+          beforeEach(async () => {
+            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
+            await fixedLenderDAI.withdrawFromMaturityPool(parseUnits("1000000"), parseUnits("100"), futurePools(1)[0]);
+          });
+          it("THEN the total amount withdrawn is 9900 (the max)", async () => {
+            expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("9900"));
+          });
+        });
+
+        describe("AND WHEN withdrawing LESS from maturity pool than maria has", () => {
+          beforeEach(async () => {
+            await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
+            await fixedLenderDAI.withdrawFromMaturityPool(parseUnits("50"), parseUnits("50"), futurePools(1)[0]);
+          });
+          it("THEN the total amount withdrawn is 9950 (leaving 150 in FixedLender / 100 in SP / 50 in MP)", async () => {
+            expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("9850"));
+            expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(parseUnits("150"));
           });
         });
       });
