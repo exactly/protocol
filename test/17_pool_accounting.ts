@@ -834,12 +834,6 @@ describe("PoolAccounting", () => {
                 expect(returnValues.debtCovered).to.gt(parseUnits("7272.72"));
                 expect(returnValues.debtCovered).to.lt(parseUnits("7272.73"));
               });
-              // it("THEN earningsTreasury receive the 10% of penalties (they were supporting this borrow)", async () => {
-              //   // debtCovered=8000*15750/17325=~7272
-              //   // debtCovered+(~727)=8000 that the user repaid
-              //   expect(returnValues.earningsTreasury).to.gt(parseUnits("727.272"));
-              //   expect(returnValues.earningsTreasury).to.lt(parseUnits("727.273"));
-              // });
               it("THEN the earningsSP returned are ~727", async () => {
                 // debtCovered=8000*15750/17325=~7272
                 // debtCovered+(~727)=8000 that the user repaid
