@@ -123,47 +123,6 @@ describe("Liquidations", function () {
 
               await expect(tx).to.emit(fixedLenderWBTC, "SeizeAsset").withArgs(bob.address, alice.address, seizedWBTC);
             });
-            it("AND 0.028% in fee is charged (971111 sats)", async () => {
-              const seizedWBTC = parseUnits("34682539", 0);
-              const protocolShare = parseUnits("0.028");
-              const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
-              expect(await wbtc.balanceOf(bob.address)).to.eq(seizedWBTC.sub(fee));
-              await expect(tx).to.emit(fixedLenderWBTC, "AddReserves").withArgs(fixedLenderWBTC.address, fee);
-            });
-          });
-        });
-
-        describe("AND the protocol collateral liquidation fee is increased to 4%", () => {
-          beforeEach(async () => {
-            await fixedLenderWBTC.setProtocolLiquidationFee(parseUnits("0.04"));
-          });
-          describe("AND the position is liquidated (19kdai)", () => {
-            let tx: any;
-            beforeEach(async () => {
-              tx = fixedLenderDAI
-                .connect(bob)
-                .liquidate(
-                  alice.address,
-                  parseUnits("19000"),
-                  parseUnits("19000"),
-                  fixedLenderWBTC.address,
-                  nextPoolID,
-                );
-              await tx;
-            });
-            it("THEN the liquidator seizes 19k+10% of collateral (WBTC)", async () => {
-              // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
-              const seizedWBTC = parseUnits("33174603", 0);
-
-              await expect(tx).to.emit(fixedLenderWBTC, "SeizeAsset").withArgs(bob.address, alice.address, seizedWBTC);
-            });
-            it("AND 0.4% in fee is charged (1326984 sats)", async () => {
-              const seizedWBTC = parseUnits("33174603", 0);
-              const protocolShare = parseUnits("0.04");
-              const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
-              expect(await wbtc.balanceOf(bob.address)).to.eq(seizedWBTC.sub(fee));
-              await expect(tx).to.emit(fixedLenderWBTC, "AddReserves").withArgs(fixedLenderWBTC.address, fee);
-            });
           });
         });
 
@@ -178,24 +137,23 @@ describe("Liquidations", function () {
             await tx;
           });
           it("THEN the liquidator seizes 19k+10% of collateral (WBTC)", async () => {
-            // 19kusd of btc at its current price of 63kusd + 10% incentive for liquidators
+            // 19000 USD of btc at its current price of 63000 USD + 10% incentive for liquidators
             const seizedWBTC = parseUnits("33174603", 0);
             await expect(tx).to.emit(fixedLenderWBTC, "SeizeAsset").withArgs(bob.address, alice.address, seizedWBTC);
           });
 
-          it("THEN john DID NOT collected the penalty fees because there's still SP debt", async () => {
+          it("THEN john DID collect the penalty fees because there's still SP debt", async () => {
             const johnBalanceEDAI = await exactlyEnv.getEToken("DAI").balanceOf(john.address);
-
             // John initial balance on the smart pool was 10000
-            expect(johnBalanceEDAI).to.equal(parseUnits("10000"));
+            expect(johnBalanceEDAI).to.gt(parseUnits("15428"));
+            expect(johnBalanceEDAI).to.lt(parseUnits("15429"));
           });
 
           it("THEN liquidator receives WBTC", async () => {
             // 19000 + 10% liquidation incentive = 20900 usd
             // 20900 USD / 63000 USD/BTC = 0.33174603 BTC (or 33174603*10^18)
-            // 0.33174603 - 2.8% liquidation fee = 32245715 btc
             await tx;
-            const receivedBTC = parseUnits("32245715", 0);
+            const receivedBTC = parseUnits("33174603", 0);
             const balancePostBTC = await exactlyEnv.getUnderlying("WBTC").connect(bob).balanceOf(bob.address);
             expect(balancePostBTC.sub(balancePreBTC)).to.equal(receivedBTC);
           });
@@ -453,13 +411,11 @@ describe("Liquidations", function () {
             await tx;
           });
           it("THEN roughly 19000 USD + 10% = 20900 of collateral (WBTC) is seized", async () => {
-            const protocolShare = parseUnits("0.028");
             // this is equivalent to 18999.9 USD, at the provided price of
             // 32500 + 10% liquidation incentive
             const seizedWBTC = parseUnits("64307691", 0);
             await expect(tx).to.emit(fixedLenderWBTC, "SeizeAsset").withArgs(bob.address, alice.address, seizedWBTC);
-            const fee = seizedWBTC.mul(protocolShare).div(parseUnits("1"));
-            expect(await wbtc.balanceOf(bob.address)).to.eq(seizedWBTC.sub(fee));
+            expect(await wbtc.balanceOf(bob.address)).to.eq(seizedWBTC);
           });
           it("AND 19000 DAI of debt is repaid (debt covered)", async () => {
             const bobDAIBalanceBefore = parseUnits("135000");
@@ -588,17 +544,17 @@ describe("Liquidations", function () {
             );
         });
         it("THEN the liquidator does not seize more ETH tokens than it should", async () => {
-          // if john liquidates and repays 3000, then he should seize 2 ETH (1500 each) + liquidation incentive (10%) - protocol revenue (2.8%)
-          // 2 + 0.2 - 0.0616 = 2.1384 ETH
-          // but if john ACTUALLY repays aprox 1400, then he seizes almost 1 ETH + liquidation incentive (10%) - protocol revenue (2.8%)
-          // 0.93 + 0.093 - 0.028644 = 0.994356 ETH
+          // if john liquidates and repays 3000, then he should seize 2 ETH (1500 each) + liquidation incentive (10%)
+          // 2 + 0.2 = 2.2 ETH
+          // but if john ACTUALLY repays approx 1400, then he seizes almost 1 ETH + liquidation incentive (10%)
+          // 0.93 + 0.093 = 1.023000 ETH
           const johnETHBalanceAfter = await eth.balanceOf(john.address);
           expect(johnETHBalanceBefore).to.not.equal(johnETHBalanceAfter);
-          expect(johnETHBalanceAfter).to.be.lt(parseUnits("1"));
-          expect(johnETHBalanceAfter).to.be.gt(parseUnits("0.99"));
+          expect(johnETHBalanceAfter).to.be.gt(parseUnits("1.02"));
+          expect(johnETHBalanceAfter).to.be.lt(parseUnits("1.03"));
         });
         it("THEN the liquidator receives back any DAI spare repayment amount", async () => {
-          // liquidator tried to repay 3000 but only spent aprox 1400 (total owed by maria)
+          // liquidator tried to repay 3000 but only spent approx 1400 (total owed by maria)
           const johnDAIBalanceAfter = await dai.balanceOf(john.address);
           expect(johnDAIBalanceBefore).to.not.equal(johnDAIBalanceAfter);
           expect(johnDAIBalanceAfter).to.be.lt(johnDAIBalanceBefore.sub(parseUnits("1400")));

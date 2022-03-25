@@ -321,26 +321,8 @@ describe("FixedLender", function () {
   });
 
   describe("simple validations:", () => {
-    it("WHEN calling setProtocolLiquidationFee from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
-      await expect(fixedLenderDAI.setProtocolLiquidationFee(parseUnits("0.04"))).to.be.revertedWith("AccessControl");
-    });
-
     it("WHEN calling setMaxFuturePools from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(fixedLenderDAI.setMaxFuturePools(12)).to.be.revertedWith("AccessControl");
-    });
-
-    it("WHEN calling withdrawEarnings from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
-      await expect(fixedLenderDAI.withdrawFromTreasury(owner.address, parseUnits("0.04"))).to.be.revertedWith(
-        "AccessControl",
-      );
-    });
-
-    it("WHEN trying to withdrawEarnings with an amount bigger than the current available funds, THEN it reverts with overflow", async () => {
-      const ADMIN_ROLE = await fixedLenderDAI.DEFAULT_ADMIN_ROLE();
-      await timelockExecute(owner, fixedLenderDAI, "grantRole", [ADMIN_ROLE, owner.address]);
-      await expect(
-        fixedLenderDAI.connect(owner).withdrawFromTreasury(owner.address, parseUnits("1000")),
-      ).to.be.revertedWith("reverted with panic code 0x11");
     });
   });
 

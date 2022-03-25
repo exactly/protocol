@@ -70,7 +70,7 @@ describe("FixedLender - Pausable", function () {
         await expect(fixedLender.seize(owner.address, owner.address, "0")).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should NOT revert when calling a function that doesn't have whenNotPaused modifier", async () => {
-        await expect(fixedLender.setProtocolLiquidationFee("0")).to.not.be.reverted;
+        await expect(fixedLender.setMaxFuturePools(24)).to.not.be.reverted;
       });
       it("AND WHEN a pause is called again, THEN it should revert with Pausable error", async () => {
         await expect(fixedLender.pause()).to.be.revertedWith("Pausable: paused");

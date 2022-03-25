@@ -22,7 +22,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 feeRate;
     uint256 fee;
     uint256 newUnassignedEarnings;
-    uint256 newTreasuryEarnings;
+    uint256 earningsSP;
   }
 
   // Vars used in `repayMP` to avoid
@@ -47,16 +47,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   IFixedLender public fixedLender;
   IInterestRateModel public interestRateModel;
 
-  uint256 public protocolSpreadFee;
   uint256 public penaltyRate;
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
   event InterestRateModelUpdated(IInterestRateModel newInterestRateModel);
-
-  /// @notice emitted when the protocolSpreadFee is changed by admin.
-  /// @param newProtocolSpreadFee percentage represented with 1e18 decimals.
-  event ProtocolSpreadFeeUpdated(uint256 newProtocolSpreadFee);
 
   /// @notice emitted when the penaltyRate is changed by admin.
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
@@ -72,16 +67,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     _;
   }
 
-  constructor(
-    IInterestRateModel _interestRateModel,
-    uint256 _penaltyRate,
-    uint256 _protocolSpreadFee
-  ) {
+  constructor(IInterestRateModel _interestRateModel, uint256 _penaltyRate) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     interestRateModel = _interestRateModel;
 
     penaltyRate = _penaltyRate;
-    protocolSpreadFee = _protocolSpreadFee;
   }
 
   /// @dev Initializes the PoolAccounting setting the FixedLender address. Only able to initialize once.
@@ -107,13 +97,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     emit PenaltyRateUpdated(_penaltyRate);
   }
 
-  /// @dev Sets the protocol's spread fee that the treasury earns on borrows.
-  /// @param _protocolSpreadFee percentage amount represented with 1e18 decimals.
-  function setProtocolSpreadFee(uint256 _protocolSpreadFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    protocolSpreadFee = _protocolSpreadFee;
-    emit ProtocolSpreadFeeUpdated(_protocolSpreadFee);
-  }
-
   /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the
   /// borrower, so the `fixedLender` should call `validateBorrowMP` immediately after calling this function.
   /// @param maturityDate maturity date / pool id where the asset will be borrowed.
@@ -130,16 +113,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 maxAmountAllowed,
     uint256 eTokenTotalSupply,
     uint8 maxFuturePools
-  )
-    external
-    override
-    onlyFixedLender
-    returns (
-      uint256 totalOwedNewBorrow,
-      uint256 earningsSP,
-      uint256 earningsTreasury
-    )
-  {
+  ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
     BorrowVars memory borrowVars;
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
@@ -169,14 +143,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturityDate);
     }
 
-    // We distribute to treasury and also to unassigned
-    earningsTreasury = borrowVars.fee.fmul(protocolSpreadFee, 1e18);
-    (borrowVars.newUnassignedEarnings, borrowVars.newTreasuryEarnings) = PoolLib.distributeEarningsAccordingly(
-      borrowVars.fee - earningsTreasury,
+    // We calculate what portion of the fees are to be accrued and what portion goes to earnings directly
+    (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
+      borrowVars.fee,
       pool.suppliedSP,
       amount
     );
-    earningsTreasury += borrowVars.newTreasuryEarnings;
+    earningsSP += borrowVars.earningsSP;
     pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
 
     mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
@@ -230,16 +203,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 minAmountRequired,
     uint256 maxSPDebt,
     uint8 maxFuturePools
-  )
-    external
-    override
-    onlyFixedLender
-    returns (
-      uint256 redeemAmountDiscounted,
-      uint256 earningsSP,
-      uint256 earningsTreasury
-    )
-  {
+  ) external override onlyFixedLender returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
     earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
@@ -274,14 +238,14 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       maxSPDebt
     );
 
-    // All the fees go to unassigned or to the treasury
-    uint256 earningsUnassigned;
-    (earningsUnassigned, earningsTreasury) = PoolLib.distributeEarningsAccordingly(
+    // All the fees go to unassigned or to the smart pool
+    (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
       amount - redeemAmountDiscounted,
       pool.suppliedSP,
       redeemAmountDiscounted
     );
     pool.earningsUnassigned += earningsUnassigned;
+    earningsSP += newEarningsSP;
 
     // the user gets discounted the full amount
     mpUserSuppliedAmount[maturityDate][redeemer] = position.reduceProportionally(amount);
@@ -294,7 +258,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @return actualRepayAmount the amount with discounts included that will finally be transferred.
   /// @return debtCovered the sum of principal and fees that this repayment covers.
   /// @return earningsSP amount of earnings to be accrued by the smart pool depositors.
-  /// @return earningsTreasury amount of earnings to be accrued by the protocol's treasury.
   function repayMP(
     uint256 maturityDate,
     address borrower,
@@ -307,8 +270,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     returns (
       uint256 actualRepayAmount,
       uint256 debtCovered,
-      uint256 earningsSP,
-      uint256 earningsTreasury
+      uint256 earningsSP
     )
   {
     RepayVars memory repayVars;
@@ -353,14 +315,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       // We remove the fee from unassigned earnings
       pool.earningsUnassigned -= repayVars.discountFee + repayVars.feeSP;
     } else {
-      // We distribute penalties to those that supported (pre-repayment)
-      uint256 newEarningsSP;
-      (newEarningsSP, earningsTreasury) = PoolLib.distributeEarningsAccordingly(
-        repayAmount - (repayVars.scaleDebtCovered.principal + repayVars.scaleDebtCovered.fee),
-        pool.suppliedSP,
-        repayVars.scaleDebtCovered.principal
-      );
-      earningsSP += newEarningsSP;
+      // All penalties go to the smart pool
+      earningsSP += repayAmount - (repayVars.scaleDebtCovered.principal + repayVars.scaleDebtCovered.fee);
     }
     // user paid more than it should. The fee gets discounted from the user
     // through _actualRepayAmount_ and on the pool side it was removed from

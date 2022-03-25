@@ -19,9 +19,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
   using FixedPointMathLib for uint256;
   using SafeERC20 for IERC20;
 
-  uint256 public protocolLiquidationFee = 2.8e16; // 2.8%
   uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
-  uint256 public treasury;
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
   IERC20 public override trustedUnderlying;
@@ -92,11 +90,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
   /// @param seizedAmount amount seized of the collateral.
   event SeizeAsset(address liquidator, address borrower, uint256 seizedAmount);
 
-  /// @notice Event emitted reserves have been added to the protocol.
-  /// @param benefactor address added a certain amount to its reserves.
-  /// @param addAmount amount added as reserves as part of the liquidation event.
-  event AddReserves(address benefactor, uint256 addAmount);
-
   /// @notice Event emitted when a user contributed to the smart pool.
   /// @param user address that added a certain amount to the smart pool.
   /// @param amount amount added to the smart pool.
@@ -121,12 +114,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     auditor = _auditor;
     eToken = _eToken;
     poolAccounting = _poolAccounting;
-  }
-
-  /// @dev Sets the protocol's collateral liquidation fee used on liquidations.
-  /// @param _protocolLiquidationFee percentage amount represented with 1e18 decimals.
-  function setProtocolLiquidationFee(uint256 _protocolLiquidationFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    protocolLiquidationFee = _protocolLiquidationFee;
   }
 
   /// @dev Sets the protocol's max future weekly pools for borrowing and lending.
@@ -182,14 +169,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     return TSUtils.futurePools(maxFuturePools);
   }
 
-  /// @notice public function to transfer funds from protocol earnings to a specified wallet.
-  /// @param who address which will receive the funds.
-  /// @param amount amount to be transferred.
-  function withdrawFromTreasury(address who, uint256 amount) public override onlyRole(DEFAULT_ADMIN_ROLE) {
-    treasury -= amount;
-    SafeERC20.safeTransfer(trustedUnderlying, who, amount);
-  }
-
   /// @dev Withdraws an `amount` of underlying asset from the smart pool, burning the equivalent eTokens owned.
   /// @param amount The underlying amount to be withdrawn. `type(uint256).max` for the whole balance.
   function withdrawFromSmartPool(uint256 amount) public override nonReentrant {
@@ -223,7 +202,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    (uint256 totalOwed, uint256 earningsSP, uint256 earningsTreasury) = poolAccounting.borrowMP(
+    (uint256 totalOwed, uint256 earningsSP) = poolAccounting.borrowMP(
       maturityDate,
       msg.sender,
       amount,
@@ -233,7 +212,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     );
     totalMpBorrows += totalOwed;
 
-    treasury += earningsTreasury;
     eToken.accrueEarnings(earningsSP);
     auditor.validateBorrowMP(this, msg.sender);
 
@@ -284,7 +262,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.MATURED);
 
     // We check if there's any discount to be applied for early withdrawal
-    (uint256 redeemAmountDiscounted, uint256 earningsSP, uint256 earningsTreasury) = poolAccounting.withdrawMP(
+    (uint256 redeemAmountDiscounted, uint256 earningsSP) = poolAccounting.withdrawMP(
       maturityDate,
       msg.sender,
       redeemAmount,
@@ -294,7 +272,6 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     );
 
     eToken.accrueEarnings(earningsSP);
-    treasury += earningsTreasury;
 
     doTransferOut(msg.sender, redeemAmountDiscounted);
 
@@ -367,13 +344,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
   ) internal returns (uint256) {
     if (repayAmount == 0) revert ZeroRepay();
 
-    (uint256 actualRepayAmount, uint256 debtCovered, uint256 earningsSP, uint256 earningsTreasury) = poolAccounting
-      .repayMP(maturityDate, borrower, repayAmount, maxAmountAllowed);
+    (uint256 actualRepayAmount, uint256 debtCovered, uint256 earningsSP) = poolAccounting.repayMP(
+      maturityDate,
+      borrower,
+      repayAmount,
+      maxAmountAllowed
+    );
 
     doTransferIn(payer, actualRepayAmount);
 
     eToken.accrueEarnings(earningsSP);
-    treasury += earningsTreasury;
 
     totalMpBorrows -= debtCovered;
 
@@ -441,21 +421,16 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     // reverts on failure
     auditor.seizeAllowed(this, seizerFixedLender, liquidator, borrower);
 
-    uint256 protocolAmount = seizeAmount.fmul(protocolLiquidationFee, 1e18);
-    uint256 amountToTransfer = seizeAmount - protocolAmount;
-    treasury += protocolAmount;
-
     // We check if the underlying liquidity that the user wants to seize is borrowed
-    if (eToken.totalSupply() - amountToTransfer < poolAccounting.smartPoolBorrowed()) {
+    if (eToken.totalSupply() - seizeAmount < poolAccounting.smartPoolBorrowed()) {
       revert InsufficientProtocolLiquidity();
     }
 
     // That seize amount diminishes liquidity in the pool
     eToken.burn(borrower, seizeAmount);
-    doTransferOut(liquidator, amountToTransfer);
+    doTransferOut(liquidator, seizeAmount);
 
     emit SeizeAsset(liquidator, borrower, seizeAmount);
-    emit AddReserves(address(this), protocolAmount);
   }
 
   /// @notice Private function to safely transfer funds into this contract.
