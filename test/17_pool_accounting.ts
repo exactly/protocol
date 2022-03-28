@@ -1066,6 +1066,18 @@ describe("PoolAccounting", () => {
       };
     });
 
+    describe("GIVEN an empty SP AND a deposit of 100", () => {
+      beforeEach(async () => {
+        poolAccountingEnv.smartPoolTotalSupply = parseUnits("0");
+        await poolAccountingHarness.setInterestRateModel(poolAccountingEnv.realInterestRateModel.address);
+        await poolAccountingEnv.depositMP(nextPoolID, "100");
+      });
+
+      it("THEN it should not revert when trying to withdraw early previous 100 deposited", async () => {
+        await expect(poolAccountingEnv.withdrawMP(nextPoolID, "100", "90")).to.not.be.reverted;
+      });
+    });
+
     describe("GIVEN a borrowMP of 10000 (500 fees owed by user)", () => {
       beforeEach(async () => {
         borrowAmount = 10000;
@@ -1383,7 +1395,7 @@ describe("PoolAccounting", () => {
 
       beforeEach(async () => {
         poolAccountingEnv.switchWallet(laura);
-        poolAccountingEnv.maxSPDebt = parseUnits("100");
+        poolAccountingEnv.smartPoolTotalSupply = parseUnits("100");
         await poolAccountingEnv.borrowMP(nextPoolID, "30");
       });
       it("WHEN a borrow of 70 is made to the second mp, THEN it should not revert", async () => {
@@ -1417,7 +1429,7 @@ describe("PoolAccounting", () => {
             );
           });
           it("AND WHEN a supply of 30 is added to the sp, THEN the withdraw of 30 is not reverted", async () => {
-            poolAccountingEnv.maxSPDebt = parseUnits("130");
+            poolAccountingEnv.smartPoolTotalSupply = parseUnits("130");
             await expect(poolAccountingEnv.withdrawMP(nextPoolID, "30")).to.not.be.reverted;
           });
           it("AND WHEN a deposit of 30 is added to the mp, THEN the withdraw of 30 is not reverted", async () => {

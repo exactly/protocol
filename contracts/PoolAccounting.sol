@@ -216,7 +216,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             maturityDate,
             block.timestamp,
             amount,
-            pool.borrowed + amount, // like asking for a loan full amount
+            pool.borrowed,
             pool.supplied,
             smartPoolTotalSupply
           ),
