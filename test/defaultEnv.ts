@@ -13,15 +13,6 @@ import {
 } from "./exactlyUtils";
 import assert from "assert";
 
-export class SmartPoolState {
-  supplied: BigNumber;
-  borrowed: BigNumber;
-  constructor(_supplied: BigNumber, _borrowed: BigNumber) {
-    this.supplied = _supplied;
-    this.borrowed = _borrowed;
-  }
-}
-
 export class DefaultEnv {
   oracle: Contract;
   auditor: Contract;
@@ -376,39 +367,6 @@ export class DefaultEnv {
     const borrowCapsBigNumber = borrowCaps.map((cap, index) => parseUnits(cap, this.digitsForAsset(assets[index])));
 
     return this.auditor.connect(this.currentWallet).setMarketBorrowCaps(markets, borrowCapsBigNumber);
-  }
-
-  public async deployDuplicatedAuditor() {
-    const Auditor = await ethers.getContractFactory("Auditor");
-
-    const newAuditor = await Auditor.deploy(this.oracle.address);
-    await newAuditor.deployed();
-    return newAuditor;
-  }
-
-  public async deployNewFixedLender(
-    newAuditorAddress: string,
-    interestRateModelAddress: string,
-    underlyingAddress: string,
-    underlyingTokenName: string,
-  ) {
-    const PoolAccounting = await ethers.getContractFactory("PoolAccounting");
-    const poolAccounting = await PoolAccounting.deploy(interestRateModelAddress);
-    const FixedLender = await ethers.getContractFactory("FixedLender");
-    const fixedLender = await FixedLender.deploy(
-      underlyingAddress,
-      underlyingTokenName,
-      newAuditorAddress,
-      poolAccounting.address,
-    );
-
-    await fixedLender.deployed();
-    return fixedLender;
-  }
-
-  public async smartPoolState(assetString: string) {
-    const fixedLender = this.getFixedLender(assetString);
-    return new SmartPoolState(await fixedLender.totalAssets(), await fixedLender.smartPoolBorrowed());
   }
 
   public async maturityPool(assetString: string, maturityPoolID: number) {
