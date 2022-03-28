@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.4;
+pragma solidity 0.8.13;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { IFixedLender, NotFixedLender } from "./interfaces/IFixedLender.sol";
 import { IOracle } from "./interfaces/IOracle.sol";
 import { PoolLib } from "./utils/PoolLib.sol";

@@ -9,7 +9,7 @@ import { env } from "process";
 import type { HardhatUserConfig as Config } from "hardhat/types";
 
 const config: Config = {
-  solidity: { version: "0.8.4" },
+  solidity: { version: "0.8.13", settings: { optimizer: { enabled: true, runs: 1_000_000 } } },
   networks: {
     hardhat: {
       tokens: ["DAI", "WETH", "USDC", "WBTC"],
