@@ -19,7 +19,11 @@ contract PoolAccountingTest is DSTest, PoolAccounting {
   InterestRateModel internal irm;
 
   constructor()
-    PoolAccounting(new InterestRateModel(0, int256(FEE_MP), type(uint256).max, 1e18, FEE_SP), 0.02e18 / uint256(1 days))
+    PoolAccounting(
+      new InterestRateModel(0, int256(FEE_MP), type(uint256).max, 1e18, FEE_SP),
+      0.02e18 / uint256(1 days),
+      0
+    )
   {} // solhint-disable-line no-empty-blocks
 
   function testAtomicDepositBorrowRepayWithdraw() external {

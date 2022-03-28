@@ -121,6 +121,7 @@ export class DefaultEnv {
           auditor.address,
           interestRateModel.address,
           parseUnits("0.02").div(86_400),
+          0,
         );
         await fixedLender.deployed();
 

@@ -42,6 +42,22 @@ describe("PoolAccounting", () => {
       );
     });
   });
+  describe("setSmartPoolReserve", () => {
+    it("WHEN calling setSmartPoolReserve, THEN the smartPoolReserve should be updated", async () => {
+      await poolAccountingHarness.setSmartPoolReserve(parseUnits("0.04"));
+      expect(await poolAccountingHarness.smartPoolReserve()).to.be.equal(parseUnits("0.04"));
+    });
+    it("WHEN calling setSmartPoolReserve, THEN it should emit SmartPoolReserveUpdated event", async () => {
+      await expect(await poolAccountingHarness.setSmartPoolReserve(parseUnits("0.04")))
+        .to.emit(poolAccountingHarness, "SmartPoolReserveUpdated")
+        .withArgs(parseUnits("0.04"));
+    });
+    it("WHEN calling setSmartPoolReserve from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(poolAccountingHarness.connect(laura).setSmartPoolReserve(parseUnits("0.04"))).to.be.revertedWith(
+        "AccessControl",
+      );
+    });
+  });
   describe("setInterestRateModel", () => {
     let newInterestRateModel: Contract;
     before(async () => {

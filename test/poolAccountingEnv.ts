@@ -129,6 +129,7 @@ export class PoolAccountingEnv {
     const poolAccountingHarness = await PoolAccountingHarness.deploy(
       mockInterestRateModel.address,
       parseUnits("0.02").div(86_400),
+      0,
     );
     await poolAccountingHarness.deployed();
 
