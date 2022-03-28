@@ -52,9 +52,12 @@ contract ETHFixedLender is FixedLender {
     withdrawFromMaturityPool(redeemAmount, minAmountRequired, maturityDate);
   }
 
-  function repayToMaturityPoolEth(address borrower, uint256 maturityDate) external payable usingETH {
-    // TODO: how do you do slippage on bare ETH
-    repayToMaturityPool(borrower, maturityDate, msg.value, msg.value);
+  function repayToMaturityPoolEth(
+    address borrower,
+    uint256 maturityDate,
+    uint256 maxAmountAllowed
+  ) external payable usingETH {
+    repayToMaturityPool(borrower, maturityDate, msg.value, maxAmountAllowed);
   }
 
   function doTransferIn(address from, uint256 amount) internal override {
