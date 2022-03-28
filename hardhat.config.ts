@@ -34,6 +34,7 @@ const config: Config = {
       curveA: 0.72,
       curveB: -0.22,
       maxUtilizationRate: 3,
+      fullUtilizationRate: 2,
       smartPoolRate: 0.1,
     },
     poolAccounting: {
@@ -59,6 +60,7 @@ declare module "hardhat/types/config" {
       curveA: number;
       curveB: number;
       maxUtilizationRate: number;
+      fullUtilizationRate: number;
       smartPoolRate: number;
     };
     poolAccounting: {

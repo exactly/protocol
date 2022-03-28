@@ -8,8 +8,9 @@ contract InterestRateModelHarness is InterestRateModel {
     uint256 _curveParameterA,
     int256 _curveParameterB,
     uint256 _maxUtilizationRate,
+    uint256 _fullUtilizationRate,
     uint256 _spFeeRate
-  ) InterestRateModel(_curveParameterA, _curveParameterB, _maxUtilizationRate, _spFeeRate) {} // solhint-disable-line no-empty-blocks, max-line-length
+  ) InterestRateModel(_curveParameterA, _curveParameterB, _maxUtilizationRate, _fullUtilizationRate, _spFeeRate) {} // solhint-disable-line no-empty-blocks, max-line-length
 
   function internalGetPointInCurve(uint256 utilizationRate) external view returns (uint256) {
     return getPointInCurve(utilizationRate);

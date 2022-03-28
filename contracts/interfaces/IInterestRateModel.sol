@@ -7,7 +7,8 @@ interface IInterestRateModel {
     uint256 currentDate,
     uint256 amount,
     uint256 borrowedMP,
-    uint256 supplied
+    uint256 suppliedMP,
+    uint256 totalSupplySP
   ) external view returns (uint256);
 
   function getYieldForDeposit(
@@ -19,4 +20,5 @@ interface IInterestRateModel {
 
 error AlreadyMatured();
 error InvalidAmount();
-error MaxUtilizationExceeded();
+error InvalidFullUtilizationRate();
+error FullUtilizationExceeded();

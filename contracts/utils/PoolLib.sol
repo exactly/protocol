@@ -80,11 +80,10 @@ library PoolLib {
     if (newBorrowedMP > suppliedALL) {
       uint256 newSupplySP = newBorrowedMP - suppliedMP;
 
-      if (newSupplySP > maxDebt) revert InsufficientProtocolLiquidity();
-
       // We take money out from the Smart Pool
       // because there's not enough in the MP
       newDebtSP = newBorrowedMP - suppliedALL;
+      if (newDebtSP > maxDebt) revert InsufficientProtocolLiquidity();
       pool.suppliedSP = newSupplySP;
     }
 
@@ -109,8 +108,9 @@ library PoolLib {
       // We take money out from the Smart Pool
       // because there's not enough in the MP
       newDebtSP = borrowedMP - newSuppliedALL;
+      if (newDebtSP > maxDebt) revert InsufficientProtocolLiquidity();
       uint256 newSupplySP = pool.suppliedSP + newDebtSP;
-      if (newSupplySP > maxDebt) revert InsufficientProtocolLiquidity();
+
       pool.suppliedSP = newSupplySP;
     }
 

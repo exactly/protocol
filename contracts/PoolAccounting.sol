@@ -103,22 +103,17 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param borrower borrower that it will take the debt.
   /// @param amount amount that the borrower will be borrowing.
   /// @param maxAmountAllowed maximum amount that the borrower is willing to pay at maturity.
-  /// @param eTokenTotalSupply supply of the smart pool.
-  /// @param maxFuturePools # of enabled maturities.
+  /// @param smartPoolTotalSupply total supply in the smart pool.
   /// @return totalOwedNewBorrow : total amount that will need to be paid at maturity for this borrow.
   function borrowMP(
     uint256 maturityDate,
     address borrower,
     uint256 amount,
     uint256 maxAmountAllowed,
-    uint256 eTokenTotalSupply,
-    uint8 maxFuturePools
+    uint256 smartPoolTotalSupply
   ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
     BorrowVars memory borrowVars;
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
-
-    uint256 maxSPDebt = eTokenTotalSupply - smartPoolBorrowed;
-    uint256 assignedSPLiquidity = maxSPDebt / maxFuturePools;
 
     earningsSP += pool.accrueEarnings(maturityDate, block.timestamp);
 
@@ -127,12 +122,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
       block.timestamp,
       amount,
       pool.borrowed,
-      pool.supplied + assignedSPLiquidity
+      pool.supplied,
+      smartPoolTotalSupply
     );
     borrowVars.fee = amount.fmul(borrowVars.feeRate, 1e18);
     totalOwedNewBorrow = amount + borrowVars.fee;
 
-    smartPoolBorrowed += pool.borrowMoney(amount, maxSPDebt);
+    smartPoolBorrowed += pool.borrowMoney(amount, smartPoolTotalSupply - smartPoolBorrowed);
     // We validate that the user is not taking arbitrary fees
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
@@ -195,14 +191,13 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param maturityDate maturity date / pool id where the asset should be accounted for.
   /// @param redeemer address that should have the assets withdrawn.
   /// @param amount amount that the redeemer will be extracting.
-  /// @param maxSPDebt max amount of debt that can be taken from the SP in case of illiquidity.
+  /// @param smartPoolTotalSupply total supply in the smart pool.
   function withdrawMP(
     uint256 maturityDate,
     address redeemer,
     uint256 amount,
     uint256 minAmountRequired,
-    uint256 maxSPDebt,
-    uint8 maxFuturePools
+    uint256 smartPoolTotalSupply
   ) external override onlyFixedLender returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
@@ -222,7 +217,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
             block.timestamp,
             amount,
             pool.borrowed + amount, // like asking for a loan full amount
-            pool.supplied + maxSPDebt / maxFuturePools
+            pool.supplied,
+            smartPoolTotalSupply
           ),
         1e18
       );
@@ -235,7 +231,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     // We remove the supply from the offer
     smartPoolBorrowed += pool.withdrawMoney(
       PoolLib.Position(position.principal, position.fee).scaleProportionally(amount).principal,
-      maxSPDebt
+      smartPoolTotalSupply - smartPoolBorrowed
     );
 
     // All the fees go to unassigned or to the smart pool

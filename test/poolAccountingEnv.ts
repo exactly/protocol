@@ -10,7 +10,6 @@ export class PoolAccountingEnv {
   poolAccountingHarness: Contract;
   currentWallet: SignerWithAddress;
   maxSPDebt = parseUnits("100000"); // we use a high maxSPDebt limit since max borrows are already tested
-  nMaturities = 12;
 
   constructor(
     _mockInterestRateModel: Contract,
@@ -79,14 +78,7 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .withdrawMPWithReturnValues(
-        maturityPool,
-        this.currentWallet.address,
-        amount,
-        minAmountRequired,
-        this.maxSPDebt,
-        this.nMaturities,
-      );
+      .withdrawMPWithReturnValues(maturityPool, this.currentWallet.address, amount, minAmountRequired, this.maxSPDebt);
   }
 
   public async borrowMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -99,14 +91,7 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .borrowMPWithReturnValues(
-        maturityPool,
-        this.currentWallet.address,
-        amount,
-        expectedAmount,
-        this.maxSPDebt,
-        this.nMaturities,
-      );
+      .borrowMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount, this.maxSPDebt);
   }
 
   static async create(): Promise<PoolAccountingEnv> {
@@ -114,9 +99,10 @@ export class PoolAccountingEnv {
     const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
-      parseUnits("0.07"), // Maturity pool slope rate
-      parseUnits("0.07"), // Smart pool slope rate
-      parseUnits("0.02"), // Base rate
+      parseUnits("0.07"), // A parameter for the curve
+      parseUnits("0.07"), // B parameter for the curve
+      parseUnits("0.02"), // Max utilization rate
+      parseUnits("0.01"), // Full utilization rate
       parseUnits("0"), // SP rate if 0 then no fees charged for the mp depositors' yield
     );
     await realInterestRateModel.deployed();
