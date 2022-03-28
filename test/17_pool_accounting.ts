@@ -937,6 +937,76 @@ describe("PoolAccounting", () => {
     });
   });
 
+  describe("Smart Pool Reserve", () => {
+    describe("GIVEN a sp total supply of 100, a 10% smart pool reserve and a borrow for 80", () => {
+      let tx: any;
+      beforeEach(async () => {
+        poolAccountingEnv.switchWallet(laura);
+        poolAccountingEnv.maxSPDebt = parseUnits("100");
+        await poolAccountingHarness.setSmartPoolReserve(parseUnits("0.1"));
+        tx = poolAccountingEnv.borrowMP(nextPoolID, "80");
+        await tx;
+      });
+      it("THEN the borrow transaction should not revert", async () => {
+        await expect(tx).to.not.be.reverted;
+      });
+      it("AND WHEN trying to borrow 10 more, THEN it should not revert", async () => {
+        await expect(poolAccountingEnv.borrowMP(nextPoolID, "10")).to.not.be.reverted;
+      });
+      it("AND WHEN trying to borrow 10.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+        await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.be.revertedWith("SmartPoolReserveExceeded()");
+      });
+      it("AND WHEN depositing 0.1 more to the sp, THEN it should not revert when trying to borrow 10.01 more", async () => {
+        poolAccountingEnv.maxSPDebt = parseUnits("100.1");
+        await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.not.be.reverted;
+      });
+      it("AND WHEN setting the smart pool reserve to 0, THEN it should not revert when trying to borrow 10.01 more", async () => {
+        await poolAccountingHarness.setSmartPoolReserve(0);
+        await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.not.be.reverted;
+      });
+      it("AND WHEN setting the smart pool reserve to 0, THEN it should not revert when trying to borrow all supply left (20)", async () => {
+        await poolAccountingHarness.setSmartPoolReserve(0);
+        await expect(poolAccountingEnv.borrowMP(nextPoolID, "20")).to.not.be.reverted;
+      });
+      describe("AND GIVEN a deposit of 10 to the maturity pool", () => {
+        beforeEach(async () => {
+          await poolAccountingEnv.depositMP(nextPoolID, "10");
+        });
+        it("AND WHEN trying to borrow 20 more, THEN it should not revert", async () => {
+          await expect(poolAccountingEnv.borrowMP(nextPoolID, "20")).to.not.be.reverted;
+        });
+        describe("AND GIVEN a borrow of 10 to the maturity pool AND a withdraw of 10", () => {
+          beforeEach(async () => {
+            await poolAccountingEnv.borrowMP(nextPoolID, "10");
+            tx = poolAccountingEnv.withdrawMP(nextPoolID, "10");
+            await tx;
+          });
+          it("THEN the withdraw transaction should not revert", async () => {
+            await expect(tx).to.not.be.reverted;
+          });
+          it("AND WHEN trying to borrow 0.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+            await expect(poolAccountingEnv.borrowMP(nextPoolID, "0.01")).to.be.revertedWith(
+              "SmartPoolReserveExceeded()",
+            );
+          });
+          describe("AND GIVEN a repay of 5", () => {
+            beforeEach(async () => {
+              await poolAccountingEnv.repayMP(nextPoolID, "5");
+            });
+            it("WHEN trying to borrow 5 more, THEN it should not revert", async () => {
+              await expect(poolAccountingEnv.borrowMP(nextPoolID, "5")).to.not.be.reverted;
+            });
+            it("AND WHEN trying to borrow 5.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+              await expect(poolAccountingEnv.borrowMP(nextPoolID, "5.01")).to.be.revertedWith(
+                "SmartPoolReserveExceeded()",
+              );
+            });
+          });
+        });
+      });
+    });
+  });
+
   describe("Assignment of earnings over time", () => {
     describe("GIVEN a borrowMP of 10000 (600 fees owed by user) - 6 days to maturity", () => {
       let returnValues: any;
