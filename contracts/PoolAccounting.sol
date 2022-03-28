@@ -19,7 +19,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   // stack too deep problem
   struct BorrowVars {
     PoolLib.Position position;
-    uint256 feeRate;
     uint256 fee;
     uint256 newUnassignedEarnings;
     uint256 earningsSP;
@@ -117,15 +116,17 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
     earningsSP += pool.accrueEarnings(maturityDate, block.timestamp);
 
-    borrowVars.feeRate = interestRateModel.getRateToBorrow(
-      maturityDate,
-      block.timestamp,
-      amount,
-      pool.borrowed,
-      pool.supplied,
-      smartPoolTotalSupply
+    borrowVars.fee = amount.fmul(
+      interestRateModel.getRateToBorrow(
+        maturityDate,
+        block.timestamp,
+        amount,
+        pool.borrowed,
+        pool.supplied,
+        smartPoolTotalSupply
+      ),
+      1e18
     );
-    borrowVars.fee = amount.fmul(borrowVars.feeRate, 1e18);
     totalOwedNewBorrow = amount + borrowVars.fee;
 
     smartPoolBorrowed += pool.borrowMoney(amount, smartPoolTotalSupply - smartPoolBorrowed);
