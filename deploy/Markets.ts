@@ -6,7 +6,7 @@ import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
   config: {
-    finance: { collateralFactor, penaltyRatePerDay },
+    finance: { collateralFactor, penaltyRatePerDay, smartPoolReserve },
   },
   ethers: {
     utils: { parseUnits },
@@ -25,7 +25,11 @@ const func: DeployFunction = async ({
     getNamedAccounts(),
   ]);
 
-  const poolAccountingArgs = [interestRateModel.address, parseUnits(String(penaltyRatePerDay)).div(86_400)];
+  const poolAccountingArgs = [
+    interestRateModel.address,
+    parseUnits(String(penaltyRatePerDay)).div(86_400),
+    parseUnits(String(smartPoolReserve)),
+  ];
   for (const token of config.tokens) {
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
     const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
@@ -42,6 +46,9 @@ const func: DeployFunction = async ({
 
     if (!(await fixedLender.penaltyRate()).eq(poolAccountingArgs[1])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
+    }
+    if (!(await fixedLender.smartPoolReserve()).eq(poolAccountingArgs[2])) {
+      await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserve", [poolAccountingArgs[2]]);
     }
     if (!((await fixedLender.interestRateModel()) === interestRateModel.address)) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setInterestRateModel", [

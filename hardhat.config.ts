@@ -31,6 +31,7 @@ const config: Config = {
   finance: {
     collateralFactor: { default: 0.8, WBTC: 0.6 },
     penaltyRatePerDay: 0.02,
+    smartPoolReserve: 0.1,
     interestRateModel: {
       curveA: 0.72,
       curveB: -0.22,
@@ -54,6 +55,7 @@ declare module "hardhat/types/config" {
   export interface FinanceConfig {
     collateralFactor: { default: number; [token: string]: number };
     penaltyRatePerDay: number;
+    smartPoolReserve: number;
     interestRateModel: {
       curveA: number;
       curveB: number;

@@ -42,6 +42,7 @@ contract PoolAccounting is AccessControl {
   IInterestRateModel public interestRateModel;
 
   uint256 public penaltyRate;
+  uint256 public smartPoolReserve;
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
@@ -51,11 +52,20 @@ contract PoolAccounting is AccessControl {
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
   event PenaltyRateUpdated(uint256 newPenaltyRate);
 
-  constructor(IInterestRateModel _interestRateModel, uint256 _penaltyRate) {
+  /// @notice emitted when the smartPoolReserve is changed by admin.
+  /// @param newSmartPoolReserve smartPoolReserve percentage.
+  event SmartPoolReserveUpdated(uint256 newSmartPoolReserve);
+
+  constructor(
+    IInterestRateModel _interestRateModel,
+    uint256 _penaltyRate,
+    uint256 _smartPoolReserve
+  ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     interestRateModel = _interestRateModel;
 
     penaltyRate = _penaltyRate;
+    smartPoolReserve = _smartPoolReserve;
   }
 
   /// @notice Sets the interest rate model to be used by this PoolAccounting.
@@ -70,6 +80,13 @@ contract PoolAccounting is AccessControl {
   function setPenaltyRate(uint256 _penaltyRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
     penaltyRate = _penaltyRate;
     emit PenaltyRateUpdated(_penaltyRate);
+  }
+
+  /// @notice Sets the percentage that represents the smart pool liquidity reserves that can't be borrowed.
+  /// @param _smartPoolReserve parameter represented with 18 decimals.
+  function setSmartPoolReserve(uint256 _smartPoolReserve) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    smartPoolReserve = _smartPoolReserve;
+    emit SmartPoolReserveUpdated(_smartPoolReserve);
   }
 
   /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the

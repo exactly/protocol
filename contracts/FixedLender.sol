@@ -92,10 +92,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     string memory assetSymbol_,
     IAuditor auditor_,
     IInterestRateModel _interestRateModel,
-    uint256 _penaltyRate
+    uint256 _penaltyRate,
+    uint256 _smartPoolReserve
   )
     ERC4626(asset_, string(abi.encodePacked("EToken", assetSymbol_)), string(abi.encodePacked("e", assetSymbol_)))
-    PoolAccounting(_interestRateModel, _penaltyRate)
+    PoolAccounting(_interestRateModel, _penaltyRate, _smartPoolReserve)
   {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
