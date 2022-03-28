@@ -11,6 +11,8 @@ import { IFixedLender, BalanceExceeded, InvalidTokenFee, ZeroRedeem, ZeroRepay }
 import { InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
 import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
 import { IPoolAccounting } from "./interfaces/IPoolAccounting.sol";
+import { PoolAccounting } from "./PoolAccounting.sol";
+import { EToken } from "./EToken.sol";
 import { IAuditor } from "./interfaces/IAuditor.sol";
 import { IEToken } from "./interfaces/IEToken.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
@@ -102,17 +104,20 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
   constructor(
     IERC20 _token,
     string memory _underlyingTokenSymbol,
-    IEToken _eToken,
+    string memory _name,
+    string memory _symbol,
+    uint8 _decimals,
+    uint256 _penaltyRate,
     IAuditor _auditor,
-    IPoolAccounting _poolAccounting
+    IInterestRateModel _interestRateModel
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     trustedUnderlying = _token;
     underlyingTokenSymbol = _underlyingTokenSymbol;
 
     auditor = _auditor;
-    eToken = _eToken;
-    poolAccounting = _poolAccounting;
+    eToken = new EToken(_name, _symbol, _decimals, this, _auditor);
+    poolAccounting = new PoolAccounting(_interestRateModel, _penaltyRate, this);
   }
 
   /// @dev Sets the protocol's max future weekly pools for borrowing and lending.

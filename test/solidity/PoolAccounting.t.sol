@@ -22,8 +22,7 @@ contract PoolAccountingTest is DSTest {
   function setUp() external {
     vm.label(address(this), "Test");
     irm = new InterestRateModel(0, int256(FEE_MP), type(uint256).max, 1e18, FEE_SP);
-    pool = new PoolAccounting(irm, 0.02e18 / uint256(1 days));
-    pool.initialize(IFixedLender(address(this)));
+    pool = new PoolAccounting(irm, 0.02e18 / uint256(1 days), IFixedLender(address(this)));
   }
 
   function testAtomicDepositBorrowRepayWithdraw() external {
@@ -51,10 +50,6 @@ contract PoolAccountingTest is DSTest {
   function testFailUnauthorizedWithdraw() external {
     vm.prank(address(0));
     pool.withdrawMP(POOL_ID, address(this), 1 ether, 1 ether, 0);
-  }
-
-  function testFailAlreadyInitialized() external {
-    pool.initialize(IFixedLender(address(this)));
   }
 
   function testFailTooMuchSlippageDeposit() external {

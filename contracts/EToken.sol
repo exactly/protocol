@@ -18,10 +18,10 @@ contract EToken is IEToken, AccessControl {
   mapping(address => mapping(address => uint256)) private _allowances;
   string public override name;
   string public override symbol;
-  uint8 public override decimals;
+  uint8 public immutable override decimals;
 
-  IFixedLender public fixedLender;
-  IAuditor public auditor;
+  IFixedLender public immutable fixedLender;
+  IAuditor public immutable auditor;
 
   modifier onlyFixedLender() {
     if (msg.sender != address(fixedLender)) revert NotFixedLender();
@@ -31,13 +31,17 @@ contract EToken is IEToken, AccessControl {
   constructor(
     string memory _name,
     string memory _symbol,
-    uint8 _decimals
+    uint8 _decimals,
+    IFixedLender _fixedLender,
+    IAuditor _auditor
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     name = _name;
     symbol = _symbol;
     decimals = _decimals;
+    fixedLender = _fixedLender;
+    auditor = _auditor;
   }
 
   /// @dev Mints `amount` eTokens to `user`. Only callable by the FixedLender.
@@ -88,9 +92,6 @@ contract EToken is IEToken, AccessControl {
   /// @param auditor_ The address of the Auditor.
   function initialize(IFixedLender fixedLender_, IAuditor auditor_) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (address(fixedLender) != address(0) && address(auditor) != address(0)) revert AlreadyInitialized();
-    fixedLender = fixedLender_;
-    auditor = auditor_;
-
     emit Initialized(fixedLender_, auditor_);
   }
 

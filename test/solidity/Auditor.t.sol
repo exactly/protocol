@@ -105,6 +105,7 @@ contract AuditorTest is DSTest {
   }
 
   function testSetMarketBorrowCaps() external {
+    //
     auditor.enableMarket(IFixedLender(address(fixedLender)), 0.8e18, "X", "x", 18);
     IFixedLender[] memory markets = new IFixedLender[](1);
     markets[0] = IFixedLender(address(fixedLender));

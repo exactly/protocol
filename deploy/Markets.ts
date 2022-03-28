@@ -1,14 +1,5 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import type {
-  Auditor,
-  ERC20,
-  EToken,
-  ExactlyOracle,
-  FixedLender,
-  InterestRateModel,
-  PoolAccounting,
-  TimelockController,
-} from "../types";
+import type { Auditor, ERC20, ExactlyOracle, FixedLender, InterestRateModel, TimelockController } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import grantRole from "./.utils/grantRole";
@@ -38,54 +29,41 @@ const func: DeployFunction = async ({
     getNamedAccounts(),
   ]);
 
-  const poolAccountingArgs = [interestRateModel.address, parseUnits(String(penaltyRatePerDay)).div(86_400)];
   for (const token of config.tokens) {
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
     const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
 
-    const eTokenName = `EToken${symbol}`;
-    await deploy(eTokenName, {
-      contract: "EToken",
-      args: [`e${symbol}`, `e${symbol}`, decimals],
-      from: deployer,
-      log: true,
-    });
-    const eToken = await getContract<EToken>(eTokenName, await getSigner(deployer));
-
-    const poolAccountingName = `PoolAccounting${symbol}`;
-    await deploy(poolAccountingName, {
-      skipIfAlreadyDeployed: true,
-      contract: "PoolAccounting",
-      args: poolAccountingArgs,
-      from: deployer,
-      log: true,
-    });
-    const poolAccounting = await getContract<PoolAccounting>(poolAccountingName, await getSigner(deployer));
-
     const fixedLenderName = `FixedLender${symbol}`;
     await deploy(fixedLenderName, {
       contract: symbol === "WETH" ? "ETHFixedLender" : "FixedLender",
-      args: [tokenAddress, token, eToken.address, auditor.address, poolAccounting.address],
+      args: [
+        tokenAddress,
+        token,
+        `e${symbol}`,
+        `e${symbol}`,
+        decimals,
+        parseUnits(String(penaltyRatePerDay)).div(86_400),
+        auditor.address,
+        interestRateModel.address,
+      ],
       from: deployer,
       log: true,
     });
     const fixedLender = await getContract<FixedLender>(fixedLenderName);
 
-    if ((await eToken.fixedLender()) === AddressZero || (await eToken.auditor()) === AddressZero) {
-      await eToken.initialize(fixedLender.address, auditor.address);
-    }
+    // if ((await eToken.fixedLender()) === AddressZero || (await eToken.auditor()) === AddressZero) {
+    //   await eToken.initialize(fixedLender.address, auditor.address);
+    // }
 
-    if ((await poolAccounting.fixedLender()) === AddressZero) {
-      await executeOrPropose(deployer, timelockController, poolAccounting, "initialize", [fixedLender.address]);
-    }
-    if (!(await poolAccounting.penaltyRate()).eq(poolAccountingArgs[1])) {
-      await executeOrPropose(deployer, timelockController, poolAccounting, "setPenaltyRate", [poolAccountingArgs[1]]);
-    }
-    if (!((await poolAccounting.interestRateModel()) === interestRateModel.address)) {
-      await executeOrPropose(deployer, timelockController, poolAccounting, "setInterestRateModel", [
-        interestRateModel.address,
-      ]);
-    }
+    // if ((await poolAccounting.fixedLender()) === AddressZero) {
+    //   await executeOrPropose(deployer, timelockController, poolAccounting, "initialize", [fixedLender.address]);
+    // }
+    // if (!(await poolAccounting.penaltyRate()).eq(poolAccountingArgs[1])) {
+    //   await executeOrPropose(deployer, timelockController, poolAccounting, "setPenaltyRate", [poolAccountingArgs[1]]);
+    // }
+    // if (!((await poolAccounting.interestRateModel()) === interestRateModel.address)) {
+    //   await executeOrPropose(deployer, timelockController, poolAccounting, "setInterestRateModel", [,]);
+    // }
 
     const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));
     if (!(await auditor.getAllMarkets()).includes(fixedLender.address)) {
@@ -105,7 +83,8 @@ const func: DeployFunction = async ({
 
     await grantRole(fixedLender, await fixedLender.PAUSER_ROLE(), multisig);
 
-    for (const contract of [eToken, poolAccounting, fixedLender]) {
+    // TODO: Transfer eToken and poolAccounting?
+    for (const contract of [fixedLender]) {
       await transferOwnership(contract, deployer, timelockController.address);
     }
   }

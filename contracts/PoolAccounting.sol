@@ -44,7 +44,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
   uint256 public override smartPoolBorrowed;
 
-  IFixedLender public fixedLender;
+  IFixedLender public immutable fixedLender;
   IInterestRateModel public interestRateModel;
 
   uint256 public penaltyRate;
@@ -57,30 +57,21 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
   event PenaltyRateUpdated(uint256 newPenaltyRate);
 
-  /// @notice emitted when the PoolAccounting is initialized with a FixedLender.
-  /// @param fixedLender the FixedLender that is only authorized to call the PoolAccounting functions.
-  event Initialized(IFixedLender indexed fixedLender);
-
   /// @dev only allow calls from the `fixedLender` contract. `fixedLender` should be set through `initialize` method.
   modifier onlyFixedLender() {
     if (msg.sender != address(fixedLender)) revert NotFixedLender();
     _;
   }
 
-  constructor(IInterestRateModel _interestRateModel, uint256 _penaltyRate) {
+  constructor(
+    IInterestRateModel _interestRateModel,
+    uint256 _penaltyRate,
+    IFixedLender _fixedLender
+  ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     interestRateModel = _interestRateModel;
-
     penaltyRate = _penaltyRate;
-  }
-
-  /// @dev Initializes the PoolAccounting setting the FixedLender address. Only able to initialize once.
-  /// @param _fixedLender the address of the FixedLender that uses this PoolAccounting.
-  function initialize(IFixedLender _fixedLender) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (address(fixedLender) != address(0)) revert AlreadyInitialized();
-
     fixedLender = _fixedLender;
-    emit Initialized(_fixedLender);
   }
 
   /// @notice Sets the interest rate model to be used by this PoolAccounting.
