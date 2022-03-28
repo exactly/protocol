@@ -123,6 +123,7 @@ contract PoolAccounting is AccessControl {
     totalOwedNewBorrow = amount + borrowVars.fee;
 
     smartPoolBorrowed += pool.borrowMoney(amount, smartPoolTotalSupply - smartPoolBorrowed);
+    if (smartPoolBorrowed > smartPoolTotalSupply.fmul(1e18 - smartPoolReserve, 1e18)) revert SmartPoolReserveExceeded();
     // We validate that the user is not taking arbitrary fees
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
@@ -370,3 +371,4 @@ contract PoolAccounting is AccessControl {
 
 error AlreadyInitialized();
 error TooMuchSlippage();
+error SmartPoolReserveExceeded();

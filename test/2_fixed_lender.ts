@@ -44,6 +44,7 @@ describe("FixedLender", function () {
 
     await timelockExecute(owner, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10"), parseUnits("1")]);
     await timelockExecute(owner, interestRateModel, "setSPFeeRate", [0]);
+    await timelockExecute(owner, poolAccountingDAI, "setSmartPoolReserve", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).transfer(signer.address, parseUnits("10000"));
       await dai.connect(signer).approve(fixedLenderDAI.address, parseUnits("10000"));
