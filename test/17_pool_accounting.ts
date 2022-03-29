@@ -42,20 +42,20 @@ describe("PoolAccounting", () => {
       );
     });
   });
-  describe("setSmartPoolReserve", () => {
-    it("WHEN calling setSmartPoolReserve, THEN the smartPoolReserve should be updated", async () => {
-      await poolAccountingHarness.setSmartPoolReserve(parseUnits("0.04"));
-      expect(await poolAccountingHarness.smartPoolReserve()).to.be.equal(parseUnits("0.04"));
+  describe("setSmartPoolReserveFactor", () => {
+    it("WHEN calling setSmartPoolReserveFactor, THEN the smartPoolReserveFactor should be updated", async () => {
+      await poolAccountingHarness.setSmartPoolReserveFactor(parseUnits("0.04"));
+      expect(await poolAccountingHarness.smartPoolReserveFactor()).to.be.equal(parseUnits("0.04"));
     });
-    it("WHEN calling setSmartPoolReserve, THEN it should emit SmartPoolReserveUpdated event", async () => {
-      await expect(await poolAccountingHarness.setSmartPoolReserve(parseUnits("0.04")))
-        .to.emit(poolAccountingHarness, "SmartPoolReserveUpdated")
+    it("WHEN calling setSmartPoolReserveFactor, THEN it should emit SmartPoolReserveFactorUpdated event", async () => {
+      await expect(await poolAccountingHarness.setSmartPoolReserveFactor(parseUnits("0.04")))
+        .to.emit(poolAccountingHarness, "SmartPoolReserveFactorUpdated")
         .withArgs(parseUnits("0.04"));
     });
-    it("WHEN calling setSmartPoolReserve from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
-      await expect(poolAccountingHarness.connect(laura).setSmartPoolReserve(parseUnits("0.04"))).to.be.revertedWith(
-        "AccessControl",
-      );
+    it("WHEN calling setSmartPoolReserveFactor from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(
+        poolAccountingHarness.connect(laura).setSmartPoolReserveFactor(parseUnits("0.04")),
+      ).to.be.revertedWith("AccessControl");
     });
   });
   describe("setInterestRateModel", () => {
@@ -943,7 +943,7 @@ describe("PoolAccounting", () => {
       beforeEach(async () => {
         poolAccountingEnv.switchWallet(laura);
         poolAccountingEnv.maxSPDebt = parseUnits("100");
-        await poolAccountingHarness.setSmartPoolReserve(parseUnits("0.1"));
+        await poolAccountingHarness.setSmartPoolReserveFactor(parseUnits("0.1"));
         tx = poolAccountingEnv.borrowMP(nextPoolID, "80");
         await tx;
       });
@@ -961,11 +961,11 @@ describe("PoolAccounting", () => {
         await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.not.be.reverted;
       });
       it("AND WHEN setting the smart pool reserve to 0, THEN it should not revert when trying to borrow 10.01 more", async () => {
-        await poolAccountingHarness.setSmartPoolReserve(0);
+        await poolAccountingHarness.setSmartPoolReserveFactor(0);
         await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.not.be.reverted;
       });
       it("AND WHEN setting the smart pool reserve to 0, THEN it should not revert when trying to borrow all supply left (20)", async () => {
-        await poolAccountingHarness.setSmartPoolReserve(0);
+        await poolAccountingHarness.setSmartPoolReserveFactor(0);
         await expect(poolAccountingEnv.borrowMP(nextPoolID, "20")).to.not.be.reverted;
       });
       describe("AND GIVEN a deposit of 10 to the maturity pool", () => {

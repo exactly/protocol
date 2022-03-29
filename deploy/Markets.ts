@@ -6,7 +6,7 @@ import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
   config: {
-    finance: { collateralFactor, penaltyRatePerDay, smartPoolReserve },
+    finance: { collateralFactor, penaltyRatePerDay, smartPoolReserveFactor },
   },
   ethers: {
     utils: { parseUnits },
@@ -28,7 +28,7 @@ const func: DeployFunction = async ({
   const poolAccountingArgs = [
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
-    parseUnits(String(smartPoolReserve)),
+    parseUnits(String(smartPoolReserveFactor)),
   ];
   for (const token of config.tokens) {
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
@@ -47,7 +47,7 @@ const func: DeployFunction = async ({
     if (!(await fixedLender.penaltyRate()).eq(poolAccountingArgs[1])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
     }
-    if (!(await fixedLender.smartPoolReserve()).eq(poolAccountingArgs[2])) {
+    if (!(await fixedLender.smartPoolReserveFactor()).eq(poolAccountingArgs[2])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserve", [poolAccountingArgs[2]]);
     }
     if (!((await fixedLender.interestRateModel()) === interestRateModel.address)) {

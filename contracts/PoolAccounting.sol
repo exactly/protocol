@@ -42,7 +42,7 @@ contract PoolAccounting is AccessControl {
   IInterestRateModel public interestRateModel;
 
   uint256 public penaltyRate;
-  uint256 public smartPoolReserve;
+  uint256 public smartPoolReserveFactor;
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
@@ -52,20 +52,20 @@ contract PoolAccounting is AccessControl {
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
   event PenaltyRateUpdated(uint256 newPenaltyRate);
 
-  /// @notice emitted when the smartPoolReserve is changed by admin.
-  /// @param newSmartPoolReserve smartPoolReserve percentage.
-  event SmartPoolReserveUpdated(uint256 newSmartPoolReserve);
+  /// @notice emitted when the smartPoolReserveFactor is changed by admin.
+  /// @param newSmartPoolReserveFactor smartPoolReserveFactor percentage.
+  event SmartPoolReserveFactorUpdated(uint256 newSmartPoolReserveFactor);
 
   constructor(
     IInterestRateModel _interestRateModel,
     uint256 _penaltyRate,
-    uint256 _smartPoolReserve
+    uint256 _smartPoolReserveFactor
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     interestRateModel = _interestRateModel;
 
     penaltyRate = _penaltyRate;
-    smartPoolReserve = _smartPoolReserve;
+    smartPoolReserveFactor = _smartPoolReserveFactor;
   }
 
   /// @notice Sets the interest rate model to be used by this PoolAccounting.
@@ -83,10 +83,10 @@ contract PoolAccounting is AccessControl {
   }
 
   /// @notice Sets the percentage that represents the smart pool liquidity reserves that can't be borrowed.
-  /// @param _smartPoolReserve parameter represented with 18 decimals.
-  function setSmartPoolReserve(uint256 _smartPoolReserve) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    smartPoolReserve = _smartPoolReserve;
-    emit SmartPoolReserveUpdated(_smartPoolReserve);
+  /// @param _smartPoolReserveFactor parameter represented with 18 decimals.
+  function setSmartPoolReserveFactor(uint256 _smartPoolReserveFactor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    smartPoolReserveFactor = _smartPoolReserveFactor;
+    emit SmartPoolReserveFactorUpdated(_smartPoolReserveFactor);
   }
 
   /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the
@@ -123,7 +123,8 @@ contract PoolAccounting is AccessControl {
     totalOwedNewBorrow = amount + borrowVars.fee;
 
     smartPoolBorrowed += pool.borrowMoney(amount, smartPoolTotalSupply - smartPoolBorrowed);
-    if (smartPoolBorrowed > smartPoolTotalSupply.fmul(1e18 - smartPoolReserve, 1e18)) revert SmartPoolReserveExceeded();
+    if (smartPoolBorrowed > smartPoolTotalSupply.fmul(1e18 - smartPoolReserveFactor, 1e18))
+      revert SmartPoolReserveExceeded();
     // We validate that the user is not taking arbitrary fees
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
