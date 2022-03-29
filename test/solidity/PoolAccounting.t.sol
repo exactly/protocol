@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.4;
+pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { PoolLib } from "../../contracts/utils/PoolLib.sol";
 import { PoolAccounting, IFixedLender } from "../../contracts/PoolAccounting.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
@@ -27,10 +27,10 @@ contract PoolAccountingTest is DSTest {
   }
 
   function testAtomicDepositBorrowRepayWithdraw() external {
-    pool.depositMP(POOL_ID, address(this), 1 ether, 1 ether);
-    pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 1 ether);
+    pool.depositMP(POOL_ID, address(this), 1 ether, 0 ether);
+    pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 0);
     pool.repayMP(POOL_ID, address(this), 1 ether, 1.01 ether);
-    pool.withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 1 ether);
+    pool.withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 0);
   }
 
   function testFailUnauthorizedDeposit() external {

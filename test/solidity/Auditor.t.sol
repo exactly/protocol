@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.4;
+pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { Auditor, IAuditor, IFixedLender, IOracle } from "../../contracts/Auditor.sol";
 
 contract AuditorTest is DSTest {

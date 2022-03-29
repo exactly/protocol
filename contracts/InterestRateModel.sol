@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.4;
+pragma solidity 0.8.13;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 
 import { PoolLib } from "./utils/PoolLib.sol";
 import {
@@ -11,7 +11,7 @@ import {
   AlreadyMatured,
   InvalidAmount,
   InvalidFullUtilizationRate,
-  FullUtilizationExceeded
+  UtilizationRateExceeded
 } from "./interfaces/IInterestRateModel.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
@@ -141,7 +141,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 utilizationBefore = borrowedMP.fdiv(supplied, 1e18);
     uint256 utilizationAfter = (borrowedMP + amount).fdiv(supplied, 1e18);
 
-    if (utilizationAfter > fullUtilizationRate) revert FullUtilizationExceeded();
+    if (utilizationAfter > fullUtilizationRate) revert UtilizationRateExceeded();
 
     uint256 rate = simpsonIntegrator(utilizationBefore, utilizationAfter);
     return rate.fmul(maturityDate - currentDate, YEAR);

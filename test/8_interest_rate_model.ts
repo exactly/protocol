@@ -215,12 +215,12 @@ describe("InterestRateModel", () => {
         });
         it("WHEN doing a borrow which pushes U to 3.2, THEN it reverts because the utilization rate is too high", async () => {
           await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "19200", "19200")).to.be.revertedWith(
-            "FullUtilizationExceeded()",
+            "UtilizationRateExceeded()",
           );
         });
         it("WHEN doing a borrow which pushes U to 6, THEN it reverts because the utilization rate is too high", async () => {
           await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "36000", "36000")).to.be.revertedWith(
-            "FullUtilizationExceeded()",
+            "UtilizationRateExceeded()",
           );
         });
         it("AND WHEN doing a borrow which pushes U to 2, THEN it succeeds", async () => {
@@ -253,7 +253,7 @@ describe("InterestRateModel", () => {
         });
         it("WHEN doing a borrow which pushes U above the full UR, THEN it reverts", async () => {
           await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "12001", "34000")).to.be.revertedWith(
-            "FullUtilizationExceeded()",
+            "UtilizationRateExceeded()",
           );
         });
         describe("WHEN borrowing 11k of SP liquidity", () => {
@@ -418,9 +418,9 @@ describe("InterestRateModel", () => {
       await exactlyEnv.enterMarkets(["WETH"]);
       await exactlyEnv.depositSP("DAI", "1200");
     });
-    it("WHEN borrowing more than whats available in the SP, THEN it reverts with FullUtilizationExceeded", async () => {
+    it("WHEN borrowing more than whats available in the SP, THEN it reverts with UtilizationRateExceeded", async () => {
       // this'd push U to 15
-      await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "1500")).to.be.revertedWith("FullUtilizationExceeded()");
+      await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "1500")).to.be.revertedWith("UtilizationRateExceeded()");
     });
   });
 
@@ -723,7 +723,7 @@ describe("InterestRateModel", () => {
             parseUnits("50"),
             parseUnits("50"),
           ),
-        ).to.be.revertedWith("FullUtilizationExceeded()");
+        ).to.be.revertedWith("UtilizationRateExceeded()");
       });
       it("AND WHEN asking for the interest at Umax, THEN it reverts", async () => {
         const tx = interestRateModel.getRateToBorrow(
@@ -735,7 +735,7 @@ describe("InterestRateModel", () => {
           parseUnits("50"),
         );
 
-        await expect(tx).to.be.revertedWith("FullUtilizationExceeded()");
+        await expect(tx).to.be.revertedWith("UtilizationRateExceeded()");
       });
       it("AND WHEN asking for the interest at U>Umax, THEN it reverts", async () => {
         const tx = interestRateModel.getRateToBorrow(
@@ -747,7 +747,7 @@ describe("InterestRateModel", () => {
           parseUnits("50"),
         );
 
-        await expect(tx).to.be.revertedWith("FullUtilizationExceeded()");
+        await expect(tx).to.be.revertedWith("UtilizationRateExceeded()");
       });
     });
     describe("interest for durations other than a full year", () => {
