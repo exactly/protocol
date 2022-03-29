@@ -26,7 +26,7 @@ interface IEToken is IERC20, IERC20Metadata {
 
   /// @dev Increases contract earnings. Only callable by the FixedLender.
   /// @param amount The amount of underlying tokens deposited.
-  function accrueEarnings(uint256 amount) external;
+  function reportEarnings(uint256 amount) external;
 }
 
 error AlreadyInitialized();

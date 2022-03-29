@@ -5,10 +5,14 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { IEToken, AlreadyInitialized, SmartPoolFundsLocked } from "./interfaces/IEToken.sol";
 import { IFixedLender, NotFixedLender } from "./interfaces/IFixedLender.sol";
 import { IAuditor } from "./interfaces/IAuditor.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import "hardhat/console.sol";
 
 contract EToken is IEToken, AccessControl {
+  using FixedPointMathLib for uint256;
+
   // totalSupply = smart pool's balance
-  uint256 public override totalSupply;
+  uint256 public totalSupplyAccrued;
   // index = totalSupply / totalScaledBalance
   uint256 private totalScaledBalance;
   // userBalance = userScaledBalance * index
@@ -19,6 +23,9 @@ contract EToken is IEToken, AccessControl {
   string public override name;
   string public override symbol;
   uint8 public override decimals;
+
+  uint256 public queuedEarnings;
+  uint32 public lastAccrue;
 
   IFixedLender public fixedLender;
   IAuditor public auditor;
@@ -46,12 +53,14 @@ contract EToken is IEToken, AccessControl {
   function mint(address user, uint256 amount) external override onlyFixedLender {
     require(user != address(0), "ERC20: zero address");
 
+    accrueEarnings();
+
     uint256 scaledBalance = amount;
-    if (totalSupply != 0) scaledBalance = (scaledBalance * totalScaledBalance) / totalSupply;
+    if (totalSupplyAccrued != 0) scaledBalance = (scaledBalance * totalScaledBalance) / totalSupplyAccrued;
 
     userScaledBalance[user] += scaledBalance;
     totalScaledBalance += scaledBalance;
-    totalSupply += amount;
+    totalSupplyAccrued += amount;
     lastBalanceIncrease[user] = block.number;
 
     emit Transfer(address(0), user, amount);
@@ -59,9 +68,21 @@ contract EToken is IEToken, AccessControl {
 
   /// @dev Increases contract earnings. Only callable by the FixedLender.
   /// @param amount The amount of underlying tokens deposited.
-  function accrueEarnings(uint256 amount) external override onlyFixedLender {
-    totalSupply += amount;
-    emit EarningsAccrued(amount);
+  function reportEarnings(uint256 amount) external override onlyFixedLender {
+    queuedEarnings += amount;
+    accrueEarnings();
+  }
+
+  /// @dev Increases contract earnings. Only callable by the FixedLender.
+  function accrueEarnings() internal {
+    uint32 secondsSinceLastAccrue = uint32(block.timestamp) - lastAccrue;
+    console.log("secondsSinceLastAccrue: ", secondsSinceLastAccrue);
+    console.log("queuedEarnings: ", queuedEarnings);
+    uint256 earningsToAccrue = queuedEarnings.fmul(secondsSinceLastAccrue, 7 days);
+    totalSupplyAccrued += earningsToAccrue;
+    queuedEarnings -= earningsToAccrue;
+    lastAccrue = uint32(block.timestamp);
+    emit EarningsAccrued(earningsToAccrue);
   }
 
   /// @dev Burns eTokens from `user`. Only callable by the FixedLender.
@@ -74,11 +95,13 @@ contract EToken is IEToken, AccessControl {
 
     require(balanceOf(user) >= amount, "ERC20: balance exceeded");
 
-    uint256 scaledWithdrawAmount = (amount * totalScaledBalance) / totalSupply;
+    accrueEarnings();
+
+    uint256 scaledWithdrawAmount = (amount * totalScaledBalance) / totalSupply();
 
     totalScaledBalance -= scaledWithdrawAmount;
     userScaledBalance[user] -= scaledWithdrawAmount;
-    totalSupply -= amount;
+    totalSupplyAccrued -= amount;
 
     emit Transfer(user, address(0), amount);
   }
@@ -161,8 +184,15 @@ contract EToken is IEToken, AccessControl {
   /// @return The balance of the user.
   function balanceOf(address account) public view override returns (uint256) {
     if (userScaledBalance[account] == 0) return 0;
+    return (userScaledBalance[account] * totalSupply()) / totalScaledBalance;
+  }
 
-    return (userScaledBalance[account] * totalSupply) / totalScaledBalance;
+  function totalSupply() public view returns (uint256) {
+    uint32 secondsSinceLastAccrue = uint32(block.timestamp) - lastAccrue;
+    uint256 earningsToAccrue = queuedEarnings.fmul(secondsSinceLastAccrue, 7 days);
+    console.log("secondsSinceLastAccrue: ", secondsSinceLastAccrue);
+    console.log("queuedEarnings: ", queuedEarnings);
+    return totalSupplyAccrued + earningsToAccrue;
   }
 
   /// @dev Returns the allowance of spender on the tokens owned by owner.
@@ -185,14 +215,16 @@ contract EToken is IEToken, AccessControl {
     require(sender != address(0), "ERC20: zero address");
     require(recipient != address(0), "ERC20: zero address");
 
+    accrueEarnings();
+
     uint256 senderBalance = balanceOf(sender);
     require(senderBalance >= amount, "ERC20: balance exceeded");
     // reverts on failure
     auditor.validateAccountShortfall(fixedLender, sender, amount);
 
     uint256 senderRemainingBalance = senderBalance - amount;
-    userScaledBalance[sender] = (senderRemainingBalance * totalScaledBalance) / totalSupply;
-    userScaledBalance[recipient] = ((balanceOf(recipient) + amount) * totalScaledBalance) / totalSupply;
+    userScaledBalance[sender] = (senderRemainingBalance * totalScaledBalance) / totalSupplyAccrued;
+    userScaledBalance[recipient] = ((balanceOf(recipient) + amount) * totalScaledBalance) / totalSupplyAccrued;
     lastBalanceIncrease[recipient] = block.number;
 
     emit Transfer(sender, recipient, amount);

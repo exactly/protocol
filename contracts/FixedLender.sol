@@ -210,7 +210,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
     );
     totalMpBorrows += totalOwed;
 
-    eToken.accrueEarnings(earningsSP);
+    eToken.reportEarnings(earningsSP);
     auditor.validateBorrowMP(this, msg.sender);
 
     doTransferOut(msg.sender, amount);
@@ -239,7 +239,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
       minAmountRequired
     );
 
-    eToken.accrueEarnings(earningsSP);
+    eToken.reportEarnings(earningsSP);
 
     emit DepositToMaturityPool(msg.sender, amount, currentTotalDeposit - amount, maturityDate);
   }
@@ -268,7 +268,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
       eToken.totalSupply()
     );
 
-    eToken.accrueEarnings(earningsSP);
+    eToken.reportEarnings(earningsSP);
 
     doTransferOut(msg.sender, redeemAmountDiscounted);
 
@@ -350,7 +350,7 @@ contract FixedLender is IFixedLender, ReentrancyGuard, AccessControl, Pausable {
 
     doTransferIn(payer, actualRepayAmount);
 
-    eToken.accrueEarnings(earningsSP);
+    eToken.reportEarnings(earningsSP);
 
     totalMpBorrows -= debtCovered;
 

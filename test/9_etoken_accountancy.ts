@@ -3,6 +3,7 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+const { provider } = ethers;
 
 describe("EToken accounting (mint, burn & accrueEarnings)", () => {
   let bob: SignerWithAddress;
@@ -11,10 +12,11 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
   let eDAI: Contract;
 
   const { AddressZero } = ethers.constants;
+  let snapshot: any;
 
   beforeEach(async () => {
+    snapshot = await ethers.provider.send("evm_snapshot", []);
     [bob, laura, tito] = await ethers.getSigners();
-
     const MockEToken = await ethers.getContractFactory("EToken");
     eDAI = await MockEToken.deploy("eFake DAI", "eFDAI", 18);
     await eDAI.deployed();
@@ -37,23 +39,23 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
       });
 
       it("THEN balance of eDAI in bob's address is 1000", async () => {
-        let bobBalance = await eDAI.balanceOf(bob.address);
+        const bobBalance = await eDAI.balanceOf(bob.address);
 
         expect(bobBalance).to.equal(parseUnits("1000"));
       });
       it("THEN balance of eDAI in laura's address is 0", async () => {
-        let lauraBalance = await eDAI.balanceOf(laura.address);
+        const lauraBalance = await eDAI.balanceOf(laura.address);
 
         expect(lauraBalance).to.equal(parseUnits("0"));
       });
       it("THEN total supply in contract is 1000", async () => {
-        let totalSupply = await eDAI.totalSupply();
+        const totalSupply = await eDAI.totalSupply();
 
         expect(totalSupply).to.equal(parseUnits("1000"));
       });
       it("AND WHEN bob mints 100 eDAI more, THEN his balance increases & event Transfer is emitted", async () => {
         await expect(await eDAI.mint(bob.address, parseUnits("100"))).to.emit(eDAI, "Transfer");
-        let bobBalance = await eDAI.balanceOf(bob.address);
+        const bobBalance = await eDAI.balanceOf(bob.address);
 
         expect(bobBalance).to.equal(parseUnits("1100"));
       });
@@ -62,12 +64,12 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
           await eDAI.accrueEarnings(parseUnits("1000"));
         });
         it("THEN total supply in contract is 2000", async () => {
-          let totalSupply = await eDAI.totalSupply();
+          const totalSupply = await eDAI.totalSupply();
 
           expect(totalSupply).to.equal(parseUnits("2000"));
         });
         it("THEN balance of eDAI in bob's address is 2000", async () => {
-          let bobBalance = await eDAI.balanceOf(bob.address);
+          const bobBalance = await eDAI.balanceOf(bob.address);
 
           expect(bobBalance).to.equal(parseUnits("2000"));
         });
@@ -76,7 +78,7 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
             await eDAI.mint(laura.address, parseUnits("1000"));
           });
           it("THEN balance of laura is still 1000", async () => {
-            let lauraBalance = await eDAI.balanceOf(laura.address);
+            const lauraBalance = await eDAI.balanceOf(laura.address);
 
             expect(lauraBalance).to.equal(parseUnits("1000"));
           });
@@ -86,17 +88,17 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
             });
 
             it("THEN total supply in contract is 3600", async () => {
-              let totalSupply = await eDAI.totalSupply();
+              const totalSupply = await eDAI.totalSupply();
 
               expect(totalSupply).to.equal(parseUnits("3600"));
             });
             it("THEN balance of eDAI in bob's address is 2400", async () => {
-              let bobBalance = await eDAI.balanceOf(bob.address);
+              const bobBalance = await eDAI.balanceOf(bob.address);
 
               expect(bobBalance).to.equal(parseUnits("2400"));
             });
             it("THEN balance of eDAI in laura's address is 1200", async () => {
-              let lauraBalance = await eDAI.balanceOf(laura.address);
+              const lauraBalance = await eDAI.balanceOf(laura.address);
 
               expect(lauraBalance).to.equal(parseUnits("1200"));
             });
@@ -108,17 +110,17 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
           await eDAI.mint(laura.address, parseUnits("1000"));
         });
         it("THEN balance of eDAI in laura's address is 1000", async () => {
-          let lauraBalance = await eDAI.balanceOf(laura.address);
+          const lauraBalance = await eDAI.balanceOf(laura.address);
 
           expect(lauraBalance).to.be.closeTo(parseUnits("1000"), 1);
         });
         it("THEN balance of eDAI in bob's address is still 1000", async () => {
-          let bobBalance = await eDAI.balanceOf(bob.address);
+          const bobBalance = await eDAI.balanceOf(bob.address);
 
           expect(bobBalance).to.equal(parseUnits("1000"));
         });
         it("THEN total supply in contract is 2000", async () => {
-          let totalSupply = await eDAI.totalSupply();
+          const totalSupply = await eDAI.totalSupply();
 
           expect(totalSupply).to.equal(parseUnits("2000"));
         });
@@ -127,22 +129,22 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
             await eDAI.accrueEarnings(parseUnits("500"));
           });
           it("THEN total supply in contract is 2500", async () => {
-            let totalSupply = await eDAI.totalSupply();
+            const totalSupply = await eDAI.totalSupply();
 
             expect(totalSupply).to.equal(parseUnits("2500"));
           });
           it("THEN balance of eDAI in laura's address is 1250", async () => {
-            let lauraBalance = await eDAI.balanceOf(laura.address);
+            const lauraBalance = await eDAI.balanceOf(laura.address);
 
             expect(lauraBalance).to.equal(parseUnits("1250"));
           });
           it("THEN balance of eDAI in bob's address is 1250", async () => {
-            let bobBalance = await eDAI.balanceOf(bob.address);
+            const bobBalance = await eDAI.balanceOf(bob.address);
 
             expect(bobBalance).to.equal(parseUnits("1250"));
           });
           it("AND WHEN an accrue of earnings is made, THEN event EarningsAccrued is emitted", async () => {
-            let earningsAmount = parseUnits("100");
+            const earningsAmount = parseUnits("100");
             await expect(await eDAI.accrueEarnings(earningsAmount))
               .to.emit(eDAI, "EarningsAccrued")
               .withArgs(earningsAmount);
@@ -152,18 +154,18 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
               await eDAI.burn(bob.address, parseUnits("625"));
             });
             it("THEN balance of eDAI in bob's address is 625", async () => {
-              let bobBalance = await eDAI.balanceOf(bob.address);
+              const bobBalance = await eDAI.balanceOf(bob.address);
 
               expect(bobBalance).to.equal(parseUnits("625"));
             });
             it("THEN total supply in contract is 1875", async () => {
-              let totalSupply = await eDAI.totalSupply();
+              const totalSupply = await eDAI.totalSupply();
 
               expect(totalSupply).to.equal(parseUnits("1875"));
             });
             it("AND WHEN bob burns 625 eDAI more, THEN his balance is 0", async () => {
               await eDAI.burn(bob.address, parseUnits("625"));
-              let bobBalance = await eDAI.balanceOf(bob.address);
+              const bobBalance = await eDAI.balanceOf(bob.address);
 
               expect(bobBalance).to.equal(parseUnits("0"));
             });
@@ -182,19 +184,19 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
                   await eDAI.accrueEarnings(parseUnits("1000"));
                 });
                 it("THEN total supply in contract is 4125", async () => {
-                  let totalSupply = await eDAI.totalSupply();
+                  const totalSupply = await eDAI.totalSupply();
 
                   expect(totalSupply).to.equal(parseUnits("4125"));
                 });
                 it("THEN balance of eDAI in tito's and laura's address is 1650", async () => {
-                  let titoBalance = await eDAI.balanceOf(tito.address);
-                  let lauraBalance = await eDAI.balanceOf(laura.address);
+                  const titoBalance = await eDAI.balanceOf(tito.address);
+                  const lauraBalance = await eDAI.balanceOf(laura.address);
 
                   expect(titoBalance).to.equal(parseUnits("1650"));
                   expect(lauraBalance).to.equal(parseUnits("1650"));
                 });
                 it("THEN balance of eDAI in bob's address is 825", async () => {
-                  let bobBalance = await eDAI.balanceOf(bob.address);
+                  const bobBalance = await eDAI.balanceOf(bob.address);
 
                   expect(bobBalance).to.equal(parseUnits("825"));
                 });
@@ -209,9 +211,53 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
         await expect(eDAI.mint(AddressZero, parseUnits("100"))).to.be.revertedWith("ERC20: zero address");
       });
       it("THEN balance of address should return zero if never minted", async () => {
-        let userBalance = await eDAI.balanceOf(AddressZero);
+        const userBalance = await eDAI.balanceOf(AddressZero);
 
         expect(userBalance).to.equal("0");
+      });
+    });
+
+    describe.only("AND GIVEN bob & laura mint 1000 eDAI each & 1000 are reported", () => {
+      beforeEach(async () => {
+        await eDAI.mint(bob.address, parseUnits("1000"));
+        await eDAI.mint(laura.address, parseUnits("1000"));
+        await eDAI.reportEarnings(parseUnits("700"));
+      });
+
+      it("THEN balance of eDAI in bob's address is 1000", async () => {
+        const bobBalance = await eDAI.balanceOf(bob.address);
+
+        expect(bobBalance).to.equal(parseUnits("1000"));
+      });
+      it("THEN balance of eDAI in laura's address is 1000", async () => {
+        const lauraBalance = await eDAI.balanceOf(laura.address);
+
+        expect(lauraBalance).to.equal(parseUnits("1000"));
+      });
+      it("THEN total supply in contract is 2000", async () => {
+        const totalSupply = await eDAI.totalSupply();
+
+        expect(totalSupply).to.equal(parseUnits("2000"));
+      });
+
+      describe("AND 3 days go by", () => {
+        beforeEach(async () => {
+          const threeDays = Math.floor(Date.now() / 1_000) + 86400 * 3;
+          await provider.send("evm_setNextBlockTimestamp", [threeDays]);
+          await provider.send("evm_mine", []);
+        });
+        it("THEN balance of eDAI in bob's address is 1150", async () => {
+          const bobBalance = await eDAI.balanceOf(bob.address);
+          expect(bobBalance).to.equal(parseUnits("1150"));
+        });
+        it("THEN balance of eDAI in laura's address is 1150", async () => {
+          const lauraBalance = await eDAI.balanceOf(laura.address);
+          expect(lauraBalance).to.equal(parseUnits("1150"));
+        });
+        it("THEN total supply in contract is 2000", async () => {
+          const totalSupply = await eDAI.totalSupply();
+          expect(totalSupply).to.equal(parseUnits("2300"));
+        });
       });
     });
   });
@@ -240,5 +286,9 @@ describe("EToken accounting (mint, burn & accrueEarnings)", () => {
     it("AND invoking burn, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
       await expect(eDAI.connect(laura).burn(laura.address, "100")).to.be.revertedWith("NotFixedLender()");
     });
+  });
+
+  afterEach(async () => {
+    await provider.send("evm_revert", [snapshot]);
   });
 });
