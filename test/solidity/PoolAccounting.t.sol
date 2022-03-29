@@ -27,10 +27,10 @@ contract PoolAccountingTest is DSTest {
   }
 
   function testAtomicDepositBorrowRepayWithdraw() external {
-    pool.depositMP(POOL_ID, address(this), 1 ether, 1 ether);
-    pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 1 ether);
+    pool.depositMP(POOL_ID, address(this), 1 ether, 0 ether);
+    pool.borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 0);
     pool.repayMP(POOL_ID, address(this), 1 ether, 1.01 ether);
-    pool.withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 1 ether);
+    pool.withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 0);
   }
 
   function testFailUnauthorizedDeposit() external {

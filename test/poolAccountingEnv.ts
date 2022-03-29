@@ -9,7 +9,7 @@ export class PoolAccountingEnv {
   realInterestRateModel: Contract;
   poolAccountingHarness: Contract;
   currentWallet: SignerWithAddress;
-  maxSPDebt = parseUnits("100000"); // we use a high maxSPDebt limit since max borrows are already tested
+  smartPoolTotalSupply = parseUnits("100000"); // we use a high smartPoolTotalSupply limit since max borrows are already tested
 
   constructor(
     _mockInterestRateModel: Contract,
@@ -78,7 +78,13 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .withdrawMPWithReturnValues(maturityPool, this.currentWallet.address, amount, minAmountRequired, this.maxSPDebt);
+      .withdrawMPWithReturnValues(
+        maturityPool,
+        this.currentWallet.address,
+        amount,
+        minAmountRequired,
+        this.smartPoolTotalSupply,
+      );
   }
 
   public async borrowMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -91,7 +97,13 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .borrowMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount, this.maxSPDebt);
+      .borrowMPWithReturnValues(
+        maturityPool,
+        this.currentWallet.address,
+        amount,
+        expectedAmount,
+        this.smartPoolTotalSupply,
+      );
   }
 
   static async create(): Promise<PoolAccountingEnv> {
@@ -99,10 +111,10 @@ export class PoolAccountingEnv {
     const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
-      parseUnits("0.07"), // A parameter for the curve
-      parseUnits("0.07"), // B parameter for the curve
-      parseUnits("0.02"), // Max utilization rate
-      parseUnits("0.01"), // Full utilization rate
+      parseUnits("0.75"), // A parameter for the curve
+      parseUnits("-0.105"), // B parameter for the curve
+      parseUnits("6"), // Max utilization rate
+      parseUnits("4"), // Full utilization rate
       parseUnits("0"), // SP rate if 0 then no fees charged for the mp depositors' yield
     );
     await realInterestRateModel.deployed();
