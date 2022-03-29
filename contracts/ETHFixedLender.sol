@@ -21,8 +21,8 @@ contract ETHFixedLender is FixedLender {
     IAuditor auditor_,
     IInterestRateModel _interestRateModel,
     uint256 _penaltyRate,
-    uint256 _smartPoolReserve
-  ) FixedLender(weth, assetSymbol_, auditor_, _interestRateModel, _penaltyRate, _smartPoolReserve) {} // solhint-disable-line no-empty-blocks, max-line-length
+    uint256 _smartPoolReserveFactor
+  ) FixedLender(weth, assetSymbol_, auditor_, _interestRateModel, _penaltyRate, _smartPoolReserveFactor) {} // solhint-disable-line no-empty-blocks, max-line-length
 
   receive() external payable {} // solhint-disable-line no-empty-blocks
 
