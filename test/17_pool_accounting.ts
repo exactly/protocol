@@ -942,7 +942,7 @@ describe("PoolAccounting", () => {
       let tx: any;
       beforeEach(async () => {
         poolAccountingEnv.switchWallet(laura);
-        poolAccountingEnv.maxSPDebt = parseUnits("100");
+        poolAccountingEnv.smartPoolTotalSupply = parseUnits("100");
         await poolAccountingHarness.setSmartPoolReserveFactor(parseUnits("0.1"));
         tx = poolAccountingEnv.borrowMP(nextPoolID, "80");
         await tx;
@@ -957,7 +957,7 @@ describe("PoolAccounting", () => {
         await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.be.revertedWith("SmartPoolReserveExceeded()");
       });
       it("AND WHEN depositing 0.1 more to the sp, THEN it should not revert when trying to borrow 10.01 more", async () => {
-        poolAccountingEnv.maxSPDebt = parseUnits("100.1");
+        poolAccountingEnv.smartPoolTotalSupply = parseUnits("100.1");
         await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.not.be.reverted;
       });
       it("AND WHEN setting the smart pool reserve to 0, THEN it should not revert when trying to borrow 10.01 more", async () => {
