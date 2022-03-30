@@ -45,10 +45,11 @@ describe("FixedLender - Pausable", function () {
     });
     describe("AND GIVEN a pause for all actions that have whenNotPaused modifier", () => {
       beforeEach(async () => {
+        await exactlyEnv.getUnderlying("DAI").approve(fixedLender.address, ethers.constants.MaxUint256);
         await fixedLender.pause();
       });
       it("THEN it should revert when trying to deposit to a smart pool", async () => {
-        await expect(fixedLender.depositToSmartPool("0")).to.be.revertedWith("Pausable: paused");
+        await expect(fixedLender.deposit(10n ** 18n, user.address)).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should revert when trying to deposit to a maturity pool", async () => {
         await expect(fixedLender.depositToMaturityPool("0", nextPoolId, "0")).to.be.revertedWith("Pausable: paused");

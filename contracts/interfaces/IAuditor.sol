@@ -1,39 +1,39 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { IFixedLender } from "./IFixedLender.sol";
+import { FixedLender } from "../FixedLender.sol";
 
 interface IAuditor {
   // this one validates post liquidity check
-  function validateBorrowMP(IFixedLender fixedLender, address borrower) external;
+  function validateBorrowMP(FixedLender fixedLender, address borrower) external;
 
   function getAccountLiquidity(address account) external view returns (uint256, uint256);
 
   function liquidateAllowed(
-    IFixedLender fixedLenderBorrowed,
-    IFixedLender fixedLenderCollateral,
+    FixedLender fixedLenderBorrowed,
+    FixedLender fixedLenderCollateral,
     address liquidator,
     address borrower,
     uint256 repayAmount
   ) external view;
 
   function seizeAllowed(
-    IFixedLender fixedLenderCollateral,
-    IFixedLender fixedLenderBorrowed,
+    FixedLender fixedLenderCollateral,
+    FixedLender fixedLenderBorrowed,
     address liquidator,
     address borrower
   ) external view;
 
   function liquidateCalculateSeizeAmount(
-    IFixedLender fixedLenderBorrowed,
-    IFixedLender fixedLenderCollateral,
+    FixedLender fixedLenderBorrowed,
+    FixedLender fixedLenderCollateral,
     uint256 actualRepayAmount
   ) external view returns (uint256);
 
-  function getAllMarkets() external view returns (IFixedLender[] memory);
+  function getAllMarkets() external view returns (FixedLender[] memory);
 
   function validateAccountShortfall(
-    IFixedLender fixedLender,
+    FixedLender fixedLender,
     address account,
     uint256 amount
   ) external view;

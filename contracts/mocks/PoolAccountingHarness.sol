@@ -2,7 +2,7 @@
 pragma solidity 0.8.13;
 
 import { PoolAccounting, IInterestRateModel } from "../PoolAccounting.sol";
-import { IFixedLender } from "../interfaces/IFixedLender.sol";
+import { FixedLender } from "../FixedLender.sol";
 
 contract PoolAccountingHarness is PoolAccounting {
   struct ReturnValues {

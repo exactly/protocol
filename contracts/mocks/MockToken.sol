@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20 } from "@rari-capital/solmate/src/tokens/ERC20.sol";
 import { IFlashBorrower } from "./IFlashBorrower.sol";
 
 contract MockToken is ERC20 {
-  uint8 private immutable storedDecimals;
   uint256 private transferCommission = 0;
 
   /// @dev Constructor that gives msg.sender all of existing tokens.
   constructor(
-    string memory name,
-    string memory symbol,
-    uint8 _decimals,
+    string memory name_,
+    string memory symbol_,
+    uint8 decimals_,
     uint256 initialSupply
-  ) ERC20(name, symbol) {
+  ) ERC20(name_, symbol_, decimals_) {
     _mint(msg.sender, initialSupply);
-    storedDecimals = _decimals;
   }
 
   function flashLoan(uint256 amount) external {
@@ -41,9 +39,5 @@ contract MockToken is ERC20 {
   function transfer(address recipient, uint256 amount) public override returns (bool) {
     amount = ((amount * (1e18 - transferCommission)) / 1e18);
     return super.transfer(recipient, amount);
-  }
-
-  function decimals() public view virtual override returns (uint8) {
-    return storedDecimals;
   }
 }

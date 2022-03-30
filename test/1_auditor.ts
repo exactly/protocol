@@ -73,7 +73,7 @@ describe("Auditor from User Space", function () {
 
   it("validateBorrowMP should fail for when oracle gets weird", async () => {
     await dai.approve(fixedLenderDAI.address, 666);
-    await fixedLenderDAI.depositToSmartPool(666);
+    await fixedLenderDAI.deposit(666, user.address);
     await auditor.enterMarkets([fixedLenderDAI.address]);
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
     await expect(fixedLenderDAI.borrowFromMaturityPool(1, futurePools(1)[0], 1)).to.be.revertedWith("InvalidPrice()");
@@ -94,7 +94,7 @@ describe("Auditor from User Space", function () {
   it("Auto-adding a market should only be allowed from a fixedLender", async () => {
     // we supply Dai to the protocol
     await dai.approve(fixedLenderDAI.address, 100);
-    await fixedLenderDAI.depositToSmartPool(100);
+    await fixedLenderDAI.deposit(100, user.address);
 
     // we make it count as collateral (DAI)
     await expect(auditor.validateBorrowMP(fixedLenderDAI.address, owner.address)).to.be.revertedWith(
@@ -105,7 +105,7 @@ describe("Auditor from User Space", function () {
   it("SetBorrowCap should block borrowing more than the cap on a listed market", async () => {
     await timelockExecute(owner, auditor, "setMarketBorrowCaps", [[fixedLenderDAI.address], [10]]);
     await dai.approve(fixedLenderDAI.address, 1000);
-    await fixedLenderDAI.depositToSmartPool(1000);
+    await fixedLenderDAI.deposit(1000, user.address);
     await expect(
       // user tries to borrow more than the cap
       fixedLenderDAI.borrowFromMaturityPool(20, futurePools(1)[0], 22),
@@ -128,14 +128,14 @@ describe("Auditor from User Space", function () {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(fixedLenderDAI.address, amountDAI);
-    await fixedLenderDAI.depositToSmartPool(amountDAI);
+    await fixedLenderDAI.deposit(amountDAI, user.address);
     expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(amountDAI);
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address]);
 
-    // we supply Eth to the protocol
+    // we supply ETH to the protocol
     const amountETH = parseUnits("1");
-    await fixedLenderWETH.depositToSmartPoolEth({ value: amountETH });
+    await fixedLenderWETH.depositETH(user.address, { value: amountETH });
     expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(amountETH);
     // we make it count as collateral (WETH)
     await auditor.enterMarkets([fixedLenderWETH.address]);

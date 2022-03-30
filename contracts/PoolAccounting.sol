@@ -4,7 +4,7 @@ pragma solidity 0.8.13;
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { IPoolAccounting, AlreadyInitialized, TooMuchSlippage } from "./interfaces/IPoolAccounting.sol";
-import { IFixedLender, NotFixedLender } from "./interfaces/IFixedLender.sol";
+import { FixedLender, NotFixedLender } from "./FixedLender.sol";
 import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
@@ -43,7 +43,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
   uint256 public override smartPoolBorrowed;
 
-  IFixedLender public fixedLender;
+  FixedLender public fixedLender;
   IInterestRateModel public interestRateModel;
 
   uint256 public penaltyRate;
@@ -58,7 +58,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
   /// @notice emitted when the PoolAccounting is initialized with a FixedLender.
   /// @param fixedLender the FixedLender that is only authorized to call the PoolAccounting functions.
-  event Initialized(IFixedLender indexed fixedLender);
+  event Initialized(FixedLender indexed fixedLender);
 
   /// @dev only allow calls from the `fixedLender` contract. `fixedLender` should be set through `initialize` method.
   modifier onlyFixedLender() {
@@ -75,7 +75,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
   /// @dev Initializes the PoolAccounting setting the FixedLender address. Only able to initialize once.
   /// @param _fixedLender the address of the FixedLender that uses this PoolAccounting.
-  function initialize(IFixedLender _fixedLender) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function initialize(FixedLender _fixedLender) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (address(fixedLender) != address(0)) revert AlreadyInitialized();
 
     fixedLender = _fixedLender;

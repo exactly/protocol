@@ -1,50 +1,74 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { WETH } from "@rari-capital/solmate-v6/src/tokens/WETH.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { FixedLender, IEToken, IAuditor, IPoolAccounting } from "./FixedLender.sol";
+import { WETH, SafeTransferLib } from "@rari-capital/solmate/src/tokens/WETH.sol";
+import { FixedLender, IAuditor, IPoolAccounting } from "./FixedLender.sol";
 
 contract ETHFixedLender is FixedLender {
-  bool private wrapOnOurSide = false;
-  WETH private weth;
+  using SafeTransferLib for address;
+
+  bool private wrap = false;
 
   modifier usingETH() {
-    wrapOnOurSide = true;
+    wrap = true;
     _;
-    wrapOnOurSide = false;
+    wrap = false;
   }
 
   constructor(
-    WETH _token,
-    string memory _underlyingTokenSymbol,
-    IEToken _eToken,
-    IAuditor _auditor,
-    IPoolAccounting _poolAccounting
-  ) FixedLender(IERC20(address(_token)), _underlyingTokenSymbol, _eToken, _auditor, _poolAccounting) {
-    weth = _token;
-  }
+    WETH weth,
+    string memory assetSymbol_,
+    IAuditor auditor_,
+    IPoolAccounting poolAccounting_
+  ) FixedLender(weth, assetSymbol_, auditor_, poolAccounting_) {} // solhint-disable-line no-empty-blocks
 
-  // solhint-disable-next-line no-empty-blocks
-  receive() external payable {}
+  receive() external payable {} // solhint-disable-line no-empty-blocks
 
-  function borrowFromMaturityPoolEth(uint256 maturityDate, uint256 maxAmountAllowed) external payable usingETH {
+  function borrowFromMaturityPoolETH(uint256 maturityDate, uint256 maxAmountAllowed) external payable usingETH {
     borrowFromMaturityPool(msg.value, maturityDate, maxAmountAllowed);
   }
 
-  function depositToMaturityPoolEth(uint256 maturityDate, uint256 minAmountRequired) external payable usingETH {
+  function depositToMaturityPoolETH(uint256 maturityDate, uint256 minAmountRequired) external payable usingETH {
     depositToMaturityPool(msg.value, maturityDate, minAmountRequired);
   }
 
-  function depositToSmartPoolEth() external payable usingETH {
-    depositToSmartPool(msg.value);
+  function depositETH(address receiver) public payable returns (uint256 shares) {
+    // check for rounding error since we round down in previewDeposit.
+    require((shares = previewDeposit(msg.value)) != 0, "ZERO_SHARES");
+
+    WETH(payable(address(asset))).deposit{ value: msg.value }();
+
+    _mint(receiver, shares);
+
+    emit Deposit(msg.sender, receiver, msg.value, shares);
+
+    afterDeposit(msg.value, shares);
   }
 
-  function withdrawFromSmartPoolEth(uint256 amount) external usingETH {
-    withdrawFromSmartPool(amount);
+  function withdrawETH(
+    uint256 assets,
+    address receiver,
+    address owner
+  ) external returns (uint256 shares) {
+    shares = previewWithdraw(assets); // no need to check for rounding error, previewWithdraw rounds up.
+
+    if (msg.sender != owner) {
+      uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - shares;
+    }
+
+    beforeWithdraw(assets, shares);
+
+    _burn(owner, shares);
+
+    emit Withdraw(msg.sender, receiver, owner, assets, shares);
+
+    WETH(payable(address(asset))).withdraw(assets);
+    receiver.safeTransferETH(assets);
   }
 
-  function withdrawFromMaturityPoolEth(
+  function withdrawFromMaturityPoolETH(
     uint256 redeemAmount,
     uint256 minAmountRequired,
     uint256 maturityDate
@@ -52,7 +76,7 @@ contract ETHFixedLender is FixedLender {
     withdrawFromMaturityPool(redeemAmount, minAmountRequired, maturityDate);
   }
 
-  function repayToMaturityPoolEth(
+  function repayToMaturityPoolETH(
     address borrower,
     uint256 maturityDate,
     uint256 maxAmountAllowed
@@ -61,16 +85,16 @@ contract ETHFixedLender is FixedLender {
   }
 
   function doTransferIn(address from, uint256 amount) internal override {
-    if (wrapOnOurSide) {
-      weth.deposit{ value: msg.value }();
+    if (wrap) {
+      WETH(payable(address(asset))).deposit{ value: msg.value }();
     } else {
       super.doTransferIn(from, amount);
     }
   }
 
   function doTransferOut(address to, uint256 amount) internal override {
-    if (wrapOnOurSide) {
-      weth.withdraw(amount);
+    if (wrap) {
+      WETH(payable(address(asset))).withdraw(amount);
       payable(to).transfer(amount);
     } else {
       super.doTransferOut(to, amount);

@@ -29,7 +29,6 @@ export class DefaultEnv {
   fixedLenderContracts: Map<string, Contract>;
   poolAccountingContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
-  eTokenContracts: Map<string, Contract>;
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
@@ -46,7 +45,6 @@ export class DefaultEnv {
     _fixedLenderContracts: Map<string, Contract>,
     _poolAccountingContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
-    _eTokenContracts: Map<string, Contract>,
     _mockTokens: Map<string, MockTokenSpec>,
     _currentWallet: SignerWithAddress,
   ) {
@@ -55,7 +53,6 @@ export class DefaultEnv {
     this.fixedLenderContracts = _fixedLenderContracts;
     this.poolAccountingContracts = _poolAccountingContracts;
     this.underlyingContracts = _underlyingContracts;
-    this.eTokenContracts = _eTokenContracts;
     this.interestRateModel = _interestRateModel;
     this.mockTokens = _mockTokens;
     this.baseRate = parseUnits("0.02");
@@ -73,7 +70,6 @@ export class DefaultEnv {
     const fixedLenderContracts = new Map<string, Contract>();
     const poolAccountingContracts = new Map<string, Contract>();
     const underlyingContracts = new Map<string, Contract>();
-    const eTokenContracts = new Map<string, Contract>();
 
     const MockOracle = await ethers.getContractFactory("MockOracle");
     const oracle = await MockOracle.deploy();
@@ -121,9 +117,6 @@ export class DefaultEnv {
           );
           await underlyingToken.deployed();
         }
-        const MockEToken = await ethers.getContractFactory("EToken");
-        const eToken = await MockEToken.deploy("eFake " + tokenName, "eF" + tokenName, decimals);
-        await eToken.deployed();
 
         const PoolAccounting = await ethers.getContractFactory("PoolAccounting");
         const poolAccounting = await PoolAccounting.deploy(interestRateModel.address, parseUnits("0.02").div(86_400));
@@ -132,14 +125,12 @@ export class DefaultEnv {
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
-          eToken.address,
           auditor.address,
           poolAccounting.address,
         );
         await fixedLender.deployed();
 
         await poolAccounting.initialize(fixedLender.address);
-        await eToken.initialize(fixedLender.address, auditor.address);
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, usdPrice);
@@ -150,7 +141,6 @@ export class DefaultEnv {
         fixedLenderContracts.set(tokenName, fixedLender);
         poolAccountingContracts.set(tokenName, poolAccounting);
         underlyingContracts.set(tokenName, underlyingToken);
-        eTokenContracts.set(tokenName, eToken);
       }),
     );
 
@@ -163,7 +153,6 @@ export class DefaultEnv {
       fixedLenderContracts,
       poolAccountingContracts,
       underlyingContracts,
-      eTokenContracts,
       mockTokens!,
       owner,
     );
@@ -183,10 +172,6 @@ export class DefaultEnv {
 
   public getInterestRateModel(): Contract {
     return this.interestRateModel;
-  }
-
-  public getEToken(key: string): Contract {
-    return this.eTokenContracts.get(key)!;
   }
 
   public async setOracle(oracleAddress: string) {
@@ -225,7 +210,7 @@ export class DefaultEnv {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     await asset.connect(this.currentWallet).approve(fixedLender.address, amount);
-    return fixedLender.connect(this.currentWallet).depositToSmartPool(amount);
+    return fixedLender.connect(this.currentWallet).deposit(amount, this.currentWallet.address);
   }
 
   public async depositMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -244,7 +229,7 @@ export class DefaultEnv {
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     const expectedAmount =
       (expectedAtMaturity && parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) || applyMinFee(amount);
-    return fixedLender.connect(this.currentWallet).depositToMaturityPoolEth(maturityPool, expectedAmount, {
+    return fixedLender.connect(this.currentWallet).depositToMaturityPoolETH(maturityPool, expectedAmount, {
       value: amount,
     });
   }
@@ -253,20 +238,24 @@ export class DefaultEnv {
     assert(assetString === "WETH");
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    return fixedLender.connect(this.currentWallet).depositToSmartPoolEth({ value: amount });
+    return fixedLender.connect(this.currentWallet).depositETH(this.currentWallet.address, { value: amount });
   }
 
   public async withdrawSP(assetString: string, units: string) {
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    return fixedLender.connect(this.currentWallet).withdrawFromSmartPool(amount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdraw(amount, this.currentWallet.address, this.currentWallet.address);
   }
 
   public async withdrawSPETH(assetString: string, units: string) {
     assert(assetString === "WETH");
     const fixedLender = this.getFixedLender(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    return fixedLender.connect(this.currentWallet).withdrawFromSmartPoolEth(amount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawETH(amount, this.currentWallet.address, this.currentWallet.address);
   }
 
   public async withdrawMPETH(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -279,7 +268,7 @@ export class DefaultEnv {
     } else {
       expectedAmount = discountMaxFee(amount);
     }
-    return fixedLender.connect(this.currentWallet).withdrawFromMaturityPoolEth(amount, expectedAmount, maturityPool);
+    return fixedLender.connect(this.currentWallet).withdrawFromMaturityPoolETH(amount, expectedAmount, maturityPool);
   }
 
   public async withdrawMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -316,7 +305,7 @@ export class DefaultEnv {
     } else {
       expectedAmount = applyMaxFee(amount);
     }
-    return fixedLender.connect(this.currentWallet).borrowFromMaturityPoolEth(maturityPool, expectedAmount, {
+    return fixedLender.connect(this.currentWallet).borrowFromMaturityPoolETH(maturityPool, expectedAmount, {
       value: amount,
     });
   }
@@ -349,7 +338,7 @@ export class DefaultEnv {
     }
     return fixedLender
       .connect(this.currentWallet)
-      .repayToMaturityPoolEth(this.currentWallet.address, maturityPool, expectedAmount, {
+      .repayToMaturityPoolETH(this.currentWallet.address, maturityPool, expectedAmount, {
         value: amount,
       });
   }
@@ -410,15 +399,7 @@ export class DefaultEnv {
     return newAuditor;
   }
 
-  public async deployNewEToken(name: string, symbol: string, decimals: number) {
-    const EToken = await ethers.getContractFactory("EToken");
-    const eToken = await EToken.deploy(name, symbol, decimals);
-    await eToken.deployed();
-    return eToken;
-  }
-
   public async deployNewFixedLender(
-    eTokenAddress: string,
     newAuditorAddress: string,
     interestRateModelAddress: string,
     underlyingAddress: string,
@@ -430,7 +411,6 @@ export class DefaultEnv {
     const fixedLender = await FixedLender.deploy(
       underlyingAddress,
       underlyingTokenName,
-      eTokenAddress,
       newAuditorAddress,
       poolAccounting.address,
     );
@@ -441,8 +421,8 @@ export class DefaultEnv {
 
   public async smartPoolState(assetString: string) {
     const poolLender = this.getPoolAccounting(assetString);
-    const eToken = this.getEToken(assetString);
-    return new SmartPoolState(await eToken.totalSupply(), await poolLender.smartPoolBorrowed());
+    const eToken = this.getFixedLender(assetString);
+    return new SmartPoolState(await eToken.totalAssets(), await poolLender.smartPoolBorrowed());
   }
 
   public async maturityPool(assetString: string, maturityPoolID: number) {

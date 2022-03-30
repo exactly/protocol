@@ -91,7 +91,7 @@ describe("Auditor Admin", function () {
       });
       const fixedLender = await deploy("NewFixedLender", {
         contract: "FixedLender",
-        args: [dai.address, "DAI", (await get("ETokenDAI")).address, newAuditor.address, poolAccountingDAI.address],
+        args: [dai.address, "DAI", newAuditor.address, poolAccountingDAI.address],
         from: owner.address,
       });
       await expect(
@@ -118,7 +118,7 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
       const fixedLender = await deploy("NewFixedLender", {
         contract: "FixedLender",
-        args: [dai.address, "DAI", (await get("ETokenDAI")).address, auditor.address, poolAccountingDAI.address],
+        args: [dai.address, "DAI", auditor.address, poolAccountingDAI.address],
         from: owner.address,
       });
       await expect(auditor.enableMarket(fixedLender.address, parseUnits("0.5"), "DAI", "DAI", 18))

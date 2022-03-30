@@ -2,19 +2,19 @@
 pragma solidity 0.8.13;
 
 import { MockToken } from "./MockToken.sol";
-import { IFixedLender } from "../interfaces/IFixedLender.sol";
+import { FixedLender } from "../FixedLender.sol";
 import { IFlashBorrower } from "./IFlashBorrower.sol";
 
 contract FlashLoanAttacker is IFlashBorrower {
   MockToken private underlying;
-  IFixedLender private fixedLender;
+  FixedLender private fixedLender;
   uint256 private maturityDate;
   uint256 private amount;
   address private borrower;
   uint256 private constant FLASHLOAN_AMOUNT = 1e9 ether;
 
   function attack(
-    IFixedLender fixedLender_,
+    FixedLender fixedLender_,
     uint256 maturityDate_,
     uint256 amount_
   ) external {
@@ -22,14 +22,14 @@ contract FlashLoanAttacker is IFlashBorrower {
     maturityDate = maturityDate_;
     fixedLender = fixedLender_;
     amount = amount_;
-    underlying = MockToken(address(fixedLender.trustedUnderlying()));
+    underlying = MockToken(address(fixedLender.asset()));
     underlying.flashLoan(FLASHLOAN_AMOUNT);
   }
 
   function doThingsWithFlashLoan() external override {
     underlying.approve(address(fixedLender), 2 * FLASHLOAN_AMOUNT);
-    fixedLender.depositToSmartPool(FLASHLOAN_AMOUNT);
+    fixedLender.deposit(FLASHLOAN_AMOUNT, address(this));
     fixedLender.repayToMaturityPool(borrower, maturityDate, amount, amount);
-    fixedLender.withdrawFromSmartPool(FLASHLOAN_AMOUNT);
+    fixedLender.withdraw(FLASHLOAN_AMOUNT, address(this), address(this));
   }
 }
