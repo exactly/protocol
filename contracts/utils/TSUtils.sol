@@ -57,20 +57,6 @@ library TSUtils {
       revert UnmatchedPoolStateMultiple(uint8(poolState), uint8(requiredState), uint8(alternativeState));
     }
   }
-
-  /// @notice returns all the future pool IDs.
-  function futurePools(uint8 maxFuturePools) internal view returns (uint256[] memory) {
-    uint256[] memory poolIDs = new uint256[](maxFuturePools);
-    uint256 timestamp = block.timestamp - (block.timestamp % INTERVAL);
-    for (uint256 i = 0; i < maxFuturePools; ) {
-      timestamp += INTERVAL;
-      poolIDs[i] = timestamp;
-      unchecked {
-        ++i;
-      }
-    }
-    return poolIDs;
-  }
 }
 
 error UnmatchedPoolState(uint8 state, uint8 requiredState);

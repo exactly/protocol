@@ -352,12 +352,6 @@ contract PoolAccounting is AccessControl {
     } else debt = getAccountDebt(who, maturityDate);
   }
 
-  /// @dev Gets the total amount of borrowed money for a maturityDate.
-  /// @param maturityDate maturity date.
-  function getTotalMpBorrows(uint256 maturityDate) public view returns (uint256) {
-    return maturityPools[maturityDate].borrowed;
-  }
-
   /// @notice Internal function to get the debt + penalties of an account for a certain maturityDate.
   /// @param who wallet to return debt status for the specified maturityDate.
   /// @param maturityDate amount to be transfered.

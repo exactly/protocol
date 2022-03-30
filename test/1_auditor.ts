@@ -119,11 +119,6 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith("InvalidPrice()");
   });
 
-  it("Future pools should match JS generated ones", async () => {
-    await timelockExecute(owner, fixedLenderDAI, "setMaxFuturePools", [24]);
-    expect(await fixedLenderDAI.getFuturePools()).to.deep.equal(futurePools(24));
-  });
-
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
     // we supply Dai to the protocol
     const amountDAI = parseUnits("100");
