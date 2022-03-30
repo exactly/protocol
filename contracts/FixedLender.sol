@@ -165,7 +165,31 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     FixedLender fixedLenderCollateral,
     uint256 maturityDate
   ) external nonReentrant whenNotPaused returns (uint256) {
-    return _liquidate(msg.sender, borrower, repayAmount, maxAmountAllowed, fixedLenderCollateral, maturityDate);
+    // reverts on failure
+    auditor.liquidateAllowed(this, fixedLenderCollateral, msg.sender, borrower, repayAmount);
+
+    repayAmount = _repay(msg.sender, borrower, maturityDate, repayAmount, maxAmountAllowed);
+
+    // reverts on failure
+    uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(this, fixedLenderCollateral, repayAmount);
+
+    // Revert if borrower collateral token balance < seizeTokens
+    (uint256 balance, ) = fixedLenderCollateral.getAccountSnapshot(borrower, maturityDate);
+    if (balance < seizeTokens) revert BalanceExceeded();
+
+    // If this is also the collateral
+    // run seizeInternal to avoid re-entrancy, otherwise make an external call
+    // both revert on failure
+    if (address(fixedLenderCollateral) == address(this)) {
+      _seize(this, msg.sender, borrower, seizeTokens);
+    } else {
+      fixedLenderCollateral.seize(msg.sender, borrower, seizeTokens);
+    }
+
+    // We emit a LiquidateBorrow event
+    emit LiquidateBorrow(msg.sender, borrower, repayAmount, fixedLenderCollateral, seizeTokens, maturityDate);
+
+    return repayAmount;
   }
 
   /// @notice Public function to seize a certain amount of tokens.
@@ -181,11 +205,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 seizeAmount
   ) external nonReentrant whenNotPaused {
     _seize(FixedLender(msg.sender), liquidator, borrower, seizeAmount);
-  }
-
-  /// @dev Function to retrieve valid future pools.
-  function getFuturePools() external view returns (uint256[] memory) {
-    return TSUtils.futurePools(maxFuturePools);
   }
 
   /// @dev Lends to a wallet for a certain maturity date/pool.
@@ -248,7 +267,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 minAmountRequired,
     uint256 maturityDate
   ) public nonReentrant {
-    if (redeemAmount == 0) revert ZeroRedeem();
+    if (redeemAmount == 0) revert ZeroWithdraw();
 
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.MATURED);
@@ -329,48 +348,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     return actualRepayAmount;
   }
 
-  /// @notice Internal Function to liquidate an uncollaterized position.
-  /// @dev Liquidator liquidates a borrower's position and repays a certain amount of collateral for a maturity date,
-  /// seizing part of borrower's collateral.
-  /// @param borrower wallet that has an outstanding debt for a certain maturity date.
-  /// @param repayAmount amount to be repaid by liquidator(msg.sender).
-  /// @param fixedLenderCollateral address of fixedLender from which the collateral will be seized.
-  /// @param maturityDate maturity date for which the position will be liquidated.
-  function _liquidate(
-    address liquidator,
-    address borrower,
-    uint256 repayAmount,
-    uint256 maxAmountAllowed,
-    FixedLender fixedLenderCollateral,
-    uint256 maturityDate
-  ) internal returns (uint256) {
-    // reverts on failure
-    auditor.liquidateAllowed(this, fixedLenderCollateral, liquidator, borrower, repayAmount);
-
-    repayAmount = _repay(liquidator, borrower, maturityDate, repayAmount, maxAmountAllowed);
-
-    // reverts on failure
-    uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(this, fixedLenderCollateral, repayAmount);
-
-    // Revert if borrower collateral token balance < seizeTokens
-    (uint256 balance, ) = fixedLenderCollateral.getAccountSnapshot(borrower, maturityDate);
-    if (balance < seizeTokens) revert BalanceExceeded();
-
-    // If this is also the collateral
-    // run seizeInternal to avoid re-entrancy, otherwise make an external call
-    // both revert on failure
-    if (address(fixedLenderCollateral) == address(this)) {
-      _seize(this, liquidator, borrower, seizeTokens);
-    } else {
-      fixedLenderCollateral.seize(liquidator, borrower, seizeTokens);
-    }
-
-    // We emit a LiquidateBorrow event
-    emit LiquidateBorrow(liquidator, borrower, repayAmount, fixedLenderCollateral, seizeTokens, maturityDate);
-
-    return repayAmount;
-  }
-
   /// @notice Private function to seize a certain amount of tokens.
   /// @dev Private function for liquidator to seize borrowers tokens in the smart pool.
   /// Will only be called from this FixedLender on `liquidation` or through `seize` calls from another FixedLender.
@@ -411,5 +388,5 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
 error BalanceExceeded();
 error NotFixedLender();
-error ZeroRedeem();
+error ZeroWithdraw();
 error ZeroRepay();

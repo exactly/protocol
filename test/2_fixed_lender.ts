@@ -83,7 +83,7 @@ describe("FixedLender", function () {
           expect(await fixedLenderDAI.totalAssets()).to.be.equal(2);
         });
         it("AND a 1 wei of DAI borrow is registered", async () => {
-          expect(await fixedLenderDAI.getTotalMpBorrows(futurePools(1)[0])).to.equal(1);
+          expect((await fixedLenderDAI.maturityPools(futurePools(1)[0]))[0]).to.equal(1);
         });
       });
     });
@@ -140,7 +140,7 @@ describe("FixedLender", function () {
           .withArgs(maria.address, parseUnits("60"), 0, futurePools(1)[0]);
       });
       it("AND a 60 DAI borrow is registered", async () => {
-        expect(await fixedLenderDAI.getTotalMpBorrows(futurePools(1)[0])).to.equal(parseUnits("60"));
+        expect((await fixedLenderDAI.maturityPools(futurePools(1)[0]))[0]).to.equal(parseUnits("60"));
       });
       it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
         const maturities = await fixedLenderDAI.userMpBorrowed(maria.address);
@@ -238,7 +238,7 @@ describe("FixedLender", function () {
         });
         it("WHEN trying to withdraw an amount of zero THEN it reverts", async () => {
           await expect(fixedLenderDAI.withdrawFromMaturityPool(0, 0, futurePools(1)[0])).to.be.revertedWith(
-            "ZeroRedeem()",
+            "ZeroWithdraw()",
           );
         });
       });
