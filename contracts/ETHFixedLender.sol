@@ -86,7 +86,10 @@ contract ETHFixedLender is FixedLender {
 
   function doTransferIn(address from, uint256 amount) internal override {
     if (wrap) {
-      WETH(payable(address(asset))).deposit{ value: msg.value }();
+      // any excess is sent back
+      if (msg.value > amount) payable(from).transfer(msg.value - amount);
+
+      WETH(payable(address(asset))).deposit{ value: amount }();
     } else {
       super.doTransferIn(from, amount);
     }

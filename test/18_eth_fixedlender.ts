@@ -352,6 +352,28 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
               expect(balanceDiff).to.be.gt(parseUnits("5"));
             });
           });
+          describe("WHEN repaying more than debt amount in ETH (native)", () => {
+            let tx: any;
+            let aliceETHBalanceBefore: BigNumber;
+            beforeEach(async () => {
+              aliceETHBalanceBefore = await ethers.provider.getBalance(alice.address);
+              tx = exactlyEnv.repayMPETH("WETH", nextPoolId, "10");
+              await tx;
+            });
+            it("AND Alices debt is cleared", async () => {
+              const [, amountOwed] = await exactlyEnv
+                .getFixedLender("WETH")
+                .getAccountSnapshot(alice.address, nextPoolId);
+              expect(amountOwed).to.equal(parseUnits("0"));
+            });
+            it("AND ETH is returned to the contract", async () => {
+              expect(await weth.balanceOf(exactlyEnv.getFixedLender("WETH").address)).to.equal(parseUnits("60"));
+              const newBalance = await ethers.provider.getBalance(alice.address);
+              const balanceDiff = aliceETHBalanceBefore.sub(newBalance);
+              expect(balanceDiff).to.be.lt(parseUnits("5.05"));
+              expect(balanceDiff).to.be.gt(parseUnits("5"));
+            });
+          });
         });
       });
     });
