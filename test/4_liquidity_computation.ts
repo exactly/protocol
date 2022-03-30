@@ -74,7 +74,7 @@ describe("Liquidity computations", function () {
   describe("positions aren't immediately liquidatable", () => {
     describe("GIVEN laura deposits 1k dai to a smart pool", () => {
       beforeEach(async () => {
-        await fixedLenderDAI.depositToSmartPool(parseUnits("1000"));
+        await fixedLenderDAI.deposit(parseUnits("1000"), laura.address);
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
@@ -138,7 +138,7 @@ describe("Liquidity computations", function () {
         });
         describe("AND GIVEN laura deposits more collateral for another asset", () => {
           beforeEach(async () => {
-            await fixedLenderWETH.depositToMaturityPoolEth(futurePools(1)[0], parseUnits("1"), {
+            await fixedLenderWETH.depositToMaturityPoolETH(futurePools(1)[0], parseUnits("1"), {
               value: parseUnits("1"),
             });
             await auditor.enterMarkets([fixedLenderWETH.address]);
@@ -158,7 +158,7 @@ describe("Liquidity computations", function () {
     describe("GIVEN a well funded maturity pool (10k dai, laura), AND collateral for the borrower, (10k usdc, bob)", () => {
       beforeEach(async () => {
         await fixedLenderDAI.depositToMaturityPool(parseUnits("10000"), futurePools(1)[0], parseUnits("10000"));
-        await fixedLenderUSDC.connect(bob).depositToSmartPool(parseUnits("10000", 6));
+        await fixedLenderUSDC.connect(bob).deposit(parseUnits("10000", 6), bob.address);
       });
       describe("WHEN bob asks for a 7k dai loan (10k usdc should give him 8k usd liquidity)", () => {
         beforeEach(async () => {
@@ -232,7 +232,7 @@ describe("Liquidity computations", function () {
       });
       describe("WHEN bob does a 1 sat deposit", () => {
         beforeEach(async () => {
-          await fixedLenderWBTC.connect(bob).depositToSmartPool(1);
+          await fixedLenderWBTC.connect(bob).deposit(1, bob.address);
         });
         it("THEN bobs liquidity is 63000 * 0.6 * 10 ^ - 8 usd == 3.78*10^14 minimal usd units", async () => {
           const [liquidity] = await auditor.getAccountLiquidity(bob.address);
@@ -263,7 +263,7 @@ describe("Liquidity computations", function () {
 
       describe("AND GIVEN Bob provides 60k dai (18 decimals) as collateral", () => {
         beforeEach(async () => {
-          await fixedLenderDAI.connect(bob).depositToSmartPool(parseUnits("60000"));
+          await fixedLenderDAI.connect(bob).deposit(parseUnits("60000"), bob.address);
         });
         // Here I'm trying to make sure we use the borrowed token's decimals
         // properly to compute liquidity
@@ -284,8 +284,8 @@ describe("Liquidity computations", function () {
 
       describe("AND GIVEN Bob provides 20k dai (18 decimals) and 40k usdc (6 decimals) as collateral", () => {
         beforeEach(async () => {
-          await fixedLenderDAI.connect(bob).depositToSmartPool(parseUnits("20000"));
-          await fixedLenderUSDC.connect(bob).depositToSmartPool(parseUnits("40000", 6));
+          await fixedLenderDAI.connect(bob).deposit(parseUnits("20000"), bob.address);
+          await fixedLenderUSDC.connect(bob).deposit(parseUnits("40000", 6), bob.address);
         });
         describe("AND GIVEN Bob takes a 0.5wbtc loan (200% collateralization)", () => {
           beforeEach(async () => {
@@ -299,9 +299,9 @@ describe("Liquidity computations", function () {
           // collateral to withdraw is passed as the supplyAmount
           it("WHEN he tries to withdraw the usdc (6 decimals) collateral, THEN it reverts ()", async () => {
             // We expect liquidity to be equal to zero
-            await expect(fixedLenderUSDC.withdrawFromSmartPool(parseUnits("40000", 6))).to.be.revertedWith(
-              "InsufficientLiquidity()",
-            );
+            await expect(
+              fixedLenderUSDC.withdraw(parseUnits("40000", 6), laura.address, laura.address),
+            ).to.be.revertedWith("InsufficientLiquidity()");
           });
         });
       });

@@ -55,7 +55,7 @@ describe("FixedLender", function () {
   describe("small positions", () => {
     describe("WHEN depositing 2wei of a dai", () => {
       beforeEach(async () => {
-        await fixedLenderDAI.depositToSmartPool(2);
+        await fixedLenderDAI.deposit(2, maria.address);
         // we add liquidity to the maturity
         await fixedLenderDAI.depositToMaturityPool(2, futurePools(1)[0], 0);
       });
@@ -63,7 +63,7 @@ describe("FixedLender", function () {
         expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[0]).to.equal(2);
       });
       it("AND the Market Size of the smart pool is 2 wei of a dai", async () => {
-        expect(await fixedLenderDAI.getSmartPoolDeposits()).to.equal(2);
+        expect(await fixedLenderDAI.totalAssets()).to.equal(2);
       });
       it("AND its not possible to borrow 2 wei of a dai", async () => {
         await expect(fixedLenderDAI.borrowFromMaturityPool(2, futurePools(1)[0], 2)).to.be.revertedWith(
@@ -81,7 +81,7 @@ describe("FixedLender", function () {
             .withArgs(maria.address, 1, 0, futurePools(1)[0]);
         });
         it("AND the Market Size of the smart pool remains in 2 wei of a dai", async () => {
-          expect(await fixedLenderDAI.getSmartPoolDeposits()).to.be.equal(2);
+          expect(await fixedLenderDAI.totalAssets()).to.be.equal(2);
         });
         it("AND a 1 wei of DAI borrow is registered", async () => {
           expect(await fixedLenderDAI.getTotalMpBorrows(futurePools(1)[0])).to.equal(1);
@@ -132,7 +132,7 @@ describe("FixedLender", function () {
 
     describe("WHEN depositing collateral and borrowing 60 DAI from the same maturity", () => {
       beforeEach(async () => {
-        await fixedLenderDAI.depositToSmartPool(parseUnits("100"));
+        await fixedLenderDAI.deposit(parseUnits("100"), maria.address);
         tx = await fixedLenderDAI.borrowFromMaturityPool(parseUnits("60"), futurePools(1)[0], parseUnits("66"));
       });
       it("THEN a BorrowFromMaturityPool event is emitted", async () => {
@@ -168,7 +168,7 @@ describe("FixedLender", function () {
       });
       describe("AND WHEN borrowing 60 DAI from another maturity AND repaying only first debt", () => {
         beforeEach(async () => {
-          await fixedLenderDAI.depositToSmartPool(parseUnits("1000"));
+          await fixedLenderDAI.deposit(parseUnits("1000"), maria.address);
           await fixedLenderDAI.borrowFromMaturityPool(parseUnits("60"), futurePools(2)[1], parseUnits("60"));
           await fixedLenderDAI.repayToMaturityPool(
             maria.address,
@@ -202,7 +202,7 @@ describe("FixedLender", function () {
         });
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {
-            await fixedLenderDAI.withdrawFromSmartPool(parseUnits("100"));
+            await fixedLenderDAI.withdraw(parseUnits("100"), maria.address, maria.address);
             await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 1]);
             await fixedLenderDAI.withdrawFromMaturityPool(parseUnits("100"), parseUnits("100"), futurePools(1)[0]);
           });
@@ -334,7 +334,7 @@ describe("FixedLender", function () {
         parseUnits("10"),
         parseUnits("1"),
       ]);
-      await fixedLenderDAI.depositToSmartPool(parseUnits("1"));
+      await fixedLenderDAI.deposit(parseUnits("1"), maria.address);
       await auditor.enterMarkets([fixedLenderDAI.address]);
       // we add liquidity to the maturity
       await fixedLenderDAI.depositToMaturityPool(parseUnits("1"), futurePools(1)[0], parseUnits("1"));
@@ -354,7 +354,7 @@ describe("FixedLender", function () {
 
   describe("GIVEN John deposited 12 DAI to the smart pool AND Maria borrowed 6 DAI from an empty maturity", () => {
     beforeEach(async () => {
-      await fixedLenderWETH.depositToSmartPoolEth({ value: parseUnits("10") });
+      await fixedLenderWETH.depositETH(maria.address, { value: parseUnits("10") });
       await auditor.enterMarkets([fixedLenderWETH.address]);
 
       await timelockExecute(owner, interestRateModel, "setCurveParameters", [
@@ -363,7 +363,7 @@ describe("FixedLender", function () {
         parseUnits("1.1"),
         parseUnits("1"),
       ]);
-      await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("12"));
+      await fixedLenderDAI.connect(john).deposit(parseUnits("12"), maria.address);
       await fixedLenderDAI.borrowFromMaturityPool(parseUnits("6"), futurePools(1)[0], parseUnits("6"));
     });
     it("WHEN Maria tries to borrow 5.99 more DAI on the same maturity, THEN it does not revert", async () => {
@@ -386,7 +386,7 @@ describe("FixedLender", function () {
     });
     describe("AND John deposited 2388 DAI to the smart pool", () => {
       beforeEach(async () => {
-        await fixedLenderDAI.connect(john).depositToSmartPool(parseUnits("2388"));
+        await fixedLenderDAI.connect(john).deposit(parseUnits("2388"), maria.address);
       });
       it("WHEN Maria tries to borrow 2500 DAI, THEN it fails with UtilizationRateExceeded", async () => {
         await expect(
@@ -434,7 +434,7 @@ describe("FixedLender", function () {
 
   describe("GIVEN maria has plenty of WETH collateral", () => {
     beforeEach(async () => {
-      await fixedLenderWETH.depositToSmartPoolEth({ value: parseUnits("10") });
+      await fixedLenderWETH.depositETH(maria.address, { value: parseUnits("10") });
       await auditor.enterMarkets([fixedLenderDAI.address, fixedLenderWETH.address]);
     });
     describe("AND GIVEN she deposits 1000DAI into the next two maturity pools AND other 500 into the smart pool", () => {
@@ -442,7 +442,7 @@ describe("FixedLender", function () {
         for (const pool of futurePools(2)) {
           await fixedLenderDAI.depositToMaturityPool(parseUnits("1000"), pool, parseUnits("1000"));
         }
-        await fixedLenderDAI.depositToSmartPool(parseUnits("6000"));
+        await fixedLenderDAI.deposit(parseUnits("6000"), maria.address);
       });
       describe("WHEN borrowing 1200 in the current maturity", () => {
         beforeEach(async () => {
@@ -457,10 +457,10 @@ describe("FixedLender", function () {
           expect((await poolAccountingDAI.maturityPools(futurePools(1)[0])).suppliedSP).to.equal(parseUnits("200"));
         });
         it("AND WHEN trying to withdraw 300 ==(500 available, 200 borrowed to MP) from the smart pool, THEN it succeeds", async () => {
-          await expect(fixedLenderDAI.withdrawFromSmartPool(parseUnits("300"))).to.not.be.reverted;
+          await expect(fixedLenderDAI.withdraw(parseUnits("300"), maria.address, maria.address)).to.not.be.reverted;
         });
         it("AND WHEN trying to withdraw 5900 >(6000 total, 200 borrowed to MP) from the smart pool, THEN it reverts because 100 of those 5900 are still lent to the maturity pool", async () => {
-          await expect(fixedLenderDAI.withdrawFromSmartPool(parseUnits("5900"))).to.be.revertedWith(
+          await expect(fixedLenderDAI.withdraw(parseUnits("5900"), maria.address, maria.address)).to.be.revertedWith(
             "InsufficientProtocolLiquidity()",
           );
         });
@@ -660,25 +660,6 @@ describe("FixedLender", function () {
             ),
             parseUnits("0.00000001"),
           );
-        });
-      });
-    });
-  });
-
-  describe("Transfers with Commissions", () => {
-    describe("GIVEN an underlying token with 10% commission", () => {
-      beforeEach(async () => {
-        await dai.setCommission(parseUnits("0.1"));
-      });
-
-      describe("WHEN trying to deposit 100 DAI on a maturity pool", () => {
-        let tx: Promise<ContractTransaction>;
-        beforeEach(async () => {
-          tx = fixedLenderDAI.depositToMaturityPool(parseUnits("100"), futurePools(1)[0], parseUnits("100"));
-        });
-
-        it("THEN the transaction reverts with InvalidTokenFee()", async () => {
-          await expect(tx).to.be.revertedWith("InvalidTokenFee()");
         });
       });
     });

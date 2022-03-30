@@ -27,7 +27,6 @@ describe("Validations", function () {
     unlistedFixedLender = await UnlistedFixedLender.deploy(
       exactlyEnv.getUnderlying("DAI").address,
       "DAI",
-      exactlyEnv.getEToken("DAI").address,
       auditor.address,
       exactlyEnv.getPoolAccounting("DAI").address,
     );

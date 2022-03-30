@@ -7,7 +7,6 @@ import { FixedLender } from "../../contracts/FixedLender.sol";
 import { PoolAccounting } from "../../contracts/PoolAccounting.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor } from "../../contracts/Auditor.sol";
-import { EToken } from "../../contracts/EToken.sol";
 import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
@@ -20,8 +19,9 @@ contract FixedLenderTest is DSTest {
   uint32 public constant INTERVAL = 7 days;
   uint256 public nextMaturityDate;
 
-  event DepositToSmartPool(address indexed user, uint256 amount);
-  event WithdrawFromSmartPool(address indexed user, uint256 amount);
+  event Transfer(address indexed from, address indexed to, uint256 amount);
+  event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
+  event Withdraw(address indexed caller, address indexed receiver, uint256 assets, uint256 shares);
   event DepositToMaturityPool(address indexed from, uint256 amount, uint256 fee, uint256 maturityDate);
   event BorrowFromMaturityPool(address indexed to, uint256 amount, uint256 fee, uint256 maturityDate);
   event WithdrawFromMaturityPool(address indexed from, uint256 amount, uint256 amountDiscounted, uint256 maturityDate);
@@ -38,16 +38,14 @@ contract FixedLenderTest is DSTest {
     MockOracle mockOracle = new MockOracle();
     mockOracle.setPrice("DAI", 1e8);
     Auditor auditor = new Auditor(mockOracle);
-    EToken eToken = new EToken("DAI", "DAI", 18);
     InterestRateModel interestRateModel = new InterestRateModel(0.0495e18, -0.025e18, 1.1e18, 1e18, 0);
     MockInterestRateModel mockInterestRateModel = new MockInterestRateModel(address(interestRateModel));
     mockInterestRateModel.setBorrowRate(0.05e18);
 
     PoolAccounting poolAccounting = new PoolAccounting(mockInterestRateModel, 0.02e18 / uint256(1 days));
-    fixedLender = new FixedLender(mockToken, "DAI", eToken, auditor, poolAccounting);
+    fixedLender = new FixedLender(mockToken, "DAI", auditor, poolAccounting);
     poolAccounting.initialize(fixedLender);
 
-    eToken.initialize(fixedLender, auditor);
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
     nextMaturityDate = INTERVAL;
 
@@ -55,19 +53,19 @@ contract FixedLenderTest is DSTest {
   }
 
   function testDepositToSmartPool() external {
-    vm.expectEmit(true, false, false, true);
-    emit DepositToSmartPool(address(this), 1 ether);
+    vm.expectEmit(true, true, false, true);
+    emit Deposit(address(this), address(this), 1 ether, 1 ether);
 
-    fixedLender.depositToSmartPool(1 ether);
+    fixedLender.deposit(1 ether, address(this));
   }
 
   function testWithdrawFromSmartPool() external {
-    fixedLender.depositToSmartPool(1 ether);
+    fixedLender.deposit(1 ether, address(this));
     vm.roll(block.number + 1); // we increase block number to avoid same block deposit & withdraw error
 
-    vm.expectEmit(true, false, false, true);
-    emit WithdrawFromSmartPool(address(this), 1 ether);
-    fixedLender.withdrawFromSmartPool(1 ether);
+    vm.expectEmit(true, true, false, true);
+    emit Transfer(address(fixedLender), address(this), 1 ether);
+    fixedLender.withdraw(1 ether, address(this), address(this));
   }
 
   function testDepositToMaturityPool() external {
@@ -86,7 +84,7 @@ contract FixedLenderTest is DSTest {
   }
 
   function testBorrowFromMaturityPool() external {
-    fixedLender.depositToSmartPool(12 ether);
+    fixedLender.deposit(12 ether, address(this));
 
     vm.expectEmit(true, false, false, true);
     emit BorrowFromMaturityPool(address(this), 1 ether, 0.05 ether, nextMaturityDate);
@@ -94,7 +92,7 @@ contract FixedLenderTest is DSTest {
   }
 
   function testRepayToMaturityPool() external {
-    fixedLender.depositToSmartPool(12 ether);
+    fixedLender.deposit(12 ether, address(this));
     fixedLender.borrowFromMaturityPool(1 ether, nextMaturityDate, 1.05 ether);
 
     vm.expectEmit(true, false, false, true);

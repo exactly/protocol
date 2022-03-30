@@ -2,7 +2,6 @@ import type { DeployFunction } from "hardhat-deploy/types";
 import type {
   Auditor,
   ERC20,
-  EToken,
   ExactlyOracle,
   FixedLender,
   InterestRateModel,
@@ -43,15 +42,6 @@ const func: DeployFunction = async ({
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
     const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
 
-    const eTokenName = `EToken${symbol}`;
-    await deploy(eTokenName, {
-      contract: "EToken",
-      args: [`e${symbol}`, `e${symbol}`, decimals],
-      from: deployer,
-      log: true,
-    });
-    const eToken = await getContract<EToken>(eTokenName, await getSigner(deployer));
-
     const poolAccountingName = `PoolAccounting${symbol}`;
     await deploy(poolAccountingName, {
       skipIfAlreadyDeployed: true,
@@ -65,15 +55,11 @@ const func: DeployFunction = async ({
     const fixedLenderName = `FixedLender${symbol}`;
     await deploy(fixedLenderName, {
       contract: symbol === "WETH" ? "ETHFixedLender" : "FixedLender",
-      args: [tokenAddress, token, eToken.address, auditor.address, poolAccounting.address],
+      args: [tokenAddress, token, auditor.address, poolAccounting.address],
       from: deployer,
       log: true,
     });
     const fixedLender = await getContract<FixedLender>(fixedLenderName);
-
-    if ((await eToken.fixedLender()) === AddressZero || (await eToken.auditor()) === AddressZero) {
-      await eToken.initialize(fixedLender.address, auditor.address);
-    }
 
     if ((await poolAccounting.fixedLender()) === AddressZero) {
       await executeOrPropose(deployer, timelockController, poolAccounting, "initialize", [fixedLender.address]);
@@ -105,7 +91,7 @@ const func: DeployFunction = async ({
 
     await grantRole(fixedLender, await fixedLender.PAUSER_ROLE(), multisig);
 
-    for (const contract of [eToken, poolAccounting, fixedLender]) {
+    for (const contract of [poolAccounting, fixedLender]) {
       await transferOwnership(contract, deployer, timelockController.address);
     }
   }
