@@ -3,21 +3,18 @@ pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { DSTest } from "ds-test/test.sol";
-import { FixedLender } from "../../contracts/FixedLender.sol";
-import { PoolAccounting } from "../../contracts/PoolAccounting.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor } from "../../contracts/Auditor.sol";
 import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
-import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
+import { FixedLender } from "../../contracts/FixedLender.sol";
 
 contract FixedLenderTest is DSTest {
   Vm internal vm = Vm(HEVM_ADDRESS);
   FixedLender internal fixedLender;
   MockToken internal mockToken;
-
-  uint32 public constant INTERVAL = 7 days;
-  uint256 public nextMaturityDate;
 
   event Transfer(address indexed from, address indexed to, uint256 amount);
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
@@ -42,12 +39,9 @@ contract FixedLenderTest is DSTest {
     MockInterestRateModel mockInterestRateModel = new MockInterestRateModel(address(interestRateModel));
     mockInterestRateModel.setBorrowRate(0.05e18);
 
-    PoolAccounting poolAccounting = new PoolAccounting(mockInterestRateModel, 0.02e18 / uint256(1 days));
-    fixedLender = new FixedLender(mockToken, "DAI", auditor, poolAccounting);
-    poolAccounting.initialize(fixedLender);
+    fixedLender = new FixedLender(mockToken, "DAI", auditor, mockInterestRateModel, 0.02e18 / uint256(1 days));
 
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
-    nextMaturityDate = INTERVAL;
 
     mockToken.approve(address(fixedLender), 100 ether);
   }
@@ -70,33 +64,33 @@ contract FixedLenderTest is DSTest {
 
   function testDepositToMaturityPool() external {
     vm.expectEmit(true, false, false, true);
-    emit DepositToMaturityPool(address(this), 1 ether, 0, nextMaturityDate);
-    fixedLender.depositToMaturityPool(1 ether, nextMaturityDate, 1 ether);
+    emit DepositToMaturityPool(address(this), 1 ether, 0, 7 days);
+    fixedLender.depositToMaturityPool(1 ether, 7 days, 1 ether);
   }
 
   function testWithdrawFromMaturityPool() external {
-    fixedLender.depositToMaturityPool(1 ether, nextMaturityDate, 1 ether);
+    fixedLender.depositToMaturityPool(1 ether, 7 days, 1 ether);
 
     vm.expectEmit(true, false, false, true);
     // TODO: fix wrong hardcoded value
-    emit WithdrawFromMaturityPool(address(this), 1 ether, 952380952380952380, nextMaturityDate);
-    fixedLender.withdrawFromMaturityPool(1 ether, 0.95 ether, nextMaturityDate);
+    emit WithdrawFromMaturityPool(address(this), 1 ether, 952380952380952380, 7 days);
+    fixedLender.withdrawFromMaturityPool(1 ether, 0.95 ether, 7 days);
   }
 
   function testBorrowFromMaturityPool() external {
     fixedLender.deposit(12 ether, address(this));
 
     vm.expectEmit(true, false, false, true);
-    emit BorrowFromMaturityPool(address(this), 1 ether, 0.05 ether, nextMaturityDate);
-    fixedLender.borrowFromMaturityPool(1 ether, nextMaturityDate, 2 ether);
+    emit BorrowFromMaturityPool(address(this), 1 ether, 0.05 ether, 7 days);
+    fixedLender.borrowFromMaturityPool(1 ether, 7 days, 2 ether);
   }
 
   function testRepayToMaturityPool() external {
     fixedLender.deposit(12 ether, address(this));
-    fixedLender.borrowFromMaturityPool(1 ether, nextMaturityDate, 1.05 ether);
+    fixedLender.borrowFromMaturityPool(1 ether, 7 days, 1.05 ether);
 
     vm.expectEmit(true, false, false, true);
-    emit RepayToMaturityPool(address(this), address(this), 1 ether, 1.05 ether, nextMaturityDate);
-    fixedLender.repayToMaturityPool(address(this), nextMaturityDate, 1.5 ether, 1.5 ether);
+    emit RepayToMaturityPool(address(this), address(this), 1 ether, 1.05 ether, 7 days);
+    fixedLender.repayToMaturityPool(address(this), 7 days, 1.5 ether, 1.5 ether);
   }
 }

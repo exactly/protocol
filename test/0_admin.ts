@@ -1,10 +1,11 @@
 import { expect } from "chai";
 import { ethers, deployments, network } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, FixedLender, MockToken, PoolAccounting } from "../types";
+import type { Auditor, FixedLender, MockToken } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
+  constants: { AddressZero },
   utils: { parseUnits },
   getUnnamedSigners,
   getNamedSigner,
@@ -17,7 +18,6 @@ describe("Auditor Admin", function () {
   let dai: MockToken;
   let auditor: Auditor;
   let fixedLenderDAI: FixedLender;
-  let poolAccountingDAI: PoolAccounting;
   let laura: SignerWithAddress;
   let owner: SignerWithAddress;
 
@@ -32,7 +32,6 @@ describe("Auditor Admin", function () {
     dai = await getContract<MockToken>("DAI", laura);
     auditor = await getContract<Auditor>("Auditor", laura);
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", laura);
-    poolAccountingDAI = await getContract<PoolAccounting>("PoolAccountingDAI", laura);
 
     await dai.connect(owner).transfer(laura.address, "10000");
   });
@@ -68,13 +67,10 @@ describe("Auditor Admin", function () {
       const ADMIN_ROLE = await auditor.DEFAULT_ADMIN_ROLE();
       expect(await auditor.hasRole(ADMIN_ROLE, owner.address)).to.equal(false);
       expect(await fixedLenderDAI.hasRole(ADMIN_ROLE, owner.address)).to.equal(false);
-      expect(await poolAccountingDAI.hasRole(ADMIN_ROLE, owner.address)).to.equal(false);
 
       await timelockExecute(owner, auditor, "grantRole", [ADMIN_ROLE, owner.address]);
-      await timelockExecute(owner, poolAccountingDAI, "grantRole", [ADMIN_ROLE, owner.address]);
 
       auditor = auditor.connect(owner);
-      poolAccountingDAI = poolAccountingDAI.connect(owner);
     });
 
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MARKET_ALREADY_LISTED", async () => {
@@ -91,7 +87,7 @@ describe("Auditor Admin", function () {
       });
       const fixedLender = await deploy("NewFixedLender", {
         contract: "FixedLender",
-        args: [dai.address, "DAI", newAuditor.address, poolAccountingDAI.address],
+        args: [dai.address, "DAI", newAuditor.address, AddressZero, 0],
         from: owner.address,
       });
       await expect(
@@ -118,7 +114,7 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
       const fixedLender = await deploy("NewFixedLender", {
         contract: "FixedLender",
-        args: [dai.address, "DAI", auditor.address, poolAccountingDAI.address],
+        args: [dai.address, "DAI", auditor.address, AddressZero, 0],
         from: owner.address,
       });
       await expect(auditor.enableMarket(fixedLender.address, parseUnits("0.5"), "DAI", "DAI", 18))
@@ -139,10 +135,6 @@ describe("Auditor Admin", function () {
 
     it("WHEN setting max borrow caps, THEN the auditor should emit NewBorrowCap event", async () => {
       await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], ["10000"])).to.emit(auditor, "NewBorrowCap");
-    });
-
-    it("WHEN initializing a poolAccounting contract, THEN it should revert with CONTRACT_ALREADY_INITIALIZED", async () => {
-      await expect(poolAccountingDAI.initialize(owner.address)).to.be.revertedWith("AlreadyInitialized()");
     });
   });
 });

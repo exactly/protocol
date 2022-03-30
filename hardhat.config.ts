@@ -30,16 +30,13 @@ const config: Config = {
   },
   finance: {
     collateralFactor: { default: 0.8, WBTC: 0.6 },
+    penaltyRatePerDay: 0.02,
     interestRateModel: {
       curveA: 0.72,
       curveB: -0.22,
       maxUtilizationRate: 3,
       fullUtilizationRate: 2,
       smartPoolRate: 0.1,
-    },
-    poolAccounting: {
-      penaltyRatePerDay: 0.02,
-      protocolSpreadFee: 0.028,
     },
   },
   dodoc: { exclude: ["mocks", "k", "elin", "ital"] },
@@ -56,16 +53,13 @@ export default config;
 declare module "hardhat/types/config" {
   export interface FinanceConfig {
     collateralFactor: { default: number; [token: string]: number };
+    penaltyRatePerDay: number;
     interestRateModel: {
       curveA: number;
       curveB: number;
       maxUtilizationRate: number;
       fullUtilizationRate: number;
       smartPoolRate: number;
-    };
-    poolAccounting: {
-      penaltyRatePerDay: number;
-      protocolSpreadFee: number;
     };
   }
 

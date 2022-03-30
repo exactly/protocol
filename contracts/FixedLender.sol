@@ -7,13 +7,13 @@ import { ReentrancyGuard } from "@rari-capital/solmate/src/utils/ReentrancyGuard
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 
 import { ERC4626, ERC20, SafeTransferLib } from "@rari-capital/solmate/src/mixins/ERC4626.sol";
-import { InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
+import { PoolLib, InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
 import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
-import { IPoolAccounting } from "./interfaces/IPoolAccounting.sol";
+import { PoolAccounting } from "./PoolAccounting.sol";
 import { IAuditor } from "./interfaces/IAuditor.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 
-contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
+contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard, Pausable {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
 
@@ -21,7 +21,6 @@ contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
 
   string public assetSymbol;
   IAuditor public immutable auditor;
-  IPoolAccounting public immutable poolAccounting;
 
   uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
 
@@ -92,13 +91,16 @@ contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
     ERC20 asset_,
     string memory assetSymbol_,
     IAuditor auditor_,
-    IPoolAccounting poolAccounting_
-  ) ERC4626(asset_, string(abi.encodePacked("EToken", assetSymbol_)), string(abi.encodePacked("e", assetSymbol_))) {
+    IInterestRateModel _interestRateModel,
+    uint256 _penaltyRate
+  )
+    ERC4626(asset_, string(abi.encodePacked("EToken", assetSymbol_)), string(abi.encodePacked("e", assetSymbol_)))
+    PoolAccounting(_interestRateModel, _penaltyRate)
+  {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     assetSymbol = assetSymbol_;
     auditor = auditor_;
-    poolAccounting = poolAccounting_;
   }
 
   function totalAssets() public view override returns (uint256) {
@@ -109,7 +111,7 @@ contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
     auditor.validateAccountShortfall(this, msg.sender, assets);
 
     // we check if the underlying liquidity that the user wants to withdraw is borrowed
-    if (smartPoolBalance - assets < poolAccounting.smartPoolBorrowed()) revert InsufficientProtocolLiquidity();
+    if (smartPoolBalance - assets < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
 
     smartPoolBalance -= assets;
   }
@@ -197,7 +199,7 @@ contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    (uint256 totalOwed, uint256 earningsSP) = poolAccounting.borrowMP(
+    (uint256 totalOwed, uint256 earningsSP) = borrowMP(
       maturityDate,
       msg.sender,
       amount,
@@ -228,12 +230,7 @@ contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
 
     doTransferIn(msg.sender, amount);
 
-    (uint256 currentTotalDeposit, uint256 earningsSP) = poolAccounting.depositMP(
-      maturityDate,
-      msg.sender,
-      amount,
-      minAmountRequired
-    );
+    (uint256 currentTotalDeposit, uint256 earningsSP) = depositMP(maturityDate, msg.sender, amount, minAmountRequired);
 
     smartPoolBalance += earningsSP;
 
@@ -256,7 +253,7 @@ contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
     TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.MATURED);
 
     // We check if there's any discount to be applied for early withdrawal
-    (uint256 redeemAmountDiscounted, uint256 earningsSP) = poolAccounting.withdrawMP(
+    (uint256 redeemAmountDiscounted, uint256 earningsSP) = withdrawMP(
       maturityDate,
       msg.sender,
       redeemAmount,
@@ -293,13 +290,7 @@ contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
   /// @param maturityDate maturityDate. `PoolLib.MATURITY_ALL` (`type(uint256).max`) for all maturities.
   /// @return the amount the user deposited to the smart pool and the total money he owes from maturities.
   function getAccountSnapshot(address who, uint256 maturityDate) public view returns (uint256, uint256) {
-    return (maxWithdraw(who), poolAccounting.getAccountBorrows(who, maturityDate));
-  }
-
-  /// @dev Gets the total amount of borrowed money for a maturityDate.
-  /// @param maturityDate maturity date.
-  function getTotalMpBorrows(uint256 maturityDate) public view returns (uint256) {
-    return poolAccounting.getTotalMpBorrows(maturityDate);
+    return (maxWithdraw(who), getAccountBorrows(who, maturityDate));
   }
 
   /// @notice This function allows to (partially) repay a position.
@@ -319,7 +310,7 @@ contract FixedLender is ERC4626, ReentrancyGuard, AccessControl, Pausable {
   ) internal returns (uint256) {
     if (repayAmount == 0) revert ZeroRepay();
 
-    (uint256 actualRepayAmount, uint256 debtCovered, uint256 earningsSP) = poolAccounting.repayMP(
+    (uint256 actualRepayAmount, uint256 debtCovered, uint256 earningsSP) = repayMP(
       maturityDate,
       borrower,
       repayAmount,

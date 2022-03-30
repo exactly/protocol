@@ -30,7 +30,7 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 maxAmountAllowed,
     uint256 eTokenTotalSupply
   ) external {
-    (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = this.borrowMP(
+    (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = borrowMP(
       maturityDate,
       borrower,
       amount,
@@ -45,7 +45,7 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 amount,
     uint256 minAmountRequired
   ) external {
-    (returnValues.currentTotalDeposit, returnValues.earningsSP) = this.depositMP(
+    (returnValues.currentTotalDeposit, returnValues.earningsSP) = depositMP(
       maturityDate,
       supplier,
       amount,
@@ -60,7 +60,7 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 minAmountRequired,
     uint256 eTokenTotalSupply
   ) external {
-    (returnValues.redeemAmountDiscounted, returnValues.earningsSP) = this.withdrawMP(
+    (returnValues.redeemAmountDiscounted, returnValues.earningsSP) = withdrawMP(
       maturityDate,
       redeemer,
       amount,
@@ -75,7 +75,7 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 repayAmount,
     uint256 maxAmountAllowed
   ) external {
-    (returnValues.actualRepayAmount, returnValues.debtCovered, returnValues.earningsSP) = this.repayMP(
+    (returnValues.actualRepayAmount, returnValues.debtCovered, returnValues.earningsSP) = repayMP(
       maturityDate,
       borrower,
       repayAmount,

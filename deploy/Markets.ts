@@ -1,26 +1,14 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import type {
-  Auditor,
-  ERC20,
-  ExactlyOracle,
-  FixedLender,
-  InterestRateModel,
-  PoolAccounting,
-  TimelockController,
-} from "../types";
+import type { Auditor, ERC20, ExactlyOracle, FixedLender, InterestRateModel, TimelockController } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
   config: {
-    finance: {
-      collateralFactor,
-      poolAccounting: { penaltyRatePerDay },
-    },
+    finance: { collateralFactor, penaltyRatePerDay },
   },
   ethers: {
-    constants: { AddressZero },
     utils: { parseUnits },
     getContract,
     getSigner,
@@ -42,33 +30,21 @@ const func: DeployFunction = async ({
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
     const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
 
-    const poolAccountingName = `PoolAccounting${symbol}`;
-    await deploy(poolAccountingName, {
-      skipIfAlreadyDeployed: true,
-      contract: "PoolAccounting",
-      args: poolAccountingArgs,
-      from: deployer,
-      log: true,
-    });
-    const poolAccounting = await getContract<PoolAccounting>(poolAccountingName, await getSigner(deployer));
-
     const fixedLenderName = `FixedLender${symbol}`;
     await deploy(fixedLenderName, {
+      skipIfAlreadyDeployed: true,
       contract: symbol === "WETH" ? "ETHFixedLender" : "FixedLender",
-      args: [tokenAddress, token, auditor.address, poolAccounting.address],
+      args: [tokenAddress, token, auditor.address, ...poolAccountingArgs],
       from: deployer,
       log: true,
     });
-    const fixedLender = await getContract<FixedLender>(fixedLenderName);
+    const fixedLender = await getContract<FixedLender>(fixedLenderName, await getSigner(deployer));
 
-    if ((await poolAccounting.fixedLender()) === AddressZero) {
-      await executeOrPropose(deployer, timelockController, poolAccounting, "initialize", [fixedLender.address]);
+    if (!(await fixedLender.penaltyRate()).eq(poolAccountingArgs[1])) {
+      await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
     }
-    if (!(await poolAccounting.penaltyRate()).eq(poolAccountingArgs[1])) {
-      await executeOrPropose(deployer, timelockController, poolAccounting, "setPenaltyRate", [poolAccountingArgs[1]]);
-    }
-    if (!((await poolAccounting.interestRateModel()) === interestRateModel.address)) {
-      await executeOrPropose(deployer, timelockController, poolAccounting, "setInterestRateModel", [
+    if (!((await fixedLender.interestRateModel()) === interestRateModel.address)) {
+      await executeOrPropose(deployer, timelockController, fixedLender, "setInterestRateModel", [
         interestRateModel.address,
       ]);
     }
@@ -91,9 +67,7 @@ const func: DeployFunction = async ({
 
     await grantRole(fixedLender, await fixedLender.PAUSER_ROLE(), multisig);
 
-    for (const contract of [poolAccounting, fixedLender]) {
-      await transferOwnership(contract, deployer, timelockController.address);
-    }
+    await transferOwnership(fixedLender, deployer, timelockController.address);
   }
 
   for (const contract of [auditor, interestRateModel, exactlyOracle]) {

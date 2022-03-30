@@ -62,9 +62,12 @@ library TSUtils {
   function futurePools(uint8 maxFuturePools) internal view returns (uint256[] memory) {
     uint256[] memory poolIDs = new uint256[](maxFuturePools);
     uint256 timestamp = block.timestamp - (block.timestamp % INTERVAL);
-    for (uint256 i = 0; i < maxFuturePools; i++) {
+    for (uint256 i = 0; i < maxFuturePools; ) {
       timestamp += INTERVAL;
       poolIDs[i] = timestamp;
+      unchecked {
+        ++i;
+      }
     }
     return poolIDs;
   }

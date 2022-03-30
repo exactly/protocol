@@ -3,20 +3,17 @@ pragma solidity 0.8.13;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
-import { IPoolAccounting, AlreadyInitialized, TooMuchSlippage } from "./interfaces/IPoolAccounting.sol";
-import { FixedLender, NotFixedLender } from "./FixedLender.sol";
 import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
 
-contract PoolAccounting is IPoolAccounting, AccessControl {
+contract PoolAccounting is AccessControl {
   using PoolLib for PoolLib.MaturityPool;
   using PoolLib for PoolLib.Position;
   using PoolLib for uint256;
   using FixedPointMathLib for uint256;
 
-  // Vars used in `borrowMP` to avoid
-  // stack too deep problem
+  // Vars used in `borrowMP` to avoid stack too deep problem
   struct BorrowVars {
     PoolLib.Position position;
     uint256 fee;
@@ -24,8 +21,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 earningsSP;
   }
 
-  // Vars used in `repayMP` to avoid
-  // stack too deep problem
+  // Vars used in `repayMP` to avoid stack too deep problem
   struct RepayVars {
     PoolLib.Position position;
     PoolLib.Position scaleDebtCovered;
@@ -41,9 +37,8 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
   mapping(address => uint256) public userMpBorrowed;
   mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
-  uint256 public override smartPoolBorrowed;
+  uint256 public smartPoolBorrowed;
 
-  FixedLender public fixedLender;
   IInterestRateModel public interestRateModel;
 
   uint256 public penaltyRate;
@@ -56,30 +51,11 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
   event PenaltyRateUpdated(uint256 newPenaltyRate);
 
-  /// @notice emitted when the PoolAccounting is initialized with a FixedLender.
-  /// @param fixedLender the FixedLender that is only authorized to call the PoolAccounting functions.
-  event Initialized(FixedLender indexed fixedLender);
-
-  /// @dev only allow calls from the `fixedLender` contract. `fixedLender` should be set through `initialize` method.
-  modifier onlyFixedLender() {
-    if (msg.sender != address(fixedLender)) revert NotFixedLender();
-    _;
-  }
-
   constructor(IInterestRateModel _interestRateModel, uint256 _penaltyRate) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     interestRateModel = _interestRateModel;
 
     penaltyRate = _penaltyRate;
-  }
-
-  /// @dev Initializes the PoolAccounting setting the FixedLender address. Only able to initialize once.
-  /// @param _fixedLender the address of the FixedLender that uses this PoolAccounting.
-  function initialize(FixedLender _fixedLender) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (address(fixedLender) != address(0)) revert AlreadyInitialized();
-
-    fixedLender = _fixedLender;
-    emit Initialized(_fixedLender);
   }
 
   /// @notice Sets the interest rate model to be used by this PoolAccounting.
@@ -110,7 +86,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 amount,
     uint256 maxAmountAllowed,
     uint256 smartPoolTotalSupply
-  ) external override onlyFixedLender returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
+  ) internal returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
     BorrowVars memory borrowVars;
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
@@ -166,7 +142,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     address supplier,
     uint256 amount,
     uint256 minAmountRequired
-  ) external override onlyFixedLender returns (uint256 currentTotalDeposit, uint256 earningsSP) {
+  ) internal returns (uint256 currentTotalDeposit, uint256 earningsSP) {
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
     earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
 
@@ -199,7 +175,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 amount,
     uint256 minAmountRequired,
     uint256 smartPoolTotalSupply
-  ) external override onlyFixedLender returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
+  ) internal returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
     PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
 
     earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
@@ -261,9 +237,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     uint256 repayAmount,
     uint256 maxAmountAllowed
   )
-    external
-    override
-    onlyFixedLender
+    internal
     returns (
       uint256 actualRepayAmount,
       uint256 debtCovered,
@@ -340,7 +314,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
   /// @param who wallet to return status snapshot in the specified maturity date.
   /// @param maturityDate maturityDate where the borrow is taking place. MATURITY_ALL returns all borrows.
   /// @return debt the amount the user deposited to the smart pool and the total money he owes from maturities.
-  function getAccountBorrows(address who, uint256 maturityDate) public view override returns (uint256 debt) {
+  function getAccountBorrows(address who, uint256 maturityDate) public view returns (uint256 debt) {
     if (maturityDate == PoolLib.MATURITY_ALL) {
       uint256 encodedMaturities = userMpBorrowed[who];
       uint32 baseMaturity = uint32(encodedMaturities % (1 << 32));
@@ -361,7 +335,7 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
 
   /// @dev Gets the total amount of borrowed money for a maturityDate.
   /// @param maturityDate maturity date.
-  function getTotalMpBorrows(uint256 maturityDate) public view override returns (uint256) {
+  function getTotalMpBorrows(uint256 maturityDate) public view returns (uint256) {
     return maturityPools[maturityDate].borrowed;
   }
 
@@ -376,3 +350,6 @@ contract PoolAccounting is IPoolAccounting, AccessControl {
     if (secondsDelayed > 0) totalDebt += totalDebt.fmul(secondsDelayed * penaltyRate, 1e18);
   }
 }
+
+error AlreadyInitialized();
+error TooMuchSlippage();

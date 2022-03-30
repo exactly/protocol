@@ -8,7 +8,6 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Validations", function () {
   let auditor: Contract;
-  let unlistedFixedLender: Contract;
   let fixedLender: Contract;
   let exactlyEnv: DefaultEnv;
 
@@ -22,15 +21,6 @@ describe("Validations", function () {
     exactlyEnv = await DefaultEnv.create({});
     auditor = exactlyEnv.auditor;
     fixedLender = exactlyEnv.getFixedLender("DAI");
-
-    const UnlistedFixedLender = await ethers.getContractFactory("FixedLender");
-    unlistedFixedLender = await UnlistedFixedLender.deploy(
-      exactlyEnv.getUnderlying("DAI").address,
-      "DAI",
-      auditor.address,
-      exactlyEnv.getPoolAccounting("DAI").address,
-    );
-    await unlistedFixedLender.deployed();
   });
 
   describe("Auditor: GIVEN an unlisted market as parameter", () => {

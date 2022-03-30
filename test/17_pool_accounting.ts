@@ -26,23 +26,6 @@ describe("PoolAccounting", () => {
     mockInterestRateModel = poolAccountingEnv.mockInterestRateModel;
   });
 
-  describe("function calls not originating from the FixedLender contract", () => {
-    it("WHEN invoking borrowMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(poolAccountingHarness.borrowMP(0, laura.address, 0, 0, 0)).to.be.revertedWith("NotFixedLender()");
-    });
-
-    it("WHEN invoking depositMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(poolAccountingHarness.depositMP(0, laura.address, 0, 0)).to.be.revertedWith("NotFixedLender()");
-    });
-
-    it("WHEN invoking repayMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(poolAccountingHarness.repayMP(0, laura.address, 0, 0)).to.be.revertedWith("NotFixedLender()");
-    });
-
-    it("WHEN invoking withdrawMP NOT from the FixedLender, THEN it should revert with error CALLER_MUST_BE_FIXED_LENDER", async () => {
-      await expect(poolAccountingHarness.withdrawMP(0, laura.address, 0, 0, 0)).to.be.revertedWith("NotFixedLender()");
-    });
-  });
   describe("setPenaltyRate", () => {
     it("WHEN calling setPenaltyRate, THEN the penaltyRate should be updated", async () => {
       await poolAccountingHarness.setPenaltyRate(parseUnits("0.04"));

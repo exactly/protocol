@@ -27,7 +27,6 @@ export class DefaultEnv {
   auditor: Contract;
   interestRateModel: Contract;
   fixedLenderContracts: Map<string, Contract>;
-  poolAccountingContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   baseRate: BigNumber;
   marginRate: BigNumber;
@@ -43,7 +42,6 @@ export class DefaultEnv {
     _auditor: Contract,
     _interestRateModel: Contract,
     _fixedLenderContracts: Map<string, Contract>,
-    _poolAccountingContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
     _mockTokens: Map<string, MockTokenSpec>,
     _currentWallet: SignerWithAddress,
@@ -51,7 +49,6 @@ export class DefaultEnv {
     this.oracle = _oracle;
     this.auditor = _auditor;
     this.fixedLenderContracts = _fixedLenderContracts;
-    this.poolAccountingContracts = _poolAccountingContracts;
     this.underlyingContracts = _underlyingContracts;
     this.interestRateModel = _interestRateModel;
     this.mockTokens = _mockTokens;
@@ -68,7 +65,6 @@ export class DefaultEnv {
       mockTokens = defaultMockTokens;
     }
     const fixedLenderContracts = new Map<string, Contract>();
-    const poolAccountingContracts = new Map<string, Contract>();
     const underlyingContracts = new Map<string, Contract>();
 
     const MockOracle = await ethers.getContractFactory("MockOracle");
@@ -118,19 +114,15 @@ export class DefaultEnv {
           await underlyingToken.deployed();
         }
 
-        const PoolAccounting = await ethers.getContractFactory("PoolAccounting");
-        const poolAccounting = await PoolAccounting.deploy(interestRateModel.address, parseUnits("0.02").div(86_400));
-
         const FixedLender = await ethers.getContractFactory(tokenName === "WETH" ? "ETHFixedLender" : "FixedLender");
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
           auditor.address,
-          poolAccounting.address,
+          interestRateModel.address,
+          parseUnits("0.02").div(86_400),
         );
         await fixedLender.deployed();
-
-        await poolAccounting.initialize(fixedLender.address);
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(tokenName, usdPrice);
@@ -139,7 +131,6 @@ export class DefaultEnv {
 
         // Handy maps with all the fixedLenders and underlying tokens
         fixedLenderContracts.set(tokenName, fixedLender);
-        poolAccountingContracts.set(tokenName, poolAccounting);
         underlyingContracts.set(tokenName, underlyingToken);
       }),
     );
@@ -151,7 +142,6 @@ export class DefaultEnv {
       auditor,
       interestRateModel,
       fixedLenderContracts,
-      poolAccountingContracts,
       underlyingContracts,
       mockTokens!,
       owner,
@@ -160,10 +150,6 @@ export class DefaultEnv {
 
   public getFixedLender(key: string): Contract {
     return this.fixedLenderContracts.get(key)!;
-  }
-
-  public getPoolAccounting(key: string): Contract {
-    return this.poolAccountingContracts.get(key)!;
   }
 
   public getUnderlying(key: string): Contract {
@@ -420,14 +406,13 @@ export class DefaultEnv {
   }
 
   public async smartPoolState(assetString: string) {
-    const poolLender = this.getPoolAccounting(assetString);
-    const eToken = this.getFixedLender(assetString);
-    return new SmartPoolState(await eToken.totalAssets(), await poolLender.smartPoolBorrowed());
+    const fixedLender = this.getFixedLender(assetString);
+    return new SmartPoolState(await fixedLender.totalAssets(), await fixedLender.smartPoolBorrowed());
   }
 
   public async maturityPool(assetString: string, maturityPoolID: number) {
-    const poolLender = this.getPoolAccounting(assetString);
-    return poolLender.maturityPools(maturityPoolID);
+    const fixedLender = this.getFixedLender(assetString);
+    return fixedLender.maturityPools(maturityPoolID);
   }
 
   public async accountSnapshot(assetString: string, maturityPoolID: number) {
