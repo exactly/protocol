@@ -48,7 +48,9 @@ const func: DeployFunction = async ({
       await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
     }
     if (!(await fixedLender.smartPoolReserveFactor()).eq(poolAccountingArgs[2])) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserve", [poolAccountingArgs[2]]);
+      await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserveFactor", [
+        poolAccountingArgs[2],
+      ]);
     }
     if (!((await fixedLender.interestRateModel()) === interestRateModel.address)) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setInterestRateModel", [
