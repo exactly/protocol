@@ -11,7 +11,6 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
 
   let weth: Contract;
   let ethFixedLender: Contract;
-  let poolAccounting: Contract;
 
   let alice: SignerWithAddress;
   let owner: SignerWithAddress;
@@ -30,7 +29,6 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
 
     weth = exactlyEnv.getUnderlying("WETH");
     ethFixedLender = exactlyEnv.getFixedLender("WETH");
-    poolAccounting = exactlyEnv.getPoolAccounting("WETH");
     exactlyEnv.switchWallet(alice);
   });
 
@@ -53,7 +51,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         expect(await weth.balanceOf(ethFixedLender.address)).to.equal(parseUnits("5"));
       });
       it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
-        const position = await poolAccounting.mpUserSuppliedAmount(nextPoolId, alice.address);
+        const position = await ethFixedLender.mpUserSuppliedAmount(nextPoolId, alice.address);
         expect(position[0]).to.be.equal(parseUnits("5"));
       });
     });
@@ -82,7 +80,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           expect(await weth.balanceOf(ethFixedLender.address)).to.equal(parseUnits("5"));
         });
         it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
-          const position = await poolAccounting.mpUserSuppliedAmount(nextPoolId, alice.address);
+          const position = await ethFixedLender.mpUserSuppliedAmount(nextPoolId, alice.address);
           expect(position[0]).to.be.equal(parseUnits("5"));
         });
       });
@@ -263,7 +261,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           expect(await exactlyEnv.getFixedLender("WETH").getTotalMpBorrows(nextPoolId)).to.equal(parseUnits("5"));
         });
         it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
-          const maturities = await exactlyEnv.getPoolAccounting("WETH").userMpBorrowed(alice.address);
+          const maturities = await exactlyEnv.getFixedLender("WETH").userMpBorrowed(alice.address);
           expect(decodeMaturities(maturities)).contains(nextPoolId);
         });
       });
@@ -282,7 +280,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           expect(await exactlyEnv.getFixedLender("WETH").getTotalMpBorrows(nextPoolId)).to.equal(parseUnits("5"));
         });
         it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
-          const maturities = await exactlyEnv.getPoolAccounting("WETH").userMpBorrowed(alice.address);
+          const maturities = await exactlyEnv.getFixedLender("WETH").userMpBorrowed(alice.address);
           expect(decodeMaturities(maturities)).contains(nextPoolId);
         });
       });
@@ -290,7 +288,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
       describe("repayToMaturityPoolETH vs repayToMaturityPool", () => {
         describe("AND she borrows some WETH (erc20) AND maturity is reached", () => {
           beforeEach(async () => {
-            await poolAccounting.setPenaltyRate(0);
+            await ethFixedLender.setPenaltyRate(0);
             await exactlyEnv.borrowMP("WETH", nextPoolId, "5");
             await exactlyEnv.moveInTime(nextPoolId);
           });

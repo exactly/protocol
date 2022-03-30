@@ -131,8 +131,6 @@ export class PoolAccountingEnv {
       parseUnits("0.02").div(86_400),
     );
     await poolAccountingHarness.deployed();
-    // We initialize it with itself, so it can call the methods from within
-    await poolAccountingHarness.initialize(poolAccountingHarness.address);
 
     const [owner] = await ethers.getSigners();
 

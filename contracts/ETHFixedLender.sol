@@ -2,7 +2,7 @@
 pragma solidity 0.8.13;
 
 import { WETH, SafeTransferLib } from "@rari-capital/solmate/src/tokens/WETH.sol";
-import { FixedLender, IAuditor, IPoolAccounting } from "./FixedLender.sol";
+import { FixedLender, IAuditor, IInterestRateModel } from "./FixedLender.sol";
 
 contract ETHFixedLender is FixedLender {
   using SafeTransferLib for address;
@@ -19,8 +19,9 @@ contract ETHFixedLender is FixedLender {
     WETH weth,
     string memory assetSymbol_,
     IAuditor auditor_,
-    IPoolAccounting poolAccounting_
-  ) FixedLender(weth, assetSymbol_, auditor_, poolAccounting_) {} // solhint-disable-line no-empty-blocks
+    IInterestRateModel _interestRateModel,
+    uint256 _penaltyRate
+  ) FixedLender(weth, assetSymbol_, auditor_, _interestRateModel, _penaltyRate) {} // solhint-disable-line no-empty-blocks, max-line-length
 
   receive() external payable {} // solhint-disable-line no-empty-blocks
 
