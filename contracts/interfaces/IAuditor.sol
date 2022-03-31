@@ -44,7 +44,7 @@ error BalanceOwed();
 error BorrowCapReached();
 error InsufficientLiquidity();
 error InsufficientShortfall();
-error InvalidBorrowCaps();
+error InvalidParameter();
 error LiquidatorNotBorrower();
 error MarketAlreadyListed();
 error MarketNotListed();

@@ -4,6 +4,7 @@ pragma solidity 0.8.13;
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
+import { InvalidParameter } from "./interfaces/IAuditor.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
 
@@ -77,15 +78,19 @@ contract PoolAccounting is AccessControl {
   }
 
   /// @notice Sets the penalty rate per second.
+  /// @dev Value can only be set approximately between 5% and 1% daily.
   /// @param _penaltyRate percentage represented with 18 decimals.
   function setPenaltyRate(uint256 _penaltyRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (_penaltyRate > 5.79e11 || _penaltyRate < 1.15e11) revert InvalidParameter();
     penaltyRate = _penaltyRate;
     emit PenaltyRateUpdated(_penaltyRate);
   }
 
   /// @notice Sets the percentage that represents the smart pool liquidity reserves that can't be borrowed.
+  /// @dev Value can only be set between 20% and 0%.
   /// @param _smartPoolReserveFactor parameter represented with 18 decimals.
   function setSmartPoolReserveFactor(uint256 _smartPoolReserveFactor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (_smartPoolReserveFactor > 0.2e18) revert InvalidParameter();
     smartPoolReserveFactor = _smartPoolReserveFactor;
     emit SmartPoolReserveFactorUpdated(_smartPoolReserveFactor);
   }

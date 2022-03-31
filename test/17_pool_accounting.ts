@@ -28,13 +28,15 @@ describe("PoolAccounting", () => {
 
   describe("setPenaltyRate", () => {
     it("WHEN calling setPenaltyRate, THEN the penaltyRate should be updated", async () => {
-      await poolAccountingHarness.setPenaltyRate(parseUnits("0.04"));
-      expect(await poolAccountingHarness.penaltyRate()).to.be.equal(parseUnits("0.04"));
+      const penaltyRate = parseUnits("0.03").div(86_400);
+      await poolAccountingHarness.setPenaltyRate(penaltyRate);
+      expect(await poolAccountingHarness.penaltyRate()).to.be.equal(penaltyRate);
     });
     it("WHEN calling setPenaltyRate, THEN it should emit PenaltyRateUpdated event", async () => {
-      await expect(await poolAccountingHarness.setPenaltyRate(parseUnits("0.04")))
+      const penaltyRate = parseUnits("0.04").div(86_400);
+      await expect(await poolAccountingHarness.setPenaltyRate(penaltyRate))
         .to.emit(poolAccountingHarness, "PenaltyRateUpdated")
-        .withArgs(parseUnits("0.04"));
+        .withArgs(penaltyRate);
     });
     it("WHEN calling setPenaltyRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(poolAccountingHarness.connect(laura).setPenaltyRate(parseUnits("0.04"))).to.be.revertedWith(
@@ -64,10 +66,10 @@ describe("PoolAccounting", () => {
       const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
 
       newInterestRateModel = await InterestRateModelFactory.deploy(
-        parseUnits("0.0495"),
-        parseUnits("-0.025"),
-        parseUnits("1.1"),
-        parseUnits("0"),
+        parseUnits("0.75"),
+        parseUnits("-0.105"),
+        parseUnits("6"),
+        parseUnits("4"),
         parseUnits("0"),
       );
       await newInterestRateModel.deployed();
@@ -426,7 +428,7 @@ describe("PoolAccounting", () => {
             // was supported by the MP
             let mp: any;
             beforeEach(async () => {
-              await poolAccountingHarness.setPenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
+              await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
               await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
               repayAmount = 17325;
               await poolAccountingEnv.repayMP(nextPoolID, repayAmount.toString());
@@ -474,7 +476,7 @@ describe("PoolAccounting", () => {
             });
 
             afterEach(async () => {
-              await poolAccountingHarness.setPenaltyRate(0);
+              await poolAccountingHarness.setFreePenaltyRate(0);
             });
           });
 
@@ -862,7 +864,7 @@ describe("PoolAccounting", () => {
             describe("AND GIVEN a partial repayMP at maturity(+1 DAY) with an amount of 8000 (partial late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingHarness.setPenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
+                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
 
                 await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
                 repayAmount = 8000;
@@ -904,14 +906,14 @@ describe("PoolAccounting", () => {
               });
 
               afterEach(async () => {
-                await poolAccountingHarness.setPenaltyRate(0);
+                await poolAccountingHarness.setFreePenaltyRate(0);
               });
             });
 
             describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 15750*1.1=17325 (total late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingHarness.setPenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
+                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
 
                 await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
                 repayAmount = 17325;
@@ -956,7 +958,7 @@ describe("PoolAccounting", () => {
             describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 2000 on a debt 15750*0.1=17325 (way more money late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingHarness.setPenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
+                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
 
                 await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
                 repayAmount = 20000;

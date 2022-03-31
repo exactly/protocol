@@ -5,12 +5,12 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 
+import { InvalidParameter } from "./interfaces/IAuditor.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
 import {
   IInterestRateModel,
   AlreadyMatured,
   InvalidAmount,
-  InvalidFullUtilizationRate,
   UtilizationRateExceeded
 } from "./interfaces/IInterestRateModel.sol";
 
@@ -51,10 +51,11 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   }
 
   /// @dev Sets the rate charged to the mp depositors to be accrued by the sp borrowers.
+  /// @dev Value can only be set between 20% and 0%.
   /// @param _spFeeRate percentage amount represented with 1e18 decimals.
   function setSPFeeRate(uint256 _spFeeRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (_spFeeRate > 0.2e18) revert InvalidParameter();
     spFeeRate = _spFeeRate;
-
     emit SpFeeRateUpdated(_spFeeRate);
   }
 
@@ -91,7 +92,8 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     }
   }
 
-  /// @dev updates this model's curve parameters.
+  /// @notice Updates this model's curve parameters.
+  /// @dev FullUR can only be between 1 and 52. UMaxUR can only be higher than FullUR and at most 3 times FullUR.
   /// @param curveA curve parameter A.
   /// @param curveB curve parameter B.
   /// @param _maxUtilizationRate % of MP supp.
@@ -102,7 +104,12 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 _maxUtilizationRate,
     uint256 _fullUtilizationRate
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (_fullUtilizationRate >= _maxUtilizationRate) revert InvalidFullUtilizationRate();
+    if (
+      _fullUtilizationRate > 52e18 ||
+      _fullUtilizationRate < 1e18 ||
+      _fullUtilizationRate >= _maxUtilizationRate ||
+      _fullUtilizationRate < _maxUtilizationRate / 3
+    ) revert InvalidParameter();
 
     curveParameterA = curveA;
     curveParameterB = curveB;

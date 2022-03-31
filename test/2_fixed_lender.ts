@@ -44,7 +44,7 @@ describe("FixedLender", function () {
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", owner);
     penaltyRate = await fixedLenderDAI.penaltyRate();
 
-    await timelockExecute(owner, interestRateModel, "setCurveParameters", [0, 0, parseUnits("10"), parseUnits("1")]);
+    await timelockExecute(owner, interestRateModel, "setCurveParameters", [0, 0, parseUnits("6"), parseUnits("2")]);
     await timelockExecute(owner, interestRateModel, "setSPFeeRate", [0]);
     await timelockExecute(owner, fixedLenderDAI, "setSmartPoolReserveFactor", [0]);
     for (const signer of [maria, john]) {
@@ -390,8 +390,8 @@ describe("FixedLender", function () {
       await timelockExecute(owner, interestRateModel, "setCurveParameters", [
         0,
         parseUnits("0.02"),
-        parseUnits("10"),
-        parseUnits("1"),
+        parseUnits("6"),
+        parseUnits("2"),
       ]);
       await fixedLenderDAI.deposit(parseUnits("1"), maria.address);
       await auditor.enterMarkets([fixedLenderDAI.address]);
