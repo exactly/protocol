@@ -2,7 +2,7 @@
 pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
-import { DSTest } from "ds-test/test.sol";
+import { DSTestPlus } from "@rari-capital/solmate/src/test/utils/DSTestPlus.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
@@ -11,7 +11,9 @@ import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { FixedLender } from "../../contracts/FixedLender.sol";
 
-contract FixedLenderTest is DSTest {
+contract FixedLenderTest is DSTestPlus {
+  address internal constant BOB = address(69);
+
   Vm internal vm = Vm(HEVM_ADDRESS);
   FixedLender internal fixedLender;
   MockToken internal mockToken;
@@ -31,19 +33,23 @@ contract FixedLenderTest is DSTest {
   );
 
   function setUp() external {
-    mockToken = new MockToken("DAI", "DAI", 18, 100 ether);
+    mockToken = new MockToken("DAI", "DAI", 18, 100_000 ether);
     MockOracle mockOracle = new MockOracle();
     mockOracle.setPrice("DAI", 1e8);
     Auditor auditor = new Auditor(mockOracle);
     InterestRateModel interestRateModel = new InterestRateModel(0.0495e18, -0.025e18, 1.1e18, 1e18, 0);
     MockInterestRateModel mockInterestRateModel = new MockInterestRateModel(address(interestRateModel));
-    mockInterestRateModel.setBorrowRate(0.05e18);
+    mockInterestRateModel.setBorrowRate(0.1e18);
 
     fixedLender = new FixedLender(mockToken, "DAI", auditor, mockInterestRateModel, 0.02e18 / uint256(1 days), 0);
 
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
 
-    mockToken.approve(address(fixedLender), 100 ether);
+    vm.label(BOB, "Bob");
+    mockToken.transfer(BOB, 50_000 ether);
+    mockToken.approve(address(fixedLender), 50_000 ether);
+    vm.prank(BOB);
+    mockToken.approve(address(fixedLender), 50_000 ether);
   }
 
   function testDepositToSmartPool() external {
@@ -73,24 +79,24 @@ contract FixedLenderTest is DSTest {
 
     vm.expectEmit(true, false, false, true);
     // TODO: fix wrong hardcoded value
-    emit WithdrawFromMaturityPool(address(this), 1 ether, 952380952380952380, 7 days);
-    fixedLender.withdrawFromMaturityPool(1 ether, 0.95 ether, 7 days);
+    emit WithdrawFromMaturityPool(address(this), 1 ether, 909090909090909090, 7 days);
+    fixedLender.withdrawFromMaturityPool(1 ether, 0.9 ether, 7 days);
   }
 
   function testBorrowFromMaturityPool() external {
     fixedLender.deposit(12 ether, address(this));
 
     vm.expectEmit(true, false, false, true);
-    emit BorrowFromMaturityPool(address(this), 1 ether, 0.05 ether, 7 days);
+    emit BorrowFromMaturityPool(address(this), 1 ether, 0.1 ether, 7 days);
     fixedLender.borrowFromMaturityPool(1 ether, 7 days, 2 ether);
   }
 
   function testRepayToMaturityPool() external {
     fixedLender.deposit(12 ether, address(this));
-    fixedLender.borrowFromMaturityPool(1 ether, 7 days, 1.05 ether);
+    fixedLender.borrowFromMaturityPool(1 ether, 7 days, 1.1 ether);
 
     vm.expectEmit(true, false, false, true);
-    emit RepayToMaturityPool(address(this), address(this), 1 ether, 1.05 ether, 7 days);
+    emit RepayToMaturityPool(address(this), address(this), 1 ether, 1.1 ether, 7 days);
     fixedLender.repayToMaturityPool(address(this), 7 days, 1.5 ether, 1.5 ether);
   }
 
