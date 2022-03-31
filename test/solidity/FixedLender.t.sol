@@ -93,4 +93,14 @@ contract FixedLenderTest is DSTest {
     emit RepayToMaturityPool(address(this), address(this), 1 ether, 1.05 ether, 7 days);
     fixedLender.repayToMaturityPool(address(this), 7 days, 1.5 ether, 1.5 ether);
   }
+
+  function testMultipleDepositsToSmartPool() external {
+    fixedLender.deposit(1 ether, address(this));
+    fixedLender.deposit(1 ether, address(this));
+    fixedLender.deposit(1 ether, address(this));
+    fixedLender.deposit(1 ether, address(this));
+    fixedLender.deposit(1 ether, address(this));
+    fixedLender.deposit(1 ether, address(this));
+    fixedLender.deposit(1 ether, address(this));
+  }
 }
