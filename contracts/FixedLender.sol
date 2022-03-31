@@ -105,7 +105,23 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   function totalAssets() public view override returns (uint256) {
-    return smartPoolBalance;
+    unchecked {
+      uint256 smartPoolEarnings = 0; // accumulator
+
+      uint256 latestMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL);
+      uint256 maxMaturity = latestMaturity + maxFuturePools * TSUtils.INTERVAL;
+
+      for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += TSUtils.INTERVAL) {
+        PoolLib.MaturityPool memory pool = maturityPools[maturity];
+
+        smartPoolEarnings += pool.earningsUnassigned.fmul(
+          block.timestamp - pool.lastAccrue,
+          maturity - pool.lastAccrue
+        );
+      }
+
+      return smartPoolBalance + smartPoolEarnings;
+    }
   }
 
   function beforeWithdraw(uint256 assets, uint256) internal override {
