@@ -13,7 +13,7 @@ import {
   BorrowCapReached,
   InsufficientLiquidity,
   InsufficientShortfall,
-  InvalidBorrowCaps,
+  InvalidParameter,
   LiquidatorNotBorrower,
   MarketAlreadyListed,
   MarketNotListed,
@@ -149,8 +149,10 @@ contract Auditor is IAuditor, AccessControl {
   }
 
   /// @notice Set liquidation incentive for the whole ecosystem.
+  /// @dev Value can only be set between 20% and 5%.
   /// @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18.
   function setLiquidationIncentive(uint256 _liquidationIncentive) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (_liquidationIncentive > 1.2e18 || _liquidationIncentive < 1.05e18) revert InvalidParameter();
     liquidationIncentive = _liquidationIncentive;
     emit LiquidationIncentiveUpdated(_liquidationIncentive);
   }
@@ -187,12 +189,14 @@ contract Auditor is IAuditor, AccessControl {
   }
 
   /// @notice sets the collateral factor for a certain fixedLender.
+  /// @dev Value can only be set between 90% and 30%.
   /// @param fixedLender address of the market to change collateral factor for.
   /// @param collateralFactor collateral factor for the underlying asset.
   function setCollateralFactor(FixedLender fixedLender, uint128 collateralFactor)
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
+    if (collateralFactor > 0.9e18 || collateralFactor < 0.3e18) revert InvalidParameter();
     markets[fixedLender].collateralFactor = collateralFactor;
     emit CollateralFactorUpdated(fixedLender, collateralFactor);
   }
@@ -205,7 +209,7 @@ contract Auditor is IAuditor, AccessControl {
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
-    if (fixedLenders.length == 0 || fixedLenders.length != newBorrowCaps.length) revert InvalidBorrowCaps();
+    if (fixedLenders.length == 0 || fixedLenders.length != newBorrowCaps.length) revert InvalidParameter();
 
     for (uint256 i = 0; i < fixedLenders.length; ) {
       validateMarketListed(fixedLenders[i]);

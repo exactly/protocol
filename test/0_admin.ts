@@ -102,7 +102,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set borrow caps with arguments mismatch, THEN the transaction should revert with INVALID_SET_BORROW_CAP", async () => {
-      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], [])).to.be.revertedWith("InvalidBorrowCaps()");
+      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], [])).to.be.revertedWith("InvalidParameter()");
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
@@ -132,10 +132,10 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN setting collateral factor, THEN the auditor should emit CollateralFactorUpdated event", async () => {
-      await expect(auditor.setCollateralFactor(fixedLenderDAI.address, 1))
+      await expect(auditor.setCollateralFactor(fixedLenderDAI.address, parseUnits("0.7")))
         .to.emit(auditor, "CollateralFactorUpdated")
-        .withArgs(fixedLenderDAI.address, 1);
-      expect((await auditor.getMarketData(fixedLenderDAI.address))[3]).to.equal(1);
+        .withArgs(fixedLenderDAI.address, parseUnits("0.7"));
+      expect((await auditor.getMarketData(fixedLenderDAI.address))[3]).to.equal(parseUnits("0.7"));
     });
 
     it("WHEN setting max borrow caps, THEN the auditor should emit BorrowCapUpdated event", async () => {

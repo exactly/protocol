@@ -84,4 +84,9 @@ contract PoolAccountingHarness is PoolAccounting {
       maxAmountAllowed
     );
   }
+
+  // function to avoid range value validation
+  function setFreePenaltyRate(uint256 _penaltyRate) external {
+    penaltyRate = _penaltyRate;
+  }
 }

@@ -70,20 +70,6 @@ describe("InterestRateModel", () => {
 
       await expect(tx).to.be.reverted;
     });
-    it("WHEN setting an UFullRate equal to the UMax THEN it reverts", async () => {
-      const maxUtilizationRate = parseUnits("1"); // Maximum utilization rate
-      const fullUtilizationRate = parseUnits("1"); // Full utilization rate
-      const tx = interestRateModel.setCurveParameters(0, 0, maxUtilizationRate, fullUtilizationRate);
-
-      await expect(tx).to.be.revertedWith("InvalidFullUtilizationRate()");
-    });
-    it("WHEN setting an UFullRate higher than the UMax THEN it reverts", async () => {
-      const maxUtilizationRate = parseUnits("1"); // Maximum utilization rate
-      const fullUtilizationRate = parseUnits("1.01"); // Full utilization rate
-      const tx = interestRateModel.setCurveParameters(0, 0, maxUtilizationRate, fullUtilizationRate);
-
-      await expect(tx).to.be.revertedWith("InvalidFullUtilizationRate()");
-    });
     // - U_{b}: 0.9
     // - U_{max}: 1.2
     // - R_{0}: 0.02
@@ -893,63 +879,39 @@ describe("InterestRateModel", () => {
   });
 
   describe("getYieldForDeposit with a custom spFeeRate, suppliedSP of 100, unassignedEarnings of 100 and amount deposited of 100", () => {
-    it("WHEN spFeeRate is 50%, THEN earningsShare is 50 (50 for the SP)", async () => {
-      await interestRateModel.setSPFeeRate(parseUnits("0.5"));
+    it("WHEN spFeeRate is 20%, THEN earningsShare is 80 (20 for the SP)", async () => {
+      await interestRateModel.setSPFeeRate(parseUnits("0.2"));
       const result = await interestRateModel.getYieldForDeposit(
         parseUnits("100"),
         parseUnits("100"),
         parseUnits("100"),
       );
 
-      expect(result[0]).to.equal(parseUnits("50"));
-      expect(result[1]).to.equal(parseUnits("50"));
+      expect(result[0]).to.eq(parseUnits("80"));
+      expect(result[1]).to.eq(parseUnits("20"));
     });
 
-    it("WHEN spFeeRate is 100%, THEN earningsShare is 0 (100 for the SP)", async () => {
-      await interestRateModel.setSPFeeRate(parseUnits("1"));
-      const result = await interestRateModel.getYieldForDeposit(
-        parseUnits("100"),
-        parseUnits("100"),
-        parseUnits("100"),
-      );
-
-      expect(result[0]).to.equal(parseUnits("0"));
-      expect(result[1]).to.equal(parseUnits("100"));
-    });
-
-    it("WHEN spFeeRate is 30%, THEN earningsShare is 70 (30 for the SP)", async () => {
-      await interestRateModel.setSPFeeRate(parseUnits("0.3"));
-      const result = await interestRateModel.getYieldForDeposit(
-        parseUnits("100"),
-        parseUnits("100"),
-        parseUnits("100"),
-      );
-
-      expect(result[0]).to.eq(parseUnits("70"));
-      expect(result[1]).to.eq(parseUnits("30"));
-    });
-
-    it("WHEN spFeeRate is 30% AND suppliedSP is 101 THEN earningsShare is 69.3069... (29.7029... for the SP)", async () => {
-      await interestRateModel.setSPFeeRate(parseUnits("0.3"));
+    it("WHEN spFeeRate is 20% AND suppliedSP is 101 THEN earningsShare is 79.2079... (19.8019... for the SP)", async () => {
+      await interestRateModel.setSPFeeRate(parseUnits("0.2"));
       const result = await interestRateModel.getYieldForDeposit(
         parseUnits("101"),
         parseUnits("100"),
         parseUnits("100"),
       );
 
-      expect(result[0]).to.closeTo(parseUnits("69.30693069"), parseUnits("00.00000001").toNumber());
-      expect(result[1]).to.closeTo(parseUnits("29.70297029"), parseUnits("00.00000001").toNumber());
+      expect(result[0]).to.closeTo(parseUnits("79.20792079"), parseUnits("00.00000001").toNumber());
+      expect(result[1]).to.closeTo(parseUnits("19.80198019"), parseUnits("00.00000001").toNumber());
     });
   });
 
   it("WHEN calling setSPFeeRate function, THEN it should update spFeeRate", async () => {
-    await interestRateModel.setSPFeeRate(parseUnits("0.5"));
-    expect(await interestRateModel.spFeeRate()).to.eq(parseUnits("0.5"));
+    await interestRateModel.setSPFeeRate(parseUnits("0.2"));
+    expect(await interestRateModel.spFeeRate()).to.eq(parseUnits("0.2"));
   });
   it("WHEN calling setSPFeeRate function, THEN it should emit SpFeeRateUpdated", async () => {
-    await expect(interestRateModel.setSPFeeRate(parseUnits("0.5")))
+    await expect(interestRateModel.setSPFeeRate(parseUnits("0.2")))
       .to.emit(interestRateModel, "SpFeeRateUpdated")
-      .withArgs(parseUnits("0.5"));
+      .withArgs(parseUnits("0.2"));
   });
   it("WHEN calling setCurveParameters function, THEN it should emit CurveParametersUpdated", async () => {
     await expect(
