@@ -109,4 +109,24 @@ contract FixedLenderTest is DSTestPlus {
     fixedLender.deposit(1 ether, address(this));
     fixedLender.deposit(1 ether, address(this));
   }
+
+  function testSmartPoolEarningsDistribution() external {
+    vm.prank(BOB);
+    fixedLender.deposit(10_000 ether, BOB);
+
+    vm.warp(7 days);
+
+    vm.prank(BOB);
+    fixedLender.borrowFromMaturityPool(1_000 ether, 7 days * 2, 1_100 ether);
+
+    vm.warp(7 days + 3.5 days);
+    fixedLender.deposit(10_000 ether, address(this));
+    assertEq(fixedLender.balanceOf(BOB), 10_000 ether);
+    assertEq(fixedLender.maxWithdraw(address(this)), 10_000 ether - 1);
+    assertRelApproxEq(fixedLender.balanceOf(address(this)), 9950 ether, 2.5e13);
+
+    vm.warp(7 days + 5 days);
+    fixedLender.deposit(1_000 ether, address(this));
+    assertRelApproxEq(fixedLender.balanceOf(address(this)), 10944 ether, 2.5e13);
+  }
 }
