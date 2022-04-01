@@ -6,19 +6,12 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 export class PoolAccountingEnv {
   mockInterestRateModel: Contract;
-  realInterestRateModel: Contract;
   poolAccountingHarness: Contract;
   currentWallet: SignerWithAddress;
   smartPoolTotalSupply = parseUnits("100000"); // we use a high smartPoolTotalSupply limit since max borrows are already tested
 
-  constructor(
-    _mockInterestRateModel: Contract,
-    _realInterestRateModel: Contract,
-    _poolAccountingHarness: Contract,
-    _currentWallet: SignerWithAddress,
-  ) {
+  constructor(_mockInterestRateModel: Contract, _poolAccountingHarness: Contract, _currentWallet: SignerWithAddress) {
     this.mockInterestRateModel = _mockInterestRateModel;
-    this.realInterestRateModel = _realInterestRateModel;
     this.poolAccountingHarness = _poolAccountingHarness;
     this.currentWallet = _currentWallet;
   }
@@ -31,8 +24,9 @@ export class PoolAccountingEnv {
     this.currentWallet = wallet;
   }
 
-  public getRealInterestRateModel(): Contract {
-    return this.realInterestRateModel;
+  public async setSPFeeRate(spFeeRate: BigNumber) {
+    const irm = await this.mockInterestRateModel.irm();
+    await irm.setSPFeeRate(spFeeRate);
   }
 
   public getAllEarnings(maturityPoolState: MaturityPoolState): BigNumber {
@@ -109,21 +103,7 @@ export class PoolAccountingEnv {
 
   static async create(): Promise<PoolAccountingEnv> {
     const MockInterestRateModelFactory = await ethers.getContractFactory("MockInterestRateModel");
-    const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
-
-    const realInterestRateModel = await InterestRateModelFactory.deploy(
-      parseUnits("0.75"), // A parameter for the curve
-      parseUnits("-0.105"), // B parameter for the curve
-      parseUnits("6"), // Max utilization rate
-      parseUnits("4"), // Full utilization rate
-      parseUnits("0"), // SP rate if 0 then no fees charged for the mp depositors' yield
-    );
-    await realInterestRateModel.deployed();
-
-    // MockInterestRateModel is wrapping the real IRM since getYieldToDeposit
-    // wants to be tested while we might want to hardcode the borrowing rate
-    // for testing simplicity
-    const mockInterestRateModel = await MockInterestRateModelFactory.deploy(realInterestRateModel.address);
+    const mockInterestRateModel = await MockInterestRateModelFactory.deploy(parseUnits("0.05"));
     await mockInterestRateModel.deployed();
 
     const PoolAccountingHarness = await ethers.getContractFactory("PoolAccountingHarness");
@@ -136,6 +116,6 @@ export class PoolAccountingEnv {
 
     const [owner] = await ethers.getSigners();
 
-    return new PoolAccountingEnv(mockInterestRateModel, realInterestRateModel, poolAccountingHarness, owner);
+    return new PoolAccountingEnv(mockInterestRateModel, poolAccountingHarness, owner);
   }
 }

@@ -6,7 +6,7 @@ import { DSTest } from "ds-test/test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { PoolLib } from "../../contracts/utils/PoolLib.sol";
 import { PoolAccounting } from "../../contracts/PoolAccounting.sol";
-import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
+import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 
 contract PoolAccountingTest is DSTest, PoolAccounting {
   using FixedPointMathLib for uint256;
@@ -16,21 +16,14 @@ contract PoolAccountingTest is DSTest, PoolAccounting {
   uint256 internal constant FEE_SP = 0.1e18;
 
   Vm internal vm = Vm(HEVM_ADDRESS);
-  InterestRateModel internal irm;
 
-  constructor()
-    PoolAccounting(
-      new InterestRateModel(0, int256(FEE_MP), type(uint256).max, 1e18, FEE_SP),
-      0.02e18 / uint256(1 days),
-      0
-    )
-  {} // solhint-disable-line no-empty-blocks
+  constructor() PoolAccounting(new MockInterestRateModel(FEE_SP), 0.02e18 / uint256(1 days), 0) {} // solhint-disable-line no-empty-blocks, max-line-length
 
   function testAtomicDepositBorrowRepayWithdraw() external {
     depositMP(POOL_ID, address(this), 1 ether, 0 ether);
-    borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 0);
-    repayMP(POOL_ID, address(this), 1 ether, 1.01 ether);
-    withdrawMP(POOL_ID, address(this), 0.99 ether, 0.98 ether, 0);
+    borrowMP(POOL_ID, address(this), 1 ether, 1.1 ether, 0);
+    repayMP(POOL_ID, address(this), 1 ether, 1.1 ether);
+    withdrawMP(POOL_ID, address(this), 0.9 ether, 0.8 ether, 0);
   }
 
   function testFailTooMuchSlippageDeposit() external {
@@ -44,7 +37,7 @@ contract PoolAccountingTest is DSTest, PoolAccounting {
 
   function testFailTooMuchSlippageRepay() external {
     depositMP(POOL_ID, address(this), 1 ether, 1 ether);
-    borrowMP(POOL_ID, address(this), 1 ether, 1.01 ether, 0);
+    borrowMP(POOL_ID, address(this), 1 ether, 1.1 ether, 0);
     repayMP(POOL_ID, address(this), 1 ether, 0.99 ether);
   }
 
@@ -56,7 +49,7 @@ contract PoolAccountingTest is DSTest, PoolAccounting {
   function testBorrowRepayMultiplePools() external {
     uint256 total = 0;
     for (uint256 i = 1; i < 6 + 1; i++) {
-      (uint256 borrowed, ) = borrowMP(i * POOL_ID, address(this), 1 ether, 1.01 ether, 100 ether);
+      (uint256 borrowed, ) = borrowMP(i * POOL_ID, address(this), 1 ether, 1.1 ether, 100 ether);
       total += borrowed;
     }
 

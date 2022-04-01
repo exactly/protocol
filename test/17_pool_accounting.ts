@@ -542,7 +542,7 @@ describe("PoolAccounting", () => {
             beforeEach(async () => {
               depositAmount = 5000;
 
-              await poolAccountingEnv.getRealInterestRateModel().setSPFeeRate(parseUnits("0.1")); // 10% fees charged from the mp depositor yield to the sp earnings
+              await poolAccountingEnv.setSPFeeRate(parseUnits("0.1")); // 10% fees charged from the mp depositor yield to the sp earnings
               await poolAccountingEnv.moveInTime(oneDayToMaturity);
               await poolAccountingEnv.depositMP(nextPoolID, depositAmount.toString());
 
@@ -1207,7 +1207,6 @@ describe("PoolAccounting", () => {
     describe("GIVEN an empty SP AND a deposit of 100", () => {
       beforeEach(async () => {
         poolAccountingEnv.smartPoolTotalSupply = parseUnits("0");
-        await poolAccountingHarness.setInterestRateModel(poolAccountingEnv.realInterestRateModel.address);
         await poolAccountingEnv.depositMP(nextPoolID, "100");
       });
 
@@ -1297,7 +1296,7 @@ describe("PoolAccounting", () => {
         });
         describe("AND WHEN an early repayment of 5250 with a spFeeRate of 10%", () => {
           beforeEach(async () => {
-            await poolAccountingEnv.getRealInterestRateModel().setSPFeeRate(parseUnits("0.1"));
+            await poolAccountingEnv.setSPFeeRate(parseUnits("0.1"));
             const threeDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 3;
             await poolAccountingEnv.moveInTime(threeDaysToMaturity);
             await poolAccountingEnv.repayMP(nextPoolID, "5250");

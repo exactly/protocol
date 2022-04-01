@@ -58,9 +58,7 @@ contract FixedLenderTest is DSTestPlus {
     MockOracle mockOracle = new MockOracle();
     mockOracle.setPrice("DAI", 1e8);
     Auditor auditor = new Auditor(mockOracle, 1.1e18);
-    InterestRateModel interestRateModel = new InterestRateModel(0.0495e18, -0.025e18, 1.1e18, 1e18, 0);
-    MockInterestRateModel mockInterestRateModel = new MockInterestRateModel(address(interestRateModel));
-    mockInterestRateModel.setBorrowRate(0.1e18);
+    MockInterestRateModel mockInterestRateModel = new MockInterestRateModel(0.1e18);
 
     fixedLender = new FixedLender(
       mockToken,
@@ -130,7 +128,7 @@ contract FixedLenderTest is DSTestPlus {
     fixedLender.borrowAtMaturity(7 days, 1 ether, 1.1 ether, address(this), address(this));
 
     vm.expectEmit(true, true, true, true);
-    emit RepayAtMaturity(7 days, address(this), address(this), 1 ether, 1.1 ether);
+    emit RepayAtMaturity(7 days, address(this), address(this), 1.01 ether, 1.1 ether);
     fixedLender.repayAtMaturity(7 days, 1.5 ether, 1.5 ether, address(this));
   }
 
