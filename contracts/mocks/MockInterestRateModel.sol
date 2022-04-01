@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { IInterestRateModel } from "../interfaces/IInterestRateModel.sol";
+import { InterestRateModel, IInterestRateModel } from "../InterestRateModel.sol";
 
 contract MockInterestRateModel is IInterestRateModel {
+  InterestRateModel public irm;
   uint256 public borrowRate;
-  uint256 public spFeeRate;
-  IInterestRateModel public realInterestRateModel;
 
-  constructor(address _realInterestRateModel) {
-    realInterestRateModel = IInterestRateModel(_realInterestRateModel);
+  constructor(uint256 borrowRate_) {
+    irm = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.1e18);
+    borrowRate = borrowRate_;
   }
 
   function getRateToBorrow(
@@ -28,9 +28,7 @@ contract MockInterestRateModel is IInterestRateModel {
     uint256 unassignedEarnings,
     uint256 amount
   ) external view override returns (uint256 earningsShare, uint256 earningsShareSP) {
-    // we call the real implementation since it has a certain specific logic
-    // that makes the whole system stable
-    return realInterestRateModel.getYieldForDeposit(suppliedSP, unassignedEarnings, amount);
+    return irm.getYieldForDeposit(suppliedSP, unassignedEarnings, amount);
   }
 
   function setBorrowRate(uint256 newRate) public {
