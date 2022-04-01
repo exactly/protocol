@@ -91,27 +91,27 @@ contract PoolAccounting is AccessControl {
 
   /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the
   /// borrower, so the `fixedLender` should call `validateBorrowMP` immediately after calling this function.
-  /// @param maturityDate maturity date / pool id where the asset will be borrowed.
+  /// @param maturity maturity date / pool id where the asset will be borrowed.
   /// @param borrower borrower that it will take the debt.
   /// @param amount amount that the borrower will be borrowing.
   /// @param maxAmountAllowed maximum amount that the borrower is willing to pay at maturity.
   /// @param smartPoolTotalSupply total supply in the smart pool.
   /// @return totalOwedNewBorrow : total amount that will need to be paid at maturity for this borrow.
   function borrowMP(
-    uint256 maturityDate,
+    uint256 maturity,
     address borrower,
     uint256 amount,
     uint256 maxAmountAllowed,
     uint256 smartPoolTotalSupply
   ) internal returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
     BorrowVars memory borrowVars;
-    PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+    PoolLib.MaturityPool storage pool = maturityPools[maturity];
 
-    earningsSP += pool.accrueEarnings(maturityDate, block.timestamp);
+    earningsSP += pool.accrueEarnings(maturity, block.timestamp);
 
     borrowVars.fee = amount.fmul(
       interestRateModel.getRateToBorrow(
-        maturityDate,
+        maturity,
         block.timestamp,
         amount,
         pool.borrowed,
@@ -130,9 +130,9 @@ contract PoolAccounting is AccessControl {
 
     // If user doesn't have a current position, we add it to the list
     // of all of them
-    borrowVars.position = mpUserBorrowedAmount[maturityDate][borrower];
+    borrowVars.position = mpUserBorrowedAmount[maturity][borrower];
     if (borrowVars.position.principal == 0) {
-      userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturityDate);
+      userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturity);
     }
 
     // We calculate what portion of the fees are to be accrued and what portion goes to earnings directly
@@ -144,26 +144,26 @@ contract PoolAccounting is AccessControl {
     earningsSP += borrowVars.earningsSP;
     pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
 
-    mpUserBorrowedAmount[maturityDate][borrower] = PoolLib.Position(
+    mpUserBorrowedAmount[maturity][borrower] = PoolLib.Position(
       borrowVars.position.principal + amount,
       borrowVars.position.fee + borrowVars.fee
     );
   }
 
   /// @dev Function to account for a deposit to a maturity pool (MP). It doesn't transfer or.
-  /// @param maturityDate maturity date / pool id where the asset will be deposited.
+  /// @param maturity maturity date / pool id where the asset will be deposited.
   /// @param supplier address that will be depositing the assets.
   /// @param amount amount that the supplier will be depositing.
   /// @param minAmountRequired minimum amount that the borrower is expecting to receive at maturity.
   /// @return currentTotalDeposit : the amount that should be collected at maturity for this deposit.
   function depositMP(
-    uint256 maturityDate,
+    uint256 maturity,
     address supplier,
     uint256 amount,
     uint256 minAmountRequired
   ) internal returns (uint256 currentTotalDeposit, uint256 earningsSP) {
-    PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
-    earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
+    PoolLib.MaturityPool storage pool = maturityPools[maturity];
+    earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
     (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
       pool.suppliedSP,
@@ -179,37 +179,37 @@ contract PoolAccounting is AccessControl {
     earningsSP += feeSP;
 
     // We update users's position
-    PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][supplier];
-    mpUserSuppliedAmount[maturityDate][supplier] = PoolLib.Position(position.principal + amount, position.fee + fee);
+    PoolLib.Position memory position = mpUserSuppliedAmount[maturity][supplier];
+    mpUserSuppliedAmount[maturity][supplier] = PoolLib.Position(position.principal + amount, position.fee + fee);
   }
 
   /// @dev Function to account for a withdraw from a maturity pool (MP).
-  /// @param maturityDate maturity date / pool id where the asset should be accounted for.
+  /// @param maturity maturity date / pool id where the asset should be accounted for.
   /// @param redeemer address that should have the assets withdrawn.
   /// @param amount amount that the redeemer will be extracting.
   /// @param smartPoolTotalSupply total supply in the smart pool.
   function withdrawMP(
-    uint256 maturityDate,
+    uint256 maturity,
     address redeemer,
     uint256 amount,
     uint256 minAmountRequired,
     uint256 smartPoolTotalSupply
   ) internal returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
-    PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+    PoolLib.MaturityPool storage pool = maturityPools[maturity];
 
-    earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
+    earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
-    PoolLib.Position memory position = mpUserSuppliedAmount[maturityDate][redeemer];
+    PoolLib.Position memory position = mpUserSuppliedAmount[maturity][redeemer];
 
     if (amount > position.principal + position.fee) amount = position.principal + position.fee;
 
     // We verify if there are any penalties/fee for him because of
     // early withdrawal - if so: discount
-    if (block.timestamp < maturityDate) {
+    if (block.timestamp < maturity) {
       redeemAmountDiscounted = amount.fdiv(
         1e18 +
           interestRateModel.getRateToBorrow(
-            maturityDate,
+            maturity,
             block.timestamp,
             amount,
             pool.borrowed,
@@ -240,18 +240,18 @@ contract PoolAccounting is AccessControl {
     earningsSP += newEarningsSP;
 
     // the user gets discounted the full amount
-    mpUserSuppliedAmount[maturityDate][redeemer] = position.reduceProportionally(amount);
+    mpUserSuppliedAmount[maturity][redeemer] = position.reduceProportionally(amount);
   }
 
   /// @dev Function to account for a repayment to a maturity pool (MP).
-  /// @param maturityDate maturity date / pool id where the asset should be accounted for.
+  /// @param maturity maturity date / pool id where the asset should be accounted for.
   /// @param borrower address where the debt will be reduced.
   /// @param repayAmount amount that it will be repaid in the MP.
   /// @return actualRepayAmount the amount with discounts included that will finally be transferred.
   /// @return debtCovered the sum of principal and fees that this repayment covers.
   /// @return earningsSP amount of earnings to be accrued by the smart pool depositors.
   function repayMP(
-    uint256 maturityDate,
+    uint256 maturity,
     address borrower,
     uint256 repayAmount,
     uint256 maxAmountAllowed
@@ -265,14 +265,14 @@ contract PoolAccounting is AccessControl {
   {
     RepayVars memory repayVars;
 
-    PoolLib.MaturityPool storage pool = maturityPools[maturityDate];
+    PoolLib.MaturityPool storage pool = maturityPools[maturity];
 
     // SP supply needs to accrue its interests
-    earningsSP = pool.accrueEarnings(maturityDate, block.timestamp);
+    earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
     // Amount Owed is (principal+fees)*penalties
-    repayVars.amountOwed = getAccountDebt(borrower, maturityDate);
-    repayVars.position = mpUserBorrowedAmount[maturityDate][borrower];
+    repayVars.amountOwed = getAccountDebt(borrower, maturity);
+    repayVars.position = mpUserBorrowedAmount[maturity][borrower];
 
     if (repayAmount > repayVars.amountOwed) repayAmount = repayVars.amountOwed;
 
@@ -287,7 +287,7 @@ contract PoolAccounting is AccessControl {
       .scaleProportionally(debtCovered);
 
     // Early repayment allows you to get a discount from the unassigned earnings
-    if (block.timestamp < maturityDate) {
+    if (block.timestamp < maturity) {
       // We calculate the deposit fee considering the amount
       // of debt he'll pay
       (repayVars.discountFee, repayVars.feeSP) = interestRateModel.getYieldForDeposit(
@@ -321,20 +321,20 @@ contract PoolAccounting is AccessControl {
     //
     repayVars.position.reduceProportionally(debtCovered);
     if (repayVars.position.principal + repayVars.position.fee == 0) {
-      delete mpUserBorrowedAmount[maturityDate][borrower];
-      userMpBorrowed[borrower] = userMpBorrowed[borrower].clearMaturity(maturityDate);
+      delete mpUserBorrowedAmount[maturity][borrower];
+      userMpBorrowed[borrower] = userMpBorrowed[borrower].clearMaturity(maturity);
     } else {
       // we proportionally reduce the values
-      mpUserBorrowedAmount[maturityDate][borrower] = repayVars.position;
+      mpUserBorrowedAmount[maturity][borrower] = repayVars.position;
     }
   }
 
   /// @dev Gets all borrows for a wallet in certain maturity (or MATURITY_ALL).
   /// @param who wallet to return status snapshot in the specified maturity date.
-  /// @param maturityDate maturityDate where the borrow is taking place. MATURITY_ALL returns all borrows.
+  /// @param maturity maturity where the borrow is taking place. MATURITY_ALL returns all borrows.
   /// @return debt the amount the user deposited to the smart pool and the total money he owes from maturities.
-  function getAccountBorrows(address who, uint256 maturityDate) public view returns (uint256 debt) {
-    if (maturityDate == PoolLib.MATURITY_ALL) {
+  function getAccountBorrows(address who, uint256 maturity) public view returns (uint256 debt) {
+    if (maturity == PoolLib.MATURITY_ALL) {
       uint256 encodedMaturities = userMpBorrowed[who];
       uint32 baseMaturity = uint32(encodedMaturities % (1 << 32));
       uint224 packedMaturities = uint224(encodedMaturities >> 32);
@@ -349,17 +349,17 @@ contract PoolAccounting is AccessControl {
         }
         if ((1 << i) > packedMaturities) break;
       }
-    } else debt = getAccountDebt(who, maturityDate);
+    } else debt = getAccountDebt(who, maturity);
   }
 
-  /// @notice Internal function to get the debt + penalties of an account for a certain maturityDate.
-  /// @param who wallet to return debt status for the specified maturityDate.
-  /// @param maturityDate amount to be transfered.
+  /// @notice Internal function to get the debt + penalties of an account for a certain maturity.
+  /// @param who wallet to return debt status for the specified maturity.
+  /// @param maturity amount to be transfered.
   /// @return totalDebt : the total debt denominated in number of tokens.
-  function getAccountDebt(address who, uint256 maturityDate) internal view returns (uint256 totalDebt) {
-    PoolLib.Position memory position = mpUserBorrowedAmount[maturityDate][who];
+  function getAccountDebt(address who, uint256 maturity) internal view returns (uint256 totalDebt) {
+    PoolLib.Position memory position = mpUserBorrowedAmount[maturity][who];
     totalDebt = position.principal + position.fee;
-    uint256 secondsDelayed = TSUtils.secondsPre(maturityDate, block.timestamp);
+    uint256 secondsDelayed = TSUtils.secondsPre(maturity, block.timestamp);
     if (secondsDelayed > 0) totalDebt += totalDebt.fmul(secondsDelayed * penaltyRate, 1e18);
   }
 }

@@ -38,18 +38,18 @@ library TSUtils {
     return State.VALID;
   }
 
-  /// @dev verifies that a maturityDate is VALID, MATURED, NOT_READY or INVALID.
+  /// @dev verifies that a maturity is VALID, MATURED, NOT_READY or INVALID.
   /// If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
-  /// @param maturityDate timestamp of the maturity date to be verified.
+  /// @param maturity timestamp of the maturity date to be verified.
   /// @param requiredState state required by the caller to be verified (see TSUtils.State() for description).
   /// @param alternativeState state required by the caller to be verified (see TSUtils.State() for description).
   function validateRequiredPoolState(
     uint8 maxFuturePools,
-    uint256 maturityDate,
+    uint256 maturity,
     State requiredState,
     State alternativeState
   ) internal view {
-    State poolState = getPoolState(block.timestamp, maturityDate, maxFuturePools);
+    State poolState = getPoolState(block.timestamp, maturity, maxFuturePools);
 
     if (poolState != requiredState && poolState != alternativeState) {
       if (alternativeState == State.NONE) revert UnmatchedPoolState(uint8(poolState), uint8(requiredState));

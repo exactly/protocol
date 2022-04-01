@@ -3,18 +3,18 @@ import { expect } from "chai";
 import { parseUnits } from "ethers/lib/utils";
 import assert from "assert";
 
-export interface BorrowFromMaturityPoolEventInterface {
+export interface BorrowAtMaturityEventInterface {
   to: string;
   amount: BigNumber;
   commission: BigNumber;
-  maturityDate: BigNumber;
+  maturity: BigNumber;
 }
 
-export interface DepositToMaturityPoolEventInterface {
+export interface DepositAtMaturityEventInterface {
   from: string;
   amount: BigNumber;
   commission: BigNumber;
-  maturityDate: BigNumber;
+  maturity: BigNumber;
 }
 
 export function errorUnmatchedPool(state: PoolState, requiredState: PoolState, alternativeState?: PoolState): string {
@@ -28,7 +28,7 @@ export function errorUnmatchedPool(state: PoolState, requiredState: PoolState, a
 // in both ethers and hardhat-ethers
 export async function expectFee(tx: any, expectedFee: BigNumber) {
   const { events } = await tx.wait();
-  const borrowEvents = events.filter((it: any) => it.event === "BorrowFromMaturityPool");
+  const borrowEvents = events.filter((it: any) => it.event === "BorrowAtMaturity");
   assert(borrowEvents.length < 2, "searched for one event, but many were found");
   assert(borrowEvents.length > 0, "searched for one event, but none were found");
   const event = borrowEvents[0];

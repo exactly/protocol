@@ -52,13 +52,17 @@ describe("FixedLender - Pausable", function () {
         await expect(fixedLender.deposit(10n ** 18n, user.address)).to.be.revertedWith("Pausable: paused");
       });
       it("THEN it should revert when trying to deposit to a maturity pool", async () => {
-        await expect(fixedLender.depositToMaturityPool("0", nextPoolId, "0")).to.be.revertedWith("Pausable: paused");
+        await expect(fixedLender.depositAtMaturity(nextPoolId, "0", "0", user.address)).to.be.revertedWith(
+          "Pausable: paused",
+        );
       });
       it("THEN it should revert when trying to borrow from a maturity pool", async () => {
-        await expect(fixedLender.borrowFromMaturityPool("0", nextPoolId, "0")).to.be.revertedWith("Pausable: paused");
+        await expect(fixedLender.borrowAtMaturity(nextPoolId, "0", "0", user.address, user.address)).to.be.revertedWith(
+          "Pausable: paused",
+        );
       });
       it("THEN it should revert when trying to repay to a maturity pool", async () => {
-        await expect(fixedLender.repayToMaturityPool(owner.address, nextPoolId, "0", "0")).to.be.revertedWith(
+        await expect(fixedLender.repayAtMaturity(nextPoolId, "0", "0", owner.address)).to.be.revertedWith(
           "Pausable: paused",
         );
       });

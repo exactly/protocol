@@ -404,8 +404,8 @@ describe("Liquidations", function () {
           it("AND 19000 DAI of debt is repaid (debt covered)", async () => {
             const bobDAIBalanceBefore = parseUnits("135000");
             await expect(tx)
-              .to.emit(fixedLenderDAI, "RepayToMaturityPool")
-              .withArgs(bob.address, alice.address, parseUnits("19000"), parseUnits("19000"), nextPoolID);
+              .to.emit(fixedLenderDAI, "RepayAtMaturity")
+              .withArgs(nextPoolID, bob.address, alice.address, parseUnits("19000"), parseUnits("19000"));
             expect(await dai.balanceOf(bob.address)).to.eq(bobDAIBalanceBefore.sub(parseUnits("19000")));
           });
         });

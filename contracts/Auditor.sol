@@ -277,7 +277,7 @@ contract Auditor is IAuditor, AccessControl {
   }
 
   /// @dev Function to allow/reject seizing of assets.
-  //       This function can be called externally, but only will have effect when called from a fixedLender.
+  /// This function can be called externally, but only will have effect when called from a fixedLender.
   /// @param fixedLenderCollateral market where the assets will be seized (should be msg.sender on FixedLender.sol).
   /// @param fixedLenderBorrowed market from where the debt will be paid.
   /// @param liquidator address to validate where the seized assets will be received.

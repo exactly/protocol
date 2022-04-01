@@ -21,15 +21,35 @@ contract FixedLenderTest is DSTestPlus {
   event Transfer(address indexed from, address indexed to, uint256 amount);
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
   event Withdraw(address indexed caller, address indexed receiver, uint256 assets, uint256 shares);
-  event DepositToMaturityPool(address indexed from, uint256 amount, uint256 fee, uint256 maturityDate);
-  event BorrowFromMaturityPool(address indexed to, uint256 amount, uint256 fee, uint256 maturityDate);
-  event WithdrawFromMaturityPool(address indexed from, uint256 amount, uint256 amountDiscounted, uint256 maturityDate);
-  event RepayToMaturityPool(
-    address indexed payer,
+  event DepositAtMaturity(
+    uint256 indexed maturity,
+    address indexed caller,
+    address indexed owner,
+    uint256 assets,
+    uint256 fee
+  );
+  event WithdrawAtMaturity(
+    uint256 indexed maturity,
+    address caller,
+    address indexed receiver,
+    address indexed owner,
+    uint256 assets,
+    uint256 assetsDiscounted
+  );
+  event BorrowAtMaturity(
+    uint256 indexed maturity,
+    address caller,
+    address indexed receiver,
     address indexed borrower,
-    uint256 repayAmount,
-    uint256 debtCovered,
-    uint256 maturityDate
+    uint256 assets,
+    uint256 fee
+  );
+  event RepayAtMaturity(
+    uint256 indexed maturity,
+    address indexed caller,
+    address indexed borrower,
+    uint256 assets,
+    uint256 debtCovered
   );
 
   function setUp() external {
@@ -53,7 +73,7 @@ contract FixedLenderTest is DSTestPlus {
   }
 
   function testDepositToSmartPool() external {
-    vm.expectEmit(true, true, false, true);
+    vm.expectEmit(true, true, true, true);
     emit Deposit(address(this), address(this), 1 ether, 1 ether);
 
     fixedLender.deposit(1 ether, address(this));
@@ -63,41 +83,41 @@ contract FixedLenderTest is DSTestPlus {
     fixedLender.deposit(1 ether, address(this));
     vm.roll(block.number + 1); // we increase block number to avoid same block deposit & withdraw error
 
-    vm.expectEmit(true, true, false, true);
+    vm.expectEmit(true, true, true, true);
     emit Transfer(address(fixedLender), address(this), 1 ether);
     fixedLender.withdraw(1 ether, address(this), address(this));
   }
 
-  function testDepositToMaturityPool() external {
-    vm.expectEmit(true, false, false, true);
-    emit DepositToMaturityPool(address(this), 1 ether, 0, 7 days);
-    fixedLender.depositToMaturityPool(1 ether, 7 days, 1 ether);
+  function testDepositAtMaturity() external {
+    vm.expectEmit(true, true, true, true);
+    emit DepositAtMaturity(7 days, address(this), address(this), 1 ether, 0);
+    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
   }
 
-  function testWithdrawFromMaturityPool() external {
-    fixedLender.depositToMaturityPool(1 ether, 7 days, 1 ether);
+  function testWithdrawAtMaturity() external {
+    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
 
-    vm.expectEmit(true, false, false, true);
+    vm.expectEmit(true, true, true, true);
     // TODO: fix wrong hardcoded value
-    emit WithdrawFromMaturityPool(address(this), 1 ether, 909090909090909090, 7 days);
-    fixedLender.withdrawFromMaturityPool(1 ether, 0.9 ether, 7 days);
+    emit WithdrawAtMaturity(7 days, address(this), address(this), address(this), 1 ether, 909090909090909090);
+    fixedLender.withdrawAtMaturity(7 days, 1 ether, 0.9 ether, address(this), address(this));
   }
 
-  function testBorrowFromMaturityPool() external {
+  function testBorrowAtMaturity() external {
     fixedLender.deposit(12 ether, address(this));
 
-    vm.expectEmit(true, false, false, true);
-    emit BorrowFromMaturityPool(address(this), 1 ether, 0.1 ether, 7 days);
-    fixedLender.borrowFromMaturityPool(1 ether, 7 days, 2 ether);
+    vm.expectEmit(true, true, true, true);
+    emit BorrowAtMaturity(7 days, address(this), address(this), address(this), 1 ether, 0.1 ether);
+    fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
   }
 
-  function testRepayToMaturityPool() external {
+  function testRepayAtMaturity() external {
     fixedLender.deposit(12 ether, address(this));
-    fixedLender.borrowFromMaturityPool(1 ether, 7 days, 1.1 ether);
+    fixedLender.borrowAtMaturity(7 days, 1 ether, 1.1 ether, address(this), address(this));
 
-    vm.expectEmit(true, false, false, true);
-    emit RepayToMaturityPool(address(this), address(this), 1 ether, 1.1 ether, 7 days);
-    fixedLender.repayToMaturityPool(address(this), 7 days, 1.5 ether, 1.5 ether);
+    vm.expectEmit(true, true, true, true);
+    emit RepayAtMaturity(7 days, address(this), address(this), 1 ether, 1.1 ether);
+    fixedLender.repayAtMaturity(7 days, 1.5 ether, 1.5 ether, address(this));
   }
 
   function testMultipleDepositsToSmartPool() external {
@@ -117,7 +137,7 @@ contract FixedLenderTest is DSTestPlus {
     vm.warp(7 days);
 
     vm.prank(BOB);
-    fixedLender.borrowFromMaturityPool(1_000 ether, 7 days * 2, 1_100 ether);
+    fixedLender.borrowAtMaturity(7 days * 2, 1_000 ether, 1_100 ether, BOB, BOB);
 
     vm.warp(7 days + 3.5 days);
     fixedLender.deposit(10_000 ether, address(this));

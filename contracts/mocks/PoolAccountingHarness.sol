@@ -26,14 +26,14 @@ contract PoolAccountingHarness is PoolAccounting {
   }
 
   function borrowMPWithReturnValues(
-    uint256 maturityDate,
+    uint256 maturity,
     address borrower,
     uint256 amount,
     uint256 maxAmountAllowed,
     uint256 eTokenTotalSupply
   ) external {
     (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = borrowMP(
-      maturityDate,
+      maturity,
       borrower,
       amount,
       maxAmountAllowed,
@@ -42,13 +42,13 @@ contract PoolAccountingHarness is PoolAccounting {
   }
 
   function depositMPWithReturnValues(
-    uint256 maturityDate,
+    uint256 maturity,
     address supplier,
     uint256 amount,
     uint256 minAmountRequired
   ) external {
     (returnValues.currentTotalDeposit, returnValues.earningsSP) = depositMP(
-      maturityDate,
+      maturity,
       supplier,
       amount,
       minAmountRequired
@@ -56,14 +56,14 @@ contract PoolAccountingHarness is PoolAccounting {
   }
 
   function withdrawMPWithReturnValues(
-    uint256 maturityDate,
+    uint256 maturity,
     address redeemer,
     uint256 amount,
     uint256 minAmountRequired,
     uint256 eTokenTotalSupply
   ) external {
     (returnValues.redeemAmountDiscounted, returnValues.earningsSP) = withdrawMP(
-      maturityDate,
+      maturity,
       redeemer,
       amount,
       minAmountRequired,
@@ -72,13 +72,13 @@ contract PoolAccountingHarness is PoolAccounting {
   }
 
   function repayMPWithReturnValues(
-    uint256 maturityDate,
+    uint256 maturity,
     address borrower,
     uint256 repayAmount,
     uint256 maxAmountAllowed
   ) external {
     (returnValues.actualRepayAmount, returnValues.debtCovered, returnValues.earningsSP) = repayMP(
-      maturityDate,
+      maturity,
       borrower,
       repayAmount,
       maxAmountAllowed
