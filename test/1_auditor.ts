@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, ETHFixedLender, FixedLender, MockChainlinkFeedRegistry, MockToken, WETH } from "../types";
+import type { Auditor, FixedLender, MockChainlinkFeedRegistry, MockToken, WETH } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 import USD_ADDRESS from "./utils/USD_ADDRESS";
@@ -19,7 +19,7 @@ describe("Auditor from User Space", function () {
   let auditor: Auditor;
   let feedRegistry: MockChainlinkFeedRegistry;
   let fixedLenderDAI: FixedLender;
-  let fixedLenderWETH: ETHFixedLender;
+  let fixedLenderWETH: FixedLender;
 
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
@@ -37,9 +37,11 @@ describe("Auditor from User Space", function () {
     auditor = await getContract<Auditor>("Auditor", user);
     feedRegistry = await getContract<MockChainlinkFeedRegistry>("FeedRegistry", user);
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", user);
-    fixedLenderWETH = await getContract<ETHFixedLender>("FixedLenderWETH", user);
+    fixedLenderWETH = await getContract<FixedLender>("FixedLenderWETH", user);
 
     await dai.connect(owner).transfer(user.address, parseUnits("100000"));
+    await weth.deposit({ value: parseUnits("10") });
+    await weth.approve(fixedLenderWETH.address, parseUnits("10"));
   });
 
   it("We enter market twice without failing", async () => {
@@ -76,7 +78,9 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.deposit(666, user.address);
     await auditor.enterMarkets([fixedLenderDAI.address]);
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
-    await expect(fixedLenderDAI.borrowFromMaturityPool(1, futurePools(1)[0], 1)).to.be.revertedWith("InvalidPrice()");
+    await expect(
+      fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 1, 1, user.address, user.address),
+    ).to.be.revertedWith("InvalidPrice()");
   });
 
   it("SeizeAllowed should fail when liquidator is borrower", async () => {
@@ -108,7 +112,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.deposit(1000, user.address);
     await expect(
       // user tries to borrow more than the cap
-      fixedLenderDAI.borrowFromMaturityPool(20, futurePools(1)[0], 22),
+      fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 20, 22, user.address, user.address),
     ).to.be.revertedWith("BorrowCapReached()");
   });
 
@@ -130,7 +134,7 @@ describe("Auditor from User Space", function () {
 
     // we supply ETH to the protocol
     const amountETH = parseUnits("1");
-    await fixedLenderWETH.depositETH(user.address, { value: amountETH });
+    await fixedLenderWETH.deposit(amountETH, user.address);
     expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(amountETH);
     // we make it count as collateral (WETH)
     await auditor.enterMarkets([fixedLenderWETH.address]);
@@ -153,7 +157,7 @@ describe("Auditor from User Space", function () {
   it("Auditor reverts if Oracle acts weird", async () => {
     // we supply Dai to the protocol
     await dai.approve(fixedLenderDAI.address, 100);
-    await fixedLenderDAI.depositToMaturityPool(100, futurePools(1)[0], 100);
+    await fixedLenderDAI.depositAtMaturity(futurePools(1)[0], 100, 100, user.address);
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address]);
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);

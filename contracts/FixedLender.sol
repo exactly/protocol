@@ -29,74 +29,96 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   // Total borrows in all maturities
   uint256 public totalMpBorrows;
 
-  /// @notice Event emitted when a user borrows amount of an asset from a certain maturity date.
-  /// @param to address which borrowed the asset.
-  /// @param amount of the asset that it was borrowed.
-  /// @param fee amount extra that it will need to be paid at maturity.
-  /// @param maturityDate dateID/poolID/maturity in which the user will have to repay the loan.
-  event BorrowFromMaturityPool(address indexed to, uint256 amount, uint256 fee, uint256 maturityDate);
-
   /// @notice Event emitted when a user deposits an amount of an asset to a certain maturity date collecting a fee at
   /// the end of the period.
-  /// @param from address which deposited the asset.
-  /// @param amount of the asset that it was deposited.
+  /// @param maturity dateID/poolID/maturity in which the user will be able to collect his deposit + his fee.
+  /// @param caller address which deposited the asset.
+  /// @param owner address which received the shares.
+  /// @param assets amount of the asset that it was deposited.
   /// @param fee is the extra amount that it will be collected at maturity.
-  /// @param maturityDate dateID/poolID/maturity in which the user will be able to collect his deposit + his fee.
-  event DepositToMaturityPool(address indexed from, uint256 amount, uint256 fee, uint256 maturityDate);
+  event DepositAtMaturity(
+    uint256 indexed maturity,
+    address indexed caller,
+    address indexed owner,
+    uint256 assets,
+    uint256 fee
+  );
 
   /// @notice Event emitted when a user collects its deposits after maturity.
-  /// @param from address which will be collecting the asset.
-  /// @param amount of the asset that it was deposited.
-  /// @param amountDiscounted of the asset that it was deposited (in case of early withdrawal).
-  /// @param maturityDate poolID where the user collected its deposits.
-  event WithdrawFromMaturityPool(address indexed from, uint256 amount, uint256 amountDiscounted, uint256 maturityDate);
+  /// @param maturity poolID where the user collected its deposits.
+  /// @param receiver address which will be collecting the asset.
+  /// @param assets amount of the asset that it was deposited.
+  /// @param assetsDiscounted amount of the asset that it was deposited (in case of early withdrawal).
+  event WithdrawAtMaturity(
+    uint256 indexed maturity,
+    address caller,
+    address indexed receiver,
+    address indexed owner,
+    uint256 assets,
+    uint256 assetsDiscounted
+  );
+
+  /// @notice Event emitted when a user borrows amount of an asset from a certain maturity date.
+  /// @param maturity dateID/poolID/maturity in which the user will have to repay the loan.
+  /// @param caller address which borrowed the asset.
+  /// @param borrower address which will be collecting the asset.
+  /// @param assets amount of the asset that it was borrowed.
+  /// @param fee amount extra that it will need to be paid at maturity.
+  event BorrowAtMaturity(
+    uint256 indexed maturity,
+    address caller,
+    address indexed receiver,
+    address indexed borrower,
+    uint256 assets,
+    uint256 fee
+  );
 
   /// @notice Event emitted when a user repays its borrows after maturity.
-  /// @param payer address which repaid the previously borrowed amount.
+  /// @param maturity poolID where the user repaid its borrowed amounts.
+  /// @param caller address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
-  /// @param repayAmount amount that was repaid.
+  /// @param assets amount that was repaid.
   /// @param debtCovered amount of the debt that was covered in this repayment (penalties could have been repaid).
-  /// @param maturityDate poolID where the user repaid its borrowed amounts.
-  event RepayToMaturityPool(
-    address indexed payer,
+  event RepayAtMaturity(
+    uint256 indexed maturity,
+    address indexed caller,
     address indexed borrower,
-    uint256 repayAmount,
-    uint256 debtCovered,
-    uint256 maturityDate
+    uint256 assets,
+    uint256 debtCovered
   );
 
   /// @notice Event emitted when a user's position had a liquidation.
-  /// @param liquidator address which repaid the previously borrowed amount.
+  /// @param receiver address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
-  /// @param repayAmount amount of the asset that it was repaid.
-  /// @param fixedLenderCollateral address of the asset that it was seized by the liquidator.
-  /// @param seizedAmount amount seized of the collateral.
-  /// @param maturityDate poolID where the borrower had an uncollaterized position.
+  /// @param assets amount of the asset that it was repaid.
+  /// @param collateralFixedLender address of the asset that it was seized by the liquidator.
+  /// @param seizedAssets amount seized of the collateral.
+  /// @param maturity poolID where the borrower had an uncollaterized position.
   event LiquidateBorrow(
-    address liquidator,
-    address borrower,
-    uint256 repayAmount,
-    FixedLender fixedLenderCollateral,
-    uint256 seizedAmount,
-    uint256 maturityDate
+    uint256 indexed maturity,
+    address indexed receiver,
+    address indexed borrower,
+    uint256 assets,
+    FixedLender collateralFixedLender,
+    uint256 seizedAssets
   );
 
   /// @notice Event emitted when a user's collateral has been seized.
   /// @param liquidator address which seized this collateral.
   /// @param borrower address which had the original debt.
-  /// @param seizedAmount amount seized of the collateral.
-  event AssetSeized(address liquidator, address borrower, uint256 seizedAmount);
+  /// @param assets amount seized of the collateral.
+  event AssetSeized(address liquidator, address borrower, uint256 assets);
 
   constructor(
     ERC20 asset_,
     string memory assetSymbol_,
     IAuditor auditor_,
-    IInterestRateModel _interestRateModel,
-    uint256 _penaltyRate,
-    uint256 _smartPoolReserveFactor
+    IInterestRateModel interestRateModel_,
+    uint256 penaltyRate_,
+    uint256 smartPoolReserveFactor_
   )
     ERC4626(asset_, string(abi.encodePacked("EToken", assetSymbol_)), string(abi.encodePacked("e", assetSymbol_)))
-    PoolAccounting(_interestRateModel, _penaltyRate, _smartPoolReserveFactor)
+    PoolAccounting(interestRateModel_, penaltyRate_, smartPoolReserveFactor_)
   {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
@@ -160,17 +182,17 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   /// @dev Sets the protocol's max future weekly pools for borrowing and lending.
-  /// @param _maxFuturePools number of pools to be active at the same time (4 weekly pools ~= 1 month).
-  function setMaxFuturePools(uint8 _maxFuturePools) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    maxFuturePools = _maxFuturePools;
+  /// @param futurePools number of pools to be active at the same time (4 weekly pools ~= 1 month).
+  function setMaxFuturePools(uint8 futurePools) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    maxFuturePools = futurePools;
   }
 
-  /// @dev Sets the _pause state to true in case of emergency, triggered by an authorized account.
+  /// @notice Sets the _pause state to true in case of emergency, triggered by an authorized account.
   function pause() external onlyRole(PAUSER_ROLE) {
     _pause();
   }
 
-  /// @dev Sets the _pause state to false when threat is gone, triggered by an authorized account.
+  /// @notice Sets the _pause state to false when threat is gone, triggered by an authorized account.
   function unpause() external onlyRole(PAUSER_ROLE) {
     _unpause();
   }
@@ -179,41 +201,41 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @dev Msg.sender liquidates a borrower's position and repays a certain amount of debt for a maturity date,
   /// seizing a part of borrower's collateral.
   /// @param borrower wallet that has an outstanding debt for a certain maturity date.
-  /// @param repayAmount amount to be repaid by liquidator(msg.sender).
-  /// @param fixedLenderCollateral fixedLender from which the collateral will be seized to give the liquidator.
-  /// @param maturityDate maturity date for which the position will be liquidated.
+  /// @param assets amount to be repaid by liquidator(msg.sender).
+  /// @param collateralFixedLender fixedLender from which the collateral will be seized to give the liquidator.
+  /// @param maturity maturity date for which the position will be liquidated.
   function liquidate(
     address borrower,
-    uint256 repayAmount,
-    uint256 maxAmountAllowed,
-    FixedLender fixedLenderCollateral,
-    uint256 maturityDate
+    uint256 assets,
+    uint256 maxAssetsAllowed,
+    FixedLender collateralFixedLender,
+    uint256 maturity
   ) external nonReentrant whenNotPaused returns (uint256) {
     // reverts on failure
-    auditor.liquidateAllowed(this, fixedLenderCollateral, msg.sender, borrower, repayAmount);
+    auditor.liquidateAllowed(this, collateralFixedLender, msg.sender, borrower, assets);
 
-    repayAmount = _repay(msg.sender, borrower, maturityDate, repayAmount, maxAmountAllowed);
+    assets = _repay(maturity, assets, maxAssetsAllowed, msg.sender, borrower);
 
     // reverts on failure
-    uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(this, fixedLenderCollateral, repayAmount);
+    uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(this, collateralFixedLender, assets);
 
     // Revert if borrower collateral token balance < seizeTokens
-    (uint256 balance, ) = fixedLenderCollateral.getAccountSnapshot(borrower, maturityDate);
+    (uint256 balance, ) = collateralFixedLender.getAccountSnapshot(borrower, maturity);
     if (balance < seizeTokens) revert BalanceExceeded();
 
     // If this is also the collateral
     // run seizeInternal to avoid re-entrancy, otherwise make an external call
     // both revert on failure
-    if (address(fixedLenderCollateral) == address(this)) {
+    if (address(collateralFixedLender) == address(this)) {
       _seize(this, msg.sender, borrower, seizeTokens);
     } else {
-      fixedLenderCollateral.seize(msg.sender, borrower, seizeTokens);
+      collateralFixedLender.seize(msg.sender, borrower, seizeTokens);
     }
 
     // We emit a LiquidateBorrow event
-    emit LiquidateBorrow(msg.sender, borrower, repayAmount, fixedLenderCollateral, seizeTokens, maturityDate);
+    emit LiquidateBorrow(maturity, msg.sender, borrower, assets, collateralFixedLender, seizeTokens);
 
-    return repayAmount;
+    return assets;
   }
 
   /// @notice Public function to seize a certain amount of tokens.
@@ -222,119 +244,129 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// That's why msg.sender needs to be passed to the private function (to be validated as a market)
   /// @param liquidator address which will receive the seized tokens.
   /// @param borrower address from which the tokens will be seized.
-  /// @param seizeAmount amount to be removed from borrower's possession.
+  /// @param assets amount to be removed from borrower's possession.
   function seize(
     address liquidator,
     address borrower,
-    uint256 seizeAmount
+    uint256 assets
   ) external nonReentrant whenNotPaused {
-    _seize(FixedLender(msg.sender), liquidator, borrower, seizeAmount);
+    _seize(FixedLender(msg.sender), liquidator, borrower, assets);
   }
 
   /// @dev Lends to a wallet for a certain maturity date/pool.
-  /// @param amount amount to send to the msg.sender.
-  /// @param maturityDate maturity date for repayment.
-  /// @param maxAmountAllowed maximum amount of debt that the user is willing to accept.
-  function borrowFromMaturityPool(
-    uint256 amount,
-    uint256 maturityDate,
-    uint256 maxAmountAllowed
-  ) public nonReentrant whenNotPaused {
+  /// @param maturity maturity date for repayment.
+  /// @param assets amount to send to borrower.
+  /// @param maxAssetsAllowed maximum amount of debt that the user is willing to accept.
+  function borrowAtMaturity(
+    uint256 maturity,
+    uint256 assets,
+    uint256 maxAssetsAllowed,
+    address receiver,
+    address borrower
+  ) public nonReentrant whenNotPaused returns (uint256 assetsOwed) {
     // reverts on failure
-    TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.NONE);
+    TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    (uint256 totalOwed, uint256 earningsSP) = borrowMP(
-      maturityDate,
-      msg.sender,
-      amount,
-      maxAmountAllowed,
-      smartPoolBalance
-    );
-    totalMpBorrows += totalOwed;
+    uint256 earningsSP;
+    (assetsOwed, earningsSP) = borrowMP(maturity, borrower, assets, maxAssetsAllowed, smartPoolBalance);
+
+    if (msg.sender != borrower) {
+      uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - convertToShares(assetsOwed);
+    }
+
+    totalMpBorrows += assetsOwed;
 
     smartPoolBalance += earningsSP;
-    auditor.validateBorrowMP(this, msg.sender);
+    auditor.validateBorrowMP(this, borrower);
 
-    doTransferOut(msg.sender, amount);
+    asset.safeTransfer(receiver, assets);
 
-    emit BorrowFromMaturityPool(msg.sender, amount, totalOwed - amount, maturityDate);
+    emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, assetsOwed - assets);
   }
 
   /// @dev Deposits a certain amount to the protocol for a certain maturity date/pool.
-  /// @param amount amount to receive from the msg.sender.
-  /// @param maturityDate maturity date / pool ID.
-  /// @param minAmountRequired minimum amount of capital required by the depositor for the transaction to be accepted.
-  function depositToMaturityPool(
-    uint256 amount,
-    uint256 maturityDate,
-    uint256 minAmountRequired
-  ) public nonReentrant whenNotPaused {
+  /// @param maturity maturity date / pool ID.
+  /// @param assets amount to receive from the msg.sender.
+  /// @param minAssetsRequired minimum amount of capital required by the depositor for the transaction to be accepted.
+  function depositAtMaturity(
+    uint256 maturity,
+    uint256 assets,
+    uint256 minAssetsRequired,
+    address receiver
+  ) public nonReentrant whenNotPaused returns (uint256 maturityAssets) {
     // reverts on failure
-    TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.NONE);
+    TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    doTransferIn(msg.sender, amount);
+    asset.safeTransferFrom(msg.sender, address(this), assets);
 
-    (uint256 currentTotalDeposit, uint256 earningsSP) = depositMP(maturityDate, msg.sender, amount, minAmountRequired);
+    uint256 earningsSP;
+    (maturityAssets, earningsSP) = depositMP(maturity, receiver, assets, minAssetsRequired);
 
     smartPoolBalance += earningsSP;
 
-    emit DepositToMaturityPool(msg.sender, amount, currentTotalDeposit - amount, maturityDate);
+    emit DepositAtMaturity(maturity, msg.sender, receiver, assets, maturityAssets - assets);
   }
 
   /// @notice User collects a certain amount of underlying asset after supplying tokens until a certain maturity date.
   /// @dev The pool that the user is trying to retrieve the money should be matured.
-  /// @param redeemAmount The number of underlying tokens to receive.
-  /// @param minAmountRequired minimum amount required by the user (if penalty fees for early withdrawal).
-  /// @param maturityDate The matured date for which we're trying to retrieve the funds.
-  function withdrawFromMaturityPool(
-    uint256 redeemAmount,
-    uint256 minAmountRequired,
-    uint256 maturityDate
-  ) public nonReentrant {
-    if (redeemAmount == 0) revert ZeroWithdraw();
+  /// @param assets The number of underlying tokens to receive.
+  /// @param minAssetsRequired minimum amount required by the user (if penalty fees for early withdrawal).
+  /// @param maturity The matured date for which we're trying to retrieve the funds.
+  function withdrawAtMaturity(
+    uint256 maturity,
+    uint256 assets,
+    uint256 minAssetsRequired,
+    address receiver,
+    address owner
+  ) public nonReentrant returns (uint256 assetsDiscounted) {
+    if (assets == 0) revert ZeroWithdraw();
 
     // reverts on failure
-    TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.MATURED);
+    TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
+    uint256 earningsSP;
     // We check if there's any discount to be applied for early withdrawal
-    (uint256 redeemAmountDiscounted, uint256 earningsSP) = withdrawMP(
-      maturityDate,
-      msg.sender,
-      redeemAmount,
-      minAmountRequired,
-      smartPoolBalance
-    );
+    (assetsDiscounted, earningsSP) = withdrawMP(maturity, owner, assets, minAssetsRequired, smartPoolBalance);
+
+    if (msg.sender != owner) {
+      uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - convertToShares(assetsDiscounted);
+    }
 
     smartPoolBalance += earningsSP;
 
-    doTransferOut(msg.sender, redeemAmountDiscounted);
+    asset.safeTransfer(receiver, assetsDiscounted);
 
-    emit WithdrawFromMaturityPool(msg.sender, redeemAmount, redeemAmountDiscounted, maturityDate);
+    emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, assets, assetsDiscounted);
   }
 
   /// @notice Sender repays an amount of borrower's debt for a maturity date.
   /// @dev The pool that the user is trying to repay to should be matured.
+  /// @param maturity The matured date where the debt is located.
   /// @param borrower The address of the account that has the debt.
-  /// @param maturityDate The matured date where the debt is located.
-  /// @param repayAmount amount to be paid for the borrower's debt.
-  function repayToMaturityPool(
-    address borrower,
-    uint256 maturityDate,
-    uint256 repayAmount,
-    uint256 maxAmountAllowed
-  ) public nonReentrant whenNotPaused {
+  /// @param assets amount to be paid for the borrower's debt.
+  /// @return actualRepayAssets the actual amount that was transferred into the protocol.
+  function repayAtMaturity(
+    uint256 maturity,
+    uint256 assets,
+    uint256 maxAssetsAllowed,
+    address borrower
+  ) public nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
     // reverts on failure
-    TSUtils.validateRequiredPoolState(maxFuturePools, maturityDate, TSUtils.State.VALID, TSUtils.State.MATURED);
+    TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
-    _repay(msg.sender, borrower, maturityDate, repayAmount, maxAmountAllowed);
+    actualRepayAssets = _repay(maturity, assets, maxAssetsAllowed, msg.sender, borrower);
   }
 
   /// @dev Gets current snapshot for a wallet in certain maturity.
   /// @param who wallet to return status snapshot in the specified maturity date.
-  /// @param maturityDate maturityDate. `PoolLib.MATURITY_ALL` (`type(uint256).max`) for all maturities.
+  /// @param maturity maturity. `PoolLib.MATURITY_ALL` (`type(uint256).max`) for all maturities.
   /// @return the amount the user deposited to the smart pool and the total money he owes from maturities.
-  function getAccountSnapshot(address who, uint256 maturityDate) public view returns (uint256, uint256) {
-    return (maxWithdraw(who), getAccountBorrows(who, maturityDate));
+  function getAccountSnapshot(address who, uint256 maturity) public view returns (uint256, uint256) {
+    return (maxWithdraw(who), getAccountBorrows(who, maturity));
   }
 
   /// @notice This function allows to (partially) repay a position.
@@ -342,34 +374,29 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// Should be called after `beforeRepayMP` or `liquidateAllowed` on the auditor.
   /// @param payer the address of the account that will pay the debt.
   /// @param borrower the address of the account that has the debt.
-  /// @param repayAmount the amount of debt of the pool that should be paid.
-  /// @param maturityDate the maturityDate to access the pool.
-  /// @return the actual amount that was transferred into the protocol.
+  /// @param assets the amount of debt of the pool that should be paid.
+  /// @param maturity the maturity to access the pool.
+  /// @return actualRepayAssets the actual amount that was transferred into the protocol.
   function _repay(
+    uint256 maturity,
+    uint256 assets,
+    uint256 maxAssetsAllowed,
     address payer,
-    address borrower,
-    uint256 maturityDate,
-    uint256 repayAmount,
-    uint256 maxAmountAllowed
-  ) internal returns (uint256) {
-    if (repayAmount == 0) revert ZeroRepay();
+    address borrower
+  ) internal returns (uint256 actualRepayAssets) {
+    if (assets == 0) revert ZeroRepay();
 
-    (uint256 actualRepayAmount, uint256 debtCovered, uint256 earningsSP) = repayMP(
-      maturityDate,
-      borrower,
-      repayAmount,
-      maxAmountAllowed
-    );
+    uint256 debtCovered;
+    uint256 earningsSP;
+    (actualRepayAssets, debtCovered, earningsSP) = repayMP(maturity, borrower, assets, maxAssetsAllowed);
 
-    doTransferIn(payer, actualRepayAmount);
+    asset.safeTransferFrom(payer, address(this), actualRepayAssets);
 
     smartPoolBalance += earningsSP;
 
     totalMpBorrows -= debtCovered;
 
-    emit RepayToMaturityPool(payer, borrower, actualRepayAmount, debtCovered, maturityDate);
-
-    return actualRepayAmount;
+    emit RepayAtMaturity(maturity, payer, borrower, actualRepayAssets, debtCovered);
   }
 
   /// @notice Private function to seize a certain amount of tokens.
@@ -379,34 +406,23 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param seizerFixedLender address which is calling the seize function (see `seize` public function).
   /// @param liquidator address which will receive the seized tokens.
   /// @param borrower address from which the tokens will be seized.
-  /// @param seizeAmount amount to be removed from borrower's possession.
+  /// @param assets amount to be removed from borrower's possession.
   function _seize(
     FixedLender seizerFixedLender,
     address liquidator,
     address borrower,
-    uint256 seizeAmount
+    uint256 assets
   ) internal {
     // reverts on failure
     auditor.seizeAllowed(this, seizerFixedLender, liquidator, borrower);
 
-    uint256 shares = previewWithdraw(seizeAmount);
+    uint256 shares = previewWithdraw(assets);
     allowance[borrower][msg.sender] = shares;
 
     // That seize amount diminishes liquidity in the pool
     redeem(shares, liquidator, borrower);
 
-    emit AssetSeized(liquidator, borrower, seizeAmount);
-  }
-
-  /// @notice Private function to safely transfer funds into this contract.
-  /// @param from address which will transfer funds in (approve needed on underlying token).
-  /// @param amount amount to be transferred.
-  function doTransferIn(address from, uint256 amount) internal virtual {
-    asset.safeTransferFrom(from, address(this), amount);
-  }
-
-  function doTransferOut(address to, uint256 amount) internal virtual {
-    asset.safeTransfer(to, amount);
+    emit AssetSeized(liquidator, borrower, assets);
   }
 }
 

@@ -120,7 +120,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   /// @notice Get fee to borrow a certain amount in a certain maturity with supply/demand values in the maturity pool
   /// and supply/demand values in the smart pool.
   /// @dev liquidity limits aren't checked, that's the responsibility of pool.takeMoney.
-  /// @param maturityDate maturity date for calculating days left to maturity.
+  /// @param maturity maturity date for calculating days left to maturity.
   /// @param currentDate the curent block timestamp. Recieved from caller for easier testing.
   /// @param amount the current borrow's amount.
   /// @param borrowedMP ex-ante amount borrowed from this maturity.
@@ -128,14 +128,14 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   /// @param totalSupplySP total supply in the smart pool.
   /// @return fee the borrower will have to pay, as a factor (1% interest is represented as the wad for 0.01 == 10^16).
   function getRateToBorrow(
-    uint256 maturityDate,
+    uint256 maturity,
     uint256 currentDate,
     uint256 amount,
     uint256 borrowedMP,
     uint256 suppliedMP,
     uint256 totalSupplySP
   ) public view override returns (uint256) {
-    if (currentDate >= maturityDate) revert AlreadyMatured();
+    if (currentDate >= maturity) revert AlreadyMatured();
 
     uint256 supplied = suppliedMP + totalSupplySP.fdiv(fullUtilizationRate, 1e18);
     uint256 utilizationBefore = borrowedMP.fdiv(supplied, 1e18);
@@ -144,7 +144,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     if (utilizationAfter > fullUtilizationRate) revert UtilizationRateExceeded();
 
     uint256 rate = simpsonIntegrator(utilizationBefore, utilizationAfter);
-    return rate.fmul(maturityDate - currentDate, YEAR);
+    return rate.fmul(maturity - currentDate, YEAR);
   }
 
   /// @notice Returns the interest rate integral from u_{t} to u_{t+1}, approximated via the simpson method.

@@ -105,7 +105,7 @@ export class DefaultEnv {
           await underlyingToken.deployed();
         }
 
-        const FixedLender = await ethers.getContractFactory(tokenName === "WETH" ? "ETHFixedLender" : "FixedLender");
+        const FixedLender = await ethers.getContractFactory("FixedLender");
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
@@ -198,7 +198,9 @@ export class DefaultEnv {
     const expectedAmount =
       (expectedAtMaturity && parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) || applyMinFee(amount);
     await asset.connect(this.currentWallet).approve(fixedLender.address, amount);
-    return fixedLender.connect(this.currentWallet).depositToMaturityPool(amount, maturityPool, expectedAmount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .depositAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address);
   }
 
   public async depositMPETH(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -207,7 +209,7 @@ export class DefaultEnv {
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     const expectedAmount =
       (expectedAtMaturity && parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) || applyMinFee(amount);
-    return fixedLender.connect(this.currentWallet).depositToMaturityPoolETH(maturityPool, expectedAmount, {
+    return fixedLender.connect(this.currentWallet).depositAtMaturityETH(maturityPool, expectedAmount, {
       value: amount,
     });
   }
@@ -246,7 +248,7 @@ export class DefaultEnv {
     } else {
       expectedAmount = discountMaxFee(amount);
     }
-    return fixedLender.connect(this.currentWallet).withdrawFromMaturityPoolETH(amount, expectedAmount, maturityPool);
+    return fixedLender.connect(this.currentWallet).withdrawAtMaturityETH(amount, expectedAmount, maturityPool);
   }
 
   public async withdrawMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -258,7 +260,9 @@ export class DefaultEnv {
     } else {
       expectedAmount = discountMaxFee(amount);
     }
-    return fixedLender.connect(this.currentWallet).withdrawFromMaturityPool(amount, expectedAmount, maturityPool);
+    return fixedLender
+      .connect(this.currentWallet)
+      .withdrawAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address, this.currentWallet.address);
   }
 
   public async borrowMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -270,7 +274,9 @@ export class DefaultEnv {
     } else {
       expectedAmount = applyMaxFee(amount);
     }
-    return fixedLender.connect(this.currentWallet).borrowFromMaturityPool(amount, maturityPool, expectedAmount);
+    return fixedLender
+      .connect(this.currentWallet)
+      .borrowAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address, this.currentWallet.address);
   }
 
   public async borrowMPETH(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -283,7 +289,7 @@ export class DefaultEnv {
     } else {
       expectedAmount = applyMaxFee(amount);
     }
-    return fixedLender.connect(this.currentWallet).borrowFromMaturityPoolETH(maturityPool, expectedAmount, {
+    return fixedLender.connect(this.currentWallet).borrowAtMaturityETH(maturityPool, expectedAmount, {
       value: amount,
     });
   }
@@ -301,7 +307,7 @@ export class DefaultEnv {
     await asset.connect(this.currentWallet).approve(fixedLender.address, amount);
     return fixedLender
       .connect(this.currentWallet)
-      .repayToMaturityPool(this.currentWallet.address, maturityPool, amount, expectedAmount);
+      .repayAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address);
   }
 
   public async repayMPETH(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -316,7 +322,7 @@ export class DefaultEnv {
     }
     return fixedLender
       .connect(this.currentWallet)
-      .repayToMaturityPoolETH(this.currentWallet.address, maturityPool, expectedAmount, {
+      .repayAtMaturityETH(this.currentWallet.address, maturityPool, expectedAmount, {
         value: amount,
       });
   }

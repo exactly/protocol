@@ -37,12 +37,16 @@ const func: DeployFunction = async ({
     const fixedLenderName = `FixedLender${symbol}`;
     await deploy(fixedLenderName, {
       skipIfAlreadyDeployed: true,
-      contract: symbol === "WETH" ? "ETHFixedLender" : "FixedLender",
+      contract: "FixedLender",
       args: [tokenAddress, token, auditor.address, ...poolAccountingArgs],
       from: deployer,
       log: true,
     });
     const fixedLender = await getContract<FixedLender>(fixedLenderName, await getSigner(deployer));
+
+    if (token === "WETH") {
+      await deploy("FixedLenderETHRouter", { args: [fixedLender.address], from: deployer, log: true });
+    }
 
     if (!(await fixedLender.penaltyRate()).eq(poolAccountingArgs[1])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
