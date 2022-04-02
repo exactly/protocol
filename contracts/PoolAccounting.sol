@@ -38,6 +38,7 @@ contract PoolAccounting is AccessControl {
   mapping(address => uint256) public userMpBorrowed;
   mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
   uint256 public smartPoolBorrowed;
+  uint256 public smartPoolEarningsAccumulator;
 
   IInterestRateModel public interestRateModel;
 
@@ -135,13 +136,13 @@ contract PoolAccounting is AccessControl {
       userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturity);
     }
 
-    // We calculate what portion of the fees are to be accrued and what portion goes to earnings directly
+    // We calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
     (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
       borrowVars.fee,
       pool.suppliedSP,
       amount
     );
-    earningsSP += borrowVars.earningsSP;
+    smartPoolEarningsAccumulator += borrowVars.earningsSP;
     pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
 
     mpUserBorrowedAmount[maturity][borrower] = PoolLib.Position(
@@ -176,7 +177,7 @@ contract PoolAccounting is AccessControl {
 
     smartPoolBorrowed -= pool.depositMoney(amount);
     pool.earningsUnassigned -= fee + feeSP;
-    earningsSP += feeSP;
+    smartPoolEarningsAccumulator += feeSP;
 
     // We update users's position
     PoolLib.Position memory position = mpUserSuppliedAmount[maturity][supplier];
@@ -305,8 +306,10 @@ contract PoolAccounting is AccessControl {
       // We remove the fee from unassigned earnings
       pool.earningsUnassigned -= repayVars.discountFee + repayVars.feeSP;
     } else {
-      // All penalties go to the smart pool
-      earningsSP += repayAmount - (repayVars.scaleDebtCovered.principal + repayVars.scaleDebtCovered.fee);
+      // All penalties go to the smart pool accumulator
+      smartPoolEarningsAccumulator +=
+        repayAmount -
+        (repayVars.scaleDebtCovered.principal + repayVars.scaleDebtCovered.fee);
     }
     // user paid more than it should. The fee gets discounted from the user
     // through _actualRepayAmount_ and on the pool side it was removed from

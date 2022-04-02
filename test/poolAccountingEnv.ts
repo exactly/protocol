@@ -37,6 +37,7 @@ export class PoolAccountingEnv {
 
   public getAllEarnings(maturityPoolState: MaturityPoolState): BigNumber {
     return maturityPoolState.earningsSP
+      .add(maturityPoolState.earningsAccumulator)
       .add(maturityPoolState.earningsMP)
       .add(maturityPoolState.earningsUnassigned)
       .add(maturityPoolState.earningsDiscounted);

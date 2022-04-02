@@ -16,10 +16,10 @@ contract AuditorTest is DSTest {
   event MarketListed(FixedLender fixedLender);
   event MarketEntered(FixedLender indexed fixedLender, address account);
   event MarketExited(FixedLender indexed fixedLender, address account);
-  event NewBorrowCap(FixedLender indexed fixedLender, uint256 newBorrowCap);
+  event BorrowCapUpdated(FixedLender indexed fixedLender, uint256 borrowCapUpdated);
 
   function setUp() external {
-    auditor = new Auditor(IOracle(address(new MockOracle())));
+    auditor = new Auditor(IOracle(address(new MockOracle())), 1.1e18);
     fixedLender = new MockFixedLender(auditor);
   }
 
@@ -112,7 +112,7 @@ contract AuditorTest is DSTest {
     caps[0] = 1;
 
     vm.expectEmit(true, false, false, true);
-    emit NewBorrowCap(FixedLender(address(fixedLender)), 1);
+    emit BorrowCapUpdated(FixedLender(address(fixedLender)), 1);
     auditor.setMarketBorrowCaps(markets, caps);
   }
 

@@ -82,12 +82,12 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new fixedLender with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
       const newAuditor = await deploy("NewAuditor", {
         contract: "Auditor",
-        args: [laura.address],
+        args: [laura.address, 0],
         from: owner.address,
       });
       const fixedLender = await deploy("NewFixedLender", {
         contract: "FixedLender",
-        args: [dai.address, "DAI", newAuditor.address, AddressZero, 0, 0],
+        args: [dai.address, "DAI", 0, 0, newAuditor.address, AddressZero, 0, 0],
         from: owner.address,
       });
       await expect(
@@ -114,7 +114,7 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
       const fixedLender = await deploy("NewFixedLender", {
         contract: "FixedLender",
-        args: [dai.address, "DAI", auditor.address, AddressZero, 0, 0],
+        args: [dai.address, "DAI", 0, 0, auditor.address, AddressZero, 0, 0],
         from: owner.address,
       });
       await expect(auditor.enableMarket(fixedLender.address, parseUnits("0.5"), "DAI", "DAI", 18))
@@ -122,19 +122,27 @@ describe("Auditor Admin", function () {
         .withArgs(fixedLender.address);
     });
 
-    it("WHEN setting new oracle, THEN the auditor should emit OracleChanged event", async () => {
-      await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.emit(auditor, "OracleChanged");
+    it("WHEN setting new oracle, THEN the auditor should emit OracleUpdated event", async () => {
+      await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.emit(auditor, "OracleUpdated");
     });
 
-    it("WHEN setting collateral factor, THEN the auditor should emit NewCollateralFactor event", async () => {
+    it("WHEN setting a new liquidation incentive, THEN the auditor should emit LiquidationIncentiveUpdated event", async () => {
+      await expect(auditor.setLiquidationIncentive(parseUnits("1.05"))).to.emit(auditor, "LiquidationIncentiveUpdated");
+      expect(await auditor.liquidationIncentive()).to.eq(parseUnits("1.05"));
+    });
+
+    it("WHEN setting collateral factor, THEN the auditor should emit CollateralFactorUpdated event", async () => {
       await expect(auditor.setCollateralFactor(fixedLenderDAI.address, 1))
-        .to.emit(auditor, "NewCollateralFactor")
+        .to.emit(auditor, "CollateralFactorUpdated")
         .withArgs(fixedLenderDAI.address, 1);
       expect((await auditor.getMarketData(fixedLenderDAI.address))[3]).to.equal(1);
     });
 
-    it("WHEN setting max borrow caps, THEN the auditor should emit NewBorrowCap event", async () => {
-      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], ["10000"])).to.emit(auditor, "NewBorrowCap");
+    it("WHEN setting max borrow caps, THEN the auditor should emit BorrowCapUpdated event", async () => {
+      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], ["10000"])).to.emit(
+        auditor,
+        "BorrowCapUpdated",
+      );
     });
   });
 });

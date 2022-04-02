@@ -77,6 +77,7 @@ export type MaturityPoolState = {
   borrowFees: BigNumber;
   earningsUnassigned: BigNumber;
   earningsSP: BigNumber;
+  earningsAccumulator: BigNumber;
   earningsMP: BigNumber;
   earningsDiscounted: BigNumber;
 };

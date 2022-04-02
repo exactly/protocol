@@ -80,7 +80,7 @@ export class DefaultEnv {
     await interestRateModel.deployed();
 
     const Auditor = await ethers.getContractFactory("Auditor");
-    const auditor = await Auditor.deploy(oracle.address);
+    const auditor = await Auditor.deploy(oracle.address, parseUnits("1.1"));
     await auditor.deployed();
 
     // We have to enable all the FixedLenders in the auditor
@@ -109,6 +109,8 @@ export class DefaultEnv {
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
+          12,
+          parseUnits("1"),
           auditor.address,
           interestRateModel.address,
           parseUnits("0.02").div(86_400),

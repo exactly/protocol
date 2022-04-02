@@ -30,8 +30,11 @@ const config: Config = {
   },
   finance: {
     collateralFactor: { default: 0.8, WBTC: 0.6 },
+    liquidationIncentive: 1.1,
     penaltyRatePerDay: 0.02,
     smartPoolReserveFactor: 0.1,
+    maxFuturePools: 13,
+    accumulatedEarningsSmoothFactor: 2,
     interestRateModel: {
       curveA: 0.72,
       curveB: -0.22,
@@ -54,8 +57,11 @@ export default config;
 declare module "hardhat/types/config" {
   export interface FinanceConfig {
     collateralFactor: { default: number; [token: string]: number };
+    liquidationIncentive: number;
     penaltyRatePerDay: number;
     smartPoolReserveFactor: number;
+    maxFuturePools: number;
+    accumulatedEarningsSmoothFactor: number;
     interestRateModel: {
       curveA: number;
       curveB: number;
