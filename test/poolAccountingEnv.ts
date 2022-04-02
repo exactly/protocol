@@ -24,11 +24,6 @@ export class PoolAccountingEnv {
     this.currentWallet = wallet;
   }
 
-  public async setSPFeeRate(spFeeRate: BigNumber) {
-    const irm = await this.mockInterestRateModel.irm();
-    await irm.setSPFeeRate(spFeeRate);
-  }
-
   public getAllEarnings(maturityPoolState: MaturityPoolState): BigNumber {
     return maturityPoolState.earningsSP
       .add(maturityPoolState.earningsAccumulator)
@@ -103,7 +98,7 @@ export class PoolAccountingEnv {
 
   static async create(): Promise<PoolAccountingEnv> {
     const MockInterestRateModelFactory = await ethers.getContractFactory("MockInterestRateModel");
-    const mockInterestRateModel = await MockInterestRateModelFactory.deploy(parseUnits("0.05"));
+    const mockInterestRateModel = await MockInterestRateModelFactory.deploy(0);
     await mockInterestRateModel.deployed();
 
     const PoolAccountingHarness = await ethers.getContractFactory("PoolAccountingHarness");

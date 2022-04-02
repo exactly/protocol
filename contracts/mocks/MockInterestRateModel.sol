@@ -8,7 +8,7 @@ contract MockInterestRateModel is IInterestRateModel {
   uint256 public borrowRate;
 
   constructor(uint256 borrowRate_) {
-    irm = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.1e18);
+    irm = new InterestRateModel(0.75e18, -0.105e18, 6e18, 4e18, 0);
     borrowRate = borrowRate_;
   }
 
@@ -33,5 +33,9 @@ contract MockInterestRateModel is IInterestRateModel {
 
   function setBorrowRate(uint256 newRate) public {
     borrowRate = newRate;
+  }
+
+  function setSPFeeRate(uint256 spFeeRate) public {
+    irm.setSPFeeRate(spFeeRate);
   }
 }

@@ -128,7 +128,7 @@ contract FixedLenderTest is DSTestPlus {
     fixedLender.borrowAtMaturity(7 days, 1 ether, 1.1 ether, address(this), address(this));
 
     vm.expectEmit(true, true, true, true);
-    emit RepayAtMaturity(7 days, address(this), address(this), 1.01 ether, 1.1 ether);
+    emit RepayAtMaturity(7 days, address(this), address(this), 1 ether, 1.1 ether);
     fixedLender.repayAtMaturity(7 days, 1.5 ether, 1.5 ether, address(this));
   }
 
