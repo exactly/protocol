@@ -190,9 +190,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @notice Accrues to the smart pool a portion of the accumulated earnings that the accumulator variable accounts.
   /// @dev Avoids big amounts of earnings being accrued all at once.
   function accrueAccumulatedEarnings() internal {
-    uint256 numerator = (block.timestamp - lastAccumulatedEarningsAccrual);
-    uint256 denominator = accumulatedEarningsSmoothFactor.fmul(maxFuturePools * TSUtils.INTERVAL, 1e18) + numerator;
-    uint256 earnings = smartPoolEarningsAccumulator.fmul(numerator, denominator);
+    uint256 elapsed = block.timestamp - lastAccumulatedEarningsAccrual;
+    uint256 earnings = smartPoolEarningsAccumulator.fmul(
+      elapsed,
+      elapsed + accumulatedEarningsSmoothFactor.fmul(maxFuturePools * TSUtils.INTERVAL, 1e18)
+    );
 
     lastAccumulatedEarningsAccrual = block.timestamp;
     smartPoolEarningsAccumulator -= earnings;
