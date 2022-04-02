@@ -76,7 +76,7 @@ export class DefaultEnv {
 
     const interestRateModel = useRealInterestRateModel
       ? realInterestRateModel
-      : await MockInterestRateModelFactory.deploy(parseUnits("0.05"));
+      : await MockInterestRateModelFactory.deploy(0);
     await interestRateModel.deployed();
 
     const Auditor = await ethers.getContractFactory("Auditor");
