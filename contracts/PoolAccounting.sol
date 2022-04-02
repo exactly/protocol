@@ -306,7 +306,7 @@ contract PoolAccounting is AccessControl {
       // We remove the fee from unassigned earnings
       pool.earningsUnassigned -= repayVars.discountFee + repayVars.feeSP;
     } else {
-      // All penalties go to the smart pool accumlator
+      // All penalties go to the smart pool accumulator
       smartPoolEarningsAccumulator +=
         repayAmount -
         (repayVars.scaleDebtCovered.principal + repayVars.scaleDebtCovered.fee);

@@ -50,7 +50,7 @@ contract Auditor is IAuditor, AccessControl {
   mapping(FixedLender => uint256) private borrowCaps;
 
   uint256 public constant CLOSE_FACTOR = 5e17;
-  uint256 public liquidationIncentive = 1.1e18;
+  uint256 public liquidationIncentive;
   FixedLender[] public allMarkets;
 
   IOracle public oracle;
@@ -72,22 +72,28 @@ contract Auditor is IAuditor, AccessControl {
 
   /// @notice Event emitted when a new Oracle has been set.
   /// @param newOracle address of the new oracle that is used to calculate liquidity.
-  event OracleChanged(IOracle newOracle);
+  event OracleUpdated(IOracle newOracle);
+
+  /// @notice Event emitted when a new liquidationIncentive has been set.
+  /// @param newLiquidationIncentive represented with 1e18 decimals.
+  event LiquidationIncentiveUpdated(uint256 newLiquidationIncentive);
 
   /// @notice Event emitted when a new borrow cap has been set for a certain fixedLender.
   /// If newBorrowCap is 0, that means that there's no cap.
   /// @param fixedLender address of the lender that has a new borrow cap.
   /// @param newBorrowCap new borrow cap expressed with 1e18 precision for the given market. Zero means no cap.
-  event NewBorrowCap(FixedLender indexed fixedLender, uint256 newBorrowCap);
+  event BorrowCapUpdated(FixedLender indexed fixedLender, uint256 newBorrowCap);
 
   /// @notice emitted when a collateral factor is changed by admin.
   /// @param fixedLender address of the market that has a new collateral factor.
   /// @param newCollateralFactor collateral factor for the underlying asset.
-  event NewCollateralFactor(FixedLender indexed fixedLender, uint256 newCollateralFactor);
+  event CollateralFactorUpdated(FixedLender indexed fixedLender, uint256 newCollateralFactor);
 
-  constructor(IOracle _priceOracle) {
-    oracle = _priceOracle;
+  constructor(IOracle _priceOracle, uint256 _liquidationIncentive) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+    oracle = _priceOracle;
+    liquidationIncentive = _liquidationIncentive;
   }
 
   /// @dev Allows wallet to enter certain markets (fixedLenderDAI, fixedLenderETH, etc).
@@ -139,13 +145,14 @@ contract Auditor is IAuditor, AccessControl {
   /// @param _priceOracle address of the new oracle.
   function setOracle(IOracle _priceOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
     oracle = _priceOracle;
-    emit OracleChanged(_priceOracle);
+    emit OracleUpdated(_priceOracle);
   }
 
   /// @notice Set liquidation incentive for the whole ecosystem.
   /// @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18.
   function setLiquidationIncentive(uint256 _liquidationIncentive) external onlyRole(DEFAULT_ADMIN_ROLE) {
     liquidationIncentive = _liquidationIncentive;
+    emit LiquidationIncentiveUpdated(_liquidationIncentive);
   }
 
   /// @dev Function to enable a certain FixedLender market.
@@ -187,7 +194,7 @@ contract Auditor is IAuditor, AccessControl {
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
     markets[fixedLender].collateralFactor = collateralFactor;
-    emit NewCollateralFactor(fixedLender, collateralFactor);
+    emit CollateralFactorUpdated(fixedLender, collateralFactor);
   }
 
   /// @notice Set the given borrow caps for the given fixedLender markets.
@@ -204,7 +211,7 @@ contract Auditor is IAuditor, AccessControl {
       validateMarketListed(fixedLenders[i]);
 
       borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
-      emit NewBorrowCap(fixedLenders[i], newBorrowCaps[i]);
+      emit BorrowCapUpdated(fixedLenders[i], newBorrowCaps[i]);
 
       unchecked {
         ++i;
