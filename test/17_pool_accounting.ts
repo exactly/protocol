@@ -108,6 +108,7 @@ describe("PoolAccounting", () => {
         borrowFees: parseUnits("0"),
         earningsUnassigned: parseUnits("0"),
         earningsSP: parseUnits("0"),
+        earningsAccumulator: parseUnits("0"),
         earningsMP: parseUnits("0"),
         earningsDiscounted: parseUnits("0"),
       };
@@ -148,7 +149,7 @@ describe("PoolAccounting", () => {
       expect(returnValues.currentTotalDeposit).to.eq(parseUnits(depositAmount));
     });
 
-    describe("AND GIVEN a borrowMP with an amount of 5000 (250 charged in fees to treasury) (4 days to go)", () => {
+    describe("AND GIVEN a borrowMP with an amount of 5000 (250 charged in fees to accumulator) (4 days to go)", () => {
       let fourDaysToMaturity: number;
       beforeEach(async () => {
         borrowAmount = 5000;
@@ -161,7 +162,7 @@ describe("PoolAccounting", () => {
         mpUserBorrowedAmount = await poolAccountingHarness.mpUserBorrowedAmount(nextPoolID, laura.address);
         returnValues = await poolAccountingHarness.returnValues();
         mp = await poolAccountingHarness.maturityPools(nextPoolID);
-        maturityPoolState.earningsSP = maturityPoolState.earningsSP.add(returnValues.earningsSP);
+        maturityPoolState.earningsAccumulator = await poolAccountingHarness.smartPoolEarningsAccumulator();
         maturityPoolState.borrowFees = returnValues.totalOwedNewBorrow.sub(parseUnits(borrowAmount.toString()));
       });
       it("THEN borrowed is the just borrowed amount", async () => {
@@ -183,14 +184,19 @@ describe("PoolAccounting", () => {
         expect(mpUserBorrowedAmount[0]).to.be.eq(parseUnits(borrowAmount.toString()));
         expect(mpUserBorrowedAmount[1]).to.be.eq(parseUnits(borrowFees.toString()));
       });
-      it("THEN the earningsSP returned are 5000 x 0,05 (5%)", async () => {
-        expect(returnValues.earningsSP).to.eq(parseUnits(borrowFees.toString()));
+      it("THEN the smartPoolEarningsAccumulator are 250", async () => {
+        expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
+          parseUnits(borrowFees.toString()), // 5000 x 0,05 (5%)
+        );
+      });
+      it("THEN the earningsSP returned are 0", async () => {
+        expect(returnValues.earningsSP).to.eq(parseUnits("0"));
       });
       it("THEN the totalOwedNewBorrow returned is equal to the amount plus fees charged", async () => {
         expect(returnValues.totalOwedNewBorrow).to.eq(parseUnits((borrowAmount + borrowFees).toString()));
       });
 
-      describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees to treasury) (3 days to go)", () => {
+      describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees to smartPoolEarningsAccumulator) (3 days to go)", () => {
         let threeDaysToMaturity: number;
         beforeEach(async () => {
           borrowAmount = 5000;
@@ -202,7 +208,7 @@ describe("PoolAccounting", () => {
           mpUserBorrowedAmount = await poolAccountingHarness.mpUserBorrowedAmount(nextPoolID, laura.address);
           returnValues = await poolAccountingHarness.returnValues();
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
-          maturityPoolState.earningsSP = maturityPoolState.earningsSP.add(returnValues.earningsSP);
+          maturityPoolState.earningsAccumulator = await poolAccountingHarness.smartPoolEarningsAccumulator();
           maturityPoolState.borrowFees = maturityPoolState.borrowFees.add(
             returnValues.totalOwedNewBorrow.sub(parseUnits(borrowAmount.toString())),
           );
@@ -227,8 +233,14 @@ describe("PoolAccounting", () => {
           expect(mpUserBorrowedAmount[0]).to.be.eq(parseUnits((borrowAmount * 2).toString()));
           expect(mpUserBorrowedAmount[1]).to.be.eq(parseUnits((borrowFees * 2).toString()));
         });
-        it("THEN the earningsSP returned are 250", async () => {
-          expect(returnValues.earningsSP).to.eq(parseUnits(borrowFees.toString()));
+        it("THEN the smartPoolEarningsAccumulator are 500", async () => {
+          // 250 + 250
+          expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
+            parseUnits((borrowFees * 2).toString()),
+          );
+        });
+        it("THEN the earningsSP returned are 0", async () => {
+          expect(returnValues.earningsSP).to.eq(0);
         });
         it("THEN the totalOwedNewBorrow returned is equal to the amount plus fees charged", async () => {
           expect(returnValues.totalOwedNewBorrow).to.eq(parseUnits((borrowAmount + borrowFees).toString()));
@@ -272,6 +284,11 @@ describe("PoolAccounting", () => {
           });
           it("THEN lastAccrue is 2 days to maturity", async () => {
             expect(mp.lastAccrue).to.eq(twoDaysToMaturity);
+          });
+          it("THEN the smartPoolEarningsAccumulator are still 500", async () => {
+            expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
+              parseUnits((borrowFees * 2).toString()),
+            );
           });
           it("THEN the earningsSP returned are 0", async () => {
             expect(returnValues.earningsSP).to.eq(parseUnits("0"));
@@ -317,6 +334,11 @@ describe("PoolAccounting", () => {
             it("THEN the mpUserBorrowedAmount position is 0", async () => {
               expect(mpUserBorrowedAmount[0]).to.be.eq(0);
               expect(mpUserBorrowedAmount[1]).to.be.eq(0);
+            });
+            it("THEN the smartPoolEarningsAccumulator are still 500", async () => {
+              expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
+                parseUnits((borrowFees * 2).toString()),
+              );
             });
             it("THEN earningsSP returned 125", async () => {
               expect(returnValues.earningsSP).to.eq(parseUnits("125")); // earningsUnassigned were 250, then 1 day passed so earningsSP accrued half
@@ -366,6 +388,11 @@ describe("PoolAccounting", () => {
               expect(mpUserBorrowedAmount[0]).to.be.lt(parseUnits("7381"));
               expect(mpUserBorrowedAmount[1]).to.be.gt(parseUnits("369"));
               expect(mpUserBorrowedAmount[1]).to.be.lt(parseUnits("370"));
+            });
+            it("THEN the smartPoolEarningsAccumulator are still 500", async () => {
+              expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
+                parseUnits((borrowFees * 2).toString()),
+              );
             });
             it("THEN earningsSP returned 125", async () => {
               expect(returnValues.earningsSP).to.eq(parseUnits("125")); // earningsUnassigned were 250, then 1 day passed so earningsSP accrued half
@@ -427,11 +454,15 @@ describe("PoolAccounting", () => {
               // debtCovered=5775*5250/5775=5250
               expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
             });
-            it("THEN earningsSP receive the 10% of penalties (they were supporting this borrow)", async () => {
-              // 17325 - 15750 = 1575 (10% of the debt)
-              // ~1575 + 250 (earnings unassigned)
-              expect(returnValues.earningsSP).to.gt(parseUnits("1824"));
-              expect(returnValues.earningsSP).to.lt(parseUnits("1825"));
+            it("THEN earningsSP receive no % of penalties", async () => {
+              // 250 (previous earnings unassigned)
+              expect(returnValues.earningsSP).to.eq(parseUnits("250"));
+            });
+            it("THEN the smartPoolEarningsAccumulator receives all penalties", async () => {
+              // 17325 - 15750 = 1575
+              // + 500 (previous accumulated earnings)
+              expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.gt(parseUnits("2074"));
+              expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("2075"));
             });
             it("THEN the mpUserBorrowedAmount position is 0", async () => {
               expect(mpUserBorrowedAmount[0]).to.be.eq(0);
@@ -457,6 +488,7 @@ describe("PoolAccounting", () => {
 
               returnValues = await poolAccountingHarness.returnValues();
               mp = await poolAccountingHarness.maturityPools(nextPoolID);
+              maturityPoolState.earningsAccumulator = await poolAccountingHarness.smartPoolEarningsAccumulator();
               maturityPoolState.earningsSP = maturityPoolState.earningsSP.add(returnValues.earningsSP);
               maturityPoolState.earningsMP = returnValues.currentTotalDeposit.sub(parseUnits(depositAmount.toString()));
               maturityPoolState.earningsUnassigned = parseUnits("0");
@@ -490,6 +522,11 @@ describe("PoolAccounting", () => {
                 parseUnits((250 / 2).toString()), // 250 (previous unassigned) / 2 days
               );
             });
+            it("THEN the smartPoolEarningsAccumulator are still 500", async () => {
+              expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
+                parseUnits((borrowFees * 2).toString()),
+              );
+            });
             it("THEN the currentTotalDeposit returned is equal to the amount plus fees earned", async () => {
               expect(returnValues.currentTotalDeposit).to.eq(parseUnits((depositAmount + 250 / 2).toString()));
             });
@@ -510,6 +547,7 @@ describe("PoolAccounting", () => {
               returnValues = await poolAccountingHarness.returnValues();
               mp = await poolAccountingHarness.maturityPools(nextPoolID);
               maturityPoolState.earningsSP = maturityPoolState.earningsSP.add(returnValues.earningsSP);
+              maturityPoolState.earningsAccumulator = await poolAccountingHarness.smartPoolEarningsAccumulator();
               maturityPoolState.earningsMP = returnValues.currentTotalDeposit.sub(parseUnits(depositAmount.toString()));
               maturityPoolState.earningsUnassigned = parseUnits("0");
             });
@@ -533,9 +571,14 @@ describe("PoolAccounting", () => {
             it("THEN lastAccrue is 1 day to maturity", async () => {
               expect(mp.lastAccrue).to.eq(oneDayToMaturity);
             });
-            it("THEN the earningsSP returned are 125 + 12.5", async () => {
+            it("THEN the earningsSP returned are just 125", async () => {
               expect(returnValues.earningsSP).to.eq(
-                parseUnits((250 / 2 + 12.5).toString()), // 250 (previous unassigned) / 2 days
+                parseUnits((250 / 2).toString()), // 250 (previous unassigned) / 2 days
+              );
+            });
+            it("THEN the smartPoolEarningsAccumulator are 500 + 12.5", async () => {
+              expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
+                parseUnits((borrowFees * 2 + 12.5).toString()),
               );
             });
             it("THEN the currentTotalDeposit returned is equal to the amount plus fees earned", async () => {
@@ -607,6 +650,11 @@ describe("PoolAccounting", () => {
               });
               it("THEN suppliedSP is 0", async () => {
                 expect(mp.suppliedSP).to.eq(0);
+              });
+              it("THEN the smartPoolEarningsAccumulator are still 500", async () => {
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
+                  parseUnits((borrowFees * 2).toString()),
+                );
               });
               it("THEN earningsUnassigned are still 0", async () => {
                 expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -748,6 +796,9 @@ describe("PoolAccounting", () => {
                   beforeEach(async () => {
                     await poolAccountingEnv.borrowMP(nextPoolID, "100000");
                   });
+                  it("THEN the smartPoolEarningsAccumulator accrues 5000 more (5% borrow bc uses mp deposits)", async () => {
+                    expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(parseUnits("5500"));
+                  });
                   describe("AND GIVEN the other half amount deposited + half earned fees is withdrawn", () => {
                     beforeEach(async () => {
                       withdrawAmount = 50005062.5; // 5k + 50M + 62.5 earned fees
@@ -771,6 +822,9 @@ describe("PoolAccounting", () => {
                     });
                     it("THEN the earningsSP returned are 0", async () => {
                       expect(returnValues.earningsSP).to.eq(parseUnits("0"));
+                    });
+                    it("THEN the smartPoolEarningsAccumulator are still 5500", async () => {
+                      expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(parseUnits("5500"));
                     });
                     it("THEN the redeemAmountDiscounted returned is equal to the amount withdrawn", async () => {
                       expect(returnValues.redeemAmountDiscounted).to.eq(parseUnits(withdrawAmount.toString()));
@@ -838,11 +892,15 @@ describe("PoolAccounting", () => {
                 expect(returnValues.debtCovered).to.gt(parseUnits("7272.72"));
                 expect(returnValues.debtCovered).to.lt(parseUnits("7272.73"));
               });
-              it("THEN the earningsSP returned are ~727", async () => {
+              it("THEN smartPoolEarningsAccumulator receives the 10% of penalties", async () => {
                 // debtCovered=8000*15750/17325=~7272
                 // debtCovered+(~727)=8000 that the user repaid
-                expect(returnValues.earningsSP).to.gt(parseUnits("727.272"));
-                expect(returnValues.earningsSP).to.lt(parseUnits("727.273"));
+                // +500 previous earnings
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.gt(parseUnits("1227.272"));
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("1227.273"));
+              });
+              it("THEN the earningsSP returned are 0", async () => {
+                expect(returnValues.earningsSP).to.eq(0);
               });
 
               afterEach(async () => {
@@ -880,10 +938,14 @@ describe("PoolAccounting", () => {
                 // debtCovered=17325*15750/17325=15750
                 expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
               });
-              it("THEN the earningsSP returned are ~1574", async () => {
+              it("THEN smartPoolEarningsAccumulator receives 10% of penalties", async () => {
                 // 17325 - 15750 = 1575 (10% of the debt)
-                expect(returnValues.earningsSP).to.gt(parseUnits("1574"));
-                expect(returnValues.earningsSP).to.lt(parseUnits("1575"));
+                // + 500 previous earnings
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.gt(parseUnits("2074"));
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("2075"));
+              });
+              it("THEN the earningsSP returned are 0", async () => {
+                expect(returnValues.earningsSP).to.eq(0);
               });
               it("THEN the actualRepayAmount returned is almost 17325", async () => {
                 expect(returnValues.actualRepayAmount).to.lt(parseUnits(repayAmount.toString()));
@@ -921,10 +983,14 @@ describe("PoolAccounting", () => {
                 // debtCovered=17325*15750/17325=15750
                 expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
               });
-              it("THEN the earningsSP returned are ~1574", async () => {
+              it("THEN smartPoolEarningsAccumulator receive the 10% of penalties", async () => {
                 // 17325 - 15750 = 1575 (10% of the debt)
-                expect(returnValues.earningsSP).to.gt(parseUnits("1574"));
-                expect(returnValues.earningsSP).to.lt(parseUnits("1575"));
+                // + 500 previous earnings
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.gt(parseUnits("2074"));
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("2075"));
+              });
+              it("THEN the earningsSP returned are 0", async () => {
+                expect(returnValues.earningsSP).to.eq(0);
               });
               it("THEN the actualRepayAmount returned is ~= 17325 (paid 20000 on a 17325 debt)", async () => {
                 expect(returnValues.actualRepayAmount).to.be.gt(parseUnits("17324.9"));
@@ -1129,6 +1195,7 @@ describe("PoolAccounting", () => {
       maturityPoolState = {
         borrowFees: parseUnits("0"),
         earningsUnassigned: parseUnits("0"),
+        earningsAccumulator: parseUnits("0"),
         earningsSP: parseUnits("0"),
         earningsMP: parseUnits("0"),
         earningsDiscounted: parseUnits("0"),

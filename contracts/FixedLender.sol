@@ -23,6 +23,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   IAuditor public immutable auditor;
 
   uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
+  uint256 public accumulatedEarningsSmoothFactor = 1e18;
+  uint256 public lastAccumulatedEarningsAccrual;
 
   uint256 public smartPoolBalance;
 
@@ -128,7 +130,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   function totalAssets() public view override returns (uint256) {
     unchecked {
-      uint256 smartPoolEarnings = 0; // accumulator
+      uint256 smartPoolEarnings = 0;
 
       uint256 lastAccrue;
       uint256 unassignedEarnings;
@@ -161,6 +163,28 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     if (smartPoolBalance - assets < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
 
     smartPoolBalance -= assets;
+  }
+
+  function deposit(uint256 assets, address receiver) public virtual override returns (uint256 shares) {
+    accrueAccumulatedEarnings();
+    return super.deposit(assets, receiver);
+  }
+
+  function mint(uint256 shares, address receiver) public virtual override returns (uint256 assets) {
+    accrueAccumulatedEarnings();
+    return super.mint(shares, receiver);
+  }
+
+  /// @notice Accrues to the smart pool a portion of the accumulated earnings that the accumulator variable accounts.
+  /// @dev Avoids big amounts of earnings being accrued all at once.
+  function accrueAccumulatedEarnings() internal {
+    uint256 numerator = (block.timestamp - lastAccumulatedEarningsAccrual);
+    uint256 denominator = accumulatedEarningsSmoothFactor.fmul(maxFuturePools * TSUtils.INTERVAL, 1e18) + numerator;
+    uint256 earnings = smartPoolEarningsAccumulator.fmul(numerator, denominator);
+
+    lastAccumulatedEarningsAccrual = block.timestamp;
+    smartPoolEarningsAccumulator -= earnings;
+    smartPoolBalance += earnings;
   }
 
   function afterDeposit(uint256 assets, uint256) internal virtual override whenNotPaused {

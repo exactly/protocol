@@ -126,11 +126,10 @@ describe("Liquidations", function () {
             await expect(tx).to.emit(fixedLenderWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
           });
 
-          it("THEN john DID collect the penalty fees because there's still SP debt", async () => {
-            const johnBalanceEDAI = await exactlyEnv.getFixedLender("DAI").maxWithdraw(john.address);
-            // John initial balance on the smart pool was 10000
-            expect(johnBalanceEDAI).to.gt(parseUnits("15428"));
-            expect(johnBalanceEDAI).to.lt(parseUnits("15429"));
+          it("THEN the smartPoolEarningsAccumulator collects the penalty fees", async () => {
+            const smartPoolEarningsAccumulator = await exactlyEnv.getFixedLender("DAI").smartPoolEarningsAccumulator();
+            expect(smartPoolEarningsAccumulator).to.gt(parseUnits("5428"));
+            expect(smartPoolEarningsAccumulator).to.lt(parseUnits("5429"));
           });
 
           it("THEN liquidator receives WBTC", async () => {

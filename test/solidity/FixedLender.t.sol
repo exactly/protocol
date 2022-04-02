@@ -13,6 +13,7 @@ import { FixedLender } from "../../contracts/FixedLender.sol";
 
 contract FixedLenderTest is DSTestPlus {
   address internal constant BOB = address(69);
+  address internal constant ALICE = address(70);
 
   Vm internal vm = Vm(HEVM_ADDRESS);
   FixedLender internal fixedLender;
@@ -53,7 +54,7 @@ contract FixedLenderTest is DSTestPlus {
   );
 
   function setUp() external {
-    mockToken = new MockToken("DAI", "DAI", 18, 100_000 ether);
+    mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
     MockOracle mockOracle = new MockOracle();
     mockOracle.setPrice("DAI", 1e8);
     Auditor auditor = new Auditor(mockOracle);
@@ -66,9 +67,13 @@ contract FixedLenderTest is DSTestPlus {
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
 
     vm.label(BOB, "Bob");
+    vm.label(ALICE, "Alice");
     mockToken.transfer(BOB, 50_000 ether);
+    mockToken.transfer(ALICE, 50_000 ether);
     mockToken.approve(address(fixedLender), 50_000 ether);
     vm.prank(BOB);
+    mockToken.approve(address(fixedLender), 50_000 ether);
+    vm.prank(ALICE);
     mockToken.approve(address(fixedLender), 50_000 ether);
   }
 
@@ -148,5 +153,38 @@ contract FixedLenderTest is DSTestPlus {
     vm.warp(7 days + 5 days);
     fixedLender.deposit(1_000 ether, address(this));
     assertRelApproxEq(fixedLender.balanceOf(address(this)), 10944 ether, 2.5e13);
+  }
+
+  function testFrontRunSmartPoolEarningsDistributionWithBigPenaltyRepayment() external {
+    uint256 maturity = 7 days * 2;
+    fixedLender.deposit(10_000 ether, address(this));
+
+    vm.warp(7 days);
+    fixedLender.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
+
+    vm.warp(maturity);
+    fixedLender.borrowAtMaturity(maturity, 0, 0, address(this), address(this)); // we send tx to accrue earnings
+
+    vm.warp(7 days * 3 + 6 days + 23 hours + 59 seconds);
+    vm.prank(BOB);
+    fixedLender.deposit(10_100 ether, BOB); // bob deposits more assets to have same shares as previous user
+    assertEq(fixedLender.balanceOf(BOB), 10_000 ether);
+    uint256 assetsBobBefore = fixedLender.convertToAssets(fixedLender.balanceOf(address(this)));
+    assertEq(assetsBobBefore, fixedLender.convertToAssets(fixedLender.balanceOf(address(this))));
+
+    vm.warp(7 days * 4); // 2 weeks delayed (2% daily = 28% in penalties), 1100 * 1.28 = 1408
+    fixedLender.repayAtMaturity(maturity, 1_408 ether, 1_408 ether, address(this));
+    // no penalties are accrued (accumulator accounts them)
+    assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore);
+    assertRelApproxEq(fixedLender.smartPoolEarningsAccumulator(), 308 ether, 1e7);
+
+    vm.warp(7 days * 5);
+    // then the accumulator will distribute 7.73% since 7.73 * 13 = 100 (13 because we add 1 maturity in the division)
+    // 308e18 * 0.07 = 238e17
+    vm.prank(ALICE);
+    fixedLender.deposit(10_100 ether, ALICE); // alice deposits same assets amount as previous users
+    assertRelApproxEq(fixedLender.smartPoolEarningsAccumulator(), 308 ether - 238e17, 1e14);
+    // bob earns half the earnings distributed
+    assertRelApproxEq(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore + 238e17 / 2, 1e14);
   }
 }
