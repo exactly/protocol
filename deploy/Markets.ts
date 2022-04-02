@@ -6,7 +6,13 @@ import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
   config: {
-    finance: { collateralFactor, penaltyRatePerDay, smartPoolReserveFactor },
+    finance: {
+      collateralFactor,
+      penaltyRatePerDay,
+      smartPoolReserveFactor,
+      maxFuturePools,
+      accumulatedEarningsSmoothFactor,
+    },
   },
   ethers: {
     utils: { parseUnits },
@@ -38,7 +44,14 @@ const func: DeployFunction = async ({
     await deploy(fixedLenderName, {
       skipIfAlreadyDeployed: true,
       contract: "FixedLender",
-      args: [tokenAddress, token, auditor.address, ...poolAccountingArgs],
+      args: [
+        tokenAddress,
+        token,
+        maxFuturePools,
+        parseUnits(String(accumulatedEarningsSmoothFactor)),
+        auditor.address,
+        ...poolAccountingArgs,
+      ],
       from: deployer,
       log: true,
     });
@@ -48,6 +61,16 @@ const func: DeployFunction = async ({
       await deploy("FixedLenderETHRouter", { args: [fixedLender.address], from: deployer, log: true });
     }
 
+    if (!((await fixedLender.maxFuturePools()) === maxFuturePools)) {
+      await executeOrPropose(deployer, timelockController, fixedLender, "setMaxFuturePools", [maxFuturePools]);
+    }
+    if (
+      !(await fixedLender.accumulatedEarningsSmoothFactor()).eq(parseUnits(String(accumulatedEarningsSmoothFactor)))
+    ) {
+      await executeOrPropose(deployer, timelockController, fixedLender, "setAccumulatedEarningsSmoothFactor", [
+        parseUnits(String(accumulatedEarningsSmoothFactor)),
+      ]);
+    }
     if (!(await fixedLender.penaltyRate()).eq(poolAccountingArgs[1])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
     }

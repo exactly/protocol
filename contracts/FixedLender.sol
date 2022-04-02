@@ -22,8 +22,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   string public assetSymbol;
   IAuditor public immutable auditor;
 
-  uint8 public maxFuturePools = 12; // if every 7 days, then 3 months
-  uint256 public accumulatedEarningsSmoothFactor = 1e18;
+  uint8 public maxFuturePools; // If value is 12 and INTERVAL 7 days, then furthest maturity is in 3 months
+  uint256 public accumulatedEarningsSmoothFactor;
   uint256 public lastAccumulatedEarningsAccrual;
 
   uint256 public smartPoolBalance;
@@ -111,9 +111,19 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param assets amount seized of the collateral.
   event AssetSeized(address liquidator, address borrower, uint256 assets);
 
+  /// @notice emitted when the accumulatedEarningsSmoothFactor is changed by admin.
+  /// @param newAccumulatedEarningsSmoothFactor factor represented with 1e18 decimals.
+  event AccumulatedEarningsSmoothFactorUpdated(uint256 newAccumulatedEarningsSmoothFactor);
+
+  /// @notice emitted when the maxFuturePools is changed by admin.
+  /// @param newMaxFuturePools represented with 1e18 decimals.
+  event MaxFuturePoolsUpdated(uint256 newMaxFuturePools);
+
   constructor(
     ERC20 asset_,
     string memory assetSymbol_,
+    uint8 maxFuturePools_,
+    uint256 accumulatedEarningsSmoothFactor_,
     IAuditor auditor_,
     IInterestRateModel interestRateModel_,
     uint256 penaltyRate_,
@@ -126,6 +136,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
     assetSymbol = assetSymbol_;
     auditor = auditor_;
+    maxFuturePools = maxFuturePools_;
+    accumulatedEarningsSmoothFactor = accumulatedEarningsSmoothFactor_;
   }
 
   function totalAssets() public view override returns (uint256) {
@@ -205,10 +217,21 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     return super.transferFrom(from, to, shares);
   }
 
-  /// @dev Sets the protocol's max future weekly pools for borrowing and lending.
+  /// @notice Sets the protocol's max future weekly pools for borrowing and lending.
   /// @param futurePools number of pools to be active at the same time (4 weekly pools ~= 1 month).
   function setMaxFuturePools(uint8 futurePools) external onlyRole(DEFAULT_ADMIN_ROLE) {
     maxFuturePools = futurePools;
+    emit MaxFuturePoolsUpdated(futurePools);
+  }
+
+  /// @notice Sets the factor used when smoothly accruing earnings to the smart pool.
+  /// @param accumulatedEarningsSmoothFactor_ represented with 18 decimals.
+  function setAccumulatedEarningsSmoothFactor(uint256 accumulatedEarningsSmoothFactor_)
+    external
+    onlyRole(DEFAULT_ADMIN_ROLE)
+  {
+    accumulatedEarningsSmoothFactor = accumulatedEarningsSmoothFactor_;
+    emit AccumulatedEarningsSmoothFactorUpdated(accumulatedEarningsSmoothFactor_);
   }
 
   /// @notice Sets the _pause state to true in case of emergency, triggered by an authorized account.

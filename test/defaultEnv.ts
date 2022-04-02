@@ -109,6 +109,8 @@ export class DefaultEnv {
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
           tokenName,
+          12,
+          parseUnits("1"),
           auditor.address,
           interestRateModel.address,
           parseUnits("0.02").div(86_400),

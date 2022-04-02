@@ -370,6 +370,19 @@ describe("FixedLender", function () {
     it("WHEN calling setMaxFuturePools from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(fixedLenderDAI.setMaxFuturePools(12)).to.be.revertedWith("AccessControl");
     });
+    it("WHEN calling setMaxFuturePools, THEN the maxFuturePools should be updated", async () => {
+      await timelockExecute(owner, fixedLenderDAI, "setMaxFuturePools", [15]);
+      expect(await fixedLenderDAI.maxFuturePools()).to.be.equal(15);
+    });
+    it("WHEN calling setAccumulatedEarningsSmoothFactor from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(fixedLenderDAI.setAccumulatedEarningsSmoothFactor(parseUnits("2"))).to.be.revertedWith(
+        "AccessControl",
+      );
+    });
+    it("WHEN calling setAccumulatedEarningsSmoothFactor, THEN the accumulatedEarningsSmoothFactor should be updated", async () => {
+      await timelockExecute(owner, fixedLenderDAI, "setAccumulatedEarningsSmoothFactor", [parseUnits("2")]);
+      expect(await fixedLenderDAI.accumulatedEarningsSmoothFactor()).to.be.equal(parseUnits("2"));
+    });
   });
 
   describe("GIVEN an interest rate of 2%", () => {

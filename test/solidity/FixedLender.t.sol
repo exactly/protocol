@@ -62,7 +62,16 @@ contract FixedLenderTest is DSTestPlus {
     MockInterestRateModel mockInterestRateModel = new MockInterestRateModel(address(interestRateModel));
     mockInterestRateModel.setBorrowRate(0.1e18);
 
-    fixedLender = new FixedLender(mockToken, "DAI", auditor, mockInterestRateModel, 0.02e18 / uint256(1 days), 0);
+    fixedLender = new FixedLender(
+      mockToken,
+      "DAI",
+      12,
+      1e18,
+      auditor,
+      mockInterestRateModel,
+      0.02e18 / uint256(1 days),
+      0
+    );
 
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
 
