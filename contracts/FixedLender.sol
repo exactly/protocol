@@ -144,7 +144,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     unchecked {
       uint256 smartPoolEarnings = 0;
 
-      uint256 lastAccrue;
+      uint256 lastAccrual;
       uint256 unassignedEarnings;
       uint256 latestMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL);
       uint256 maxMaturity = latestMaturity + maxFuturePools * TSUtils.INTERVAL;
@@ -158,10 +158,10 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
           mstore(0x00, maturity) // hashing scratch space, first word for storage location hashing
           let location := keccak256(0x00, 0x40) // struct storage location: keccak256([maturity, maturityPools.slot])
           unassignedEarnings := sload(add(location, 3)) // fourth word
-          lastAccrue := sload(add(location, 4)) // fifth word
+          lastAccrual := sload(add(location, 4)) // fifth word
         }
 
-        smartPoolEarnings += unassignedEarnings.fmul(block.timestamp - lastAccrue, maturity - lastAccrue);
+        smartPoolEarnings += unassignedEarnings.fmul(block.timestamp - lastAccrual, maturity - lastAccrual);
       }
 
       return smartPoolBalance + smartPoolEarnings;

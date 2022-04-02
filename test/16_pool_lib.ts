@@ -170,8 +170,8 @@ describe("Pool Management Library", () => {
         it("THEN the pool 'earningsUnassigned' are 0", async () => {
           expect(mp.earningsUnassigned).to.equal(0);
         });
-        it("THEN the pool 'lastAccrue' is now", async () => {
-          expect(mp.lastAccrue).to.equal(now);
+        it("THEN the pool 'lastAccrual' is now", async () => {
+          expect(mp.lastAccrual).to.equal(now);
         });
         it("THEN the last earnings SP is 0", async () => {
           const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
@@ -189,8 +189,8 @@ describe("Pool Management Library", () => {
           it("THEN the pool 'earningsUnassigned' are 40", async () => {
             expect(mp.earningsUnassigned).to.equal(parseUnits("40"));
           });
-          it("THEN the pool 'lastAccrue' is fiveDays", async () => {
-            expect(mp.lastAccrue).to.equal(sixDays);
+          it("THEN the pool 'lastAccrual' is fiveDays", async () => {
+            expect(mp.lastAccrual).to.equal(sixDays);
           });
           it("THEN the last earnings SP is 60", async () => {
             const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
@@ -210,8 +210,8 @@ describe("Pool Management Library", () => {
               // 40 - 0.01736111111   = 39.9826388889 (unassigned earnings left)
               expect(mp.earningsUnassigned).to.closeTo(parseUnits("39.9826388"), parseUnits("00.0000001").toNumber());
             });
-            it("THEN the pool 'lastAccrue' is tenDays", async () => {
-              expect(mp.lastAccrue).to.equal(sixDays + exaTime.ONE_SECOND * 150);
+            it("THEN the pool 'lastAccrual' is tenDays", async () => {
+              expect(mp.lastAccrual).to.equal(sixDays + exaTime.ONE_SECOND * 150);
             });
             it("THEN the last earnings SP is ~= 0.017361", async () => {
               const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
@@ -229,8 +229,8 @@ describe("Pool Management Library", () => {
             it("THEN the pool 'earningsUnassigned' are 0", async () => {
               expect(mp.earningsUnassigned).to.equal(0);
             });
-            it("THEN the pool 'lastAccrue' is tenDays", async () => {
-              expect(mp.lastAccrue).to.equal(tenDays);
+            it("THEN the pool 'lastAccrual' is tenDays", async () => {
+              expect(mp.lastAccrual).to.equal(tenDays);
             });
             it("THEN the last earnings SP is 40 (the remaining)", async () => {
               const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
@@ -247,8 +247,8 @@ describe("Pool Management Library", () => {
               it("THEN the pool 'earningsUnassigned' are 0", async () => {
                 expect(mp.earningsUnassigned).to.equal(0);
               });
-              it("THEN the pool 'lastAccrue' is tenDays", async () => {
-                expect(mp.lastAccrue).to.equal(tenDays);
+              it("THEN the pool 'lastAccrual' is tenDays", async () => {
+                expect(mp.lastAccrual).to.equal(tenDays);
               });
               it("THEN the last earnings SP is 0", async () => {
                 const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
@@ -268,8 +268,8 @@ describe("Pool Management Library", () => {
             it("THEN the pool 'earningsUnassigned' are 0", async () => {
               expect(mp.earningsUnassigned).to.equal(0);
             });
-            it("THEN the pool 'lastAccrue' is tenDays", async () => {
-              expect(mp.lastAccrue).to.equal(tenDays);
+            it("THEN the pool 'lastAccrual' is tenDays", async () => {
+              expect(mp.lastAccrual).to.equal(tenDays);
             });
             it("THEN the last earnings SP is 20 (40 were remaining - 20 removed)", async () => {
               const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();

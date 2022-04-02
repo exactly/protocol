@@ -14,21 +14,21 @@ library PoolLib {
   /// @param suppliedSP total amount borrowed over time from the SP.
   /// It only increases, and it's the last debt to be repaid at maturity.
   /// @param earnings total amount of earnings to be collected at maturity.
-  /// This earnings haven't accrued yet (see: lastAccrue). Each interaction with the MP, some of these earnings
+  /// This earnings haven't accrued yet (see: lastAccrual). Each interaction with the MP, some of these earnings
   /// are accrued to earningsSP. This is done by:
   ///     EARNINGSSP += DAYS(NOW - LAST_ACCRUE) * EARNINGS / DAYS(MATURITY_DATE - LAST_ACCRUE);
   /// If there's a new deposit to the MP, the commission for that deposit comes out of the future earnings:
   ///     NEWCOMMISSION = DEPOSIT * EARNINGS / (SUPPLIEDSP + DEPOSIT);
   ///     EARNINGS -= NEWCOMMISSION;
   /// @param earningsSP total amount of earnings that already belong to the SP.
-  /// @param lastAccrue timestamp for the last time that some of the earnings have been transferred to earningsSP.
+  /// @param lastAccrual timestamp for the last time that some of the earnings have been transferred to earningsSP.
   /// SP gained some earnings for having supported the loans.
   struct MaturityPool {
     uint256 borrowed;
     uint256 supplied;
     uint256 suppliedSP;
     uint256 earningsUnassigned;
-    uint256 lastAccrue;
+    uint256 lastAccrual;
   }
 
   struct Position {
@@ -125,16 +125,16 @@ library PoolLib {
     uint256 maturityID,
     uint256 currentTimestamp
   ) internal returns (uint256 earningsSP) {
-    uint256 lastAccrue = pool.lastAccrue;
+    uint256 lastAccrual = pool.lastAccrual;
 
-    if (lastAccrue == maturityID) return 0;
+    if (lastAccrual == maturityID) return 0;
 
     // seconds from last accrual to the closest:
     // maturity date or the current timestamp
-    uint256 secondsSinceLastAccrue = TSUtils.secondsPre(lastAccrue, Math.min(maturityID, currentTimestamp));
+    uint256 secondsSinceLastAccrue = TSUtils.secondsPre(lastAccrual, Math.min(maturityID, currentTimestamp));
     // seconds from last accrual to the maturity date
-    uint256 secondsTotalToMaturity = TSUtils.secondsPre(lastAccrue, maturityID);
-    pool.lastAccrue = Math.min(maturityID, currentTimestamp);
+    uint256 secondsTotalToMaturity = TSUtils.secondsPre(lastAccrual, maturityID);
+    pool.lastAccrual = Math.min(maturityID, currentTimestamp);
 
     // assign some of the earnings to be collected at maturity
     uint256 earningsUnassigned = pool.earningsUnassigned;

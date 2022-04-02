@@ -135,8 +135,8 @@ describe("PoolAccounting", () => {
     it("THEN earningsUnassigned are 0", async () => {
       expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
     });
-    it("THEN lastAccrue is 6 days to maturity", async () => {
-      expect(mp.lastAccrue).to.eq(sixDaysToMaturity);
+    it("THEN lastAccrual is 6 days to maturity", async () => {
+      expect(mp.lastAccrual).to.eq(sixDaysToMaturity);
     });
     it("THEN the mpUserSuppliedAmount is correctly updated", async () => {
       expect(mpUserSuppliedAmount[0]).to.be.eq(parseUnits(depositAmount.toString()));
@@ -177,8 +177,8 @@ describe("PoolAccounting", () => {
       it("THEN earningsUnassigned are 0", async () => {
         expect(mp.earningsUnassigned).to.eq(0);
       });
-      it("THEN lastAccrue is 4 days to maturity", async () => {
-        expect(mp.lastAccrue).to.eq(fourDaysToMaturity);
+      it("THEN lastAccrual is 4 days to maturity", async () => {
+        expect(mp.lastAccrual).to.eq(fourDaysToMaturity);
       });
       it("THEN the mpUserBorrowedAmount is correctly updated", async () => {
         expect(mpUserBorrowedAmount[0]).to.be.eq(parseUnits(borrowAmount.toString()));
@@ -226,8 +226,8 @@ describe("PoolAccounting", () => {
         it("THEN earningsUnassigned are 0", async () => {
           expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
         });
-        it("THEN the lastAccrue is 3 days to maturity", async () => {
-          expect(mp.lastAccrue).to.eq(threeDaysToMaturity);
+        it("THEN the lastAccrual is 3 days to maturity", async () => {
+          expect(mp.lastAccrual).to.eq(threeDaysToMaturity);
         });
         it("THEN the borrow + fees are correctly added to the mpUserBorrowedAmount", async () => {
           expect(mpUserBorrowedAmount[0]).to.be.eq(parseUnits((borrowAmount * 2).toString()));
@@ -282,8 +282,8 @@ describe("PoolAccounting", () => {
           it("THEN earningsUnassigned are 250", async () => {
             expect(mp.earningsUnassigned).to.eq(parseUnits(borrowFees.toString()));
           });
-          it("THEN lastAccrue is 2 days to maturity", async () => {
-            expect(mp.lastAccrue).to.eq(twoDaysToMaturity);
+          it("THEN lastAccrual is 2 days to maturity", async () => {
+            expect(mp.lastAccrual).to.eq(twoDaysToMaturity);
           });
           it("THEN the smartPoolEarningsAccumulator are still 500", async () => {
             expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
@@ -510,8 +510,8 @@ describe("PoolAccounting", () => {
             it("THEN earningsUnassigned are 0", async () => {
               expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
             });
-            it("THEN lastAccrue is 1 day to maturity", async () => {
-              expect(mp.lastAccrue).to.eq(oneDayToMaturity);
+            it("THEN lastAccrual is 1 day to maturity", async () => {
+              expect(mp.lastAccrual).to.eq(oneDayToMaturity);
             });
             it("THEN the mpUserSuppliedAmount is correctly updated", async () => {
               expect(mpUserSuppliedAmount[0]).to.be.eq(parseUnits((depositAmount + 10000).toString()));
@@ -568,8 +568,8 @@ describe("PoolAccounting", () => {
             it("THEN earningsUnassigned are 0", async () => {
               expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
             });
-            it("THEN lastAccrue is 1 day to maturity", async () => {
-              expect(mp.lastAccrue).to.eq(oneDayToMaturity);
+            it("THEN lastAccrual is 1 day to maturity", async () => {
+              expect(mp.lastAccrual).to.eq(oneDayToMaturity);
             });
             it("THEN the earningsSP returned are just 125", async () => {
               expect(returnValues.earningsSP).to.eq(
@@ -619,8 +619,8 @@ describe("PoolAccounting", () => {
             it("THEN earningsUnassigned are 0", async () => {
               expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
             });
-            it("THEN lastAccrue is 1 day before maturity", async () => {
-              expect(mp.lastAccrue).to.eq(oneDayToMaturity);
+            it("THEN lastAccrual is 1 day before maturity", async () => {
+              expect(mp.lastAccrual).to.eq(oneDayToMaturity);
             });
             it("THEN the currentTotalDeposit returned is equal to the amount plus fees earned", async () => {
               expect(returnValues.currentTotalDeposit).to.eq(parseUnits((depositAmount + 125).toString()));
@@ -662,8 +662,8 @@ describe("PoolAccounting", () => {
               it("THEN the earningsSP returned are 0", async () => {
                 expect(returnValues.earningsSP).to.eq(parseUnits("0"));
               });
-              it("THEN lastAccrue is 12 hours before maturity", async () => {
-                expect(mp.lastAccrue).to.eq(twelveHoursToMaturity);
+              it("THEN lastAccrual is 12 hours before maturity", async () => {
+                expect(mp.lastAccrual).to.eq(twelveHoursToMaturity);
               });
               it("THEN the debtCovered was the full repayAmount", async () => {
                 expect(returnValues.debtCovered).to.eq(parseUnits(repayAmount.toString()));
