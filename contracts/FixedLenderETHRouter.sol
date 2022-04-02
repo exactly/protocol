@@ -49,8 +49,10 @@ contract FixedLenderETHRouter {
     uint256 maturity,
     uint256 assets,
     uint256 minAssetsRequired
-  ) external unwrap(assets, msg.sender) returns (uint256 actualAssets) {
-    return fixedLender.withdrawAtMaturity(maturity, assets, minAssetsRequired, address(this), msg.sender);
+  ) external returns (uint256 actualAssets) {
+    actualAssets = fixedLender.withdrawAtMaturity(maturity, assets, minAssetsRequired, address(this), msg.sender);
+    weth.withdraw(actualAssets);
+    msg.sender.safeTransferETH(actualAssets);
   }
 
   function borrowAtMaturityETH(
