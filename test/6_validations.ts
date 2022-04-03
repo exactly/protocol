@@ -169,6 +169,19 @@ describe("Validations", function () {
       const penaltyRate = parseUnits("0.0099").div(86_400);
       await expect(fixedLender.setPenaltyRate(penaltyRate)).to.be.revertedWith("InvalidParameter()");
     });
+    it("WHEN trying to set the accumulatedEarningsSmoothFactor with more than 4", async () => {
+      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("4.01"))).to.be.revertedWith(
+        "InvalidParameter()",
+      );
+    });
+    it("WHEN trying to set the accumulatedEarningsSmoothFactor with less than 0.1", async () => {
+      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("0.09"))).to.be.revertedWith(
+        "InvalidParameter()",
+      );
+    });
+    it("WHEN trying to set the maxFuturePools with 0", async () => {
+      await expect(fixedLender.setMaxFuturePools(0)).to.be.revertedWith("InvalidParameter()");
+    });
     it("WHEN trying to set the liquidationIncentive with more than 20%", async () => {
       await expect(auditor.setLiquidationIncentive(parseUnits("1.21"))).to.be.revertedWith("InvalidParameter()");
     });
@@ -228,6 +241,20 @@ describe("Validations", function () {
     it("WHEN trying to set the penaltyRate with an intermediate daily value (3%)", async () => {
       const penaltyRate = parseUnits("0.03").div(86_400);
       await expect(fixedLender.setPenaltyRate(penaltyRate)).to.not.be.reverted;
+    });
+    it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with 0.1", async () => {
+      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("0.1"))).to.not.be.reverted;
+    });
+    it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with 4", async () => {
+      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("4"))).to.not.be.reverted;
+    });
+    it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with an intermediate value (2)", async () => {
+      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("2"))).to.not.be.reverted;
+    });
+    it("WHEN trying to set the maxFuturePools with a whole number", async () => {
+      await expect(fixedLender.setMaxFuturePools(1)).to.not.be.reverted;
+      await expect(fixedLender.setMaxFuturePools(12)).to.not.be.reverted;
+      await expect(fixedLender.setMaxFuturePools(24)).to.not.be.reverted;
     });
     it("WHEN trying to set the liquidationIncentive with 5%", async () => {
       await expect(auditor.setLiquidationIncentive(parseUnits("1.05"))).to.not.be.reverted;

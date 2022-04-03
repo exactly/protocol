@@ -10,7 +10,7 @@ import { ERC4626, ERC20, SafeTransferLib } from "@rari-capital/solmate/src/mixin
 import { PoolLib, InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
 import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
 import { PoolAccounting } from "./PoolAccounting.sol";
-import { IAuditor } from "./interfaces/IAuditor.sol";
+import { IAuditor, InvalidParameter } from "./interfaces/IAuditor.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 
 contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard, Pausable {
@@ -220,18 +220,22 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   /// @notice Sets the protocol's max future weekly pools for borrowing and lending.
+  /// @dev Value can not be 0.
   /// @param futurePools number of pools to be active at the same time (4 weekly pools ~= 1 month).
   function setMaxFuturePools(uint8 futurePools) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (futurePools == 0) revert InvalidParameter();
     maxFuturePools = futurePools;
     emit MaxFuturePoolsUpdated(futurePools);
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the smart pool.
+  /// @dev Value can only be set between 4 and 0.1.
   /// @param accumulatedEarningsSmoothFactor_ represented with 18 decimals.
   function setAccumulatedEarningsSmoothFactor(uint256 accumulatedEarningsSmoothFactor_)
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
+    if (accumulatedEarningsSmoothFactor_ > 4e18 || accumulatedEarningsSmoothFactor_ < 0.1e18) revert InvalidParameter();
     accumulatedEarningsSmoothFactor = accumulatedEarningsSmoothFactor_;
     emit AccumulatedEarningsSmoothFactorUpdated(accumulatedEarningsSmoothFactor_);
   }
