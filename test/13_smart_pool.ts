@@ -18,7 +18,7 @@ describe("Smart Pool", function () {
   const bobBalancePre = parseUnits("2000");
   const johnBalancePre = parseUnits("2000");
   const exaTime: ExaTime = new ExaTime();
-  const nextPoolId: number = exaTime.nextPoolID();
+  const nextPoolId: number = exaTime.nextPoolID() + 86_400 * 14; // we add 14 days so we make sure we are far from the previous timestamp blocks
 
   beforeEach(async () => {
     [, bob, john] = await ethers.getSigners();
@@ -134,8 +134,18 @@ describe("Smart Pool", function () {
           "InsufficientLiquidity()",
         );
       });
+      it("WHEN trying to call transferFrom to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+        await expect(
+          fixedLenderDAI.connect(bob).transferFrom(bob.address, john.address, parseUnits("100")),
+        ).to.be.revertedWith("InsufficientLiquidity()");
+      });
       it("AND WHEN trying to transfer a small amount that doesnt cause a shortfall (10 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
         await expect(fixedLenderDAI.connect(bob).transfer(john.address, parseUnits("10"))).to.not.be.reverted;
+      });
+      it("AND WHEN trying to call transferFrom to transfer a small amount that doesnt cause a shortfall (10 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
+        fixedLenderDAI.connect(bob).approve(john.address, parseUnits("10"));
+        await expect(fixedLenderDAI.connect(john).transferFrom(bob.address, john.address, parseUnits("10"))).to.not.be
+          .reverted;
       });
       it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith("InsufficientLiquidity()");

@@ -174,11 +174,6 @@ describe("Validations", function () {
         "InvalidParameter()",
       );
     });
-    it("WHEN trying to set the accumulatedEarningsSmoothFactor with less than 0.1", async () => {
-      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("0.09"))).to.be.revertedWith(
-        "InvalidParameter()",
-      );
-    });
     it("WHEN trying to set the maxFuturePools with 0", async () => {
       await expect(fixedLender.setMaxFuturePools(0)).to.be.revertedWith("InvalidParameter()");
     });
@@ -242,8 +237,8 @@ describe("Validations", function () {
       const penaltyRate = parseUnits("0.03").div(86_400);
       await expect(fixedLender.setPenaltyRate(penaltyRate)).to.not.be.reverted;
     });
-    it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with 0.1", async () => {
-      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("0.1"))).to.not.be.reverted;
+    it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with 0", async () => {
+      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("0"))).to.not.be.reverted;
     });
     it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with 4", async () => {
       await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("4"))).to.not.be.reverted;
