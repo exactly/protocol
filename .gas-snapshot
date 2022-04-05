@@ -1,6 +1,6 @@
 AuditorTest:testAccountShortfall() (gas: 176015)
 AuditorTest:testBorrowMPValidation() (gas: 177729)
-AuditorTest:testEnableEnterExitMultipleMarkets() (gas: 1595026)
+AuditorTest:testEnableEnterExitMultipleMarkets() (gas: 1562171)
 AuditorTest:testEnableMarket() (gas: 145518)
 AuditorTest:testEnterExitMarket() (gas: 199011)
 AuditorTest:testFailAccountShortfall() (gas: 196741)
