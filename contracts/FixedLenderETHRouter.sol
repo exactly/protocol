@@ -17,13 +17,13 @@ contract FixedLenderETHRouter {
 
   modifier unwrap(uint256 assets, address receiver) {
     _;
-    weth.withdraw(assets);
-    receiver.safeTransferETH(assets);
+    unwrapAndTransfer(assets, receiver);
   }
 
   constructor(FixedLender fixedLender_) {
     fixedLender = fixedLender_;
     weth = WETH(payable(address(fixedLender_.asset())));
+    weth.approve(address(fixedLender_), type(uint256).max);
   }
 
   receive() external payable {} // solhint-disable-line no-empty-blocks
@@ -66,6 +66,11 @@ contract FixedLenderETHRouter {
   function repayAtMaturityETH(uint256 maturity, uint256 assets) external payable wrap returns (uint256 repaidAssets) {
     repaidAssets = fixedLender.repayAtMaturity(maturity, assets, msg.value, msg.sender);
 
-    if (msg.value > repaidAssets) payable(msg.sender).transfer(msg.value - repaidAssets);
+    if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets, msg.sender);
+  }
+
+  function unwrapAndTransfer(uint256 assets, address receiver) internal {
+    weth.withdraw(assets);
+    receiver.safeTransferETH(assets);
   }
 }
