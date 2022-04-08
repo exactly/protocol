@@ -14,10 +14,4 @@ contract MockToken is ERC20 {
   ) ERC20(name_, symbol_, decimals_) {
     _mint(msg.sender, initialSupply);
   }
-
-  function flashLoan(uint256 amount) external {
-    _mint(msg.sender, amount);
-    IFlashBorrower(msg.sender).doThingsWithFlashLoan();
-    _burn(msg.sender, amount);
-  }
 }
