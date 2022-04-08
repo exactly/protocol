@@ -164,34 +164,45 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
         smartPoolEarnings += unassignedEarnings.fmul(block.timestamp - lastAccrual, maturity - lastAccrual);
       }
 
-      return smartPoolBalance + smartPoolEarnings + smartPoolAccumulatedEarnings();
+      return smartPoolBalance + smartPoolEarnings;
     }
   }
 
   function beforeWithdraw(uint256 assets, uint256) internal override {
     auditor.validateAccountShortfall(this, msg.sender, assets);
 
-    uint256 earnings = smartPoolAccumulatedEarnings();
-    lastAccumulatedEarningsAccrual = block.timestamp;
-    smartPoolEarningsAccumulator -= earnings;
-    smartPoolBalance = smartPoolBalance + earnings - assets;
     // we check if the underlying liquidity that the user wants to withdraw is borrowed
-    if (smartPoolBalance < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
+    if (smartPoolBalance - assets < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
+
+    smartPoolBalance -= assets;
   }
 
-  function afterDeposit(uint256 assets, uint256) internal virtual override whenNotPaused {
-    uint256 earnings = smartPoolAccumulatedEarnings();
-    lastAccumulatedEarningsAccrual = block.timestamp;
-    smartPoolEarningsAccumulator -= earnings;
-    smartPoolBalance += earnings + assets;
+  function deposit(uint256 assets, address receiver) public virtual override returns (uint256 shares) {
+    accrueAccumulatedEarnings();
+    return super.deposit(assets, receiver);
   }
 
-  function smartPoolAccumulatedEarnings() internal view returns (uint256 earnings) {
+  function mint(uint256 shares, address receiver) public virtual override returns (uint256 assets) {
+    accrueAccumulatedEarnings();
+    return super.mint(shares, receiver);
+  }
+
+  /// @notice Accrues to the smart pool a portion of the accumulated earnings that the accumulator variable accounts.
+  /// @dev Avoids big amounts of earnings being accrued all at once.
+  function accrueAccumulatedEarnings() internal {
     uint256 elapsed = block.timestamp - lastAccumulatedEarningsAccrual;
-    earnings = smartPoolEarningsAccumulator.fmul(
+    uint256 earnings = smartPoolEarningsAccumulator.fmul(
       elapsed,
       elapsed + accumulatedEarningsSmoothFactor.fmul(maxFuturePools * TSUtils.INTERVAL, 1e18)
     );
+
+    lastAccumulatedEarningsAccrual = block.timestamp;
+    smartPoolEarningsAccumulator -= earnings;
+    smartPoolBalance += earnings;
+  }
+
+  function afterDeposit(uint256 assets, uint256) internal virtual override whenNotPaused {
+    smartPoolBalance += assets;
   }
 
   function transfer(address to, uint256 shares) public virtual override returns (bool) {
@@ -218,14 +229,13 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the smart pool.
-  /// @dev Value can only be lower than 4. If set at 0, then all remaining accumulated earnings are
-  /// distributed in following operation to the smart pool.
+  /// @dev Value can only be set between 4 and 0.1.
   /// @param accumulatedEarningsSmoothFactor_ represented with 18 decimals.
   function setAccumulatedEarningsSmoothFactor(uint256 accumulatedEarningsSmoothFactor_)
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
-    if (accumulatedEarningsSmoothFactor_ > 4e18) revert InvalidParameter();
+    if (accumulatedEarningsSmoothFactor_ > 4e18 || accumulatedEarningsSmoothFactor_ < 0.1e18) revert InvalidParameter();
     accumulatedEarningsSmoothFactor = accumulatedEarningsSmoothFactor_;
     emit AccumulatedEarningsSmoothFactorUpdated(accumulatedEarningsSmoothFactor_);
   }
