@@ -16,7 +16,7 @@ describe("PoolAccounting", () => {
   let mockInterestRateModel: Contract;
   const exaTime = new ExaTime();
   let snapshot: any;
-  const nextPoolID = exaTime.nextPoolID() + 86_400 * 21; // we add 21 days so we make sure we are far from the previous timestamp blocks
+  const nextPoolID = exaTime.nextPoolID() + 7 * exaTime.ONE_DAY; // we add 7 days so we make sure we are far from the previous timestamp blocks
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
