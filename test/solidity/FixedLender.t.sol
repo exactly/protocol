@@ -17,7 +17,10 @@ contract FixedLenderTest is DSTestPlus {
 
   Vm internal vm = Vm(HEVM_ADDRESS);
   FixedLender internal fixedLender;
-  MockToken internal mockToken;
+  Auditor internal auditor;
+  MockInterestRateModel internal mockInterestRateModel;
+  MockOracle internal mockOracle;
+  string[] tokens = ["DAI", "USDC", "WETH", "WBTC"];
 
   event Transfer(address indexed from, address indexed to, uint256 amount);
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
@@ -54,11 +57,11 @@ contract FixedLenderTest is DSTestPlus {
   );
 
   function setUp() external {
-    mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
-    MockOracle mockOracle = new MockOracle();
+    MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
+    mockOracle = new MockOracle();
     mockOracle.setPrice("DAI", 1e8);
-    Auditor auditor = new Auditor(mockOracle, 1.1e18);
-    MockInterestRateModel mockInterestRateModel = new MockInterestRateModel(0.1e18);
+    auditor = new Auditor(mockOracle, 1.1e18);
+    mockInterestRateModel = new MockInterestRateModel(0.1e18);
     mockInterestRateModel.setSPFeeRate(1e17);
 
     fixedLender = new FixedLender(
@@ -213,8 +216,6 @@ contract FixedLenderTest is DSTestPlus {
     assertEq(fixedLender.previewMint(10_000 ether), fixedLender.mint(10_000 ether, address(this)));
   }
 
-  event Debug(string testName, uint256 testVar);
-
   function testFrontRunSmartPoolEarningsDistributionWithBigPenaltyRepayment() external {
     uint256 maturity = 7 days * 2;
     fixedLender.deposit(10_000 ether, address(this));
@@ -334,5 +335,71 @@ contract FixedLenderTest is DSTestPlus {
     fixedLender.deposit(1 ether, address(this));
     assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(address(this))), 11_012 ether);
     assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
+  }
+
+  function testMultipleBorrowsForMultipleAssets() external {
+    FixedLender[4] memory fixedLenders;
+    for (uint256 i = 0; i < tokens.length; i++) {
+      string memory tokenName = tokens[i];
+
+      MockToken mockToken = new MockToken(tokenName, tokenName, 18, 150_000 ether);
+      FixedLender newFixedLender = new FixedLender(
+        mockToken,
+        tokenName,
+        12,
+        1e18,
+        auditor,
+        mockInterestRateModel,
+        0.02e18 / uint256(1 days),
+        0
+      );
+      auditor.enableMarket(newFixedLender, 0.8e18, tokenName, tokenName, 18);
+      mockOracle.setPrice(tokenName, 1e8);
+      mockToken.approve(address(newFixedLender), 50_000 ether);
+      mockToken.transfer(BOB, 110 ether);
+      vm.prank(BOB);
+      mockToken.approve(address(newFixedLender), 110 ether);
+
+      fixedLenders[i] = newFixedLender;
+
+      newFixedLender.deposit(5_000 ether, address(this));
+    }
+
+    // since 224 is the max amount of consecutive maturities where a user can borrow
+    // 204 is the last valid cycle (the last maturity where it borrows is 216)
+    for (uint256 i = 0; i < 205; i += 12) {
+      multipleBorrowsAtMaturity(fixedLenders, i + 1, 7 days * i);
+    }
+
+    // repay does not increase in cost
+    fixedLenders[0].repayAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    // withdraw DOES increase in cost
+    fixedLenders[0].withdraw(1 ether, address(this), address(this));
+
+    // normal operations of another user are not impacted
+    vm.prank(BOB);
+    fixedLenders[0].deposit(100 ether, address(BOB));
+    vm.prank(BOB);
+    fixedLenders[0].withdraw(1 ether, address(BOB), address(BOB));
+    vm.prank(BOB);
+    vm.warp(7 days * 400);
+    fixedLenders[0].borrowAtMaturity(7 days * 401, 1 ether, 1.2 ether, address(BOB), address(BOB));
+
+    // liquidate function to user's borrows DOES increase in cost
+    vm.prank(BOB);
+    fixedLenders[0].liquidate(address(this), 1 ether, 1 ether, fixedLenders[0], 7 days * 2);
+  }
+
+  function multipleBorrowsAtMaturity(
+    FixedLender[4] memory fixedLenders,
+    uint256 initialMaturity,
+    uint256 initialTime
+  ) internal {
+    vm.warp(initialTime);
+    for (uint256 i = 0; i < fixedLenders.length; i++) {
+      for (uint256 j = initialMaturity; j < initialMaturity + 12; j++) {
+        fixedLenders[i].borrowAtMaturity(7 days * j, 1 ether, 1.2 ether, address(this), address(this));
+      }
+    }
   }
 }

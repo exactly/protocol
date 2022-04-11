@@ -399,8 +399,8 @@ contract Auditor is IAuditor, AccessControl {
 
     // For each asset the account is in
     uint256 assets = accountAssets[account];
-    uint8 maxValue = uint8(allMarkets.length);
-    for (uint8 i = 0; i < maxValue; ) {
+    uint256 maxValue = allMarkets.length;
+    for (uint256 i = 0; i < maxValue; ) {
       if ((assets & (1 << i)) != 0) {
         FixedLender asset = allMarkets[i];
         vars.decimals = markets[asset].decimals;
