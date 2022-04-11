@@ -27,10 +27,8 @@ contract PoolAccounting is AccessControl {
     PoolLib.Position position;
     PoolLib.Position scaleDebtCovered;
     uint256 amountOwed;
-    uint256 penalties;
     uint256 discountFee;
     uint256 feeSP;
-    uint256 amountStillBorrowed;
   }
 
   mapping(uint256 => mapping(address => PoolLib.Position)) public mpUserSuppliedAmount;

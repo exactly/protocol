@@ -33,7 +33,7 @@ const config: Config = {
     liquidationIncentive: 1.1,
     penaltyRatePerDay: 0.02,
     smartPoolReserveFactor: 0.1,
-    maxFuturePools: 13,
+    maxFuturePools: 12,
     accumulatedEarningsSmoothFactor: 2,
     interestRateModel: {
       curveA: 0.72,
