@@ -13,24 +13,24 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const addresses = (tokens: string[]) => Promise.all(tokens.map(async (token) => (await get(token)).address));
+  const addresses = (assets: string[]) => Promise.all(assets.map(async (asset) => (await get(asset)).address));
 
   const { deployer } = await getNamedAccounts();
   await deploy("ExactlyOracle", {
     skipIfAlreadyDeployed: true,
-    args: [(await get("FeedRegistry")).address, config.tokens, await addresses(config.tokens), USD_ADDRESS, 86_400],
+    args: [(await get("FeedRegistry")).address, config.assets, await addresses(config.assets), USD_ADDRESS, 86_400],
     from: deployer,
     log: true,
   });
   const oracle = await getContract<ExactlyOracle>("ExactlyOracle");
-  const missingTokens = config.tokens.filter(async (token) => (await oracle.assetsSources(token)) === AddressZero);
-  if (missingTokens.length) {
+  const missingAssets = config.assets.filter(async (asset) => (await oracle.assetsSources(asset)) === AddressZero);
+  if (missingAssets.length) {
     const timelock = await getContract<TimelockController>("TimelockController", deployer);
-    await timelockPropose(timelock, oracle, "setAssetSources", [missingTokens, await addresses(missingTokens)]);
+    await timelockPropose(timelock, oracle, "setAssetSources", [missingAssets, await addresses(missingAssets)]);
   }
 };
 
 func.tags = ["ExactlyOracle"];
-func.dependencies = ["FeedRegistry", "Tokens", "TimelockController"];
+func.dependencies = ["FeedRegistry", "Assets", "TimelockController"];
 
 export default func;

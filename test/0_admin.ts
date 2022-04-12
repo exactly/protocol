@@ -107,7 +107,7 @@ describe("Auditor Admin", function () {
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
       expect(await auditor.getAllMarkets()).to.deep.equal(
-        await Promise.all(network.config.tokens.map(async (token) => (await get(`FixedLender${token}`)).address)),
+        await Promise.all(network.config.assets.map(async (asset) => (await get(`FixedLender${asset}`)).address)),
       );
     });
 

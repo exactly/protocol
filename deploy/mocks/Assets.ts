@@ -9,18 +9,18 @@ const func: DeployFunction = async ({
   getNamedAccounts,
 }) => {
   const { deployer } = await getNamedAccounts();
-  for (const token of config.tokens) {
-    const decimals = { USDC: 6, WBTC: 8 }[token] ?? 18;
-    await deploy(token, {
+  for (const asset of config.assets) {
+    const decimals = { USDC: 6, WBTC: 8 }[asset] ?? 18;
+    await deploy(asset, {
       skipIfAlreadyDeployed: true,
-      contract: token === "WETH" ? "WETH" : "MockToken",
-      ...(token !== "WETH" && { args: [token, token, decimals, parseUnits("100000000000", decimals)] }),
+      contract: asset === "WETH" ? "WETH" : "MockToken",
+      ...(asset !== "WETH" && { args: [asset, asset, decimals, parseUnits("100000000000", decimals)] }),
       from: deployer,
       log: true,
     });
   }
 };
 
-func.tags = ["Tokens"];
+func.tags = ["Assets"];
 
 export default func;

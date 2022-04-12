@@ -1,5 +1,14 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, ExactlyOracle, FixedLender, InterestRateModel, TimelockController } from "../types";
+import type {
+  Auditor,
+  ERC20,
+  ExactlyOracle,
+  FixedLender,
+  InterestRateModel,
+  MaturityPositions,
+  TimelockController,
+} from "../types";
+import { readFile } from "fs/promises";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import grantRole from "./.utils/grantRole";
@@ -23,30 +32,32 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [auditor, exactlyOracle, interestRateModel, timelockController, { deployer, multisig }] = await Promise.all([
-    getContract<Auditor>("Auditor"),
-    getContract<ExactlyOracle>("ExactlyOracle"),
-    getContract<InterestRateModel>("InterestRateModel"),
-    getContract<TimelockController>("TimelockController"),
-    getNamedAccounts(),
-  ]);
+  const [auditor, exactlyOracle, interestRateModel, maturityPositions, timelockController, { deployer, multisig }] =
+    await Promise.all([
+      getContract<Auditor>("Auditor"),
+      getContract<ExactlyOracle>("ExactlyOracle"),
+      getContract<InterestRateModel>("InterestRateModel"),
+      getContract<MaturityPositions>("MaturityPositions"),
+      getContract<TimelockController>("TimelockController"),
+      getNamedAccounts(),
+    ]);
 
   const poolAccountingArgs = [
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
     parseUnits(String(smartPoolReserveFactor)),
   ];
-  for (const token of config.tokens) {
-    const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
-    const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
+  for (const asset of config.assets) {
+    const [{ address: assetAddress }, assetContract] = await Promise.all([get(asset), getContract<ERC20>(asset)]);
+    const [symbol, decimals] = await Promise.all([assetContract.symbol(), assetContract.decimals()]);
 
     const fixedLenderName = `FixedLender${symbol}`;
     await deploy(fixedLenderName, {
       skipIfAlreadyDeployed: true,
       contract: "FixedLender",
       args: [
-        tokenAddress,
-        token,
+        assetAddress,
+        asset,
         maxFuturePools,
         parseUnits(String(accumulatedEarningsSmoothFactor)),
         auditor.address,
@@ -57,11 +68,11 @@ const func: DeployFunction = async ({
     });
     const fixedLender = await getContract<FixedLender>(fixedLenderName, await getSigner(deployer));
 
-    if (token === "WETH") {
+    if (asset === "WETH") {
       await deploy("FixedLenderETHRouter", { args: [fixedLender.address], from: deployer, log: true });
     }
 
-    if (!((await fixedLender.maxFuturePools()) === maxFuturePools)) {
+    if ((await fixedLender.maxFuturePools()) !== maxFuturePools) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setMaxFuturePools", [maxFuturePools]);
     }
     if (
@@ -79,19 +90,19 @@ const func: DeployFunction = async ({
         poolAccountingArgs[2],
       ]);
     }
-    if (!((await fixedLender.interestRateModel()) === interestRateModel.address)) {
+    if ((await fixedLender.interestRateModel()) !== interestRateModel.address) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setInterestRateModel", [
         interestRateModel.address,
       ]);
     }
 
-    const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));
+    const underlyingCollateralFactor = parseUnits(String(collateralFactor[asset] ?? collateralFactor.default));
     if (!(await auditor.getAllMarkets()).includes(fixedLender.address)) {
       await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
         fixedLender.address,
         underlyingCollateralFactor,
         symbol,
-        token,
+        asset,
         decimals,
       ]);
     } else if (!(await auditor.getMarketData(fixedLender.address))[3].eq(underlyingCollateralFactor)) {
@@ -101,17 +112,22 @@ const func: DeployFunction = async ({
       ]);
     }
 
+    const assetLogo = (await readFile(`deploy/.logos/${asset}.svg`).catch(() => "")).toString();
+    if ((await maturityPositions.logos(asset)) !== assetLogo) {
+      await executeOrPropose(deployer, timelockController, maturityPositions, "setLogo", [asset, assetLogo]);
+    }
+
     await grantRole(fixedLender, await fixedLender.PAUSER_ROLE(), multisig);
 
     await transferOwnership(fixedLender, deployer, timelockController.address);
   }
 
-  for (const contract of [auditor, interestRateModel, exactlyOracle]) {
+  for (const contract of [auditor, interestRateModel, exactlyOracle, maturityPositions]) {
     await transferOwnership(contract, deployer, timelockController.address);
   }
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "TimelockController", "Tokens"];
+func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "TimelockController", "Assets"];
 
 export default func;

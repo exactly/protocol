@@ -10,6 +10,7 @@
     "constructor-syntax": "error",
     "no-inline-assembly": "off",
     "not-rely-on-time": "off",
+    "quotes": "off",
     "prettier/prettier": "error"
   }
 }

@@ -17,14 +17,14 @@ const func: DeployFunction = async ({
   });
   if (newlyDeployed) {
     const feedRegistry = await getContract<MockChainlinkFeedRegistry>("FeedRegistry");
-    for (const token of config.tokens) {
-      const { address } = await get(token);
-      await feedRegistry.setPrice(address, USD_ADDRESS, { WBTC: 63_000e8, WETH: 1_000e8 }[token] ?? 1e8);
+    for (const asset of config.assets) {
+      const { address } = await get(asset);
+      await feedRegistry.setPrice(address, USD_ADDRESS, { WBTC: 63_000e8, WETH: 1_000e8 }[asset] ?? 1e8);
     }
   }
 };
 
 func.tags = ["FeedRegistry"];
-func.dependencies = ["Tokens"];
+func.dependencies = ["Assets"];
 
 export default func;

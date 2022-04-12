@@ -1,3 +1,4 @@
 @openzeppelin/=node_modules/@openzeppelin/
+@quant-finance/=node_modules/@quant-finance/
 @rari-capital/=node_modules/@rari-capital/
 forge-std/=lib/forge-std/src/

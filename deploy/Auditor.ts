@@ -26,6 +26,7 @@ const func: DeployFunction = async ({
     log: true,
   });
   const auditor = await getContract<Auditor>("Auditor", await getSigner(deployer));
+  await deploy("MaturityPositions", { args: [auditor.address], from: deployer, log: true });
 
   if (!(await auditor.liquidationIncentive()).eq(parseUnits(String(liquidationIncentive)))) {
     await executeOrPropose(deployer, timelockController, auditor, "setLiquidationIncentive", [

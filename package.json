@@ -26,6 +26,7 @@
   "dependencies": {
     "@chainlink/contracts": "0.4.0",
     "@openzeppelin/contracts": "4.6.0",
+    "@quant-finance/solidity-datetime": "^2.1.0",
     "@rari-capital/solmate": "exactly-finance/solmate",
     "@rari-capital/solmate-v6": "npm:@rari-capital/solmate@6.2.0"
   },

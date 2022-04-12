@@ -12,11 +12,11 @@ const config: Config = {
   solidity: { version: "0.8.13", settings: { optimizer: { enabled: true, runs: 1_000_000 } } },
   networks: {
     hardhat: {
-      tokens: ["DAI", "WETH", "USDC", "WBTC"],
+      assets: ["DAI", "WETH", "USDC", "WBTC"],
       accounts: { accountsBalance: `1${"0".repeat(32)}` },
     },
     kovan: {
-      tokens: ["DAI", "WETH"],
+      assets: ["DAI", "WETH"],
       url: env.KOVAN_NODE ?? "https://kovan.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
     },
@@ -56,7 +56,7 @@ export default config;
 
 declare module "hardhat/types/config" {
   export interface FinanceConfig {
-    collateralFactor: { default: number; [token: string]: number };
+    collateralFactor: { default: number; [asset: string]: number };
     liquidationIncentive: number;
     penaltyRatePerDay: number;
     smartPoolReserveFactor: number;
@@ -80,18 +80,18 @@ declare module "hardhat/types/config" {
   }
 
   export interface HardhatNetworkUserConfig {
-    tokens: string[];
+    assets: string[];
   }
 
   export interface HttpNetworkUserConfig {
-    tokens: string[];
+    assets: string[];
   }
 
   export interface HardhatNetworkConfig {
-    tokens: string[];
+    assets: string[];
   }
 
   export interface HttpNetworkConfig {
-    tokens: string[];
+    assets: string[];
   }
 }
