@@ -231,6 +231,10 @@ describe("FixedLender", function () {
             expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("10000"));
             expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(0);
           });
+          it("AND contract's state variable userMpSupplied does not register the maturity where the user deposited to anymore", async () => {
+            const maturities = await fixedLenderDAI.userMpSupplied(maria.address);
+            expect(decodeMaturities(maturities).length).eq(0);
+          });
         });
 
         describe("AND WHEN withdrawing MORE from maturity pool than maria has", () => {
@@ -246,6 +250,10 @@ describe("FixedLender", function () {
           });
           it("THEN the total amount withdrawn is 9900 (the max)", async () => {
             expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("9900"));
+          });
+          it("AND contract's state variable userMpSupplied does not register the maturity where the user deposited to anymore", async () => {
+            const maturities = await fixedLenderDAI.userMpSupplied(maria.address);
+            expect(decodeMaturities(maturities).length).eq(0);
           });
         });
 
@@ -409,7 +417,10 @@ describe("FixedLender", function () {
         ),
       ).to.be.revertedWith("TooMuchSlippage()");
     });
-
+    it("AND contract's state variable userMpSupplied registers the maturity where the user supplied to", async () => {
+      const maturities = await fixedLenderDAI.userMpSupplied(maria.address);
+      expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+    });
     it("WHEN trying to deposit 100 DAI with a minimum required amount to be received of 103, THEN 102 are received instead AND the transaction reverts with TOO_MUCH_SLIPPAGE", async () => {
       await expect(
         fixedLenderDAI.depositAtMaturity(futurePools(1)[0], parseUnits("100"), parseUnits("103"), maria.address),

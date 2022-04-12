@@ -65,6 +65,10 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         const position = await fixedLenderWETH.mpUserSuppliedAmount(futurePools(1)[0], alice.address);
         expect(position[0]).to.be.equal(parseUnits("5"));
       });
+      it("AND contract's state variable userMpSupplied registers the maturity where the user deposited to", async () => {
+        const maturities = await fixedLenderWETH.userMpSupplied(alice.address);
+        expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+      });
     });
 
     describe("GIVEN alice has some WETH", () => {
@@ -92,6 +96,10 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
           const position = await fixedLenderWETH.mpUserSuppliedAmount(futurePools(1)[0], alice.address);
           expect(position[0]).to.be.equal(parseUnits("5"));
+        });
+        it("AND contract's state variable userMpSupplied registers the maturity where the user deposited to", async () => {
+          const maturities = await fixedLenderWETH.userMpSupplied(alice.address);
+          expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
         });
       });
     });
@@ -222,6 +230,10 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         });
         it("AND the ETHFixedLender contracts WETH balance decreased accordingly", async () => {
           expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(parseUnits("0"));
+        });
+        it("AND contract's state variable userMpSupplied registers the maturity where the user deposited to", async () => {
+          const maturities = await fixedLenderWETH.userMpSupplied(alice.address);
+          expect(decodeMaturities(maturities).length).equal(0);
         });
       });
       describe("WHEN she withdraws to WETH", () => {

@@ -37,6 +37,7 @@ contract PoolAccounting is AccessControl {
   mapping(uint256 => mapping(address => PoolLib.Position)) public mpUserBorrowedAmount;
 
   mapping(address => uint256) public userMpBorrowed;
+  mapping(address => uint256) public userMpSupplied;
   mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
   uint256 public smartPoolBorrowed;
   uint256 public smartPoolEarningsAccumulator;
@@ -186,6 +187,13 @@ contract PoolAccounting is AccessControl {
 
     // We update users's position
     PoolLib.Position memory position = mpUserSuppliedAmount[maturity][supplier];
+
+    // If user doesn't have a current position, we add it to the list
+    // of all of them
+    if (position.principal == 0) {
+      userMpSupplied[supplier] = userMpSupplied[supplier].setMaturity(maturity);
+    }
+
     mpUserSuppliedAmount[maturity][supplier] = PoolLib.Position(position.principal + amount, position.fee + fee);
   }
 
@@ -246,7 +254,14 @@ contract PoolAccounting is AccessControl {
     earningsSP += newEarningsSP;
 
     // the user gets discounted the full amount
-    mpUserSuppliedAmount[maturity][redeemer] = position.reduceProportionally(amount);
+    position.reduceProportionally(amount);
+    if (position.principal + position.fee == 0) {
+      delete mpUserSuppliedAmount[maturity][redeemer];
+      userMpSupplied[redeemer] = userMpSupplied[redeemer].clearMaturity(maturity);
+    } else {
+      // we proportionally reduce the values
+      mpUserSuppliedAmount[maturity][redeemer] = position;
+    }
   }
 
   /// @dev Function to account for a repayment to a maturity pool (MP).
