@@ -204,7 +204,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     address to,
     uint256 shares
   ) public virtual override returns (bool) {
-    auditor.validateAccountShortfall(this, msg.sender, convertToAssets(shares));
+    auditor.validateAccountShortfall(this, from, convertToAssets(shares));
     return super.transferFrom(from, to, shares);
   }
 

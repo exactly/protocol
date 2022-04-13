@@ -115,6 +115,57 @@ describe("Smart Pool", function () {
     });
   });
 
+  describe("GIVEN bob deposits 1WBTC", () => {
+    beforeEach(async () => {
+      await underlyingTokenWBTC.connect(bob).approve(fixedLenderWBTC.address, parseUnits("1", 8));
+      await fixedLenderWBTC.connect(bob).approve(john.address, parseUnits("1", 8));
+      await fixedLenderWBTC.connect(bob).deposit(parseUnits("1", 8), bob.address);
+    });
+    it("THEN bob's eWBTC balance is 1", async () => {
+      expect(await fixedLenderWBTC.balanceOf(bob.address)).to.equal(parseUnits("1", 8));
+    });
+    it("AND WHEN bob transfers his eWBTC THEN it does not fail", async () => {
+      await expect(fixedLenderWBTC.connect(bob).transfer(john.address, fixedLenderWBTC.balanceOf(bob.address))).to.not
+        .be.reverted;
+      expect(await fixedLenderWBTC.balanceOf(bob.address)).to.be.equal(0);
+      expect(await fixedLenderWBTC.balanceOf(john.address)).to.be.equal(parseUnits("1", 8));
+    });
+    it("AND WHEN john calls transferFrom to transfer bob's eWBTC THEN it does not fail", async () => {
+      await expect(
+        fixedLenderWBTC.connect(john).transferFrom(bob.address, john.address, fixedLenderWBTC.balanceOf(bob.address)),
+      ).to.not.be.reverted;
+      expect(await fixedLenderWBTC.balanceOf(bob.address)).to.be.equal(0);
+      expect(await fixedLenderWBTC.balanceOf(john.address)).to.be.equal(parseUnits("1", 8));
+    });
+    describe("AND GIVEN bob borrows 0.5 WBTC from a maturity", () => {
+      beforeEach(async () => {
+        exactlyEnv.switchWallet(bob);
+        await exactlyEnv.borrowMP("WBTC", nextPoolId, "0.5");
+      });
+      it("WHEN bob tries to transfer his eWBTC THEN it fails with InsufficientLiquidity error", async () => {
+        await expect(
+          fixedLenderWBTC.connect(bob).transfer(john.address, fixedLenderWBTC.balanceOf(bob.address)),
+        ).to.be.revertedWith("InsufficientLiquidity()");
+      });
+      it("AND WHEN john calls transferFrom to transfer bob's eWBTC THEN it fails with InsufficientLiquidity error", async () => {
+        await expect(
+          fixedLenderWBTC.connect(john).transferFrom(bob.address, john.address, fixedLenderWBTC.balanceOf(bob.address)),
+        ).to.be.revertedWith("InsufficientLiquidity()");
+      });
+      it("AND WHEN bob tries to transfer a small amount of eWBTC THEN it does not fail", async () => {
+        await expect(fixedLenderWBTC.connect(bob).transfer(john.address, parseUnits("0.01", 8))).to.not.be.reverted;
+        expect(await fixedLenderWBTC.balanceOf(bob.address)).to.be.equal(parseUnits("0.99", 8));
+        expect(await fixedLenderWBTC.balanceOf(john.address)).to.be.equal(parseUnits("0.01", 8));
+      });
+      it("AND WHEN john calls transferFrom to transfer a small amount of bob's eWBTC THEN it does not fail", async () => {
+        await expect(fixedLenderWBTC.connect(john).transferFrom(bob.address, john.address, parseUnits("0.01", 8))).to
+          .not.be.reverted;
+        expect(await fixedLenderWBTC.balanceOf(bob.address)).to.be.equal(parseUnits("0.99", 8));
+        expect(await fixedLenderWBTC.balanceOf(john.address)).to.be.equal(parseUnits("0.01", 8));
+      });
+    });
+  });
+
   describe("GIVEN bob deposits 100 DAI (collateralization rate 80%)", () => {
     beforeEach(async () => {
       exactlyEnv.switchWallet(bob);
