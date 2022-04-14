@@ -16,8 +16,8 @@
     "coverage:hardhat": "hardhat coverage",
     "deploy:kovan": "hardhat --network kovan deploy",
     "deploy:hardhat": "hardhat --network hardhat deploy",
-    "postinstall": "path-exists .git && run-p --aggregate-output --continue-on-error postinstall:**",
-    "postinstall:foundry": "forge install || cd .",
+    "postinstall": "run-s --continue-on-error postinstall:** || cd .",
+    "postinstall:foundry": "forge install",
     "postinstall:hardhat": "hardhat compile --force"
   },
   "engines": {
@@ -59,7 +59,6 @@
     "hardhat-deploy": "^0.11.4",
     "hardhat-gas-reporter": "^1.0.8",
     "npm-run-all": "^4.1.5",
-    "path-exists-cli": "^2.0.0",
     "prettier": "^2.6.2",
     "prettier-plugin-solidity": "^1.0.0-beta.19",
     "solhint": "^3.3.7",
