@@ -607,7 +607,6 @@ describe("FixedLender", function () {
         });
         it("AND 200 are borrowed from the smart pool", async () => {
           expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("200"));
-          expect((await fixedLenderDAI.maturityPools(futurePools(1)[0])).suppliedSP).to.equal(parseUnits("200"));
         });
         it("AND WHEN trying to withdraw 300 ==(500 available, 200 borrowed to MP) from the smart pool, THEN it succeeds", async () => {
           await expect(fixedLenderDAI.withdraw(parseUnits("300"), maria.address, maria.address)).to.not.be.reverted;
@@ -632,7 +631,8 @@ describe("FixedLender", function () {
             expect(borrowed).to.gt(supplied);
           });
           it("THEN the later maturity owes 100 to the smart pool", async () => {
-            expect((await fixedLenderDAI.maturityPools(futurePools(2)[1])).suppliedSP).to.equal(parseUnits("100"));
+            const mp = await fixedLenderDAI.maturityPools(futurePools(2)[1]);
+            expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
           });
           it("THEN the smart pool has lent 300 (100 from the later maturity one, 200 from the first one)", async () => {
             expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("300"));
@@ -654,7 +654,8 @@ describe("FixedLender", function () {
               expect(borrowed).to.gt(supplied);
             });
             it("THEN the maturity pool owes 50 to the smart pool", async () => {
-              expect((await fixedLenderDAI.maturityPools(futurePools(2)[1])).suppliedSP).to.equal(parseUnits("50"));
+              const mp = await fixedLenderDAI.maturityPools(futurePools(2)[1]);
+              expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("50"));
             });
             it("THEN the smart pool was repaid 50 DAI (SPborrowed=250)", async () => {
               expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("250"));
@@ -674,7 +675,8 @@ describe("FixedLender", function () {
               expect(supplied.sub(borrowed)).to.equal(parseUnits("700"));
             });
             it("THEN the later maturity has no supply from the Smart Pool", async () => {
-              expect((await fixedLenderDAI.maturityPools(futurePools(2)[1])).suppliedSP).to.equal(0);
+              const mp = await fixedLenderDAI.maturityPools(futurePools(2)[1]);
+              expect(mp.supplied).to.gt(mp.borrowed);
             });
             it("THEN the smart pool was repaid, and is still owed 200 from the current one", async () => {
               expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("200"));
@@ -695,7 +697,8 @@ describe("FixedLender", function () {
             expect(borrowed).to.gt(supplied);
           });
           it("THEN the maturity pool still owes 100 to the smart pool", async () => {
-            expect((await fixedLenderDAI.maturityPools(futurePools(1)[0])).suppliedSP).to.equal(parseUnits("100"));
+            const mp = await fixedLenderDAI.maturityPools(futurePools(1)[0]);
+            expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
           });
           it("THEN the smart pool was repaid the other 100 (is owed still 100)", async () => {
             expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("100"));
@@ -715,7 +718,8 @@ describe("FixedLender", function () {
             expect(supplied.sub(borrowed)).to.equal(parseUnits("100"));
           });
           it("THEN the maturity pool doesn't owe the Smart Pool", async () => {
-            expect((await fixedLenderDAI.maturityPools(futurePools(1)[0])).suppliedSP).to.equal(0);
+            const mp = await fixedLenderDAI.maturityPools(futurePools(1)[0]);
+            expect(mp.supplied).to.gt(mp.borrowed);
           });
         });
         describe("AND WHEN repaying 100 DAI", () => {
@@ -735,7 +739,8 @@ describe("FixedLender", function () {
             expect(borrowed).to.gt(supplied);
           });
           it("THEN the maturity pool still owes 100 to the smart pool (100 repaid)", async () => {
-            expect((await fixedLenderDAI.maturityPools(futurePools(1)[0])).suppliedSP).to.equal(parseUnits("100"));
+            const mp = await fixedLenderDAI.maturityPools(futurePools(1)[0]);
+            expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
           });
         });
         describe("AND WHEN repaying 300 DAI", () => {
@@ -755,7 +760,8 @@ describe("FixedLender", function () {
             expect(supplied.sub(borrowed)).to.equal(parseUnits("100"));
           });
           it("THEN the maturity pool doesn't owe the Smart Pool", async () => {
-            expect((await fixedLenderDAI.maturityPools(futurePools(1)[0])).suppliedSP).to.equal(0);
+            const mp = await fixedLenderDAI.maturityPools(futurePools(1)[0]);
+            expect(mp.supplied).to.gt(mp.borrowed);
           });
         });
         describe("AND WHEN repaying in full (1200 DAI)", () => {

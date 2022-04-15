@@ -131,9 +131,6 @@ describe("PoolAccounting", () => {
     it("THEN supplied equals to depositedAmount", async () => {
       expect(mp.supplied).to.eq(parseUnits(depositAmount));
     });
-    it("THEN suppliedSP is 0", async () => {
-      expect(mp.suppliedSP).to.eq(parseUnits("0"));
-    });
     it("THEN earningsUnassigned are 0", async () => {
       expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
     });
@@ -172,9 +169,6 @@ describe("PoolAccounting", () => {
       });
       it("THEN supplied is the just deposited amount", async () => {
         expect(mp.supplied).to.eq(parseUnits(depositAmount));
-      });
-      it("THEN suppliedSP is equal to 0", async () => {
-        expect(mp.suppliedSP).to.eq(parseUnits("0"));
       });
       it("THEN earningsUnassigned are 0", async () => {
         expect(mp.earningsUnassigned).to.eq(0);
@@ -221,9 +215,6 @@ describe("PoolAccounting", () => {
         });
         it("THEN supplied is the one depositedAmount", async () => {
           expect(mp.supplied).to.eq(parseUnits(depositAmount.toString()));
-        });
-        it("THEN suppliedSP is 0", async () => {
-          expect(mp.suppliedSP).to.eq(parseUnits("0"));
         });
         it("THEN earningsUnassigned are 0", async () => {
           expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -278,9 +269,6 @@ describe("PoolAccounting", () => {
           it("THEN supplied is 1x depositAmount", async () => {
             expect(mp.supplied).to.eq(parseUnits(depositAmount));
           });
-          it("THEN suppliedSP is borrowAmount", async () => {
-            expect(mp.suppliedSP).to.eq(parseUnits(borrowAmount.toString()));
-          });
           it("THEN earningsUnassigned are 250", async () => {
             expect(mp.earningsUnassigned).to.eq(parseUnits(borrowFees.toString()));
           });
@@ -327,7 +315,6 @@ describe("PoolAccounting", () => {
               expect(mp.supplied).to.eq(
                 parseUnits(depositAmount.toString()), // 10k
               );
-              expect(mp.suppliedSP).to.eq(parseUnits("0"));
             });
             it("THEN the debtCovered was equal to full repayAmount", async () => {
               // debtCovered=5775*5250/5775=5250
@@ -380,7 +367,6 @@ describe("PoolAccounting", () => {
               expect(mp.supplied).to.eq(
                 parseUnits(depositAmount.toString()), // 10k
               );
-              expect(mp.suppliedSP).to.eq(parseUnits("0"));
             });
             it("THEN the debtCovered was equal to full repayAmount (8000)", async () => {
               expect(returnValues.debtCovered).to.eq(parseUnits("8000"));
@@ -450,7 +436,6 @@ describe("PoolAccounting", () => {
               expect(mp.supplied).to.eq(
                 parseUnits(depositAmount.toString()), // 10k
               );
-              expect(mp.suppliedSP).to.eq(parseUnits("0"));
             });
             it("THEN the debtCovered was equal to full repayAmount", async () => {
               // debtCovered=5775*5250/5775=5250
@@ -505,9 +490,6 @@ describe("PoolAccounting", () => {
               expect(mp.supplied).to.eq(
                 parseUnits((depositAmount + 10000).toString()), // 1 deposits of 5k + 1 deposit of 10k
               );
-            });
-            it("THEN suppliedSP is 0", async () => {
-              expect(mp.suppliedSP).to.eq(0);
             });
             it("THEN earningsUnassigned are 0", async () => {
               expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -564,9 +546,6 @@ describe("PoolAccounting", () => {
                 parseUnits((depositAmount + 10000).toString()), // 1 deposits of 5k + 1 deposit of 10k
               );
             });
-            it("THEN suppliedSP is 0", async () => {
-              expect(mp.suppliedSP).to.eq(0);
-            });
             it("THEN earningsUnassigned are 0", async () => {
               expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
             });
@@ -615,9 +594,6 @@ describe("PoolAccounting", () => {
                 parseUnits((depositAmount + 10000).toString()), // 10000 = previous deposited amount
               );
             });
-            it("THEN suppliedSP is 0", async () => {
-              expect(mp.suppliedSP).to.eq(0);
-            });
             it("THEN earningsUnassigned are 0", async () => {
               expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
             });
@@ -649,9 +625,6 @@ describe("PoolAccounting", () => {
                 expect(mp.supplied).to.eq(
                   parseUnits((depositAmount + 10000).toString()), // 100M + 10k deposit
                 );
-              });
-              it("THEN suppliedSP is 0", async () => {
-                expect(mp.suppliedSP).to.eq(0);
               });
               it("THEN the smartPoolEarningsAccumulator are still 500", async () => {
                 expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(
@@ -710,7 +683,6 @@ describe("PoolAccounting", () => {
                 expect(mp.supplied).to.eq(
                   parseUnits((depositAmount + 10000).toString()), // 1M + 10k deposit
                 );
-                expect(mp.suppliedSP).to.eq(parseUnits("0"));
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
                 expect(returnValues.debtCovered).to.eq(parseUnits(repayAmount.toString()));
@@ -735,7 +707,6 @@ describe("PoolAccounting", () => {
                 it("THEN the maturity pool state is correctly updated", async () => {
                   expect(mp.borrowed).to.eq(parseUnits("0"));
                   expect(mp.supplied).to.be.eq(mpUserSuppliedAmount[0]);
-                  expect(mp.suppliedSP).to.eq(parseUnits("0"));
                 });
                 it("THEN earningsUnassigned are still 0", async () => {
                   expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -783,7 +754,6 @@ describe("PoolAccounting", () => {
                 it("THEN the maturity pool state is correctly updated", async () => {
                   expect(mp.borrowed).to.eq(parseUnits("0"));
                   expect(mp.supplied).to.eq(parseUnits("50005000"));
-                  expect(mp.suppliedSP).to.eq(parseUnits("0"));
                 });
                 it("THEN earningsUnassigned are still 0", async () => {
                   expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -814,7 +784,6 @@ describe("PoolAccounting", () => {
                     it("THEN the maturity pool state is correctly updated", async () => {
                       expect(mp.borrowed).to.eq(parseUnits("100000")); // 100k borrowed
                       expect(mp.supplied).to.eq(parseUnits("0"));
-                      expect(mp.suppliedSP).to.eq(parseUnits("100000")); // 100k borrowed
                     });
                     it("THEN the smartPoolBorrowed is equal to 100k", async () => {
                       expect(await poolAccountingHarness.smartPoolBorrowed()).to.eq(parseUnits("100000"));
@@ -847,7 +816,6 @@ describe("PoolAccounting", () => {
                 it("THEN the maturity pool state is correctly updated", async () => {
                   expect(mp.borrowed).to.eq(parseUnits("0"));
                   expect(mp.supplied).to.eq(parseUnits("0"));
-                  expect(mp.suppliedSP).to.eq(parseUnits("0"));
                 });
                 it("THEN earningsUnassigned are still 0", async () => {
                   expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -887,7 +855,6 @@ describe("PoolAccounting", () => {
                 expect(mp.supplied).to.eq(
                   parseUnits((depositAmount + 10000).toString()), // 1M + 10k deposit
                 );
-                expect(mp.suppliedSP).to.eq(parseUnits("0"));
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
                 // debtCovered=8000*15750/17325=~7272
@@ -934,7 +901,6 @@ describe("PoolAccounting", () => {
                 expect(mp.supplied).to.eq(
                   parseUnits((depositAmount + 10000).toString()), // 1M + 10k deposit
                 );
-                expect(mp.suppliedSP).to.eq(parseUnits("0"));
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
                 // debtCovered=17325*15750/17325=15750
@@ -979,7 +945,6 @@ describe("PoolAccounting", () => {
                 expect(mp.supplied).to.eq(
                   parseUnits((depositAmount + 10000).toString()), // 1M + 10k deposit
                 );
-                expect(mp.suppliedSP).to.eq(parseUnits("0"));
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
                 // debtCovered=17325*15750/17325=15750
@@ -1275,8 +1240,8 @@ describe("PoolAccounting", () => {
           it("THEN borrowed is 0", async () => {
             expect(mp.borrowed).to.eq(0);
           });
-          it("THEN suppliedSP is 0", async () => {
-            expect(mp.suppliedSP).to.eq(0);
+          it("THEN supplied is 0", async () => {
+            expect(mp.supplied).to.eq(0);
           });
           it("THEN all earningsUnassigned should be 0", async () => {
             expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -1310,8 +1275,8 @@ describe("PoolAccounting", () => {
           it("THEN borrowed is 0", async () => {
             expect(mp.borrowed).to.eq(0);
           });
-          it("THEN suppliedSP is 0", async () => {
-            expect(mp.suppliedSP).to.eq(0);
+          it("THEN supplied is 0", async () => {
+            expect(mp.supplied).to.eq(0);
           });
           it("THEN all earningsUnassigned should be 0", async () => {
             expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -1406,16 +1371,16 @@ describe("PoolAccounting", () => {
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
         });
         it("THEN borrowed is 5000", async () => {
+          // 4772.72 is the real value that the smart pool needed to cover
+          // but for simplicity it will cover the full 5000
+          // the difference between 4772.72 and 5000 is the amount we added to the unassigned earnings due to the high borrow rate when withdrawing
           expect(mp.borrowed).to.eq(parseUnits("5000"));
         });
         it("THEN earningsUnassigned should be 477 (250 + money left on the table)", async () => {
           expect(mp.earningsUnassigned).to.eq(parseUnits("472.727272727272727273"));
         });
-        it("THEN suppliedSP should be 5000", async () => {
-          // 4772.72 is the real value that the smart pool needed to cover
-          // but for simplicity it will cover the full 5000
-          // the difference between 4772.72 and 5000 is the amount we added to the unassigned earnings due to the high borrow rate when withdrawing
-          expect(mp.suppliedSP).to.eq(parseUnits("5000"));
+        it("THEN supplied should be 0", async () => {
+          expect(mp.supplied).to.eq(parseUnits("0"));
         });
         it("THEN the redeemAmountDiscounted returned is 4772", async () => {
           // 5250 / 1.10 (1e18 + 1e17 feeRate) = 4772.72727272727272727272

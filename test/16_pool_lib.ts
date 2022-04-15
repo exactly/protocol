@@ -28,9 +28,6 @@ describe("Pool Management Library", () => {
         it("THEN the pool 'supplied' is 100", async () => {
           expect(mp.supplied).to.equal(parseUnits("100"));
         });
-        it("THEN the pool 'suppliedSP' is 0", async () => {
-          expect(mp.suppliedSP).to.equal(parseUnits("0"));
-        });
         it("THEN the pool 'earningsUnassigned' are 0", async () => {
           expect(mp.earningsUnassigned).to.equal(parseUnits("0"));
         });
@@ -54,9 +51,6 @@ describe("Pool Management Library", () => {
           it("THEN the pool 'supplied' is 100", async () => {
             expect(mp.supplied).to.equal(parseUnits("100"));
           });
-          it("THEN the pool 'suppliedSP' is 0", async () => {
-            expect(mp.suppliedSP).to.equal(parseUnits("0"));
-          });
           describe("AND WHEN another 20 tokens are taken out", () => {
             beforeEach(async () => {
               await poolEnv.borrowMoney("20", mockMaxDebt);
@@ -72,9 +66,6 @@ describe("Pool Management Library", () => {
             });
             it("THEN the pool 'supplied' is 100", async () => {
               expect(mp.supplied).to.equal(parseUnits("100"));
-            });
-            it("THEN the pool 'suppliedSP' is 0", async () => {
-              expect(mp.suppliedSP).to.equal(parseUnits("0"));
             });
             describe("AND WHEN more tokens are taken out than the max sp debt", () => {
               let tx: any;
@@ -110,8 +101,58 @@ describe("Pool Management Library", () => {
               it("THEN the pool 'supplied' is 100", async () => {
                 expect(mp.supplied).to.equal(parseUnits("100"));
               });
-              it("THEN the pool 'suppliedSP' is 50", async () => {
-                expect(mp.suppliedSP).to.equal(parseUnits("50"));
+            });
+          });
+        });
+
+        describe("AND WHEN 180 tokens are taken out", () => {
+          beforeEach(async () => {
+            await poolEnv.borrowMoney("180", mockMaxDebt);
+            mp = await poolEnv.mpHarness.maturityPool();
+          });
+
+          it("THEN the newDebtSP that is returned is 80", async () => {
+            const newDebtSpReturned = await poolEnv.getMpHarness().newDebtSP();
+            expect(newDebtSpReturned).to.equal(parseUnits("80"));
+          });
+          it("THEN the pool 'borrowed' is 180", async () => {
+            expect(mp.borrowed).to.equal(parseUnits("180"));
+          });
+          it("THEN the pool 'supplied' is 100", async () => {
+            expect(mp.supplied).to.equal(parseUnits("100"));
+          });
+
+          describe("AND WHEN 90 tokens are deposited", () => {
+            beforeEach(async () => {
+              await poolEnv.depositMoney("90");
+              mp = await poolEnv.mpHarness.maturityPool();
+            });
+
+            it("THEN the smartPoolDebtReduction that is returned is 80", async () => {
+              const smartPoolDebtReduction = await poolEnv.getMpHarness().smartPoolDebtReduction();
+              expect(smartPoolDebtReduction).to.equal(parseUnits("80"));
+            });
+            it("THEN the pool 'borrowed' is 180", async () => {
+              expect(mp.borrowed).to.equal(parseUnits("180"));
+            });
+            it("THEN the pool 'supplied' is 190", async () => {
+              expect(mp.supplied).to.equal(parseUnits("190"));
+            });
+            describe("AND WHEN 100 tokens are deposited", () => {
+              beforeEach(async () => {
+                await poolEnv.depositMoney("100");
+                mp = await poolEnv.mpHarness.maturityPool();
+              });
+
+              it("THEN the smartPoolDebtReduction that is 0", async () => {
+                const smartPoolDebtReduction = await poolEnv.getMpHarness().smartPoolDebtReduction();
+                expect(smartPoolDebtReduction).to.equal(parseUnits("0"));
+              });
+              it("THEN the pool 'borrowed' is 180", async () => {
+                expect(mp.borrowed).to.equal(parseUnits("180"));
+              });
+              it("THEN the pool 'supplied' is 290", async () => {
+                expect(mp.supplied).to.equal(parseUnits("290"));
               });
             });
           });
@@ -303,8 +344,8 @@ describe("Pool Management Library", () => {
           it("THEN the pool 'borrowed' is 50", async () => {
             expect(mp.borrowed).to.equal(parseUnits("50"));
           });
-          it("THEN the pool 'suppliedSP' is 50", async () => {
-            expect(mp.suppliedSP).to.equal(parseUnits("50"));
+          it("THEN the pool 'supplied' is 0", async () => {
+            expect(mp.supplied).to.equal(parseUnits("0"));
           });
           it("THEN the smartPoolDebtReduction that is returned is 50", async () => {
             const smartPoolDebtReductionReturned = await poolEnv.getMpHarness().smartPoolDebtReduction();
@@ -318,9 +359,6 @@ describe("Pool Management Library", () => {
 
             it("THEN the pool 'borrowed' is 0", async () => {
               expect(mp.borrowed).to.equal(parseUnits("0"));
-            });
-            it("THEN the pool 'suppliedSP' is 0", async () => {
-              expect(mp.suppliedSP).to.equal(parseUnits("0"));
             });
             it("THEN the smartPoolDebtReduction that is returned is 50", async () => {
               const smartPoolDebtReductionReturned = await poolEnv.getMpHarness().smartPoolDebtReduction();

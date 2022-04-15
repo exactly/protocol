@@ -20,7 +20,7 @@ contract FixedLenderTest is DSTestPlus {
   Auditor internal auditor;
   MockInterestRateModel internal mockInterestRateModel;
   MockOracle internal mockOracle;
-  string[] tokens = ["DAI", "USDC", "WETH", "WBTC"];
+  string[] private tokens = ["DAI", "USDC", "WETH", "WBTC"];
 
   event Transfer(address indexed from, address indexed to, uint256 amount);
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
