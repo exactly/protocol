@@ -17,7 +17,6 @@ contract PoolLibTest is DSTest {
     uint256 smartPoolDebtReduction = mp.depositMoney(1 ether);
     assertEq(mp.borrowed, 0);
     assertEq(mp.supplied, 1 ether);
-    assertEq(mp.suppliedSP, 0);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 0);
     assertEq(smartPoolDebtReduction, 0);
@@ -25,7 +24,6 @@ contract PoolLibTest is DSTest {
     uint256 smartPoolDebt = mp.borrowMoney(1 ether, 0);
     assertEq(mp.borrowed, 1 ether);
     assertEq(mp.supplied, 1 ether);
-    assertEq(mp.suppliedSP, 0);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 0);
     assertEq(smartPoolDebt, 0);
@@ -33,7 +31,6 @@ contract PoolLibTest is DSTest {
     smartPoolDebtReduction = mp.repayMoney(1 ether);
     assertEq(mp.borrowed, 0);
     assertEq(mp.supplied, 1 ether);
-    assertEq(mp.suppliedSP, 0);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 0);
     assertEq(smartPoolDebtReduction, 0);
@@ -41,7 +38,6 @@ contract PoolLibTest is DSTest {
     smartPoolDebt = mp.withdrawMoney(1 ether, 0);
     assertEq(mp.borrowed, 0);
     assertEq(mp.supplied, 0);
-    assertEq(mp.suppliedSP, 0);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 0);
     assertEq(smartPoolDebt, 0);
@@ -51,7 +47,6 @@ contract PoolLibTest is DSTest {
     uint256 smartPoolDebt = mp.borrowMoney(1 ether, 1 ether);
     assertEq(mp.borrowed, 1 ether);
     assertEq(mp.supplied, 0);
-    assertEq(mp.suppliedSP, 1 ether);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 0);
     assertEq(smartPoolDebt, 1 ether);
@@ -62,7 +57,6 @@ contract PoolLibTest is DSTest {
     uint256 earnings = mp.accrueEarnings(1 days, 1 days);
     assertEq(mp.borrowed, 0);
     assertEq(mp.supplied, 0);
-    assertEq(mp.suppliedSP, 0);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 1 days);
     assertEq(earnings, 1 ether);

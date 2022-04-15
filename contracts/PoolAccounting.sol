@@ -143,7 +143,7 @@ contract PoolAccounting is AccessControl {
     // We calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
     (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
       borrowVars.fee,
-      pool.suppliedSP,
+      pool.smartPoolBorrowed(),
       amount
     );
     smartPoolEarningsAccumulator += borrowVars.earningsSP;
@@ -171,7 +171,7 @@ contract PoolAccounting is AccessControl {
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
     (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
-      pool.suppliedSP,
+      pool.smartPoolBorrowed(),
       pool.earningsUnassigned,
       amount
     );
@@ -245,7 +245,7 @@ contract PoolAccounting is AccessControl {
     // All the fees go to unassigned or to the smart pool
     (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
       amount - redeemAmountDiscounted,
-      pool.suppliedSP,
+      pool.smartPoolBorrowed(),
       redeemAmountDiscounted
     );
     pool.earningsUnassigned += earningsUnassigned;
@@ -310,7 +310,7 @@ contract PoolAccounting is AccessControl {
       // We calculate the deposit fee considering the amount
       // of debt he'll pay
       (repayVars.discountFee, repayVars.feeSP) = interestRateModel.getYieldForDeposit(
-        pool.suppliedSP,
+        pool.smartPoolBorrowed(),
         pool.earningsUnassigned,
         repayVars.scaleDebtCovered.principal
         // ^ this case shouldn't contain penalties since is before maturity date

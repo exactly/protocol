@@ -26,7 +26,6 @@ library PoolLib {
   struct MaturityPool {
     uint256 borrowed;
     uint256 supplied;
-    uint256 suppliedSP;
     uint256 earningsUnassigned;
     uint256 lastAccrual;
   }
@@ -38,83 +37,72 @@ library PoolLib {
 
   uint256 public constant MATURITY_ALL = type(uint256).max;
 
+  /// @notice function that calculates the borrowed from the smart pool.
+  /// @param pool maturity pool where money will be added.
+  function smartPoolBorrowed(MaturityPool storage pool) internal view returns (uint256) {
+    uint256 borrowed = pool.borrowed;
+    uint256 supplied = pool.supplied;
+    return borrowed - Math.min(borrowed, supplied);
+  }
+
   /// @notice function that registers an operation to add money to maturity pool.
   /// @param pool maturity pool where money will be added.
   /// @param amount amount to be added to the maturity pool.
   function depositMoney(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
-    uint256 suppliedSP = pool.suppliedSP;
+    uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
-
-    smartPoolDebtReduction = Math.min(suppliedSP, amount);
-
     pool.supplied = supplied + amount;
-    pool.suppliedSP = suppliedSP - smartPoolDebtReduction;
+    smartPoolDebtReduction = Math.min(borrowed - Math.min(borrowed, supplied), amount);
   }
 
   /// @notice function that registers an operation to add money to maturity pool.
   /// @param pool maturity pool where money will be added.
   /// @param amount amount to be added to the maturity pool.
   function repayMoney(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
-    uint256 suppliedSP = pool.suppliedSP;
     uint256 borrowed = pool.borrowed;
-
-    smartPoolDebtReduction = Math.min(suppliedSP, amount);
-
+    uint256 supplied = pool.supplied;
     pool.borrowed = borrowed - amount;
-    pool.suppliedSP = suppliedSP - smartPoolDebtReduction;
+    smartPoolDebtReduction = Math.min(borrowed - Math.min(borrowed, supplied), amount);
   }
 
   /// @notice registers an operation to take money out of the maturity pool that returns the new smart pool debt.
   /// @param pool maturity pool where money needs to be taken out.
   /// @param amount amount to be taken out of the pool before it matures.
-  /// @return newDebtSP amount of new debt that needs to be taken out of the SP.
+  /// @return smartPoolDebtAddition amount of new debt that needs to be taken out of the SP.
   function borrowMoney(
     MaturityPool storage pool,
     uint256 amount,
     uint256 maxDebt
-  ) internal returns (uint256 newDebtSP) {
-    uint256 newBorrowedMP = pool.borrowed + amount;
-    uint256 suppliedMP = pool.supplied;
-    uint256 suppliedALL = pool.suppliedSP + suppliedMP;
+  ) internal returns (uint256 smartPoolDebtAddition) {
+    uint256 borrowed = pool.borrowed;
+    uint256 newBorrowed = borrowed + amount;
+    uint256 oldSupply = Math.max(borrowed, pool.supplied);
 
-    if (newBorrowedMP > suppliedALL) {
-      uint256 newSupplySP = newBorrowedMP - suppliedMP;
+    smartPoolDebtAddition = newBorrowed - Math.min(oldSupply, newBorrowed);
 
-      // We take money out from the Smart Pool
-      // because there's not enough in the MP
-      newDebtSP = newBorrowedMP - suppliedALL;
-      if (newDebtSP > maxDebt) revert InsufficientProtocolLiquidity();
-      pool.suppliedSP = newSupplySP;
-    }
+    if (smartPoolDebtAddition > maxDebt) revert InsufficientProtocolLiquidity();
 
-    pool.borrowed = newBorrowedMP;
+    pool.borrowed = newBorrowed;
   }
 
   /// @notice registers an operation to withdraw money out of the maturity pool that returns the new smart pool debt.
   /// @param pool maturity pool where money needs to be withdrawn.
   /// @param amountToDiscount previous amount that the user deposited.
-  /// @return newDebtSP amount of new debt that needs to be taken out of the SP.
+  /// @return smartPoolDebtAddition amount of new debt that needs to be taken out of the SP.
   function withdrawMoney(
     MaturityPool storage pool,
     uint256 amountToDiscount,
     uint256 maxDebt
-  ) internal returns (uint256 newDebtSP) {
-    uint256 borrowedMP = pool.borrowed;
-    uint256 newSuppliedMP = pool.supplied - amountToDiscount;
-    uint256 newSuppliedALL = pool.suppliedSP + newSuppliedMP;
+  ) internal returns (uint256 smartPoolDebtAddition) {
+    uint256 borrowed = pool.borrowed;
+    uint256 supplied = pool.supplied;
+    uint256 newSupply = supplied - amountToDiscount;
 
-    // by reducing supply we might need to take debt from SP
-    if (borrowedMP > newSuppliedALL) {
-      // We take money out from the Smart Pool
-      // because there's not enough in the MP
-      newDebtSP = borrowedMP - newSuppliedALL;
-      if (newDebtSP > maxDebt) revert InsufficientProtocolLiquidity();
-      uint256 newSupplySP = pool.suppliedSP + newDebtSP;
+    smartPoolDebtAddition = Math.min(supplied, borrowed) - Math.min(newSupply, borrowed);
 
-      pool.suppliedSP = newSupplySP;
-    }
+    if (smartPoolDebtAddition > maxDebt) revert InsufficientProtocolLiquidity();
 
-    pool.supplied = newSuppliedMP;
+    pool.supplied = newSupply;
   }
 
   /// @notice Internal function to accrue Smart Pool earnings.
