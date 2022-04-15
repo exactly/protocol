@@ -456,10 +456,9 @@ describe("Liquidations", function () {
             exactlyEnv.switchWallet(john);
             await dai.transfer(john.address, parseUnits("10000"));
             await exactlyEnv.depositSP("DAI", "10000");
+            await eth.connect(john).approve(fixedLenderETH.address, parseUnits("1"));
           });
           it("WHEN both of alice's positions are liquidated THEN it doesn't revert", async () => {
-            await eth.connect(john).approve(fixedLenderETH.address, parseUnits("2"));
-
             await expect(
               fixedLenderETH
                 .connect(john)
@@ -482,6 +481,34 @@ describe("Liquidations", function () {
                   exaTime.poolIDByNumberOfWeek(2),
                 ),
             ).to.not.be.reverted;
+          });
+          it("AND WHEN trying to liquidate a valid maturity where alice doesn't have borrows THEN it reverts with ZERO_ASSETS error", async () => {
+            await expect(
+              fixedLenderETH
+                .connect(john)
+                .liquidate(
+                  alice.address,
+                  parseUnits("0.5"),
+                  parseUnits("0.5"),
+                  fixedLenderDAI.address,
+                  exaTime.poolIDByNumberOfWeek(5),
+                ),
+            ).to.be.revertedWith("ZERO_ASSETS");
+          });
+          it("AND WHEN trying to liquidate an invalid maturity THEN it reverts with ZERO_ASSETS error", async () => {
+            const invalidMaturity = exaTime.poolIDByNumberOfWeek(1) + 1;
+
+            await expect(
+              fixedLenderETH
+                .connect(john)
+                .liquidate(
+                  alice.address,
+                  parseUnits("0.5"),
+                  parseUnits("0.5"),
+                  fixedLenderDAI.address,
+                  invalidMaturity,
+                ),
+            ).to.be.revertedWith("ZERO_ASSETS");
           });
         });
       });
