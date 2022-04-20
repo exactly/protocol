@@ -3,6 +3,8 @@ import type { ExactlyOracle, TimelockController } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
 
 export const USD_ADDRESS = "0x0000000000000000000000000000000000000348";
+export const ETH_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+export const BTC_ADDRESS = "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB";
 
 const func: DeployFunction = async ({
   ethers: {
@@ -13,7 +15,10 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const addresses = (tokens: string[]) => Promise.all(tokens.map(async (token) => (await get(token)).address));
+  const addresses = (tokens: string[]) =>
+    Promise.all(
+      tokens.map(async (token) => ({ WBTC: BTC_ADDRESS, WETH: ETH_ADDRESS }[token] ?? (await get(token)).address)),
+    );
 
   const { deployer } = await getNamedAccounts();
   await deploy("ExactlyOracle", {
