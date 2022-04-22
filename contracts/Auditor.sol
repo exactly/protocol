@@ -45,8 +45,8 @@ contract Auditor is IAuditor, AccessControl {
   }
 
   // Protocol Management
-  mapping(address => uint256) private accountAssets;
-  mapping(FixedLender => Market) private markets;
+  mapping(address => uint256) public accountAssets;
+  mapping(FixedLender => Market) public markets;
   mapping(FixedLender => uint256) private borrowCaps;
 
   uint256 public constant CLOSE_FACTOR = 5e17;

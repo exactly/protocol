@@ -195,7 +195,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   function transfer(address to, uint256 shares) public virtual override returns (bool) {
-    auditor.validateAccountShortfall(this, msg.sender, convertToAssets(shares));
+    auditor.validateAccountShortfall(this, msg.sender, previewMint(shares));
     return super.transfer(to, shares);
   }
 
@@ -204,7 +204,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     address to,
     uint256 shares
   ) public virtual override returns (bool) {
-    auditor.validateAccountShortfall(this, from, convertToAssets(shares));
+    auditor.validateAccountShortfall(this, from, previewMint(shares));
     return super.transferFrom(from, to, shares);
   }
 
@@ -316,7 +316,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     if (msg.sender != borrower) {
       uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
 
-      if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - convertToShares(assetsOwed);
+      if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assetsOwed);
     }
 
     totalMpBorrows += assetsOwed;
@@ -376,7 +376,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     if (msg.sender != owner) {
       uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
 
-      if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - convertToShares(assetsDiscounted);
+      if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - previewWithdraw(assetsDiscounted);
     }
 
     smartPoolBalance += earningsSP;

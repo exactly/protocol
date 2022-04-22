@@ -9,7 +9,7 @@ import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor } from "../../contracts/Auditor.sol";
 import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
-import { FixedLender } from "../../contracts/FixedLender.sol";
+import { FixedLender, ERC20, IAuditor, IInterestRateModel } from "../../contracts/FixedLender.sol";
 
 contract FixedLenderTest is DSTestPlus {
   address internal constant BOB = address(69);
@@ -59,7 +59,7 @@ contract FixedLenderTest is DSTestPlus {
   function setUp() external {
     MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
     mockOracle = new MockOracle();
-    mockOracle.setPrice("DAI", 1e8);
+    mockOracle.setPrice("DAI", 1e18);
     auditor = new Auditor(mockOracle, 1.1e18);
     mockInterestRateModel = new MockInterestRateModel(0.1e18);
     mockInterestRateModel.setSPFeeRate(1e17);
@@ -337,6 +337,100 @@ contract FixedLenderTest is DSTestPlus {
     assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
   }
 
+  function testFailRoundingUpAllowanceWhenBorrowingAtMaturity() external {
+    uint256 maturity = 7 days * 2;
+
+    fixedLender.deposit(10_000 ether, address(this));
+    fixedLender.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
+    vm.warp(7 days);
+    // we accrue earnings with this tx so we break proportion of 1 to 1 assets and shares
+    fixedLender.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
+
+    vm.warp(7 days + 3 days);
+    vm.prank(BOB);
+    // we try to borrow 1 unit on behalf of this contract as bob being msg.sender without allowance
+    // if it correctly rounds up, it should fail
+    fixedLender.borrowAtMaturity(maturity, 1, 2, BOB, address(this));
+  }
+
+  function testFailRoundingUpAllowanceWhenWithdrawingAtMaturity() external {
+    uint256 maturity = 7 days * 2;
+
+    fixedLender.deposit(10_000 ether, address(this));
+    fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
+    vm.warp(7 days);
+    // we accrue earnings with this tx so we break proportion of 1 to 1 assets and shares
+    fixedLender.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
+
+    vm.warp(maturity);
+    vm.prank(BOB);
+    // we try to withdraw 1 unit on behalf of this contract as bob being msg.sender without allowance
+    // if it correctly rounds up, it should fail
+    fixedLender.withdrawAtMaturity(maturity, 1, 0, BOB, address(this));
+  }
+
+  function testFailRoundingUpAssetsToValidateShortfallWhenTransferringFrom() external {
+    MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
+
+    // we deploy a harness fixedlender to be able to set different supply and smartPoolBalance
+    FixedLenderHarness fixedLenderHarness = new FixedLenderHarness(
+      mockToken,
+      "DAI",
+      12,
+      1e18,
+      auditor,
+      mockInterestRateModel,
+      0.02e18 / uint256(1 days),
+      0
+    );
+    uint256 maturity = 7 days * 2;
+    mockToken.approve(address(fixedLenderHarness), 50_000 ether);
+    fixedLenderHarness.approve(BOB, 50_000 ether);
+    auditor.enableMarket(fixedLenderHarness, 0.8e18, "DAI", "DAI", 18);
+
+    fixedLenderHarness.setSmartPoolBalance(500 ether);
+    fixedLenderHarness.setSupply(2000 ether);
+
+    fixedLenderHarness.deposit(1000 ether, address(this));
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLenderHarness.borrowAtMaturity(maturity, 800 ether, 800 ether, address(this), address(this));
+
+    // we try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
+    // if it rounds down to 1, it will pass
+    vm.prank(BOB);
+    fixedLenderHarness.transferFrom(address(this), BOB, 5);
+  }
+
+  function testFailRoundingUpAssetsToValidateShortfallWhenTransferring() external {
+    MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
+
+    // we deploy a harness fixedlender to be able to set different supply and smartPoolBalance
+    FixedLenderHarness fixedLenderHarness = new FixedLenderHarness(
+      mockToken,
+      "DAI",
+      12,
+      1e18,
+      auditor,
+      mockInterestRateModel,
+      0.02e18 / uint256(1 days),
+      0
+    );
+    uint256 maturity = 7 days * 2;
+    mockToken.approve(address(fixedLenderHarness), 50_000 ether);
+    auditor.enableMarket(fixedLenderHarness, 0.8e18, "DAI", "DAI", 18);
+
+    fixedLenderHarness.setSmartPoolBalance(500 ether);
+    fixedLenderHarness.setSupply(2000 ether);
+
+    fixedLenderHarness.deposit(1000 ether, address(this));
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLenderHarness.borrowAtMaturity(maturity, 800 ether, 800 ether, address(this), address(this));
+
+    // we try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
+    // if it rounds down to 1, it will pass
+    fixedLenderHarness.transfer(BOB, 5);
+  }
+
   function testMultipleBorrowsForMultipleAssets() external {
     FixedLender[4] memory fixedLenders;
     for (uint256 i = 0; i < tokens.length; i++) {
@@ -401,5 +495,37 @@ contract FixedLenderTest is DSTestPlus {
         fixedLenders[i].borrowAtMaturity(7 days * j, 1 ether, 1.2 ether, address(this), address(this));
       }
     }
+  }
+}
+
+contract FixedLenderHarness is FixedLender {
+  constructor(
+    ERC20 asset_,
+    string memory assetSymbol_,
+    uint8 maxFuturePools_,
+    uint256 accumulatedEarningsSmoothFactor_,
+    IAuditor auditor_,
+    IInterestRateModel interestRateModel_,
+    uint256 penaltyRate_,
+    uint256 smartPoolReserveFactor_
+  )
+    FixedLender(
+      asset_,
+      assetSymbol_,
+      maxFuturePools_,
+      accumulatedEarningsSmoothFactor_,
+      auditor_,
+      interestRateModel_,
+      penaltyRate_,
+      smartPoolReserveFactor_
+    )
+  {}
+
+  function setSupply(uint256 supply) external {
+    totalSupply = supply;
+  }
+
+  function setSmartPoolBalance(uint256 balance) external {
+    smartPoolBalance = balance;
   }
 }
