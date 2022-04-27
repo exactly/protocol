@@ -337,6 +337,27 @@ contract FixedLenderTest is DSTestPlus {
     assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
   }
 
+  function testFailAnotherUserRedeemWhenOwnerHasShortfall() external {
+    fixedLender.deposit(10_000 ether, address(this));
+    fixedLender.borrowAtMaturity(7 days, 1_000 ether, 1_100 ether, address(this), address(this));
+
+    uint256 assets = fixedLender.previewWithdraw(10_000 ether);
+    fixedLender.approve(BOB, assets);
+    fixedLender.deposit(1_000 ether, address(this));
+    vm.prank(BOB);
+    fixedLender.redeem(assets, address(this), address(this));
+  }
+
+  function testFailAnotherUserWithdrawWhenOwnerHasShortfall() external {
+    fixedLender.deposit(10_000 ether, address(this));
+    fixedLender.borrowAtMaturity(7 days, 1_000 ether, 1_100 ether, address(this), address(this));
+
+    fixedLender.approve(BOB, 10_000 ether);
+    fixedLender.deposit(1_000 ether, address(this));
+    vm.prank(BOB);
+    fixedLender.withdraw(10_000 ether, address(this), address(this));
+  }
+
   function testFailRoundingUpAllowanceWhenBorrowingAtMaturity() external {
     uint256 maturity = 7 days * 2;
 

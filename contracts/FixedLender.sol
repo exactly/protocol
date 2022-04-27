@@ -168,9 +168,25 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     }
   }
 
-  function beforeWithdraw(uint256 assets, uint256) internal override {
-    auditor.validateAccountShortfall(this, msg.sender, assets);
+  function withdraw(
+    uint256 assets,
+    address receiver,
+    address owner
+  ) public override returns (uint256) {
+    auditor.validateAccountShortfall(this, owner, assets);
+    return super.withdraw(assets, receiver, owner);
+  }
 
+  function redeem(
+    uint256 shares,
+    address receiver,
+    address owner
+  ) public override returns (uint256) {
+    auditor.validateAccountShortfall(this, owner, previewMint(shares));
+    return super.redeem(shares, receiver, owner);
+  }
+
+  function beforeWithdraw(uint256 assets, uint256) internal override {
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = block.timestamp;
     smartPoolEarningsAccumulator -= earnings;
@@ -456,15 +472,17 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     address borrower,
     uint256 assets
   ) internal {
+    if (assets == 0) revert ZeroWithdraw();
+
     // reverts on failure
     auditor.seizeAllowed(this, seizerFixedLender, liquidator, borrower);
 
     uint256 shares = previewWithdraw(assets);
-    allowance[borrower][msg.sender] = shares;
+    beforeWithdraw(assets, shares);
+    _burn(borrower, shares);
+    emit Withdraw(msg.sender, liquidator, borrower, assets, shares);
 
-    // That seize amount diminishes liquidity in the pool
-    redeem(shares, liquidator, borrower);
-
+    asset.safeTransfer(liquidator, assets);
     emit AssetSeized(liquidator, borrower, assets);
   }
 }
