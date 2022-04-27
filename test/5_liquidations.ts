@@ -482,7 +482,7 @@ describe("Liquidations", function () {
                 ),
             ).to.not.be.reverted;
           });
-          it("AND WHEN trying to liquidate a valid maturity where alice doesn't have borrows THEN it reverts with ZERO_ASSETS error", async () => {
+          it("AND WHEN trying to liquidate a valid maturity where alice doesn't have borrows THEN it reverts with ZeroWithdraw error", async () => {
             await expect(
               fixedLenderETH
                 .connect(john)
@@ -493,9 +493,9 @@ describe("Liquidations", function () {
                   fixedLenderDAI.address,
                   exaTime.poolIDByNumberOfWeek(5),
                 ),
-            ).to.be.revertedWith("ZERO_ASSETS");
+            ).to.be.revertedWith("ZeroWithdraw");
           });
-          it("AND WHEN trying to liquidate an invalid maturity THEN it reverts with ZERO_ASSETS error", async () => {
+          it("AND WHEN trying to liquidate an invalid maturity THEN it reverts with ZeroWithdraw error", async () => {
             const invalidMaturity = exaTime.poolIDByNumberOfWeek(1) + 1;
 
             await expect(
@@ -508,7 +508,7 @@ describe("Liquidations", function () {
                   fixedLenderDAI.address,
                   invalidMaturity,
                 ),
-            ).to.be.revertedWith("ZERO_ASSETS");
+            ).to.be.revertedWith("ZeroWithdraw");
           });
         });
       });
