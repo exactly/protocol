@@ -11,6 +11,7 @@ import { PoolLib } from "../utils/PoolLib.sol";
 /// @notice Contract to be consumed by Exactly's front-end dApp.
 contract Previewer {
   using FixedPointMathLib for uint256;
+  using PoolLib for PoolLib.Position;
 
   /// @notice Gets the yield offered by a maturity when depositing certain amount of assets.
   /// @param fixedLender address of the market.
@@ -24,17 +25,11 @@ contract Previewer {
   ) external view returns (uint256 earnings) {
     if (block.timestamp > maturity) revert AlreadyMatured();
 
-    InterestRateModel interestRateModel = fixedLender.interestRateModel();
     PoolLib.MaturityPool memory pool;
     (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = fixedLender.maturityPools(maturity);
+    (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(fixedLender, maturity);
 
-    uint256 unassignedEarnings = pool.earningsUnassigned -
-      pool.earningsUnassigned.fmul(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
-    uint256 borrowed = pool.borrowed;
-    uint256 supplied = pool.supplied;
-    uint256 smartPoolBorrowed = borrowed - Math.min(borrowed, supplied);
-
-    (earnings, ) = interestRateModel.getYieldForDeposit(smartPoolBorrowed, unassignedEarnings, amount);
+    (earnings, ) = fixedLender.interestRateModel().getYieldForDeposit(smartPoolBorrowed, unassignedEarnings, amount);
   }
 
   /// @notice Gets the fee charged by a maturity when borrowing certain amount of assets.
@@ -47,12 +42,11 @@ contract Previewer {
     uint256 maturity,
     uint256 amount
   ) external view returns (uint256 fees) {
-    InterestRateModel interestRateModel = fixedLender.interestRateModel();
     PoolLib.MaturityPool memory pool;
     (pool.borrowed, pool.supplied, , ) = fixedLender.maturityPools(maturity);
 
     fees = amount.fmul(
-      interestRateModel.getRateToBorrow(
+      fixedLender.interestRateModel().getRateToBorrow(
         maturity,
         block.timestamp,
         amount,
@@ -62,5 +56,46 @@ contract Previewer {
       ),
       1e18
     );
+  }
+
+  /// @notice Gets the discount offered by a maturity when repaying certain amount of assets before maturity.
+  /// @param fixedLender address of the market.
+  /// @param maturity maturity date/pool where the assets will be discounted when repaying.
+  /// @param amount amount of assets that will be repayed.
+  /// @return discount amount that the repayer will receive.
+  function previewDiscountBeforeMaturity(
+    FixedLender fixedLender,
+    uint256 maturity,
+    uint256 amount,
+    address borrower
+  ) external view returns (uint256 discount) {
+    if (block.timestamp >= maturity) revert AlreadyMatured();
+
+    (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(fixedLender, maturity);
+    PoolLib.Position memory position;
+    (position.principal, position.fee) = fixedLender.mpUserBorrowedAmount(maturity, borrower);
+    PoolLib.Position memory scaleDebtCovered = PoolLib.Position(position.principal, position.fee).scaleProportionally(
+      amount
+    );
+
+    (discount, ) = fixedLender.interestRateModel().getYieldForDeposit(
+      smartPoolBorrowed,
+      unassignedEarnings,
+      scaleDebtCovered.principal
+    );
+  }
+
+  function getPoolData(FixedLender fixedLender, uint256 maturity)
+    internal
+    view
+    returns (uint256 smartPoolBorrowed, uint256 unassignedEarnings)
+  {
+    PoolLib.MaturityPool memory pool;
+    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = fixedLender.maturityPools(maturity);
+
+    smartPoolBorrowed = pool.borrowed - Math.min(pool.borrowed, pool.supplied);
+    unassignedEarnings =
+      pool.earningsUnassigned -
+      pool.earningsUnassigned.fmul(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
   }
 }
