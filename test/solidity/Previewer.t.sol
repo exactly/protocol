@@ -17,9 +17,10 @@ contract PreviewerTest is DSTestPlus {
   Vm internal vm = Vm(HEVM_ADDRESS);
   FixedLender internal fixedLender;
   Previewer internal previewer;
+  MockToken internal mockToken;
 
   function setUp() external {
-    MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
+    mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
     MockOracle mockOracle = new MockOracle();
     mockOracle.setPrice("DAI", 1e18);
     Auditor auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
@@ -197,5 +198,111 @@ contract PreviewerTest is DSTestPlus {
     uint256 maturity = 7 days;
     vm.warp(maturity + 1);
     previewer.previewFeeAtMaturity(fixedLender, maturity, 1 ether);
+  }
+
+  function testPreviewDiscountBeforeMaturityReturningAccurateAmount() external {
+    uint256 maturity = 7 days;
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.deposit(10 ether, BOB);
+    fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
+
+    vm.prank(BOB);
+    fixedLender.borrowAtMaturity(maturity, 2 ether, 3 ether, BOB, BOB);
+
+    vm.warp(3 days);
+    uint256 discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1 ether, address(this));
+    uint256 balanceBeforeRepay = mockToken.balanceOf(address(this));
+    fixedLender.repayAtMaturity(maturity, 1 ether, 1 ether, address(this));
+    uint256 discountAfterRepay = 1 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
+
+    assertEq(discountPreviewed, discountAfterRepay);
+  }
+
+  function testPreviewDiscountBeforeMaturityWithZeroAmount() external {
+    uint256 maturity = 7 days;
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
+
+    vm.warp(3 days);
+    uint256 discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 0, address(this));
+
+    assertEq(discountPreviewed, 0);
+  }
+
+  function testPreviewDiscountBeforeMaturityWithOneUnit() external {
+    uint256 maturity = 7 days;
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
+
+    vm.warp(3 days);
+    uint256 discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1, address(this));
+
+    assertEq(discountPreviewed, 0);
+  }
+
+  function testPreviewDiscountBeforeMaturityReturningAccurateAmountWithIntermediateOperations() external {
+    uint256 maturity = 7 days;
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.deposit(10 ether, BOB);
+    fixedLender.borrowAtMaturity(maturity, 3 ether, 4 ether, address(this), address(this));
+
+    vm.warp(2 days);
+    vm.prank(BOB);
+    fixedLender.borrowAtMaturity(maturity, 2.3 ether, 3 ether, BOB, BOB);
+
+    vm.warp(3 days);
+    uint256 discountPreviewed = previewer.previewDiscountBeforeMaturity(
+      fixedLender,
+      maturity,
+      0.47 ether,
+      address(this)
+    );
+    uint256 balanceBeforeRepay = mockToken.balanceOf(address(this));
+    fixedLender.repayAtMaturity(maturity, 0.47 ether, 0.47 ether, address(this));
+    uint256 discountAfterRepay = 0.47 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
+    assertEq(discountPreviewed, discountAfterRepay);
+
+    vm.warp(5 days);
+    discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1.1 ether, address(this));
+    balanceBeforeRepay = mockToken.balanceOf(address(this));
+    fixedLender.repayAtMaturity(maturity, 1.1 ether, 1.1 ether, address(this));
+    discountAfterRepay = 1.1 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
+    assertEq(discountPreviewed, discountAfterRepay);
+
+    vm.warp(6 days);
+    (uint256 bobOwedPrincipal, uint256 bobOwedFee) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
+    uint256 totalOwedBob = bobOwedPrincipal + bobOwedFee;
+    discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, totalOwedBob, BOB);
+    balanceBeforeRepay = mockToken.balanceOf(BOB);
+    vm.prank(BOB);
+    fixedLender.repayAtMaturity(maturity, totalOwedBob, totalOwedBob, BOB);
+    discountAfterRepay = totalOwedBob - (balanceBeforeRepay - mockToken.balanceOf(BOB));
+    (bobOwedPrincipal, ) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
+    assertEq(discountPreviewed, discountAfterRepay);
+    assertEq(bobOwedPrincipal, 0);
+  }
+
+  function testPreviewDiscountBeforeMaturityWithEmptyMaturity() external {
+    assertEq(previewer.previewDiscountBeforeMaturity(fixedLender, 7 days, 1 ether, address(this)), 0);
+  }
+
+  function testPreviewDiscountBeforeMaturityWithEmptyMaturityAndZeroAmount() external {
+    assertEq(previewer.previewDiscountBeforeMaturity(fixedLender, 7 days, 0, address(this)), 0);
+  }
+
+  function testPreviewDiscountBeforeMaturityWithInvalidMaturity() external {
+    assertEq(previewer.previewDiscountBeforeMaturity(fixedLender, 376 seconds, 1 ether, address(this)), 0);
+  }
+
+  function testFailPreviewDiscountBeforeMaturityWithSameTimestamp() external {
+    uint256 maturity = 7 days;
+    vm.warp(maturity);
+    previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1 ether, address(this));
+  }
+
+  function testFailPreviewDiscountBeforeMaturityWithMaturedMaturity() external {
+    uint256 maturity = 7 days;
+    vm.warp(maturity + 1);
+    previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1 ether, address(this));
   }
 }
