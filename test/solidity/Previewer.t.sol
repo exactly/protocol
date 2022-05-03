@@ -42,42 +42,42 @@ contract PreviewerTest is DSTestPlus {
     previewer = new Previewer();
   }
 
-  function testPreviewYieldAtMaturityReturningAccurateAmount() external {
+  function testPreviewDepositAtMaturityReturningAccurateAmount() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 earningsPreviewed = previewer.previewYieldAtMaturity(fixedLender, maturity, 1 ether);
+    uint256 earningsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 1 ether);
     fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
     (, uint256 earningsAfterDeposit) = fixedLender.mpUserSuppliedAmount(maturity, address(this));
 
     assertEq(earningsPreviewed, earningsAfterDeposit);
   }
 
-  function testPreviewYieldAtMaturityWithZeroAmount() external {
+  function testPreviewDepositAtMaturityWithZeroAmount() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 earningsPreviewed = previewer.previewYieldAtMaturity(fixedLender, maturity, 0);
+    uint256 earningsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 0);
 
     assertEq(earningsPreviewed, 0);
   }
 
-  function testPreviewYieldAtMaturityWithOneUnit() external {
+  function testPreviewDepositAtMaturityWithOneUnit() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 earningsPreviewed = previewer.previewYieldAtMaturity(fixedLender, maturity, 1);
+    uint256 earningsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 1);
 
     assertEq(earningsPreviewed, 0);
   }
 
-  function testPreviewYieldAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
+  function testPreviewDepositAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
@@ -86,81 +86,81 @@ contract PreviewerTest is DSTestPlus {
     fixedLender.borrowAtMaturity(maturity, 2.3 ether, 3 ether, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 earningsPreviewed = previewer.previewYieldAtMaturity(fixedLender, maturity, 0.47 ether);
+    uint256 earningsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 0.47 ether);
     fixedLender.depositAtMaturity(maturity, 0.47 ether, 0.47 ether, address(this));
     (, uint256 earningsAfterDeposit) = fixedLender.mpUserSuppliedAmount(maturity, address(this));
     assertEq(earningsPreviewed, earningsAfterDeposit);
 
     vm.warp(5 days);
-    earningsPreviewed = previewer.previewYieldAtMaturity(fixedLender, maturity, 1 ether);
+    earningsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 1 ether);
     fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, BOB);
     (, earningsAfterDeposit) = fixedLender.mpUserSuppliedAmount(maturity, BOB);
     assertEq(earningsPreviewed, earningsAfterDeposit);
 
     vm.warp(6 days);
-    earningsPreviewed = previewer.previewYieldAtMaturity(fixedLender, maturity, 20 ether);
+    earningsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 20 ether);
     fixedLender.depositAtMaturity(maturity, 20 ether, 20 ether, ALICE);
     (, earningsAfterDeposit) = fixedLender.mpUserSuppliedAmount(maturity, ALICE);
     assertEq(earningsPreviewed, earningsAfterDeposit);
   }
 
-  function testPreviewYieldAtMaturityWithEmptyMaturity() external {
-    assertEq(previewer.previewYieldAtMaturity(fixedLender, 7 days, 1 ether), 0);
+  function testPreviewDepositAtMaturityWithEmptyMaturity() external {
+    assertEq(previewer.previewDepositAtMaturity(fixedLender, 7 days, 1 ether), 0);
   }
 
-  function testPreviewYieldAtMaturityWithEmptyMaturityAndZeroAmount() external {
-    assertEq(previewer.previewYieldAtMaturity(fixedLender, 7 days, 0), 0);
+  function testPreviewDepositAtMaturityWithEmptyMaturityAndZeroAmount() external {
+    assertEq(previewer.previewDepositAtMaturity(fixedLender, 7 days, 0), 0);
   }
 
-  function testPreviewYieldAtMaturityWithInvalidMaturity() external {
-    assertEq(previewer.previewYieldAtMaturity(fixedLender, 376 seconds, 1 ether), 0);
+  function testPreviewDepositAtMaturityWithInvalidMaturity() external {
+    assertEq(previewer.previewDepositAtMaturity(fixedLender, 376 seconds, 1 ether), 0);
   }
 
-  function testPreviewYieldAtMaturityWithSameTimestamp() external {
+  function testPreviewDepositAtMaturityWithSameTimestamp() external {
     uint256 maturity = 7 days;
     vm.warp(maturity);
-    assertEq(previewer.previewYieldAtMaturity(fixedLender, maturity, 1 ether), 0);
+    assertEq(previewer.previewDepositAtMaturity(fixedLender, maturity, 1 ether), 0);
   }
 
-  function testFailPreviewYieldAtMaturityWithMaturedMaturity() external {
+  function testFailPreviewDepositAtMaturityWithMaturedMaturity() external {
     uint256 maturity = 7 days;
     vm.warp(maturity + 1);
-    previewer.previewYieldAtMaturity(fixedLender, maturity, 1 ether);
+    previewer.previewDepositAtMaturity(fixedLender, maturity, 1 ether);
   }
 
-  function testPreviewFeeAtMaturityReturningAccurateAmount() external {
+  function testPreviewBorrowAtMaturityReturningAccurateAmount() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
-    uint256 feesPreviewed = previewer.previewFeeAtMaturity(fixedLender, maturity, 1 ether);
+    uint256 feesPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
     (, uint256 feesAfterBorrow) = fixedLender.mpUserBorrowedAmount(maturity, address(this));
 
     assertEq(feesPreviewed, feesAfterBorrow);
   }
 
-  function testPreviewFeeAtMaturityWithZeroAmount() external {
+  function testPreviewBorrowAtMaturityWithZeroAmount() external {
     fixedLender.deposit(10 ether, address(this));
-    assertEq(previewer.previewFeeAtMaturity(fixedLender, 7 days, 0), 0);
+    assertEq(previewer.previewBorrowAtMaturity(fixedLender, 7 days, 0), 0);
   }
 
-  function testPreviewFeeAtMaturityWithOneUnit() external {
+  function testPreviewBorrowAtMaturityWithOneUnit() external {
     fixedLender.deposit(10 ether, address(this));
-    assertEq(previewer.previewFeeAtMaturity(fixedLender, 7 days, 1), 0);
+    assertEq(previewer.previewBorrowAtMaturity(fixedLender, 7 days, 1), 0);
   }
 
-  function testPreviewFeeAtMaturityWithFiveUnits() external {
+  function testPreviewBorrowAtMaturityWithFiveUnits() external {
     fixedLender.deposit(10 ether, address(this));
-    assertEq(previewer.previewFeeAtMaturity(fixedLender, 7 days, 5), 0);
+    assertEq(previewer.previewBorrowAtMaturity(fixedLender, 7 days, 5), 0);
   }
 
-  function testPreviewFeeAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
+  function testPreviewBorrowAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.deposit(10 ether, BOB);
     fixedLender.deposit(50 ether, ALICE);
 
     vm.warp(2 days);
-    uint256 feesPreviewed = previewer.previewFeeAtMaturity(fixedLender, maturity, 2.3 ether);
+    uint256 feesPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 2.3 ether);
     fixedLender.borrowAtMaturity(maturity, 2.3 ether, 3 ether, address(this), address(this));
     (, uint256 feesAfterBorrow) = fixedLender.mpUserBorrowedAmount(maturity, address(this));
     assertEq(feesPreviewed, feesAfterBorrow);
@@ -169,38 +169,38 @@ contract PreviewerTest is DSTestPlus {
     fixedLender.depositAtMaturity(maturity, 1.47 ether, 1.47 ether, address(this));
 
     vm.warp(5 days);
-    feesPreviewed = previewer.previewFeeAtMaturity(fixedLender, maturity, 1 ether);
+    feesPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
     vm.prank(BOB);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, BOB, BOB);
     (, feesAfterBorrow) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
     assertEq(feesPreviewed, feesAfterBorrow);
 
     vm.warp(6 days);
-    feesPreviewed = previewer.previewFeeAtMaturity(fixedLender, maturity, 20 ether);
+    feesPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 20 ether);
     vm.prank(ALICE);
     fixedLender.borrowAtMaturity(maturity, 20 ether, 30 ether, ALICE, ALICE);
     (, feesAfterBorrow) = fixedLender.mpUserBorrowedAmount(maturity, ALICE);
     assertEq(feesPreviewed, feesAfterBorrow);
   }
 
-  function testPreviewFeeAtMaturityWithInvalidMaturity() external {
+  function testPreviewBorrowAtMaturityWithInvalidMaturity() external {
     fixedLender.deposit(10 ether, address(this));
-    previewer.previewFeeAtMaturity(fixedLender, 376 seconds, 1 ether);
+    previewer.previewBorrowAtMaturity(fixedLender, 376 seconds, 1 ether);
   }
 
-  function testFailPreviewFeeAtMaturityWithSameTimestamp() external {
+  function testFailPreviewBorrowAtMaturityWithSameTimestamp() external {
     uint256 maturity = 7 days;
     vm.warp(maturity);
-    previewer.previewFeeAtMaturity(fixedLender, maturity, 1 ether);
+    previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
   }
 
-  function testFailPreviewFeeAtMaturityWithMaturedMaturity() external {
+  function testFailPreviewBorrowAtMaturityWithMaturedMaturity() external {
     uint256 maturity = 7 days;
     vm.warp(maturity + 1);
-    previewer.previewFeeAtMaturity(fixedLender, maturity, 1 ether);
+    previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
   }
 
-  function testPreviewDiscountBeforeMaturityReturningAccurateAmount() external {
+  function testPreviewRepayAtMaturityReturningAccurateAmount() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.deposit(10 ether, BOB);
@@ -210,7 +210,7 @@ contract PreviewerTest is DSTestPlus {
     fixedLender.borrowAtMaturity(maturity, 2 ether, 3 ether, BOB, BOB);
 
     vm.warp(3 days);
-    uint256 discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1 ether, address(this));
+    uint256 discountPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, 1 ether, address(this));
     uint256 balanceBeforeRepay = mockToken.balanceOf(address(this));
     fixedLender.repayAtMaturity(maturity, 1 ether, 1 ether, address(this));
     uint256 discountAfterRepay = 1 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
@@ -218,29 +218,29 @@ contract PreviewerTest is DSTestPlus {
     assertEq(discountPreviewed, discountAfterRepay);
   }
 
-  function testPreviewDiscountBeforeMaturityWithZeroAmount() external {
+  function testPreviewRepayAtMaturityWithZeroAmount() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 0, address(this));
+    uint256 discountPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, 0, address(this));
 
     assertEq(discountPreviewed, 0);
   }
 
-  function testPreviewDiscountBeforeMaturityWithOneUnit() external {
+  function testPreviewRepayAtMaturityWithOneUnit() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1, address(this));
+    uint256 discountPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, 1, address(this));
 
     assertEq(discountPreviewed, 0);
   }
 
-  function testPreviewDiscountBeforeMaturityReturningAccurateAmountWithIntermediateOperations() external {
+  function testPreviewRepayAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
     uint256 maturity = 7 days;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.deposit(10 ether, BOB);
@@ -251,19 +251,14 @@ contract PreviewerTest is DSTestPlus {
     fixedLender.borrowAtMaturity(maturity, 2.3 ether, 3 ether, BOB, BOB);
 
     vm.warp(3 days);
-    uint256 discountPreviewed = previewer.previewDiscountBeforeMaturity(
-      fixedLender,
-      maturity,
-      0.47 ether,
-      address(this)
-    );
+    uint256 discountPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, 0.47 ether, address(this));
     uint256 balanceBeforeRepay = mockToken.balanceOf(address(this));
     fixedLender.repayAtMaturity(maturity, 0.47 ether, 0.47 ether, address(this));
     uint256 discountAfterRepay = 0.47 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
     assertEq(discountPreviewed, discountAfterRepay);
 
     vm.warp(5 days);
-    discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1.1 ether, address(this));
+    discountPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, 1.1 ether, address(this));
     balanceBeforeRepay = mockToken.balanceOf(address(this));
     fixedLender.repayAtMaturity(maturity, 1.1 ether, 1.1 ether, address(this));
     discountAfterRepay = 1.1 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
@@ -272,7 +267,7 @@ contract PreviewerTest is DSTestPlus {
     vm.warp(6 days);
     (uint256 bobOwedPrincipal, uint256 bobOwedFee) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
     uint256 totalOwedBob = bobOwedPrincipal + bobOwedFee;
-    discountPreviewed = previewer.previewDiscountBeforeMaturity(fixedLender, maturity, totalOwedBob, BOB);
+    discountPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, totalOwedBob, BOB);
     balanceBeforeRepay = mockToken.balanceOf(BOB);
     vm.prank(BOB);
     fixedLender.repayAtMaturity(maturity, totalOwedBob, totalOwedBob, BOB);
@@ -282,27 +277,138 @@ contract PreviewerTest is DSTestPlus {
     assertEq(bobOwedPrincipal, 0);
   }
 
-  function testPreviewDiscountBeforeMaturityWithEmptyMaturity() external {
-    assertEq(previewer.previewDiscountBeforeMaturity(fixedLender, 7 days, 1 ether, address(this)), 0);
+  function testPreviewRepayAtMaturityWithEmptyMaturity() external {
+    assertEq(previewer.previewRepayAtMaturity(fixedLender, 7 days, 1 ether, address(this)), 0);
   }
 
-  function testPreviewDiscountBeforeMaturityWithEmptyMaturityAndZeroAmount() external {
-    assertEq(previewer.previewDiscountBeforeMaturity(fixedLender, 7 days, 0, address(this)), 0);
+  function testPreviewRepayAtMaturityWithEmptyMaturityAndZeroAmount() external {
+    assertEq(previewer.previewRepayAtMaturity(fixedLender, 7 days, 0, address(this)), 0);
   }
 
-  function testPreviewDiscountBeforeMaturityWithInvalidMaturity() external {
-    assertEq(previewer.previewDiscountBeforeMaturity(fixedLender, 376 seconds, 1 ether, address(this)), 0);
+  function testPreviewRepayAtMaturityWithInvalidMaturity() external {
+    assertEq(previewer.previewRepayAtMaturity(fixedLender, 376 seconds, 1 ether, address(this)), 0);
   }
 
-  function testFailPreviewDiscountBeforeMaturityWithSameTimestamp() external {
+  function testFailPreviewRepayAtMaturityWithSameTimestamp() external {
     uint256 maturity = 7 days;
     vm.warp(maturity);
-    previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1 ether, address(this));
+    previewer.previewRepayAtMaturity(fixedLender, maturity, 1 ether, address(this));
   }
 
-  function testFailPreviewDiscountBeforeMaturityWithMaturedMaturity() external {
+  function testFailPreviewRepayAtMaturityWithMaturedMaturity() external {
     uint256 maturity = 7 days;
     vm.warp(maturity + 1);
-    previewer.previewDiscountBeforeMaturity(fixedLender, maturity, 1 ether, address(this));
+    previewer.previewRepayAtMaturity(fixedLender, maturity, 1 ether, address(this));
+  }
+
+  function testPreviewWithdrawAtMaturityReturningAccurateAmount() external {
+    uint256 maturity = 7 days;
+    fixedLender.depositAtMaturity(maturity, 10 ether, 10 ether, address(this));
+
+    vm.warp(3 days);
+    uint256 feePreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, 10 ether);
+    uint256 balanceBeforeWithdraw = mockToken.balanceOf(address(this));
+    fixedLender.withdrawAtMaturity(maturity, 10 ether, 0.9 ether, address(this), address(this));
+    uint256 feeAfterWithdraw = 10 ether - (mockToken.balanceOf(address(this)) - balanceBeforeWithdraw);
+
+    assertEq(feePreviewed, feeAfterWithdraw);
+  }
+
+  function testPreviewWithdrawAtMaturityWithZeroAmount() external {
+    uint256 maturity = 7 days;
+    fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
+
+    vm.warp(3 days);
+    assertEq(previewer.previewWithdrawAtMaturity(fixedLender, maturity, 0), 0);
+  }
+
+  function testPreviewWithdrawAtMaturityWithOneUnit() external {
+    uint256 maturity = 7 days;
+    fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
+
+    vm.warp(3 days);
+    uint256 feesPreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, 1);
+
+    assertEq(feesPreviewed, 1);
+  }
+
+  function testPreviewWithdrawAtMaturityWithFiveUnits() external {
+    uint256 maturity = 7 days;
+    fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
+
+    vm.warp(3 days);
+    uint256 feesPreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, 5);
+
+    assertEq(feesPreviewed, 1);
+  }
+
+  function testPreviewWithdrawAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
+    uint256 maturity = 7 days;
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.deposit(10 ether, BOB);
+    fixedLender.depositAtMaturity(maturity, 5 ether, 5 ether, address(this));
+
+    vm.warp(2 days);
+    vm.prank(BOB);
+    fixedLender.borrowAtMaturity(maturity, 2.3 ether, 3 ether, BOB, BOB);
+
+    vm.warp(3 days);
+    uint256 feePreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, 0.47 ether);
+    uint256 balanceBeforeWithdraw = mockToken.balanceOf(address(this));
+    fixedLender.withdrawAtMaturity(maturity, 0.47 ether, 0.4 ether, address(this), address(this));
+    uint256 feeAfterWithdraw = 0.47 ether - (mockToken.balanceOf(address(this)) - balanceBeforeWithdraw);
+    assertEq(feePreviewed, feeAfterWithdraw);
+
+    vm.warp(5 days);
+    feePreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, 1.1 ether);
+    balanceBeforeWithdraw = mockToken.balanceOf(address(this));
+    fixedLender.withdrawAtMaturity(maturity, 1.1 ether, 1 ether, address(this), address(this));
+    feeAfterWithdraw = 1.1 ether - (mockToken.balanceOf(address(this)) - balanceBeforeWithdraw);
+    assertEq(feePreviewed, feeAfterWithdraw);
+
+    vm.warp(6 days);
+    (uint256 addressDepositedPrincipal, uint256 addressDepositedFee) = fixedLender.mpUserSuppliedAmount(
+      maturity,
+      address(this)
+    );
+    uint256 totalDepositedAddress = addressDepositedPrincipal + addressDepositedFee;
+    feePreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, totalDepositedAddress);
+    balanceBeforeWithdraw = mockToken.balanceOf(address(this));
+    fixedLender.withdrawAtMaturity(
+      maturity,
+      totalDepositedAddress,
+      totalDepositedAddress - 1 ether,
+      address(this),
+      address(this)
+    );
+    feeAfterWithdraw = totalDepositedAddress - (mockToken.balanceOf(address(this)) - balanceBeforeWithdraw);
+    (addressDepositedPrincipal, ) = fixedLender.mpUserSuppliedAmount(maturity, address(this));
+
+    assertEq(feePreviewed, feeAfterWithdraw);
+    assertEq(addressDepositedPrincipal, 0);
+  }
+
+  function testFailPreviewWithdrawAtMaturityWithEmptyMaturity() external view {
+    previewer.previewWithdrawAtMaturity(fixedLender, 7 days, 1 ether);
+  }
+
+  function testFailPreviewWithdrawAtMaturityWithEmptyMaturityAndZeroAmount() external view {
+    previewer.previewWithdrawAtMaturity(fixedLender, 7 days, 0);
+  }
+
+  function testFailPreviewWithdrawAtMaturityWithInvalidMaturity() external view {
+    previewer.previewWithdrawAtMaturity(fixedLender, 376 seconds, 1 ether);
+  }
+
+  function testFailPreviewWithdrawAtMaturityWithSameTimestamp() external {
+    uint256 maturity = 7 days;
+    vm.warp(maturity);
+    previewer.previewWithdrawAtMaturity(fixedLender, maturity, 1 ether);
+  }
+
+  function testFailPreviewWithdrawAtMaturityWithMaturedMaturity() external {
+    uint256 maturity = 7 days;
+    vm.warp(maturity + 1);
+    previewer.previewWithdrawAtMaturity(fixedLender, maturity, 1 ether);
   }
 }
