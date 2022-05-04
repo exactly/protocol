@@ -3,6 +3,7 @@ solc = '0.8.13'
 optimizer = true
 optimizer_runs = 1_000_000
 
+ffi = true
 src = 'test/solidity'
 out = 'artifacts/.foundry'
 cache_path = 'cache/.foundry'
