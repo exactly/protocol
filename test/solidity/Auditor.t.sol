@@ -2,14 +2,13 @@
 pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
-import { DSTest } from "ds-test/test.sol";
+import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { Auditor, IAuditor, FixedLender, IOracle } from "../../contracts/Auditor.sol";
 
-contract AuditorTest is DSTest {
+contract AuditorTest is Test {
   using FixedPointMathLib for uint256;
 
-  Vm internal vm = Vm(HEVM_ADDRESS);
   Auditor internal auditor;
   MockFixedLender internal fixedLender;
 

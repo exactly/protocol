@@ -2,7 +2,7 @@
 pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
-import { DSTestPlus } from "@rari-capital/solmate/src/test/utils/DSTestPlus.sol";
+import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
@@ -11,11 +11,10 @@ import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { FixedLender, ERC20, IAuditor, IInterestRateModel } from "../../contracts/FixedLender.sol";
 
-contract FixedLenderTest is DSTestPlus {
+contract FixedLenderTest is Test {
   address internal constant BOB = address(69);
   address internal constant ALICE = address(70);
 
-  Vm internal vm = Vm(HEVM_ADDRESS);
   FixedLender internal fixedLender;
   Auditor internal auditor;
   MockInterestRateModel internal mockInterestRateModel;
@@ -158,11 +157,11 @@ contract FixedLenderTest is DSTestPlus {
     fixedLender.deposit(10_000 ether, address(this));
     assertEq(fixedLender.balanceOf(BOB), 10_000 ether);
     assertEq(fixedLender.maxWithdraw(address(this)), 10_000 ether - 1);
-    assertRelApproxEq(fixedLender.balanceOf(address(this)), 9950 ether, 2.5e13);
+    assertApproxEqRel(fixedLender.balanceOf(address(this)), 9950 ether, 2.6e13);
 
     vm.warp(7 days + 5 days);
     fixedLender.deposit(1_000 ether, address(this));
-    assertRelApproxEq(fixedLender.balanceOf(address(this)), 10944 ether, 2.5e13);
+    assertApproxEqRel(fixedLender.balanceOf(address(this)), 10944 ether, 2.6e13);
   }
 
   function testSmartPoolSharesDoNotAccountUnassignedEarningsFromMoreThanOneIntervalPastMaturities() external {
@@ -239,19 +238,20 @@ contract FixedLenderTest is DSTestPlus {
 
     // 59 minutes and + 1 second passed since bob's deposit -> he now has 75100318255611032 more if he withdraws
     assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore + 75100318255611032);
-    assertRelApproxEq(fixedLender.smartPoolEarningsAccumulator(), 308 ether, 1e7);
+    assertApproxEqRel(fixedLender.smartPoolEarningsAccumulator(), 308 ether, 1e7);
 
     vm.warp(7 days * 5);
     // then the accumulator will distribute 7.73% since 7.73 * 13 = 100 (13 because we add 1 maturity in the division)
     // 308e18 * 0.07 = 238e17
     vm.prank(ALICE);
     fixedLender.deposit(10_100 ether, ALICE); // alice deposits same assets amount as previous users
-    assertRelApproxEq(fixedLender.smartPoolEarningsAccumulator(), 308 ether - 238e17, 1e14);
+    assertApproxEqRel(fixedLender.smartPoolEarningsAccumulator(), 308 ether - 238e17, 1e14);
     // bob earns half the earnings distributed
-    assertRelApproxEq(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore + 238e17 / 2, 1e14);
+    assertApproxEqRel(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore + 238e17 / 2, 1e14);
   }
 
   function testDistributeMultipleAccumulatedEarnings() external {
+    vm.warp(0);
     uint256 maturity = 7 days * 2;
     fixedLender.deposit(10_000 ether, address(this));
     fixedLender.depositAtMaturity(maturity, 1_000 ether, 1_000 ether, address(this));
@@ -262,7 +262,7 @@ contract FixedLenderTest is DSTestPlus {
     vm.warp(7 days * 4); // 2 weeks delayed (2% daily = 28% in penalties), 1100 * 1.28 = 1408
     fixedLender.repayAtMaturity(maturity, 1_408 ether, 1_408 ether, address(this));
     // no penalties are accrued (accumulator accounts all of them since borrow uses mp deposits)
-    assertRelApproxEq(fixedLender.smartPoolEarningsAccumulator(), 408 ether, 1e7);
+    assertApproxEqRel(fixedLender.smartPoolEarningsAccumulator(), 408 ether, 1e7);
 
     vm.warp(7 days * 5);
     vm.prank(BOB);
@@ -273,9 +273,9 @@ contract FixedLenderTest is DSTestPlus {
     uint256 accumulatedEarningsAfterFirstDistribution = fixedLender.smartPoolEarningsAccumulator();
 
     // 119 ether are distributed from the accumulator
-    assertRelApproxEq(balanceContractAfterFirstDistribution, 10_119 ether, 1e16);
-    assertApproxEq(balanceBobAfterFirstDistribution, 10_000 ether, 1);
-    assertRelApproxEq(accumulatedEarningsAfterFirstDistribution, 408 ether - 119 ether, 1e16);
+    assertApproxEqRel(balanceContractAfterFirstDistribution, 10_119 ether, 1e16);
+    assertApproxEqAbs(balanceBobAfterFirstDistribution, 10_000 ether, 1);
+    assertApproxEqRel(accumulatedEarningsAfterFirstDistribution, 408 ether - 119 ether, 1e16);
     assertEq(fixedLender.lastAccumulatedEarningsAccrual(), 7 days * 5);
 
     vm.warp(7 days * 6);
@@ -307,6 +307,7 @@ contract FixedLenderTest is DSTestPlus {
   }
 
   function testUpdateAccumulatedEarningsFactorToZero() external {
+    vm.warp(0);
     uint256 maturity = 7 days * 2;
     fixedLender.deposit(10_000 ether, address(this));
 
@@ -453,6 +454,7 @@ contract FixedLenderTest is DSTestPlus {
   }
 
   function testMultipleBorrowsForMultipleAssets() external {
+    vm.warp(0);
     FixedLender[4] memory fixedLenders;
     for (uint256 i = 0; i < tokens.length; i++) {
       string memory tokenName = tokens[i];

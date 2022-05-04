@@ -2,20 +2,18 @@
 pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
-import { DSTest } from "ds-test/test.sol";
+import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { PoolLib } from "../../contracts/utils/PoolLib.sol";
 import { PoolAccounting } from "../../contracts/PoolAccounting.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 
-contract PoolAccountingTest is DSTest, PoolAccounting {
+contract PoolAccountingTest is Test, PoolAccounting {
   using FixedPointMathLib for uint256;
 
   uint256 internal constant POOL_ID = 7 days;
   uint256 internal constant FEE_MP = 0.01e18;
   uint256 internal constant FEE_SP = 0.1e18;
-
-  Vm internal vm = Vm(HEVM_ADDRESS);
 
   constructor() PoolAccounting(new MockInterestRateModel(FEE_SP), 0.02e18 / uint256(1 days), 0) {} // solhint-disable-line no-empty-blocks, max-line-length
 
