@@ -8,8 +8,8 @@ authors = []
 python = "^3.7"
 
 [tool.poetry.dev-dependencies]
+slither-analyzer = "^0.8.3"
 solc-select = "^0.2.1"
-slither-analyzer = "^0.8.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -2,15 +2,13 @@
 pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
-import { DSTest } from "ds-test/test.sol";
-import { stdError } from "forge-std/stdlib.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 import { PoolLib, InsufficientProtocolLiquidity, MaturityOverflow } from "../../contracts/utils/PoolLib.sol";
 
-contract PoolLibTest is DSTest {
+contract PoolLibTest is Test {
   using PoolLib for PoolLib.MaturityPool;
   using PoolLib for uint256;
 
-  Vm internal vm = Vm(HEVM_ADDRESS);
   PoolLib.MaturityPool private mp;
 
   function testAtomicDepositBorrowRepayWithdraw() external {
