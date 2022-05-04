@@ -252,7 +252,7 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     // We verify that current liquidity is not short
-    (, uint256 shortfall) = accountLiquidity(borrower, fixedLender, 0, 0);
+    (, uint256 shortfall) = accountLiquidity(borrower, fixedLender, 0);
 
     if (shortfall > 0) revert InsufficientLiquidity();
   }
@@ -277,7 +277,7 @@ contract Auditor is IAuditor, AccessControl {
     if (!markets[fixedLenderBorrowed].isListed || !markets[fixedLenderCollateral].isListed) revert MarketNotListed();
 
     // The borrower must have shortfall in order to be liquidatable
-    (, uint256 shortfall) = accountLiquidity(borrower, FixedLender(address(0)), 0, 0);
+    (, uint256 shortfall) = accountLiquidity(borrower, FixedLender(address(0)), 0);
 
     if (shortfall == 0) revert InsufficientShortfall();
 
@@ -335,7 +335,7 @@ contract Auditor is IAuditor, AccessControl {
   /// @dev Function to get account's liquidity.
   /// @param account wallet to retrieve liquidity.
   function getAccountLiquidity(address account) external view override returns (uint256, uint256) {
-    return accountLiquidity(account, FixedLender(address(0)), 0, 0);
+    return accountLiquidity(account, FixedLender(address(0)), 0);
   }
 
   /// @dev Function to calculate the amount of assets to be seized.
@@ -380,7 +380,7 @@ contract Auditor is IAuditor, AccessControl {
     if ((accountAssets[account] & (1 << markets[fixedLender].index)) == 0) return;
 
     // Otherwise, perform a hypothetical liquidity check to guard against shortfall
-    (, uint256 shortfall) = accountLiquidity(account, fixedLender, amount, 0);
+    (, uint256 shortfall) = accountLiquidity(account, fixedLender, amount);
     if (shortfall > 0) revert InsufficientLiquidity();
   }
 
@@ -388,12 +388,10 @@ contract Auditor is IAuditor, AccessControl {
   /// @param account wallet which the liquidity will be calculated.
   /// @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args).
   /// @param withdrawAmount amount to simulate withdraw.
-  /// @param borrowAmount amount to simulate borrow.
   function accountLiquidity(
     address account,
     FixedLender fixedLenderToSimulate,
-    uint256 withdrawAmount,
-    uint256 borrowAmount
+    uint256 withdrawAmount
   ) internal view returns (uint256, uint256) {
     AccountLiquidity memory vars; // Holds all our calculation results
 
@@ -420,9 +418,6 @@ contract Auditor is IAuditor, AccessControl {
 
         // Simulate the effects of borrowing from/lending to a pool
         if (asset == FixedLender(fixedLenderToSimulate)) {
-          // Calculate the effects of borrowing fixedLenders
-          if (borrowAmount != 0) vars.sumDebt += borrowAmount.fmul(vars.oraclePrice, 10**vars.decimals);
-
           // Calculate the effects of redeeming fixedLenders
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
