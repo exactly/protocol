@@ -5,7 +5,7 @@ import timelockPropose from "./.utils/timelockPropose";
 const func: DeployFunction = async ({
   config: {
     finance: {
-      interestRateModel: { curveA, curveB, maxUtilizationRate, fullUtilizationRate, smartPoolRate },
+      interestRateModel: { curveA, curveB, maxUtilization, fullUtilization, smartPoolRate },
     },
   },
   ethers: {
@@ -19,8 +19,8 @@ const func: DeployFunction = async ({
   const curveArgs = [
     parseUnits(String(curveA)),
     parseUnits(String(curveB)),
-    parseUnits(String(maxUtilizationRate)),
-    parseUnits(String(fullUtilizationRate)),
+    parseUnits(String(maxUtilization)),
+    parseUnits(String(fullUtilization)),
   ];
   const args = curveArgs.slice();
   args.push(parseUnits(String(smartPoolRate)));

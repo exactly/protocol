@@ -1,3 +1,4 @@
+import type { ContractTransaction } from "ethers";
 import { BigNumber } from "ethers";
 import { expect } from "chai";
 import { parseUnits } from "ethers/lib/utils";
@@ -24,18 +25,16 @@ export function errorUnmatchedPool(state: PoolState, requiredState: PoolState, a
   return "UnmatchedPoolState(" + state + ", " + requiredState + ")";
 }
 
-// it was impossible to find the type for a transaction populated with events,
-// in both ethers and hardhat-ethers
-export async function expectFee(tx: any, expectedFee: BigNumber) {
+export async function expectFee(tx: ContractTransaction, expectedFee: BigNumber) {
   const { events } = await tx.wait();
-  const borrowEvents = events.filter((it: any) => it.event === "BorrowAtMaturity");
+  const borrowEvents = events!.filter((it) => it.event === "BorrowAtMaturity");
   assert(borrowEvents.length < 2, "searched for one event, but many were found");
   assert(borrowEvents.length > 0, "searched for one event, but none were found");
   const event = borrowEvents[0];
   const lowerBoundary = expectedFee.mul("99").div("100");
   const higherBoundary = expectedFee.mul("101").div("100");
-  expect(event.args.fee).to.be.gte(lowerBoundary);
-  expect(event.args.fee).to.be.lte(higherBoundary);
+  expect(event!.args!.fee).to.be.gte(lowerBoundary);
+  expect(event!.args!.fee).to.be.lte(higherBoundary);
 }
 
 export function applyMaxFee(amount: BigNumber): BigNumber {

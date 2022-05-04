@@ -3,7 +3,7 @@ pragma solidity 0.8.13;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 
 import { InvalidParameter } from "./interfaces/IAuditor.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
@@ -11,27 +11,27 @@ import {
   IInterestRateModel,
   AlreadyMatured,
   InvalidAmount,
-  UtilizationRateExceeded
+  UtilizationExceeded
 } from "./interfaces/IInterestRateModel.sol";
 
 contract InterestRateModel is IInterestRateModel, AccessControl {
   using PoolLib for PoolLib.MaturityPool;
   using FixedPointMathLib for uint256;
-  uint256 private constant YEAR = 365 days;
+  using FixedPointMathLib for int256;
 
   // Parameters to the system, expressed with 1e18 decimals
   uint256 public curveParameterA;
   int256 public curveParameterB;
-  uint256 public maxUtilizationRate;
-  uint256 public fullUtilizationRate;
+  uint256 public maxUtilization;
+  uint256 public fullUtilization;
   uint256 public spFeeRate;
 
   /// @notice emitted when the curve parameters are changed by admin.
   /// @param a new curve parameter A.
   /// @param b new curve parameter B.
-  /// @param maxUtilizationRate new max utilization rate.
-  /// @param fullUtilizationRate new full utilization rate.
-  event CurveParametersUpdated(uint256 a, int256 b, uint256 maxUtilizationRate, uint256 fullUtilizationRate);
+  /// @param maxUtilization new max utilization rate.
+  /// @param fullUtilization new full utilization rate.
+  event CurveParametersUpdated(uint256 a, int256 b, uint256 maxUtilization, uint256 fullUtilization);
 
   /// @notice emitted when the spFeeRate parameter is changed by admin.
   /// @param spFeeRate rate charged to the mp depositors to be accrued by the sp borrowers.
@@ -40,13 +40,13 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   constructor(
     uint256 _curveParameterA,
     int256 _curveParameterB,
-    uint256 _maxUtilizationRate,
-    uint256 _fullUtilizationRate,
+    uint256 _maxUtilization,
+    uint256 _fullUtilization,
     uint256 _spFeeRate
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    setCurveParameters(_curveParameterA, _curveParameterB, _maxUtilizationRate, _fullUtilizationRate);
+    setCurveParameters(_curveParameterA, _curveParameterB, _maxUtilization, _fullUtilization);
     spFeeRate = _spFeeRate;
   }
 
@@ -60,7 +60,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   }
 
   /// @notice gets this model's curve parameters.
-  /// @return parameters (curveA, curveB, maxUtilizationRate, fullUtilizationRate).
+  /// @return parameters (_curveA, _curveB, maxUtilization, fullUtilization).
   function getCurveParameters()
     external
     view
@@ -71,7 +71,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
       uint256
     )
   {
-    return (curveParameterA, curveParameterB, maxUtilizationRate, fullUtilizationRate);
+    return (curveParameterA, curveParameterB, maxUtilization, fullUtilization);
   }
 
   /// @dev Calculate the amount of revenue sharing between the smart pool and the new MP depositor.
@@ -86,49 +86,48 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   ) external view override returns (uint256 earningsShare, uint256 earningsShareSP) {
     if (suppliedSP != 0) {
       // User can't make more fees after the total borrowed amount
-      earningsShare = unassignedEarnings.fmul(Math.min(amount, suppliedSP), suppliedSP);
-      earningsShareSP = earningsShare.fmul(spFeeRate, 1e18);
+      earningsShare = unassignedEarnings.mulDivDown(Math.min(amount, suppliedSP), suppliedSP);
+      earningsShareSP = earningsShare.mulWadDown(spFeeRate);
       earningsShare -= earningsShareSP;
     }
   }
 
   /// @notice Updates this model's curve parameters.
   /// @dev FullUR can only be between 1 and 52. UMaxUR can only be higher than FullUR and at most 3 times FullUR.
-  /// @param curveA curve parameter A.
-  /// @param curveB curve parameter B.
-  /// @param _maxUtilizationRate % of MP supp.
-  /// @param _fullUtilizationRate full UR.
+  /// @param _curveParameterA curve parameter A.
+  /// @param _curveParameterB curve parameter B.
+  /// @param _maxUtilization % of MP supp.
+  /// @param _fullUtilization full UR.
   function setCurveParameters(
-    uint256 curveA,
-    int256 curveB,
-    uint256 _maxUtilizationRate,
-    uint256 _fullUtilizationRate
+    uint256 _curveParameterA,
+    int256 _curveParameterB,
+    uint256 _maxUtilization,
+    uint256 _fullUtilization
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (
-      _fullUtilizationRate > 52e18 ||
-      _fullUtilizationRate < 1e18 ||
-      _fullUtilizationRate >= _maxUtilizationRate ||
-      _fullUtilizationRate < _maxUtilizationRate / 3
+      _fullUtilization > 52e18 ||
+      _fullUtilization < 1e18 ||
+      _fullUtilization >= _maxUtilization ||
+      _fullUtilization < _maxUtilization / 3
     ) revert InvalidParameter();
 
-    curveParameterA = curveA;
-    curveParameterB = curveB;
-    maxUtilizationRate = _maxUtilizationRate;
-    fullUtilizationRate = _fullUtilizationRate;
-    // we call the getPointInCurve function with an utilization rate of
-    // zero to force it to revert in the tx that sets it, and not be able
-    // to set an invalid curve (such as one yielding a negative interest
-    // rate). Doing it works because it's a monotonously increasing function.
-    getPointInCurve(0);
+    curveParameterA = _curveParameterA;
+    curveParameterB = _curveParameterB;
+    maxUtilization = _maxUtilization;
+    fullUtilization = _fullUtilization;
 
-    emit CurveParametersUpdated(curveA, curveB, _maxUtilizationRate, _fullUtilizationRate);
+    // reverts if it's an invalid curve (such as one yielding a negative interest rate).
+    // doing it works because it's a monotonously increasing function.
+    rate(0, 0);
+
+    emit CurveParametersUpdated(_curveParameterA, _curveParameterB, _maxUtilization, _fullUtilization);
   }
 
   /// @notice Get fee to borrow a certain amount in a certain maturity with supply/demand values in the maturity pool
   /// and supply/demand values in the smart pool.
   /// @dev liquidity limits aren't checked, that's the responsibility of pool.takeMoney.
   /// @param maturity maturity date for calculating days left to maturity.
-  /// @param currentDate the curent block timestamp. Recieved from caller for easier testing.
+  /// @param currentDate the current block timestamp. Received from caller for easier testing.
   /// @param amount the current borrow's amount.
   /// @param borrowedMP ex-ante amount borrowed from this maturity.
   /// @param suppliedMP deposits in maturity pool.
@@ -144,74 +143,30 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
   ) public view override returns (uint256) {
     if (currentDate >= maturity) revert AlreadyMatured();
 
-    uint256 supplied = suppliedMP + totalSupplySP.fdiv(fullUtilizationRate, 1e18);
-    uint256 utilizationBefore = borrowedMP.fdiv(supplied, 1e18);
-    uint256 utilizationAfter = (borrowedMP + amount).fdiv(supplied, 1e18);
+    uint256 supplied = suppliedMP + totalSupplySP.divWadDown(fullUtilization);
+    uint256 utilizationBefore = borrowedMP.divWadDown(supplied);
+    uint256 utilizationAfter = (borrowedMP + amount).divWadDown(supplied);
 
-    if (utilizationAfter > fullUtilizationRate) revert UtilizationRateExceeded();
+    if (utilizationAfter > fullUtilization) revert UtilizationExceeded();
 
-    uint256 rate = simpsonIntegrator(utilizationBefore, utilizationAfter);
-    return rate.fmul(maturity - currentDate, YEAR);
+    return rate(utilizationBefore, utilizationAfter).mulDivDown(maturity - currentDate, 365 days);
   }
 
-  /// @notice Returns the interest rate integral from u_{t} to u_{t+1}, approximated via the simpson method.
-  /// @dev calls the other two integrators, and also checks there is an actual difference in utilization rate.
+  /// @notice returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).
+  /// @dev handles special case where delta utilization tends to zero, using l'hôpital's rule.
   /// @param utilizationBefore ex-ante utilization rate, with 18 decimals precision.
   /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.
-  /// @return fee the approximated fee, with 18 decimals precision.
-  function simpsonIntegrator(uint256 utilizationBefore, uint256 utilizationAfter) internal view returns (uint256) {
-    // there's no domain reason to forbid amounts of zero, but that'd cause the denominator in bot`
-    if (utilizationAfter <= utilizationBefore) revert InvalidAmount();
-    return
-      (trapezoidIntegrator(utilizationBefore, utilizationAfter) +
-        (midpointIntegrator(utilizationBefore, utilizationAfter) << 1)) / 3;
-  }
-
-  /// @notice Returns the interest rate for an utilization rate, reading the A, B and U_{max} parameters from storage.
-  /// @dev reverts if the curve has invalid parameters (those returning a negative interest rate).
-  /// @param utilizationRate already-computed utilization rate, with 18 decimals precision.
-  /// @return fee the fee corresponding to that utilization rate, with 18 decimals precision.
-  function getPointInCurve(uint256 utilizationRate) internal view returns (uint256) {
-    int256 rate = int256(curveParameterA.fdiv(maxUtilizationRate - utilizationRate, 1e18)) + curveParameterB;
-    // this curve _could_ go below zero if the parameters are set wrong.
-    assert(rate >= 0);
-    return uint256(rate);
-  }
-
-  /// @notice Returns the interest rate integral from u_{t} to u_{t+1}, approximated via the trapezoid method.
-  /// @dev calls the getPointInCurve function many times.
-  /// @param ut ex-ante utilization rate, with 18 decimals precision.
-  /// @param ut1 ex-post utilization rate, with 18 decimals precision.
-  /// @return fee the approximated fee, with 18 decimals precision.
-  function trapezoidIntegrator(uint256 ut, uint256 ut1) internal view returns (uint256) {
-    uint256 denominator = ut1 - ut;
-    uint256 delta = denominator >> 2;
-    return
-      (delta >> 1).fmul(
-        getPointInCurve(ut) +
-          (getPointInCurve(ut + delta) << 1) +
-          (getPointInCurve(ut + (delta << 1)) << 1) +
-          (getPointInCurve(ut + 3 * delta) << 1) +
-          getPointInCurve(ut1),
-        denominator
-      );
-  }
-
-  /// @notice Returns the interest rate integral from u_{t} to u_{t+1}, approximated via the midpoint method.
-  /// @dev calls the getPointInCurve function many times.
-  /// @param ut ex-ante utilization rate, with 18 decimals precision.
-  /// @param ut1 ex-post utilization rate, with 18 decimals precision.
-  /// @return fee the approximated fee, with 18 decimals precision.
-  function midpointIntegrator(uint256 ut, uint256 ut1) internal view returns (uint256) {
-    uint256 denominator = ut1 - ut;
-    uint256 delta = denominator >> 2;
-    return
-      delta.fmul(
-        getPointInCurve(ut + delta.fmul(0.5e18, 1e18)) +
-          getPointInCurve(ut + delta.fmul(1.5e18, 1e18)) +
-          getPointInCurve(ut + delta.fmul(2.5e18, 1e18)) +
-          getPointInCurve(ut + delta.fmul(3.5e18, 1e18)),
-        denominator
-      );
+  /// @return the interest rate, with 18 decimals precision.
+  function rate(uint256 utilizationBefore, uint256 utilizationAfter) internal view returns (uint256) {
+    int256 r = int256(
+      utilizationAfter - utilizationBefore < 2.5e9
+        ? curveParameterA.divWadDown(maxUtilization - utilizationBefore)
+        : curveParameterA.mulDivDown(
+          uint256(int256((maxUtilization - utilizationBefore).divWadDown(maxUtilization - utilizationAfter)).lnWad()),
+          utilizationAfter - utilizationBefore
+        )
+    ) + curveParameterB;
+    assert(r >= 0);
+    return uint256(r);
   }
 }

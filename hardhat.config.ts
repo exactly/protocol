@@ -38,8 +38,8 @@ const config: Config = {
     interestRateModel: {
       curveA: 0.72,
       curveB: -0.22,
-      maxUtilizationRate: 3,
-      fullUtilizationRate: 2,
+      maxUtilization: 3,
+      fullUtilization: 2,
       smartPoolRate: 0.1,
     },
   },
@@ -65,8 +65,8 @@ declare module "hardhat/types/config" {
     interestRateModel: {
       curveA: number;
       curveB: number;
-      maxUtilizationRate: number;
-      fullUtilizationRate: number;
+      maxUtilization: number;
+      fullUtilization: number;
       smartPoolRate: number;
     };
   }
