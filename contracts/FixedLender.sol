@@ -430,7 +430,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   /// @notice This function allows to (partially) repay a position.
   /// @dev Internal repay function, allows partial repayment.
-  /// Should be called after `beforeRepayMP` or `liquidateAllowed` on the auditor.
   /// @param payer the address of the account that will pay the debt.
   /// @param borrower the address of the account that has the debt.
   /// @param assets the amount of debt of the pool that should be paid.

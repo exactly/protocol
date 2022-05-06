@@ -112,7 +112,7 @@ contract PoolAccounting is AccessControl {
     BorrowVars memory borrowVars;
     PoolLib.MaturityPool storage pool = maturityPools[maturity];
 
-    earningsSP += pool.accrueEarnings(maturity, block.timestamp);
+    earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
     borrowVars.fee = amount.fmul(
       interestRateModel.getRateToBorrow(
