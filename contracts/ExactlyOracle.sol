@@ -15,28 +15,30 @@ contract ExactlyOracle is IOracle, AccessControl {
   uint256 public immutable maxDelayTime;
 
   uint256 public constant TARGET_DECIMALS = 18; // Auditor's target precision
-  uint256 public constant ORACLE_DECIMALS = 8; // At date of Exactly launch, Chainlink uses an 8-digit price
+  // At date of Exactly launch, Chainlink uses an 8-digit price for USD as a base currency
+  uint256 public constant ORACLE_DECIMALS = 8;
 
   event SymbolSourceUpdated(string indexed symbol, address indexed source);
 
   /// @notice Constructor.
+  /// @dev ExactlyOracle is only intended to be used with USD as the base currency.
   /// @param _chainlinkFeedRegistry The address of the Chainlink Feed Registry implementation.
   /// @param _symbols The symbols of the assets.
   /// @param _sources The address of the source of each asset.
-  /// @param _baseCurrency The base currency used for the price quotes.
+  /// @param _baseUsdCurrency The USD base currency used for the price quotes.
   /// @param _maxDelayTime The max delay time for Chainlink prices to be considered as updated.
   constructor(
     FeedRegistryInterface _chainlinkFeedRegistry,
     string[] memory _symbols,
     address[] memory _sources,
-    address _baseCurrency,
+    address _baseUsdCurrency,
     uint256 _maxDelayTime
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     _setAssetsSources(_symbols, _sources);
 
     chainlinkFeedRegistry = _chainlinkFeedRegistry;
-    baseCurrency = _baseCurrency;
+    baseCurrency = _baseUsdCurrency;
     maxDelayTime = _maxDelayTime;
   }
 
