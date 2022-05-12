@@ -13,8 +13,7 @@ interface IAuditor {
     FixedLender fixedLenderBorrowed,
     FixedLender fixedLenderCollateral,
     address liquidator,
-    address borrower,
-    uint256 repayAmount
+    address borrower
   ) external view;
 
   function seizeAllowed(

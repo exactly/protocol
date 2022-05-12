@@ -54,6 +54,13 @@ contract FixedLenderTest is Test {
     uint256 assets,
     uint256 debtCovered
   );
+  event LiquidateBorrow(
+    address indexed receiver,
+    address indexed borrower,
+    uint256 assets,
+    FixedLender collateralFixedLender,
+    uint256 seizedAssets
+  );
 
   function setUp() external {
     MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
@@ -453,6 +460,42 @@ contract FixedLenderTest is Test {
     fixedLenderHarness.transfer(BOB, 5);
   }
 
+  function testCrossMaturityLiquidation() external {
+    MockToken weth = new MockToken("WETH", "WETH", 18, 36 ether);
+    FixedLender fixedLenderWETH = new FixedLender(
+      weth,
+      "WETH",
+      12,
+      1e18,
+      auditor,
+      mockInterestRateModel,
+      0.02e18 / uint256(1 days),
+      0
+    );
+    auditor.enableMarket(fixedLenderWETH, 1e18, "WETH", "WETH", 18);
+    FixedLender[] memory markets = new FixedLender[](1);
+    markets[0] = fixedLenderWETH;
+    auditor.enterMarkets(markets);
+    weth.approve(address(fixedLenderWETH), 36 ether);
+
+    mockInterestRateModel.setBorrowRate(0);
+    mockOracle.setPrice("WETH", 1_000e18);
+    fixedLender.setMaxFuturePools(36);
+
+    fixedLender.deposit(50_000 ether, BOB);
+    fixedLenderWETH.deposit(36 ether, address(this));
+    for (uint256 i = 1; i <= 36; i++) {
+      fixedLender.borrowAtMaturity(7 days * i, 1_000 ether, 1_000 ether, address(this), address(this));
+    }
+
+    mockOracle.setPrice("WETH", 750e18);
+
+    vm.prank(BOB);
+    vm.expectEmit(true, true, true, true, address(fixedLender));
+    emit LiquidateBorrow(BOB, address(this), 18_000 ether, fixedLenderWETH, 26.4 ether);
+    fixedLender.liquidate(address(this), 36_000 ether, 36_000 ether, fixedLenderWETH);
+  }
+
   function testMultipleBorrowsForMultipleAssets() external {
     vm.warp(0);
     FixedLender[4] memory fixedLenders;
@@ -471,7 +514,7 @@ contract FixedLenderTest is Test {
         0
       );
       auditor.enableMarket(newFixedLender, 0.8e18, tokenName, tokenName, 18);
-      mockOracle.setPrice(tokenName, 1e8);
+      mockOracle.setPrice(tokenName, 1e18);
       mockToken.approve(address(newFixedLender), 50_000 ether);
       mockToken.transfer(BOB, 110 ether);
       vm.prank(BOB);
@@ -504,7 +547,7 @@ contract FixedLenderTest is Test {
 
     // liquidate function to user's borrows DOES increase in cost
     vm.prank(BOB);
-    fixedLenders[0].liquidate(address(this), 1 ether, 1 ether, fixedLenders[0], 7 days * 2);
+    fixedLenders[0].liquidate(address(this), 1 ether, 1 ether, fixedLenders[0]);
   }
 
   function multipleBorrowsAtMaturity(

@@ -91,7 +91,7 @@ describe("Auditor from User Space", function () {
 
   it("LiquidateAllowed should revert with INSUFFICIENT_SHORTFALL if user has no shortfall", async () => {
     await expect(
-      auditor.liquidateAllowed(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, user.address, 100),
+      auditor.liquidateAllowed(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, user.address),
     ).to.be.revertedWith("InsufficientShortfall()"); // Any failure except MARKET_NOT_LISTED
   });
 

@@ -28,10 +28,6 @@ contract Auditor is IAuditor, AccessControl {
     uint256 balance;
     uint256 borrowBalance;
     uint256 oraclePrice;
-    uint256 sumCollateral;
-    uint256 sumDebt;
-    uint8 decimals;
-    uint128 collateralFactor;
   }
 
   // Struct for FixedLender's markets
@@ -49,14 +45,13 @@ contract Auditor is IAuditor, AccessControl {
   mapping(FixedLender => Market) public markets;
   mapping(FixedLender => uint256) private borrowCaps;
 
-  uint256 public constant CLOSE_FACTOR = 5e17;
   uint256 public liquidationIncentive;
   FixedLender[] public allMarkets;
 
   IOracle public oracle;
 
   /// @notice Event emitted when a new market is listed for borrow/lending.
-  /// @param fixedLender address of the fixedLender market that it was listed.
+  /// @param fixedLender address of the fixedLender market that was listed.
   event MarketListed(FixedLender fixedLender);
 
   /// @notice Event emitted when a user enters a market to use his deposit as collateral for a loan.
@@ -252,9 +247,9 @@ contract Auditor is IAuditor, AccessControl {
     }
 
     // We verify that current liquidity is not short
-    (, uint256 shortfall) = accountLiquidity(borrower, fixedLender, 0);
+    (uint256 collateral, uint256 debt) = accountLiquidity(borrower, fixedLender, 0);
 
-    if (shortfall > 0) revert InsufficientLiquidity();
+    if (collateral < debt) revert InsufficientLiquidity();
   }
 
   /// @dev Function to allow/reject liquidation of assets.
@@ -263,13 +258,11 @@ contract Auditor is IAuditor, AccessControl {
   /// @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
   /// @param liquidator address that is liquidating the assets.
   /// @param borrower address which the assets are being liquidated.
-  /// @param repayAmount to be repaid from the debt (outstanding debt * close factor should be bigger than this value).
   function liquidateAllowed(
     FixedLender fixedLenderBorrowed,
     FixedLender fixedLenderCollateral,
     address liquidator,
-    address borrower,
-    uint256 repayAmount
+    address borrower
   ) external view override {
     if (borrower == liquidator) revert LiquidatorNotBorrower();
 
@@ -277,14 +270,9 @@ contract Auditor is IAuditor, AccessControl {
     if (!markets[fixedLenderBorrowed].isListed || !markets[fixedLenderCollateral].isListed) revert MarketNotListed();
 
     // The borrower must have shortfall in order to be liquidatable
-    (, uint256 shortfall) = accountLiquidity(borrower, FixedLender(address(0)), 0);
+    (uint256 sumCollateral, uint256 sumDebt) = accountLiquidity(borrower, FixedLender(address(0)), 0);
 
-    if (shortfall == 0) revert InsufficientShortfall();
-
-    // The liquidator may not repay more than what is allowed by the CLOSE_FACTOR
-    (, uint256 borrowBalance) = FixedLender(fixedLenderBorrowed).getAccountSnapshot(borrower, PoolLib.MATURITY_ALL);
-    uint256 maxClose = CLOSE_FACTOR.fmul(borrowBalance, 1e18);
-    if (repayAmount > maxClose) revert TooMuchRepay();
+    if (sumCollateral >= sumDebt) revert InsufficientShortfall();
   }
 
   /// @dev Function to allow/reject seizing of assets.
@@ -335,7 +323,8 @@ contract Auditor is IAuditor, AccessControl {
   /// @dev Function to get account's liquidity.
   /// @param account wallet to retrieve liquidity.
   function getAccountLiquidity(address account) external view override returns (uint256, uint256) {
-    return accountLiquidity(account, FixedLender(address(0)), 0);
+    (uint256 sumCollateral, uint256 sumDebt) = accountLiquidity(account, FixedLender(address(0)), 0);
+    return (sumCollateral > sumDebt) ? (sumCollateral - sumDebt, uint256(0)) : (0, sumDebt - sumCollateral);
   }
 
   /// @dev Function to calculate the amount of assets to be seized.
@@ -349,8 +338,8 @@ contract Auditor is IAuditor, AccessControl {
     uint256 actualRepayAmount
   ) external view override returns (uint256) {
     // Read oracle prices for borrowed and collateral markets
-    uint256 priceBorrowed = oracle.getAssetPrice(FixedLender(fixedLenderBorrowed).assetSymbol());
-    uint256 priceCollateral = oracle.getAssetPrice(FixedLender(fixedLenderCollateral).assetSymbol());
+    uint256 priceBorrowed = oracle.getAssetPrice(fixedLenderBorrowed.assetSymbol());
+    uint256 priceCollateral = oracle.getAssetPrice(fixedLenderCollateral.assetSymbol());
 
     uint256 amountInUSD = actualRepayAmount.fmul(priceBorrowed, 10**markets[fixedLenderBorrowed].decimals);
     // 10**18: usd amount decimals
@@ -380,8 +369,8 @@ contract Auditor is IAuditor, AccessControl {
     if ((accountAssets[account] & (1 << markets[fixedLender].index)) == 0) return;
 
     // Otherwise, perform a hypothetical liquidity check to guard against shortfall
-    (, uint256 shortfall) = accountLiquidity(account, fixedLender, amount);
-    if (shortfall > 0) revert InsufficientLiquidity();
+    (uint256 collateral, uint256 debt) = accountLiquidity(account, fixedLender, amount);
+    if (collateral < debt) revert InsufficientLiquidity();
   }
 
   /// @dev Function to get account's liquidity for a certain market/maturity pool.
@@ -392,7 +381,7 @@ contract Auditor is IAuditor, AccessControl {
     address account,
     FixedLender fixedLenderToSimulate,
     uint256 withdrawAmount
-  ) internal view returns (uint256, uint256) {
+  ) internal view returns (uint256 sumCollateral, uint256 sumDebt) {
     AccountLiquidity memory vars; // Holds all our calculation results
 
     // For each asset the account is in
@@ -401,8 +390,8 @@ contract Auditor is IAuditor, AccessControl {
     for (uint256 i = 0; i < maxValue; ) {
       if ((assets & (1 << i)) != 0) {
         FixedLender asset = allMarkets[i];
-        vars.decimals = markets[asset].decimals;
-        vars.collateralFactor = markets[asset].collateralFactor;
+        uint256 decimals = markets[asset].decimals;
+        uint256 collateralFactor = markets[asset].collateralFactor;
 
         // Read the balances
         (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
@@ -411,17 +400,17 @@ contract Auditor is IAuditor, AccessControl {
         vars.oraclePrice = oracle.getAssetPrice(asset.assetSymbol());
 
         // We sum all the collateral prices
-        vars.sumCollateral += vars.balance.fmul(vars.oraclePrice, 10**vars.decimals).fmul(vars.collateralFactor, 1e18);
+        sumCollateral += vars.balance.fmul(vars.oraclePrice, 10**decimals).fmul(collateralFactor, 1e18);
 
         // We sum all the debt
-        vars.sumDebt += vars.borrowBalance.fmul(vars.oraclePrice, 10**vars.decimals);
+        sumDebt += vars.borrowBalance.fmul(vars.oraclePrice, 10**decimals);
 
         // Simulate the effects of borrowing from/lending to a pool
         if (asset == FixedLender(fixedLenderToSimulate)) {
           // Calculate the effects of redeeming fixedLenders
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
-            vars.sumDebt += withdrawAmount.fmul(vars.oraclePrice, 10**vars.decimals).fmul(vars.collateralFactor, 1e18);
+            sumDebt += withdrawAmount.fmul(vars.oraclePrice, 10**decimals).fmul(collateralFactor, 1e18);
           }
         }
       }
@@ -429,13 +418,6 @@ contract Auditor is IAuditor, AccessControl {
         ++i;
       }
       if ((1 << i) > assets) break;
-    }
-
-    // These are safe, as the underflow condition is checked first
-    if (vars.sumCollateral > vars.sumDebt) {
-      return (vars.sumCollateral - vars.sumDebt, 0);
-    } else {
-      return (0, vars.sumDebt - vars.sumCollateral);
     }
   }
 
