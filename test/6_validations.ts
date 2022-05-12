@@ -44,22 +44,10 @@ describe("Validations", function () {
     });
     it("WHEN trying to call liquidateAllowed, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
-        auditor.liquidateAllowed(
-          exactlyEnv.notAnFixedLenderAddress,
-          fixedLender.address,
-          owner.address,
-          user.address,
-          100,
-        ),
+        auditor.liquidateAllowed(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
       await expect(
-        auditor.liquidateAllowed(
-          fixedLender.address,
-          exactlyEnv.notAnFixedLenderAddress,
-          owner.address,
-          user.address,
-          100,
-        ),
+        auditor.liquidateAllowed(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call seizeAllowed, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {

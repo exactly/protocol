@@ -357,11 +357,11 @@ contract PoolAccounting is AccessControl {
   function getAccountBorrows(address who, uint256 maturity) public view returns (uint256 debt) {
     if (maturity == PoolLib.MATURITY_ALL) {
       uint256 encodedMaturities = userMpBorrowed[who];
-      uint32 baseMaturity = uint32(encodedMaturities % (1 << 32));
-      uint224 packedMaturities = uint224(encodedMaturities >> 32);
+      uint256 baseMaturity = encodedMaturities % (1 << 32);
+      uint256 packedMaturities = encodedMaturities >> 32;
       // We calculate all the timestamps using the baseMaturity
       // and the following bits representing the following weeks
-      for (uint224 i = 0; i < 224; ) {
+      for (uint256 i = 0; i < 224; ) {
         if ((packedMaturities & (1 << i)) != 0) {
           debt += getAccountDebt(who, baseMaturity + (i * TSUtils.INTERVAL));
         }
@@ -375,7 +375,7 @@ contract PoolAccounting is AccessControl {
 
   /// @notice Internal function to get the debt + penalties of an account for a certain maturity.
   /// @param who wallet to return debt status for the specified maturity.
-  /// @param maturity amount to be transfered.
+  /// @param maturity amount to be transferred.
   /// @return totalDebt : the total debt denominated in number of tokens.
   function getAccountDebt(address who, uint256 maturity) internal view returns (uint256 totalDebt) {
     PoolLib.Position memory position = mpUserBorrowedAmount[maturity][who];

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "@rari-capital/solmate/src/utils/ReentrancyGuard.sol";
@@ -18,6 +19,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   using SafeTransferLib for ERC20;
 
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+  uint256 public constant CLOSE_FACTOR = 5e17;
 
   string public assetSymbol;
   IAuditor public immutable auditor;
@@ -36,7 +38,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param maturity dateID/poolID/maturity in which the user will be able to collect his deposit + his fee.
   /// @param caller address which deposited the asset.
   /// @param owner address which received the shares.
-  /// @param assets amount of the asset that it was deposited.
+  /// @param assets amount of the asset that were deposited.
   /// @param fee is the extra amount that it will be collected at maturity.
   event DepositAtMaturity(
     uint256 indexed maturity,
@@ -49,8 +51,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @notice Event emitted when a user collects its deposits after maturity.
   /// @param maturity poolID where the user collected its deposits.
   /// @param receiver address which will be collecting the asset.
-  /// @param assets amount of the asset that it was deposited.
-  /// @param assetsDiscounted amount of the asset that it was deposited (in case of early withdrawal).
+  /// @param assets amount of the asset that were deposited.
+  /// @param assetsDiscounted amount of the asset that were deposited (in case of early withdrawal).
   event WithdrawAtMaturity(
     uint256 indexed maturity,
     address caller,
@@ -64,7 +66,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param maturity dateID/poolID/maturity in which the user will have to repay the loan.
   /// @param caller address which borrowed the asset.
   /// @param borrower address which will be collecting the asset.
-  /// @param assets amount of the asset that it was borrowed.
+  /// @param assets amount of the asset that were borrowed.
   /// @param fee amount extra that it will need to be paid at maturity.
   event BorrowAtMaturity(
     uint256 indexed maturity,
@@ -92,12 +94,10 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @notice Event emitted when a user's position had a liquidation.
   /// @param receiver address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
-  /// @param assets amount of the asset that it was repaid.
-  /// @param collateralFixedLender address of the asset that it was seized by the liquidator.
+  /// @param assets amount of the asset that were repaid.
+  /// @param collateralFixedLender address of the asset that were seized by the liquidator.
   /// @param seizedAssets amount seized of the collateral.
-  /// @param maturity poolID where the borrower had an uncollaterized position.
   event LiquidateBorrow(
-    uint256 indexed maturity,
     address indexed receiver,
     address indexed borrower,
     uint256 assets,
@@ -262,28 +262,39 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param borrower wallet that has an outstanding debt for a certain maturity date.
   /// @param assets amount to be repaid by liquidator(msg.sender).
   /// @param collateralFixedLender fixedLender from which the collateral will be seized to give the liquidator.
-  /// @param maturity maturity date for which the position will be liquidated.
   function liquidate(
     address borrower,
     uint256 assets,
     uint256 maxAssetsAllowed,
-    FixedLender collateralFixedLender,
-    uint256 maturity
-  ) external nonReentrant whenNotPaused returns (uint256) {
+    FixedLender collateralFixedLender
+  ) external nonReentrant whenNotPaused returns (uint256 repaidAssets) {
     // reverts on failure
-    auditor.liquidateAllowed(this, collateralFixedLender, msg.sender, borrower, assets);
+    auditor.liquidateAllowed(this, collateralFixedLender, msg.sender, borrower);
 
-    assets = _repay(maturity, assets, maxAssetsAllowed, msg.sender, borrower);
+    assets = Math.min(assets, CLOSE_FACTOR.fmul(getAccountBorrows(borrower, PoolLib.MATURITY_ALL), 1e18));
+
+    uint256 encodedMaturities = userMpBorrowed[borrower];
+    uint256 baseMaturity = encodedMaturities % (1 << 32);
+    uint256 packedMaturities = encodedMaturities >> 32;
+    for (uint224 i = 0; i < 224; ) {
+      if ((packedMaturities & (1 << i)) != 0) {
+        uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
+        uint256 actualRepay = noTransferRepay(maturity, assets, maxAssetsAllowed, msg.sender, borrower);
+        repaidAssets += actualRepay;
+        assets -= actualRepay;
+        maxAssetsAllowed -= actualRepay;
+      }
+      if (assets == 0) break;
+      unchecked {
+        ++i;
+      }
+      if ((1 << i) > packedMaturities) break;
+    }
 
     // reverts on failure
-    uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(this, collateralFixedLender, assets);
+    uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(this, collateralFixedLender, repaidAssets);
 
-    // Revert if borrower collateral token balance < seizeTokens
-    (uint256 balance, ) = collateralFixedLender.getAccountSnapshot(borrower, maturity);
-    if (balance < seizeTokens) revert BalanceExceeded();
-
-    // If this is also the collateral
-    // run seizeInternal to avoid re-entrancy, otherwise make an external call
+    // If this is also the collateral run seizeInternal to avoid re-entrancy, otherwise make an external call.
     // both revert on failure
     if (address(collateralFixedLender) == address(this)) {
       _seize(this, msg.sender, borrower, seizeTokens);
@@ -292,9 +303,9 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     }
 
     // We emit a LiquidateBorrow event
-    emit LiquidateBorrow(maturity, msg.sender, borrower, assets, collateralFixedLender, seizeTokens);
+    emit LiquidateBorrow(msg.sender, borrower, repaidAssets, collateralFixedLender, seizeTokens);
 
-    return assets;
+    asset.safeTransferFrom(msg.sender, address(this), repaidAssets);
   }
 
   /// @notice Public function to seize a certain amount of tokens.
@@ -417,7 +428,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
-    actualRepayAssets = _repay(maturity, assets, maxAssetsAllowed, msg.sender, borrower);
+    actualRepayAssets = noTransferRepay(maturity, assets, maxAssetsAllowed, msg.sender, borrower);
+    asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
   }
 
   /// @dev Gets current snapshot for a wallet in certain maturity.
@@ -435,7 +447,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param assets the amount of debt of the pool that should be paid.
   /// @param maturity the maturity to access the pool.
   /// @return actualRepayAssets the actual amount that was transferred into the protocol.
-  function _repay(
+  function noTransferRepay(
     uint256 maturity,
     uint256 assets,
     uint256 maxAssetsAllowed,
@@ -447,8 +459,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 debtCovered;
     uint256 earningsSP;
     (actualRepayAssets, debtCovered, earningsSP) = repayMP(maturity, borrower, assets, maxAssetsAllowed);
-
-    asset.safeTransferFrom(payer, address(this), actualRepayAssets);
 
     smartPoolBalance += earningsSP;
 
@@ -486,7 +496,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 }
 
-error BalanceExceeded();
 error NotFixedLender();
 error ZeroWithdraw();
 error ZeroRepay();
