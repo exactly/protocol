@@ -33,6 +33,8 @@ const config: Config = {
     liquidationIncentive: 1.1,
     penaltyRatePerDay: 0.02,
     smartPoolReserveFactor: 0.1,
+    dampSpeedUp: 0.0046e18,
+    dampSpeedDown: 0.42e18,
     maxFuturePools: 12,
     accumulatedEarningsSmoothFactor: 2,
     interestRateModel: {
@@ -60,6 +62,8 @@ declare module "hardhat/types/config" {
     liquidationIncentive: number;
     penaltyRatePerDay: number;
     smartPoolReserveFactor: number;
+    dampSpeedUp: number;
+    dampSpeedDown: number;
     maxFuturePools: number;
     accumulatedEarningsSmoothFactor: number;
     interestRateModel: {

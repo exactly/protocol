@@ -183,6 +183,9 @@ describe("FixedLender", function () {
       describe("AND WHEN borrowing 60 DAI from another maturity AND repaying only first debt", () => {
         beforeEach(async () => {
           await fixedLenderDAI.deposit(parseUnits("1000"), maria.address);
+          const { blockNumber } = await tx.wait();
+          const { timestamp } = await provider.getBlock(blockNumber);
+          await provider.send("evm_setNextBlockTimestamp", [timestamp + 218]);
           await fixedLenderDAI.borrowAtMaturity(
             futurePools(2)[1],
             parseUnits("60"),
@@ -439,7 +442,11 @@ describe("FixedLender", function () {
         parseUnits("1.1"),
         parseUnits("1"),
       ]);
-      await fixedLenderDAI.connect(john).deposit(parseUnits("12"), maria.address);
+      const tx = await fixedLenderDAI.connect(john).deposit(parseUnits("12"), maria.address);
+      const { blockNumber } = await tx.wait();
+      const { timestamp } = await provider.getBlock(blockNumber);
+      await provider.send("evm_setNextBlockTimestamp", [timestamp + 218]);
+
       await fixedLenderDAI.borrowAtMaturity(
         futurePools(1)[0],
         parseUnits("6"),
@@ -494,7 +501,10 @@ describe("FixedLender", function () {
     });
     describe("AND John deposited 2388 DAI to the smart pool", () => {
       beforeEach(async () => {
-        await fixedLenderDAI.connect(john).deposit(parseUnits("2388"), maria.address);
+        const tx = await fixedLenderDAI.connect(john).deposit(parseUnits("2388"), maria.address);
+        const { blockNumber } = await tx.wait();
+        const { timestamp } = await provider.getBlock(blockNumber);
+        await provider.send("evm_setNextBlockTimestamp", [timestamp + 218]);
       });
       it("WHEN Maria tries to borrow 2500 DAI, THEN it fails with UtilizationExceeded", async () => {
         await expect(

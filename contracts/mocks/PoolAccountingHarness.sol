@@ -20,8 +20,9 @@ contract PoolAccountingHarness is PoolAccounting {
   constructor(
     InterestRateModel interestRateModel,
     uint256 penaltyRate,
-    uint256 smartPoolReserveFactor
-  ) PoolAccounting(interestRateModel, penaltyRate, smartPoolReserveFactor) {
+    uint256 smartPoolReserveFactor,
+    DampSpeed memory dampSpeed
+  ) PoolAccounting(interestRateModel, penaltyRate, smartPoolReserveFactor, dampSpeed) {
     timestamp = block.timestamp;
   }
 

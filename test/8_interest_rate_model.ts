@@ -336,9 +336,9 @@ describe("InterestRateModel", () => {
           await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "1", "2")).to.not.be.reverted;
         });
       });
-      describe("GIVEN a 12 DAI SP deposit", () => {
+      describe("GIVEN a 1200 DAI SP deposit", () => {
         beforeEach(async () => {
-          await exactlyEnv.depositSP("DAI", "12");
+          await exactlyEnv.depositSP("DAI", "1200");
         });
         it("WHEN borrowing 1 DAI, then it succeeds", async () => {
           await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "1")).to.not.be.reverted;

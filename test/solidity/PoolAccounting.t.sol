@@ -16,7 +16,12 @@ contract PoolAccountingTest is Test, PoolAccounting {
   uint256 internal constant FEE_SP = 0.1e18;
 
   constructor()
-    PoolAccounting(InterestRateModel(address(new MockInterestRateModel(FEE_SP))), 0.02e18 / uint256(1 days), 0)
+    PoolAccounting(
+      InterestRateModel(address(new MockInterestRateModel(FEE_SP))),
+      0.02e18 / uint256(1 days),
+      0,
+      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
+    )
   {} // solhint-disable-line no-empty-blocks, max-line-length
 
   function testAtomicDepositBorrowRepayWithdraw() external {

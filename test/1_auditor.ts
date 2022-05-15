@@ -109,8 +109,8 @@ describe("Auditor from User Space", function () {
 
   it("SetBorrowCap should block borrowing more than the cap on a listed market", async () => {
     await timelockExecute(owner, auditor, "setMarketBorrowCaps", [[fixedLenderDAI.address], [10]]);
-    await dai.approve(fixedLenderDAI.address, 1000);
-    await fixedLenderDAI.deposit(1000, user.address);
+    await dai.approve(fixedLenderDAI.address, 10000);
+    await fixedLenderDAI.deposit(10000, user.address);
     await expect(
       // user tries to borrow more than the cap
       fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 20, 22, user.address, user.address),

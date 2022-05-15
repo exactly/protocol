@@ -106,6 +106,7 @@ export class PoolAccountingEnv {
       mockInterestRateModel.address,
       parseUnits("0.02").div(86_400),
       0,
+      { up: parseUnits("0.0046"), down: parseUnits("0.42") },
     );
     await poolAccountingHarness.deployed();
 
