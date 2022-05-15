@@ -100,7 +100,7 @@ contract Previewer {
         assets,
         pool.borrowed,
         pool.supplied,
-        fixedLender.smartPoolBalance()
+        smartPoolAssetsAverage(fixedLender)
       ),
       1e18
     );
@@ -130,7 +130,7 @@ contract Previewer {
           positionAssets,
           pool.borrowed,
           pool.supplied,
-          fixedLender.smartPoolBalance()
+          smartPoolAssetsAverage(fixedLender)
         ),
       1e18
     );
@@ -263,5 +263,16 @@ contract Previewer {
     unassignedEarnings =
       pool.earningsUnassigned -
       pool.earningsUnassigned.fmul(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
+  }
+
+  function smartPoolAssetsAverage(FixedLender fixedLender) internal view returns (uint256) {
+    (uint256 dampSpeedUp, uint256 dampSpeedDown) = fixedLender.dampSpeed();
+    uint256 dampSpeedFactor = fixedLender.smartPoolBalance() < fixedLender.smartPoolAssetsAverage()
+      ? dampSpeedDown
+      : dampSpeedUp;
+    uint256 averageFactor = Math.min(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate()), 1e18);
+    return
+      fixedLender.smartPoolAssetsAverage().fmul(1e18 - averageFactor, 1e18) +
+      averageFactor.fmul(fixedLender.smartPoolBalance(), 1e18);
   }
 }

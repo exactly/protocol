@@ -2,6 +2,7 @@
 pragma solidity 0.8.13;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { InvalidParameter } from "./Auditor.sol";
@@ -31,6 +32,11 @@ contract PoolAccounting is AccessControl {
     uint256 feeSP;
   }
 
+  struct DampSpeed {
+    uint256 up;
+    uint256 down;
+  }
+
   mapping(uint256 => mapping(address => PoolLib.Position)) public mpUserSuppliedAmount;
   mapping(uint256 => mapping(address => PoolLib.Position)) public mpUserBorrowedAmount;
 
@@ -39,6 +45,9 @@ contract PoolAccounting is AccessControl {
   mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
   uint256 public smartPoolBorrowed;
   uint256 public smartPoolEarningsAccumulator;
+  uint256 public lastAverageUpdate;
+  uint256 public smartPoolAssetsAverage;
+  DampSpeed public dampSpeed;
 
   InterestRateModel public interestRateModel;
 
@@ -57,16 +66,23 @@ contract PoolAccounting is AccessControl {
   /// @param newSmartPoolReserveFactor smartPoolReserveFactor percentage.
   event SmartPoolReserveFactorUpdated(uint256 newSmartPoolReserveFactor);
 
+  /// @notice emitted when the damp speeds are changed by admin.
+  /// @param newDampSpeedUp represented with 1e18 decimals.
+  /// @param newDampSpeedDown represented with 1e18 decimals.
+  event DampSpeedUpdated(uint256 newDampSpeedUp, uint256 newDampSpeedDown);
+
   constructor(
     InterestRateModel _interestRateModel,
     uint256 _penaltyRate,
-    uint256 _smartPoolReserveFactor
+    uint256 _smartPoolReserveFactor,
+    DampSpeed memory _dampSpeed
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     interestRateModel = _interestRateModel;
 
     penaltyRate = _penaltyRate;
     smartPoolReserveFactor = _smartPoolReserveFactor;
+    dampSpeed = _dampSpeed;
   }
 
   /// @notice Sets the interest rate model to be used by this PoolAccounting.
@@ -94,6 +110,15 @@ contract PoolAccounting is AccessControl {
     emit SmartPoolReserveFactorUpdated(_smartPoolReserveFactor);
   }
 
+  /// @notice Sets the damp speed used to update the smartPoolAssetsAverage.
+  /// @dev Values can only be set between 0 and 100%.
+  /// @param dampSpeed_ represented with 18 decimals.
+  function setDampSpeed(DampSpeed memory dampSpeed_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (dampSpeed_.up > 1e18 || dampSpeed_.down > 1e18) revert InvalidParameter();
+    dampSpeed = dampSpeed_;
+    emit DampSpeedUpdated(dampSpeed_.up, dampSpeed_.down);
+  }
+
   /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the
   /// borrower, so the `fixedLender` should call `validateBorrowMP` immediately after calling this function.
   /// @param maturity maturity date / pool id where the asset will be borrowed.
@@ -114,6 +139,7 @@ contract PoolAccounting is AccessControl {
 
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
+    updateSmartPoolAssetsAverage(smartPoolTotalSupply);
     borrowVars.fee = amount.fmul(
       interestRateModel.getRateToBorrow(
         maturity,
@@ -121,7 +147,7 @@ contract PoolAccounting is AccessControl {
         amount,
         pool.borrowed,
         pool.supplied,
-        smartPoolTotalSupply
+        smartPoolAssetsAverage
       ),
       1e18
     );
@@ -218,6 +244,7 @@ contract PoolAccounting is AccessControl {
     // We verify if there are any penalties/fee for him because of
     // early withdrawal - if so: discount
     if (block.timestamp < maturity) {
+      updateSmartPoolAssetsAverage(smartPoolTotalSupply);
       redeemAmountDiscounted = amount.fdiv(
         1e18 +
           interestRateModel.getRateToBorrow(
@@ -226,7 +253,7 @@ contract PoolAccounting is AccessControl {
             amount,
             pool.borrowed,
             pool.supplied,
-            smartPoolTotalSupply
+            smartPoolAssetsAverage
           ),
         1e18
       );
@@ -382,6 +409,17 @@ contract PoolAccounting is AccessControl {
     totalDebt = position.principal + position.fee;
     uint256 secondsDelayed = TSUtils.secondsPre(maturity, block.timestamp);
     if (secondsDelayed > 0) totalDebt += totalDebt.fmul(secondsDelayed * penaltyRate, 1e18);
+  }
+
+  /// @notice Updates the smartPoolAssetsAverage.
+  /// @param smartPoolAssets smart pool total assets.
+  function updateSmartPoolAssetsAverage(uint256 smartPoolAssets) internal {
+    uint256 dampSpeedFactor = smartPoolAssets < smartPoolAssetsAverage ? dampSpeed.down : dampSpeed.up;
+    uint256 averageFactor = Math.min(dampSpeedFactor * (block.timestamp - lastAverageUpdate), 1e18);
+    smartPoolAssetsAverage =
+      smartPoolAssetsAverage.fmul(1e18 - averageFactor, 1e18) +
+      averageFactor.fmul(smartPoolAssets, 1e18);
+    lastAverageUpdate = block.timestamp;
   }
 }
 

@@ -10,6 +10,8 @@ const func: DeployFunction = async ({
       collateralFactor,
       penaltyRatePerDay,
       smartPoolReserveFactor,
+      dampSpeedUp,
+      dampSpeedDown,
       maxFuturePools,
       accumulatedEarningsSmoothFactor,
     },
@@ -35,6 +37,7 @@ const func: DeployFunction = async ({
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
     parseUnits(String(smartPoolReserveFactor)),
+    { up: parseUnits(String(dampSpeedUp)), down: parseUnits(String(dampSpeedDown)) },
   ];
   for (const token of config.tokens) {
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
@@ -71,10 +74,10 @@ const func: DeployFunction = async ({
         parseUnits(String(accumulatedEarningsSmoothFactor)),
       ]);
     }
-    if (!(await fixedLender.penaltyRate()).eq(poolAccountingArgs[1])) {
+    if (!(await fixedLender.penaltyRate()).eq(parseUnits(String(penaltyRatePerDay)).div(86_400))) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
     }
-    if (!(await fixedLender.smartPoolReserveFactor()).eq(poolAccountingArgs[2])) {
+    if (!(await fixedLender.smartPoolReserveFactor()).eq(parseUnits(String(smartPoolReserveFactor)))) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserveFactor", [
         poolAccountingArgs[2],
       ]);
@@ -83,6 +86,12 @@ const func: DeployFunction = async ({
       await executeOrPropose(deployer, timelockController, fixedLender, "setInterestRateModel", [
         interestRateModel.address,
       ]);
+    }
+    if (
+      !(await fixedLender.dampSpeed())[0].eq(parseUnits(String(dampSpeedUp))) ||
+      !(await fixedLender.dampSpeed())[1].eq(parseUnits(String(dampSpeedDown)))
+    ) {
+      await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [poolAccountingArgs[3]]);
     }
 
     const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));

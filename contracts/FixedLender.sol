@@ -127,10 +127,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
-    uint256 smartPoolReserveFactor_
+    uint256 smartPoolReserveFactor_,
+    DampSpeed memory dampSpeed_
   )
     ERC4626(asset_, string(abi.encodePacked("EToken", assetSymbol_)), string(abi.encodePacked("e", assetSymbol_)))
-    PoolAccounting(interestRateModel_, penaltyRate_, smartPoolReserveFactor_)
+    PoolAccounting(interestRateModel_, penaltyRate_, smartPoolReserveFactor_, dampSpeed_)
   {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
@@ -187,6 +188,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   function beforeWithdraw(uint256 assets, uint256) internal override {
+    updateSmartPoolAssetsAverage(smartPoolBalance);
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = block.timestamp;
     smartPoolEarningsAccumulator -= earnings;
@@ -196,6 +198,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   function afterDeposit(uint256 assets, uint256) internal virtual override whenNotPaused {
+    updateSmartPoolAssetsAverage(smartPoolBalance);
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = block.timestamp;
     smartPoolEarningsAccumulator -= earnings;

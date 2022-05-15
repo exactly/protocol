@@ -6,12 +6,13 @@ import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
-import { FixedLender, ERC20 } from "../../contracts/FixedLender.sol";
+import { FixedLender, ERC20, PoolAccounting } from "../../contracts/FixedLender.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 
 contract FixedLenderTest is Test {
+  using FixedPointMathLib for uint256;
   address internal constant BOB = address(69);
   address internal constant ALICE = address(70);
 
@@ -78,7 +79,8 @@ contract FixedLenderTest is Test {
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
-      0
+      0,
+      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
 
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
@@ -178,10 +180,7 @@ contract FixedLenderTest is Test {
 
     // we move to the last second before an interval (7 days) goes by after the maturity passed
     vm.warp(7 days * 2 + 6 days + 23 hours + 59 minutes + 59 seconds);
-    assertTrue(
-      fixedLender.previewDeposit(10_000 ether) != fixedLender.balanceOf(address(this)),
-      "shares received should be less"
-    );
+    assertLt(fixedLender.previewDeposit(10_000 ether), fixedLender.balanceOf(address(this)));
 
     // we move to the instant where an interval went by after the maturity passed
     vm.warp(7 days * 3);
@@ -410,7 +409,8 @@ contract FixedLenderTest is Test {
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
-      0
+      0,
+      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
     uint256 maturity = 7 days * 2;
     mockToken.approve(address(fixedLenderHarness), 50_000 ether);
@@ -442,7 +442,8 @@ contract FixedLenderTest is Test {
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
-      0
+      0,
+      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
     uint256 maturity = 7 days * 2;
     mockToken.approve(address(fixedLenderHarness), 50_000 ether);
@@ -470,7 +471,8 @@ contract FixedLenderTest is Test {
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
-      0
+      0,
+      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
     auditor.enableMarket(fixedLenderWETH, 1e18, "WETH", "WETH", 18);
     FixedLender[] memory markets = new FixedLender[](1);
@@ -496,6 +498,306 @@ contract FixedLenderTest is Test {
     fixedLender.liquidate(address(this), 36_000 ether, 36_000 ether, fixedLenderWETH);
   }
 
+  function testUpdateSmartPoolAssetsAverageWithDampSpeedUp() external {
+    // with a dampSpeedUp of 0.0046 then the average should be equal to the smart pool balance
+    // only after 218 seconds (1 / 0.0046 ~= 218)
+    vm.warp(0);
+    fixedLender.deposit(100 ether, address(this));
+
+    vm.warp(217);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertLt(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolBalance());
+
+    vm.warp(435);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolBalance());
+  }
+
+  function testUpdateSmartPoolAssetsAverageWithDampSpeedDown() external {
+    // with a dampSpeedDown of 0.42 then the average should be equal to the smart pool balance
+    // only after 3 seconds (1 / 0.42 ~= 3)
+    vm.warp(0);
+    fixedLender.deposit(100 ether, address(this));
+
+    vm.warp(218);
+    fixedLender.withdraw(50 ether, address(this), address(this));
+
+    vm.warp(220);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertLt(fixedLender.smartPoolBalance(), fixedLender.smartPoolAssetsAverage());
+
+    vm.warp(223);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolBalance());
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenDepositingRightBeforeEarlyWithdraw() external {
+    uint256 initialBalance = 10 ether;
+    uint256 amount = 1 ether;
+
+    vm.warp(0);
+    fixedLender.deposit(initialBalance, address(this));
+    fixedLender.depositAtMaturity(7 days, amount, amount, address(this));
+
+    vm.warp(218);
+    fixedLender.deposit(100 ether, address(this));
+
+    fixedLender.withdrawAtMaturity(7 days, amount, 0.9 ether, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), initialBalance);
+    assertEq(fixedLender.smartPoolBalance(), 100 ether + initialBalance + amount - (amount.fdiv(1e18 + 0.1e18, 1e18)));
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenDepositingRightBeforeBorrow() external {
+    uint256 initialBalance = 10 ether;
+    vm.warp(0);
+    fixedLender.deposit(initialBalance, address(this));
+
+    vm.warp(218);
+    fixedLender.deposit(100 ether, address(this));
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), initialBalance);
+    assertEq(fixedLender.smartPoolBalance(), 100 ether + initialBalance);
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenDepositingSomeSecondsBeforeBorrow() external {
+    vm.warp(0);
+    fixedLender.deposit(10 ether, address(this));
+
+    vm.warp(218);
+    fixedLender.deposit(100 ether, address(this));
+
+    vm.warp(250);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    (uint256 dampSpeedUp, ) = fixedLender.dampSpeed();
+    uint256 supplyAverageFactor = dampSpeedUp * (250 - 218);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(10 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 24.72 ether);
+
+    vm.warp(280);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    supplyAverageFactor = dampSpeedUp * (280 - 250);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(24.72 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 36.48864 ether);
+
+    vm.warp(498);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolBalance());
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenDepositingAndBorrowingContinuously() external {
+    vm.warp(0);
+    fixedLender.deposit(10 ether, address(this));
+
+    vm.warp(218);
+    fixedLender.deposit(100 ether, address(this));
+
+    vm.warp(219);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), 10.46 ether);
+
+    vm.warp(220);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), 10.917884 ether);
+
+    vm.warp(221);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), 11.3736617336 ether);
+
+    vm.warp(222);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), 11.82734288962544 ether);
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenDepositingAndWithdrawingEarlyContinuously() external {
+    vm.warp(0);
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
+
+    vm.warp(218);
+    fixedLender.deposit(100 ether, address(this));
+
+    vm.warp(219);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), 10.46 ether);
+
+    vm.warp(220);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), 10.917884 ether);
+
+    vm.warp(221);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), 11.3736617336 ether);
+
+    vm.warp(222);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), 11.82734288962544 ether);
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenWithdrawingRightBeforeBorrow() external {
+    uint256 initialBalance = 10 ether;
+    vm.warp(0);
+    fixedLender.deposit(initialBalance, address(this));
+
+    vm.warp(218);
+    fixedLender.withdraw(5 ether, address(this), address(this));
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), initialBalance);
+    assertEq(fixedLender.smartPoolBalance(), initialBalance - 5 ether);
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenWithdrawingRightBeforeEarlyWithdraw() external {
+    uint256 initialBalance = 10 ether;
+    uint256 amount = 1 ether;
+    vm.warp(0);
+    fixedLender.deposit(initialBalance, address(this));
+    fixedLender.depositAtMaturity(7 days, amount, amount, address(this));
+
+    vm.warp(218);
+    fixedLender.withdraw(5 ether, address(this), address(this));
+    fixedLender.withdrawAtMaturity(7 days, amount, 0.9 ether, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), initialBalance);
+    assertEq(fixedLender.smartPoolBalance(), initialBalance - 5 ether + amount - (amount.fdiv(1e18 + 0.1e18, 1e18)));
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenWithdrawingSomeSecondsBeforeBorrow() external {
+    vm.warp(0);
+    fixedLender.deposit(10 ether, address(this));
+
+    vm.warp(218);
+    fixedLender.withdraw(5 ether, address(this), address(this));
+
+    vm.warp(219);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    (, uint256 dampSpeedDown) = fixedLender.dampSpeed();
+    uint256 supplyAverageFactor = dampSpeedDown * (220 - 219);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(10 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 7.9 ether);
+
+    vm.warp(221);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    supplyAverageFactor = dampSpeedDown * (221 - 219);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(7.9 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 5.464 ether);
+
+    vm.warp(223);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    supplyAverageFactor = dampSpeedDown * (223 - 221);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(5.464 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 5.07424 ether);
+
+    vm.warp(226);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolBalance());
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenWithdrawingSomeSecondsBeforeEarlyWithdraw() external {
+    vm.warp(0);
+    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    fixedLender.deposit(10 ether, address(this));
+
+    vm.warp(218);
+    fixedLender.withdraw(5 ether, address(this), address(this));
+
+    vm.warp(219);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    (, uint256 dampSpeedDown) = fixedLender.dampSpeed();
+    uint256 supplyAverageFactor = dampSpeedDown * (220 - 219);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(10 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 7.9 ether);
+
+    vm.warp(221);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    supplyAverageFactor = dampSpeedDown * (221 - 219);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(7.9 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 5.464 ether);
+
+    vm.warp(223);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    supplyAverageFactor = dampSpeedDown * (223 - 221);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(5.464 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 5.07424 ether);
+
+    vm.warp(226);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolBalance());
+  }
+
+  function testUpdateSmartPoolAssetsAverageWhenWithdrawingBeforeEarlyWithdrawsAndBorrows() external {
+    vm.warp(0);
+    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    fixedLender.deposit(10 ether, address(this));
+
+    vm.warp(218);
+    fixedLender.withdraw(5 ether, address(this), address(this));
+
+    vm.warp(219);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    (, uint256 dampSpeedDown) = fixedLender.dampSpeed();
+    uint256 supplyAverageFactor = dampSpeedDown * (220 - 219);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(10 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 7.9 ether);
+
+    vm.warp(221);
+    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    supplyAverageFactor = dampSpeedDown * (221 - 219);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(7.9 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 5.464 ether);
+
+    vm.warp(223);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    supplyAverageFactor = dampSpeedDown * (223 - 221);
+    assertEq(
+      fixedLender.smartPoolAssetsAverage(),
+      uint256(5.464 ether).fmul(1e18 - supplyAverageFactor, 1e18) +
+        supplyAverageFactor.fmul(fixedLender.smartPoolBalance(), 1e18)
+    );
+    assertEq(fixedLender.smartPoolAssetsAverage(), 5.07424 ether);
+
+    vm.warp(226);
+    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolBalance());
+  }
+
   function testMultipleBorrowsForMultipleAssets() external {
     vm.warp(0);
     FixedLender[4] memory fixedLenders;
@@ -511,7 +813,8 @@ contract FixedLenderTest is Test {
         auditor,
         InterestRateModel(address(mockInterestRateModel)),
         0.02e18 / uint256(1 days),
-        0
+        0,
+        PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
       );
       auditor.enableMarket(newFixedLender, 0.8e18, tokenName, tokenName, 18);
       mockOracle.setPrice(tokenName, 1e18);
@@ -573,7 +876,8 @@ contract FixedLenderHarness is FixedLender {
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
-    uint256 smartPoolReserveFactor_
+    uint256 smartPoolReserveFactor_,
+    DampSpeed memory dampSpeed_
   )
     FixedLender(
       asset_,
@@ -583,7 +887,8 @@ contract FixedLenderHarness is FixedLender {
       auditor_,
       interestRateModel_,
       penaltyRate_,
-      smartPoolReserveFactor_
+      smartPoolReserveFactor_,
+      dampSpeed_
     )
   {}
 
