@@ -2,7 +2,7 @@
 pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
-import { DSTestPlus } from "@rari-capital/solmate/src/test/utils/DSTestPlus.sol";
+import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
@@ -11,12 +11,11 @@ import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { FixedLender } from "../../contracts/FixedLender.sol";
 import { Previewer } from "../../contracts/periphery/Previewer.sol";
 
-contract PreviewerTest is DSTestPlus {
+contract PreviewerTest is Test {
   using FixedPointMathLib for uint256;
   address internal constant BOB = address(69);
   address internal constant ALICE = address(70);
 
-  Vm internal vm = Vm(HEVM_ADDRESS);
   FixedLender internal fixedLender;
   Previewer internal previewer;
   MockToken internal mockToken;
@@ -44,7 +43,7 @@ contract PreviewerTest is DSTestPlus {
     vm.prank(ALICE);
     mockToken.approve(address(fixedLender), 50_000 ether);
 
-    previewer = new Previewer();
+    previewer = new Previewer(auditor);
   }
 
   function testPreviewDepositAtMaturityReturningAccurateAmount() external {
@@ -429,7 +428,7 @@ contract PreviewerTest is DSTestPlus {
     fixedLender.deposit(10 ether, address(this));
     fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
 
-    (uint256 sumCollateral, uint256 sumDebt) = previewer.accountLiquidity(auditor, address(this));
+    (uint256 sumCollateral, uint256 sumDebt) = previewer.accountLiquidity(address(this));
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
 
     assertEq(sumCollateral, realCollateral);
@@ -458,43 +457,81 @@ contract PreviewerTest is DSTestPlus {
     fixedLender.borrowAtMaturity(7 days, 1.321 ether, 2 ether, address(this), address(this));
     fixedLender.deposit(2 ether, address(this));
 
-    (uint256 sumCollateral, uint256 sumDebt) = previewer.accountLiquidity(auditor, address(this));
+    (uint256 sumCollateral, uint256 sumDebt) = previewer.accountLiquidity(address(this));
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
 
     fixedLenderWETH.deposit(100 ether, address(this));
-    (sumCollateral, sumDebt) = previewer.accountLiquidity(auditor, address(this));
+    (sumCollateral, sumDebt) = previewer.accountLiquidity(address(this));
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
 
     FixedLender[] memory fixedLenders = new FixedLender[](1);
     fixedLenders[0] = fixedLenderWETH;
     auditor.enterMarkets(fixedLenders);
-    (sumCollateral, sumDebt) = previewer.accountLiquidity(auditor, address(this));
+    (sumCollateral, sumDebt) = previewer.accountLiquidity(address(this));
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
 
     mockOracle.setPrice("WETH", 2800e18);
     fixedLenderWETH.borrowAtMaturity(14 days, 33 ether, 40 ether, address(this), address(this));
-    (sumCollateral, sumDebt) = previewer.accountLiquidity(auditor, address(this));
+    (sumCollateral, sumDebt) = previewer.accountLiquidity(address(this));
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
 
     mockOracle.setPrice("WETH", 1831e18);
-    (sumCollateral, sumDebt) = previewer.accountLiquidity(auditor, address(this));
+    (sumCollateral, sumDebt) = previewer.accountLiquidity(address(this));
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
   }
 
   function testAccountLiquidityWithNewAccount() external {
-    (uint256 sumCollateral, uint256 sumDebt) = previewer.accountLiquidity(auditor, address(this));
+    (uint256 sumCollateral, uint256 sumDebt) = previewer.accountLiquidity(address(this));
 
     assertEq(sumCollateral, 0);
     assertEq(sumDebt, 0);
   }
 
+  function testAccountDataWithAccountThatHasBalances() external {
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
+    (uint256 principal, uint256 fees) = fixedLender.mpUserBorrowedAmount(7 days, address(this));
+
+    Previewer.AccountMarketData[] memory data = previewer.accountData(address(this));
+
+    assertEq(data[0].smartPoolAssets, 10 ether);
+    assertEq(data[0].borrowedAssets, principal + fees);
+    assertEq(data[0].oraclePrice, 1e18);
+    assertEq(data[0].collateralFactor, 0.8e18);
+    assertEq(data[0].decimals, 18);
+    assertEq(data[0].isCollateral, true);
+  }
+
+  function testAccountDataWithAccountOnlyDeposit() external {
+    fixedLender.deposit(10 ether, address(this));
+    Previewer.AccountMarketData[] memory data = previewer.accountData(address(this));
+
+    assertEq(data[0].smartPoolAssets, 10 ether);
+    assertEq(data[0].borrowedAssets, 0);
+    assertEq(data[0].oraclePrice, 1e18);
+    assertEq(data[0].collateralFactor, 0.8e18);
+    assertEq(data[0].decimals, 18);
+    assertEq(data[0].isCollateral, false);
+  }
+
+  function testAccountDataWithEmptyAccount() external {
+    Previewer.AccountMarketData[] memory data = previewer.accountData(address(this));
+
+    assertEq(data[0].smartPoolAssets, 0);
+    assertEq(data[0].borrowedAssets, 0);
+    assertEq(data[0].oraclePrice, 1e18);
+    assertEq(data[0].collateralFactor, 0.8e18);
+    assertEq(data[0].decimals, 18);
+    assertEq(data[0].isCollateral, false);
+  }
+
   function testAccountLiquidityWithoutCollateral() external {
     fixedLender.deposit(10 ether, address(this));
-    (uint256 sumCollateral, ) = previewer.accountLiquidity(auditor, address(this));
+    (uint256 sumCollateral, ) = previewer.accountLiquidity(address(this));
 
     assertEq(sumCollateral, 0);
   }
