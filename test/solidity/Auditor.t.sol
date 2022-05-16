@@ -4,7 +4,7 @@ pragma solidity 0.8.13;
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
-import { Auditor, IAuditor, FixedLender, IOracle } from "../../contracts/Auditor.sol";
+import { Auditor, FixedLender, ExactlyOracle } from "../../contracts/Auditor.sol";
 
 contract AuditorTest is Test {
   using FixedPointMathLib for uint256;
@@ -18,7 +18,7 @@ contract AuditorTest is Test {
   event BorrowCapUpdated(FixedLender indexed fixedLender, uint256 borrowCapUpdated);
 
   function setUp() external {
-    auditor = new Auditor(IOracle(address(new MockOracle())), 1.1e18);
+    auditor = new Auditor(ExactlyOracle(address(new MockOracle())), 1.1e18);
     fixedLender = new MockFixedLender(auditor);
   }
 
@@ -56,16 +56,16 @@ contract AuditorTest is Test {
     vm.expectEmit(true, false, false, true);
     emit MarketEntered(FixedLender(address(fixedLender)), address(this));
     auditor.enterMarkets(markets);
-    (uint256 balance, uint256 borrowed) = auditor.getAccountLiquidity(address(this));
-    assertEq(balance, uint256(1 ether).fmul(0.8e18, 1e18));
-    assertEq(borrowed, 0);
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
+    assertEq(collateral, uint256(1 ether).fmul(0.8e18, 1e18));
+    assertEq(debt, 0);
 
     vm.expectEmit(true, false, false, true);
     emit MarketExited(FixedLender(address(fixedLender)), address(this));
     auditor.exitMarket(FixedLender(address(fixedLender)));
-    (balance, borrowed) = auditor.getAccountLiquidity(address(this));
-    assertEq(balance, 0);
-    assertEq(borrowed, 0);
+    (collateral, debt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
+    assertEq(collateral, 0);
+    assertEq(debt, 0);
   }
 
   function testEnableEnterExitMultipleMarkets() external {
@@ -159,16 +159,16 @@ contract AuditorTest is Test {
 
 contract MockFixedLender {
   string public assetSymbol = "X";
-  IAuditor public auditor;
+  Auditor public auditor;
   uint256 internal balance;
   uint256 internal borrowed;
 
-  constructor(IAuditor auditor_) {
+  constructor(Auditor auditor_) {
     auditor = auditor_;
   }
 
   function setAuditor(address auditor_) external {
-    auditor = IAuditor(auditor_);
+    auditor = Auditor(auditor_);
   }
 
   function setBalance(uint256 balance_) external {

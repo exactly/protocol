@@ -6,6 +6,7 @@ import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
 const {
+  constants: { AddressZero },
   utils: { parseUnits },
   getUnnamedSigners,
   getNamedSigner,
@@ -75,10 +76,10 @@ describe("Liquidity computations", function () {
       });
 
       it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
-        const [liquidity, shortfall] = await auditor.getAccountLiquidity(laura.address);
+        const [collateral, debt] = await auditor.accountLiquidity(laura.address, AddressZero, 0);
 
-        expect(liquidity).to.equal(parseUnits("800"));
-        expect(shortfall).to.equal(parseUnits("0"));
+        expect(collateral).to.equal(parseUnits("800"));
+        expect(debt).to.equal(parseUnits("0"));
       });
       // TODO: a test where the supply interest is != 0, see if there's an error like the one described in this commit
       it("AND she has zero debt and is owed 1000DAI", async () => {
@@ -133,9 +134,8 @@ describe("Liquidity computations", function () {
           );
         });
         it("THEN lauras liquidity is zero, AND she has no shortfall", async () => {
-          const [liquidity, shortfall] = await auditor.getAccountLiquidity(laura.address);
-          expect(liquidity).to.equal(0);
-          expect(shortfall).to.equal(0);
+          const [collateral, debt] = await auditor.accountLiquidity(laura.address, AddressZero, 0);
+          expect(collateral).to.equal(debt);
         });
         it("AND she has 799+interest debt and is owed 1000DAI", async () => {
           const [supplied, borrowed] = await fixedLenderDAI.getAccountSnapshot(laura.address, futurePools(1)[0]);
@@ -184,9 +184,8 @@ describe("Liquidity computations", function () {
             .borrowAtMaturity(futurePools(1)[0], parseUnits("7000"), parseUnits("7000"), bob.address, bob.address);
         });
         it("THEN bob has 1k usd liquidity and no shortfall", async () => {
-          const [liquidity, shortfall] = await auditor.getAccountLiquidity(bob.address);
-          expect(liquidity).to.equal(parseUnits("1000"));
-          expect(shortfall).to.equal(parseUnits("0"));
+          const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
+          expect(collateral.sub(debt)).to.equal(parseUnits("1000"));
         });
         describe("AND WHEN moving to five days after the maturity date", () => {
           beforeEach(async () => {
@@ -196,7 +195,7 @@ describe("Liquidity computations", function () {
           });
           it("THEN 5 days of *daily* base rate interest is charged, adding 0.02*5 =10% interest to the debt", async () => {
             await provider.send("evm_mine", []);
-            const [liquidity, shortfall] = await auditor.getAccountLiquidity(bob.address);
+            const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
             // Based on the events emitted, we calculate the liquidity
             // This is because we need to take into account the fixed rates
             // that the borrow and the lent got at the time of the transaction
@@ -206,8 +205,7 @@ describe("Liquidity computations", function () {
               totalBorrowAmount.mul(2).mul(5).div(100), // 2% * 5 days
             );
             // TODO: this should equal
-            expect(liquidity).to.be.lt(calculatedLiquidity);
-            expect(shortfall).to.equal(parseUnits("0"));
+            expect(collateral.sub(debt)).to.be.lt(calculatedLiquidity);
           });
           describe("AND WHEN moving to fifteen days after the maturity date", () => {
             beforeEach(async () => {
@@ -217,7 +215,7 @@ describe("Liquidity computations", function () {
             });
             it("THEN 15 days of *daily* base rate interest is charged, adding 0.02*15 =35% interest to the debt, causing a shortfall", async () => {
               await provider.send("evm_mine", []);
-              const [liquidity, shortfall] = await auditor.getAccountLiquidity(bob.address);
+              const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
               // Based on the events emitted, we calculate the liquidity
               // This is because we need to take into account the fixed rates
               // that the borrow and the lent got at the time of the transaction
@@ -226,8 +224,7 @@ describe("Liquidity computations", function () {
               const calculatedShortfall = totalSupplyAmount.sub(
                 totalBorrowAmount.mul(2).mul(15).div(100), // 2% * 15 days
               );
-              expect(shortfall).to.be.lt(calculatedShortfall);
-              expect(liquidity).to.equal(parseUnits("0"));
+              expect(debt.sub(collateral)).to.be.lt(calculatedShortfall);
             });
           });
         });
@@ -257,8 +254,8 @@ describe("Liquidity computations", function () {
           await fixedLenderWBTC.connect(bob).deposit(1, bob.address);
         });
         it("THEN bobs liquidity is 63000 * 0.6 * 10 ^ - 8 usd == 3.78*10^14 minimal usd units", async () => {
-          const [liquidity] = await auditor.getAccountLiquidity(bob.address);
-          expect(liquidity).to.equal(parseUnits("3.78", 14));
+          const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
+          expect(collateral.sub(debt)).to.equal(parseUnits("3.78", 14));
         });
         it("AND WHEN he tries to take a 4*10^14 usd USDC loan, THEN it reverts", async () => {
           // We expect liquidity to be equal to zero
@@ -273,8 +270,8 @@ describe("Liquidity computations", function () {
               .borrowAtMaturity(futurePools(1)[0], "300", "300", bob.address, bob.address);
           });
           it("THEN he has 7.8*10^13 usd left of liquidity", async () => {
-            const [liquidity] = await auditor.getAccountLiquidity(bob.address);
-            expect(liquidity).to.equal(parseUnits("7.8", 13));
+            const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
+            expect(collateral.sub(debt)).to.equal(parseUnits("7.8", 13));
           });
         });
       });

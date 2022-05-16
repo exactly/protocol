@@ -9,9 +9,9 @@ import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPoint
 
 import { ERC4626, ERC20, SafeTransferLib } from "@rari-capital/solmate/src/mixins/ERC4626.sol";
 import { PoolLib, InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
-import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
+import { Auditor, InvalidParameter } from "./Auditor.sol";
+import { InterestRateModel } from "./InterestRateModel.sol";
 import { PoolAccounting } from "./PoolAccounting.sol";
-import { IAuditor, InvalidParameter } from "./interfaces/IAuditor.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 
 contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard, Pausable {
@@ -22,7 +22,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   uint256 public constant CLOSE_FACTOR = 5e17;
 
   string public assetSymbol;
-  IAuditor public immutable auditor;
+  Auditor public immutable auditor;
 
   uint8 public maxFuturePools; // If value is 12 and INTERVAL 7 days, then furthest maturity is in 3 months
   uint256 public accumulatedEarningsSmoothFactor;
@@ -101,7 +101,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     address indexed receiver,
     address indexed borrower,
     uint256 assets,
-    FixedLender collateralFixedLender,
+    FixedLender indexed collateralFixedLender,
     uint256 seizedAssets
   );
 
@@ -109,7 +109,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param liquidator address which seized this collateral.
   /// @param borrower address which had the original debt.
   /// @param assets amount seized of the collateral.
-  event AssetSeized(address liquidator, address borrower, uint256 assets);
+  event AssetSeized(address indexed liquidator, address indexed borrower, uint256 assets);
 
   /// @notice emitted when the accumulatedEarningsSmoothFactor is changed by admin.
   /// @param newAccumulatedEarningsSmoothFactor factor represented with 1e18 decimals.
@@ -124,8 +124,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     string memory assetSymbol_,
     uint8 maxFuturePools_,
     uint256 accumulatedEarningsSmoothFactor_,
-    IAuditor auditor_,
-    IInterestRateModel interestRateModel_,
+    Auditor auditor_,
+    InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
     uint256 smartPoolReserveFactor_
   )
@@ -256,10 +256,10 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     _unpause();
   }
 
-  /// @notice Function to liquidate an uncollaterized position.
-  /// @dev Msg.sender liquidates a borrower's position and repays a certain amount of debt for a maturity date,
+  /// @notice Function to liquidate uncollaterized position(s).
+  /// @dev Msg.sender liquidates borrower's position(s) and repays a certain amount of debt for multiple maturities,
   /// seizing a part of borrower's collateral.
-  /// @param borrower wallet that has an outstanding debt for a certain maturity date.
+  /// @param borrower wallet that has an outstanding debt across all maturities.
   /// @param assets amount to be repaid by liquidator(msg.sender).
   /// @param collateralFixedLender fixedLender from which the collateral will be seized to give the liquidator.
   function liquidate(
@@ -440,13 +440,13 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     return (maxWithdraw(who), getAccountBorrows(who, maturity));
   }
 
-  /// @notice This function allows to (partially) repay a position.
+  /// @notice This function allows to (partially) repay a position. It does not transfer tokens.
   /// @dev Internal repay function, allows partial repayment.
   /// @param payer the address of the account that will pay the debt.
   /// @param borrower the address of the account that has the debt.
   /// @param assets the amount of debt of the pool that should be paid.
   /// @param maturity the maturity to access the pool.
-  /// @return actualRepayAssets the actual amount that was transferred into the protocol.
+  /// @return actualRepayAssets the actual amount that should be transferred into the protocol.
   function noTransferRepay(
     uint256 maturity,
     uint256 assets,

@@ -5,16 +5,10 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 
-import { InvalidParameter } from "./interfaces/IAuditor.sol";
+import { InvalidParameter } from "./Auditor.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
-import {
-  IInterestRateModel,
-  AlreadyMatured,
-  InvalidAmount,
-  UtilizationExceeded
-} from "./interfaces/IInterestRateModel.sol";
 
-contract InterestRateModel is IInterestRateModel, AccessControl {
+contract InterestRateModel is AccessControl {
   using PoolLib for PoolLib.MaturityPool;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
@@ -83,7 +77,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 suppliedSP,
     uint256 unassignedEarnings,
     uint256 amount
-  ) external view override returns (uint256 earningsShare, uint256 earningsShareSP) {
+  ) external view returns (uint256 earningsShare, uint256 earningsShareSP) {
     if (suppliedSP != 0) {
       // User can't make more fees after the total borrowed amount
       earningsShare = unassignedEarnings.mulDivDown(Math.min(amount, suppliedSP), suppliedSP);
@@ -140,7 +134,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     uint256 borrowedMP,
     uint256 suppliedMP,
     uint256 totalSupplySP
-  ) public view override returns (uint256) {
+  ) public view returns (uint256) {
     if (currentDate >= maturity) revert AlreadyMatured();
 
     uint256 supplied = suppliedMP + totalSupplySP.divWadDown(fullUtilization);
@@ -170,3 +164,7 @@ contract InterestRateModel is IInterestRateModel, AccessControl {
     return uint256(r);
   }
 }
+
+error AlreadyMatured();
+error InvalidAmount();
+error UtilizationExceeded();

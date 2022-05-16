@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { PoolAccounting, IInterestRateModel } from "../PoolAccounting.sol";
+import { PoolAccounting, InterestRateModel } from "../PoolAccounting.sol";
 import { FixedLender } from "../FixedLender.sol";
 
 contract PoolAccountingHarness is PoolAccounting {
@@ -18,7 +18,7 @@ contract PoolAccountingHarness is PoolAccounting {
   uint256 public timestamp;
 
   constructor(
-    IInterestRateModel interestRateModel,
+    InterestRateModel interestRateModel,
     uint256 penaltyRate,
     uint256 smartPoolReserveFactor
   ) PoolAccounting(interestRateModel, penaltyRate, smartPoolReserveFactor) {

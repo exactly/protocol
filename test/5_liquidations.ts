@@ -179,8 +179,8 @@ describe("Liquidations", function () {
           });
 
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
-            const shortfall = (await auditor.getAccountLiquidity(alice.address))[1];
-            expect(shortfall).to.eq(parseUnits("1050"));
+            const [collateral, debt] = await auditor.accountLiquidity(alice.address, ethers.constants.AddressZero, 0);
+            expect(debt.sub(collateral)).to.eq(parseUnits("1050"));
           });
 
           describe("AND WHEN a liquidator repays the max amount (19kDAI)", () => {
@@ -192,8 +192,8 @@ describe("Liquidations", function () {
             });
 
             it("THEN alice no longer has a liquidity shortfall", async () => {
-              const shortfall = (await auditor.getAccountLiquidity(alice.address))[1];
-              expect(shortfall).to.eq(0);
+              const [collateral, debt] = await auditor.accountLiquidity(alice.address, ethers.constants.AddressZero, 0);
+              expect(debt).to.lt(collateral);
             });
 
             it("AND the liquidator seized 19k + 10% = 20900 of collateral (WBTC)", async () => {
@@ -206,7 +206,8 @@ describe("Liquidations", function () {
             // liquidity: (1-0.33174603)*0.6*63000+1500*0.7 = 26310.000066000
             // 5410
             it("AND she has some liquidity", async () => {
-              const liquidity = (await auditor.getAccountLiquidity(alice.address))[0];
+              const [collateral, debt] = await auditor.accountLiquidity(alice.address, ethers.constants.AddressZero, 0);
+              const liquidity = collateral.sub(debt);
               expect(liquidity).to.be.lt(parseUnits("5410.1"));
               expect(liquidity).to.be.gt(parseUnits("5410"));
             });
@@ -271,12 +272,12 @@ describe("Liquidations", function () {
 
         it("THEN alices liquidity is zero", async () => {
           // We expect liquidity to be equal to zero
-          const liquidityAfterOracleChange = (await auditor.getAccountLiquidity(alice.address))[0];
-          expect(liquidityAfterOracleChange).to.be.lt("1");
+          const [collateral, debt] = await auditor.accountLiquidity(alice.address, ethers.constants.AddressZero, 0);
+          expect(collateral.sub(debt)).to.be.lt("1");
         });
         it("AND alice has a big (18k) liquidity shortfall", async () => {
-          const shortfall = (await auditor.getAccountLiquidity(alice.address))[1];
-          expect(shortfall).to.eq(parseUnits("18300"));
+          const [collateral, debt] = await auditor.accountLiquidity(alice.address, ethers.constants.AddressZero, 0);
+          expect(debt.sub(collateral)).to.eq(parseUnits("18300"));
         });
 
         it("AND trying to repay an amount of zero fails", async () => {

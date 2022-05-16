@@ -7,6 +7,7 @@ import futurePools from "./utils/futurePools";
 import USD_ADDRESS from "./utils/USD_ADDRESS";
 
 const {
+  constants: { AddressZero },
   utils: { parseUnits },
   getUnnamedSigners,
   getNamedSigner,
@@ -139,12 +140,12 @@ describe("Auditor from User Space", function () {
     // we make it count as collateral (WETH)
     await auditor.enterMarkets([fixedLenderWETH.address]);
 
-    const [liquidity] = await auditor.getAccountLiquidity(user.address);
+    const [collateral] = await auditor.accountLiquidity(user.address, AddressZero, 0);
     const [, , , collateralRateDAI] = await auditor.getMarketData(fixedLenderDAI.address);
     const [, , , collateralRateWETH] = await auditor.getMarketData(fixedLenderWETH.address);
     const collateralDAI = amountDAI.mul(collateralRateDAI).div(parseUnits("1"));
     const collateralETH = amountETH.mul(collateralRateWETH).div(parseUnits("1")).mul(1_000);
-    expect(liquidity).to.equal(collateralDAI.add(collateralETH));
+    expect(collateral).to.equal(collateralDAI.add(collateralETH));
   });
 
   it("Contract's state variable accountAssets should correctly add and remove the asset which the user entered and exited as collateral", async () => {
@@ -161,7 +162,7 @@ describe("Auditor from User Space", function () {
     // we make it count as collateral (DAI)
     await auditor.enterMarkets([fixedLenderDAI.address]);
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
-    await expect(auditor.getAccountLiquidity(user.address)).to.revertedWith("InvalidPrice()");
+    await expect(auditor.accountLiquidity(user.address, AddressZero, 0)).to.revertedWith("InvalidPrice()");
   });
 
   it("Get data from correct market", async () => {

@@ -4,9 +4,9 @@ pragma solidity 0.8.13;
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
-import { PoolLib } from "../../contracts/utils/PoolLib.sol";
-import { PoolAccounting } from "../../contracts/PoolAccounting.sol";
+import { PoolAccounting, InterestRateModel } from "../../contracts/PoolAccounting.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
+import { PoolLib } from "../../contracts/utils/PoolLib.sol";
 
 contract PoolAccountingTest is Test, PoolAccounting {
   using FixedPointMathLib for uint256;
@@ -15,7 +15,9 @@ contract PoolAccountingTest is Test, PoolAccounting {
   uint256 internal constant FEE_MP = 0.01e18;
   uint256 internal constant FEE_SP = 0.1e18;
 
-  constructor() PoolAccounting(new MockInterestRateModel(FEE_SP), 0.02e18 / uint256(1 days), 0) {} // solhint-disable-line no-empty-blocks, max-line-length
+  constructor()
+    PoolAccounting(InterestRateModel(address(new MockInterestRateModel(FEE_SP))), 0.02e18 / uint256(1 days), 0)
+  {} // solhint-disable-line no-empty-blocks, max-line-length
 
   function testAtomicDepositBorrowRepayWithdraw() external {
     depositMP(POOL_ID, address(this), 1 ether, 0 ether);

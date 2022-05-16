@@ -5,11 +5,11 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
+import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
+import { FixedLender, ERC20 } from "../../contracts/FixedLender.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
-import { Auditor } from "../../contracts/Auditor.sol";
 import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
-import { FixedLender, ERC20, IAuditor, IInterestRateModel } from "../../contracts/FixedLender.sol";
 
 contract FixedLenderTest is Test {
   address internal constant BOB = address(69);
@@ -58,7 +58,7 @@ contract FixedLenderTest is Test {
     address indexed receiver,
     address indexed borrower,
     uint256 assets,
-    FixedLender collateralFixedLender,
+    FixedLender indexed collateralFixedLender,
     uint256 seizedAssets
   );
 
@@ -66,7 +66,7 @@ contract FixedLenderTest is Test {
     MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
     mockOracle = new MockOracle();
     mockOracle.setPrice("DAI", 1e18);
-    auditor = new Auditor(mockOracle, 1.1e18);
+    auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
     mockInterestRateModel = new MockInterestRateModel(0.1e18);
     mockInterestRateModel.setSPFeeRate(1e17);
 
@@ -76,7 +76,7 @@ contract FixedLenderTest is Test {
       12,
       1e18,
       auditor,
-      mockInterestRateModel,
+      InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
       0
     );
@@ -408,7 +408,7 @@ contract FixedLenderTest is Test {
       12,
       1e18,
       auditor,
-      mockInterestRateModel,
+      InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
       0
     );
@@ -440,7 +440,7 @@ contract FixedLenderTest is Test {
       12,
       1e18,
       auditor,
-      mockInterestRateModel,
+      InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
       0
     );
@@ -468,7 +468,7 @@ contract FixedLenderTest is Test {
       12,
       1e18,
       auditor,
-      mockInterestRateModel,
+      InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
       0
     );
@@ -509,7 +509,7 @@ contract FixedLenderTest is Test {
         12,
         1e18,
         auditor,
-        mockInterestRateModel,
+        InterestRateModel(address(mockInterestRateModel)),
         0.02e18 / uint256(1 days),
         0
       );
@@ -570,8 +570,8 @@ contract FixedLenderHarness is FixedLender {
     string memory assetSymbol_,
     uint8 maxFuturePools_,
     uint256 accumulatedEarningsSmoothFactor_,
-    IAuditor auditor_,
-    IInterestRateModel interestRateModel_,
+    Auditor auditor_,
+    InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
     uint256 smartPoolReserveFactor_
   )

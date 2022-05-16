@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { InterestRateModel, IInterestRateModel } from "../InterestRateModel.sol";
+import { InterestRateModel } from "../InterestRateModel.sol";
 
-contract MockInterestRateModel is IInterestRateModel {
+contract MockInterestRateModel {
   InterestRateModel public irm;
   uint256 public borrowRate;
 
@@ -19,7 +19,7 @@ contract MockInterestRateModel is IInterestRateModel {
     uint256,
     uint256,
     uint256
-  ) external view override returns (uint256) {
+  ) external view returns (uint256) {
     return borrowRate;
   }
 
@@ -27,7 +27,7 @@ contract MockInterestRateModel is IInterestRateModel {
     uint256 suppliedSP,
     uint256 unassignedEarnings,
     uint256 amount
-  ) external view override returns (uint256 earningsShare, uint256 earningsShareSP) {
+  ) external view returns (uint256 earningsShare, uint256 earningsShareSP) {
     return irm.getYieldForDeposit(suppliedSP, unassignedEarnings, amount);
   }
 

@@ -4,11 +4,9 @@ pragma solidity 0.8.13;
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FeedRegistryInterface } from "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
 
-import { IOracle, InvalidPrice, InvalidSources } from "./interfaces/IOracle.sol";
-
 /// @title ExactlyOracle
 /// @notice Proxy to get the price of an asset from a price source, with Chainlink Feed Registry as the primary option.
-contract ExactlyOracle is IOracle, AccessControl {
+contract ExactlyOracle is AccessControl {
   mapping(string => address) public assetsSources;
   FeedRegistryInterface public chainlinkFeedRegistry;
   address public immutable baseCurrency;
@@ -54,7 +52,7 @@ contract ExactlyOracle is IOracle, AccessControl {
 
   /// @notice Gets an asset price by symbol. If Chainlink Feed Registry price is <= 0 the call is reverted.
   /// @param symbol The symbol of the asset.
-  function getAssetPrice(string memory symbol) public view override returns (uint256) {
+  function getAssetPrice(string memory symbol) public view returns (uint256) {
     (, int256 price, , uint256 updatedAt, ) = chainlinkFeedRegistry.latestRoundData(
       assetsSources[symbol],
       baseCurrency
@@ -81,3 +79,6 @@ contract ExactlyOracle is IOracle, AccessControl {
     return price * 10**(TARGET_DECIMALS - ORACLE_DECIMALS);
   }
 }
+
+error InvalidPrice();
+error InvalidSources();
