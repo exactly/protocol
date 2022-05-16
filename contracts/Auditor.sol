@@ -4,23 +4,10 @@ pragma solidity 0.8.13;
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
 import { FixedLender, NotFixedLender } from "./FixedLender.sol";
-import { IOracle } from "./interfaces/IOracle.sol";
+import { ExactlyOracle } from "./ExactlyOracle.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
-import {
-  IAuditor,
-  AuditorMismatch,
-  BalanceOwed,
-  BorrowCapReached,
-  InsufficientLiquidity,
-  InsufficientShortfall,
-  InvalidParameter,
-  LiquidatorNotBorrower,
-  MarketAlreadyListed,
-  MarketNotListed,
-  TooMuchRepay
-} from "./interfaces/IAuditor.sol";
 
-contract Auditor is IAuditor, AccessControl {
+contract Auditor is AccessControl {
   using FixedPointMathLib for uint256;
 
   // Struct to avoid stack too deep
@@ -48,7 +35,7 @@ contract Auditor is IAuditor, AccessControl {
   uint256 public liquidationIncentive;
   FixedLender[] public allMarkets;
 
-  IOracle public oracle;
+  ExactlyOracle public oracle;
 
   /// @notice Event emitted when a new market is listed for borrow/lending.
   /// @param fixedLender address of the fixedLender market that was listed.
@@ -67,7 +54,7 @@ contract Auditor is IAuditor, AccessControl {
 
   /// @notice Event emitted when a new Oracle has been set.
   /// @param newOracle address of the new oracle that is used to calculate liquidity.
-  event OracleUpdated(IOracle newOracle);
+  event OracleUpdated(ExactlyOracle newOracle);
 
   /// @notice Event emitted when a new liquidationIncentive has been set.
   /// @param newLiquidationIncentive represented with 1e18 decimals.
@@ -84,7 +71,7 @@ contract Auditor is IAuditor, AccessControl {
   /// @param newCollateralFactor collateral factor for the underlying asset.
   event CollateralFactorUpdated(FixedLender indexed fixedLender, uint256 newCollateralFactor);
 
-  constructor(IOracle _priceOracle, uint256 _liquidationIncentive) {
+  constructor(ExactlyOracle _priceOracle, uint256 _liquidationIncentive) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     oracle = _priceOracle;
@@ -138,7 +125,7 @@ contract Auditor is IAuditor, AccessControl {
 
   /// @dev Function to set Oracle's to be used.
   /// @param _priceOracle address of the new oracle.
-  function setOracle(IOracle _priceOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setOracle(ExactlyOracle _priceOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
     oracle = _priceOracle;
     emit OracleUpdated(_priceOracle);
   }
@@ -222,7 +209,7 @@ contract Auditor is IAuditor, AccessControl {
   /// Validates that the current state of the position and system are valid (liquidity).
   /// @param fixedLender address of the fixedLender that will lend money in a maturity.
   /// @param borrower address of the user that will borrow money from a maturity date.
-  function validateBorrowMP(FixedLender fixedLender, address borrower) external override {
+  function validateBorrowMP(FixedLender fixedLender, address borrower) external {
     validateMarketListed(fixedLender);
     uint8 marketIndex = markets[fixedLender].index;
     uint256 assets = accountAssets[borrower];
@@ -263,7 +250,7 @@ contract Auditor is IAuditor, AccessControl {
     FixedLender fixedLenderCollateral,
     address liquidator,
     address borrower
-  ) external view override {
+  ) external view {
     if (borrower == liquidator) revert LiquidatorNotBorrower();
 
     // if markets are listed, they have the same auditor
@@ -286,7 +273,7 @@ contract Auditor is IAuditor, AccessControl {
     FixedLender fixedLenderBorrowed,
     address liquidator,
     address borrower
-  ) external view override {
+  ) external view {
     if (borrower == liquidator) revert LiquidatorNotBorrower();
 
     // If markets are listed, they have also the same Auditor
@@ -320,13 +307,6 @@ contract Auditor is IAuditor, AccessControl {
     );
   }
 
-  /// @dev Function to get account's liquidity.
-  /// @param account wallet to retrieve liquidity.
-  function getAccountLiquidity(address account) external view override returns (uint256, uint256) {
-    (uint256 sumCollateral, uint256 sumDebt) = accountLiquidity(account, FixedLender(address(0)), 0);
-    return (sumCollateral > sumDebt) ? (sumCollateral - sumDebt, uint256(0)) : (0, sumDebt - sumCollateral);
-  }
-
   /// @dev Function to calculate the amount of assets to be seized.
   /// Calculates the amount of collateral to be seized when a position is undercollaterized.
   /// @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
@@ -336,7 +316,7 @@ contract Auditor is IAuditor, AccessControl {
     FixedLender fixedLenderBorrowed,
     FixedLender fixedLenderCollateral,
     uint256 actualRepayAmount
-  ) external view override returns (uint256) {
+  ) external view returns (uint256) {
     // Read oracle prices for borrowed and collateral markets
     uint256 priceBorrowed = oracle.getAssetPrice(fixedLenderBorrowed.assetSymbol());
     uint256 priceCollateral = oracle.getAssetPrice(fixedLenderCollateral.assetSymbol());
@@ -349,7 +329,7 @@ contract Auditor is IAuditor, AccessControl {
   }
 
   /// @dev Function to retrieve all markets.
-  function getAllMarkets() external view override returns (FixedLender[] memory) {
+  function getAllMarkets() external view returns (FixedLender[] memory) {
     return allMarkets;
   }
 
@@ -364,7 +344,7 @@ contract Auditor is IAuditor, AccessControl {
     FixedLender fixedLender,
     address account,
     uint256 amount
-  ) public view override {
+  ) public view {
     // If the user is not 'in' the market, then we can bypass the liquidity check
     if ((accountAssets[account] & (1 << markets[fixedLender].index)) == 0) return;
 
@@ -377,11 +357,13 @@ contract Auditor is IAuditor, AccessControl {
   /// @param account wallet which the liquidity will be calculated.
   /// @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args).
   /// @param withdrawAmount amount to simulate withdraw.
+  /// @return sumCollateral sum of all collateral, already multiplied by each collateral factor. denominated in usd.
+  /// @return sumDebt sum of all debt. denominated in usd.
   function accountLiquidity(
     address account,
     FixedLender fixedLenderToSimulate,
     uint256 withdrawAmount
-  ) internal view returns (uint256 sumCollateral, uint256 sumDebt) {
+  ) public view returns (uint256 sumCollateral, uint256 sumDebt) {
     AccountLiquidity memory vars; // Holds all our calculation results
 
     // For each asset the account is in
@@ -427,3 +409,13 @@ contract Auditor is IAuditor, AccessControl {
     if (!markets[fixedLender].isListed) revert MarketNotListed();
   }
 }
+
+error AuditorMismatch();
+error BalanceOwed();
+error BorrowCapReached();
+error InsufficientLiquidity();
+error InsufficientShortfall();
+error InvalidParameter();
+error LiquidatorNotBorrower();
+error MarketAlreadyListed();
+error MarketNotListed();

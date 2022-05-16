@@ -3,8 +3,8 @@ pragma solidity 0.8.13;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
-import { IInterestRateModel } from "./interfaces/IInterestRateModel.sol";
-import { InvalidParameter } from "./interfaces/IAuditor.sol";
+import { InterestRateModel } from "./InterestRateModel.sol";
+import { InvalidParameter } from "./Auditor.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
 
@@ -40,14 +40,14 @@ contract PoolAccounting is AccessControl {
   uint256 public smartPoolBorrowed;
   uint256 public smartPoolEarningsAccumulator;
 
-  IInterestRateModel public interestRateModel;
+  InterestRateModel public interestRateModel;
 
   uint256 public penaltyRate;
   uint256 public smartPoolReserveFactor;
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
-  event InterestRateModelUpdated(IInterestRateModel newInterestRateModel);
+  event InterestRateModelUpdated(InterestRateModel indexed newInterestRateModel);
 
   /// @notice emitted when the penaltyRate is changed by admin.
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
@@ -58,7 +58,7 @@ contract PoolAccounting is AccessControl {
   event SmartPoolReserveFactorUpdated(uint256 newSmartPoolReserveFactor);
 
   constructor(
-    IInterestRateModel _interestRateModel,
+    InterestRateModel _interestRateModel,
     uint256 _penaltyRate,
     uint256 _smartPoolReserveFactor
   ) {
@@ -71,7 +71,7 @@ contract PoolAccounting is AccessControl {
 
   /// @notice Sets the interest rate model to be used by this PoolAccounting.
   /// @param _interestRateModel new interest rate model.
-  function setInterestRateModel(IInterestRateModel _interestRateModel) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setInterestRateModel(InterestRateModel _interestRateModel) external onlyRole(DEFAULT_ADMIN_ROLE) {
     interestRateModel = _interestRateModel;
     emit InterestRateModelUpdated(_interestRateModel);
   }

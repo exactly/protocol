@@ -2,7 +2,6 @@
 pragma solidity 0.8.13;
 
 import { TimelockController } from "@openzeppelin/contracts/governance/TimelockController.sol";
-import { IInterestRateModel } from "../interfaces/IInterestRateModel.sol";
 import { PoolLib } from "../utils/PoolLib.sol";
 
 contract MaturityPoolHarness {
