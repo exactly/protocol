@@ -14,6 +14,22 @@ contract Previewer {
   using FixedPointMathLib for uint256;
   using PoolLib for PoolLib.Position;
 
+  Auditor public immutable auditor;
+
+  struct AccountMarketData {
+    FixedLender fixedLender;
+    uint256 smartPoolAssets;
+    uint256 borrowedAssets;
+    uint256 oraclePrice;
+    uint128 collateralFactor;
+    uint8 decimals;
+    bool isCollateral;
+  }
+
+  constructor(Auditor auditor_) {
+    auditor = auditor_;
+  }
+
   /// @notice Gets the assets plus yield offered by a maturity when depositing a certain amount.
   /// @param fixedLender address of the market.
   /// @param maturity maturity date/pool where the assets will be deposited.
@@ -126,15 +142,10 @@ contract Previewer {
   }
 
   /// @notice Function to get a certain account liquidity.
-  /// @param auditor address of the auditor.
   /// @param account address which the liquidity will be calculated.
   /// @return sumCollateral sum of all collateral, already multiplied by each collateral factor. denominated in usd.
   /// @return sumDebt sum of all debt. denominated in usd.
-  function accountLiquidity(Auditor auditor, address account)
-    external
-    view
-    returns (uint256 sumCollateral, uint256 sumDebt)
-  {
+  function accountLiquidity(address account) external view returns (uint256 sumCollateral, uint256 sumDebt) {
     Auditor.AccountLiquidity memory vars; // Holds all our calculation results
 
     // For each asset the account is in
@@ -164,6 +175,33 @@ contract Previewer {
         ++i;
       }
       if ((1 << i) > assets) break;
+    }
+  }
+
+  /// @notice Function to get a certain account liquidity.
+  /// @param account address which the liquidity will be calculated.
+  /// @return data accountability data of all markets for the account.
+  function accountData(address account) external view returns (AccountMarketData[] memory data) {
+    uint256 assets = auditor.accountAssets(account);
+    uint256 maxValue = auditor.getAllMarkets().length;
+    data = new AccountMarketData[](maxValue);
+    for (uint256 i = 0; i < maxValue; ) {
+      data[i].fixedLender = auditor.allMarkets(i);
+
+      (, , data[i].collateralFactor, data[i].decimals, , ) = auditor.markets(data[i].fixedLender);
+
+      // Read the balances
+      (data[i].smartPoolAssets, data[i].borrowedAssets) = data[i].fixedLender.getAccountSnapshot(
+        account,
+        PoolLib.MATURITY_ALL
+      );
+
+      // Get the normalized price of the asset (18 decimals)
+      data[i].oraclePrice = auditor.oracle().getAssetPrice(data[i].fixedLender.assetSymbol());
+      data[i].isCollateral = assets & (1 << i) != 0 ? true : false;
+      unchecked {
+        ++i;
+      }
     }
   }
 
