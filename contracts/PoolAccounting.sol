@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
@@ -21,15 +22,6 @@ contract PoolAccounting is AccessControl {
     uint256 fee;
     uint256 newUnassignedEarnings;
     uint256 earningsSP;
-  }
-
-  // Vars used in `repayMP` to avoid stack too deep problem
-  struct RepayVars {
-    PoolLib.Position position;
-    PoolLib.Position scaleDebtCovered;
-    uint256 amountOwed;
-    uint256 discountFee;
-    uint256 feeSP;
   }
 
   struct DampSpeed {
@@ -226,12 +218,12 @@ contract PoolAccounting is AccessControl {
   /// @dev Function to account for a withdraw from a maturity pool (MP).
   /// @param maturity maturity date / pool id where the asset should be accounted for.
   /// @param redeemer address that should have the assets withdrawn.
-  /// @param amount amount that the redeemer will be extracting.
+  /// @param positionAssets amount that the redeemer will be extracting from his position.
   /// @param smartPoolTotalSupply total supply in the smart pool.
   function withdrawMP(
     uint256 maturity,
     address redeemer,
-    uint256 amount,
+    uint256 positionAssets,
     uint256 minAmountRequired,
     uint256 smartPoolTotalSupply
   ) internal returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
@@ -241,38 +233,38 @@ contract PoolAccounting is AccessControl {
 
     PoolLib.Position memory position = mpUserSuppliedAmount[maturity][redeemer];
 
-    if (amount > position.principal + position.fee) amount = position.principal + position.fee;
+    if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
 
     // We verify if there are any penalties/fee for him because of
     // early withdrawal - if so: discount
     if (block.timestamp < maturity) {
       updateSmartPoolAssetsAverage(smartPoolTotalSupply);
-      redeemAmountDiscounted = amount.divWadDown(
+      redeemAmountDiscounted = positionAssets.divWadDown(
         1e18 +
           interestRateModel.getRateToBorrow(
             maturity,
             block.timestamp,
-            amount,
+            positionAssets,
             pool.borrowed,
             pool.supplied,
             smartPoolAssetsAverage
           )
       );
     } else {
-      redeemAmountDiscounted = amount;
+      redeemAmountDiscounted = positionAssets;
     }
 
     if (redeemAmountDiscounted < minAmountRequired) revert TooMuchSlippage();
 
     // We remove the supply from the offer
     smartPoolBorrowed += pool.withdrawMoney(
-      PoolLib.Position(position.principal, position.fee).scaleProportionally(amount).principal,
+      PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
       smartPoolTotalSupply - smartPoolBorrowed
     );
 
     // All the fees go to unassigned or to the smart pool
     (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
-      amount - redeemAmountDiscounted,
+      positionAssets - redeemAmountDiscounted,
       pool.smartPoolBorrowed(),
       redeemAmountDiscounted
     );
@@ -280,7 +272,7 @@ contract PoolAccounting is AccessControl {
     earningsSP += newEarningsSP;
 
     // the user gets discounted the full amount
-    position.reduceProportionally(amount);
+    position.reduceProportionally(positionAssets);
     if (position.principal + position.fee == 0) {
       delete mpUserSuppliedAmount[maturity][redeemer];
       userMpSupplied[redeemer] = userMpSupplied[redeemer].clearMaturity(maturity);
@@ -293,123 +285,118 @@ contract PoolAccounting is AccessControl {
   /// @dev Function to account for a repayment to a maturity pool (MP).
   /// @param maturity maturity date / pool id where the asset should be accounted for.
   /// @param borrower address where the debt will be reduced.
-  /// @param repayAmount amount that it will be repaid in the MP.
-  /// @return actualRepayAmount the amount with discounts included that will finally be transferred.
+  /// @param positionAssets the sum of principal and fees that this repayment covers.
+  /// @return repayAmount the amount with discounts included that will finally be transferred.
   /// @return debtCovered the sum of principal and fees that this repayment covers.
   /// @return earningsSP amount of earnings to be accrued by the smart pool depositors.
   function repayMP(
     uint256 maturity,
     address borrower,
-    uint256 repayAmount,
+    uint256 positionAssets,
     uint256 maxAmountAllowed
   )
     internal
     returns (
-      uint256 actualRepayAmount,
+      uint256 repayAmount,
       uint256 debtCovered,
       uint256 earningsSP
     )
   {
-    RepayVars memory repayVars;
-
     PoolLib.MaturityPool storage pool = maturityPools[maturity];
 
     // SP supply needs to accrue its interests
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
-    // Amount Owed is (principal+fees)*penalties
-    repayVars.amountOwed = getAccountDebt(borrower, maturity);
-    repayVars.position = mpUserBorrowedAmount[maturity][borrower];
+    PoolLib.Position memory position = mpUserBorrowedAmount[maturity][borrower];
 
-    if (repayAmount > repayVars.amountOwed) repayAmount = repayVars.amountOwed;
+    debtCovered = Math.min(positionAssets, position.principal + position.fee);
 
-    // We calculate the amount of the debt this covers, paying proportionally
-    // the amount of interests on the overdue debt. If repay amount = amount owed,
-    // then amountBorrowed is what should be discounted to the users account
-    // Math.min to not go over repayAmount since we return exceeding money, but
-    // hasn't been calculated yet
-    debtCovered = repayAmount.mulDivDown(repayVars.position.principal + repayVars.position.fee, repayVars.amountOwed);
-    repayVars.scaleDebtCovered = PoolLib
-      .Position(repayVars.position.principal, repayVars.position.fee)
-      .scaleProportionally(debtCovered);
+    PoolLib.Position memory scaleDebtCovered = PoolLib.Position(position.principal, position.fee).scaleProportionally(
+      debtCovered
+    );
 
     // Early repayment allows you to get a discount from the unassigned earnings
     if (block.timestamp < maturity) {
-      // We calculate the deposit fee considering the amount
-      // of debt he'll pay
-      (repayVars.discountFee, repayVars.feeSP) = interestRateModel.getYieldForDeposit(
+      // We calculate the deposit fee considering the amount of debt he'll pay
+      (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
         pool.smartPoolBorrowed(),
         pool.earningsUnassigned,
-        repayVars.scaleDebtCovered.principal
+        scaleDebtCovered.principal
         // ^ this case shouldn't contain penalties since is before maturity date
       );
 
-      earningsSP += repayVars.feeSP;
-
-      // We verify that the user agrees to this discount
-      if (debtCovered > repayVars.discountFee + maxAmountAllowed) revert TooMuchSlippage();
+      earningsSP += feeSP;
 
       // We remove the fee from unassigned earnings
-      pool.earningsUnassigned -= repayVars.discountFee + repayVars.feeSP;
+      pool.earningsUnassigned -= discountFee + feeSP;
+
+      // The fee gets discounted from the user through `repayAmount`
+      repayAmount = debtCovered - discountFee;
     } else {
+      repayAmount = debtCovered + debtCovered.mulWadDown((block.timestamp - maturity) * penaltyRate);
+
       // All penalties go to the smart pool accumulator
-      smartPoolEarningsAccumulator +=
-        repayAmount -
-        (repayVars.scaleDebtCovered.principal + repayVars.scaleDebtCovered.fee);
+      smartPoolEarningsAccumulator += repayAmount - debtCovered;
     }
-    // user paid more than it should. The fee gets discounted from the user
-    // through _actualRepayAmount_ and on the pool side it was removed from
-    // the unassignedEarnings a few lines before ^
-    actualRepayAmount = repayAmount - repayVars.discountFee;
+
+    // We verify that the user agrees to this discount or penalty
+    if (repayAmount > maxAmountAllowed) revert TooMuchSlippage();
 
     // We reduce the borrowed and we might decrease the SP debt
-    smartPoolBorrowed -= pool.repayMoney(repayVars.scaleDebtCovered.principal);
+    smartPoolBorrowed -= pool.repayMoney(scaleDebtCovered.principal);
 
     //
     // From now on: We update the user position
     //
-    repayVars.position.reduceProportionally(debtCovered);
-    if (repayVars.position.principal + repayVars.position.fee == 0) {
+    position.reduceProportionally(debtCovered);
+    if (position.principal + position.fee == 0) {
       delete mpUserBorrowedAmount[maturity][borrower];
       userMpBorrowed[borrower] = userMpBorrowed[borrower].clearMaturity(maturity);
     } else {
       // we proportionally reduce the values
-      mpUserBorrowedAmount[maturity][borrower] = repayVars.position;
+      mpUserBorrowedAmount[maturity][borrower] = position;
     }
   }
 
   /// @dev Gets all borrows for a wallet in certain maturity (or MATURITY_ALL).
   /// @param who wallet to return status snapshot in the specified maturity date.
   /// @param maturity maturity where the borrow is taking place. MATURITY_ALL returns all borrows.
-  /// @return debt the amount the user deposited to the smart pool and the total money he owes from maturities.
-  function getAccountBorrows(address who, uint256 maturity) public view returns (uint256 debt) {
+  /// @return sumPositions the total amount of borrows in user position.
+  /// @return sumPenalties the total penalties for late repayment in all maturities.
+  function getAccountBorrows(address who, uint256 maturity)
+    public
+    view
+    returns (uint256 sumPositions, uint256 sumPenalties)
+  {
     if (maturity == PoolLib.MATURITY_ALL) {
       uint256 encodedMaturities = userMpBorrowed[who];
       uint256 baseMaturity = encodedMaturities % (1 << 32);
       uint256 packedMaturities = encodedMaturities >> 32;
-      // We calculate all the timestamps using the baseMaturity
-      // and the following bits representing the following weeks
+      // We calculate all the timestamps using the baseMaturity and the following bits representing the following weeks
       for (uint256 i = 0; i < 224; ) {
         if ((packedMaturities & (1 << i)) != 0) {
-          debt += getAccountDebt(who, baseMaturity + (i * TSUtils.INTERVAL));
+          (uint256 position, uint256 penalties) = getAccountDebt(who, baseMaturity + (i * TSUtils.INTERVAL));
+          sumPositions += position;
+          sumPenalties += penalties;
         }
         unchecked {
           ++i;
         }
         if ((1 << i) > packedMaturities) break;
       }
-    } else debt = getAccountDebt(who, maturity);
+    } else (sumPositions, sumPenalties) = getAccountDebt(who, maturity);
   }
 
   /// @notice Internal function to get the debt + penalties of an account for a certain maturity.
   /// @param who wallet to return debt status for the specified maturity.
   /// @param maturity amount to be transferred.
-  /// @return totalDebt : the total debt denominated in number of tokens.
-  function getAccountDebt(address who, uint256 maturity) internal view returns (uint256 totalDebt) {
-    PoolLib.Position memory position = mpUserBorrowedAmount[maturity][who];
-    totalDebt = position.principal + position.fee;
+  /// @return position the position debt denominated in number of tokens.
+  /// @return penalties the penalties for late repayment.
+  function getAccountDebt(address who, uint256 maturity) internal view returns (uint256 position, uint256 penalties) {
+    PoolLib.Position memory data = mpUserBorrowedAmount[maturity][who];
+    position = data.principal + data.fee;
     uint256 secondsDelayed = TSUtils.secondsPre(maturity, block.timestamp);
-    if (secondsDelayed > 0) totalDebt += totalDebt.mulWadDown(secondsDelayed * penaltyRate);
+    if (secondsDelayed > 0) penalties = position.mulWadDown(secondsDelayed * penaltyRate);
   }
 
   /// @notice Updates the smartPoolAssetsAverage.

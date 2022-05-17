@@ -829,7 +829,7 @@ describe("FixedLender", function () {
             await fixedLenderDAI.repayAtMaturity(
               futurePools(1)[0],
               parseUnits("0.000000001"),
-              parseUnits("0.000000001"),
+              parseUnits("0.000000002"),
               maria.address,
             );
             await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * days]);

@@ -819,9 +819,9 @@ contract FixedLenderTest is Test {
       auditor.enableMarket(newFixedLender, 0.8e18, tokenName, tokenName, 18);
       mockOracle.setPrice(tokenName, 1e18);
       mockToken.approve(address(newFixedLender), 50_000 ether);
-      mockToken.transfer(BOB, 110 ether);
+      mockToken.transfer(BOB, 50_000 ether);
       vm.prank(BOB);
-      mockToken.approve(address(newFixedLender), 110 ether);
+      mockToken.approve(address(newFixedLender), 50_000 ether);
 
       fixedLenders[i] = newFixedLender;
 
@@ -835,7 +835,7 @@ contract FixedLenderTest is Test {
     }
 
     // repay does not increase in cost
-    fixedLenders[0].repayAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    fixedLenders[0].repayAtMaturity(7 days, 1 ether, 30 ether, address(this));
     // withdraw DOES increase in cost
     fixedLenders[0].withdraw(1 ether, address(this), address(this));
 
@@ -850,7 +850,7 @@ contract FixedLenderTest is Test {
 
     // liquidate function to user's borrows DOES increase in cost
     vm.prank(BOB);
-    fixedLenders[0].liquidate(address(this), 1 ether, 1 ether, fixedLenders[0]);
+    fixedLenders[0].liquidate(address(this), 1 ether, 60 ether, fixedLenders[0]);
   }
 
   function multipleBorrowsAtMaturity(
