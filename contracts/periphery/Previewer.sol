@@ -7,6 +7,7 @@ import { FixedLender } from "../FixedLender.sol";
 import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
 import { Auditor } from "../Auditor.sol";
 import { PoolLib } from "../utils/PoolLib.sol";
+import { TSUtils } from "../utils/TSUtils.sol";
 
 /// @title Previewer
 /// @notice Contract to be consumed by Exactly's front-end dApp.
@@ -24,6 +25,31 @@ contract Previewer {
     uint128 collateralFactor;
     uint8 decimals;
     bool isCollateral;
+  }
+
+  struct MaturityPosition {
+    uint256 maturity;
+    PoolLib.Position position;
+  }
+
+  struct ExtendedAccountMarketData {
+    FixedLender fixedLender;
+    string assetSymbol;
+    MaturityPosition[] maturitySupplyPositions;
+    MaturityPosition[] maturityBorrowPositions;
+    uint256 smartPoolAssets;
+    uint256 smartPoolShares;
+    uint256 oraclePrice;
+    uint128 penaltyRate;
+    uint128 collateralFactor;
+    uint8 decimals;
+    bool isCollateral;
+  }
+
+  struct MaturityBitmap {
+    uint256 encoded;
+    uint256 base;
+    uint256 packed;
   }
 
   constructor(Auditor auditor_) {
@@ -122,11 +148,12 @@ contract Previewer {
     uint256 positionAssets,
     address borrower
   ) external view returns (uint256 repayAssets) {
-    if (block.timestamp >= maturity)
+    if (block.timestamp >= maturity) {
       return
         repayAssets =
           positionAssets +
           positionAssets.fmul((block.timestamp - maturity) * fixedLender.penaltyRate(), 1e18);
+    }
 
     (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(fixedLender, maturity);
     PoolLib.Position memory debt;
@@ -141,46 +168,38 @@ contract Previewer {
     repayAssets = positionAssets - discount;
   }
 
-  /// @notice Function to get a certain account liquidity.
-  /// @param account address which the liquidity will be calculated.
-  /// @return sumCollateral sum of all collateral, already multiplied by each collateral factor. denominated in usd.
-  /// @return sumDebt sum of all debt. denominated in usd.
-  function accountLiquidity(address account) external view returns (uint256 sumCollateral, uint256 sumDebt) {
-    Auditor.AccountLiquidity memory vars; // Holds all our calculation results
-
-    // For each asset the account is in
+  /// @notice Function to get a certain account extended data.
+  /// @param account address which the extended data will be calculated.
+  /// @return data extended accountability of all markets for the account.
+  function extendedAccountData(address account) external view returns (ExtendedAccountMarketData[] memory data) {
     uint256 assets = auditor.accountAssets(account);
     uint256 maxValue = auditor.getAllMarkets().length;
-    uint256 decimals;
-    uint256 collateralFactor;
-    for (uint256 i = 0; i < maxValue; ) {
-      if ((assets & (1 << i)) != 0) {
-        FixedLender asset = auditor.allMarkets(i);
-
-        (, , collateralFactor, decimals, , ) = auditor.markets(asset);
-
-        // Read the balances
-        (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
-
-        // Get the normalized price of the asset (18 decimals)
-        vars.oraclePrice = auditor.oracle().getAssetPrice(asset.assetSymbol());
-
-        // We sum all the collateral prices
-        sumCollateral += vars.balance.fmul(vars.oraclePrice, 10**decimals).fmul(collateralFactor, 1e18);
-
-        // We sum all the debt
-        sumDebt += vars.borrowBalance.fmul(vars.oraclePrice, 10**decimals);
-      }
-      unchecked {
-        ++i;
-      }
-      if ((1 << i) > assets) break;
+    data = new ExtendedAccountMarketData[](maxValue);
+    for (uint256 i = 0; i < maxValue; ++i) {
+      data[i].fixedLender = auditor.allMarkets(i);
+      data[i].assetSymbol = data[i].fixedLender.assetSymbol();
+      (, , data[i].collateralFactor, data[i].decimals, , ) = auditor.markets(data[i].fixedLender);
+      (data[i].smartPoolAssets, ) = data[i].fixedLender.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
+      data[i].smartPoolShares = data[i].fixedLender.convertToShares(data[i].smartPoolAssets);
+      data[i].oraclePrice = auditor.oracle().getAssetPrice(data[i].fixedLender.assetSymbol());
+      data[i].isCollateral = assets & (1 << i) != 0 ? true : false;
+      data[i].penaltyRate = uint128(data[i].fixedLender.penaltyRate());
+      data[i].maturitySupplyPositions = maturityPoolPositions(
+        account,
+        data[i].fixedLender.userMpSupplied,
+        data[i].fixedLender.mpUserSuppliedAmount
+      );
+      data[i].maturityBorrowPositions = maturityPoolPositions(
+        account,
+        data[i].fixedLender.userMpBorrowed,
+        data[i].fixedLender.mpUserBorrowedAmount
+      );
     }
   }
 
-  /// @notice Function to get a certain account liquidity.
-  /// @param account address which the liquidity will be calculated.
-  /// @return data accountability data of all markets for the account.
+  /// @notice Function to get a certain account data.
+  /// @param account address which the data will be calculated.
+  /// @return data accountability of all markets for the account.
   function accountData(address account) external view returns (AccountMarketData[] memory data) {
     uint256 assets = auditor.accountAssets(account);
     uint256 maxValue = auditor.getAllMarkets().length;
@@ -203,6 +222,33 @@ contract Previewer {
         ++i;
       }
     }
+  }
+
+  function maturityPoolPositions(
+    address account,
+    function(address) external view returns (uint256) userMaturityOperation,
+    function(uint256, address) external view returns (uint256, uint256) userMaturityOperationAmount
+  ) internal view returns (MaturityPosition[] memory maturityPoolDataPositions) {
+    MaturityBitmap memory maturityBitmap;
+    maturityBitmap.encoded = userMaturityOperation(account);
+    maturityBitmap.base = maturityBitmap.encoded % (1 << 32);
+    maturityBitmap.packed = maturityBitmap.encoded >> 32;
+    MaturityPosition[] memory maturityPositions = new MaturityPosition[](224);
+
+    uint256 maturityCount = 0;
+    for (uint256 j = 0; j < 224; ++j) {
+      if ((maturityBitmap.packed & (1 << j)) != 0) {
+        uint256 maturity = maturityBitmap.base + (j * TSUtils.INTERVAL);
+        (uint256 principal, uint256 fee) = userMaturityOperationAmount(maturity, account);
+        maturityPositions[maturityCount].maturity = maturity;
+        maturityPositions[maturityCount].position = PoolLib.Position(principal, fee);
+        ++maturityCount;
+      }
+      if ((1 << j) > maturityBitmap.packed) break;
+    }
+
+    maturityPoolDataPositions = new MaturityPosition[](maturityCount);
+    for (uint256 j = 0; j < maturityCount; ++j) maturityPoolDataPositions[j] = maturityPositions[j];
   }
 
   function getPoolData(FixedLender fixedLender, uint256 maturity)
