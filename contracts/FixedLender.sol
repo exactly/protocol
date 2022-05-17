@@ -110,6 +110,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param assets amount seized of the collateral.
   event AssetSeized(address indexed liquidator, address indexed borrower, uint256 assets);
 
+  /// @notice Event emitted when earnings are accrued to the smart pool.
+  /// @param previousAssets previous balance of the smart pool, denominated in assets (underlying).
+  /// @param earnings new smart pool earnings, denominated in assets (underlying).
+  event SmartPoolEarningsAccrued(uint256 previousAssets, uint256 earnings);
+
   /// @notice emitted when the accumulatedEarningsSmoothFactor is changed by admin.
   /// @param newAccumulatedEarningsSmoothFactor factor represented with 1e18 decimals.
   event AccumulatedEarningsSmoothFactorUpdated(uint256 newAccumulatedEarningsSmoothFactor);
@@ -193,6 +198,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = block.timestamp;
     smartPoolEarningsAccumulator -= earnings;
+    emit SmartPoolEarningsAccrued(smartPoolBalance, earnings);
     smartPoolBalance = smartPoolBalance + earnings - assets;
     // we check if the underlying liquidity that the user wants to withdraw is borrowed
     if (smartPoolBalance < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
@@ -203,6 +209,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = block.timestamp;
     smartPoolEarningsAccumulator -= earnings;
+    emit SmartPoolEarningsAccrued(smartPoolBalance, earnings);
     smartPoolBalance += earnings + assets;
   }
 
@@ -358,6 +365,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
     totalMpBorrows += assetsOwed;
 
+    emit SmartPoolEarningsAccrued(smartPoolBalance, earningsSP);
     smartPoolBalance += earningsSP;
     auditor.validateBorrowMP(this, borrower);
 
@@ -384,6 +392,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 earningsSP;
     (maturityAssets, earningsSP) = depositMP(maturity, receiver, assets, minAssetsRequired);
 
+    emit SmartPoolEarningsAccrued(smartPoolBalance, earningsSP);
     smartPoolBalance += earningsSP;
 
     emit DepositAtMaturity(maturity, msg.sender, receiver, assets, maturityAssets - assets);
@@ -416,6 +425,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
       if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - previewWithdraw(assetsDiscounted);
     }
 
+    emit SmartPoolEarningsAccrued(smartPoolBalance, earningsSP);
     smartPoolBalance += earningsSP;
 
     asset.safeTransfer(receiver, assetsDiscounted);
@@ -468,6 +478,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 earningsSP;
     (actualRepayAssets, debtCovered, earningsSP) = repayMP(maturity, borrower, positionAssets, maxAssetsAllowed);
 
+    emit SmartPoolEarningsAccrued(smartPoolBalance, earningsSP);
     smartPoolBalance += earningsSP;
 
     totalMpBorrows -= debtCovered;
