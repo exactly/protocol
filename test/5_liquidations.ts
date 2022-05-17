@@ -92,12 +92,12 @@ describe("Liquidations", function () {
             beforeEach(async () => {
               tx = fixedLenderDAI
                 .connect(bob)
-                .liquidate(alice.address, parseUnits("19000"), parseUnits("19000"), fixedLenderWBTC.address);
+                .liquidate(alice.address, parseUnits("19000"), parseUnits("29000"), fixedLenderWBTC.address);
               await tx;
             });
-            it("THEN the liquidator seizes 19k+15% of collateral (in WBTC, 34682539 sats)", async () => {
-              // 19kusd of btc at its current price of 63kusd + 15% incentive for liquidators
-              const seizedWBTC = parseUnits("34682539", 0);
+            it("THEN the liquidator seizes 19k+15% of collateral (in WBTC, 48555563 sats)", async () => {
+              // 19kusd of btc + penalties at its current price of 63kusd + 15% incentive for liquidators
+              const seizedWBTC = parseUnits("48555563", 0);
 
               await expect(tx).to.emit(fixedLenderWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
             });
@@ -111,26 +111,24 @@ describe("Liquidations", function () {
             balancePreBTC = await exactlyEnv.getUnderlying("WBTC").connect(bob).balanceOf(bob.address);
             tx = fixedLenderDAI
               .connect(bob)
-              .liquidate(alice.address, parseUnits("19000"), parseUnits("19000"), fixedLenderWBTC.address);
+              .liquidate(alice.address, parseUnits("19000"), parseUnits("29000"), fixedLenderWBTC.address);
             await tx;
           });
           it("THEN the liquidator seizes 19k+10% of collateral (WBTC)", async () => {
-            // 19000 USD of btc at its current price of 63000 USD + 10% incentive for liquidators
-            const seizedWBTC = parseUnits("33174603", 0);
+            // 19000 USD of btc + penalties at its current price of 63000 USD + 10% incentive for liquidators
+            const seizedWBTC = parseUnits("46444444", 0);
             await expect(tx).to.emit(fixedLenderWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
           });
 
           it("THEN the smartPoolEarningsAccumulator collects the penalty fees", async () => {
             const smartPoolEarningsAccumulator = await exactlyEnv.getFixedLender("DAI").smartPoolEarningsAccumulator();
-            expect(smartPoolEarningsAccumulator).to.gt(parseUnits("5428"));
-            expect(smartPoolEarningsAccumulator).to.lt(parseUnits("5429"));
+            expect(smartPoolEarningsAccumulator).to.gt(parseUnits("7599"));
+            expect(smartPoolEarningsAccumulator).to.lt(parseUnits("7600"));
           });
 
           it("THEN liquidator receives WBTC", async () => {
-            // 19000 + 10% liquidation incentive = 20900 usd
-            // 20900 USD / 63000 USD/BTC = 0.33174603 BTC (or 33174603*10^18)
             await tx;
-            const receivedBTC = parseUnits("33174603", 0);
+            const receivedBTC = parseUnits("46444444", 0);
             const balancePostBTC = await exactlyEnv.getUnderlying("WBTC").connect(bob).balanceOf(bob.address);
             expect(balancePostBTC.sub(balancePreBTC)).to.equal(receivedBTC);
           });
@@ -142,9 +140,7 @@ describe("Liquidations", function () {
             const totalBorrowAmount = parseUnits("39900");
 
             // penalty is 2% * 20 days = 40/100 + 1 = 140/100
-            // so amount owed is 55860
-            const amountOwed = parseUnits("55860");
-            const debtCovered = parseUnits("19000").mul(totalBorrowAmount).div(amountOwed);
+            const debtCovered = parseUnits("19000");
             const newDebtCalculated = totalBorrowAmount.sub(debtCovered).mul(140).div(100);
 
             // debt should be approximately 36857
@@ -155,18 +151,18 @@ describe("Liquidations", function () {
             beforeEach(async () => {
               tx = fixedLenderDAI
                 .connect(bob)
-                .liquidate(alice.address, parseUnits("18000"), parseUnits("18000"), fixedLenderWBTC.address);
+                .liquidate(alice.address, parseUnits("18000"), parseUnits("28000"), fixedLenderWBTC.address);
               await tx;
             });
             it("THEN the liquidator seizes 18k+10% of collateral (WBTC)", async () => {
               // 10.4kusd of btc at its current price of 63kusd + 10% incentive for liquidators
-              const seizedWBTC = parseUnits("31428570", 0);
+              const seizedWBTC = parseUnits("25544448", 0);
               await expect(tx).to.emit(fixedLenderWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 18k DAI of debt has been repaid, making debt ~18k DAI", async () => {
               const [, debt] = await fixedLenderDAI.getAccountSnapshot(alice.address, nextPoolID);
-              expect(debt).to.be.lt(parseUnits("19000"));
-              expect(debt).to.be.gt(parseUnits("18000"));
+              expect(debt).to.be.lt(parseUnits("14631"));
+              expect(debt).to.be.gt(parseUnits("14630"));
             });
           });
         });
@@ -439,7 +435,7 @@ describe("Liquidations", function () {
     describe("AND GIVEN alice deposits USD10k worth of WETH to the smart pool AND borrows 7k DAI (70% collateralization rate)", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(alice);
-        await exactlyEnv.depositSP("WETH", "3.35");
+        await exactlyEnv.depositSP("WETH", "5");
         await exactlyEnv.enterMarkets(["WETH"]);
 
         await exactlyEnv.borrowMP("DAI", exaTime.poolIDByNumberOfWeek(1), "1000");
@@ -467,15 +463,15 @@ describe("Liquidations", function () {
           // 2.99 + 0.299 = 3.289 ETH
           const johnETHBalanceAfter = await eth.balanceOf(john.address);
           expect(johnETHBalanceBefore).to.not.equal(johnETHBalanceAfter);
-          expect(johnETHBalanceAfter).to.be.gt(parseUnits("3.28"));
-          expect(johnETHBalanceAfter).to.be.lt(parseUnits("3.29"));
+          expect(johnETHBalanceAfter).to.be.gt(parseUnits("3.33"));
+          expect(johnETHBalanceAfter).to.be.lt(parseUnits("3.34"));
         });
         it("THEN the liquidator receives back any DAI spare repayment amount", async () => {
-          // liquidator tried to repay 6000 but only spent approx 44800 (50% of alice's debt)
+          // liquidator tried to repay 6000 but only spent approx 4550 (50% of alice's debt)
           const johnDAIBalanceAfter = await dai.balanceOf(john.address);
           expect(johnDAIBalanceBefore).to.not.equal(johnDAIBalanceAfter);
-          expect(johnDAIBalanceAfter).to.be.lt(johnDAIBalanceBefore.sub(parseUnits("4480")));
-          expect(johnDAIBalanceAfter).to.be.gt(johnDAIBalanceBefore.sub(parseUnits("4481")));
+          expect(johnDAIBalanceAfter).to.be.lt(johnDAIBalanceBefore.sub(parseUnits("4550")));
+          expect(johnDAIBalanceAfter).to.be.gt(johnDAIBalanceBefore.sub(parseUnits("4551")));
         });
       });
     });

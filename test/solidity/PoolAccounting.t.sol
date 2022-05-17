@@ -58,7 +58,8 @@ contract PoolAccountingTest is Test, PoolAccounting {
       total += borrowed;
     }
 
-    assertEq(getAccountBorrows(address(this), PoolLib.MATURITY_ALL), total);
+    (uint256 position, ) = getAccountBorrows(address(this), PoolLib.MATURITY_ALL);
+    assertEq(position, total);
 
     for (uint256 i = 1; i < 6 + 1; i++) {
       repayMP(

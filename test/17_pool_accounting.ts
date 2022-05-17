@@ -836,19 +836,15 @@ describe("PoolAccounting", () => {
 
                 await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
                 repayAmount = 8000;
-                await poolAccountingEnv.repayMP(nextPoolID, repayAmount.toString());
+                await poolAccountingEnv.repayMP(nextPoolID, repayAmount.toString(), "9000");
                 returnValues = await poolAccountingHarness.returnValues();
                 mp = await poolAccountingHarness.maturityPools(nextPoolID);
                 maturityPoolState.earningsSP = maturityPoolState.earningsSP.add(returnValues.earningsSP);
               });
 
               it("THEN borrowed field is updated correctly (~8073)", async () => {
-                // debtCovered=8000*15750/17325=~7272
-                // principal of ~7272 => ~6926 (following ratio principal-fee of 15000 and 750)
-                // borrowed original (15000) - ~6296 = ~8073
-                //
-                expect(mp.borrowed).to.be.gt(parseUnits("8073.59"));
-                expect(mp.borrowed).to.be.lt(parseUnits("8073.60"));
+                expect(mp.borrowed).to.be.gt(parseUnits("7380.95"));
+                expect(mp.borrowed).to.be.lt(parseUnits("7380.96"));
               });
 
               it("THEN supplies are correctly updated", async () => {
@@ -857,16 +853,11 @@ describe("PoolAccounting", () => {
                 );
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
-                // debtCovered=8000*15750/17325=~7272
-                expect(returnValues.debtCovered).to.gt(parseUnits("7272.72"));
-                expect(returnValues.debtCovered).to.lt(parseUnits("7272.73"));
+                expect(returnValues.debtCovered).to.equal(parseUnits("8000"));
               });
               it("THEN smartPoolEarningsAccumulator receives the 10% of penalties", async () => {
-                // debtCovered=8000*15750/17325=~7272
-                // debtCovered+(~727)=8000 that the user repaid
-                // +500 previous earnings
-                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.gt(parseUnits("1227.272"));
-                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("1227.273"));
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.gt(parseUnits("1299.999"));
+                expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("1300"));
               });
               it("THEN the earningsSP returned are 0", async () => {
                 expect(returnValues.earningsSP).to.eq(0);
