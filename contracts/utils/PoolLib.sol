@@ -176,7 +176,7 @@ library PoolLib {
 
     uint32 baseMaturity = uint32(encoded % (1 << 32));
     if (maturity < baseMaturity) {
-      // If the new maturity date if lower than the base, then we need to set it as the new base. We wipe clean the
+      // If the new maturity date is lower than the base, then we need to set it as the new base. We wipe clean the
       // last 32 bits, we shift the amount of INTERVALS and we set the new value with the 33rd bit set
       uint256 range = uint32((baseMaturity - maturity) / TSUtils.INTERVAL);
       if (encoded >> (256 - range) != 0) revert MaturityOverflow();
