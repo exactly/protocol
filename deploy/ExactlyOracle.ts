@@ -28,7 +28,11 @@ const func: DeployFunction = async ({
     log: true,
   });
   const oracle = await getContract<ExactlyOracle>("ExactlyOracle");
-  const missingTokens = config.tokens.filter(async (token) => (await oracle.assetsSources(token)) === AddressZero);
+  const missingTokens = (
+    await Promise.all(
+      config.tokens.map(async (token) => ((await oracle.assetsSources(token)) === AddressZero ? token : null)),
+    )
+  ).filter(Boolean) as string[];
   if (missingTokens.length) {
     const timelock = await getContract<TimelockController>("TimelockController", deployer);
     await timelockPropose(timelock, oracle, "setAssetSources", [missingTokens, await addresses(missingTokens)]);
