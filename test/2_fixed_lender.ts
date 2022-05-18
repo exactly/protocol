@@ -445,7 +445,7 @@ describe("FixedLender", function () {
       const tx = await fixedLenderDAI.connect(john).deposit(parseUnits("12"), maria.address);
       const { blockNumber } = await tx.wait();
       const { timestamp } = await provider.getBlock(blockNumber);
-      await provider.send("evm_setNextBlockTimestamp", [timestamp + 218]);
+      await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
 
       await fixedLenderDAI.borrowAtMaturity(
         futurePools(1)[0],

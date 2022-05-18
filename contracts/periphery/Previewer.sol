@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedLender } from "../FixedLender.sol";
 import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
@@ -93,7 +93,7 @@ contract Previewer {
     PoolLib.MaturityPool memory pool;
     (pool.borrowed, pool.supplied, , ) = fixedLender.maturityPools(maturity);
 
-    uint256 fees = assets.fmul(
+    uint256 fees = assets.mulWadDown(
       fixedLender.interestRateModel().getRateToBorrow(
         maturity,
         block.timestamp,
@@ -101,8 +101,7 @@ contract Previewer {
         pool.borrowed,
         pool.supplied,
         smartPoolAssetsAverage(fixedLender)
-      ),
-      1e18
+      )
     );
     positionAssets = assets + fees;
   }
@@ -122,7 +121,7 @@ contract Previewer {
     PoolLib.MaturityPool memory pool;
     (pool.borrowed, pool.supplied, , ) = fixedLender.maturityPools(maturity);
 
-    withdrawAssets = positionAssets.fdiv(
+    withdrawAssets = positionAssets.divWadDown(
       1e18 +
         fixedLender.interestRateModel().getRateToBorrow(
           maturity,
@@ -131,8 +130,7 @@ contract Previewer {
           pool.borrowed,
           pool.supplied,
           smartPoolAssetsAverage(fixedLender)
-        ),
-      1e18
+        )
     );
   }
 
@@ -152,7 +150,7 @@ contract Previewer {
       return
         repayAssets =
           positionAssets +
-          positionAssets.fmul((block.timestamp - maturity) * fixedLender.penaltyRate(), 1e18);
+          positionAssets.mulWadDown((block.timestamp - maturity) * fixedLender.penaltyRate());
     }
 
     (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(fixedLender, maturity);
@@ -262,7 +260,7 @@ contract Previewer {
     smartPoolBorrowed = pool.borrowed - Math.min(pool.borrowed, pool.supplied);
     unassignedEarnings =
       pool.earningsUnassigned -
-      pool.earningsUnassigned.fmul(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
+      pool.earningsUnassigned.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
   }
 
   function smartPoolAssetsAverage(FixedLender fixedLender) internal view returns (uint256) {
@@ -270,9 +268,12 @@ contract Previewer {
     uint256 dampSpeedFactor = fixedLender.smartPoolBalance() < fixedLender.smartPoolAssetsAverage()
       ? dampSpeedDown
       : dampSpeedUp;
-    uint256 averageFactor = Math.min(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate()), 1e18);
+    uint256 averageFactor = uint256(
+      1e18 -
+        FixedPointMathLib.expWadDown(-int256(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate())))
+    );
     return
-      fixedLender.smartPoolAssetsAverage().fmul(1e18 - averageFactor, 1e18) +
-      averageFactor.fmul(fixedLender.smartPoolBalance(), 1e18);
+      fixedLender.smartPoolAssetsAverage().mulWadDown(1e18 - averageFactor) +
+      averageFactor.mulWadDown(fixedLender.smartPoolBalance());
   }
 }
