@@ -10,8 +10,7 @@ const func: DeployFunction = async ({
       collateralFactor,
       penaltyRatePerDay,
       smartPoolReserveFactor,
-      dampSpeedUp,
-      dampSpeedDown,
+      dampSpeed: { up, down },
       maxFuturePools,
       accumulatedEarningsSmoothFactor,
     },
@@ -37,7 +36,7 @@ const func: DeployFunction = async ({
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
     parseUnits(String(smartPoolReserveFactor)),
-    { up: parseUnits(String(dampSpeedUp)), down: parseUnits(String(dampSpeedDown)) },
+    { up: parseUnits(String(up)), down: parseUnits(String(down)) },
   ];
   for (const token of config.tokens) {
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
@@ -88,8 +87,8 @@ const func: DeployFunction = async ({
       ]);
     }
     if (
-      !(await fixedLender.dampSpeed())[0].eq(parseUnits(String(dampSpeedUp))) ||
-      !(await fixedLender.dampSpeed())[1].eq(parseUnits(String(dampSpeedDown)))
+      !(await fixedLender.dampSpeed())[0].eq(parseUnits(String(up))) ||
+      !(await fixedLender.dampSpeed())[1].eq(parseUnits(String(down)))
     ) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [poolAccountingArgs[3]]);
     }

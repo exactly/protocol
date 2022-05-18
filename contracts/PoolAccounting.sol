@@ -2,8 +2,7 @@
 pragma solidity 0.8.13;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { InvalidParameter } from "./Auditor.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
@@ -14,6 +13,7 @@ contract PoolAccounting is AccessControl {
   using PoolLib for PoolLib.Position;
   using PoolLib for uint256;
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for int256;
 
   // Vars used in `borrowMP` to avoid stack too deep problem
   struct BorrowVars {
@@ -47,12 +47,12 @@ contract PoolAccounting is AccessControl {
   uint256 public smartPoolEarningsAccumulator;
   uint256 public lastAverageUpdate;
   uint256 public smartPoolAssetsAverage;
-  DampSpeed public dampSpeed;
 
   InterestRateModel public interestRateModel;
 
   uint256 public penaltyRate;
   uint256 public smartPoolReserveFactor;
+  DampSpeed public dampSpeed;
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
@@ -140,7 +140,7 @@ contract PoolAccounting is AccessControl {
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
     updateSmartPoolAssetsAverage(smartPoolTotalSupply);
-    borrowVars.fee = amount.fmul(
+    borrowVars.fee = amount.mulWadDown(
       interestRateModel.getRateToBorrow(
         maturity,
         block.timestamp,
@@ -148,13 +148,12 @@ contract PoolAccounting is AccessControl {
         pool.borrowed,
         pool.supplied,
         smartPoolAssetsAverage
-      ),
-      1e18
+      )
     );
     totalOwedNewBorrow = amount + borrowVars.fee;
 
     smartPoolBorrowed += pool.borrowMoney(amount, smartPoolTotalSupply - smartPoolBorrowed);
-    if (smartPoolBorrowed > smartPoolTotalSupply.fmul(1e18 - smartPoolReserveFactor, 1e18))
+    if (smartPoolBorrowed > smartPoolTotalSupply.mulWadDown(1e18 - smartPoolReserveFactor))
       revert SmartPoolReserveExceeded();
     // We validate that the user is not taking arbitrary fees
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
@@ -245,7 +244,7 @@ contract PoolAccounting is AccessControl {
     // early withdrawal - if so: discount
     if (block.timestamp < maturity) {
       updateSmartPoolAssetsAverage(smartPoolTotalSupply);
-      redeemAmountDiscounted = amount.fdiv(
+      redeemAmountDiscounted = amount.divWadDown(
         1e18 +
           interestRateModel.getRateToBorrow(
             maturity,
@@ -254,8 +253,7 @@ contract PoolAccounting is AccessControl {
             pool.borrowed,
             pool.supplied,
             smartPoolAssetsAverage
-          ),
-        1e18
+          )
       );
     } else {
       redeemAmountDiscounted = amount;
@@ -327,7 +325,7 @@ contract PoolAccounting is AccessControl {
     // then amountBorrowed is what should be discounted to the users account
     // Math.min to not go over repayAmount since we return exceeding money, but
     // hasn't been calculated yet
-    debtCovered = repayAmount.fmul(repayVars.position.principal + repayVars.position.fee, repayVars.amountOwed);
+    debtCovered = repayAmount.mulDivDown(repayVars.position.principal + repayVars.position.fee, repayVars.amountOwed);
     repayVars.scaleDebtCovered = PoolLib
       .Position(repayVars.position.principal, repayVars.position.fee)
       .scaleProportionally(debtCovered);
@@ -408,17 +406,19 @@ contract PoolAccounting is AccessControl {
     PoolLib.Position memory position = mpUserBorrowedAmount[maturity][who];
     totalDebt = position.principal + position.fee;
     uint256 secondsDelayed = TSUtils.secondsPre(maturity, block.timestamp);
-    if (secondsDelayed > 0) totalDebt += totalDebt.fmul(secondsDelayed * penaltyRate, 1e18);
+    if (secondsDelayed > 0) totalDebt += totalDebt.mulWadDown(secondsDelayed * penaltyRate);
   }
 
   /// @notice Updates the smartPoolAssetsAverage.
   /// @param smartPoolAssets smart pool total assets.
   function updateSmartPoolAssetsAverage(uint256 smartPoolAssets) internal {
     uint256 dampSpeedFactor = smartPoolAssets < smartPoolAssetsAverage ? dampSpeed.down : dampSpeed.up;
-    uint256 averageFactor = Math.min(dampSpeedFactor * (block.timestamp - lastAverageUpdate), 1e18);
+    uint256 averageFactor = uint256(
+      1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWadDown()
+    );
     smartPoolAssetsAverage =
-      smartPoolAssetsAverage.fmul(1e18 - averageFactor, 1e18) +
-      averageFactor.fmul(smartPoolAssets, 1e18);
+      smartPoolAssetsAverage.mulWadDown(1e18 - averageFactor) +
+      averageFactor.mulWadDown(smartPoolAssets);
     lastAverageUpdate = block.timestamp;
   }
 }
