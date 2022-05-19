@@ -3,7 +3,7 @@ pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { PoolAccounting, InterestRateModel } from "../../contracts/PoolAccounting.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { PoolLib } from "../../contracts/utils/PoolLib.sol";
@@ -64,7 +64,7 @@ contract PoolAccountingTest is Test, PoolAccounting {
       repayMP(
         i * POOL_ID,
         address(this),
-        uint256(1 ether).fmul(1e18 + (FEE_MP * i * POOL_ID) / 365 days, 1e18),
+        uint256(1 ether).mulWadDown(1e18 + (FEE_MP * i * POOL_ID) / 365 days),
         1.01 ether
       );
     }

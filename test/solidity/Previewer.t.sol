@@ -3,7 +3,7 @@ pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
 import { MockToken } from "../../contracts/mocks/MockToken.sol";
@@ -311,16 +311,16 @@ contract PreviewerTest is Test {
     assertEq(bobOwedPrincipal, 0);
   }
 
-  function testPreviewRepayAtMaturityWithEmptyMaturity() external {
-    assertEq(previewer.previewRepayAtMaturity(fixedLender, 7 days, 1 ether, address(this)), 1 ether);
+  function testFailPreviewRepayAtMaturityWithEmptyMaturity() external view {
+    previewer.previewRepayAtMaturity(fixedLender, 7 days, 1 ether, address(this));
   }
 
-  function testPreviewRepayAtMaturityWithEmptyMaturityAndZeroAmount() external {
-    assertEq(previewer.previewRepayAtMaturity(fixedLender, 7 days, 0, address(this)), 0);
+  function testFailPreviewRepayAtMaturityWithEmptyMaturityAndZeroAmount() external view {
+    previewer.previewRepayAtMaturity(fixedLender, 7 days, 0, address(this));
   }
 
-  function testPreviewRepayAtMaturityWithInvalidMaturity() external {
-    assertEq(previewer.previewRepayAtMaturity(fixedLender, 376 seconds, 1 ether, address(this)), 1 ether);
+  function testFailPreviewRepayAtMaturityWithInvalidMaturity() external view {
+    previewer.previewRepayAtMaturity(fixedLender, 376 seconds, 1 ether, address(this));
   }
 
   function testPreviewRepayAtMaturityWithSameTimestamp() external {
@@ -333,7 +333,7 @@ contract PreviewerTest is Test {
   function testPreviewRepayAtMaturityWithMaturedMaturity() external {
     uint256 maturity = 7 days;
     vm.warp(maturity + 100);
-    uint256 penalties = uint256(1 ether).fmul(100 * fixedLender.penaltyRate(), 1e18);
+    uint256 penalties = uint256(1 ether).mulWadDown(100 * fixedLender.penaltyRate());
 
     assertEq(previewer.previewRepayAtMaturity(fixedLender, maturity, 1 ether, address(this)), 1 ether + penalties);
   }
@@ -457,14 +457,13 @@ contract PreviewerTest is Test {
     Previewer.ExtendedAccountMarketData[] memory data = previewer.extendedAccountData(address(this));
 
     // We sum all the collateral prices
-    uint256 sumCollateral = data[0].smartPoolAssets.fmul(data[0].oraclePrice, 10**data[0].decimals).fmul(
-      data[0].collateralFactor,
-      1e18
+    uint256 sumCollateral = data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
+      data[0].collateralFactor
     );
 
     // We sum all the debt
     uint256 sumDebt = (data[0].maturityBorrowPositions[0].position.principal +
-      data[0].maturityBorrowPositions[0].position.fee).fmul(data[0].oraclePrice, 10**data[0].decimals);
+      data[0].maturityBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals);
 
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
 
@@ -499,14 +498,13 @@ contract PreviewerTest is Test {
     Previewer.ExtendedAccountMarketData[] memory data = previewer.extendedAccountData(address(this));
 
     // We sum all the collateral prices
-    uint256 sumCollateral = data[0].smartPoolAssets.fmul(data[0].oraclePrice, 10**data[0].decimals).fmul(
-      data[0].collateralFactor,
-      1e18
+    uint256 sumCollateral = data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
+      data[0].collateralFactor
     );
 
     // We sum all the debt
     uint256 sumDebt = (data[0].maturityBorrowPositions[0].position.principal +
-      data[0].maturityBorrowPositions[0].position.fee).fmul(data[0].oraclePrice, 10**data[0].decimals);
+      data[0].maturityBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals);
 
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
@@ -522,9 +520,8 @@ contract PreviewerTest is Test {
     fixedLenders[0] = fixedLenderWETH;
     auditor.enterMarkets(fixedLenders);
     data = previewer.extendedAccountData(address(this));
-    sumCollateral += data[1].smartPoolAssets.fmul(data[1].oraclePrice, 10**data[1].decimals).fmul(
-      data[1].collateralFactor,
-      1e18
+    sumCollateral += data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(
+      data[1].collateralFactor
     );
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
@@ -536,11 +533,15 @@ contract PreviewerTest is Test {
     data = previewer.extendedAccountData(address(this));
 
     sumCollateral =
-      data[0].smartPoolAssets.fmul(data[0].oraclePrice, 10**data[0].decimals).fmul(data[0].collateralFactor, 1e18) +
-      data[1].smartPoolAssets.fmul(data[1].oraclePrice, 10**data[1].decimals).fmul(data[1].collateralFactor, 1e18);
+      data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
+        data[0].collateralFactor
+      ) +
+      data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(
+        data[1].collateralFactor
+      );
 
     sumDebt += (data[1].maturityBorrowPositions[0].position.principal + data[1].maturityBorrowPositions[0].position.fee)
-      .fmul(data[1].oraclePrice, 10**data[1].decimals);
+      .mulDivDown(data[1].oraclePrice, 10**data[1].decimals);
 
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);

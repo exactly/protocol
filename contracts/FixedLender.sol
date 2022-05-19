@@ -5,8 +5,7 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "@rari-capital/solmate/src/utils/ReentrancyGuard.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
-
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "@rari-capital/solmate/src/mixins/ERC4626.sol";
 import { PoolLib, InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
 import { Auditor, InvalidParameter } from "./Auditor.sol";
@@ -162,7 +161,9 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
           lastAccrual := sload(add(location, 3)) // forth word
         }
 
-        smartPoolEarnings += unassignedEarnings.fmul(block.timestamp - lastAccrual, maturity - lastAccrual);
+        if (maturity > lastAccrual) {
+          smartPoolEarnings += unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
+        }
       }
 
       return smartPoolBalance + smartPoolEarnings + smartPoolAccumulatedEarnings();
@@ -207,9 +208,10 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   function smartPoolAccumulatedEarnings() internal view returns (uint256 earnings) {
     uint256 elapsed = block.timestamp - lastAccumulatedEarningsAccrual;
-    earnings = smartPoolEarningsAccumulator.fmul(
+    if (elapsed == 0) return 0;
+    earnings = smartPoolEarningsAccumulator.mulDivDown(
       elapsed,
-      elapsed + accumulatedEarningsSmoothFactor.fmul(maxFuturePools * TSUtils.INTERVAL, 1e18)
+      elapsed + accumulatedEarningsSmoothFactor.mulWadDown(maxFuturePools * TSUtils.INTERVAL)
     );
   }
 
@@ -274,7 +276,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     // reverts on failure
     auditor.liquidateAllowed(this, collateralFixedLender, msg.sender, borrower);
 
-    assets = Math.min(assets, CLOSE_FACTOR.fmul(getAccountBorrows(borrower, PoolLib.MATURITY_ALL), 1e18));
+    assets = Math.min(assets, CLOSE_FACTOR.mulWadDown(getAccountBorrows(borrower, PoolLib.MATURITY_ALL)));
 
     uint256 encodedMaturities = userMpBorrowed[borrower];
     uint256 baseMaturity = encodedMaturities % (1 << 32);

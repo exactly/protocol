@@ -3,7 +3,7 @@ pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { Auditor, FixedLender, ExactlyOracle } from "../../contracts/Auditor.sol";
 
 contract AuditorTest is Test {
@@ -57,7 +57,7 @@ contract AuditorTest is Test {
     emit MarketEntered(FixedLender(address(fixedLender)), address(this));
     auditor.enterMarkets(markets);
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
-    assertEq(collateral, uint256(1 ether).fmul(0.8e18, 1e18));
+    assertEq(collateral, uint256(1 ether).mulWadDown(0.8e18));
     assertEq(debt, 0);
 
     vm.expectEmit(true, false, false, true);
