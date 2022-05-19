@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { TSUtils } from "./TSUtils.sol";
 
@@ -126,9 +126,7 @@ library PoolLib {
 
     // assign some of the earnings to be collected at maturity
     uint256 earningsUnassigned = pool.earningsUnassigned;
-    earningsSP = secondsTotalToMaturity == 0
-      ? 0
-      : earningsUnassigned.fmul(secondsSinceLastAccrue, secondsTotalToMaturity);
+    earningsSP = earningsUnassigned.mulDivDown(secondsSinceLastAccrue, secondsTotalToMaturity);
     pool.earningsUnassigned = earningsUnassigned - earningsSP;
   }
 
@@ -137,7 +135,7 @@ library PoolLib {
   /// @param position original position to be scaled.
   /// @param amount to be used as a full value (principal + interest).
   function scaleProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
-    uint256 principal = amount.fmul(position.principal, position.principal + position.fee);
+    uint256 principal = amount.mulDivDown(position.principal, position.principal + position.fee);
     position.principal = principal;
     position.fee = amount - principal;
     return position;
@@ -148,7 +146,7 @@ library PoolLib {
   /// @param position original position to be reduced.
   /// @param amount to be used as a full value (principal + interest).
   function reduceProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
-    uint256 principal = amount.fmul(position.principal, position.principal + position.fee);
+    uint256 principal = amount.mulDivDown(position.principal, position.principal + position.fee);
     position.principal -= principal;
     position.fee -= amount - principal;
     return position;
@@ -163,7 +161,9 @@ library PoolLib {
     uint256 suppliedSP,
     uint256 amountFunded
   ) internal pure returns (uint256 earningsA, uint256 earningsB) {
-    earningsB = earnings.fmul(amountFunded - Math.min(suppliedSP, amountFunded), amountFunded);
+    earningsB = amountFunded == 0
+      ? 0
+      : earnings.mulDivDown(amountFunded - Math.min(suppliedSP, amountFunded), amountFunded);
     earningsA = earnings - earningsB;
   }
 

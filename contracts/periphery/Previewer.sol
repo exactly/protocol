@@ -13,6 +13,7 @@ import { TSUtils } from "../utils/TSUtils.sol";
 /// @notice Contract to be consumed by Exactly's front-end dApp.
 contract Previewer {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for int256;
   using PoolLib for PoolLib.Position;
 
   Auditor public immutable auditor;
@@ -269,8 +270,7 @@ contract Previewer {
       ? dampSpeedDown
       : dampSpeedUp;
     uint256 averageFactor = uint256(
-      1e18 -
-        FixedPointMathLib.expWadDown(-int256(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate())))
+      1e18 - (-int256(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate()))).expWadDown()
     );
     return
       fixedLender.smartPoolAssetsAverage().mulWadDown(1e18 - averageFactor) +

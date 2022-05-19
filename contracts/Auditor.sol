@@ -2,7 +2,7 @@
 pragma solidity 0.8.13;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate-v6/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { FixedLender, NotFixedLender } from "./FixedLender.sol";
 import { ExactlyOracle } from "./ExactlyOracle.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
@@ -321,11 +321,11 @@ contract Auditor is AccessControl {
     uint256 priceBorrowed = oracle.getAssetPrice(fixedLenderBorrowed.assetSymbol());
     uint256 priceCollateral = oracle.getAssetPrice(fixedLenderCollateral.assetSymbol());
 
-    uint256 amountInUSD = actualRepayAmount.fmul(priceBorrowed, 10**markets[fixedLenderBorrowed].decimals);
+    uint256 amountInUSD = actualRepayAmount.mulDivDown(priceBorrowed, 10**markets[fixedLenderBorrowed].decimals);
     // 10**18: usd amount decimals
-    uint256 seizeTokens = amountInUSD.fmul(10**markets[fixedLenderCollateral].decimals, priceCollateral);
+    uint256 seizeTokens = amountInUSD.mulDivDown(10**markets[fixedLenderCollateral].decimals, priceCollateral);
 
-    return seizeTokens.fmul(liquidationIncentive, 1e18);
+    return seizeTokens.mulWadDown(liquidationIncentive);
   }
 
   /// @dev Function to retrieve all markets.
@@ -382,17 +382,17 @@ contract Auditor is AccessControl {
         vars.oraclePrice = oracle.getAssetPrice(asset.assetSymbol());
 
         // We sum all the collateral prices
-        sumCollateral += vars.balance.fmul(vars.oraclePrice, 10**decimals).fmul(collateralFactor, 1e18);
+        sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(collateralFactor);
 
         // We sum all the debt
-        sumDebt += vars.borrowBalance.fmul(vars.oraclePrice, 10**decimals);
+        sumDebt += vars.borrowBalance.mulDivDown(vars.oraclePrice, 10**decimals);
 
         // Simulate the effects of borrowing from/lending to a pool
         if (asset == FixedLender(fixedLenderToSimulate)) {
           // Calculate the effects of redeeming fixedLenders
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
-            sumDebt += withdrawAmount.fmul(vars.oraclePrice, 10**decimals).fmul(collateralFactor, 1e18);
+            sumDebt += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(collateralFactor);
           }
         }
       }
