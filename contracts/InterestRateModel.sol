@@ -124,7 +124,7 @@ contract InterestRateModel is AccessControl {
   /// @param amount the current borrow's amount.
   /// @param borrowedMP ex-ante amount borrowed from this maturity.
   /// @param suppliedMP deposits in maturity pool.
-  /// @param totalSupplySP total supply in the smart pool.
+  /// @param smartPoolAssetsAverage the average of the smart pool's assets.
   /// @return fee the borrower will have to pay, as a factor (1% interest is represented as the wad for 0.01 == 10^16).
   function getRateToBorrow(
     uint256 maturity,
@@ -132,11 +132,11 @@ contract InterestRateModel is AccessControl {
     uint256 amount,
     uint256 borrowedMP,
     uint256 suppliedMP,
-    uint256 totalSupplySP
+    uint256 smartPoolAssetsAverage
   ) public view returns (uint256) {
     if (currentDate >= maturity) revert AlreadyMatured();
 
-    uint256 supplied = suppliedMP + totalSupplySP.divWadDown(fullUtilization);
+    uint256 supplied = suppliedMP + smartPoolAssetsAverage.divWadDown(fullUtilization);
     uint256 utilizationBefore = borrowedMP.divWadDown(supplied);
     uint256 utilizationAfter = (borrowedMP + amount).divWadDown(supplied);
 

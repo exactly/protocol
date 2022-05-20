@@ -966,7 +966,7 @@ describe("PoolAccounting", () => {
       let tx: any;
       beforeEach(async () => {
         poolAccountingEnv.switchWallet(laura);
-        poolAccountingEnv.smartPoolTotalSupply = parseUnits("100");
+        poolAccountingEnv.smartPoolAssets = parseUnits("100");
         await poolAccountingHarness.setSmartPoolReserveFactor(parseUnits("0.1"));
         tx = poolAccountingEnv.borrowMP(nextPoolID, "80");
         await tx;
@@ -981,7 +981,7 @@ describe("PoolAccounting", () => {
         await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.be.revertedWith("SmartPoolReserveExceeded()");
       });
       it("AND WHEN depositing 0.1 more to the sp, THEN it should not revert when trying to borrow 10.01 more", async () => {
-        poolAccountingEnv.smartPoolTotalSupply = parseUnits("100.1");
+        poolAccountingEnv.smartPoolAssets = parseUnits("100.1");
         await expect(poolAccountingEnv.borrowMP(nextPoolID, "10.01")).to.not.be.reverted;
       });
       it("AND WHEN setting the smart pool reserve to 0, THEN it should not revert when trying to borrow 10.01 more", async () => {
@@ -1162,7 +1162,7 @@ describe("PoolAccounting", () => {
 
     describe("GIVEN an empty SP AND a deposit of 100", () => {
       beforeEach(async () => {
-        poolAccountingEnv.smartPoolTotalSupply = parseUnits("0");
+        poolAccountingEnv.smartPoolAssets = parseUnits("0");
         await poolAccountingEnv.depositMP(nextPoolID, "100");
       });
 
@@ -1488,7 +1488,7 @@ describe("PoolAccounting", () => {
 
       beforeEach(async () => {
         poolAccountingEnv.switchWallet(laura);
-        poolAccountingEnv.smartPoolTotalSupply = parseUnits("100");
+        poolAccountingEnv.smartPoolAssets = parseUnits("100");
         await poolAccountingEnv.borrowMP(nextPoolID, "30");
       });
       it("WHEN a borrow of 70 is made to the second mp, THEN it should not revert", async () => {
@@ -1522,7 +1522,7 @@ describe("PoolAccounting", () => {
             );
           });
           it("AND WHEN a supply of 30 is added to the sp, THEN the withdraw of 30 is not reverted", async () => {
-            poolAccountingEnv.smartPoolTotalSupply = parseUnits("130");
+            poolAccountingEnv.smartPoolAssets = parseUnits("130");
             await expect(poolAccountingEnv.withdrawMP(nextPoolID, "30")).to.not.be.reverted;
           });
           it("AND WHEN a deposit of 30 is added to the mp, THEN the withdraw of 30 is not reverted", async () => {

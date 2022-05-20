@@ -228,7 +228,7 @@ contract Previewer {
   }
 
   function smartPoolAssetsAverage(FixedLender fixedLender) internal view returns (uint256) {
-    uint256 dampSpeedFactor = fixedLender.smartPoolBalance() < fixedLender.smartPoolAssetsAverage()
+    uint256 dampSpeedFactor = fixedLender.smartPoolAssets() < fixedLender.smartPoolAssetsAverage()
       ? fixedLender.dampSpeedDown()
       : fixedLender.dampSpeedUp();
     uint256 averageFactor = uint256(
@@ -236,6 +236,6 @@ contract Previewer {
     );
     return
       fixedLender.smartPoolAssetsAverage().mulWadDown(1e18 - averageFactor) +
-      averageFactor.mulWadDown(fixedLender.smartPoolBalance());
+      averageFactor.mulWadDown(fixedLender.smartPoolAssets());
   }
 }
