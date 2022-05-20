@@ -449,12 +449,12 @@ contract PreviewerTest is Test {
     assertEq(previewer.previewWithdrawAtMaturity(fixedLender, maturity, 1 ether), 1 ether);
   }
 
-  function testExtendedAccountDataReturningAccurateAmounts() external {
+  function testAccountsReturningAccurateAmounts() external {
     fixedLender.deposit(10 ether, address(this));
     vm.warp(100 seconds);
     fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
 
-    Previewer.ExtendedAccountMarketData[] memory data = previewer.extendedAccountData(address(this));
+    Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
 
     // We sum all the collateral prices
     uint256 sumCollateral = data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
@@ -471,7 +471,7 @@ contract PreviewerTest is Test {
     assertEq(sumDebt, realDebt);
   }
 
-  function testAccountLiquidityWithIntermediateOperationsReturningAccurateAmounts() external {
+  function testAccountsWithIntermediateOperationsReturningAccurateAmounts() external {
     // we deploy a new token for more liquidity combinations
     MockToken mockTokenWETH = new MockToken("WETH", "WETH", 18, 150_000 ether);
     mockOracle.setPrice("WETH", 2800e18);
@@ -495,7 +495,7 @@ contract PreviewerTest is Test {
     fixedLender.borrowAtMaturity(7 days, 1.321 ether, 2 ether, address(this), address(this));
     fixedLender.deposit(2 ether, address(this));
 
-    Previewer.ExtendedAccountMarketData[] memory data = previewer.extendedAccountData(address(this));
+    Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
 
     // We sum all the collateral prices
     uint256 sumCollateral = data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
@@ -511,7 +511,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].isCollateral, true);
 
     fixedLenderWETH.deposit(100 ether, address(this));
-    data = previewer.extendedAccountData(address(this));
+    data = previewer.accounts(address(this));
     assertEq(data[1].smartPoolAssets, 100 ether);
     assertEq(data[1].isCollateral, false);
     assertEq(data.length, 2);
@@ -519,7 +519,7 @@ contract PreviewerTest is Test {
     FixedLender[] memory fixedLenders = new FixedLender[](1);
     fixedLenders[0] = fixedLenderWETH;
     auditor.enterMarkets(fixedLenders);
-    data = previewer.extendedAccountData(address(this));
+    data = previewer.accounts(address(this));
     sumCollateral += data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(
       data[1].collateralFactor
     );
@@ -530,7 +530,7 @@ contract PreviewerTest is Test {
     mockOracle.setPrice("WETH", 2800e18);
     vm.warp(200 seconds);
     fixedLenderWETH.borrowAtMaturity(14 days, 33 ether, 40 ether, address(this), address(this));
-    data = previewer.extendedAccountData(address(this));
+    data = previewer.accounts(address(this));
 
     sumCollateral =
       data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
@@ -547,11 +547,11 @@ contract PreviewerTest is Test {
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
 
     mockOracle.setPrice("WETH", 1831e18);
-    data = previewer.extendedAccountData(address(this));
+    data = previewer.accounts(address(this));
     assertEq(data[1].oraclePrice, 1831e18);
   }
 
-  function testExtendedAccountDataWithAccountThatHasBalances() external {
+  function testAccountsWithAccountThatHasBalances() external {
     fixedLender.deposit(10 ether, address(this));
     vm.warp(400 seconds);
     fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
@@ -575,7 +575,7 @@ contract PreviewerTest is Test {
       address(this)
     );
 
-    Previewer.ExtendedAccountMarketData[] memory data = previewer.extendedAccountData(address(this));
+    Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
 
     assertEq(data[0].assetSymbol, "DAI");
     assertEq(data[0].smartPoolAssets, fixedLender.convertToAssets(fixedLender.balanceOf(address(this))));
@@ -603,9 +603,9 @@ contract PreviewerTest is Test {
     assertEq(data[0].isCollateral, true);
   }
 
-  function testExtendedAccountDataWithAccountOnlyDeposit() external {
+  function testAccountsWithAccountOnlyDeposit() external {
     fixedLender.deposit(10 ether, address(this));
-    Previewer.ExtendedAccountMarketData[] memory data = previewer.extendedAccountData(address(this));
+    Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
 
     assertEq(data[0].assetSymbol, "DAI");
     assertEq(data[0].smartPoolAssets, 10 ether);
@@ -618,8 +618,8 @@ contract PreviewerTest is Test {
     assertEq(data[0].isCollateral, false);
   }
 
-  function testExtendedAccountDataWithEmptyAccount() external {
-    Previewer.ExtendedAccountMarketData[] memory data = previewer.extendedAccountData(address(this));
+  function testAccountsWithEmptyAccount() external {
+    Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
 
     assertEq(data[0].assetSymbol, "DAI");
     assertEq(data[0].smartPoolAssets, 0);
@@ -630,45 +630,6 @@ contract PreviewerTest is Test {
     assertEq(data[0].collateralFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
     assertEq(data[0].penaltyRate, fixedLender.penaltyRate());
-    assertEq(data[0].isCollateral, false);
-  }
-
-  function testAccountDataWithAccountThatHasBalances() external {
-    fixedLender.deposit(10 ether, address(this));
-    vm.warp(100 seconds);
-    fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
-    (uint256 principal, uint256 fees) = fixedLender.mpUserBorrowedAmount(7 days, address(this));
-
-    Previewer.AccountMarketData[] memory data = previewer.accountData(address(this));
-
-    assertEq(data[0].smartPoolAssets, 10 ether);
-    assertEq(data[0].borrowedAssets, principal + fees);
-    assertEq(data[0].oraclePrice, 1e18);
-    assertEq(data[0].collateralFactor, 0.8e18);
-    assertEq(data[0].decimals, 18);
-    assertEq(data[0].isCollateral, true);
-  }
-
-  function testAccountDataWithAccountOnlyDeposit() external {
-    fixedLender.deposit(10 ether, address(this));
-    Previewer.AccountMarketData[] memory data = previewer.accountData(address(this));
-
-    assertEq(data[0].smartPoolAssets, 10 ether);
-    assertEq(data[0].borrowedAssets, 0);
-    assertEq(data[0].oraclePrice, 1e18);
-    assertEq(data[0].collateralFactor, 0.8e18);
-    assertEq(data[0].decimals, 18);
-    assertEq(data[0].isCollateral, false);
-  }
-
-  function testAccountDataWithEmptyAccount() external {
-    Previewer.AccountMarketData[] memory data = previewer.accountData(address(this));
-
-    assertEq(data[0].smartPoolAssets, 0);
-    assertEq(data[0].borrowedAssets, 0);
-    assertEq(data[0].oraclePrice, 1e18);
-    assertEq(data[0].collateralFactor, 0.8e18);
-    assertEq(data[0].decimals, 18);
     assertEq(data[0].isCollateral, false);
   }
 }
