@@ -147,12 +147,13 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   function totalAssets() public view override returns (uint256) {
     unchecked {
+      uint256 memMaxFuturePools = maxFuturePools;
       uint256 smartPoolEarnings = 0;
 
       uint256 lastAccrual;
       uint256 unassignedEarnings;
       uint256 latestMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL);
-      uint256 maxMaturity = latestMaturity + maxFuturePools * TSUtils.INTERVAL;
+      uint256 maxMaturity = latestMaturity + memMaxFuturePools * TSUtils.INTERVAL;
 
       assembly {
         mstore(0x20, maturityPools.slot) // hashing scratch space, second word for storage location hashing
@@ -194,23 +195,26 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   function beforeWithdraw(uint256 assets, uint256) internal override {
-    updateSmartPoolAssetsAverage(smartPoolBalance);
+    uint256 memSPBalance = smartPoolBalance;
+    updateSmartPoolAssetsAverage(memSPBalance);
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = block.timestamp;
     smartPoolEarningsAccumulator -= earnings;
-    emit SmartPoolEarningsAccrued(smartPoolBalance, earnings);
-    smartPoolBalance = smartPoolBalance + earnings - assets;
+    emit SmartPoolEarningsAccrued(memSPBalance, earnings);
+    memSPBalance = memSPBalance + earnings - assets;
+    smartPoolBalance = memSPBalance;
     // we check if the underlying liquidity that the user wants to withdraw is borrowed
-    if (smartPoolBalance < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
+    if (memSPBalance < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
   }
 
   function afterDeposit(uint256 assets, uint256) internal virtual override whenNotPaused {
-    updateSmartPoolAssetsAverage(smartPoolBalance);
+    uint256 memSPBalance = smartPoolBalance;
+    updateSmartPoolAssetsAverage(memSPBalance);
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = block.timestamp;
     smartPoolEarningsAccumulator -= earnings;
-    emit SmartPoolEarningsAccrued(smartPoolBalance, earnings);
-    smartPoolBalance += earnings + assets;
+    emit SmartPoolEarningsAccrued(memSPBalance, earnings);
+    smartPoolBalance = memSPBalance + earnings + assets;
   }
 
   function smartPoolAccumulatedEarnings() internal view returns (uint256 earnings) {
@@ -355,7 +359,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
     uint256 earningsSP;
-    (assetsOwed, earningsSP) = borrowMP(maturity, borrower, assets, maxAssetsAllowed, smartPoolBalance);
+    uint256 memSPBalance = smartPoolBalance;
+    (assetsOwed, earningsSP) = borrowMP(maturity, borrower, assets, maxAssetsAllowed, memSPBalance);
 
     if (msg.sender != borrower) {
       uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
@@ -365,8 +370,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
     totalMpBorrows += assetsOwed;
 
-    emit SmartPoolEarningsAccrued(smartPoolBalance, earningsSP);
-    smartPoolBalance += earningsSP;
+    emit SmartPoolEarningsAccrued(memSPBalance, earningsSP);
+    smartPoolBalance = memSPBalance + earningsSP;
     auditor.validateBorrowMP(this, borrower);
 
     asset.safeTransfer(receiver, assets);
@@ -392,8 +397,9 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 earningsSP;
     (maturityAssets, earningsSP) = depositMP(maturity, receiver, assets, minAssetsRequired);
 
-    emit SmartPoolEarningsAccrued(smartPoolBalance, earningsSP);
-    smartPoolBalance += earningsSP;
+    uint256 memSPBalance = smartPoolBalance;
+    emit SmartPoolEarningsAccrued(memSPBalance, earningsSP);
+    smartPoolBalance = memSPBalance + earningsSP;
 
     emit DepositAtMaturity(maturity, msg.sender, receiver, assets, maturityAssets - assets);
   }
@@ -416,8 +422,9 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
     uint256 earningsSP;
+    uint256 memSPBalance = smartPoolBalance;
     // We check if there's any discount to be applied for early withdrawal
-    (assetsDiscounted, earningsSP) = withdrawMP(maturity, owner, positionAssets, minAssetsRequired, smartPoolBalance);
+    (assetsDiscounted, earningsSP) = withdrawMP(maturity, owner, positionAssets, minAssetsRequired, memSPBalance);
 
     if (msg.sender != owner) {
       uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
@@ -425,8 +432,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
       if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - previewWithdraw(assetsDiscounted);
     }
 
-    emit SmartPoolEarningsAccrued(smartPoolBalance, earningsSP);
-    smartPoolBalance += earningsSP;
+    emit SmartPoolEarningsAccrued(memSPBalance, earningsSP);
+    smartPoolBalance = memSPBalance + earningsSP;
 
     asset.safeTransfer(receiver, assetsDiscounted);
 
@@ -478,8 +485,9 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 earningsSP;
     (actualRepayAssets, debtCovered, earningsSP) = repayMP(maturity, borrower, positionAssets, maxAssetsAllowed);
 
-    emit SmartPoolEarningsAccrued(smartPoolBalance, earningsSP);
-    smartPoolBalance += earningsSP;
+    uint256 memSPBalance = smartPoolBalance;
+    emit SmartPoolEarningsAccrued(memSPBalance, earningsSP);
+    smartPoolBalance = memSPBalance + earningsSP;
 
     totalMpBorrows -= debtCovered;
 
