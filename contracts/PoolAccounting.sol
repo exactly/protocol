@@ -147,9 +147,12 @@ contract PoolAccounting is AccessControl {
     );
     totalOwedNewBorrow = amount + borrowVars.fee;
 
-    smartPoolBorrowed += pool.borrowMoney(amount, smartPoolTotalSupply - smartPoolBorrowed);
-    if (smartPoolBorrowed > smartPoolTotalSupply.mulWadDown(1e18 - smartPoolReserveFactor))
+    uint256 memSPBorrowed = smartPoolBorrowed;
+    memSPBorrowed = memSPBorrowed + pool.borrowMoney(amount, smartPoolTotalSupply - memSPBorrowed);
+    smartPoolBorrowed = memSPBorrowed;
+    if (memSPBorrowed > smartPoolTotalSupply.mulWadDown(1e18 - smartPoolReserveFactor)) {
       revert SmartPoolReserveExceeded();
+    }
     // We validate that the user is not taking arbitrary fees
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
