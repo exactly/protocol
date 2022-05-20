@@ -8,7 +8,7 @@ export class PoolAccountingEnv {
   mockInterestRateModel: Contract;
   poolAccountingHarness: Contract;
   currentWallet: SignerWithAddress;
-  smartPoolTotalSupply = parseUnits("100000"); // we use a high smartPoolTotalSupply limit since max borrows are already tested
+  smartPoolAssets = parseUnits("100000"); // we use a high smartPoolAssets limit since max borrows are already tested
 
   constructor(_mockInterestRateModel: Contract, _poolAccountingHarness: Contract, _currentWallet: SignerWithAddress) {
     this.mockInterestRateModel = _mockInterestRateModel;
@@ -73,7 +73,7 @@ export class PoolAccountingEnv {
         this.currentWallet.address,
         amount,
         minAmountRequired,
-        this.smartPoolTotalSupply,
+        this.smartPoolAssets,
       );
   }
 
@@ -87,13 +87,7 @@ export class PoolAccountingEnv {
     }
     return this.poolAccountingHarness
       .connect(this.currentWallet)
-      .borrowMPWithReturnValues(
-        maturityPool,
-        this.currentWallet.address,
-        amount,
-        expectedAmount,
-        this.smartPoolTotalSupply,
-      );
+      .borrowMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount, this.smartPoolAssets);
   }
 
   static async create(): Promise<PoolAccountingEnv> {

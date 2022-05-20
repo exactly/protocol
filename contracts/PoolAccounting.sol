@@ -121,7 +121,7 @@ contract PoolAccounting is AccessControl {
   /// @param borrower borrower that will take the debt.
   /// @param amount amount that the borrower will be borrowing.
   /// @param maxAmountAllowed maximum amount that the borrower is willing to pay at maturity.
-  /// @param smartPoolTotalSupply total supply in the smart pool.
+  /// @param smartPoolAssets total assets in the smart pool.
   /// @return totalOwedNewBorrow total amount that will need to be paid at maturity for this borrow.
   /// @return earningsSP amount of earnings to be accrued by the smart pool.
   function borrowMP(
@@ -129,14 +129,14 @@ contract PoolAccounting is AccessControl {
     address borrower,
     uint256 amount,
     uint256 maxAmountAllowed,
-    uint256 smartPoolTotalSupply
+    uint256 smartPoolAssets
   ) internal returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
     BorrowVars memory borrowVars;
     PoolLib.MaturityPool storage pool = maturityPools[maturity];
 
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
-    updateSmartPoolAssetsAverage(smartPoolTotalSupply);
+    updateSmartPoolAssetsAverage(smartPoolAssets);
     borrowVars.fee = amount.mulWadDown(
       interestRateModel.getRateToBorrow(
         maturity,
@@ -150,9 +150,9 @@ contract PoolAccounting is AccessControl {
     totalOwedNewBorrow = amount + borrowVars.fee;
 
     uint256 memSPBorrowed = smartPoolBorrowed;
-    memSPBorrowed = memSPBorrowed + pool.borrowMoney(amount, smartPoolTotalSupply - memSPBorrowed);
+    memSPBorrowed = memSPBorrowed + pool.borrowMoney(amount, smartPoolAssets - memSPBorrowed);
     smartPoolBorrowed = memSPBorrowed;
-    if (memSPBorrowed > smartPoolTotalSupply.mulWadDown(1e18 - smartPoolReserveFactor)) {
+    if (memSPBorrowed > smartPoolAssets.mulWadDown(1e18 - smartPoolReserveFactor)) {
       revert SmartPoolReserveExceeded();
     }
     // We validate that the user is not taking arbitrary fees
@@ -225,7 +225,7 @@ contract PoolAccounting is AccessControl {
   /// @param redeemer address that should have the assets withdrawn.
   /// @param positionAssets amount that the redeemer will be extracting from his position.
   /// @param minAmountRequired minimum amount that the supplier is expecting to withdraw.
-  /// @param smartPoolTotalSupply total supply in the smart pool.
+  /// @param smartPoolAssets total assets in the smart pool.
   /// @return redeemAmountDiscounted amount of assets to be withdrawn (can include a discount for early withdraw).
   /// @return earningsSP amount of earnings to be accrued by the smart pool.
   function withdrawMP(
@@ -233,7 +233,7 @@ contract PoolAccounting is AccessControl {
     address redeemer,
     uint256 positionAssets,
     uint256 minAmountRequired,
-    uint256 smartPoolTotalSupply
+    uint256 smartPoolAssets
   ) internal returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
     PoolLib.MaturityPool storage pool = maturityPools[maturity];
 
@@ -246,7 +246,7 @@ contract PoolAccounting is AccessControl {
     // We verify if there are any penalties/fee for him because of
     // early withdrawal - if so: discount
     if (block.timestamp < maturity) {
-      updateSmartPoolAssetsAverage(smartPoolTotalSupply);
+      updateSmartPoolAssetsAverage(smartPoolAssets);
       redeemAmountDiscounted = positionAssets.divWadDown(
         1e18 +
           interestRateModel.getRateToBorrow(
@@ -267,7 +267,7 @@ contract PoolAccounting is AccessControl {
     // We remove the supply from the offer
     smartPoolBorrowed += pool.withdrawMoney(
       PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
-      smartPoolTotalSupply - smartPoolBorrowed
+      smartPoolAssets - smartPoolBorrowed
     );
 
     // All the fees go to unassigned or to the smart pool
