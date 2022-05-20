@@ -8,21 +8,11 @@ import { TSUtils } from "./TSUtils.sol";
 library PoolLib {
   using FixedPointMathLib for uint256;
 
-  /// @notice struct that helps manage the maturity pools and also keep.
-  /// @param borrowed total amount borrowed at the MP.
-  /// @param supplied total amount supplied to the MP.
-  /// @param suppliedSP total amount borrowed over time from the SP.
-  /// It only increases, and it's the last debt to be repaid at maturity.
-  /// @param earnings total amount of earnings to be collected at maturity.
-  /// This earnings haven't accrued yet (see: lastAccrual). Each interaction with the MP, some of these earnings
-  /// are accrued to earningsSP. This is done by:
-  ///     EARNINGSSP += DAYS(NOW - LAST_ACCRUE) * EARNINGS / DAYS(MATURITY_DATE - LAST_ACCRUE);
-  /// If there's a new deposit to the MP, the commission for that deposit comes out of the future earnings:
-  ///     NEWCOMMISSION = DEPOSIT * EARNINGS / (SUPPLIEDSP + DEPOSIT);
-  ///     EARNINGS -= NEWCOMMISSION;
-  /// @param earningsSP total amount of earnings that already belong to the SP.
-  /// @param lastAccrual timestamp for the last time that some of the earnings have been transferred to earningsSP.
-  /// SP gained some earnings for having supported the loans.
+  /// @notice contains the accountability of a maturity.
+  /// @param borrowed total amount borrowed from the maturity.
+  /// @param supplied total amount supplied to the maturity.
+  /// @param earningsUnassigned total amount of earnings not yet distributed and accrued.
+  /// @param lastAccrual timestamp for the last time that some earnings have been distributed to earningsSP.
   struct MaturityPool {
     uint256 borrowed;
     uint256 supplied;
@@ -30,6 +20,9 @@ library PoolLib {
     uint256 lastAccrual;
   }
 
+  /// @notice contains principal and fee of a borrow or a supply position of a user in a maturity.
+  /// @param principal amount borrowed or supplied to the maturity.
+  /// @param fee amount of fees to be repaid or earned at maturity.
   struct Position {
     uint256 principal;
     uint256 fee;
@@ -37,17 +30,19 @@ library PoolLib {
 
   uint256 public constant MATURITY_ALL = type(uint256).max;
 
-  /// @notice function that calculates the borrowed from the smart pool.
-  /// @param pool maturity pool where money will be added.
+  /// @notice calculates the amount that a maturity borrowed from the smart pool.
+  /// @param pool maturity pool.
+  /// @return amount borrowed from the maturity.
   function smartPoolBorrowed(MaturityPool storage pool) internal view returns (uint256) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
     return borrowed - Math.min(borrowed, supplied);
   }
 
-  /// @notice function that registers an operation to add money to maturity pool.
-  /// @param pool maturity pool where money will be added.
-  /// @param amount amount to be added to the maturity pool.
+  /// @notice registers an operation to add supply to a maturity and potentially reduce smart pool debt.
+  /// @param pool maturity pool where an amount will be added to the supply.
+  /// @param amount amount to be added to the supply.
+  /// @return smartPoolDebtReduction amount that will be reduced from the smart pool debt.
   function depositMoney(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
@@ -55,9 +50,10 @@ library PoolLib {
     smartPoolDebtReduction = Math.min(borrowed - Math.min(borrowed, supplied), amount);
   }
 
-  /// @notice function that registers an operation to add money to maturity pool.
-  /// @param pool maturity pool where money will be added.
-  /// @param amount amount to be added to the maturity pool.
+  /// @notice registers an operation to reduce borrowed amount from a maturity and potentially reduce smart pool debt.
+  /// @param pool maturity where an amount will be repaid.
+  /// @param amount amount to be added to the maturity.
+  /// @return smartPoolDebtReduction amount that will be reduced from the smart pool debt.
   function repayMoney(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
@@ -65,10 +61,10 @@ library PoolLib {
     smartPoolDebtReduction = Math.min(borrowed - Math.min(borrowed, supplied), amount);
   }
 
-  /// @notice registers an operation to take money out of the maturity pool that returns the new smart pool debt.
-  /// @param pool maturity pool where money needs to be taken out.
-  /// @param amount amount to be taken out of the pool before it matures.
-  /// @return smartPoolDebtAddition amount of new debt that needs to be taken out of the SP.
+  /// @notice registers an operation to increase borrowed amount of a maturity and potentially increase smart pool debt.
+  /// @param pool maturity where an amount will be borrowed.
+  /// @param amount amount to be borrowed from the maturity.
+  /// @return smartPoolDebtAddition amount of new debt that needs to be borrowed from the smart pool.
   function borrowMoney(
     MaturityPool storage pool,
     uint256 amount,
@@ -85,10 +81,10 @@ library PoolLib {
     pool.borrowed = newBorrowed;
   }
 
-  /// @notice registers an operation to withdraw money out of the maturity pool that returns the new smart pool debt.
-  /// @param pool maturity pool where money needs to be withdrawn.
-  /// @param amountToDiscount previous amount that the user deposited.
-  /// @return smartPoolDebtAddition amount of new debt that needs to be taken out of the SP.
+  /// @notice registers an operation to reduce supply from a maturity and potentially increase smart pool debt.
+  /// @param pool maturity where amount will be withdrawn.
+  /// @param amountToDiscount amoun to be withdrawn from the maturity.
+  /// @return smartPoolDebtAddition amount of new debt that needs to be borrowed from the smart pool.
   function withdrawMoney(
     MaturityPool storage pool,
     uint256 amountToDiscount,
@@ -105,24 +101,26 @@ library PoolLib {
     pool.supplied = newSupply;
   }
 
-  /// @notice Internal function to accrue Smart Pool earnings.
-  /// @param pool maturity pool that needs to be updated.
-  /// @param maturityID timestamp in which maturity pool matures.
+  /// @notice accrues smart pool earnings from earningsUnassigned based on the lastAccrual time.
+  /// @param pool maturity where earnings will be accrued.
+  /// @param currentTimestamp timestamp of the current transaction.
+  /// @param maturity maturity date of the pool.
+  /// @return earningsSP amount of earnings to be distributed to the smart pool.
   function accrueEarnings(
     MaturityPool storage pool,
-    uint256 maturityID,
+    uint256 maturity,
     uint256 currentTimestamp
   ) internal returns (uint256 earningsSP) {
     uint256 lastAccrual = pool.lastAccrual;
 
-    if (lastAccrual == maturityID) return 0;
+    if (lastAccrual == maturity) return 0;
 
     // seconds from last accrual to the closest:
     // maturity date or the current timestamp
-    uint256 secondsSinceLastAccrue = TSUtils.secondsPre(lastAccrual, Math.min(maturityID, currentTimestamp));
+    uint256 secondsSinceLastAccrue = TSUtils.secondsPre(lastAccrual, Math.min(maturity, currentTimestamp));
     // seconds from last accrual to the maturity date
-    uint256 secondsTotalToMaturity = TSUtils.secondsPre(lastAccrual, maturityID);
-    pool.lastAccrual = Math.min(maturityID, currentTimestamp);
+    uint256 secondsTotalToMaturity = TSUtils.secondsPre(lastAccrual, maturity);
+    pool.lastAccrual = Math.min(maturity, currentTimestamp);
 
     // assign some of the earnings to be collected at maturity
     uint256 earningsUnassigned = pool.earningsUnassigned;
@@ -134,6 +132,7 @@ library PoolLib {
   /// @dev modifies the original struct and returns it. Needs for the amount to be less than the principal and the fee
   /// @param position original position to be scaled.
   /// @param amount to be used as a full value (principal + interest).
+  /// @return Position scaled position.
   function scaleProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
     uint256 principal = amount.mulDivDown(position.principal, position.principal + position.fee);
     position.principal = principal;
@@ -142,9 +141,10 @@ library PoolLib {
   }
 
   /// @notice reduce positions based on a certain amount, keeping the original principal/fee ratio.
-  /// @dev modifies the original struct and returns it. Needs for the amount to be less than the principal and the fee
+  /// @dev modifies the original struct and returns it.
   /// @param position original position to be reduced.
   /// @param amount to be used as a full value (principal + interest).
+  /// @return Position reduced position.
   function reduceProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
     uint256 principal = amount.mulDivDown(position.principal, position.principal + position.fee);
     position.principal -= principal;
@@ -152,24 +152,27 @@ library PoolLib {
     return position;
   }
 
-  /// @notice Returns what proportional of earnings would amountFunded represent considering suppliedSP the total
-  /// @param earnings amount to be distributed as earnings between the two participants
-  /// @param suppliedSP current supply of the smart pool.
-  /// @param amountFunded amount that will be checked if it came from smart pool or not.
+  /// @notice calculates what proportion of earnings would amountFunded represent considering suppliedSP.
+  /// @param earnings amount to be distributed.
+  /// @param suppliedSP amount that the maturity borrowed from the smart pool.
+  /// @param amountFunded amount that will be checked if came from the smart pool or maturity.
+  /// @return earningsUnassigned earnings to be added to earningsUnassigned.
+  /// @return earningsSP earnings to be distributed to the smart pool.
   function distributeEarningsAccordingly(
     uint256 earnings,
     uint256 suppliedSP,
     uint256 amountFunded
-  ) internal pure returns (uint256 earningsA, uint256 earningsB) {
-    earningsB = amountFunded == 0
+  ) internal pure returns (uint256 earningsUnassigned, uint256 earningsSP) {
+    earningsSP = amountFunded == 0
       ? 0
       : earnings.mulDivDown(amountFunded - Math.min(suppliedSP, amountFunded), amountFunded);
-    earningsA = earnings - earningsB;
+    earningsUnassigned = earnings - earningsSP;
   }
 
-  /// @notice Function to add a maturity date to the borrow positions of the user
-  /// @param encoded encoded maturity dates where the user borrowed
-  /// @param maturity the maturity date where the user will borrow from
+  /// @notice adds a maturity date to the borrow or supply positions of the user.
+  /// @param encoded encoded maturity dates where the user borrowed or supplied to.
+  /// @param maturity the new maturity where the user will borrow or supply to.
+  /// @return updated encoded maturity dates.
   function setMaturity(uint256 encoded, uint256 maturity) internal pure returns (uint256) {
     // we initialize the maturity date with also the 1st bit on the 33th position set
     if (encoded == 0) return maturity | (1 << 32);
@@ -189,9 +192,10 @@ library PoolLib {
     }
   }
 
-  /// @dev Cleans user's position from encoded maturity pools
-  /// @param encoded encoded maturity dates where the user borrowed
-  /// @param maturity maturity date
+  /// @notice remove maturity from user's borrow or supplied positions.
+  /// @param encoded encoded maturity dates where the user borrowed or supplied to.
+  /// @param maturity maturity date to be removed.
+  /// @return updated encoded maturity dates.
   function clearMaturity(uint256 encoded, uint256 maturity) internal pure returns (uint256) {
     if (encoded == 0 || encoded == maturity | (1 << 32)) return 0;
 
@@ -215,9 +219,10 @@ library PoolLib {
     }
   }
 
-  /// @dev Cleans user's position from encoded maturity pools
-  /// @param encoded encoded maturity dates where the user borrowed
-  /// @param maturity maturity date
+  /// @notice checks if the user has positions in a maturity date.
+  /// @param encoded encoded maturity dates where the user borrowed or supplied to.
+  /// @param maturity maturity date.
+  /// @return true if the user has positions in the maturity date.
   function hasMaturity(uint256 encoded, uint256 maturity) internal pure returns (bool) {
     uint32 baseMaturity = uint32(encoded % (1 << 32));
     if (maturity < baseMaturity) return false;

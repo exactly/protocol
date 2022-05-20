@@ -66,7 +66,7 @@ contract Auditor is AccessControl {
   /// @param newBorrowCap new borrow cap expressed with 1e18 precision for the given market. Zero means no cap.
   event BorrowCapUpdated(FixedLender indexed fixedLender, uint256 newBorrowCap);
 
-  /// @notice emitted when a collateral factor is changed by admin.
+  /// @notice Event emitted when a collateral factor is changed by admin.
   /// @param fixedLender address of the market that has a new collateral factor.
   /// @param newCollateralFactor collateral factor for the underlying asset.
   event CollateralFactorUpdated(FixedLender indexed fixedLender, uint256 newCollateralFactor);
@@ -123,14 +123,14 @@ contract Auditor is AccessControl {
     emit MarketExited(fixedLender, msg.sender);
   }
 
-  /// @dev Function to set Oracle's to be used.
+  /// @notice Sets Oracle's to be used.
   /// @param _priceOracle address of the new oracle.
   function setOracle(ExactlyOracle _priceOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
     oracle = _priceOracle;
     emit OracleUpdated(_priceOracle);
   }
 
-  /// @notice Set liquidation incentive for the whole ecosystem.
+  /// @notice Sets liquidation incentive for the whole ecosystem.
   /// @dev Value can only be set between 20% and 5%.
   /// @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18.
   function setLiquidationIncentive(uint256 _liquidationIncentive) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -139,7 +139,7 @@ contract Auditor is AccessControl {
     emit LiquidationIncentiveUpdated(_liquidationIncentive);
   }
 
-  /// @dev Function to enable a certain FixedLender market.
+  /// @notice Enables a certain FixedLender market.
   /// @param fixedLender address to add to the protocol.
   /// @param collateralFactor fixedLender's collateral factor for the underlying asset.
   /// @param symbol symbol of the market's underlying asset.
@@ -170,7 +170,7 @@ contract Auditor is AccessControl {
     emit MarketListed(fixedLender);
   }
 
-  /// @notice sets the collateral factor for a certain fixedLender.
+  /// @notice Sets the collateral factor for a certain fixedLender.
   /// @dev Value can only be set between 90% and 30%.
   /// @param fixedLender address of the market to change collateral factor for.
   /// @param collateralFactor collateral factor for the underlying asset.
@@ -183,7 +183,7 @@ contract Auditor is AccessControl {
     emit CollateralFactorUpdated(fixedLender, collateralFactor);
   }
 
-  /// @notice Set the given borrow caps for the given fixedLender markets.
+  /// @notice Sets the given borrow caps for the given fixedLender markets.
   /// Borrowing that brings total borrows to or above borrow cap will revert.
   /// @param fixedLenders The addresses of the markets (tokens) to change the borrow caps for.
   /// @param newBorrowCaps Values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
@@ -205,8 +205,8 @@ contract Auditor is AccessControl {
     }
   }
 
+  /// @notice Validates that the current state of the position and system are valid (liquidity).
   /// @dev Hook function to be called after calling the poolAccounting borrowMP function.
-  /// Validates that the current state of the position and system are valid (liquidity).
   /// @param fixedLender address of the fixedLender that will lend money in a maturity.
   /// @param borrower address of the user that will borrow money from a maturity date.
   function validateBorrowMP(FixedLender fixedLender, address borrower) external {
@@ -239,8 +239,8 @@ contract Auditor is AccessControl {
     if (collateral < debt) revert InsufficientLiquidity();
   }
 
-  /// @dev Function to allow/reject liquidation of assets.
-  /// This function can be called externally, but only will have effect when called from a fixedLender.
+  /// @notice Allows/rejects liquidation of assets.
+  /// @dev This function can be called externally, but only will have effect when called from a fixedLender.
   /// @param fixedLenderBorrowed market from where the debt is pending.
   /// @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
   /// @param liquidator address that is liquidating the assets.
@@ -262,8 +262,8 @@ contract Auditor is AccessControl {
     if (sumCollateral >= sumDebt) revert InsufficientShortfall();
   }
 
-  /// @dev Function to allow/reject seizing of assets.
-  /// This function can be called externally, but only will have effect when called from a fixedLender.
+  /// @notice Allow/rejects seizing of assets.
+  /// @dev This function can be called externally, but only will have effect when called from a fixedLender.
   /// @param fixedLenderCollateral market where the assets will be seized (should be msg.sender on FixedLender.sol).
   /// @param fixedLenderBorrowed market from where the debt will be paid.
   /// @param liquidator address to validate where the seized assets will be received.
@@ -280,7 +280,7 @@ contract Auditor is AccessControl {
     if (!markets[fixedLenderCollateral].isListed || !markets[fixedLenderBorrowed].isListed) revert MarketNotListed();
   }
 
-  /// @dev Given a fixedLender address, it returns the corresponding market data.
+  /// @notice Given a fixedLender address, it returns the corresponding market data.
   /// @param fixedLender Address of the contract where we are getting the data.
   function getMarketData(FixedLender fixedLender)
     external
@@ -307,11 +307,11 @@ contract Auditor is AccessControl {
     );
   }
 
-  /// @dev Function to calculate the amount of assets to be seized.
-  /// Calculates the amount of collateral to be seized when a position is undercollaterized.
-  /// @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
+  /// @notice Calculates the amount of collateral to be seized when a position is undercollaterized.
   /// @param fixedLenderBorrowed market from where the debt is pending.
+  /// @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
   /// @param actualRepayAmount repay amount in the borrowed asset.
+  /// @return amount of collateral to be seized.
   function liquidateCalculateSeizeAmount(
     FixedLender fixedLenderBorrowed,
     FixedLender fixedLenderCollateral,
@@ -328,15 +328,14 @@ contract Auditor is AccessControl {
     return seizeTokens.mulWadDown(liquidationIncentive);
   }
 
-  /// @dev Function to retrieve all markets.
+  /// @notice Retrieves all markets.
   function getAllMarkets() external view returns (FixedLender[] memory) {
     return allMarkets;
   }
 
-  /// @dev Function to be called before someone wants to interact with its smart pool position.
-  /// This function checks if the user has no outstanding debts.
-  /// This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from this
-  /// contract when the user wants to exit a market.
+  /// @notice Checks if the user has an account liquidity shortfall
+  /// @dev This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
+  /// this contract when the user wants to exit a market.
   /// @param fixedLender address of the fixedLender where the smart pool belongs.
   /// @param account address of the user to check for possible shortfall.
   /// @param amount amount that the user wants to withdraw or transfer.
@@ -353,7 +352,7 @@ contract Auditor is AccessControl {
     if (collateral < debt) revert InsufficientLiquidity();
   }
 
-  /// @dev Function to get account's liquidity for a certain market/maturity pool.
+  /// @notice Returns account's liquidity for a certain market/maturity pool.
   /// @param account wallet which the liquidity will be calculated.
   /// @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args).
   /// @param withdrawAmount amount to simulate withdraw.
@@ -403,7 +402,7 @@ contract Auditor is AccessControl {
     }
   }
 
-  /// @dev This function verifies if market is listed as valid.
+  /// @notice Verifies if market is listed as valid.
   /// @param fixedLender address of the fixedLender to be validated by the auditor.
   function validateMarketListed(FixedLender fixedLender) internal view {
     if (!markets[fixedLender].isListed) revert MarketNotListed();

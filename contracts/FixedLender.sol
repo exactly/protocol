@@ -34,9 +34,9 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   /// @notice Event emitted when a user deposits an amount of an asset to a certain maturity date collecting a fee at
   /// the end of the period.
-  /// @param maturity dateID/poolID/maturity in which the user will be able to collect his deposit + his fee.
-  /// @param caller address which deposited the asset.
-  /// @param owner address which received the shares.
+  /// @param maturity maturity in which the user will be able to collect his deposit + his fee.
+  /// @param caller address which deposited the assets.
+  /// @param owner address that will be able to withdraw the deposited assets.
   /// @param assets amount of the asset that were deposited.
   /// @param fee is the extra amount that it will be collected at maturity.
   event DepositAtMaturity(
@@ -48,9 +48,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   );
 
   /// @notice Event emitted when a user collects its deposits after maturity.
-  /// @param maturity poolID where the user collected its deposits.
-  /// @param receiver address which will be collecting the asset.
-  /// @param assets amount of the asset that were deposited.
+  /// @param maturity maturity where the user collected its deposits.
+  /// @param caller address which withdraw the asset.
+  /// @param receiver address which will be collecting the assets.
+  /// @param owner address which had the assets withdrawn.
+  /// @param assets amount of the asset that were withdrawn.
   /// @param assetsDiscounted amount of the asset that were deposited (in case of early withdrawal).
   event WithdrawAtMaturity(
     uint256 indexed maturity,
@@ -62,11 +64,12 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   );
 
   /// @notice Event emitted when a user borrows amount of an asset from a certain maturity date.
-  /// @param maturity dateID/poolID/maturity in which the user will have to repay the loan.
+  /// @param maturity maturity in which the user will have to repay the loan.
   /// @param caller address which borrowed the asset.
-  /// @param borrower address which will be collecting the asset.
+  /// @param receiver address that received the borrowed assets.
+  /// @param borrower address which will be repaying the borrowed assets.
   /// @param assets amount of the asset that were borrowed.
-  /// @param fee amount extra that it will need to be paid at maturity.
+  /// @param fee extra amount that will need to be paid at maturity.
   event BorrowAtMaturity(
     uint256 indexed maturity,
     address caller,
@@ -77,7 +80,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   );
 
   /// @notice Event emitted when a user repays its borrows after maturity.
-  /// @param maturity poolID where the user repaid its borrowed amounts.
+  /// @param maturity maturity where the user repaid its borrowed amounts.
   /// @param caller address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
   /// @param assets amount that was repaid.
@@ -115,12 +118,12 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param earnings new smart pool earnings, denominated in assets (underlying).
   event SmartPoolEarningsAccrued(uint256 previousAssets, uint256 earnings);
 
-  /// @notice emitted when the accumulatedEarningsSmoothFactor is changed by admin.
+  /// @notice Event emitted when the accumulatedEarningsSmoothFactor is changed by admin.
   /// @param newAccumulatedEarningsSmoothFactor factor represented with 1e18 decimals.
   event AccumulatedEarningsSmoothFactorUpdated(uint256 newAccumulatedEarningsSmoothFactor);
 
-  /// @notice emitted when the maxFuturePools is changed by admin.
-  /// @param newMaxFuturePools represented with 1e18 decimals.
+  /// @notice Event emitted when the maxFuturePools is changed by admin.
+  /// @param newMaxFuturePools represented with 0 decimals.
   event MaxFuturePoolsUpdated(uint256 newMaxFuturePools);
 
   constructor(
@@ -145,6 +148,9 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     accumulatedEarningsSmoothFactor = accumulatedEarningsSmoothFactor_;
   }
 
+  /// @notice Calculates the smart pool balance plus earnings to be accrued at current timestamp
+  /// from maturities and accumulator.
+  /// @return actual smartPoolBalance plus earnings to be accrued at current timestamp.
   function totalAssets() public view override returns (uint256) {
     unchecked {
       uint256 memMaxFuturePools = maxFuturePools;
@@ -194,6 +200,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     return super.redeem(shares, receiver, owner);
   }
 
+  /// @notice Hook to update the smart pool average, smart pool balance and distribute earnings from accumulator.
+  /// @param assets amount of assets to be withdrawn from the smart pool.
   function beforeWithdraw(uint256 assets, uint256) internal override {
     uint256 memSPBalance = smartPoolBalance;
     updateSmartPoolAssetsAverage(memSPBalance);
@@ -207,6 +215,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     if (memSPBalance < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
   }
 
+  /// @notice Hook to update the smart pool average, smart pool balance and distribute earnings from accumulator.
+  /// @param assets amount of assets to be deposited to the smart pool.
   function afterDeposit(uint256 assets, uint256) internal virtual override whenNotPaused {
     uint256 memSPBalance = smartPoolBalance;
     updateSmartPoolAssetsAverage(memSPBalance);
@@ -217,6 +227,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     smartPoolBalance = memSPBalance + earnings + assets;
   }
 
+  /// @notice Calculates the earnings to be distributed from the accumulator given the current timestamp.
+  /// @return earnings to be distributed from the accumulator.
   function smartPoolAccumulatedEarnings() internal view returns (uint256 earnings) {
     uint256 elapsed = block.timestamp - lastAccumulatedEarningsAccrual;
     if (elapsed == 0) return 0;
@@ -272,11 +284,12 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     _unpause();
   }
 
-  /// @notice Function to liquidate uncollaterized position(s).
+  /// @notice Liquidates uncollaterized position(s).
   /// @dev Msg.sender liquidates borrower's position(s) and repays a certain amount of debt for multiple maturities,
   /// seizing a part of borrower's collateral.
   /// @param borrower wallet that has an outstanding debt across all maturities.
   /// @param positionAssets amount of debt to be covered by liquidator(msg.sender).
+  /// @param maxAssetsAllowed maximum amount of debt that the liquidator is willing to accept.
   /// @param collateralFixedLender fixedLender from which the collateral will be seized to give the liquidator.
   function liquidate(
     address borrower,
@@ -344,7 +357,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     _seize(FixedLender(msg.sender), liquidator, borrower, assets);
   }
 
-  /// @dev Lends to a wallet for a certain maturity date/pool.
+  /// @dev Borrows a certain amount from a maturity date.
   /// @param maturity maturity date for repayment.
   /// @param assets amount to send to borrower.
   /// @param maxAssetsAllowed maximum amount of debt that the user is willing to accept.
@@ -379,10 +392,12 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, assetsOwed - assets);
   }
 
-  /// @dev Deposits a certain amount to the protocol for a certain maturity date/pool.
+  /// @notice Deposits a certain amount to a maturity.
   /// @param maturity maturity date / pool ID.
   /// @param assets amount to receive from the msg.sender.
-  /// @param minAssetsRequired minimum amount of capital required by the depositor for the transaction to be accepted.
+  /// @param minAssetsRequired minimum amount of assets required by the depositor for the transaction to be accepted.
+  /// @param receiver address that will be able to withdraw the deposited assets.
+  /// @return maturityAssets total amount of assets (principal + fee) to be withdrawn at maturity.
   function depositAtMaturity(
     uint256 maturity,
     uint256 assets,
@@ -404,11 +419,13 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     emit DepositAtMaturity(maturity, msg.sender, receiver, assets, maturityAssets - assets);
   }
 
-  /// @notice User collects a certain amount of underlying asset after supplying tokens until a certain maturity date.
-  /// @dev The pool that the user is trying to retrieve the money should be matured.
-  /// @param positionAssets The number of underlying tokens to extract from position.
-  /// @param minAssetsRequired minimum amount required by the user (if penalty fees for early withdrawal).
-  /// @param maturity The matured date for which we're trying to retrieve the funds.
+  /// @notice Withdraws a certain amount from a maturity.
+  /// @param maturity maturity date where the assets will be withdrawn.
+  /// @param positionAssets the amount of assets (principal + fee) to be withdrawn.
+  /// @param minAssetsRequired minimum amount required by the user (if discount included for early withdrawal).
+  /// @param receiver address that will receive the withdrawn assets.
+  /// @param owner address that previously deposited the assets.
+  /// @return assetsDiscounted amount of assets withdrawn (can include a discount for early withdraw).
   function withdrawAtMaturity(
     uint256 maturity,
     uint256 positionAssets,
@@ -440,11 +457,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
   }
 
-  /// @notice Sender repays an amount of borrower's debt for a maturity date.
-  /// @dev The pool that the user is trying to repay to should be matured.
-  /// @param maturity The matured date where the debt is located.
-  /// @param borrower The address of the account that has the debt.
+  /// @notice Repays a certain amount to a maturity.
+  /// @param maturity maturity date where the assets will be repaid.
   /// @param positionAssets amount to be paid for the borrower's debt.
+  /// @param maxAssetsAllowed maximum amount of debt that the user is willing to accept to be repaid.
+  /// @param borrower address of the account that has the debt.
   /// @return actualRepayAssets the actual amount that was transferred into the protocol.
   function repayAtMaturity(
     uint256 maturity,
@@ -459,7 +476,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
   }
 
-  /// @dev Gets current snapshot for a wallet in certain maturity.
+  /// @notice Gets current snapshot for a wallet in certain maturity.
   /// @param who wallet to return status snapshot in the specified maturity date.
   /// @param maturity maturity. `PoolLib.MATURITY_ALL` (`type(uint256).max`) for all maturities.
   /// @return the amount the user deposited to the smart pool and the total money he owes from maturities.
@@ -472,6 +489,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @dev Internal repay function, allows partial repayment.
   /// @param maturity the maturity to access the pool.
   /// @param positionAssets the amount of debt of the pool that should be paid.
+  /// @param maxAssetsAllowed maximum amount of debt that the user is willing to accept to be repaid.
   /// @param borrower the address of the account that has the debt.
   /// @return actualRepayAssets the actual amount that should be transferred into the protocol.
   function noTransferRepay(
@@ -494,10 +512,10 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     emit RepayAtMaturity(maturity, msg.sender, borrower, actualRepayAssets, debtCovered);
   }
 
-  /// @notice Private function to seize a certain amount of tokens.
-  /// @dev Private function for liquidator to seize borrowers tokens in the smart pool.
+  /// @notice Internal function to seize a certain amount of tokens.
+  /// @dev Internal function for liquidator to seize borrowers tokens in the smart pool.
   /// Will only be called from this FixedLender on `liquidation` or through `seize` calls from another FixedLender.
-  /// That's why msg.sender needs to be passed to the private function (to be validated as a market).
+  /// That's why msg.sender needs to be passed to the internal function (to be validated as a market).
   /// @param seizerFixedLender address which is calling the seize function (see `seize` public function).
   /// @param liquidator address which will receive the seized tokens.
   /// @param borrower address from which the tokens will be seized.

@@ -114,14 +114,16 @@ contract PoolAccounting is AccessControl {
     emit DampSpeedUpdated(dampSpeed.up, dampSpeed.down);
   }
 
-  /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the
-  /// borrower, so the `fixedLender` should call `validateBorrowMP` immediately after calling this function.
-  /// @param maturity maturity date / pool id where the asset will be borrowed.
-  /// @param borrower borrower that it will take the debt.
+  /// @notice Accounts for borrowing from a maturity pool.
+  /// @dev It doesn't check liquidity for the borrower.
+  /// The `fixedLender` should call `validateBorrowMP` immediately after calling this function.
+  /// @param maturity maturity date / pool id where the assets will be borrowed.
+  /// @param borrower borrower that will take the debt.
   /// @param amount amount that the borrower will be borrowing.
   /// @param maxAmountAllowed maximum amount that the borrower is willing to pay at maturity.
   /// @param smartPoolTotalSupply total supply in the smart pool.
-  /// @return totalOwedNewBorrow : total amount that will need to be paid at maturity for this borrow.
+  /// @return totalOwedNewBorrow total amount that will need to be paid at maturity for this borrow.
+  /// @return earningsSP amount of earnings to be accrued by the smart pool.
   function borrowMP(
     uint256 maturity,
     address borrower,
@@ -156,8 +158,7 @@ contract PoolAccounting is AccessControl {
     // We validate that the user is not taking arbitrary fees
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
-    // If user doesn't have a current position, we add it to the list
-    // of all of them
+    // If user doesn't have a current position, we add it to the list of all of them
     borrowVars.position = mpUserBorrowedAmount[maturity][borrower];
     if (borrowVars.position.principal == 0) {
       userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturity);
@@ -178,12 +179,13 @@ contract PoolAccounting is AccessControl {
     );
   }
 
-  /// @dev Function to account for a deposit to a maturity pool (MP). It doesn't transfer or.
-  /// @param maturity maturity date / pool id where the asset will be deposited.
+  /// @notice Accounts for depositing to a maturity pool.
+  /// @param maturity maturity date / pool id where the assets will be deposited.
   /// @param supplier address that will be depositing the assets.
   /// @param amount amount that the supplier will be depositing.
-  /// @param minAmountRequired minimum amount that the borrower is expecting to receive at maturity.
-  /// @return currentTotalDeposit : the amount that should be collected at maturity for this deposit.
+  /// @param minAmountRequired minimum amount that the supplier is expecting to receive at maturity.
+  /// @return currentTotalDeposit the amount that should be collected at maturity for this deposit.
+  /// @return earningsSP amount of earnings to be accrued by the smart pool.
   function depositMP(
     uint256 maturity,
     address supplier,
@@ -191,6 +193,7 @@ contract PoolAccounting is AccessControl {
     uint256 minAmountRequired
   ) internal returns (uint256 currentTotalDeposit, uint256 earningsSP) {
     PoolLib.MaturityPool storage pool = maturityPools[maturity];
+
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
     (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
@@ -209,8 +212,7 @@ contract PoolAccounting is AccessControl {
     // We update users's position
     PoolLib.Position memory position = mpUserSuppliedAmount[maturity][supplier];
 
-    // If user doesn't have a current position, we add it to the list
-    // of all of them
+    // If user doesn't have a current position, we add it to the list of all of them
     if (position.principal == 0) {
       userMpSupplied[supplier] = userMpSupplied[supplier].setMaturity(maturity);
     }
@@ -218,11 +220,14 @@ contract PoolAccounting is AccessControl {
     mpUserSuppliedAmount[maturity][supplier] = PoolLib.Position(position.principal + amount, position.fee + fee);
   }
 
-  /// @dev Function to account for a withdraw from a maturity pool (MP).
+  /// @notice Accounts for withdrawing from a maturity pool.
   /// @param maturity maturity date / pool id where the asset should be accounted for.
   /// @param redeemer address that should have the assets withdrawn.
   /// @param positionAssets amount that the redeemer will be extracting from his position.
+  /// @param minAmountRequired minimum amount that the supplier is expecting to withdraw.
   /// @param smartPoolTotalSupply total supply in the smart pool.
+  /// @return redeemAmountDiscounted amount of assets to be withdrawn (can include a discount for early withdraw).
+  /// @return earningsSP amount of earnings to be accrued by the smart pool.
   function withdrawMP(
     uint256 maturity,
     address redeemer,
@@ -285,10 +290,11 @@ contract PoolAccounting is AccessControl {
     }
   }
 
-  /// @dev Function to account for a repayment to a maturity pool (MP).
+  /// @notice Accounts for repaying from a maturity pool.
   /// @param maturity maturity date / pool id where the asset should be accounted for.
   /// @param borrower address where the debt will be reduced.
   /// @param positionAssets the sum of principal and fees that this repayment covers.
+  /// @param maxAmountAllowed maximum amount of debt that the user is willing to accept to be repaid.
   /// @return repayAmount the amount with discounts included that will finally be transferred.
   /// @return debtCovered the sum of principal and fees that this repayment covers.
   /// @return earningsSP amount of earnings to be accrued by the smart pool depositors.
@@ -307,7 +313,6 @@ contract PoolAccounting is AccessControl {
   {
     PoolLib.MaturityPool storage pool = maturityPools[maturity];
 
-    // SP supply needs to accrue its interests
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
     PoolLib.Position memory position = mpUserBorrowedAmount[maturity][borrower];
@@ -320,12 +325,11 @@ contract PoolAccounting is AccessControl {
 
     // Early repayment allows you to get a discount from the unassigned earnings
     if (block.timestamp < maturity) {
-      // We calculate the deposit fee considering the amount of debt he'll pay
+      // We calculate the deposit fee considering the amount of debt the user'll pay
       (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
         pool.smartPoolBorrowed(),
         pool.earningsUnassigned,
         scaleDebtCovered.principal
-        // ^ this case shouldn't contain penalties since is before maturity date
       );
 
       earningsSP += feeSP;
@@ -348,21 +352,19 @@ contract PoolAccounting is AccessControl {
     // We reduce the borrowed and we might decrease the SP debt
     smartPoolBorrowed -= pool.repayMoney(scaleDebtCovered.principal);
 
-    //
-    // From now on: We update the user position
-    //
+    // We update the user position
     position.reduceProportionally(debtCovered);
     if (position.principal + position.fee == 0) {
       delete mpUserBorrowedAmount[maturity][borrower];
       userMpBorrowed[borrower] = userMpBorrowed[borrower].clearMaturity(maturity);
     } else {
-      // we proportionally reduce the values
+      // We proportionally reduce the values
       mpUserBorrowedAmount[maturity][borrower] = position;
     }
   }
 
-  /// @dev Gets all borrows for a wallet in certain maturity (or MATURITY_ALL).
-  /// @param who wallet to return status snapshot in the specified maturity date.
+  /// @dev Gets all borrows for an account in certain maturity (or MATURITY_ALL).
+  /// @param who account to return status snapshot in the specified maturity date.
   /// @param maturity maturity where the borrow is taking place. MATURITY_ALL returns all borrows.
   /// @return sumPositions the total amount of borrows in user position.
   /// @return sumPenalties the total penalties for late repayment in all maturities.
@@ -390,8 +392,8 @@ contract PoolAccounting is AccessControl {
     } else (sumPositions, sumPenalties) = getAccountDebt(who, maturity);
   }
 
-  /// @notice Internal function to get the debt + penalties of an account for a certain maturity.
-  /// @param who wallet to return debt status for the specified maturity.
+  /// @notice Gets the debt + penalties of an account for a certain maturity.
+  /// @param who account to return debt status for the specified maturity.
   /// @param maturity amount to be transferred.
   /// @return position the position debt denominated in number of tokens.
   /// @return penalties the penalties for late repayment.

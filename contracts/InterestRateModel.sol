@@ -20,14 +20,14 @@ contract InterestRateModel is AccessControl {
   uint256 public fullUtilization;
   uint256 public spFeeRate;
 
-  /// @notice emitted when the curve parameters are changed by admin.
+  /// @notice Emitted when the curve parameters are changed by admin.
   /// @param a new curve parameter A.
   /// @param b new curve parameter B.
   /// @param maxUtilization new max utilization rate.
   /// @param fullUtilization new full utilization rate.
   event CurveParametersUpdated(uint256 a, int256 b, uint256 maxUtilization, uint256 fullUtilization);
 
-  /// @notice emitted when the spFeeRate parameter is changed by admin.
+  /// @notice Emitted when the spFeeRate parameter is changed by admin.
   /// @param spFeeRate rate charged to the mp depositors to be accrued by the sp borrowers.
   event SpFeeRateUpdated(uint256 spFeeRate);
 
@@ -53,7 +53,7 @@ contract InterestRateModel is AccessControl {
     emit SpFeeRateUpdated(_spFeeRate);
   }
 
-  /// @notice gets this model's curve parameters.
+  /// @notice Gets this model's curve parameters.
   /// @return parameters (_curveA, _curveB, maxUtilization, fullUtilization).
   function getCurveParameters()
     external
@@ -117,9 +117,8 @@ contract InterestRateModel is AccessControl {
     emit CurveParametersUpdated(_curveParameterA, _curveParameterB, _maxUtilization, _fullUtilization);
   }
 
-  /// @notice Get fee to borrow a certain amount in a certain maturity with supply/demand values in the maturity pool
+  /// @notice Gets fee to borrow a certain amount in a certain maturity with supply/demand values in the maturity pool
   /// and supply/demand values in the smart pool.
-  /// @dev liquidity limits aren't checked, that's the responsibility of pool.takeMoney.
   /// @param maturity maturity date for calculating days left to maturity.
   /// @param currentDate the current block timestamp. Received from caller for easier testing.
   /// @param amount the current borrow's amount.
@@ -146,7 +145,7 @@ contract InterestRateModel is AccessControl {
     return rate(utilizationBefore, utilizationAfter).mulDivDown(maturity - currentDate, 365 days);
   }
 
-  /// @notice returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).
+  /// @notice Returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).
   /// @dev handles special case where delta utilization tends to zero, using l'hôpital's rule.
   /// @param utilizationBefore ex-ante utilization rate, with 18 decimals precision.
   /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.

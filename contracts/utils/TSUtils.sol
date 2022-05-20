@@ -12,34 +12,35 @@ library TSUtils {
 
   uint32 public constant INTERVAL = 7 days;
 
-  /// @notice Function to calculate how many seconds are left to a certain date.
+  /// @notice calculates how many seconds are left to a certain date.
   /// @param timestampFrom to calculate the difference in seconds from a date.
   /// @param timestampTo to calculate the difference in seconds to a date.
+  /// @return seconds left to the date.
   function secondsPre(uint256 timestampFrom, uint256 timestampTo) internal pure returns (uint256) {
     return timestampFrom < timestampTo ? timestampTo - timestampFrom : 0;
   }
 
-  /// @notice Function to return a pool _time_ state based on the current time, maxPools available, and INTERVAL.
+  /// @notice returns a pool `time` state based on the current time, maxPools available, and INTERVAL.
   /// @param timestamp timestamp of the current time.
-  /// @param poolId used as POOLID.
-  /// @param maxPools number of pools available in the time horizon to be available.
+  /// @param maturity used as maturity date / pool id.
+  /// @param maxPools number of pools available in the time horizon.
   /// @return state: if a pool is VALID, not yet available(NOT_READY), INVALID or MATURED.
   function getPoolState(
     uint256 timestamp,
-    uint256 poolId,
+    uint256 maturity,
     uint8 maxPools
   ) private pure returns (State) {
-    if (poolId % INTERVAL != 0) return State.INVALID;
+    if (maturity % INTERVAL != 0) return State.INVALID;
 
-    if (poolId < timestamp) return State.MATURED;
+    if (maturity < timestamp) return State.MATURED;
 
-    if (poolId > timestamp - (timestamp % INTERVAL) + (INTERVAL * maxPools)) return State.NOT_READY;
+    if (maturity > timestamp - (timestamp % INTERVAL) + (INTERVAL * maxPools)) return State.NOT_READY;
 
     return State.VALID;
   }
 
-  /// @dev verifies that a maturity is VALID, MATURED, NOT_READY or INVALID.
-  /// If expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
+  /// @notice verifies that a maturity is VALID, MATURED, NOT_READY or INVALID.
+  /// @dev if expected state doesn't match the calculated one, it reverts with a custom error "UnmatchedPoolState".
   /// @param maturity timestamp of the maturity date to be verified.
   /// @param requiredState state required by the caller to be verified (see TSUtils.State() for description).
   /// @param alternativeState state required by the caller to be verified (see TSUtils.State() for description).
