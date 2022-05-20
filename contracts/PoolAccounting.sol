@@ -52,7 +52,8 @@ contract PoolAccounting is AccessControl {
 
   uint256 public penaltyRate;
   uint256 public smartPoolReserveFactor;
-  DampSpeed public dampSpeed;
+  uint256 public dampSpeedUp;
+  uint256 public dampSpeedDown;
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
@@ -72,17 +73,18 @@ contract PoolAccounting is AccessControl {
   event DampSpeedUpdated(uint256 newDampSpeedUp, uint256 newDampSpeedDown);
 
   constructor(
-    InterestRateModel _interestRateModel,
-    uint256 _penaltyRate,
-    uint256 _smartPoolReserveFactor,
-    DampSpeed memory _dampSpeed
+    InterestRateModel interestRateModel_,
+    uint256 penaltyRate_,
+    uint256 smartPoolReserveFactor_,
+    DampSpeed memory dampSpeed
   ) {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    interestRateModel = _interestRateModel;
+    interestRateModel = interestRateModel_;
 
-    penaltyRate = _penaltyRate;
-    smartPoolReserveFactor = _smartPoolReserveFactor;
-    dampSpeed = _dampSpeed;
+    penaltyRate = penaltyRate_;
+    smartPoolReserveFactor = smartPoolReserveFactor_;
+    dampSpeedUp = dampSpeed.up;
+    dampSpeedDown = dampSpeed.down;
   }
 
   /// @notice Sets the interest rate model to be used by this PoolAccounting.
@@ -112,11 +114,12 @@ contract PoolAccounting is AccessControl {
 
   /// @notice Sets the damp speed used to update the smartPoolAssetsAverage.
   /// @dev Values can only be set between 0 and 100%.
-  /// @param dampSpeed_ represented with 18 decimals.
-  function setDampSpeed(DampSpeed memory dampSpeed_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (dampSpeed_.up > 1e18 || dampSpeed_.down > 1e18) revert InvalidParameter();
-    dampSpeed = dampSpeed_;
-    emit DampSpeedUpdated(dampSpeed_.up, dampSpeed_.down);
+  /// @param dampSpeed represented with 18 decimals.
+  function setDampSpeed(DampSpeed memory dampSpeed) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (dampSpeed.up > 1e18 || dampSpeed.down > 1e18) revert InvalidParameter();
+    dampSpeedUp = dampSpeed.up;
+    dampSpeedDown = dampSpeed.down;
+    emit DampSpeedUpdated(dampSpeed.up, dampSpeed.down);
   }
 
   /// @dev Function to account for borrowing money from a maturity pool (MP). It doesn't check liquidity for the
@@ -412,7 +415,7 @@ contract PoolAccounting is AccessControl {
   /// @notice Updates the smartPoolAssetsAverage.
   /// @param smartPoolAssets smart pool total assets.
   function updateSmartPoolAssetsAverage(uint256 smartPoolAssets) internal {
-    uint256 dampSpeedFactor = smartPoolAssets < smartPoolAssetsAverage ? dampSpeed.down : dampSpeed.up;
+    uint256 dampSpeedFactor = smartPoolAssets < smartPoolAssetsAverage ? dampSpeedDown : dampSpeedUp;
     uint256 averageFactor = uint256(
       1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWadDown()
     );
