@@ -1,3 +1,4 @@
+import type { BigNumber } from "ethers";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, ERC20, ExactlyOracle, FixedLender, InterestRateModel, TimelockController } from "../types";
 import transferOwnership from "./.utils/transferOwnership";
@@ -37,7 +38,9 @@ const func: DeployFunction = async ({
     parseUnits(String(penaltyRatePerDay)).div(86_400),
     parseUnits(String(smartPoolReserveFactor)),
     { up: parseUnits(String(up)), down: parseUnits(String(down)) },
-  ];
+  ] as [string, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
+  const fixedLenderArgs = [maxFuturePools, parseUnits(String(accumulatedEarningsSmoothFactor))] as [number, BigNumber];
+
   for (const token of config.tokens) {
     const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
     const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
@@ -46,14 +49,7 @@ const func: DeployFunction = async ({
     await deploy(fixedLenderName, {
       skipIfAlreadyDeployed: true,
       contract: "FixedLender",
-      args: [
-        tokenAddress,
-        token,
-        maxFuturePools,
-        parseUnits(String(accumulatedEarningsSmoothFactor)),
-        auditor.address,
-        ...poolAccountingArgs,
-      ],
+      args: [tokenAddress, token, ...fixedLenderArgs, auditor.address, ...poolAccountingArgs],
       from: deployer,
       log: true,
     });
@@ -66,17 +62,15 @@ const func: DeployFunction = async ({
     if (!((await fixedLender.maxFuturePools()) === maxFuturePools)) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setMaxFuturePools", [maxFuturePools]);
     }
-    if (
-      !(await fixedLender.accumulatedEarningsSmoothFactor()).eq(parseUnits(String(accumulatedEarningsSmoothFactor)))
-    ) {
+    if (!(await fixedLender.accumulatedEarningsSmoothFactor()).eq(fixedLenderArgs[1])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setAccumulatedEarningsSmoothFactor", [
-        parseUnits(String(accumulatedEarningsSmoothFactor)),
+        fixedLenderArgs[1],
       ]);
     }
-    if (!(await fixedLender.penaltyRate()).eq(parseUnits(String(penaltyRatePerDay)).div(86_400))) {
+    if (!(await fixedLender.penaltyRate()).eq(poolAccountingArgs[1])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
     }
-    if (!(await fixedLender.smartPoolReserveFactor()).eq(parseUnits(String(smartPoolReserveFactor)))) {
+    if (!(await fixedLender.smartPoolReserveFactor()).eq(poolAccountingArgs[2])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserveFactor", [
         poolAccountingArgs[2],
       ]);
@@ -87,8 +81,8 @@ const func: DeployFunction = async ({
       ]);
     }
     if (
-      !(await fixedLender.dampSpeed())[0].eq(parseUnits(String(up))) ||
-      !(await fixedLender.dampSpeed())[1].eq(parseUnits(String(down)))
+      !(await fixedLender.dampSpeedUp()).eq(poolAccountingArgs[3].up) ||
+      !(await fixedLender.dampSpeedDown()).eq(poolAccountingArgs[3].down)
     ) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [poolAccountingArgs[3]]);
     }

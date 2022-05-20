@@ -228,10 +228,9 @@ contract Previewer {
   }
 
   function smartPoolAssetsAverage(FixedLender fixedLender) internal view returns (uint256) {
-    (uint256 dampSpeedUp, uint256 dampSpeedDown) = fixedLender.dampSpeed();
     uint256 dampSpeedFactor = fixedLender.smartPoolBalance() < fixedLender.smartPoolAssetsAverage()
-      ? dampSpeedDown
-      : dampSpeedUp;
+      ? fixedLender.dampSpeedDown()
+      : fixedLender.dampSpeedUp();
     uint256 averageFactor = uint256(
       1e18 - (-int256(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate()))).expWadDown()
     );

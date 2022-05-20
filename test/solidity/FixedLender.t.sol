@@ -579,8 +579,9 @@ contract FixedLenderTest is Test {
 
     vm.warp(250);
     fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
-    (uint256 dampSpeedUp, ) = fixedLender.dampSpeed();
-    uint256 supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWadDown(-int256(dampSpeedUp * (250 - 218))));
+    uint256 supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWadDown(-int256(fixedLender.dampSpeedUp() * (250 - 218)))
+    );
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
       lastSmartPoolAssetsAverage.mulWadDown(1e18 - supplyAverageFactor) +
@@ -678,8 +679,9 @@ contract FixedLenderTest is Test {
 
     vm.warp(219);
     fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
-    (, uint256 dampSpeedDown) = fixedLender.dampSpeed();
-    uint256 supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWadDown(-int256(dampSpeedDown * (219 - 218))));
+    uint256 supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWadDown(-int256(fixedLender.dampSpeedDown() * (219 - 218)))
+    );
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
       uint256(lastSmartPoolAssetsAverage).mulWadDown(1e18 - supplyAverageFactor) +
@@ -689,7 +691,9 @@ contract FixedLenderTest is Test {
 
     vm.warp(221);
     fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
-    supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWadDown(-int256(dampSpeedDown * (221 - 219))));
+    supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWadDown(-int256(fixedLender.dampSpeedDown() * (221 - 219)))
+    );
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
       uint256(5.874852456225897297 ether).mulWadDown(1e18 - supplyAverageFactor) +
@@ -713,8 +717,9 @@ contract FixedLenderTest is Test {
 
     vm.warp(219);
     fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
-    (, uint256 dampSpeedDown) = fixedLender.dampSpeed();
-    uint256 supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWadDown(-int256(dampSpeedDown * (219 - 218))));
+    uint256 supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWadDown(-int256(fixedLender.dampSpeedDown() * (219 - 218)))
+    );
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
       lastSmartPoolAssetsAverage.mulWadDown(1e18 - supplyAverageFactor) +
@@ -724,7 +729,9 @@ contract FixedLenderTest is Test {
 
     vm.warp(221);
     fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
-    supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWadDown(-int256(dampSpeedDown * (221 - 219))));
+    supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWadDown(-int256(fixedLender.dampSpeedDown() * (221 - 219)))
+    );
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
       uint256(5.874852456225897297 ether).mulWadDown(1e18 - supplyAverageFactor) +
@@ -748,8 +755,9 @@ contract FixedLenderTest is Test {
 
     vm.warp(219);
     fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
-    (, uint256 dampSpeedDown) = fixedLender.dampSpeed();
-    uint256 supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWadDown(-int256(dampSpeedDown * (219 - 218))));
+    uint256 supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWadDown(-int256(fixedLender.dampSpeedDown() * (219 - 218)))
+    );
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
       uint256(lastSmartPoolAssetsAverage).mulWadDown(1e18 - supplyAverageFactor) +
@@ -759,7 +767,9 @@ contract FixedLenderTest is Test {
 
     vm.warp(221);
     fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
-    supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWadDown(-int256(dampSpeedDown * (221 - 219))));
+    supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWadDown(-int256(fixedLender.dampSpeedDown() * (221 - 219)))
+    );
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
       uint256(5.874852456225897297 ether).mulWadDown(1e18 - supplyAverageFactor) +
@@ -769,7 +779,9 @@ contract FixedLenderTest is Test {
 
     vm.warp(223);
     fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
-    supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWadDown(-int256(dampSpeedDown * (223 - 221))));
+    supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWadDown(-int256(fixedLender.dampSpeedDown() * (223 - 221)))
+    );
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
       uint256(5.377683011800498150 ether).mulWadDown(1e18 - supplyAverageFactor) +
