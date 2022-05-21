@@ -26,7 +26,9 @@ contract FixedLenderETHRouter {
     weth.approve(address(fixedLender_), type(uint256).max);
   }
 
-  receive() external payable {} // solhint-disable-line no-empty-blocks
+  receive() external payable {
+    if (msg.sender != address(weth)) revert NotFromWETH();
+  }
 
   function depositETH() public payable wrap returns (uint256 shares) {
     shares = fixedLender.deposit(msg.value, msg.sender);
@@ -73,3 +75,5 @@ contract FixedLenderETHRouter {
     receiver.safeTransferETH(assets);
   }
 }
+
+error NotFromWETH();

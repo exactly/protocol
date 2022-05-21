@@ -411,6 +411,17 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     });
   });
 
+  describe("GIVEN alice mistakenly transfers ETH to the router contract", () => {
+    it("THEN it reverts with NotFromWETH error", async () => {
+      await expect(
+        alice.sendTransaction({
+          to: routerETH.address,
+          value: parseUnits("1"),
+        }),
+      ).to.be.revertedWith("NotFromWETH");
+    });
+  });
+
   describe("slippage control", () => {
     let tx: Promise<ContractTransaction>;
     beforeEach(async () => {
