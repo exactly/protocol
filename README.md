@@ -12,7 +12,7 @@ git clone git@github.com:exactly-finance/protocol.git
 ## Install Locally
 
 ```bash
-npm install
+npm install --legacy-peer-deps
 ```
 
 ## Run Tests

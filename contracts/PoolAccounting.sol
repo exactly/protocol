@@ -408,9 +408,7 @@ contract PoolAccounting is AccessControl {
   /// @param smartPoolAssets smart pool total assets.
   function updateSmartPoolAssetsAverage(uint256 smartPoolAssets) internal {
     uint256 dampSpeedFactor = smartPoolAssets < smartPoolAssetsAverage ? dampSpeedDown : dampSpeedUp;
-    uint256 averageFactor = uint256(
-      1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWadDown()
-    );
+    uint256 averageFactor = uint256(1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWad());
     smartPoolAssetsAverage =
       smartPoolAssetsAverage.mulWadDown(1e18 - averageFactor) +
       averageFactor.mulWadDown(smartPoolAssets);

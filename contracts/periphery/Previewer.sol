@@ -232,7 +232,7 @@ contract Previewer {
       ? fixedLender.dampSpeedDown()
       : fixedLender.dampSpeedUp();
     uint256 averageFactor = uint256(
-      1e18 - (-int256(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate()))).expWadDown()
+      1e18 - (-int256(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate()))).expWad()
     );
     return
       fixedLender.smartPoolAssetsAverage().mulWadDown(1e18 - averageFactor) +
