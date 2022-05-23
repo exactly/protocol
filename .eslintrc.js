@@ -13,6 +13,7 @@ module.exports = {
     "plugin:@typescript-eslint/recommended",
   ],
   rules: {
+    "no-console": "error",
     "node/no-missing-import": "off",
     "node/no-unpublished-import": "off",
     "@typescript-eslint/no-shadow": "error",
