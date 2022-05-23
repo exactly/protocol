@@ -1,9 +1,14 @@
-import { constants } from "ethers";
-import { deployments } from "hardhat";
+import hre from "hardhat";
 import type { Contract } from "ethers";
 import type { TimelockController } from "../../types";
+import multisigPropose from "./multisigPropose";
 
-const { HashZero } = constants;
+const {
+  ethers: {
+    constants: { HashZero },
+  },
+  deployments: { log },
+} = hre;
 
 export default async (
   timelock: TimelockController,
@@ -12,8 +17,11 @@ export default async (
   args?: readonly unknown[],
 ) => {
   const calldata = contract.interface.encodeFunctionData(functionName, args);
+
   if (!(await timelock.isOperation(await timelock.hashOperation(contract.address, 0, calldata, HashZero, HashZero)))) {
-    deployments.log("proposing", contract.address, functionName, args);
+    log("timelock: proposing", contract.address, functionName, args);
     await timelock.schedule(contract.address, 0, calldata, HashZero, HashZero, await timelock.getMinDelay());
   }
+
+  await multisigPropose(hre, "deployer", timelock, "execute", [contract.address, 0, calldata, HashZero, HashZero]);
 };

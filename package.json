@@ -29,6 +29,10 @@
     "@rari-capital/solmate": "rari-capital/solmate#v7"
   },
   "devDependencies": {
+    "@gnosis.pm/safe-core-sdk": "^2.1.0",
+    "@gnosis.pm/safe-core-sdk-types": "^1.1.0",
+    "@gnosis.pm/safe-ethers-lib": "^1.1.0",
+    "@gnosis.pm/safe-service-client": "^1.1.2",
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@^0.3.0-beta.13",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@primitivefi/hardhat-dodoc": "^0.2.3",

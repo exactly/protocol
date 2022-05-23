@@ -20,12 +20,18 @@ const config: Config = {
       url: env.KOVAN_NODE ?? "https://kovan.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
     },
+    rinkeby: {
+      tokens: ["DAI", "WETH"],
+      url: env.RINKEBY_NODE ?? "https://rinkeby.infura.io/",
+      gnosisSafeTxService: "https://safe-transaction.rinkeby.gnosis.io/",
+      ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
+    },
   },
   namedAccounts: {
     deployer: { default: 0 },
     multisig: {
       default: 0,
-      rinkeby: "0x0820289Cb202DbF23B709D4AC1a346331cd590c4",
+      rinkeby: "0x755DF607BA55ff6430FEE0126A52Bf82D1e57F5f",
     },
   },
   finance: {
@@ -93,13 +99,16 @@ declare module "hardhat/types/config" {
 
   export interface HttpNetworkUserConfig {
     tokens: string[];
+    gnosisSafeTxService?: string;
   }
 
   export interface HardhatNetworkConfig {
     tokens: string[];
+    gnosisSafeTxService: string;
   }
 
   export interface HttpNetworkConfig {
     tokens: string[];
+    gnosisSafeTxService: string;
   }
 }
