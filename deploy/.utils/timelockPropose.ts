@@ -1,4 +1,5 @@
 import { constants } from "ethers";
+import { deployments } from "hardhat";
 import type { Contract } from "ethers";
 import type { TimelockController } from "../../types";
 
@@ -12,7 +13,7 @@ export default async (
 ) => {
   const calldata = contract.interface.encodeFunctionData(functionName, args);
   if (!(await timelock.isOperation(await timelock.hashOperation(contract.address, 0, calldata, HashZero, HashZero)))) {
-    console.log("proposing", contract.address, functionName, args);
+    deployments.log("proposing", contract.address, functionName, args);
     await timelock.schedule(contract.address, 0, calldata, HashZero, HashZero, await timelock.getMinDelay());
   }
 };
