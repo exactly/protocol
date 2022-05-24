@@ -70,7 +70,7 @@ contract PoolAccounting is AccessControl {
     uint256 smartPoolReserveFactor_,
     DampSpeed memory dampSpeed
   ) {
-    _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     interestRateModel = interestRateModel_;
 
     penaltyRate = penaltyRate_;

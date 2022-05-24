@@ -38,7 +38,7 @@ contract InterestRateModel is AccessControl {
     uint256 _fullUtilization,
     uint256 _spFeeRate
   ) {
-    _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setCurveParameters(_curveParameterA, _curveParameterB, _maxUtilization, _fullUtilization);
     spFeeRate = _spFeeRate;

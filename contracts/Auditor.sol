@@ -72,7 +72,7 @@ contract Auditor is AccessControl {
   event CollateralFactorUpdated(FixedLender indexed fixedLender, uint256 newCollateralFactor);
 
   constructor(ExactlyOracle _priceOracle, uint256 _liquidationIncentive) {
-    _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     oracle = _priceOracle;
     liquidationIncentive = _liquidationIncentive;

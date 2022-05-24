@@ -32,7 +32,7 @@ contract ExactlyOracle is AccessControl {
     address _baseUsdCurrency,
     uint256 _maxDelayTime
   ) {
-    _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     _setAssetsSources(_symbols, _sources);
 
     chainlinkFeedRegistry = _chainlinkFeedRegistry;
