@@ -277,7 +277,7 @@ contract PoolAccounting is AccessControl {
       redeemAmountDiscounted
     );
     pool.earningsUnassigned += earningsUnassigned;
-    earningsSP += newEarningsSP;
+    smartPoolEarningsAccumulator += newEarningsSP;
 
     // the user gets discounted the full amount
     position.reduceProportionally(positionAssets);
@@ -332,13 +332,14 @@ contract PoolAccounting is AccessControl {
         scaleDebtCovered.principal
       );
 
-      earningsSP += feeSP;
-
       // We remove the fee from unassigned earnings
       pool.earningsUnassigned -= discountFee + feeSP;
 
       // The fee gets discounted from the user through `repayAmount`
       repayAmount = debtCovered - discountFee;
+
+      // The fee charged to the MP supplier go to the smart pool accumulator
+      smartPoolEarningsAccumulator += feeSP;
     } else {
       repayAmount = debtCovered + debtCovered.mulWadDown((block.timestamp - maturity) * penaltyRate);
 

@@ -554,7 +554,7 @@ contract FixedLenderTest is Test {
     fixedLender.deposit(100 ether, address(this));
     fixedLender.withdrawAtMaturity(7 days, amount, 0.9 ether, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), initialBalance, 1e15);
-    assertEq(fixedLender.smartPoolAssets(), 100 ether + initialBalance + amount - (amount.divWadDown(1e18 + 0.1e18)));
+    assertEq(fixedLender.smartPoolAssets(), 100 ether + initialBalance);
   }
 
   function testUpdateSmartPoolAssetsAverageWhenDepositingRightBeforeBorrow() external {
@@ -666,7 +666,7 @@ contract FixedLenderTest is Test {
     fixedLender.withdraw(5 ether, address(this), address(this));
     fixedLender.withdrawAtMaturity(7 days, amount, 0.9 ether, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), initialBalance, 1e15);
-    assertEq(fixedLender.smartPoolAssets(), initialBalance - 5 ether + amount - (amount.divWadDown(1e18 + 0.1e18)));
+    assertEq(fixedLender.smartPoolAssets(), initialBalance - 5 ether);
   }
 
   function testUpdateSmartPoolAssetsAverageWhenWithdrawingSomeSecondsBeforeBorrow() external {
