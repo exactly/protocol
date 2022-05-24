@@ -182,6 +182,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     }
   }
 
+  /// @notice Withdraws the owner's smart pool assets to the receiver address.
+  /// @dev Makes sure that the owner doesn't have shortfall after withdrawing.
+  /// @param assets amount of underlying to be withdrawn.
+  /// @param receiver address to which the assets will be transferred.
+  /// @param owner address which owns the smart pool assets.
   function withdraw(
     uint256 assets,
     address receiver,
@@ -191,6 +196,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     return super.withdraw(assets, receiver, owner);
   }
 
+  /// @notice Redeems the owner's smart pool assets to the receiver address.
+  /// @dev Makes sure that the owner doesn't have shortfall after withdrawing.
+  /// @param shares amount of shares to be redeemed for underlying asset.
+  /// @param receiver address to which the assets will be transferred.
+  /// @param owner address which owns the smart pool assets.
   function redeem(
     uint256 shares,
     address receiver,
@@ -238,11 +248,22 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     );
   }
 
+  /// @notice Moves amount of shares from the caller's account to `to`.
+  /// @dev It's expected that this function can't be paused to prevent freezing user funds.
+  /// Makes sure that the caller doesn't have shortfall after transferring.
+  /// @param to address to which the tokens will be transferred.
+  /// @param shares amount of tokens.
   function transfer(address to, uint256 shares) public virtual override returns (bool) {
     auditor.validateAccountShortfall(this, msg.sender, previewMint(shares));
     return super.transfer(to, shares);
   }
 
+  /// @notice Moves amount of shares from `from` to `to` using the allowance mechanism.
+  /// @dev It's expected that this function can't be paused to prevent freezing user funds.
+  /// Makes sure that `from` address doesn't have shortfall after transferring.
+  /// @param from address from which the tokens will be transferred.
+  /// @param to address to which the tokens will be transferred.
+  /// @param shares amount of tokens.
   function transferFrom(
     address from,
     address to,
@@ -361,6 +382,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @param maturity maturity date for repayment.
   /// @param assets amount to send to borrower.
   /// @param maxAssetsAllowed maximum amount of debt that the user is willing to accept.
+  /// @param receiver address that will receive the borrowed assets.
+  /// @param borrower address that will repay the borrowed assets.
   function borrowAtMaturity(
     uint256 maturity,
     uint256 assets,
@@ -420,6 +443,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   }
 
   /// @notice Withdraws a certain amount from a maturity.
+  /// @dev It's expected that this function can't be paused to prevent freezing user funds.
   /// @param maturity maturity date where the assets will be withdrawn.
   /// @param positionAssets the amount of assets (principal + fee) to be withdrawn.
   /// @param minAssetsRequired minimum amount required by the user (if discount included for early withdrawal).
