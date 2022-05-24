@@ -20,11 +20,13 @@ const config: Config = {
     },
     kovan: {
       tokens: ["DAI", "WETH"],
+      timelockDelay: 86_400 * 7,
       url: env.KOVAN_NODE ?? "https://kovan.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
     },
     rinkeby: {
       tokens: ["DAI", "WETH"],
+      timelockDelay: 60 * 5,
       url: env.RINKEBY_NODE ?? "https://rinkeby.infura.io/",
       gnosisSafeTxService: "https://safe-transaction.rinkeby.gnosis.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
@@ -112,16 +114,19 @@ declare module "hardhat/types/config" {
 
   export interface HttpNetworkUserConfig {
     tokens: string[];
+    timelockDelay?: number;
     gnosisSafeTxService?: string;
   }
 
   export interface HardhatNetworkConfig {
     tokens: string[];
+    timelockDelay?: number;
     gnosisSafeTxService: string;
   }
 
   export interface HttpNetworkConfig {
     tokens: string[];
+    timelockDelay?: number;
     gnosisSafeTxService: string;
   }
 }
