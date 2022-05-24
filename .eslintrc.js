@@ -33,7 +33,7 @@ module.exports = {
     },
     {
       // TODO remove after refactor
-      files: ["test/{5,6,8,9,10,11,12,13,14,15,16,17,18}_*", "test/*Env.ts", "test/*Utils.ts"],
+      files: ["test/{5,6,8,9,10,11,13,14,15,16,17}_*", "test/*Env.ts", "test/*Utils.ts"],
       rules: {
         "no-var": "warn",
         "prefer-const": "warn",
