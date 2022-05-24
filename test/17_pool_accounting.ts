@@ -1259,6 +1259,7 @@ describe("PoolAccounting", () => {
             returnValues = await poolAccountingHarness.returnValues();
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
             maturityPoolState.earningsSP = maturityPoolState.earningsSP.add(returnValues.earningsSP);
+            maturityPoolState.earningsAccumulator = await poolAccountingHarness.smartPoolEarningsAccumulator();
             maturityPoolState.earningsDiscounted = maturityPoolState.earningsDiscounted.add(
               parseUnits("5250").sub(returnValues.actualRepayAmount),
             );
@@ -1275,10 +1276,13 @@ describe("PoolAccounting", () => {
           it("THEN the debtCovered returned is 5250", async () => {
             expect(returnValues.debtCovered).eq(parseUnits("5250"));
           });
-          it("THEN the earningsSP returned are 50 accrued + 15 (10% spFeeRate) = 65", async () => {
-            expect(returnValues.earningsSP).eq(parseUnits("65"));
+          it("THEN the earningsSP returned are 50 accrued", async () => {
+            expect(returnValues.earningsSP).eq(parseUnits("50"));
           });
-          it("THEN the actualRepayAmount returned is 5115 = 5250 - earningsSP(t-1)(are 50) - earningsSP(t)(are 65)", async () => {
+          it("THEN the smartPoolEarningsAccumulator are 15 (10% spFeeRate)", async () => {
+            expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).to.eq(parseUnits("15"));
+          });
+          it("THEN the actualRepayAmount returned is 5115 = 5250 - earningsSP(t-1)(are 50) - earningsSP(t)(are 50) - accumulator(t)(are 15)", async () => {
             expect(returnValues.actualRepayAmount).to.eq(parseUnits("5115"));
           });
           it("THEN the borrow fees are equal to all earnings distributed", async () => {
@@ -1414,6 +1418,48 @@ describe("PoolAccounting", () => {
 
           expect(mpUserSuppliedAmount[0]).to.be.eq(parseUnits("0"));
           expect(mpUserSuppliedAmount[1]).to.be.eq(parseUnits("0"));
+        });
+      });
+      describe("AND GIVEN a deposit of 5250", () => {
+        beforeEach(async () => {
+          await poolAccountingEnv.depositMP(nextPoolID, "5250");
+        });
+        describe("WHEN an early withdrawal of 5250 (deposited + fees)", () => {
+          beforeEach(async () => {
+            await poolAccountingEnv.withdrawMP(nextPoolID, "5250", "4500");
+            returnValues = await poolAccountingHarness.returnValues();
+            mp = await poolAccountingHarness.maturityPools(nextPoolID);
+          });
+          it("THEN earningsUnassigned is 0", async () => {
+            expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+          });
+          it("THEN the earningsSP returned is 0", async () => {
+            expect(returnValues.earningsSP).eq(parseUnits("0"));
+          });
+          it("THEN the smartPoolEarningsAccumulator returned is 250", async () => {
+            expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).eq(parseUnits("250"));
+          });
+        });
+      });
+      describe("AND GIVEN a deposit of 2625", () => {
+        beforeEach(async () => {
+          await poolAccountingEnv.depositMP(nextPoolID, "2625");
+        });
+        describe("WHEN an early withdrawal of 5250 (deposited + fees)", () => {
+          beforeEach(async () => {
+            await poolAccountingEnv.withdrawMP(nextPoolID, "5250", "4500");
+            returnValues = await poolAccountingHarness.returnValues();
+            mp = await poolAccountingHarness.maturityPools(nextPoolID);
+          });
+          it("THEN earningsUnassigned is 125", async () => {
+            expect(mp.earningsUnassigned).to.eq(parseUnits("124.540734824281150160"));
+          });
+          it("THEN the earningsSP returned is 0", async () => {
+            expect(returnValues.earningsSP).eq(parseUnits("0"));
+          });
+          it("THEN the smartPoolEarningsAccumulator returned is 125", async () => {
+            expect(await poolAccountingHarness.smartPoolEarningsAccumulator()).eq(parseUnits("125.459265175718849840"));
+          });
         });
       });
     });

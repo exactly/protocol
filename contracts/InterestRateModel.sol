@@ -28,7 +28,7 @@ contract InterestRateModel is AccessControl {
   event CurveParametersUpdated(uint256 a, int256 b, uint256 maxUtilization, uint256 fullUtilization);
 
   /// @notice Emitted when the spFeeRate parameter is changed by admin.
-  /// @param spFeeRate rate charged to the mp depositors to be accrued by the sp borrowers.
+  /// @param spFeeRate rate charged to the mp suppliers to be accrued by the sp suppliers.
   event SpFeeRateUpdated(uint256 spFeeRate);
 
   constructor(
@@ -44,7 +44,8 @@ contract InterestRateModel is AccessControl {
     spFeeRate = _spFeeRate;
   }
 
-  /// @dev Sets the rate charged to the mp depositors to be accrued by the sp borrowers.
+  /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
+  /// liquidity.
   /// @dev Value can only be set between 20% and 0%.
   /// @param _spFeeRate percentage amount represented with 1e18 decimals.
   function setSPFeeRate(uint256 _spFeeRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -68,11 +69,12 @@ contract InterestRateModel is AccessControl {
     return (curveParameterA, curveParameterB, maxUtilization, fullUtilization);
   }
 
-  /// @dev Calculate the amount of revenue sharing between the smart pool and the new MP depositor.
+  /// @notice Calculates the amount of revenue sharing between the smart pool and the new MP supplier.
   /// @param suppliedSP amount of money currently being supplied in the maturity pool.
-  /// @param unassignedEarnings earnings not yet accrued to the SP that should be shared with the current depositor.
-  /// @param amount amount being provided by the MP depositor.
-  /// @return earningsShare : yield to be given to the MP depositor.
+  /// @param unassignedEarnings earnings not yet accrued to the SP that should be shared with the current supplier.
+  /// @param amount amount being provided by the MP supplier.
+  /// @return earningsShare yield to be offered to the MP supplier.
+  /// @return earningsShareSP yield to be accrued by the SP suppliers for initially providing the liquidity.
   function getYieldForDeposit(
     uint256 suppliedSP,
     uint256 unassignedEarnings,
