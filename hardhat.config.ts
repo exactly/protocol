@@ -6,7 +6,10 @@ import "solidity-coverage";
 import "hardhat-deploy";
 import "hardhat-gas-reporter";
 import { env } from "process";
+import { task } from "hardhat/config";
+import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
 import type { HardhatUserConfig as Config } from "hardhat/types";
+import multisigPropose from "./deploy/.utils/multisigPropose";
 
 const config: Config = {
   solidity: { version: "0.8.13", settings: { optimizer: { enabled: true, runs: 10_000 } } },
@@ -61,6 +64,16 @@ const config: Config = {
     enabled: !!JSON.parse(env.REPORT_GAS ?? "false"),
   },
 };
+
+task(
+  "pause",
+  "pauses/unpauses a market",
+  async ({ market, pause, account }: { market: string; pause: boolean; account: string }, hre) =>
+    multisigPropose(hre, account, await hre.ethers.getContract(`FixedLender${market}`), pause ? "pause" : "unpause"),
+)
+  .addPositionalParam("market", "token symbol of the underlying asset", undefined, string)
+  .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)
+  .addOptionalParam("account", "signer's account name", "deployer", string);
 
 export default config;
 
