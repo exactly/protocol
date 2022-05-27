@@ -1,18 +1,17 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ExaTime } from "./exactlyUtils";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
+import futurePools from "./utils/futurePools";
+
+const nextPoolId = futurePools(1)[0].toNumber();
 
 describe("FixedLender - Pausable", function () {
   let exactlyEnv: DefaultEnv;
   let fixedLender: Contract;
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
-
-  const exaTime: ExaTime = new ExaTime();
-  const nextPoolId: number = exaTime.nextPoolID();
 
   describe("GIVEN a deployed FixedLender contract", () => {
     let PAUSER_ROLE: any;

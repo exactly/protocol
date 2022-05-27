@@ -2,9 +2,9 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ExaTime } from "./exactlyUtils";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
+import futurePools from "./utils/futurePools";
 
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;
@@ -17,8 +17,6 @@ describe("Smart Pool", function () {
   let john: SignerWithAddress;
   const bobBalancePre = parseUnits("2000");
   const johnBalancePre = parseUnits("2000");
-  const exaTime: ExaTime = new ExaTime();
-  const nextPoolId: number = exaTime.nextPoolID() + 86_400 * 14; // we add 14 days so we make sure we are far from the previous timestamp blocks
 
   beforeEach(async () => {
     [, bob, john] = await ethers.getSigners();
@@ -140,7 +138,7 @@ describe("Smart Pool", function () {
     describe("AND GIVEN bob borrows 0.5 WBTC from a maturity", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(bob);
-        await exactlyEnv.borrowMP("WBTC", nextPoolId, "0.5");
+        await exactlyEnv.borrowMP("WBTC", futurePools(3)[2].toNumber(), "0.5");
       });
       it("WHEN bob tries to transfer his eWBTC THEN it fails with InsufficientLiquidity error", async () => {
         await expect(
@@ -171,14 +169,14 @@ describe("Smart Pool", function () {
       exactlyEnv.switchWallet(bob);
       await exactlyEnv.depositSP("DAI", "100");
       // we add liquidity to the maturity
-      await exactlyEnv.depositMP("DAI", nextPoolId, "60");
+      await exactlyEnv.depositMP("DAI", futurePools(3)[2].toNumber(), "60");
     });
     it("WHEN trying to transfer to another user the entire position (100 eDAI) THEN it should not revert", async () => {
       await expect(fixedLenderDAI.connect(bob).transfer(john.address, parseUnits("100"))).to.not.be.reverted;
     });
     describe("AND GIVEN bob borrows 60 DAI from a maturity", () => {
       beforeEach(async () => {
-        await exactlyEnv.borrowMP("DAI", nextPoolId, "60");
+        await exactlyEnv.borrowMP("DAI", futurePools(3)[2].toNumber(), "60");
       });
       it("WHEN trying to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(fixedLenderDAI.connect(bob).transfer(john.address, parseUnits("100"))).to.be.revertedWith(

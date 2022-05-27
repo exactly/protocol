@@ -10,6 +10,7 @@ import { FixedLender, ERC20, PoolAccounting } from "../../contracts/FixedLender.
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
+import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
 contract FixedLenderTest is Test {
   using FixedPointMathLib for uint256;
@@ -74,7 +75,7 @@ contract FixedLenderTest is Test {
     fixedLender = new FixedLender(
       mockToken,
       "DAI",
-      12,
+      3,
       1e18,
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
@@ -113,33 +114,33 @@ contract FixedLenderTest is Test {
 
   function testDepositAtMaturity() external {
     vm.expectEmit(true, true, true, true);
-    emit DepositAtMaturity(7 days, address(this), address(this), 1 ether, 0);
-    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    emit DepositAtMaturity(TSUtils.INTERVAL, address(this), address(this), 1 ether, 0);
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
   }
 
   function testWithdrawAtMaturity() external {
-    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
 
     vm.expectEmit(true, true, true, true);
-    emit WithdrawAtMaturity(7 days, address(this), address(this), address(this), 1 ether, 909090909090909090);
-    fixedLender.withdrawAtMaturity(7 days, 1 ether, 0.9 ether, address(this), address(this));
+    emit WithdrawAtMaturity(TSUtils.INTERVAL, address(this), address(this), address(this), 1 ether, 909090909090909090);
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
   }
 
   function testBorrowAtMaturity() external {
     fixedLender.deposit(12 ether, address(this));
 
     vm.expectEmit(true, true, true, true);
-    emit BorrowAtMaturity(7 days, address(this), address(this), address(this), 1 ether, 0.1 ether);
-    fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
+    emit BorrowAtMaturity(TSUtils.INTERVAL, address(this), address(this), address(this), 1 ether, 0.1 ether);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
   }
 
   function testRepayAtMaturity() external {
     fixedLender.deposit(12 ether, address(this));
-    fixedLender.borrowAtMaturity(7 days, 1 ether, 1.1 ether, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
 
     vm.expectEmit(true, true, true, true);
-    emit RepayAtMaturity(7 days, address(this), address(this), 1.01 ether, 1.1 ether);
-    fixedLender.repayAtMaturity(7 days, 1.5 ether, 1.5 ether, address(this));
+    emit RepayAtMaturity(TSUtils.INTERVAL, address(this), address(this), 1.01 ether, 1.1 ether);
+    fixedLender.repayAtMaturity(TSUtils.INTERVAL, 1.5 ether, 1.5 ether, address(this));
   }
 
   function testMultipleDepositsToSmartPool() external {
@@ -156,44 +157,46 @@ contract FixedLenderTest is Test {
     vm.prank(BOB);
     fixedLender.deposit(10_000 ether, BOB);
 
-    vm.warp(7 days);
+    vm.warp(TSUtils.INTERVAL);
 
     vm.prank(BOB);
-    fixedLender.borrowAtMaturity(7 days * 2, 1_000 ether, 1_100 ether, BOB, BOB);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL * 2, 1_000 ether, 1_100 ether, BOB, BOB);
 
-    vm.warp(7 days + 3.5 days);
+    vm.warp(TSUtils.INTERVAL + TSUtils.INTERVAL / 2);
     fixedLender.deposit(10_000 ether, address(this));
     assertEq(fixedLender.balanceOf(BOB), 10_000 ether);
     assertEq(fixedLender.maxWithdraw(address(this)), 10_000 ether - 1);
     assertApproxEqRel(fixedLender.balanceOf(address(this)), 9950 ether, 2.6e13);
 
-    vm.warp(7 days + 5 days);
+    vm.warp(TSUtils.INTERVAL + (TSUtils.INTERVAL / 3) * 2);
     fixedLender.deposit(1_000 ether, address(this));
-    assertApproxEqRel(fixedLender.balanceOf(address(this)), 10944 ether, 2.6e13);
+    assertApproxEqRel(fixedLender.balanceOf(address(this)), 10944 ether, 5e13);
   }
 
   function testSmartPoolSharesDoNotAccountUnassignedEarningsFromMoreThanOneIntervalPastMaturities() external {
-    uint256 maturity = 7 days * 2;
+    uint256 maturity = TSUtils.INTERVAL * 2;
     fixedLender.deposit(10_000 ether, address(this));
     fixedLender.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
-    // we move to the last second before an interval (7 days) goes by after the maturity passed
-    vm.warp(7 days * 2 + 6 days + 23 hours + 59 minutes + 59 seconds);
+    // we move to the last second before an interval goes by after the maturity passed
+    vm.warp(TSUtils.INTERVAL * 2 + TSUtils.INTERVAL - 1 seconds);
     assertLt(fixedLender.previewDeposit(10_000 ether), fixedLender.balanceOf(address(this)));
 
     // we move to the instant where an interval went by after the maturity passed
-    vm.warp(7 days * 3);
+    vm.warp(TSUtils.INTERVAL * 3);
     // the unassigned earnings of the maturity that the contract borrowed from are not accounted anymore
     assertEq(fixedLender.previewDeposit(10_000 ether), fixedLender.balanceOf(address(this)));
   }
 
+  event Debug(string test, uint256 testVar);
+
   function testPreviewOperationsWithSmartPoolCorrectlyAccountingEarnings() external {
     uint256 assets = 10_000 ether;
-    uint256 maturity = 7 days * 2;
-    uint256 anotherMaturity = 7 days * 3;
+    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 anotherMaturity = TSUtils.INTERVAL * 3;
     fixedLender.deposit(assets, address(this));
 
-    vm.warp(7 days);
+    vm.warp(TSUtils.INTERVAL);
     fixedLender.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     vm.prank(BOB);
@@ -201,8 +204,8 @@ contract FixedLenderTest is Test {
     vm.prank(BOB); // we have unassigned earnings
     fixedLender.borrowAtMaturity(anotherMaturity, 1_000 ether, 1_100 ether, BOB, BOB);
 
-    vm.warp(maturity + 1 days / 2); // and we have penalties -> delayed half a day
-    fixedLender.repayAtMaturity(maturity, 1_111 ether, 1_111 ether, address(this));
+    vm.warp(maturity + 1 days); // and we have penalties -> delayed a day
+    fixedLender.repayAtMaturity(maturity, 1_100 ether, 1_200 ether, address(this));
 
     assertEq(
       fixedLender.previewRedeem(fixedLender.balanceOf(address(this))),
@@ -211,65 +214,65 @@ contract FixedLenderTest is Test {
 
     vm.warp(maturity + 2 days);
     fixedLender.deposit(assets, address(this));
-    vm.warp(maturity + 4 days); // a more relevant portion of the accumulator is distributed after 2 days
+    vm.warp(maturity + 2 weeks); // a more relevant portion of the accumulator is distributed after 2 weeks
     assertEq(fixedLender.previewWithdraw(assets), fixedLender.withdraw(assets, address(this), address(this)));
 
-    vm.warp(maturity + 5 days);
+    vm.warp(maturity + 3 weeks);
     assertEq(fixedLender.previewDeposit(assets), fixedLender.deposit(assets, address(this)));
-    vm.warp(maturity + 6 days);
+    vm.warp(maturity + 4 weeks);
     assertEq(fixedLender.previewMint(10_000 ether), fixedLender.mint(10_000 ether, address(this)));
   }
 
   function testFrontRunSmartPoolEarningsDistributionWithBigPenaltyRepayment() external {
-    uint256 maturity = 7 days * 2;
+    uint256 maturity = TSUtils.INTERVAL * 2;
     fixedLender.deposit(10_000 ether, address(this));
 
-    vm.warp(7 days);
+    vm.warp(TSUtils.INTERVAL);
     fixedLender.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     vm.warp(maturity);
     fixedLender.borrowAtMaturity(maturity, 0, 0, address(this), address(this)); // we send tx to accrue earnings
 
-    vm.warp(7 days * 3 + 6 days + 23 hours + 59 seconds);
+    vm.warp(maturity + 7 days * 2 - 1 seconds);
     vm.prank(BOB);
     fixedLender.deposit(10_100 ether, BOB); // bob deposits more assets to have same shares as previous user
     assertEq(fixedLender.balanceOf(BOB), 10_000 ether);
     uint256 assetsBobBefore = fixedLender.convertToAssets(fixedLender.balanceOf(address(this)));
     assertEq(assetsBobBefore, fixedLender.convertToAssets(fixedLender.balanceOf(address(this))));
 
-    vm.warp(7 days * 4); // 2 weeks delayed (2% daily = 28% in penalties), 1100 * 1.28 = 1408
+    vm.warp(maturity + 7 days * 2); // 2 weeks delayed (2% daily = 28% in penalties), 1100 * 1.28 = 1408
     fixedLender.repayAtMaturity(maturity, 1_408 ether, 1_408 ether, address(this));
     // no penalties are accrued (accumulator accounts them)
 
-    // 59 minutes and + 1 second passed since bob's deposit -> he now has 75100318255611032 more if he withdraws
-    assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore + 75100318255611032);
+    // 1 second passed since bob's deposit -> he now has 21219132878712 more if he withdraws
+    assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore + 21219132878712);
     assertApproxEqRel(fixedLender.smartPoolEarningsAccumulator(), 308 ether, 1e7);
 
-    vm.warp(7 days * 5);
-    // then the accumulator will distribute 7.73% since 7.73 * 13 = 100 (13 because we add 1 maturity in the division)
-    // 308e18 * 0.07 = 238e17
+    vm.warp(maturity + 7 days * 5);
+    // then the accumulator will distribute 20% of the accumulated earnings
+    // 308e18 * 0.20 = 616e17
     vm.prank(ALICE);
     fixedLender.deposit(10_100 ether, ALICE); // alice deposits same assets amount as previous users
-    assertApproxEqRel(fixedLender.smartPoolEarningsAccumulator(), 308 ether - 238e17, 1e14);
+    assertApproxEqRel(fixedLender.smartPoolEarningsAccumulator(), 308 ether - 616e17, 1e14);
     // bob earns half the earnings distributed
-    assertApproxEqRel(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore + 238e17 / 2, 1e14);
+    assertApproxEqRel(fixedLender.convertToAssets(fixedLender.balanceOf(BOB)), assetsBobBefore + 616e17 / 2, 1e14);
   }
 
   function testDistributeMultipleAccumulatedEarnings() external {
     vm.warp(0);
-    uint256 maturity = 7 days * 2;
+    uint256 maturity = TSUtils.INTERVAL * 2;
     fixedLender.deposit(10_000 ether, address(this));
     fixedLender.depositAtMaturity(maturity, 1_000 ether, 1_000 ether, address(this));
 
-    vm.warp(7 days);
+    vm.warp(maturity - 1 weeks);
     fixedLender.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
-    vm.warp(7 days * 4); // 2 weeks delayed (2% daily = 28% in penalties), 1100 * 1.28 = 1408
+    vm.warp(maturity + 2 weeks); // 2 weeks delayed (2% daily = 28% in penalties), 1100 * 1.28 = 1408
     fixedLender.repayAtMaturity(maturity, 1_408 ether, 1_408 ether, address(this));
     // no penalties are accrued (accumulator accounts all of them since borrow uses mp deposits)
     assertApproxEqRel(fixedLender.smartPoolEarningsAccumulator(), 408 ether, 1e7);
 
-    vm.warp(7 days * 5);
+    vm.warp(maturity + 3 weeks);
     vm.prank(BOB);
     fixedLender.deposit(10_000 ether, BOB);
 
@@ -277,13 +280,13 @@ contract FixedLenderTest is Test {
     uint256 balanceContractAfterFirstDistribution = fixedLender.convertToAssets(fixedLender.balanceOf(address(this)));
     uint256 accumulatedEarningsAfterFirstDistribution = fixedLender.smartPoolEarningsAccumulator();
 
-    // 119 ether are distributed from the accumulator
-    assertApproxEqRel(balanceContractAfterFirstDistribution, 10_119 ether, 1e16);
+    // 196 ether are distributed from the accumulator
+    assertApproxEqRel(balanceContractAfterFirstDistribution, 10_196 ether, 1e14);
     assertApproxEqAbs(balanceBobAfterFirstDistribution, 10_000 ether, 1);
-    assertApproxEqRel(accumulatedEarningsAfterFirstDistribution, 408 ether - 119 ether, 1e16);
-    assertEq(fixedLender.lastAccumulatedEarningsAccrual(), 7 days * 5);
+    assertApproxEqRel(accumulatedEarningsAfterFirstDistribution, 408 ether - 196 ether, 1e16);
+    assertEq(fixedLender.lastAccumulatedEarningsAccrual(), maturity + 3 weeks);
 
-    vm.warp(7 days * 6);
+    vm.warp(maturity * 2 + 1 weeks);
     fixedLender.deposit(1_000 ether, address(this));
 
     uint256 balanceBobAfterSecondDistribution = fixedLender.convertToAssets(fixedLender.balanceOf(BOB));
@@ -295,8 +298,8 @@ contract FixedLenderTest is Test {
       balanceContractAfterSecondDistribution -
       balanceContractAfterFirstDistribution -
       1_000 ether; // new deposited eth
-    uint256 earningsToBob = 11010857929329808864;
-    uint256 earningsToContract = 11142988224481559099;
+    uint256 earningsToBob = 35135460980638083225;
+    uint256 earningsToContract = 35821060758380935905;
 
     assertEq(
       accumulatedEarningsAfterFirstDistribution - accumulatedEarningsAfterSecondDistribution,
@@ -308,36 +311,36 @@ contract FixedLenderTest is Test {
       balanceContractAfterSecondDistribution,
       balanceContractAfterFirstDistribution + earningsToContract + 1_000 ether
     );
-    assertEq(fixedLender.lastAccumulatedEarningsAccrual(), 7 days * 6);
+    assertEq(fixedLender.lastAccumulatedEarningsAccrual(), maturity * 2 + 1 weeks);
   }
 
   function testUpdateAccumulatedEarningsFactorToZero() external {
     vm.warp(0);
-    uint256 maturity = 7 days * 2;
+    uint256 maturity = TSUtils.INTERVAL * 2;
     fixedLender.deposit(10_000 ether, address(this));
 
-    vm.warp(7 days);
+    vm.warp(TSUtils.INTERVAL / 2);
     fixedLender.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     // accumulator accounts 10% of the fees, spFeeRate -> 0.1
     fixedLender.depositAtMaturity(maturity, 1_000 ether, 1_000 ether, address(this));
     assertEq(fixedLender.smartPoolEarningsAccumulator(), 10 ether);
 
-    vm.warp(7 days * 3);
+    vm.warp(TSUtils.INTERVAL);
     fixedLender.deposit(1_000 ether, address(this));
-    // 20% was distributed
-    assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(address(this))), 11_002 ether);
-    assertEq(fixedLender.smartPoolEarningsAccumulator(), 8 ether);
+    // 25% was distributed
+    assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(address(this))), 11_002.5 ether);
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 7.5 ether);
 
     // we set the factor to 0 and all is distributed in the following tx
     fixedLender.setAccumulatedEarningsSmoothFactor(0);
-    vm.warp(7 days * 3 + 1 seconds);
+    vm.warp(TSUtils.INTERVAL + 1 seconds);
     fixedLender.deposit(1 ether, address(this));
     assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(address(this))), 11_011 ether);
     assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
 
     // accumulator has 0 earnings so nothing is distributed
-    vm.warp(7 days * 4);
+    vm.warp(TSUtils.INTERVAL * 2);
     fixedLender.deposit(1 ether, address(this));
     assertEq(fixedLender.convertToAssets(fixedLender.balanceOf(address(this))), 11_012 ether);
     assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
@@ -345,7 +348,7 @@ contract FixedLenderTest is Test {
 
   function testFailAnotherUserRedeemWhenOwnerHasShortfall() external {
     fixedLender.deposit(10_000 ether, address(this));
-    fixedLender.borrowAtMaturity(7 days, 1_000 ether, 1_100 ether, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_100 ether, address(this), address(this));
 
     uint256 assets = fixedLender.previewWithdraw(10_000 ether);
     fixedLender.approve(BOB, assets);
@@ -356,7 +359,7 @@ contract FixedLenderTest is Test {
 
   function testFailAnotherUserWithdrawWhenOwnerHasShortfall() external {
     fixedLender.deposit(10_000 ether, address(this));
-    fixedLender.borrowAtMaturity(7 days, 1_000 ether, 1_100 ether, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_100 ether, address(this), address(this));
 
     fixedLender.approve(BOB, 10_000 ether);
     fixedLender.deposit(1_000 ether, address(this));
@@ -365,15 +368,15 @@ contract FixedLenderTest is Test {
   }
 
   function testFailRoundingUpAllowanceWhenBorrowingAtMaturity() external {
-    uint256 maturity = 7 days * 2;
+    uint256 maturity = TSUtils.INTERVAL * 2;
 
     fixedLender.deposit(10_000 ether, address(this));
     fixedLender.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
-    vm.warp(7 days);
+    vm.warp(TSUtils.INTERVAL);
     // we accrue earnings with this tx so we break proportion of 1 to 1 assets and shares
     fixedLender.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
 
-    vm.warp(7 days + 3 days);
+    vm.warp(TSUtils.INTERVAL + 3 days);
     vm.prank(BOB);
     // we try to borrow 1 unit on behalf of this contract as bob being msg.sender without allowance
     // if it correctly rounds up, it should fail
@@ -381,11 +384,11 @@ contract FixedLenderTest is Test {
   }
 
   function testFailRoundingUpAllowanceWhenWithdrawingAtMaturity() external {
-    uint256 maturity = 7 days * 2;
+    uint256 maturity = TSUtils.INTERVAL * 2;
 
     fixedLender.deposit(10_000 ether, address(this));
     fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
-    vm.warp(7 days);
+    vm.warp(TSUtils.INTERVAL);
     // we accrue earnings with this tx so we break proportion of 1 to 1 assets and shares
     fixedLender.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
 
@@ -411,7 +414,7 @@ contract FixedLenderTest is Test {
       0,
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
-    uint256 maturity = 7 days * 2;
+    uint256 maturity = TSUtils.INTERVAL * 2;
     mockToken.approve(address(fixedLenderHarness), 50_000 ether);
     fixedLenderHarness.approve(BOB, 50_000 ether);
     auditor.enableMarket(fixedLenderHarness, 0.8e18, "DAI", "DAI", 18);
@@ -444,7 +447,7 @@ contract FixedLenderTest is Test {
       0,
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
-    uint256 maturity = 7 days * 2;
+    uint256 maturity = TSUtils.INTERVAL * 2;
     mockToken.approve(address(fixedLenderHarness), 50_000 ether);
     auditor.enableMarket(fixedLenderHarness, 0.8e18, "DAI", "DAI", 18);
 
@@ -486,7 +489,7 @@ contract FixedLenderTest is Test {
     fixedLender.deposit(50_000 ether, BOB);
     fixedLenderWETH.deposit(36 ether, address(this));
     for (uint256 i = 1; i <= 36; i++) {
-      fixedLender.borrowAtMaturity(7 days * i, 1_000 ether, 1_000 ether, address(this), address(this));
+      fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
 
     mockOracle.setPrice("WETH", 750e18);
@@ -502,21 +505,21 @@ contract FixedLenderTest is Test {
     fixedLender.deposit(100 ether, address(this));
 
     vm.warp(217);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertLt(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
 
     vm.warp(435);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertLt(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
 
     // with a damp speed up of 0.0046, the smartPoolAssetsAverage is equal to the smartPoolAssets
     // when 9011 seconds went by
     vm.warp(9446);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
 
     vm.warp(300000);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
   }
 
@@ -528,17 +531,17 @@ contract FixedLenderTest is Test {
     fixedLender.withdraw(50 ether, address(this), address(this));
 
     vm.warp(220);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertLt(fixedLender.smartPoolAssets(), fixedLender.smartPoolAssetsAverage());
 
     vm.warp(300);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets(), 1e6);
 
     // with a damp speed down of 0.42, the smartPoolAssetsAverage is equal to the smartPoolAssets
     // when 23 seconds went by
     vm.warp(323);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
   }
 
@@ -548,11 +551,11 @@ contract FixedLenderTest is Test {
 
     vm.warp(0);
     fixedLender.deposit(initialBalance, address(this));
-    fixedLender.depositAtMaturity(7 days, amount, amount, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, amount, amount, address(this));
 
     vm.warp(2000);
     fixedLender.deposit(100 ether, address(this));
-    fixedLender.withdrawAtMaturity(7 days, amount, 0.9 ether, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, amount, 0.9 ether, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), initialBalance, 1e15);
     assertEq(fixedLender.smartPoolAssets(), 100 ether + initialBalance);
   }
@@ -564,7 +567,7 @@ contract FixedLenderTest is Test {
 
     vm.warp(2000);
     fixedLender.deposit(100 ether, address(this));
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), initialBalance, 1e15);
     assertEq(fixedLender.smartPoolAssets(), 100 ether + initialBalance);
   }
@@ -578,7 +581,7 @@ contract FixedLenderTest is Test {
     uint256 lastSmartPoolAssetsAverage = fixedLender.smartPoolAssetsAverage();
 
     vm.warp(250);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
       1e18 - FixedPointMathLib.expWad(-int256(fixedLender.dampSpeedUp() * (250 - 218)))
     );
@@ -590,7 +593,7 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolAssetsAverage(), 20.521498717652997528 ether);
 
     vm.warp(9541);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
   }
 
@@ -602,44 +605,44 @@ contract FixedLenderTest is Test {
     fixedLender.deposit(100 ether, address(this));
 
     vm.warp(219);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), 6.807271809941046233 ether);
 
     vm.warp(220);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), 7.280868252688897889 ether);
 
     vm.warp(221);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), 7.752291154776303799 ether);
 
     vm.warp(222);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), 8.221550491529461938 ether);
   }
 
   function testUpdateSmartPoolAssetsAverageWhenDepositingAndWithdrawingEarlyContinuously() external {
     vm.warp(0);
     fixedLender.deposit(10 ether, address(this));
-    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
 
     vm.warp(218);
     fixedLender.deposit(100 ether, address(this));
 
     vm.warp(219);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), 6.807271809941046233 ether);
 
     vm.warp(220);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), 7.280868252688897889 ether);
 
     vm.warp(221);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), 7.752291154776303799 ether);
 
     vm.warp(222);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), 8.221550491529461938 ether);
   }
 
@@ -650,7 +653,7 @@ contract FixedLenderTest is Test {
 
     vm.warp(2000);
     fixedLender.withdraw(5 ether, address(this), address(this));
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), initialBalance, 1e15);
     assertEq(fixedLender.smartPoolAssets(), initialBalance - 5 ether);
   }
@@ -660,11 +663,11 @@ contract FixedLenderTest is Test {
     uint256 amount = 1 ether;
     vm.warp(0);
     fixedLender.deposit(initialBalance, address(this));
-    fixedLender.depositAtMaturity(7 days, amount, amount, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, amount, amount, address(this));
 
     vm.warp(2000);
     fixedLender.withdraw(5 ether, address(this), address(this));
-    fixedLender.withdrawAtMaturity(7 days, amount, 0.9 ether, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, amount, 0.9 ether, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), initialBalance, 1e15);
     assertEq(fixedLender.smartPoolAssets(), initialBalance - 5 ether);
   }
@@ -678,7 +681,7 @@ contract FixedLenderTest is Test {
     uint256 lastSmartPoolAssetsAverage = fixedLender.smartPoolAssetsAverage();
 
     vm.warp(219);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
       1e18 - FixedPointMathLib.expWad(-int256(fixedLender.dampSpeedDown() * (219 - 218)))
     );
@@ -690,7 +693,7 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolAssetsAverage(), 5.874852456225897297 ether);
 
     vm.warp(221);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(fixedLender.dampSpeedDown() * (221 - 219))));
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
@@ -700,13 +703,13 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolAssetsAverage(), 5.377683011800498150 ether);
 
     vm.warp(444);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
   }
 
   function testUpdateSmartPoolAssetsAverageWhenWithdrawingSomeSecondsBeforeEarlyWithdraw() external {
     vm.warp(0);
-    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
     fixedLender.deposit(10 ether, address(this));
 
     vm.warp(218);
@@ -714,7 +717,7 @@ contract FixedLenderTest is Test {
     uint256 lastSmartPoolAssetsAverage = fixedLender.smartPoolAssetsAverage();
 
     vm.warp(219);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
       1e18 - FixedPointMathLib.expWad(-int256(fixedLender.dampSpeedDown() * (219 - 218)))
     );
@@ -726,7 +729,7 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolAssetsAverage(), 5.874852456225897297 ether);
 
     vm.warp(221);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(fixedLender.dampSpeedDown() * (221 - 219))));
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
@@ -736,13 +739,13 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolAssetsAverage(), 5.377683011800498150 ether);
 
     vm.warp(226);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets(), 1e17);
   }
 
   function testUpdateSmartPoolAssetsAverageWhenWithdrawingBeforeEarlyWithdrawsAndBorrows() external {
     vm.warp(0);
-    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
     fixedLender.deposit(10 ether, address(this));
 
     vm.warp(218);
@@ -750,7 +753,7 @@ contract FixedLenderTest is Test {
     uint256 lastSmartPoolAssetsAverage = fixedLender.smartPoolAssetsAverage();
 
     vm.warp(219);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
       1e18 - FixedPointMathLib.expWad(-int256(fixedLender.dampSpeedDown() * (219 - 218)))
     );
@@ -762,7 +765,7 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolAssetsAverage(), 5.874852456225897297 ether);
 
     vm.warp(221);
-    fixedLender.borrowAtMaturity(7 days, 1, 1, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
     supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(fixedLender.dampSpeedDown() * (221 - 219))));
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
@@ -772,7 +775,7 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolAssetsAverage(), 5.377683011800498150 ether);
 
     vm.warp(223);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(fixedLender.dampSpeedDown() * (223 - 221))));
     assertEq(
       fixedLender.smartPoolAssetsAverage(),
@@ -782,11 +785,11 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolAssetsAverage(), 5.163049730714664338 ether);
 
     vm.warp(226);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertApproxEqRel(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets(), 1e16);
 
     vm.warp(500);
-    fixedLender.withdrawAtMaturity(7 days, 1, 0, address(this), address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
   }
 
@@ -800,7 +803,7 @@ contract FixedLenderTest is Test {
       FixedLender newFixedLender = new FixedLender(
         mockToken,
         tokenName,
-        12,
+        3,
         1e18,
         auditor,
         InterestRateModel(address(mockInterestRateModel)),
@@ -817,17 +820,17 @@ contract FixedLenderTest is Test {
 
       fixedLenders[i] = newFixedLender;
 
-      newFixedLender.deposit(5_000 ether, address(this));
+      newFixedLender.deposit(20_000 ether, address(this));
     }
 
     // since 224 is the max amount of consecutive maturities where a user can borrow
-    // 204 is the last valid cycle (the last maturity where it borrows is 216)
-    for (uint256 i = 0; i < 205; i += 12) {
-      multipleBorrowsAtMaturity(fixedLenders, i + 1, 7 days * i);
+    // 221 is the last valid cycle (the last maturity where it borrows is 224)
+    for (uint256 i = 0; i < 221; i += 3) {
+      multipleBorrowsAtMaturity(fixedLenders, i + 1, TSUtils.INTERVAL * i);
     }
 
     // repay does not increase in cost
-    fixedLenders[0].repayAtMaturity(7 days, 1 ether, 30 ether, address(this));
+    fixedLenders[0].repayAtMaturity(TSUtils.INTERVAL, 1 ether, 1000 ether, address(this));
     // withdraw DOES increase in cost
     fixedLenders[0].withdraw(1 ether, address(this), address(this));
 
@@ -837,12 +840,12 @@ contract FixedLenderTest is Test {
     vm.prank(BOB);
     fixedLenders[0].withdraw(1 ether, address(BOB), address(BOB));
     vm.prank(BOB);
-    vm.warp(7 days * 400);
-    fixedLenders[0].borrowAtMaturity(7 days * 401, 1 ether, 1.2 ether, address(BOB), address(BOB));
+    vm.warp(TSUtils.INTERVAL * 400);
+    fixedLenders[0].borrowAtMaturity(TSUtils.INTERVAL * 401, 1 ether, 1.2 ether, address(BOB), address(BOB));
 
     // liquidate function to user's borrows DOES increase in cost
     vm.prank(BOB);
-    fixedLenders[0].liquidate(address(this), 1 ether, 60 ether, fixedLenders[0]);
+    fixedLenders[0].liquidate(address(this), 1 ether, 1000 ether, fixedLenders[0]);
   }
 
   function multipleBorrowsAtMaturity(
@@ -852,8 +855,8 @@ contract FixedLenderTest is Test {
   ) internal {
     vm.warp(initialTime);
     for (uint256 i = 0; i < fixedLenders.length; i++) {
-      for (uint256 j = initialMaturity; j < initialMaturity + 12; j++) {
-        fixedLenders[i].borrowAtMaturity(7 days * j, 1 ether, 1.2 ether, address(this), address(this));
+      for (uint256 j = initialMaturity; j < initialMaturity + 3; j++) {
+        fixedLenders[i].borrowAtMaturity(TSUtils.INTERVAL * j, 1 ether, 1.2 ether, address(this), address(this));
       }
     }
   }

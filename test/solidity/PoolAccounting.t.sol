@@ -11,7 +11,7 @@ import { PoolLib } from "../../contracts/utils/PoolLib.sol";
 contract PoolAccountingTest is Test, PoolAccounting {
   using FixedPointMathLib for uint256;
 
-  uint256 internal constant POOL_ID = 7 days;
+  uint256 internal constant POOL_ID = 4 weeks;
   uint256 internal constant FEE_MP = 0.01e18;
   uint256 internal constant FEE_SP = 0.1e18;
 

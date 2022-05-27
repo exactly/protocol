@@ -10,6 +10,7 @@ import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { FixedLender, PoolAccounting } from "../../contracts/FixedLender.sol";
 import { Previewer } from "../../contracts/periphery/Previewer.sol";
+import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
 contract PreviewerTest is Test {
   using FixedPointMathLib for uint256;
@@ -57,7 +58,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewDepositAtMaturityReturningAccurateAmount() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     vm.warp(200 seconds);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
@@ -74,7 +75,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewDepositAtMaturityWithZeroAmount() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     vm.warp(120 seconds);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
@@ -86,7 +87,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewDepositAtMaturityWithOneUnit() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     vm.warp(120 seconds);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
@@ -98,7 +99,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewDepositAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     vm.warp(150 seconds);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
@@ -129,11 +130,11 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewDepositAtMaturityWithEmptyMaturity() external {
-    assertEq(previewer.previewDepositAtMaturity(fixedLender, 7 days, 1 ether), 1 ether);
+    assertEq(previewer.previewDepositAtMaturity(fixedLender, TSUtils.INTERVAL, 1 ether), 1 ether);
   }
 
   function testPreviewDepositAtMaturityWithEmptyMaturityAndZeroAmount() external {
-    assertEq(previewer.previewDepositAtMaturity(fixedLender, 7 days, 0), 0);
+    assertEq(previewer.previewDepositAtMaturity(fixedLender, TSUtils.INTERVAL, 0), 0);
   }
 
   function testPreviewDepositAtMaturityWithInvalidMaturity() external {
@@ -141,19 +142,19 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewDepositAtMaturityWithSameTimestamp() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     vm.warp(maturity);
     assertEq(previewer.previewDepositAtMaturity(fixedLender, maturity, 1 ether), 1 ether);
   }
 
   function testFailPreviewDepositAtMaturityWithMaturedMaturity() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     vm.warp(maturity + 1);
     previewer.previewDepositAtMaturity(fixedLender, maturity, 1 ether);
   }
 
   function testPreviewBorrowAtMaturityReturningAccurateAmount() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     vm.warp(180 seconds);
     uint256 positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
@@ -166,25 +167,25 @@ contract PreviewerTest is Test {
   function testPreviewBorrowAtMaturityWithZeroAmount() external {
     fixedLender.deposit(10 ether, address(this));
     vm.warp(5 seconds);
-    assertEq(previewer.previewBorrowAtMaturity(fixedLender, 7 days, 0), 0);
+    assertEq(previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 0), 0);
   }
 
   function testPreviewBorrowAtMaturityWithOneUnit() external {
     fixedLender.deposit(5 ether, address(this));
     vm.warp(100 seconds);
     fixedLender.deposit(5 ether, address(this));
-    assertEq(previewer.previewBorrowAtMaturity(fixedLender, 7 days, 1), 1);
+    assertEq(previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 1), 1);
   }
 
   function testPreviewBorrowAtMaturityWithFiveUnits() external {
     fixedLender.deposit(5 ether, address(this));
     vm.warp(100 seconds);
     fixedLender.deposit(5 ether, address(this));
-    assertEq(previewer.previewBorrowAtMaturity(fixedLender, 7 days, 5), 5);
+    assertEq(previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 5), 5);
   }
 
   function testPreviewBorrowAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.deposit(10 ether, BOB);
     fixedLender.deposit(50 ether, ALICE);
@@ -221,19 +222,19 @@ contract PreviewerTest is Test {
   }
 
   function testFailPreviewBorrowAtMaturityWithSameTimestamp() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     vm.warp(maturity);
     previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
   }
 
   function testFailPreviewBorrowAtMaturityWithMaturedMaturity() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     vm.warp(maturity + 1);
     previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
   }
 
   function testPreviewRepayAtMaturityReturningAccurateAmount() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.deposit(10 ether, BOB);
     vm.warp(300 seconds);
@@ -252,7 +253,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewRepayAtMaturityWithZeroAmount() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     vm.warp(100 seconds);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
@@ -264,7 +265,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewRepayAtMaturityWithOneUnit() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     vm.warp(100 seconds);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
@@ -274,7 +275,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewRepayAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.deposit(10 ether, BOB);
     vm.warp(200 seconds);
@@ -312,11 +313,11 @@ contract PreviewerTest is Test {
   }
 
   function testFailPreviewRepayAtMaturityWithEmptyMaturity() external view {
-    previewer.previewRepayAtMaturity(fixedLender, 7 days, 1 ether, address(this));
+    previewer.previewRepayAtMaturity(fixedLender, TSUtils.INTERVAL, 1 ether, address(this));
   }
 
   function testFailPreviewRepayAtMaturityWithEmptyMaturityAndZeroAmount() external view {
-    previewer.previewRepayAtMaturity(fixedLender, 7 days, 0, address(this));
+    previewer.previewRepayAtMaturity(fixedLender, TSUtils.INTERVAL, 0, address(this));
   }
 
   function testFailPreviewRepayAtMaturityWithInvalidMaturity() external view {
@@ -324,14 +325,14 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewRepayAtMaturityWithSameTimestamp() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     vm.warp(maturity);
 
     assertEq(previewer.previewRepayAtMaturity(fixedLender, maturity, 1 ether, address(this)), 1 ether);
   }
 
   function testPreviewRepayAtMaturityWithMaturedMaturity() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     vm.warp(maturity + 100);
     uint256 penalties = uint256(1 ether).mulWadDown(100 * fixedLender.penaltyRate());
 
@@ -339,7 +340,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewWithdrawAtMaturityReturningAccurateAmount() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.depositAtMaturity(maturity, 10 ether, 10 ether, address(this));
 
     vm.warp(3 days);
@@ -352,7 +353,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewWithdrawAtMaturityWithZeroAmount() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
 
     vm.warp(3 days);
@@ -360,7 +361,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewWithdrawAtMaturityWithOneUnit() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
 
     vm.warp(3 days);
@@ -370,7 +371,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewWithdrawAtMaturityWithFiveUnits() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
 
     vm.warp(3 days);
@@ -380,7 +381,7 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewWithdrawAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     fixedLender.deposit(10 ether, BOB);
     fixedLender.depositAtMaturity(maturity, 5 ether, 5 ether, address(this));
@@ -425,11 +426,11 @@ contract PreviewerTest is Test {
   }
 
   function testFailPreviewWithdrawAtMaturityWithEmptyMaturity() external view {
-    previewer.previewWithdrawAtMaturity(fixedLender, 7 days, 1 ether);
+    previewer.previewWithdrawAtMaturity(fixedLender, TSUtils.INTERVAL, 1 ether);
   }
 
   function testFailPreviewWithdrawAtMaturityWithEmptyMaturityAndZeroAmount() external view {
-    previewer.previewWithdrawAtMaturity(fixedLender, 7 days, 0);
+    previewer.previewWithdrawAtMaturity(fixedLender, TSUtils.INTERVAL, 0);
   }
 
   function testFailPreviewWithdrawAtMaturityWithInvalidMaturity() external view {
@@ -437,14 +438,14 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewWithdrawAtMaturityWithSameTimestamp() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     vm.warp(maturity);
 
     assertEq(previewer.previewWithdrawAtMaturity(fixedLender, maturity, 1 ether), 1 ether);
   }
 
   function testPreviewWithdrawAtMaturityWithMaturedMaturity() external {
-    uint256 maturity = 7 days;
+    uint256 maturity = TSUtils.INTERVAL;
     vm.warp(maturity + 1);
     assertEq(previewer.previewWithdrawAtMaturity(fixedLender, maturity, 1 ether), 1 ether);
   }
@@ -452,7 +453,7 @@ contract PreviewerTest is Test {
   function testAccountsReturningAccurateAmounts() external {
     fixedLender.deposit(10 ether, address(this));
     vm.warp(100 seconds);
-    fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
 
@@ -491,8 +492,8 @@ contract PreviewerTest is Test {
 
     fixedLender.deposit(10 ether, address(this));
     vm.warp(100 seconds);
-    fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
-    fixedLender.borrowAtMaturity(7 days, 1.321 ether, 2 ether, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1.321 ether, 2 ether, address(this), address(this));
     fixedLender.deposit(2 ether, address(this));
 
     Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
@@ -529,7 +530,7 @@ contract PreviewerTest is Test {
 
     mockOracle.setPrice("WETH", 2800e18);
     vm.warp(200 seconds);
-    fixedLenderWETH.borrowAtMaturity(14 days, 33 ether, 40 ether, address(this), address(this));
+    fixedLenderWETH.borrowAtMaturity(TSUtils.INTERVAL * 2, 33 ether, 40 ether, address(this), address(this));
     data = previewer.accounts(address(this));
 
     sumCollateral =
@@ -554,24 +555,24 @@ contract PreviewerTest is Test {
   function testAccountsWithAccountThatHasBalances() external {
     fixedLender.deposit(10 ether, address(this));
     vm.warp(400 seconds);
-    fixedLender.borrowAtMaturity(7 days, 1 ether, 2 ether, address(this), address(this));
-    fixedLender.depositAtMaturity(7 days, 1 ether, 1 ether, address(this));
-    fixedLender.borrowAtMaturity(14 days, 2.33 ether, 3 ether, address(this), address(this));
-    fixedLender.depositAtMaturity(14 days, 1.19 ether, 1.19 ether, address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL * 2, 2.33 ether, 3 ether, address(this), address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL * 2, 1.19 ether, 1.19 ether, address(this));
     (uint256 firstMaturitySupplyPrincipal, uint256 firstMaturitySupplyFee) = fixedLender.mpUserSuppliedAmount(
-      7 days,
+      TSUtils.INTERVAL,
       address(this)
     );
     (uint256 secondMaturitySupplyPrincipal, uint256 secondMaturitySupplyFee) = fixedLender.mpUserSuppliedAmount(
-      14 days,
+      TSUtils.INTERVAL * 2,
       address(this)
     );
     (uint256 firstMaturityBorrowPrincipal, uint256 firstMaturityBorrowFee) = fixedLender.mpUserBorrowedAmount(
-      7 days,
+      TSUtils.INTERVAL,
       address(this)
     );
     (uint256 secondMaturityBorrowPrincipal, uint256 secondMaturityBorrowFee) = fixedLender.mpUserBorrowedAmount(
-      14 days,
+      TSUtils.INTERVAL * 2,
       address(this)
     );
 
@@ -581,17 +582,17 @@ contract PreviewerTest is Test {
     assertEq(data[0].smartPoolAssets, fixedLender.convertToAssets(fixedLender.balanceOf(address(this))));
     assertEq(data[0].smartPoolShares, fixedLender.balanceOf(address(this)));
 
-    assertEq(data[0].maturitySupplyPositions[0].maturity, 7 days);
+    assertEq(data[0].maturitySupplyPositions[0].maturity, TSUtils.INTERVAL);
     assertEq(data[0].maturitySupplyPositions[0].position.principal, firstMaturitySupplyPrincipal);
     assertEq(data[0].maturitySupplyPositions[0].position.fee, firstMaturitySupplyFee);
-    assertEq(data[0].maturitySupplyPositions[1].maturity, 14 days);
+    assertEq(data[0].maturitySupplyPositions[1].maturity, TSUtils.INTERVAL * 2);
     assertEq(data[0].maturitySupplyPositions[1].position.principal, secondMaturitySupplyPrincipal);
     assertEq(data[0].maturitySupplyPositions[1].position.fee, secondMaturitySupplyFee);
     assertEq(data[0].maturitySupplyPositions.length, 2);
-    assertEq(data[0].maturityBorrowPositions[0].maturity, 7 days);
+    assertEq(data[0].maturityBorrowPositions[0].maturity, TSUtils.INTERVAL);
     assertEq(data[0].maturityBorrowPositions[0].position.principal, firstMaturityBorrowPrincipal);
     assertEq(data[0].maturityBorrowPositions[0].position.fee, firstMaturityBorrowFee);
-    assertEq(data[0].maturityBorrowPositions[1].maturity, 14 days);
+    assertEq(data[0].maturityBorrowPositions[1].maturity, TSUtils.INTERVAL * 2);
     assertEq(data[0].maturityBorrowPositions[1].position.principal, secondMaturityBorrowPrincipal);
     assertEq(data[0].maturityBorrowPositions[1].position.fee, secondMaturityBorrowFee);
     assertEq(data[0].maturityBorrowPositions.length, 2);

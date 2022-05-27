@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import { BigNumber } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
-import { ExaTime } from "./exactlyUtils";
 import { PoolEnv } from "./poolEnv";
+import { INTERVAL } from "./utils/futurePools";
 
 describe("Pool Management Library", () => {
   let poolEnv: PoolEnv;
@@ -193,15 +193,13 @@ describe("Pool Management Library", () => {
 
     describe("accrueEarnings", () => {
       describe("GIVEN a fresh maturity date in 10 days", () => {
-        let exaTime: ExaTime;
         let now: number;
         let sixDays: number;
         let tenDays: number;
         beforeEach(async () => {
-          exaTime = new ExaTime();
-          now = exaTime.timestamp;
-          tenDays = now + exaTime.ONE_DAY * 10;
-          sixDays = now + exaTime.ONE_DAY * 6;
+          now = Math.floor(Date.now() / 1000);
+          tenDays = now + 86_400 * 10;
+          sixDays = now + 86_400 * 6;
 
           await poolEnv.setNextTimestamp(now);
           await poolEnv.accrueEarnings(tenDays);
@@ -240,7 +238,7 @@ describe("Pool Management Library", () => {
 
           describe("AND GIVEN that another 150 seconds go by", () => {
             beforeEach(async () => {
-              await poolEnv.setNextTimestamp(sixDays + exaTime.ONE_SECOND * 150);
+              await poolEnv.setNextTimestamp(sixDays + 150);
               await poolEnv.accrueEarnings(tenDays);
               mp = await poolEnv.mpHarness.maturityPool();
             });
@@ -252,7 +250,7 @@ describe("Pool Management Library", () => {
               expect(mp.earningsUnassigned).to.closeTo(parseUnits("39.9826388"), parseUnits("00.0000001").toNumber());
             });
             it("THEN the pool 'lastAccrual' is tenDays", async () => {
-              expect(mp.lastAccrual).to.equal(sixDays + exaTime.ONE_SECOND * 150);
+              expect(mp.lastAccrual).to.equal(sixDays + 150);
             });
             it("THEN the last earnings SP is ~= 0.017361", async () => {
               const lastEarningsSP = await poolEnv.mpHarness.lastEarningsSP();
@@ -262,7 +260,7 @@ describe("Pool Management Library", () => {
 
           describe("AND GIVEN that we go over +1 day the maturity date", () => {
             beforeEach(async () => {
-              await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY);
+              await poolEnv.setNextTimestamp(tenDays + 86_400);
               await poolEnv.accrueEarnings(tenDays);
               mp = await poolEnv.mpHarness.maturityPool();
             });
@@ -280,7 +278,7 @@ describe("Pool Management Library", () => {
 
             describe("AND GIVEN that we go over another +1 day the maturity date", () => {
               beforeEach(async () => {
-                await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY * 2);
+                await poolEnv.setNextTimestamp(tenDays + 86_400 * 2);
                 await poolEnv.accrueEarnings(tenDays);
                 mp = await poolEnv.mpHarness.maturityPool();
               });
@@ -301,7 +299,7 @@ describe("Pool Management Library", () => {
           describe("AND GIVEN that we remove 20 fees and we go over +1 day the maturity date", () => {
             beforeEach(async () => {
               await poolEnv.removeFee("20");
-              await poolEnv.setNextTimestamp(tenDays + exaTime.ONE_DAY);
+              await poolEnv.setNextTimestamp(tenDays + 86_400);
               await poolEnv.accrueEarnings(tenDays);
               mp = await poolEnv.mpHarness.maturityPool();
             });
@@ -581,103 +579,103 @@ describe("Pool Management Library", () => {
 
     describe("setMaturity", () => {
       let newUserBorrows: number;
-      const userBorrowsWith21DayMaturity = 4_296_781_696;
-      const userBorrowsWith21And35DayMaturity = 21_476_650_880;
-      const userBorrowsWith7And21And35DayMaturity = 90_194_918_016;
+      const userBorrowsWith56DayMaturity = 4_299_805_696;
+      const userBorrowsWith56And84DayMaturity = 12_889_740_288;
+      const userBorrowsWith28And56And84DayMaturity = 30_067_190_272;
 
-      describe("GIVEN a 21 days maturity is added to the userBorrows", () => {
+      describe("GIVEN a 56 days maturity is added to the userBorrows", () => {
         beforeEach(async () => {
-          await poolEnv.setMaturity(0, 86_400 * 21);
+          await poolEnv.setMaturity(0, INTERVAL * 2);
           newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
         });
-        it("THEN newUserBorrows is userBorrowsWith21DayMaturity", async () => {
-          expect(newUserBorrows).to.equal(userBorrowsWith21DayMaturity);
+        it("THEN newUserBorrows is userBorrowsWith56DayMaturity", async () => {
+          expect(newUserBorrows).to.equal(userBorrowsWith56DayMaturity);
         });
-        describe("AND GIVEN another 21 days maturity is added to the userBorrows", () => {
+        describe("AND GIVEN another 56 days maturity is added to the userBorrows", () => {
           beforeEach(async () => {
-            await poolEnv.setMaturity(userBorrowsWith21DayMaturity, 86_400 * 21);
+            await poolEnv.setMaturity(userBorrowsWith56DayMaturity, INTERVAL * 2);
             newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
           });
           it("THEN newUserBorrows is equal to the previous value", async () => {
-            expect(newUserBorrows).to.equal(userBorrowsWith21DayMaturity);
+            expect(newUserBorrows).to.equal(userBorrowsWith56DayMaturity);
           });
         });
-        describe("AND GIVEN a 35 days maturity is added to the userBorrows", () => {
+        describe("AND GIVEN a 84 days maturity is added to the userBorrows", () => {
           beforeEach(async () => {
-            await poolEnv.setMaturity(userBorrowsWith21DayMaturity, 86_400 * 35);
+            await poolEnv.setMaturity(userBorrowsWith56DayMaturity, INTERVAL * 3);
             newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
           });
           it("THEN newUserBorrows has the result of both maturities", async () => {
-            expect(newUserBorrows).to.equal(userBorrowsWith21And35DayMaturity);
+            expect(newUserBorrows).to.equal(userBorrowsWith56And84DayMaturity);
           });
-          describe("AND GIVEN a 7 days maturity is added to the userBorrows", () => {
+          describe("AND GIVEN a 28 days maturity is added to the userBorrows", () => {
             beforeEach(async () => {
-              await poolEnv.setMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 7);
+              await poolEnv.setMaturity(userBorrowsWith56And84DayMaturity, INTERVAL);
               newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
             });
             it("THEN newUserBorrows has the result of the three maturities added", async () => {
-              expect(newUserBorrows).to.equal(userBorrowsWith7And21And35DayMaturity);
+              expect(newUserBorrows).to.equal(userBorrowsWith28And56And84DayMaturity);
             });
-            describe("AND GIVEN the 7 days maturity is removed from the userBorrows", () => {
+            describe("AND GIVEN the 28 days maturity is removed from the userBorrows", () => {
               beforeEach(async () => {
-                await poolEnv.clearMaturity(userBorrowsWith7And21And35DayMaturity, 86_400 * 7);
+                await poolEnv.clearMaturity(userBorrowsWith28And56And84DayMaturity, INTERVAL);
                 newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
               });
-              it("THEN newUserBorrows has the result of the 21 and 35 days maturity", async () => {
-                expect(newUserBorrows).to.equal(userBorrowsWith21And35DayMaturity);
+              it("THEN newUserBorrows has the result of the 56 and 84 days maturity", async () => {
+                expect(newUserBorrows).to.equal(userBorrowsWith56And84DayMaturity);
               });
-              describe("AND GIVEN the 7 days maturity is removed again from the userBorrows", () => {
+              describe("AND GIVEN the 28 days maturity is removed again from the userBorrows", () => {
                 beforeEach(async () => {
-                  await poolEnv.clearMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 7);
+                  await poolEnv.clearMaturity(userBorrowsWith56And84DayMaturity, INTERVAL);
                   newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
                 });
-                it("THEN newUserBorrows has the result of the 21 and 35 days maturity", async () => {
-                  expect(newUserBorrows).to.equal(userBorrowsWith21And35DayMaturity);
+                it("THEN newUserBorrows has the result of the 56 and 84 days maturity", async () => {
+                  expect(newUserBorrows).to.equal(userBorrowsWith56And84DayMaturity);
                 });
               });
-              describe("AND GIVEN the 35 days maturity is removed from the userBorrows", () => {
+              describe("AND GIVEN the 86 days maturity is removed from the userBorrows", () => {
                 beforeEach(async () => {
-                  await poolEnv.clearMaturity(userBorrowsWith21And35DayMaturity, 86_400 * 35);
+                  await poolEnv.clearMaturity(userBorrowsWith56And84DayMaturity, INTERVAL * 3);
                   newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
                 });
-                it("THEN newUserBorrows has the result of the 21 days maturity", async () => {
-                  expect(newUserBorrows).to.equal(userBorrowsWith21DayMaturity);
+                it("THEN newUserBorrows has the result of the 56 days maturity", async () => {
+                  expect(newUserBorrows).to.equal(userBorrowsWith56DayMaturity);
                 });
-                describe("AND GIVEN the 35 days maturity is removed again from the userBorrows", () => {
+                describe("AND GIVEN the 86 days maturity is removed again from the userBorrows", () => {
                   beforeEach(async () => {
-                    await poolEnv.clearMaturity(userBorrowsWith21DayMaturity, 86_400 * 35);
+                    await poolEnv.clearMaturity(userBorrowsWith56DayMaturity, INTERVAL * 3);
                     newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
                   });
-                  it("THEN newUserBorrows has the result of the 21 days maturity", async () => {
-                    expect(newUserBorrows).to.equal(userBorrowsWith21DayMaturity);
+                  it("THEN newUserBorrows has the result of the 56 days maturity", async () => {
+                    expect(newUserBorrows).to.equal(userBorrowsWith56DayMaturity);
                   });
                 });
-                describe("AND GIVEN the 21 days maturity is removed from the userBorrows", () => {
+                describe("AND GIVEN the 56 days maturity is removed from the userBorrows", () => {
                   beforeEach(async () => {
-                    await poolEnv.clearMaturity(userBorrowsWith21DayMaturity, 86_400 * 21);
+                    await poolEnv.clearMaturity(userBorrowsWith56DayMaturity, INTERVAL * 2);
                     newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
                   });
-                  it("THEN newUserBorrows has the result of the 21 days maturity", async () => {
+                  it("THEN newUserBorrows is emptied", async () => {
                     expect(newUserBorrows).to.equal(0);
                   });
                 });
               });
             });
-            describe("AND GIVEN the 7a days maturity is removed from the userBorrows", () => {
+            describe("AND GIVEN a 28 days maturity is removed from the userBorrows", () => {
               beforeEach(async () => {
-                await poolEnv.clearMaturity(userBorrowsWith7And21And35DayMaturity, 86_400 * 7);
+                await poolEnv.clearMaturity(userBorrowsWith28And56And84DayMaturity, INTERVAL);
                 newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
               });
-              it("THEN newUserBorrows has the result of the 21 and 35 days maturity", async () => {
-                expect(newUserBorrows).to.equal(userBorrowsWith21And35DayMaturity);
+              it("THEN newUserBorrows has the result of the 56 and 84 days maturity", async () => {
+                expect(newUserBorrows).to.equal(userBorrowsWith56And84DayMaturity);
               });
             });
           });
         });
       });
-      describe("GIVEN a 7 days maturity is tried to remove from the userBorrows that it's 0", () => {
+      describe("GIVEN a 28 days maturity is tried to remove from the userBorrows that it's 0", () => {
         beforeEach(async () => {
-          await poolEnv.clearMaturity(0, 86_400 * 7);
+          await poolEnv.clearMaturity(0, INTERVAL);
           newUserBorrows = await poolEnv.mpHarness.newUserBorrows();
         });
         it("THEN newUserBorrows should still be 0", async () => {
