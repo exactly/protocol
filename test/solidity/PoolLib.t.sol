@@ -4,6 +4,7 @@ pragma solidity 0.8.13;
 import { Vm } from "forge-std/Vm.sol";
 import { Test, stdError } from "forge-std/Test.sol";
 import { PoolLib, InsufficientProtocolLiquidity, MaturityOverflow } from "../../contracts/utils/PoolLib.sol";
+import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
 contract PoolLibTest is Test {
   using PoolLib for PoolLib.MaturityPool;
@@ -73,31 +74,31 @@ contract PoolLibTest is Test {
 
   function testMaturityRangeLimit() external {
     uint256 maturities;
-    maturities = maturities.setMaturity(7 days);
-    maturities = maturities.setMaturity(7 days * 224);
-    assertTrue(maturities.hasMaturity(7 days));
-    assertTrue(maturities.hasMaturity(7 days * 224));
+    maturities = maturities.setMaturity(TSUtils.INTERVAL);
+    maturities = maturities.setMaturity(TSUtils.INTERVAL * 224);
+    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL));
+    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL * 224));
 
     uint256 maturitiesReverse;
-    maturitiesReverse = maturitiesReverse.setMaturity(7 days * 224);
-    maturitiesReverse = maturitiesReverse.setMaturity(7 days);
-    assertTrue(maturities.hasMaturity(7 days * 224));
-    assertTrue(maturities.hasMaturity(7 days));
+    maturitiesReverse = maturitiesReverse.setMaturity(TSUtils.INTERVAL * 224);
+    maturitiesReverse = maturitiesReverse.setMaturity(TSUtils.INTERVAL);
+    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL * 224));
+    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL));
 
-    maturitiesReverse = maturitiesReverse.clearMaturity(7 days * 224);
-    assertTrue(maturities.hasMaturity(7 days));
+    maturitiesReverse = maturitiesReverse.clearMaturity(TSUtils.INTERVAL * 224);
+    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL));
   }
 
   function testMaturityRangeTooWide() external {
     uint256 maturities;
-    maturities = maturities.setMaturity(7 days);
+    maturities = maturities.setMaturity(TSUtils.INTERVAL);
     vm.expectRevert(MaturityOverflow.selector);
-    this.setMaturity(maturities, 7 days * (224 + 1));
+    this.setMaturity(maturities, TSUtils.INTERVAL * (224 + 1));
 
     uint256 maturitiesReverse;
-    maturitiesReverse = maturitiesReverse.setMaturity(7 days * (224 + 1));
+    maturitiesReverse = maturitiesReverse.setMaturity(TSUtils.INTERVAL * (224 + 1));
     vm.expectRevert(MaturityOverflow.selector);
-    this.setMaturity(maturitiesReverse, 7 days);
+    this.setMaturity(maturitiesReverse, TSUtils.INTERVAL);
   }
 
   function testFuzzAddRemoveAll(uint8[12] calldata indexes) external {
@@ -106,7 +107,7 @@ contract PoolLibTest is Test {
     for (uint256 i = 0; i < indexes.length; i++) {
       if (indexes[i] > 223) continue;
 
-      uint32 maturity = ((uint32(indexes[i]) + 1) * 7 days);
+      uint32 maturity = ((uint32(indexes[i]) + 1) * TSUtils.INTERVAL);
       maturities = maturities.setMaturity(maturity);
       assertTrue(maturities.hasMaturity(maturity));
     }
@@ -114,7 +115,7 @@ contract PoolLibTest is Test {
     for (uint256 i = 0; i < indexes.length; i++) {
       if (indexes[i] > 223) continue;
 
-      uint256 maturity = ((uint256(indexes[i]) + 1) * 7 days);
+      uint256 maturity = ((uint256(indexes[i]) + 1) * TSUtils.INTERVAL);
       uint256 base = maturities % (1 << 32);
 
       if (maturity < base) vm.expectRevert(stdError.arithmeticError);

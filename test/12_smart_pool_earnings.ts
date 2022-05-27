@@ -1,10 +1,10 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import { BigNumber } from "ethers";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { FixedLender, MockInterestRateModel, MockToken, Auditor, MockChainlinkFeedRegistry } from "../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import futurePools, { INTERVAL } from "./utils/futurePools";
 import timelockExecute from "./utils/timelockExecute";
-import futurePools from "./utils/futurePools";
 
 const {
   utils: { parseUnits },
@@ -54,7 +54,7 @@ describe("Smart Pool Earnings Distribution", function () {
     }
   });
 
-  describe("GIVEN bob deposits 10k and borrows 1k from a 7 day mp, AND john deposits 10k at half maturity time", () => {
+  describe("GIVEN bob deposits 10k and borrows 1k from a 28 day mp, AND john deposits 10k at half maturity time", () => {
     beforeEach(async () => {
       await fixedLenderDAI.deposit(parseUnits("10000"), bob.address);
 
@@ -62,14 +62,14 @@ describe("Smart Pool Earnings Distribution", function () {
       await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber()]);
 
       await fixedLenderDAI.borrowAtMaturity(
-        futurePools(1)[0].add(86_400 * 7),
+        futurePools(1)[0].add(INTERVAL),
         parseUnits("1000"),
         parseUnits("1100"),
         bob.address,
         bob.address,
       );
 
-      await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + (86_400 * 7) / 2]);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + INTERVAL / 2]);
       await fixedLenderDAI.connect(john).deposit(parseUnits("10000"), john.address);
     });
     it("THEN bob eToken shares is 10000", async () => {
@@ -94,21 +94,23 @@ describe("Smart Pool Earnings Distribution", function () {
     it("THEN the smart pool earnings accumulator did not account any earnings", async () => {
       expect(await fixedLenderDAI.smartPoolEarningsAccumulator()).to.be.eq(0);
     });
-    describe("AND GIVEN 14 days go by and bob repays late", () => {
+    describe("AND GIVEN 7 days go by and bob repays late", () => {
       beforeEach(async () => {
-        await feedRegistry.setUpdatedAtTimestamp(futurePools(1)[0].toNumber() + 86_400 * 7 * 2);
+        await feedRegistry.setUpdatedAtTimestamp(futurePools(1)[0].toNumber() + INTERVAL + 86_400 * 7);
         // 7 * 0,02 -> 14% late repayments (154)
-        await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 7 * 2]);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [
+          futurePools(1)[0].toNumber() + INTERVAL + 86_400 * 7 + 1,
+        ]);
         await fixedLenderDAI.repayAtMaturity(
-          futurePools(1)[0].add(86_400 * 7),
+          futurePools(1)[0].add(INTERVAL),
           parseUnits("1254"),
-          parseUnits("1254"),
+          parseUnits("1255"),
           bob.address,
         );
       });
       it("THEN the smart pool earnings accumulator has balance", async () => {
-        expect(await fixedLenderDAI.smartPoolEarningsAccumulator()).to.be.gt(parseUnits("153.9"));
-        expect(await fixedLenderDAI.smartPoolEarningsAccumulator()).to.be.lt(parseUnits("154"));
+        expect(await fixedLenderDAI.smartPoolEarningsAccumulator()).to.be.gt(parseUnits("154"));
+        expect(await fixedLenderDAI.smartPoolEarningsAccumulator()).to.be.lt(parseUnits("154.1"));
       });
       it("THEN preview deposit returned is less than previous deposits since depositing will first accrue earnings", async () => {
         expect(await fixedLenderDAI.previewDeposit(parseUnits("10000"))).to.be.lt(parseUnits("9950.24875621"));
@@ -132,9 +134,7 @@ describe("Smart Pool Earnings Distribution", function () {
           expect((await dai.balanceOf(fixedLenderDAI.address)).sub(assetsToBeWithdrawn)).to.eq(1);
         });
         it("THEN the maturity used is also empty", async () => {
-          expect((await fixedLenderDAI.maturityPools(futurePools(1)[0].add(86_400 * 7))).earningsUnassigned).to.be.eq(
-            0,
-          );
+          expect((await fixedLenderDAI.maturityPools(futurePools(1)[0].add(INTERVAL))).earningsUnassigned).to.be.eq(0);
         });
       });
       describe("AND GIVEN accumulator factor is not set to 0 AND bob & john withdraw all their assets", () => {
@@ -169,9 +169,9 @@ describe("Smart Pool Earnings Distribution", function () {
         });
       });
     });
-    describe("AND GIVEN john deposits again 1k at day 5 (2 days until maturity)", () => {
+    describe("AND GIVEN john deposits again 1k at day 20 (8 days until maturity)", () => {
       beforeEach(async () => {
-        await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 5]);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + INTERVAL - 86_400 * 8]);
         await fixedLenderDAI.connect(john).deposit(parseUnits("1000"), john.address);
       });
       it("THEN john eToken shares is aprox. 10944", async () => {
@@ -184,7 +184,7 @@ describe("Smart Pool Earnings Distribution", function () {
       });
       describe("AND GIVEN john deposits another 1k at maturity date", () => {
         beforeEach(async () => {
-          await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 7]);
+          await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + INTERVAL]);
           await fixedLenderDAI.connect(john).deposit(parseUnits("1000"), john.address);
         });
         it("THEN john eToken shares is aprox. 10944", async () => {
@@ -203,7 +203,7 @@ describe("Smart Pool Earnings Distribution", function () {
       await fixedLenderWBTC.deposit(parseUnits("1", 8), bob.address);
       await auditor.enterMarkets([fixedLenderWBTC.address]);
     });
-    describe("GIVEN bob deposits 10k and borrows 10k from a 7 day mp", () => {
+    describe("GIVEN bob deposits 10k and borrows 10k from a mp", () => {
       beforeEach(async () => {
         await fixedLenderDAI.deposit(parseUnits("10000"), bob.address);
         await timelockExecute(owner, fixedLenderDAI, "setSmartPoolReserveFactor", [0]);
@@ -211,7 +211,7 @@ describe("Smart Pool Earnings Distribution", function () {
         await feedRegistry.setUpdatedAtTimestamp(futurePools(1)[0].toNumber());
         await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber()]);
         await fixedLenderDAI.borrowAtMaturity(
-          futurePools(1)[0].add(86_400 * 7),
+          futurePools(1)[0].add(INTERVAL),
           parseUnits("10000"),
           parseUnits("11000"),
           bob.address,
@@ -220,7 +220,7 @@ describe("Smart Pool Earnings Distribution", function () {
       });
       describe("AND GIVEN john deposits 10k after maturity date", () => {
         beforeEach(async () => {
-          await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 7]);
+          await ethers.provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + INTERVAL]);
           await fixedLenderDAI.connect(john).deposit(parseUnits("10000"), john.address);
         });
         it("THEN john eToken balance should be less than 10000", async () => {

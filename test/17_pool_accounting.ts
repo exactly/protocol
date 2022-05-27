@@ -2,11 +2,13 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ExaTime, MaturityPoolState } from "./exactlyUtils";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { MaturityPoolState } from "./exactlyUtils";
 import { PoolAccountingEnv } from "./poolAccountingEnv";
+import futurePools, { INTERVAL } from "./utils/futurePools";
 
 const { provider } = ethers;
+const nextPoolID = futurePools(3)[2].toNumber();
 
 describe("PoolAccounting", () => {
   let laura: SignerWithAddress;
@@ -14,9 +16,7 @@ describe("PoolAccounting", () => {
   let poolAccountingEnv: PoolAccountingEnv;
   let poolAccountingHarness: Contract;
   let mockInterestRateModel: Contract;
-  const exaTime = new ExaTime();
   let snapshot: any;
-  const nextPoolID = exaTime.nextPoolID() + 86_400 * 21; // we add 21 days so we make sure we are far from the previous timestamp blocks
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -93,7 +93,7 @@ describe("PoolAccounting", () => {
   });
 
   describe("GIVEN a depositMP with an amount of 10000 (0 fees earned)", () => {
-    const sixDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
+    const sixDaysToMaturity = nextPoolID - 86_400 * 5;
     let depositAmount: any;
     let withdrawAmount: any;
     let borrowAmount: any;
@@ -149,12 +149,11 @@ describe("PoolAccounting", () => {
     });
 
     describe("AND GIVEN a borrowMP with an amount of 5000 (250 charged in fees to accumulator) (4 days to go)", () => {
-      let fourDaysToMaturity: number;
+      const fourDaysToMaturity = nextPoolID - 86_400 * 4;
       beforeEach(async () => {
         borrowAmount = 5000;
         borrowFees = 250;
         await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
-        fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
         await poolAccountingEnv.moveInTime(fourDaysToMaturity);
         await poolAccountingEnv.borrowMP(nextPoolID, borrowAmount.toString(), (borrowAmount + borrowFees).toString());
 
@@ -193,11 +192,10 @@ describe("PoolAccounting", () => {
       });
 
       describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees to smartPoolEarningsAccumulator) (3 days to go)", () => {
-        let threeDaysToMaturity: number;
+        const threeDaysToMaturity = nextPoolID - 86_400 * 3;
         beforeEach(async () => {
           borrowAmount = 5000;
           borrowFees = 250;
-          threeDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 3;
           await poolAccountingEnv.moveInTime(threeDaysToMaturity);
           await poolAccountingEnv.borrowMP(nextPoolID, borrowAmount.toString(), (borrowAmount + borrowFees).toString());
 
@@ -243,11 +241,11 @@ describe("PoolAccounting", () => {
         });
 
         describe("AND GIVEN another borrowMP call with an amount of 5000 (250 charged in fees to unassigned) (2 days to go)", () => {
-          let twoDaysToMaturity: number;
+          const oneDayToMaturity = nextPoolID - 86_400;
+          const twoDaysToMaturity = nextPoolID - 86_400 * 2;
           beforeEach(async () => {
             borrowAmount = 5000;
             borrowFees = 250;
-            twoDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 2;
             await poolAccountingEnv.moveInTime(twoDaysToMaturity);
             await poolAccountingEnv.borrowMP(
               nextPoolID,
@@ -291,7 +289,6 @@ describe("PoolAccounting", () => {
           });
 
           describe("AND GIVEN a repayMP with an amount of 15750 (total EARLY repayment) (1 day to go)", () => {
-            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY * 1;
             let mp: any;
             beforeEach(async () => {
               repayAmount = 15750;
@@ -342,7 +339,6 @@ describe("PoolAccounting", () => {
           });
 
           describe("AND GIVEN a repayMP with an amount of 8000 (partial EARLY repayment) (1 day to go)", () => {
-            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY * 1;
             let mp: any;
             beforeEach(async () => {
               repayAmount = 8000;
@@ -395,7 +391,6 @@ describe("PoolAccounting", () => {
           });
 
           describe("AND GIVEN a repayMP at maturity(-1 DAY) with an amount of 15750 but asking a 126 discount (total EARLY repayment) ", () => {
-            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY * 1;
             let tx: any;
             beforeEach(async () => {
               await poolAccountingEnv.moveInTime(oneDayToMaturity);
@@ -414,8 +409,8 @@ describe("PoolAccounting", () => {
             // was supported by the MP
             let mp: any;
             beforeEach(async () => {
-              await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
-              await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
+              await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(86_400));
+              await poolAccountingEnv.moveInTime(nextPoolID + 86_400);
               repayAmount = 17325;
               await poolAccountingEnv.repayMP(nextPoolID, repayAmount.toString());
 
@@ -466,7 +461,6 @@ describe("PoolAccounting", () => {
           });
 
           describe("AND GIVEN another depositMP with an amount of 5000 (half of 250 unassigned earnings earned) (1 day to)", () => {
-            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
             beforeEach(async () => {
               depositAmount = 5000;
 
@@ -520,7 +514,6 @@ describe("PoolAccounting", () => {
           });
 
           describe("AND GIVEN another depositMP with an amount of 5000 and with a spFeeRate of 10% (125 - (125 * 0.1) fees earned)", () => {
-            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
             beforeEach(async () => {
               depositAmount = 5000;
 
@@ -571,8 +564,6 @@ describe("PoolAccounting", () => {
           });
 
           describe("AND GIVEN another depositMP with an exorbitant amount of 100M (all fees earned - same as depositing only 5k)", () => {
-            const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY;
-
             beforeEach(async () => {
               depositAmount = 100000000;
 
@@ -605,7 +596,7 @@ describe("PoolAccounting", () => {
             });
 
             describe("AND GIVEN an EARLY repayMP with an amount of 5250 (12 hours to maturity)", () => {
-              const twelveHoursToMaturity = nextPoolID - exaTime.ONE_DAY + exaTime.ONE_HOUR * 12;
+              const twelveHoursToMaturity = nextPoolID - 3_600 * 12;
 
               beforeEach(async () => {
                 repayAmount = 5250;
@@ -646,7 +637,7 @@ describe("PoolAccounting", () => {
             });
 
             describe("AND GIVEN a total EARLY repayMP with an amount of 15750 (all debt)", () => {
-              const twelveHoursToMaturity = nextPoolID - exaTime.ONE_DAY + exaTime.ONE_HOUR * 12;
+              const twelveHoursToMaturity = nextPoolID - 3_600 * 12;
 
               beforeEach(async () => {
                 repayAmount = 15750;
@@ -832,9 +823,9 @@ describe("PoolAccounting", () => {
             describe("AND GIVEN a partial repayMP at maturity(+1 DAY) with an amount of 8000 (partial late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
+                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(86_400));
 
-                await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
+                await poolAccountingEnv.moveInTime(nextPoolID + 86_400);
                 repayAmount = 8000;
                 await poolAccountingEnv.repayMP(nextPoolID, repayAmount.toString(), "9000");
                 returnValues = await poolAccountingHarness.returnValues();
@@ -871,9 +862,9 @@ describe("PoolAccounting", () => {
             describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 15750*1.1=17325 (total late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
+                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(86_400));
 
-                await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
+                await poolAccountingEnv.moveInTime(nextPoolID + 86_400);
                 repayAmount = 17325;
                 await poolAccountingEnv.repayMP(nextPoolID, repayAmount.toString());
                 returnValues = await poolAccountingHarness.returnValues();
@@ -915,9 +906,9 @@ describe("PoolAccounting", () => {
             describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 2000 on a debt 15750*0.1=17325 (way more money late repayment)", () => {
               let mp: any;
               beforeEach(async () => {
-                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(exaTime.ONE_DAY));
+                await poolAccountingHarness.setFreePenaltyRate(parseUnits("0.1").div(86_400));
 
-                await poolAccountingEnv.moveInTime(nextPoolID + exaTime.ONE_DAY);
+                await poolAccountingEnv.moveInTime(nextPoolID + 86_400);
                 repayAmount = 20000;
                 await poolAccountingEnv.repayMP(nextPoolID, repayAmount.toString());
                 returnValues = await poolAccountingHarness.returnValues();
@@ -1032,21 +1023,25 @@ describe("PoolAccounting", () => {
   });
 
   describe("Assignment of earnings over time", () => {
-    describe("GIVEN a borrowMP of 10000 (600 fees owed by user) - 6 days to maturity", () => {
+    describe("GIVEN a borrowMP of 10000 (600 fees owed by user) - 24 days to maturity", () => {
       let returnValues: any;
       let mp: any;
+      const twentyFourDaysToMaturity = nextPoolID - 86_400 * 24;
+      const twentyDaysToMaturity = nextPoolID - 86_400 * 20;
+      const sixteenDaysToMaturity = nextPoolID - 86_400 * 16;
+      const twelveDaysToMaturity = nextPoolID - 86_400 * 12;
+      const eightDaysToMaturity = nextPoolID - 86_400 * 8;
+      const fourDaysToMaturity = nextPoolID - 86_400 * 4;
 
       beforeEach(async () => {
-        const sixDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 6;
         poolAccountingEnv.switchWallet(laura);
         await mockInterestRateModel.setBorrowRate(parseUnits("0.06"));
-        await poolAccountingEnv.moveInTime(sixDaysToMaturity);
+        await poolAccountingEnv.moveInTime(twentyFourDaysToMaturity);
         await poolAccountingEnv.borrowMP(nextPoolID, "10000");
       });
-      describe("AND GIVEN a depositMP of 1000 (50 fees earned by user) - 5 days to maturity", () => {
+      describe("AND GIVEN a depositMP of 1000 (50 fees earned by user) - 20 days to maturity", () => {
         beforeEach(async () => {
-          const fiveDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
-          await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
+          await poolAccountingEnv.moveInTime(twentyDaysToMaturity);
           await poolAccountingEnv.depositMP(nextPoolID, "1000");
           mp = await poolAccountingHarness.maturityPools(nextPoolID);
           returnValues = await poolAccountingHarness.returnValues();
@@ -1060,11 +1055,10 @@ describe("PoolAccounting", () => {
         it("THEN the currentTotalDeposit returned is 1050", async () => {
           expect(returnValues.currentTotalDeposit).to.eq(parseUnits("1050"));
         });
-        describe("AND GIVEN a withdraw of 1050 - 4 days to maturity", () => {
+        describe("AND GIVEN a withdraw of 1050 - 16 days to maturity", () => {
           beforeEach(async () => {
-            const fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
             await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
-            await poolAccountingEnv.moveInTime(fourDaysToMaturity);
+            await poolAccountingEnv.moveInTime(sixteenDaysToMaturity);
             await poolAccountingEnv.withdrawMP(nextPoolID, "1050", "1000");
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
             returnValues = await poolAccountingHarness.returnValues();
@@ -1075,11 +1069,10 @@ describe("PoolAccounting", () => {
           it("THEN the earningsSP returned are 90", async () => {
             expect(returnValues.earningsSP).to.eq(parseUnits("90")); // 450 / 5
           });
-          describe("AND GIVEN another borrowMP of 10000 (601.5 fees owed by user) - 3 days to maturity", () => {
+          describe("AND GIVEN another borrowMP of 10000 (601.5 fees owed by user) - 12 days to maturity", () => {
             beforeEach(async () => {
-              const threeDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 3;
               await mockInterestRateModel.setBorrowRate(parseUnits("0.06015"));
-              await poolAccountingEnv.moveInTime(threeDaysToMaturity);
+              await poolAccountingEnv.moveInTime(twelveDaysToMaturity);
               await poolAccountingEnv.borrowMP(nextPoolID, "10000");
               mp = await poolAccountingHarness.maturityPools(nextPoolID);
               returnValues = await poolAccountingHarness.returnValues();
@@ -1093,10 +1086,9 @@ describe("PoolAccounting", () => {
             it("THEN the totalOwedNewBorrow returned is 10601.5", async () => {
               expect(returnValues.totalOwedNewBorrow).to.eq(parseUnits("10601.5"));
             });
-            describe("AND GIVEN a repayMP of 10600.75 (half of borrowed) - 2 days to maturity", () => {
+            describe("AND GIVEN a repayMP of 10600.75 (half of borrowed) - 8 days to maturity", () => {
               beforeEach(async () => {
-                const twoDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 2;
-                await poolAccountingEnv.moveInTime(twoDaysToMaturity);
+                await poolAccountingEnv.moveInTime(eightDaysToMaturity);
                 await poolAccountingEnv.repayMP(nextPoolID, "10600.75");
                 mp = await poolAccountingHarness.maturityPools(nextPoolID);
                 returnValues = await poolAccountingHarness.returnValues();
@@ -1115,10 +1107,9 @@ describe("PoolAccounting", () => {
               it("THEN the debtCovered returned is 10600.75", async () => {
                 expect(returnValues.debtCovered).to.eq(parseUnits("10600.75"));
               });
-              describe("AND GIVEN a repayMP of the other half (10600.75) - 1 day to maturity", () => {
+              describe("AND GIVEN a repayMP of the other half (10600.75) - 4 days to maturity", () => {
                 beforeEach(async () => {
-                  const oneDayToMaturity = nextPoolID - exaTime.ONE_DAY * 1;
-                  await poolAccountingEnv.moveInTime(oneDayToMaturity);
+                  await poolAccountingEnv.moveInTime(fourDaysToMaturity);
                   await poolAccountingEnv.repayMP(nextPoolID, "10600.75");
                   mp = await poolAccountingHarness.maturityPools(nextPoolID);
                   returnValues = await poolAccountingHarness.returnValues();
@@ -1148,6 +1139,9 @@ describe("PoolAccounting", () => {
     let mp: any;
     let borrowAmount: number;
     let maturityPoolState: MaturityPoolState;
+    const fiveDaysToMaturity = nextPoolID - 86_400 * 5;
+    const fourDaysToMaturity = nextPoolID - 86_400 * 4;
+    const threeDaysToMaturity = nextPoolID - 86_400 * 3;
 
     beforeEach(async () => {
       maturityPoolState = {
@@ -1174,7 +1168,6 @@ describe("PoolAccounting", () => {
     describe("GIVEN a borrowMP of 10000 (500 fees owed by user)", () => {
       beforeEach(async () => {
         borrowAmount = 10000;
-        const fiveDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
         poolAccountingEnv.switchWallet(laura);
         await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
         await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
@@ -1191,7 +1184,6 @@ describe("PoolAccounting", () => {
 
       describe("WHEN an early repayment of 5250", () => {
         beforeEach(async () => {
-          const fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
           await poolAccountingEnv.moveInTime(fourDaysToMaturity);
           await poolAccountingEnv.repayMP(nextPoolID, "5250");
           returnValues = await poolAccountingHarness.returnValues();
@@ -1218,7 +1210,6 @@ describe("PoolAccounting", () => {
 
         describe("AND WHEN an early repayment of 5250", () => {
           beforeEach(async () => {
-            const threeDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 3;
             await poolAccountingEnv.moveInTime(threeDaysToMaturity);
             await poolAccountingEnv.repayMP(nextPoolID, "5250");
             returnValues = await poolAccountingHarness.returnValues();
@@ -1253,7 +1244,6 @@ describe("PoolAccounting", () => {
         describe("AND WHEN an early repayment of 5250 with a spFeeRate of 10%", () => {
           beforeEach(async () => {
             await mockInterestRateModel.setSPFeeRate(parseUnits("0.1"));
-            const threeDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 3;
             await poolAccountingEnv.moveInTime(threeDaysToMaturity);
             await poolAccountingEnv.repayMP(nextPoolID, "5250");
             returnValues = await poolAccountingHarness.returnValues();
@@ -1295,12 +1285,10 @@ describe("PoolAccounting", () => {
     describe("GIVEN a borrowMP of 5000 (250 fees owed by user) AND a depositMP of 5000 (earns 250 in fees)", () => {
       beforeEach(async () => {
         borrowAmount = 5000;
-        const fiveDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
         poolAccountingEnv.switchWallet(laura);
         await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
         await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
         await poolAccountingEnv.borrowMP(nextPoolID, borrowAmount.toString());
-        const fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
         await poolAccountingEnv.moveInTime(fourDaysToMaturity);
         await poolAccountingEnv.depositMP(nextPoolID, "5000");
 
@@ -1467,7 +1455,6 @@ describe("PoolAccounting", () => {
     describe("User receives more money than deposited for repaying earlier", () => {
       describe("GIVEN a borrowMP of 10000 (500 fees owed by user) (5 days to maturity)", () => {
         beforeEach(async () => {
-          const fiveDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 5;
           poolAccountingEnv.switchWallet(laura);
           await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
           await poolAccountingEnv.moveInTime(fiveDaysToMaturity);
@@ -1483,7 +1470,6 @@ describe("PoolAccounting", () => {
           beforeEach(async () => {
             poolAccountingEnv.switchWallet(tina);
             await mockInterestRateModel.setBorrowRate(parseUnits("1")); // Crazy FEE
-            const fourDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 4;
             await poolAccountingEnv.moveInTime(fourDaysToMaturity);
             await poolAccountingEnv.borrowMP(nextPoolID, "10000", "20000"); // ... and we accept it
             mp = await poolAccountingHarness.maturityPools(nextPoolID);
@@ -1497,7 +1483,6 @@ describe("PoolAccounting", () => {
           describe("WHEN an early repayment of 10500 (3 days to maturity)", () => {
             beforeEach(async () => {
               poolAccountingEnv.switchWallet(laura);
-              const threeDaysToMaturity = nextPoolID - exaTime.ONE_DAY * 3;
               await poolAccountingEnv.moveInTime(threeDaysToMaturity);
               await poolAccountingEnv.repayMP(nextPoolID, "10500");
               returnValues = await poolAccountingHarness.returnValues();
@@ -1530,7 +1515,7 @@ describe("PoolAccounting", () => {
 
   describe("Operations in more than one pool", () => {
     describe("GIVEN a smart pool supply of 100 AND a borrow of 30 in a first maturity pool", () => {
-      const secondPoolID = nextPoolID + exaTime.ONE_DAY * 7;
+      const secondPoolID = nextPoolID + INTERVAL;
 
       beforeEach(async () => {
         poolAccountingEnv.switchWallet(laura);

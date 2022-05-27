@@ -10,7 +10,7 @@ library TSUtils {
     NOT_READY
   }
 
-  uint32 public constant INTERVAL = 7 days;
+  uint32 public constant INTERVAL = 4 weeks;
 
   /// @notice calculates how many seconds are left to a certain date.
   /// @param timestampFrom to calculate the difference in seconds from a date.

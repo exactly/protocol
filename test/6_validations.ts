@@ -2,9 +2,12 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
-import { ExaTime, errorUnmatchedPool, PoolState } from "./exactlyUtils";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { errorUnmatchedPool, PoolState } from "./exactlyUtils";
 import { DefaultEnv } from "./defaultEnv";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import futurePools, { INTERVAL } from "./utils/futurePools";
+
+const nextPoolId = futurePools(1)[0].toNumber();
 
 describe("Validations", function () {
   let auditor: Contract;
@@ -14,7 +17,6 @@ describe("Validations", function () {
 
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
-  const exaTime: ExaTime = new ExaTime();
 
   before(async () => {
     [owner, user] = await ethers.getSigners();
@@ -62,56 +64,56 @@ describe("Validations", function () {
   describe("FixedLender:", () => {
     describe("GIVEN a NOT not-yet-enabled pool", () => {
       it("WHEN trying to deposit to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.depositMP("DAI", exaTime.distantFuturePoolID(), "100")).to.be.revertedWith(
+        await expect(exactlyEnv.depositMP("DAI", nextPoolId + INTERVAL * 20, "100")).to.be.revertedWith(
           errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID),
         );
       });
       it("WHEN trying to borrow from MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.borrowMP("DAI", exaTime.distantFuturePoolID(), "2", "2")).to.be.revertedWith(
+        await expect(exactlyEnv.borrowMP("DAI", nextPoolId + INTERVAL * 20, "2", "2")).to.be.revertedWith(
           errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID),
         );
       });
       it("WHEN trying to withdraw from MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.withdrawMP("DAI", exaTime.distantFuturePoolID(), "100")).to.be.revertedWith(
+        await expect(exactlyEnv.withdrawMP("DAI", nextPoolId + INTERVAL * 20, "100")).to.be.revertedWith(
           errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID, PoolState.MATURED),
         );
       });
       it("WHEN trying to repay to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.repayMP("DAI", exaTime.distantFuturePoolID(), "100")).to.be.revertedWith(
+        await expect(exactlyEnv.repayMP("DAI", nextPoolId + INTERVAL * 20, "100")).to.be.revertedWith(
           "UnmatchedPoolStateMultiple(" + PoolState.NOT_READY + ", " + PoolState.VALID + ", " + PoolState.MATURED + ")",
         );
       });
     });
     describe("GIVEN a matured pool", () => {
       it("WHEN trying to deposit to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.depositMP("DAI", exaTime.pastPoolID(), "100")).to.be.revertedWith(
+        await expect(exactlyEnv.depositMP("DAI", nextPoolId - INTERVAL * 20, "100")).to.be.revertedWith(
           errorUnmatchedPool(PoolState.MATURED, PoolState.VALID),
         );
       });
       it("WHEN trying to borrow from MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.borrowMP("DAI", exaTime.pastPoolID(), "3", "3")).to.be.revertedWith(
+        await expect(exactlyEnv.borrowMP("DAI", nextPoolId - INTERVAL * 20, "3", "3")).to.be.revertedWith(
           errorUnmatchedPool(PoolState.MATURED, PoolState.VALID),
         );
       });
     });
     describe("GIVEN an invalid pool id", () => {
       it("WHEN trying to deposit to MP, THEN it reverts with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.depositMP("DAI", exaTime.invalidPoolID(), "100")).to.be.revertedWith(
+        await expect(exactlyEnv.depositMP("DAI", nextPoolId + 1, "100")).to.be.revertedWith(
           errorUnmatchedPool(PoolState.INVALID, PoolState.VALID),
         );
       });
       it("WHEN trying to borrow from MP, THEN it reverts with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.borrowMP("DAI", exaTime.invalidPoolID(), "3", "3")).to.be.revertedWith(
+        await expect(exactlyEnv.borrowMP("DAI", nextPoolId + 1, "3", "3")).to.be.revertedWith(
           errorUnmatchedPool(PoolState.INVALID, PoolState.VALID),
         );
       });
       it("WHEN trying to withdraw from MP, THEN it reverts with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.withdrawMP("DAI", exaTime.invalidPoolID(), "100")).to.be.revertedWith(
+        await expect(exactlyEnv.withdrawMP("DAI", nextPoolId + 1, "100")).to.be.revertedWith(
           errorUnmatchedPool(PoolState.INVALID, PoolState.VALID, PoolState.MATURED),
         );
       });
       it("WHEN trying to repay to MP, THEN it reverts with UnmatchedPoolState error", async () => {
-        await expect(exactlyEnv.repayMP("DAI", exaTime.invalidPoolID(), "100")).to.be.revertedWith(
+        await expect(exactlyEnv.repayMP("DAI", nextPoolId + 1, "100")).to.be.revertedWith(
           "UnmatchedPoolStateMultiple(" + PoolState.INVALID + ", " + PoolState.VALID + ", " + PoolState.MATURED + ")",
         );
       });

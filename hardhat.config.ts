@@ -48,7 +48,7 @@ const config: Config = {
       up: 0.0046,
       down: 0.42,
     },
-    maxFuturePools: 12,
+    maxFuturePools: 3,
     accumulatedEarningsSmoothFactor: 2,
     interestRateModel: {
       curveA: 0.72,

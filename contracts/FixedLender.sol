@@ -23,7 +23,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   string public assetSymbol;
   Auditor public immutable auditor;
 
-  uint8 public maxFuturePools; // If value is 12 and INTERVAL 7 days, then furthest maturity is in 3 months
+  uint8 public maxFuturePools;
   uint256 public accumulatedEarningsSmoothFactor;
   uint256 public lastAccumulatedEarningsAccrual;
 

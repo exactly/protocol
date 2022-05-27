@@ -116,57 +116,6 @@ export const defaultMockTokens: Map<string, MockTokenSpec> = new Map([
   ],
 ]);
 
-export class ExaTime {
-  timestamp: number;
-  ONE_HOUR = 3600;
-  ONE_DAY = 86400;
-  ONE_SECOND = 1;
-  INTERVAL: number = 86400 * 7;
-  MAX_POOLS = 12;
-
-  constructor(timestamp: number = Math.floor(Date.now() / 1000)) {
-    this.timestamp = timestamp;
-  }
-
-  public day(dayNumber: number): number {
-    return this.timestamp + this.ONE_DAY * dayNumber;
-  }
-
-  public nextPoolID(): number {
-    return this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL;
-  }
-
-  public poolIDByNumberOfWeek(weekNumber: number): number {
-    return this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL * weekNumber;
-  }
-
-  public isPoolID(): boolean {
-    return this.timestamp % this.INTERVAL == 0;
-  }
-
-  public pastPoolID(): number {
-    return this.timestamp - (this.timestamp % this.INTERVAL) - this.INTERVAL;
-  }
-
-  public invalidPoolID(): number {
-    return this.timestamp - (this.timestamp % this.INTERVAL) + this.INTERVAL + 33;
-  }
-
-  public distantFuturePoolID(): number {
-    return this.futurePools().pop()! + 86400 * 7;
-  }
-
-  public futurePools(): number[] {
-    let nextPoolID = this.nextPoolID();
-    const allPools: number[] = [];
-    for (let i = 0; i < this.MAX_POOLS; i++) {
-      allPools.push(nextPoolID);
-      nextPoolID += this.INTERVAL;
-    }
-    return allPools;
-  }
-}
-
 export function decodeMaturities(encodedMaturities: BigNumber): number[] {
   const maturities: number[] = [];
   const baseMaturity = encodedMaturities.mod(BigNumber.from(1).shl(32));
@@ -174,7 +123,7 @@ export function decodeMaturities(encodedMaturities: BigNumber): number[] {
   let i = 0;
   while (!packedMaturities.eq(0)) {
     if (packedMaturities.and(1).toNumber() == 1) {
-      maturities.push(baseMaturity.add(i * 86400 * 7).toNumber());
+      maturities.push(baseMaturity.add(i * 86400 * 7 * 4).toNumber());
     }
     packedMaturities = packedMaturities.shr(1);
     i++;

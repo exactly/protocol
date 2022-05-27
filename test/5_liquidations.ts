@@ -2,15 +2,15 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { parseUnits } from "@ethersproject/units";
 import { BigNumber, Contract } from "ethers";
-import { ExaTime } from "./exactlyUtils";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
+import futurePools from "./utils/futurePools";
+
+const nextPoolID = futurePools(3)[2].toNumber();
 
 describe("Liquidations", function () {
   let auditor: Contract;
   let exactlyEnv: DefaultEnv;
-  let nextPoolID: number;
-  const exaTime = new ExaTime();
 
   let bob: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -42,8 +42,6 @@ describe("Liquidations", function () {
     eth = exactlyEnv.getUnderlying("WETH");
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
     wbtc = exactlyEnv.getUnderlying("WBTC");
-
-    nextPoolID = exaTime.nextPoolID();
 
     // From alice to bob
     await dai.transfer(bob.address, parseUnits("200000"));
@@ -81,7 +79,7 @@ describe("Liquidations", function () {
         beforeEach(async () => {
           exactlyEnv.switchWallet(john);
           await exactlyEnv.depositSP("DAI", "10000");
-          await exactlyEnv.moveInTime(nextPoolID + exaTime.ONE_DAY * 20);
+          await exactlyEnv.moveInTime(nextPoolID + 86_400 * 20);
         });
         describe("AND the liquidation incentive is increased to 15%", () => {
           beforeEach(async () => {
@@ -359,8 +357,8 @@ describe("Liquidations", function () {
       exactlyEnv.switchWallet(john);
       await eth.transfer(john.address, parseUnits("20"));
       // we add WETH liquidity to the maturity
-      await exactlyEnv.depositMP("WETH", exaTime.poolIDByNumberOfWeek(1), "1.25");
-      await exactlyEnv.depositMP("WETH", exaTime.poolIDByNumberOfWeek(2), "1.25");
+      await exactlyEnv.depositMP("WETH", futurePools(1)[0].toNumber(), "1.25");
+      await exactlyEnv.depositMP("WETH", futurePools(2)[1].toNumber(), "1.25");
 
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarkets(["WETH"]);
@@ -371,18 +369,14 @@ describe("Liquidations", function () {
         await exactlyEnv.depositSP("DAI", "10000");
         await exactlyEnv.enterMarkets(["DAI"]);
 
-        await exactlyEnv.borrowMP("WETH", exaTime.poolIDByNumberOfWeek(1), "1.25");
-        await exactlyEnv.borrowMP("WETH", exaTime.poolIDByNumberOfWeek(2), "1.25");
+        await exactlyEnv.borrowMP("WETH", futurePools(1)[0].toNumber(), "1.25");
+        await exactlyEnv.borrowMP("WETH", futurePools(2)[1].toNumber(), "1.25");
       });
       describe("WHEN WETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
         beforeEach(async () => {
           await exactlyEnv.oracle.setPrice("WETH", parseUnits("8000"));
-          // We borrow 10k DAI from 12 maturities since we can't borrow too much from the smart pool with only one maturity
-          // We can't deposit DAI liquidity to a maturity as a workaround since we are trying to test a seize without underlying liquidity
           exactlyEnv.switchWallet(john);
-          for (let i = 1; i < exaTime.MAX_POOLS + 1; i++) {
-            await exactlyEnv.borrowMP("DAI", exaTime.poolIDByNumberOfWeek(i), "833.33");
-          }
+          await exactlyEnv.borrowMP("DAI", futurePools(1)[0].toNumber(), "10000");
         });
         it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY when trying to liquidate alice's positions", async () => {
           await eth.connect(john).approve(fixedLenderETH.address, parseUnits("1"));
@@ -429,8 +423,8 @@ describe("Liquidations", function () {
       exactlyEnv.switchWallet(john);
       await dai.transfer(john.address, parseUnits("10000"));
       // we add DAI liquidity to the maturities
-      await exactlyEnv.depositMP("DAI", exaTime.poolIDByNumberOfWeek(1), "1000");
-      await exactlyEnv.depositMP("DAI", exaTime.poolIDByNumberOfWeek(2), "6000");
+      await exactlyEnv.depositMP("DAI", futurePools(1)[0].toNumber(), "1000");
+      await exactlyEnv.depositMP("DAI", futurePools(2)[1].toNumber(), "6000");
     });
     describe("AND GIVEN alice deposits USD10k worth of WETH to the smart pool AND borrows 7k DAI (70% collateralization rate)", () => {
       beforeEach(async () => {
@@ -438,40 +432,42 @@ describe("Liquidations", function () {
         await exactlyEnv.depositSP("WETH", "5");
         await exactlyEnv.enterMarkets(["WETH"]);
 
-        await exactlyEnv.borrowMP("DAI", exaTime.poolIDByNumberOfWeek(1), "1000");
-        await exactlyEnv.borrowMP("DAI", exaTime.poolIDByNumberOfWeek(2), "6000");
+        await exactlyEnv.borrowMP("DAI", futurePools(1)[0].toNumber(), "1000");
+        await exactlyEnv.borrowMP("DAI", futurePools(2)[1].toNumber(), "6000");
       });
       describe("WHEN 20 days goes by without payment, WETH price halves AND alice's first borrow is liquidated with a higher amount as repayment", () => {
         let johnETHBalanceBefore: any;
         let johnDAIBalanceBefore: any;
         beforeEach(async () => {
           await exactlyEnv.oracle.setPrice("WETH", parseUnits("1500"));
-          await exactlyEnv.moveInTimeAndMine(exaTime.poolIDByNumberOfWeek(1) + exaTime.ONE_DAY * 20);
+          await exactlyEnv.moveInTimeAndMine(futurePools(1)[0].toNumber() + 86_400 * 20);
           johnETHBalanceBefore = await eth.balanceOf(john.address);
           johnDAIBalanceBefore = await dai.balanceOf(john.address);
           await dai.connect(john).approve(fixedLenderDAI.address, parseUnits("6000"));
-          // maria's debt (borrowed + penalties) is aprox 1400 for maturity pool 1
-          // in the liquidation we repay 3000 (aprox 1600 should be returned and not accounted to seize tokens)
+          // for maturity pool 1 alice's debt (borrowed + penalties) is aprox 1400
+          // in the liquidation we try repaying 6000 (aprox 2100 should be returned and not accounted to seize tokens)
+          // total alice borrows are 7000 (+ 400 penalties), so for close factor (0.5) max to repay is 3500
+          // 3500 + 400 in penalties = 3900 to be repaid by liquidator
           await fixedLenderDAI
             .connect(john)
-            .liquidate(alice.address, parseUnits("6000"), parseUnits("6000"), fixedLenderETH.address);
+            .liquidate(alice.address, parseUnits("6000"), parseUnits("6500"), fixedLenderETH.address);
         });
         it("THEN the liquidator does not seize more ETH tokens than it should", async () => {
-          // if john liquidates and repays 6000, then he should seize 4 ETH (1500 each) + liquidation incentive (10%)
-          // 4 + 0.4 = 4.4 ETH
-          // but if john ACTUALLY repays approx 4480, then he seizes almost 3 ETH + liquidation incentive (10%)
-          // 2.99 + 0.299 = 3.289 ETH
+          // if john liquidates and repays 6000 + 400 in penalties, then he should seize 4.26 ETH (1500 each) + liquidation incentive (10%)
+          // 4.26 + 0.426 = 4.686 ETH
+          // but if john ACTUALLY repays approx 3900, then he seizes almost 2.6 ETH + liquidation incentive (10%)
+          // 2.6 + 0.26 = 2.86 ETH
           const johnETHBalanceAfter = await eth.balanceOf(john.address);
           expect(johnETHBalanceBefore).to.not.equal(johnETHBalanceAfter);
-          expect(johnETHBalanceAfter).to.be.gt(parseUnits("3.33"));
-          expect(johnETHBalanceAfter).to.be.lt(parseUnits("3.34"));
+          expect(johnETHBalanceAfter.sub(johnETHBalanceBefore)).to.be.gt(parseUnits("2.86"));
+          expect(johnETHBalanceAfter.sub(johnETHBalanceBefore)).to.be.lt(parseUnits("2.87"));
         });
         it("THEN the liquidator receives back any DAI spare repayment amount", async () => {
-          // liquidator tried to repay 6000 but only spent approx 4550 (50% of alice's debt)
+          // liquidator tried to repay 6000 but only spent approx 3900
           const johnDAIBalanceAfter = await dai.balanceOf(john.address);
           expect(johnDAIBalanceBefore).to.not.equal(johnDAIBalanceAfter);
-          expect(johnDAIBalanceAfter).to.be.lt(johnDAIBalanceBefore.sub(parseUnits("4550")));
-          expect(johnDAIBalanceAfter).to.be.gt(johnDAIBalanceBefore.sub(parseUnits("4551")));
+          expect(johnDAIBalanceBefore.sub(johnDAIBalanceAfter)).to.be.lt(parseUnits("3901"));
+          expect(johnDAIBalanceBefore.sub(johnDAIBalanceAfter)).to.be.gt(parseUnits("3900"));
         });
       });
     });
