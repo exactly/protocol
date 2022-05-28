@@ -161,7 +161,7 @@ contract Previewer {
   /// @param account address which the extended data will be calculated.
   /// @return data extended accountability of all markets for the account.
   function accounts(address account) external view returns (MarketAccount[] memory data) {
-    uint256 assets = auditor.accountAssets(account);
+    uint256 assets = auditor.accountMarkets(account);
     uint256 maxValue = auditor.getAllMarkets().length;
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
