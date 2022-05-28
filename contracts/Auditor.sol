@@ -28,7 +28,7 @@ contract Auditor is AccessControl {
   }
 
   // Protocol Management
-  mapping(address => uint256) public accountAssets;
+  mapping(address => uint256) public accountMarkets;
   mapping(FixedLender => Market) public markets;
 
   uint256 public liquidationIncentive;
@@ -77,10 +77,10 @@ contract Auditor is AccessControl {
     validateMarketListed(fixedLender);
     uint256 marketIndex = markets[fixedLender].index;
 
-    uint256 assets = accountAssets[msg.sender];
+    uint256 marketMap = accountMarkets[msg.sender];
 
-    if ((assets & (1 << marketIndex)) != 0) return;
-    accountAssets[msg.sender] = assets | (1 << marketIndex);
+    if ((marketMap & (1 << marketIndex)) != 0) return;
+    accountMarkets[msg.sender] = marketMap | (1 << marketIndex);
 
     emit MarketEntered(fixedLender, msg.sender);
   }
@@ -101,10 +101,10 @@ contract Auditor is AccessControl {
     // Fail if the sender is not permitted to redeem all of their tokens
     validateAccountShortfall(fixedLender, msg.sender, amountHeld);
 
-    uint256 assets = accountAssets[msg.sender];
+    uint256 marketMap = accountMarkets[msg.sender];
 
-    if ((assets & (1 << marketIndex)) == 0) return;
-    accountAssets[msg.sender] = assets & ~(1 << marketIndex);
+    if ((marketMap & (1 << marketIndex)) == 0) return;
+    accountMarkets[msg.sender] = marketMap & ~(1 << marketIndex);
 
     emit MarketExited(fixedLender, msg.sender);
   }
@@ -178,18 +178,18 @@ contract Auditor is AccessControl {
   function validateBorrowMP(FixedLender fixedLender, address borrower) external {
     validateMarketListed(fixedLender);
     uint256 marketIndex = markets[fixedLender].index;
-    uint256 assets = accountAssets[borrower];
+    uint256 marketMap = accountMarkets[borrower];
 
     // we validate borrow state
-    if ((assets & (1 << marketIndex)) == 0) {
+    if ((marketMap & (1 << marketIndex)) == 0) {
       // only fixedLenders may call validateBorrowMP if borrower not in market
       if (msg.sender != address(fixedLender)) revert NotFixedLender();
 
-      accountAssets[borrower] = assets | (1 << marketIndex);
+      accountMarkets[borrower] = marketMap | (1 << marketIndex);
       emit MarketEntered(fixedLender, borrower);
 
       // it should be impossible to break this invariant
-      assert((accountAssets[borrower] & (1 << marketIndex)) != 0);
+      assert((accountMarkets[borrower] & (1 << marketIndex)) != 0);
     }
 
     // We verify that current liquidity is not short
@@ -304,7 +304,7 @@ contract Auditor is AccessControl {
     uint256 amount
   ) public view {
     // If the user is not 'in' the market, then we can bypass the liquidity check
-    if ((accountAssets[account] & (1 << markets[fixedLender].index)) == 0) return;
+    if ((accountMarkets[account] & (1 << markets[fixedLender].index)) == 0) return;
 
     // Otherwise, perform a hypothetical liquidity check to guard against shortfall
     (uint256 collateral, uint256 debt) = accountLiquidity(account, fixedLender, amount);
@@ -325,19 +325,19 @@ contract Auditor is AccessControl {
     AccountLiquidity memory vars; // Holds all our calculation results
 
     // For each asset the account is in
-    uint256 assets = accountAssets[account];
+    uint256 marketMap = accountMarkets[account];
     uint256 maxValue = allMarkets.length;
     for (uint256 i = 0; i < maxValue; ) {
-      if ((assets & (1 << i)) != 0) {
-        FixedLender asset = allMarkets[i];
-        uint256 decimals = markets[asset].decimals;
-        uint256 collateralFactor = markets[asset].collateralFactor;
+      if ((marketMap & (1 << i)) != 0) {
+        FixedLender market = allMarkets[i];
+        uint256 decimals = markets[market].decimals;
+        uint256 collateralFactor = markets[market].collateralFactor;
 
         // Read the balances
-        (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
+        (vars.balance, vars.borrowBalance) = market.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
 
         // Get the normalized price of the asset (18 decimals)
-        vars.oraclePrice = oracle.getAssetPrice(asset);
+        vars.oraclePrice = oracle.getAssetPrice(market);
 
         // We sum all the collateral prices
         sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(collateralFactor);
@@ -346,7 +346,7 @@ contract Auditor is AccessControl {
         sumDebt += vars.borrowBalance.mulDivDown(vars.oraclePrice, 10**decimals);
 
         // Simulate the effects of borrowing from/lending to a pool
-        if (asset == FixedLender(fixedLenderToSimulate)) {
+        if (market == FixedLender(fixedLenderToSimulate)) {
           // Calculate the effects of redeeming fixedLenders
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
@@ -357,7 +357,7 @@ contract Auditor is AccessControl {
       unchecked {
         ++i;
       }
-      if ((1 << i) > assets) break;
+      if ((1 << i) > marketMap) break;
     }
   }
 

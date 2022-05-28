@@ -137,7 +137,7 @@ describe("Auditor from User Space", function () {
     expect(collateral).to.equal(collateralDAI.add(collateralETH));
   });
 
-  it("Contract's state variable accountAssets should correctly add and remove the asset which the user entered and exited as collateral", async () => {
+  it("Contract's state variable accountMarkets should correctly add and remove the asset which the user entered and exited as collateral", async () => {
     await auditor.enterMarket(fixedLenderDAI.address);
     await auditor.enterMarket(fixedLenderWETH.address);
 
