@@ -430,8 +430,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    asset.safeTransferFrom(msg.sender, address(this), assets);
-
     uint256 earningsSP;
     (maturityAssets, earningsSP) = depositMP(maturity, receiver, assets, minAssetsRequired);
 
@@ -440,6 +438,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     smartPoolAssets = memSPAssets + earningsSP;
 
     emit DepositAtMaturity(maturity, msg.sender, receiver, assets, maturityAssets - assets);
+    asset.safeTransferFrom(msg.sender, address(this), assets);
   }
 
   /// @notice Withdraws a certain amount from a maturity.

@@ -231,7 +231,7 @@ contract FixedLenderTest is Test {
     fixedLender.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     vm.warp(maturity);
-    fixedLender.borrowAtMaturity(maturity, 0, 0, address(this), address(this)); // we send tx to accrue earnings
+    fixedLender.repayAtMaturity(maturity, 1, 1, address(this)); // we send tx to accrue earnings
 
     vm.warp(maturity + 7 days * 2 - 1 seconds);
     vm.prank(BOB);
