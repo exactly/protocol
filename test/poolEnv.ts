@@ -25,12 +25,12 @@ export class PoolEnv {
     return this.mpHarness.accrueEarnings(timestamp);
   }
 
-  public async depositMoney(amount: string) {
-    return this.mpHarness.depositMoney(parseUnits(amount));
+  public async deposit(amount: string) {
+    return this.mpHarness.deposit(parseUnits(amount));
   }
 
-  public async repayMoney(amount: string) {
-    return this.mpHarness.repayMoney(parseUnits(amount));
+  public async repay(amount: string) {
+    return this.mpHarness.repay(parseUnits(amount));
   }
 
   public async addFee(amount: string) {
@@ -85,12 +85,12 @@ export class PoolEnv {
     );
   }
 
-  public async borrowMoney(amount: string, maxDebt: string) {
-    return this.mpHarness.borrowMoney(parseUnits(amount), parseUnits(maxDebt));
+  public async borrow(amount: string, maxDebt: string) {
+    return this.mpHarness.borrow(parseUnits(amount), parseUnits(maxDebt));
   }
 
-  public async withdrawMoney(amount: string, maxDebt: string) {
-    return this.mpHarness.withdrawMoney(parseUnits(amount), parseUnits(maxDebt));
+  public async withdraw(amount: string, maxDebt: string) {
+    return this.mpHarness.withdraw(parseUnits(amount), parseUnits(maxDebt));
   }
 
   static async create(): Promise<PoolEnv> {

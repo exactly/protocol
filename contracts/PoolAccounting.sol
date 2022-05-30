@@ -150,7 +150,7 @@ contract PoolAccounting is AccessControl {
     totalOwedNewBorrow = amount + borrowVars.fee;
 
     uint256 memSPBorrowed = smartPoolBorrowed;
-    memSPBorrowed = memSPBorrowed + pool.borrowMoney(amount, smartPoolAssets - memSPBorrowed);
+    memSPBorrowed = memSPBorrowed + pool.borrow(amount, smartPoolAssets - memSPBorrowed);
     smartPoolBorrowed = memSPBorrowed;
     if (memSPBorrowed > smartPoolAssets.mulWadDown(1e18 - smartPoolReserveFactor)) {
       revert SmartPoolReserveExceeded();
@@ -205,7 +205,7 @@ contract PoolAccounting is AccessControl {
     currentTotalDeposit = amount + fee;
     if (currentTotalDeposit < minAmountRequired) revert TooMuchSlippage();
 
-    smartPoolBorrowed -= pool.depositMoney(amount);
+    smartPoolBorrowed -= pool.deposit(amount);
     pool.earningsUnassigned -= fee + feeSP;
     smartPoolEarningsAccumulator += feeSP;
 
@@ -265,7 +265,7 @@ contract PoolAccounting is AccessControl {
     if (redeemAmountDiscounted < minAmountRequired) revert TooMuchSlippage();
 
     // We remove the supply from the offer
-    smartPoolBorrowed += pool.withdrawMoney(
+    smartPoolBorrowed += pool.withdraw(
       PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
       smartPoolAssets - smartPoolBorrowed
     );
@@ -351,7 +351,7 @@ contract PoolAccounting is AccessControl {
     if (repayAmount > maxAmountAllowed) revert TooMuchSlippage();
 
     // We reduce the borrowed and we might decrease the SP debt
-    smartPoolBorrowed -= pool.repayMoney(scaleDebtCovered.principal);
+    smartPoolBorrowed -= pool.repay(scaleDebtCovered.principal);
 
     // We update the user position
     position.reduceProportionally(debtCovered);

@@ -22,16 +22,16 @@ contract MaturityPoolHarness {
     lastEarningsSP = maturityPool.accrueEarnings(_maturityID, nextTimestamp != 0 ? nextTimestamp : block.timestamp);
   }
 
-  function depositMoney(uint256 _amount) external {
-    smartPoolDebtReduction = maturityPool.depositMoney(_amount);
+  function deposit(uint256 _amount) external {
+    smartPoolDebtReduction = maturityPool.deposit(_amount);
   }
 
-  function repayMoney(uint256 _amount) external {
-    smartPoolDebtReduction = maturityPool.repayMoney(_amount);
+  function repay(uint256 _amount) external {
+    smartPoolDebtReduction = maturityPool.repay(_amount);
   }
 
-  function borrowMoney(uint256 _amount, uint256 _maxDebt) external {
-    newDebtSP = maturityPool.borrowMoney(_amount, _maxDebt);
+  function borrow(uint256 _amount, uint256 _maxDebt) external {
+    newDebtSP = maturityPool.borrow(_amount, _maxDebt);
   }
 
   function distributeEarningsAccordingly(
@@ -42,8 +42,8 @@ contract MaturityPoolHarness {
     (lastEarningsSP, lastEarningsTreasury) = PoolLib.distributeEarningsAccordingly(earnings, suppliedSP, amountFunded);
   }
 
-  function withdrawMoney(uint256 _amountToDiscount, uint256 _maxDebt) external {
-    newDebtSP = maturityPool.withdrawMoney(_amountToDiscount, _maxDebt);
+  function withdraw(uint256 _amountToDiscount, uint256 _maxDebt) external {
+    newDebtSP = maturityPool.withdraw(_amountToDiscount, _maxDebt);
   }
 
   function setMaturity(uint256 _userBorrows, uint256 _maturityDate) external {

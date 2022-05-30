@@ -43,7 +43,7 @@ library PoolLib {
   /// @param pool maturity pool where an amount will be added to the supply.
   /// @param amount amount to be added to the supply.
   /// @return smartPoolDebtReduction amount that will be reduced from the smart pool debt.
-  function depositMoney(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
+  function deposit(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
     pool.supplied = supplied + amount;
@@ -54,7 +54,7 @@ library PoolLib {
   /// @param pool maturity where an amount will be repaid.
   /// @param amount amount to be added to the maturity.
   /// @return smartPoolDebtReduction amount that will be reduced from the smart pool debt.
-  function repayMoney(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
+  function repay(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
     pool.borrowed = borrowed - amount;
@@ -65,7 +65,7 @@ library PoolLib {
   /// @param pool maturity where an amount will be borrowed.
   /// @param amount amount to be borrowed from the maturity.
   /// @return smartPoolDebtAddition amount of new debt that needs to be borrowed from the smart pool.
-  function borrowMoney(
+  function borrow(
     MaturityPool storage pool,
     uint256 amount,
     uint256 maxDebt
@@ -85,7 +85,7 @@ library PoolLib {
   /// @param pool maturity where amount will be withdrawn.
   /// @param amountToDiscount amoun to be withdrawn from the maturity.
   /// @return smartPoolDebtAddition amount of new debt that needs to be borrowed from the smart pool.
-  function withdrawMoney(
+  function withdraw(
     MaturityPool storage pool,
     uint256 amountToDiscount,
     uint256 maxDebt

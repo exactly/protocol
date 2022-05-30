@@ -15,10 +15,10 @@ describe("Pool Management Library", () => {
       poolEnv = await PoolEnv.create();
     });
 
-    describe("depositMoney & borrowMoney", () => {
+    describe("deposit & borrow", () => {
       describe("WHEN 100 tokens are deposited", () => {
         beforeEach(async () => {
-          await poolEnv.depositMoney("100");
+          await poolEnv.deposit("100");
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
@@ -37,7 +37,7 @@ describe("Pool Management Library", () => {
         });
         describe("AND WHEN 80 tokens are taken out", () => {
           beforeEach(async () => {
-            await poolEnv.borrowMoney("80", mockMaxDebt);
+            await poolEnv.borrow("80", mockMaxDebt);
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -53,7 +53,7 @@ describe("Pool Management Library", () => {
           });
           describe("AND WHEN another 20 tokens are taken out", () => {
             beforeEach(async () => {
-              await poolEnv.borrowMoney("20", mockMaxDebt);
+              await poolEnv.borrow("20", mockMaxDebt);
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -70,7 +70,7 @@ describe("Pool Management Library", () => {
             describe("AND WHEN more tokens are taken out than the max sp debt", () => {
               let tx: any;
               beforeEach(async () => {
-                tx = poolEnv.borrowMoney("5000", "1000");
+                tx = poolEnv.borrow("5000", "1000");
               });
               it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
                 await expect(tx).to.be.revertedWith("InsufficientProtocolLiquidity()");
@@ -79,7 +79,7 @@ describe("Pool Management Library", () => {
             describe("AND WHEN the exact amount of max sp debt is taken out", () => {
               let tx: any;
               beforeEach(async () => {
-                tx = poolEnv.borrowMoney("1000", "1000");
+                tx = poolEnv.borrow("1000", "1000");
               });
               it("THEN it should not revert", async () => {
                 await expect(tx).to.not.be.reverted;
@@ -87,7 +87,7 @@ describe("Pool Management Library", () => {
             });
             describe("AND WHEN 50 tokens are taken out", () => {
               beforeEach(async () => {
-                await poolEnv.borrowMoney("50", mockMaxDebt);
+                await poolEnv.borrow("50", mockMaxDebt);
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
@@ -107,7 +107,7 @@ describe("Pool Management Library", () => {
 
         describe("AND WHEN 180 tokens are taken out", () => {
           beforeEach(async () => {
-            await poolEnv.borrowMoney("180", mockMaxDebt);
+            await poolEnv.borrow("180", mockMaxDebt);
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -124,7 +124,7 @@ describe("Pool Management Library", () => {
 
           describe("AND WHEN 90 tokens are deposited", () => {
             beforeEach(async () => {
-              await poolEnv.depositMoney("90");
+              await poolEnv.deposit("90");
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -140,7 +140,7 @@ describe("Pool Management Library", () => {
             });
             describe("AND WHEN 100 tokens are deposited", () => {
               beforeEach(async () => {
-                await poolEnv.depositMoney("100");
+                await poolEnv.deposit("100");
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
@@ -319,10 +319,10 @@ describe("Pool Management Library", () => {
       });
     });
 
-    describe("repayMoney", () => {
+    describe("repay", () => {
       describe("WHEN 100 tokens are taken out", () => {
         beforeEach(async () => {
-          await poolEnv.borrowMoney("100", mockMaxDebt);
+          await poolEnv.borrow("100", mockMaxDebt);
           mp = await poolEnv.mpHarness.maturityPool();
         });
 
@@ -335,7 +335,7 @@ describe("Pool Management Library", () => {
         });
         describe("AND WHEN 50 tokens are repaid", () => {
           beforeEach(async () => {
-            await poolEnv.repayMoney("50");
+            await poolEnv.repay("50");
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -351,7 +351,7 @@ describe("Pool Management Library", () => {
           });
           describe("AND WHEN another 50 tokens are repaid", () => {
             beforeEach(async () => {
-              await poolEnv.repayMoney("50");
+              await poolEnv.repay("50");
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
@@ -367,14 +367,14 @@ describe("Pool Management Library", () => {
       });
     });
 
-    describe("withdrawMoney", () => {
+    describe("withdraw", () => {
       describe("GIVEN 100 tokens are deposited", () => {
         beforeEach(async () => {
-          await poolEnv.depositMoney("100");
+          await poolEnv.deposit("100");
         });
         describe("WHEN 50 tokens are withdrawn", () => {
           beforeEach(async () => {
-            await poolEnv.withdrawMoney("50", mockMaxDebt);
+            await poolEnv.withdraw("50", mockMaxDebt);
             mp = await poolEnv.mpHarness.maturityPool();
           });
 
@@ -387,11 +387,11 @@ describe("Pool Management Library", () => {
           });
           describe("AND GIVEN another 100 tokens are taken out", () => {
             beforeEach(async () => {
-              await poolEnv.borrowMoney("100", mockMaxDebt);
+              await poolEnv.borrow("100", mockMaxDebt);
             });
             describe("WHEN another 50 tokens are withdrawn", () => {
               beforeEach(async () => {
-                await poolEnv.withdrawMoney("50", mockMaxDebt);
+                await poolEnv.withdraw("50", mockMaxDebt);
                 mp = await poolEnv.mpHarness.maturityPool();
               });
 
@@ -406,7 +406,7 @@ describe("Pool Management Library", () => {
             describe("AND WHEN more tokens are taken out than the max sp debt", () => {
               let tx: any;
               beforeEach(async () => {
-                tx = poolEnv.withdrawMoney("50", "49");
+                tx = poolEnv.withdraw("50", "49");
               });
               it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
                 await expect(tx).to.be.revertedWith("InsufficientProtocolLiquidity()");
@@ -415,7 +415,7 @@ describe("Pool Management Library", () => {
             describe("AND WHEN the exact amount of max sp debt is taken out", () => {
               let tx: any;
               beforeEach(async () => {
-                tx = poolEnv.withdrawMoney("50", "100");
+                tx = poolEnv.withdraw("50", "100");
               });
               it("THEN it should not revert", async () => {
                 await expect(tx).to.not.be.reverted;
@@ -424,7 +424,7 @@ describe("Pool Management Library", () => {
           });
           describe("AND WHEN another 50 tokens are withdrawn", () => {
             beforeEach(async () => {
-              await poolEnv.withdrawMoney("50", mockMaxDebt);
+              await poolEnv.withdraw("50", mockMaxDebt);
               mp = await poolEnv.mpHarness.maturityPool();
             });
 
