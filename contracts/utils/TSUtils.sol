@@ -32,7 +32,7 @@ library TSUtils {
   ) private pure returns (State) {
     if (maturity % INTERVAL != 0) return State.INVALID;
 
-    if (maturity < timestamp) return State.MATURED;
+    if (maturity <= timestamp) return State.MATURED;
 
     if (maturity > timestamp - (timestamp % INTERVAL) + (INTERVAL * maxPools)) return State.NOT_READY;
 

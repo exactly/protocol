@@ -140,6 +140,7 @@ contract Auditor is AccessControl {
   }
 
   /// @notice Enables a certain FixedLender market.
+  /// @dev Enabling more than 256 markets will cause an overflow when casting market index to uint8.
   /// @param fixedLender address to add to the protocol.
   /// @param collateralFactor fixedLender's collateral factor for the underlying asset.
   /// @param symbol symbol of the market's underlying asset.
@@ -171,13 +172,14 @@ contract Auditor is AccessControl {
   }
 
   /// @notice Sets the collateral factor for a certain fixedLender.
-  /// @dev Value can only be set between 90% and 30%.
+  /// @dev Market should be listed and value can only be set between 90% and 30%.
   /// @param fixedLender address of the market to change collateral factor for.
   /// @param collateralFactor collateral factor for the underlying asset.
   function setCollateralFactor(FixedLender fixedLender, uint128 collateralFactor)
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
+    validateMarketListed(fixedLender);
     if (collateralFactor > 0.9e18 || collateralFactor < 0.3e18) revert InvalidParameter();
     markets[fixedLender].collateralFactor = collateralFactor;
     emit CollateralFactorUpdated(fixedLender, collateralFactor);

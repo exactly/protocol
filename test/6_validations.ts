@@ -193,6 +193,11 @@ describe("Validations", function () {
         "InvalidParameter()",
       );
     });
+    it("WHEN trying to set the collateralFactor with an unlisted fixedLender", async () => {
+      await expect(auditor.setCollateralFactor(user.address, parseUnits("0.3"))).to.be.revertedWith(
+        "MarketNotListed()",
+      );
+    });
   });
   describe("Configurable values: GIVEN a valid configurable value, THEN it should not revert", () => {
     it("WHEN trying to set the spFeeRate with 20%", async () => {
