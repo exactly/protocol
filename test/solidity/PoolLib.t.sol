@@ -13,28 +13,28 @@ contract PoolLibTest is Test {
   PoolLib.MaturityPool private mp;
 
   function testAtomicDepositBorrowRepayWithdraw() external {
-    uint256 smartPoolDebtReduction = mp.depositMoney(1 ether);
+    uint256 smartPoolDebtReduction = mp.deposit(1 ether);
     assertEq(mp.borrowed, 0);
     assertEq(mp.supplied, 1 ether);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 0);
     assertEq(smartPoolDebtReduction, 0);
 
-    uint256 smartPoolDebt = mp.borrowMoney(1 ether, 0);
+    uint256 smartPoolDebt = mp.borrow(1 ether, 0);
     assertEq(mp.borrowed, 1 ether);
     assertEq(mp.supplied, 1 ether);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 0);
     assertEq(smartPoolDebt, 0);
 
-    smartPoolDebtReduction = mp.repayMoney(1 ether);
+    smartPoolDebtReduction = mp.repay(1 ether);
     assertEq(mp.borrowed, 0);
     assertEq(mp.supplied, 1 ether);
     assertEq(mp.earningsUnassigned, 0);
     assertEq(mp.lastAccrual, 0);
     assertEq(smartPoolDebtReduction, 0);
 
-    smartPoolDebt = mp.withdrawMoney(1 ether, 0);
+    smartPoolDebt = mp.withdraw(1 ether, 0);
     assertEq(mp.borrowed, 0);
     assertEq(mp.supplied, 0);
     assertEq(mp.earningsUnassigned, 0);
@@ -43,7 +43,7 @@ contract PoolLibTest is Test {
   }
 
   function testSmartPoolBorrow() external {
-    uint256 smartPoolDebt = mp.borrowMoney(1 ether, 1 ether);
+    uint256 smartPoolDebt = mp.borrow(1 ether, 1 ether);
     assertEq(mp.borrowed, 1 ether);
     assertEq(mp.supplied, 0);
     assertEq(mp.earningsUnassigned, 0);
@@ -69,7 +69,7 @@ contract PoolLibTest is Test {
 
   function testBorrowInsufficientLiquidity() external {
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    this.borrowMoney(1 ether, 1 ether - 1);
+    this.borrow(1 ether, 1 ether - 1);
   }
 
   function testMaturityRangeLimit() external {
@@ -129,8 +129,8 @@ contract PoolLibTest is Test {
     assertEq(maturities, 0);
   }
 
-  function borrowMoney(uint256 amount, uint256 maxDebt) external returns (uint256) {
-    return mp.borrowMoney(amount, maxDebt);
+  function borrow(uint256 amount, uint256 maxDebt) external returns (uint256) {
+    return mp.borrow(amount, maxDebt);
   }
 
   function setMaturity(uint256 encoded, uint256 maturity) external pure returns (uint256) {
