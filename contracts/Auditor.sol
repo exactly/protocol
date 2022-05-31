@@ -320,8 +320,8 @@ contract Auditor is AccessControl {
     uint256 actualRepayAmount
   ) external view returns (uint256) {
     // Read oracle prices for borrowed and collateral markets
-    uint256 priceBorrowed = oracle.getAssetPrice(fixedLenderBorrowed.assetSymbol());
-    uint256 priceCollateral = oracle.getAssetPrice(fixedLenderCollateral.assetSymbol());
+    uint256 priceBorrowed = oracle.getAssetPrice(fixedLenderBorrowed);
+    uint256 priceCollateral = oracle.getAssetPrice(fixedLenderCollateral);
 
     uint256 amountInUSD = actualRepayAmount.mulDivDown(priceBorrowed, 10**markets[fixedLenderBorrowed].decimals);
     // 10**18: usd amount decimals
@@ -380,7 +380,7 @@ contract Auditor is AccessControl {
         (vars.balance, vars.borrowBalance) = asset.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
 
         // Get the normalized price of the asset (18 decimals)
-        vars.oraclePrice = oracle.getAssetPrice(asset.assetSymbol());
+        vars.oraclePrice = oracle.getAssetPrice(asset);
 
         // We sum all the collateral prices
         sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(collateralFactor);

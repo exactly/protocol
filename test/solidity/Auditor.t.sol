@@ -185,7 +185,7 @@ contract MockFixedLender {
 }
 
 contract MockOracle {
-  function getAssetPrice(string memory) external pure returns (uint256) {
+  function getAssetPrice(FixedLender) external pure returns (uint256) {
     return 1e18;
   }
 }

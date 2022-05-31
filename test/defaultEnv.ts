@@ -24,7 +24,6 @@ export class DefaultEnv {
   slopeRate: BigNumber;
   mockTokens: Map<string, MockTokenSpec>;
   notAnFixedLenderAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
-  usdAddress: string;
   currentWallet: SignerWithAddress;
   maxOracleDelayTime: number;
 
@@ -46,7 +45,6 @@ export class DefaultEnv {
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
-    this.usdAddress = "0x0000000000000000000000000000000000000348";
     this.currentWallet = _currentWallet;
     this.maxOracleDelayTime = 3600; // 1 hour
   }
@@ -120,7 +118,7 @@ export class DefaultEnv {
         await fixedLender.deployed();
 
         // Mock PriceOracle setting dummy price
-        await oracle.setPrice(tokenName, usdPrice);
+        await oracle.setPrice(fixedLender.address, usdPrice);
         // Enable Market for FixedLender-TOKEN by setting the collateral rates
         await auditor.enableMarket(fixedLender.address, collateralRate, tokenName, tokenName, decimals);
 
@@ -157,10 +155,6 @@ export class DefaultEnv {
 
   public async setOracle(oracleAddress: string) {
     return this.auditor.connect(this.currentWallet).setOracle(oracleAddress);
-  }
-
-  public async setOracleMockPrice(assetSymbol: string, valueString: string) {
-    await this.oracle.setPrice(assetSymbol, parseUnits(valueString, 18));
   }
 
   public switchWallet(wallet: SignerWithAddress) {

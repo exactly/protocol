@@ -1,6 +1,7 @@
 import type { BigNumber } from "ethers";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, ERC20, ExactlyOracle, FixedLender, InterestRateModel, TimelockController } from "../types";
+import { BTC_ADDRESS, ETH_ADDRESS } from "./ExactlyOracle";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import grantRole from "./.utils/grantRole";
@@ -18,6 +19,7 @@ const func: DeployFunction = async ({
   },
   ethers: {
     utils: { parseUnits },
+    constants: { AddressZero },
     getContract,
     getSigner,
   },
@@ -85,6 +87,13 @@ const func: DeployFunction = async ({
       !(await fixedLender.dampSpeedDown()).eq(poolAccountingArgs[3].down)
     ) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [poolAccountingArgs[3]]);
+    }
+
+    if ((await exactlyOracle.assetsSources(fixedLender.address)) === AddressZero) {
+      await executeOrPropose(deployer, timelockController, exactlyOracle, "setAssetSource", [
+        fixedLender.address,
+        { WBTC: BTC_ADDRESS, WETH: ETH_ADDRESS }[token] ?? (await get(token)).address,
+      ]);
     }
 
     const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));
