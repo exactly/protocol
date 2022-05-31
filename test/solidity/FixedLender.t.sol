@@ -67,7 +67,6 @@ contract FixedLenderTest is Test {
   function setUp() external {
     MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
     mockOracle = new MockOracle();
-    mockOracle.setPrice("DAI", 1e18);
     auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
     mockInterestRateModel = new MockInterestRateModel(0.1e18);
     mockInterestRateModel.setSPFeeRate(1e17);
@@ -83,6 +82,7 @@ contract FixedLenderTest is Test {
       0,
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
+    mockOracle.setPrice(fixedLender, 1e18);
 
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
 
@@ -483,7 +483,7 @@ contract FixedLenderTest is Test {
     weth.approve(address(fixedLenderWETH), 36 ether);
 
     mockInterestRateModel.setBorrowRate(0);
-    mockOracle.setPrice("WETH", 1_000e18);
+    mockOracle.setPrice(fixedLenderWETH, 1_000e18);
     fixedLender.setMaxFuturePools(36);
 
     fixedLender.deposit(50_000 ether, BOB);
@@ -492,7 +492,7 @@ contract FixedLenderTest is Test {
       fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
 
-    mockOracle.setPrice("WETH", 750e18);
+    mockOracle.setPrice(fixedLenderWETH, 750e18);
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(fixedLender));
@@ -812,7 +812,7 @@ contract FixedLenderTest is Test {
         PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
       );
       auditor.enableMarket(newFixedLender, 0.8e18, tokenName, tokenName, 18);
-      mockOracle.setPrice(tokenName, 1e18);
+      mockOracle.setPrice(newFixedLender, 1e18);
       mockToken.approve(address(newFixedLender), 50_000 ether);
       mockToken.transfer(BOB, 50_000 ether);
       vm.prank(BOB);

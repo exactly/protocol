@@ -2,16 +2,17 @@
 pragma solidity 0.8.13;
 
 import { InvalidPrice } from "../ExactlyOracle.sol";
+import { FixedLender } from "../FixedLender.sol";
 
 contract MockOracle {
-  mapping(string => uint256) public prices;
+  mapping(FixedLender => uint256) public prices;
 
-  function setPrice(string memory symbol, uint256 value) public {
-    prices[symbol] = value;
+  function setPrice(FixedLender fixedLender, uint256 value) public {
+    prices[fixedLender] = value;
   }
 
-  function getAssetPrice(string memory symbol) public view returns (uint256) {
-    if (prices[symbol] > 0) return prices[symbol];
+  function getAssetPrice(FixedLender fixedLender) public view returns (uint256) {
+    if (prices[fixedLender] > 0) return prices[fixedLender];
     else revert InvalidPrice();
   }
 }

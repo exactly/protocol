@@ -170,7 +170,7 @@ contract Previewer {
       (, , data[i].collateralFactor, data[i].decimals, , ) = auditor.markets(data[i].fixedLender);
       (data[i].smartPoolAssets, ) = data[i].fixedLender.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
       data[i].smartPoolShares = data[i].fixedLender.convertToShares(data[i].smartPoolAssets);
-      data[i].oraclePrice = auditor.oracle().getAssetPrice(data[i].fixedLender.assetSymbol());
+      data[i].oraclePrice = auditor.oracle().getAssetPrice(data[i].fixedLender);
       data[i].isCollateral = assets & (1 << i) != 0 ? true : false;
       data[i].penaltyRate = uint128(data[i].fixedLender.penaltyRate());
       data[i].maturitySupplyPositions = maturityPoolPositions(

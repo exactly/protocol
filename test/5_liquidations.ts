@@ -169,7 +169,7 @@ describe("Liquidations", function () {
       describe("A position can be recollateralized through liquidation", () => {
         describe("AND WHEN WETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850)", () => {
           beforeEach(async () => {
-            await exactlyEnv.setOracleMockPrice("WETH", "1500");
+            await exactlyEnv.oracle.setPrice(fixedLenderETH.address, parseUnits("1500"));
           });
 
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
@@ -211,7 +211,7 @@ describe("Liquidations", function () {
 
       describe("AND WHEN WBTC price halves (Alices liquidity is 32.5k*0.6+3k*0.7=21.6k)", () => {
         beforeEach(async () => {
-          await exactlyEnv.setOracleMockPrice("WBTC", "32500");
+          await exactlyEnv.oracle.setPrice(fixedLenderWBTC.address, parseUnits("32500"));
         });
         describe("the collateral can be entirely depleted and still have some debt left", () => {
           describe("WHEN depleting Alices WETH collateral", () => {
@@ -374,7 +374,7 @@ describe("Liquidations", function () {
       });
       describe("WHEN WETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
         beforeEach(async () => {
-          await exactlyEnv.oracle.setPrice("WETH", parseUnits("8000"));
+          await exactlyEnv.oracle.setPrice(fixedLenderETH.address, parseUnits("8000"));
           exactlyEnv.switchWallet(john);
           await exactlyEnv.borrowMP("DAI", futurePools(1)[0].toNumber(), "10000");
         });
@@ -439,7 +439,7 @@ describe("Liquidations", function () {
         let johnETHBalanceBefore: any;
         let johnDAIBalanceBefore: any;
         beforeEach(async () => {
-          await exactlyEnv.oracle.setPrice("WETH", parseUnits("1500"));
+          await exactlyEnv.oracle.setPrice(fixedLenderETH.address, parseUnits("1500"));
           await exactlyEnv.moveInTimeAndMine(futurePools(1)[0].toNumber() + 86_400 * 20);
           johnETHBalanceBefore = await eth.balanceOf(john.address);
           johnDAIBalanceBefore = await dai.balanceOf(john.address);

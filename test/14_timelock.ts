@@ -11,19 +11,19 @@ describe("Timelock - AccessControl", function () {
 
   const { AddressZero, HashZero } = ethers.constants;
 
-  const assetSymbol = "LINK";
-  const assetAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA";
+  const fixedLenderAddress = "0x19EEeBe4C4B3eb6cA36Da09809D387eFDa807e25";
+  const assetSourceAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA";
 
   describe("GIVEN a deployed ExactlyOracle contract", () => {
     beforeEach(async () => {
       [owner, user] = await ethers.getSigners();
 
       const ExactlyOracle = await ethers.getContractFactory("ExactlyOracle");
-      exactlyOracle = await ExactlyOracle.deploy(AddressZero, [], [], AddressZero, 0);
+      exactlyOracle = await ExactlyOracle.deploy(AddressZero, 0);
       await exactlyOracle.deployed();
     });
-    it("THEN it should not revert when setting new asset sources with owner address", async () => {
-      await expect(exactlyOracle.setAssetSources([assetSymbol], [assetAddress])).to.not.be.reverted;
+    it("THEN it should not revert when setting a new asset source with owner address", async () => {
+      await expect(exactlyOracle.setAssetSource(fixedLenderAddress, assetSourceAddress)).to.not.be.reverted;
     });
     describe("AND GIVEN a deployed Timelock contract", () => {
       beforeEach(async () => {
@@ -43,12 +43,12 @@ describe("Timelock - AccessControl", function () {
           await exactlyOracle.grantRole(ADMIN_ROLE, timelockController.address);
         });
         it("THEN it should still not revert when setting new asset sources with owner address", async () => {
-          await expect(exactlyOracle.setAssetSources([assetSymbol], [assetAddress])).to.not.be.reverted;
+          await expect(exactlyOracle.setAssetSource(fixedLenderAddress, assetSourceAddress)).to.not.be.reverted;
         });
         describe("AND WHEN the owner schedules a new asset source with a 3 second delay in the Timelock", () => {
           let txData: any;
           beforeEach(async () => {
-            let tx = await exactlyOracle.setAssetSources([assetSymbol], [assetAddress]);
+            let tx = await exactlyOracle.setAssetSource(fixedLenderAddress, assetSourceAddress);
             txData = tx.data;
 
             await timelockController.schedule(exactlyOracle.address, 0, txData, HashZero, HashZero, 3);
@@ -67,7 +67,7 @@ describe("Timelock - AccessControl", function () {
           });
         });
         it("AND WHEN user tries to schedule a set of new asset sources through the Timelock, THEN it should revert", async () => {
-          let tx = await exactlyOracle.setAssetSources([assetSymbol], [AddressZero]);
+          let tx = await exactlyOracle.setAssetSource(fixedLenderAddress, AddressZero);
           const txData = tx.data;
 
           await expect(
@@ -79,7 +79,7 @@ describe("Timelock - AccessControl", function () {
             await exactlyOracle.revokeRole(ADMIN_ROLE, owner.address);
           });
           it("THEN it should revert when trying to set new asset sources with owner address", async () => {
-            await expect(exactlyOracle.setAssetSources([assetSymbol], [assetAddress])).to.be.revertedWith(
+            await expect(exactlyOracle.setAssetSource(fixedLenderAddress, assetSourceAddress)).to.be.revertedWith(
               "AccessControl",
             );
           });
@@ -100,7 +100,7 @@ describe("Timelock - AccessControl", function () {
             expect(userHasProposerRole).to.equal(true);
           });
           it("THEN user can schedule and execute transactions through the Timelock", async () => {
-            let tx = await exactlyOracle.setAssetSources([assetSymbol], [AddressZero]);
+            let tx = await exactlyOracle.setAssetSource(fixedLenderAddress, AddressZero);
             const txData = tx.data;
 
             await expect(

@@ -27,7 +27,6 @@ contract PreviewerTest is Test {
   function setUp() external {
     mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
     mockOracle = new MockOracle();
-    mockOracle.setPrice("DAI", 1e18);
     auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
     interestRateModel = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.1e18);
 
@@ -42,6 +41,7 @@ contract PreviewerTest is Test {
       0,
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
+    mockOracle.setPrice(fixedLender, 1e18);
     auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
 
     vm.label(BOB, "Bob");
@@ -475,7 +475,6 @@ contract PreviewerTest is Test {
   function testAccountsWithIntermediateOperationsReturningAccurateAmounts() external {
     // we deploy a new token for more liquidity combinations
     MockToken mockTokenWETH = new MockToken("WETH", "WETH", 18, 150_000 ether);
-    mockOracle.setPrice("WETH", 2800e18);
     FixedLender fixedLenderWETH = new FixedLender(
       mockTokenWETH,
       "WETH",
@@ -487,6 +486,7 @@ contract PreviewerTest is Test {
       0,
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
+    mockOracle.setPrice(fixedLenderWETH, 2800e18);
     auditor.enableMarket(fixedLenderWETH, 0.7e18, "WETH", "WETH", 18);
     mockTokenWETH.approve(address(fixedLenderWETH), 50_000 ether);
 
@@ -528,7 +528,7 @@ contract PreviewerTest is Test {
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
     assertEq(data[1].isCollateral, true);
 
-    mockOracle.setPrice("WETH", 2800e18);
+    mockOracle.setPrice(fixedLenderWETH, 2800e18);
     vm.warp(200 seconds);
     fixedLenderWETH.borrowAtMaturity(TSUtils.INTERVAL * 2, 33 ether, 40 ether, address(this), address(this));
     data = previewer.accounts(address(this));
@@ -547,7 +547,7 @@ contract PreviewerTest is Test {
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
 
-    mockOracle.setPrice("WETH", 1831e18);
+    mockOracle.setPrice(fixedLenderWETH, 1831e18);
     data = previewer.accounts(address(this));
     assertEq(data[1].oraclePrice, 1831e18);
   }
