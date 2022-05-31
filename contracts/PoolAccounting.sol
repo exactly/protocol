@@ -9,7 +9,7 @@ import { InvalidParameter } from "./Auditor.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
 
-contract PoolAccounting is AccessControl {
+abstract contract PoolAccounting is AccessControl {
   using PoolLib for PoolLib.MaturityPool;
   using PoolLib for PoolLib.Position;
   using PoolLib for uint256;
