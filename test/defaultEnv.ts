@@ -106,7 +106,6 @@ export class DefaultEnv {
         const FixedLender = await ethers.getContractFactory("FixedLender");
         const fixedLender = await FixedLender.deploy(
           underlyingToken.address,
-          tokenName,
           12,
           parseUnits("1"),
           auditor.address,

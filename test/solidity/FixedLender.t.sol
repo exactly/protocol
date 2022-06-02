@@ -73,7 +73,6 @@ contract FixedLenderTest is Test {
 
     fixedLender = new FixedLender(
       mockToken,
-      "DAI",
       3,
       1e18,
       auditor,
@@ -405,7 +404,6 @@ contract FixedLenderTest is Test {
     // we deploy a harness fixedlender to be able to set different supply and smartPoolAssets
     FixedLenderHarness fixedLenderHarness = new FixedLenderHarness(
       mockToken,
-      "DAI",
       12,
       1e18,
       auditor,
@@ -438,7 +436,6 @@ contract FixedLenderTest is Test {
     // we deploy a harness fixedlender to be able to set different supply and smartPoolAssets
     FixedLenderHarness fixedLenderHarness = new FixedLenderHarness(
       mockToken,
-      "DAI",
       12,
       1e18,
       auditor,
@@ -467,7 +464,6 @@ contract FixedLenderTest is Test {
     MockToken weth = new MockToken("WETH", "WETH", 18, 36 ether);
     FixedLender fixedLenderWETH = new FixedLender(
       weth,
-      "WETH",
       12,
       1e18,
       auditor,
@@ -802,7 +798,6 @@ contract FixedLenderTest is Test {
       MockToken mockToken = new MockToken(tokenName, tokenName, 18, 150_000 ether);
       FixedLender newFixedLender = new FixedLender(
         mockToken,
-        tokenName,
         3,
         1e18,
         auditor,
@@ -865,7 +860,6 @@ contract FixedLenderTest is Test {
 contract FixedLenderHarness is FixedLender {
   constructor(
     ERC20 asset_,
-    string memory assetSymbol_,
     uint8 maxFuturePools_,
     uint256 accumulatedEarningsSmoothFactor_,
     Auditor auditor_,
@@ -876,7 +870,6 @@ contract FixedLenderHarness is FixedLender {
   )
     FixedLender(
       asset_,
-      assetSymbol_,
       maxFuturePools_,
       accumulatedEarningsSmoothFactor_,
       auditor_,

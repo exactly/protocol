@@ -32,7 +32,6 @@ contract PreviewerTest is Test {
 
     fixedLender = new FixedLender(
       mockToken,
-      "DAI",
       12,
       1e18,
       auditor,
@@ -477,7 +476,6 @@ contract PreviewerTest is Test {
     MockToken mockTokenWETH = new MockToken("WETH", "WETH", 18, 150_000 ether);
     FixedLender fixedLenderWETH = new FixedLender(
       mockTokenWETH,
-      "WETH",
       12,
       1e18,
       auditor,

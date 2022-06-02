@@ -158,7 +158,6 @@ contract AuditorTest is Test {
 }
 
 contract MockFixedLender {
-  string public assetSymbol = "X";
   Auditor public auditor;
   uint256 internal balance;
   uint256 internal borrowed;
