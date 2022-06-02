@@ -11,7 +11,6 @@ import {
   MockTokenSpec,
   noDiscount,
 } from "./exactlyUtils";
-import assert from "assert";
 
 export class DefaultEnv {
   oracle: Contract;
@@ -288,15 +287,6 @@ export class DefaultEnv {
 
   public async smartPoolBorrowed(asset: string) {
     return this.getFixedLender(asset).smartPoolBorrowed();
-  }
-
-  public async setBorrowCaps(assets: string[], borrowCaps: string[]) {
-    assert(assets.length == borrowCaps.length);
-
-    const markets = assets.map((asset) => this.getFixedLender(asset).address);
-    const borrowCapsBigNumber = borrowCaps.map((cap, index) => parseUnits(cap, this.digitsForAsset(assets[index])));
-
-    return this.auditor.connect(this.currentWallet).setMarketBorrowCaps(markets, borrowCapsBigNumber);
   }
 
   public async maturityPool(assetString: string, maturityPoolID: number) {

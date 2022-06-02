@@ -2,7 +2,6 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { Auditor, FixedLender, MockChainlinkFeedRegistry, MockToken, WETH } from "../types";
-import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 import USD_ADDRESS from "./utils/USD_ADDRESS";
 
@@ -105,16 +104,6 @@ describe("Auditor from User Space", function () {
     await expect(auditor.validateBorrowMP(fixedLenderDAI.address, owner.address)).to.be.revertedWith(
       "NotFixedLender()",
     );
-  });
-
-  it("SetBorrowCap should block borrowing more than the cap on a listed market", async () => {
-    await timelockExecute(owner, auditor, "setMarketBorrowCaps", [[fixedLenderDAI.address], [10]]);
-    await dai.approve(fixedLenderDAI.address, 10000);
-    await fixedLenderDAI.deposit(10000, user.address);
-    await expect(
-      // user tries to borrow more than the cap
-      fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 20, 22, user.address, user.address),
-    ).to.be.revertedWith("BorrowCapReached()");
   });
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
