@@ -473,9 +473,7 @@ contract FixedLenderTest is Test {
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
     auditor.enableMarket(fixedLenderWETH, 1e18, "WETH", "WETH", 18);
-    FixedLender[] memory markets = new FixedLender[](1);
-    markets[0] = fixedLenderWETH;
-    auditor.enterMarkets(markets);
+    auditor.enterMarket(fixedLenderWETH);
     weth.approve(address(fixedLenderWETH), 36 ether);
 
     mockInterestRateModel.setBorrowRate(0);

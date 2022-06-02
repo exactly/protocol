@@ -515,9 +515,7 @@ contract PreviewerTest is Test {
     assertEq(data[1].isCollateral, false);
     assertEq(data.length, 2);
 
-    FixedLender[] memory fixedLenders = new FixedLender[](1);
-    fixedLenders[0] = fixedLenderWETH;
-    auditor.enterMarkets(fixedLenders);
+    auditor.enterMarket(fixedLenderWETH);
     data = previewer.accounts(address(this));
     sumCollateral += data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(
       data[1].collateralFactor

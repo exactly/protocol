@@ -46,29 +46,29 @@ describe("Auditor from User Space", function () {
   });
 
   it("We enter market twice without failing", async () => {
-    await auditor.enterMarkets([fixedLenderDAI.address]);
-    await expect(auditor.enterMarkets([fixedLenderDAI.address])).to.not.be.reverted.and.to.not.emit(
+    await auditor.enterMarket(fixedLenderDAI.address);
+    await expect(auditor.enterMarket(fixedLenderDAI.address)).to.not.be.reverted.and.to.not.emit(
       auditor,
       "MarketEntered",
     );
   });
 
   it("We enter WETH market (market index 1) twice without failing", async () => {
-    await auditor.enterMarkets([fixedLenderWETH.address]);
-    await expect(auditor.enterMarkets([fixedLenderWETH.address])).to.not.be.reverted.and.to.not.emit(
+    await auditor.enterMarket(fixedLenderWETH.address);
+    await expect(auditor.enterMarket(fixedLenderWETH.address)).to.not.be.reverted.and.to.not.emit(
       auditor,
       "MarketEntered",
     );
   });
 
-  it("EnterMarkets should emit event", async () => {
-    await expect(auditor.enterMarkets([fixedLenderDAI.address]))
+  it("EnterMarket should emit event", async () => {
+    await expect(auditor.enterMarket(fixedLenderDAI.address))
       .to.emit(auditor, "MarketEntered")
       .withArgs(fixedLenderDAI.address, user.address);
   });
 
   it("ExitMarket should emit event", async () => {
-    await auditor.enterMarkets([fixedLenderDAI.address]);
+    await auditor.enterMarket(fixedLenderDAI.address);
     await expect(auditor.exitMarket(fixedLenderDAI.address))
       .to.emit(auditor, "MarketExited")
       .withArgs(fixedLenderDAI.address, user.address);
@@ -77,7 +77,7 @@ describe("Auditor from User Space", function () {
   it("validateBorrowMP should fail for when oracle gets weird", async () => {
     await dai.approve(fixedLenderDAI.address, 666);
     await fixedLenderDAI.deposit(666, user.address);
-    await auditor.enterMarkets([fixedLenderDAI.address]);
+    await auditor.enterMarket(fixedLenderDAI.address);
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
     await expect(
       fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 1, 1, user.address, user.address),
@@ -131,14 +131,14 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.deposit(amountDAI, user.address);
     expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(amountDAI);
     // we make it count as collateral (DAI)
-    await auditor.enterMarkets([fixedLenderDAI.address]);
+    await auditor.enterMarket(fixedLenderDAI.address);
 
     // we supply ETH to the protocol
     const amountETH = parseUnits("1");
     await fixedLenderWETH.deposit(amountETH, user.address);
     expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(amountETH);
     // we make it count as collateral (WETH)
-    await auditor.enterMarkets([fixedLenderWETH.address]);
+    await auditor.enterMarket(fixedLenderWETH.address);
 
     const [collateral] = await auditor.accountLiquidity(user.address, AddressZero, 0);
     const [, , , collateralRateDAI] = await auditor.getMarketData(fixedLenderDAI.address);
@@ -149,7 +149,8 @@ describe("Auditor from User Space", function () {
   });
 
   it("Contract's state variable accountAssets should correctly add and remove the asset which the user entered and exited as collateral", async () => {
-    await auditor.enterMarkets([fixedLenderDAI.address, fixedLenderWETH.address]);
+    await auditor.enterMarket(fixedLenderDAI.address);
+    await auditor.enterMarket(fixedLenderWETH.address);
 
     await expect(auditor.exitMarket(fixedLenderDAI.address)).to.not.be.reverted;
     await expect(auditor.exitMarket(fixedLenderWETH.address)).to.not.be.reverted;
@@ -160,7 +161,7 @@ describe("Auditor from User Space", function () {
     await dai.approve(fixedLenderDAI.address, 100);
     await fixedLenderDAI.depositAtMaturity(futurePools(1)[0], 100, 100, user.address);
     // we make it count as collateral (DAI)
-    await auditor.enterMarkets([fixedLenderDAI.address]);
+    await auditor.enterMarket(fixedLenderDAI.address);
     await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
     await expect(auditor.accountLiquidity(user.address, AddressZero, 0)).to.revertedWith("InvalidPrice()");
   });

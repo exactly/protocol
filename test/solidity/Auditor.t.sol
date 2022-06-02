@@ -50,12 +50,10 @@ contract AuditorTest is Test {
   function testEnterExitMarket() external {
     fixedLender.setBalance(1 ether);
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, "X", "x", 18);
-    FixedLender[] memory markets = new FixedLender[](1);
-    markets[0] = FixedLender(address(fixedLender));
 
     vm.expectEmit(true, false, false, true);
     emit MarketEntered(FixedLender(address(fixedLender)), address(this));
-    auditor.enterMarkets(markets);
+    auditor.enterMarket(FixedLender(address(fixedLender)));
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(collateral, uint256(1 ether).mulWadDown(0.8e18));
     assertEq(debt, 0);
@@ -73,11 +71,7 @@ contract AuditorTest is Test {
     for (uint256 i = 0; i < markets.length; i++) {
       markets[i] = FixedLender(address(new MockFixedLender(auditor)));
       auditor.enableMarket(markets[i], 0.8e18, "X", "x", 18);
-    }
-
-    auditor.enterMarkets(markets);
-
-    for (uint256 i = 0; i < markets.length; i++) {
+      auditor.enterMarket(markets[i]);
       vm.expectEmit(true, false, false, true);
       emit MarketExited(markets[i], address(this));
       auditor.exitMarket(markets[i]);
@@ -86,9 +80,7 @@ contract AuditorTest is Test {
 
   function testFailExitMarketOwning() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, "X", "x", 18);
-    FixedLender[] memory markets = new FixedLender[](1);
-    markets[0] = FixedLender(address(fixedLender));
-    auditor.enterMarkets(markets);
+    auditor.enterMarket(FixedLender(address(fixedLender)));
     fixedLender.setBorrowed(1);
     auditor.exitMarket(FixedLender(address(fixedLender)));
   }
@@ -124,34 +116,26 @@ contract AuditorTest is Test {
 
   function testBorrowMPValidation() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, "X", "x", 18);
-    FixedLender[] memory markets = new FixedLender[](1);
-    markets[0] = FixedLender(address(fixedLender));
-    auditor.enterMarkets(markets);
+    auditor.enterMarket(FixedLender(address(fixedLender)));
     auditor.validateBorrowMP(FixedLender(address(fixedLender)), address(this));
   }
 
   function testFailBorrowMPValidation() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, "X", "x", 18);
-    FixedLender[] memory markets = new FixedLender[](1);
-    markets[0] = FixedLender(address(fixedLender));
-    auditor.enterMarkets(markets);
+    auditor.enterMarket(FixedLender(address(fixedLender)));
     fixedLender.setBorrowed(1);
     auditor.validateBorrowMP(FixedLender(address(fixedLender)), address(this));
   }
 
   function testAccountShortfall() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, "X", "x", 18);
-    FixedLender[] memory markets = new FixedLender[](1);
-    markets[0] = FixedLender(address(fixedLender));
-    auditor.enterMarkets(markets);
+    auditor.enterMarket(FixedLender(address(fixedLender)));
     auditor.validateAccountShortfall(FixedLender(address(fixedLender)), address(this), 1);
   }
 
   function testFailAccountShortfall() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, "X", "x", 18);
-    FixedLender[] memory markets = new FixedLender[](1);
-    markets[0] = FixedLender(address(fixedLender));
-    auditor.enterMarkets(markets);
+    auditor.enterMarket(FixedLender(address(fixedLender)));
     fixedLender.setBorrowed(1);
     auditor.validateAccountShortfall(FixedLender(address(fixedLender)), address(this), 1);
   }

@@ -29,7 +29,7 @@ describe("Validations", function () {
 
   describe("Auditor: GIVEN an unlisted market as parameter", () => {
     it("WHEN trying to enter markets, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.enterMarkets([exactlyEnv.notAnFixedLenderAddress])).to.be.revertedWith("MarketNotListed()");
+      await expect(auditor.enterMarket(exactlyEnv.notAnFixedLenderAddress)).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to exit market, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress)).to.be.revertedWith("MarketNotListed()");

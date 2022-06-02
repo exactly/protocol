@@ -251,9 +251,9 @@ export class DefaultEnv {
       .repayAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address);
   }
 
-  public async enterMarkets(assets: string[]) {
-    const markets = assets.map((asset) => this.getFixedLender(asset).address);
-    return this.auditor.connect(this.currentWallet).enterMarkets(markets);
+  public async enterMarket(asset: string) {
+    const market = this.getFixedLender(asset).address;
+    return this.auditor.connect(this.currentWallet).enterMarket(market);
   }
 
   public async setBorrowRate(rate: string) {

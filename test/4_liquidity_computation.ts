@@ -63,9 +63,9 @@ describe("Liquidity computations", function () {
       }
       await weth.deposit({ value: parseUnits("10") });
       await weth.approve(fixedLenderWETH.address, parseUnits("10"));
-      await auditor
-        .connect(signer)
-        .enterMarkets([fixedLenderDAI.address, fixedLenderUSDC.address, fixedLenderWBTC.address]);
+      await auditor.connect(signer).enterMarket(fixedLenderDAI.address);
+      await auditor.connect(signer).enterMarket(fixedLenderUSDC.address);
+      await auditor.connect(signer).enterMarket(fixedLenderWBTC.address);
     }
   });
 
@@ -153,7 +153,7 @@ describe("Liquidity computations", function () {
         describe("AND GIVEN laura deposits more collateral for another asset", () => {
           beforeEach(async () => {
             await fixedLenderWETH.depositAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), laura.address);
-            await auditor.enterMarkets([fixedLenderWETH.address]);
+            await auditor.enterMarket(fixedLenderWETH.address);
           });
           it("THEN it does not revert when she tries to exit her collateral ETH market", async () => {
             await expect(auditor.exitMarket(fixedLenderWETH.address)).to.not.be.reverted;

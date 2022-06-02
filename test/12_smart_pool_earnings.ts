@@ -201,7 +201,7 @@ describe("Smart Pool Earnings Distribution", function () {
   describe("GIVEN bob has plenty of WBTC collateral", () => {
     beforeEach(async () => {
       await fixedLenderWBTC.deposit(parseUnits("1", 8), bob.address);
-      await auditor.enterMarkets([fixedLenderWBTC.address]);
+      await auditor.enterMarket(fixedLenderWBTC.address);
     });
     describe("GIVEN bob deposits 10k and borrows 10k from a mp", () => {
       beforeEach(async () => {
