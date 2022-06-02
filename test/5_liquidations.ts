@@ -66,7 +66,8 @@ describe("Liquidations", function () {
     describe("AND GIVEN Alice takes the biggest loan she can (39900 DAI)", () => {
       beforeEach(async () => {
         // we make WETH & WBTC count as collateral
-        await auditor.enterMarkets([fixedLenderETH.address, fixedLenderWBTC.address]);
+        await auditor.enterMarket(fixedLenderETH.address);
+        await auditor.enterMarket(fixedLenderWBTC.address);
 
         // this works because 1USD (liquidity) = 1DAI (asset to borrow)
         amountToBorrowDAI = "39900";
@@ -361,13 +362,13 @@ describe("Liquidations", function () {
       await exactlyEnv.depositMP("WETH", futurePools(2)[1].toNumber(), "1.25");
 
       await exactlyEnv.depositSP("WETH", "10");
-      await exactlyEnv.enterMarkets(["WETH"]);
+      await exactlyEnv.enterMarket("WETH");
     });
     describe("AND GIVEN alice deposits 10k DAI to the smart pool AND borrows USD8k worth of WETH (80% collateralization rate)", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(alice);
         await exactlyEnv.depositSP("DAI", "10000");
-        await exactlyEnv.enterMarkets(["DAI"]);
+        await exactlyEnv.enterMarket("DAI");
 
         await exactlyEnv.borrowMP("WETH", futurePools(1)[0].toNumber(), "1.25");
         await exactlyEnv.borrowMP("WETH", futurePools(2)[1].toNumber(), "1.25");
@@ -430,7 +431,7 @@ describe("Liquidations", function () {
       beforeEach(async () => {
         exactlyEnv.switchWallet(alice);
         await exactlyEnv.depositSP("WETH", "5");
-        await exactlyEnv.enterMarkets(["WETH"]);
+        await exactlyEnv.enterMarket("WETH");
 
         await exactlyEnv.borrowMP("DAI", futurePools(1)[0].toNumber(), "1000");
         await exactlyEnv.borrowMP("DAI", futurePools(2)[1].toNumber(), "6000");

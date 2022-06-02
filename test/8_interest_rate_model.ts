@@ -179,7 +179,7 @@ describe("InterestRateModel", () => {
         await exactlyEnv.transfer("WETH", alice, "30");
         exactlyEnv.switchWallet(alice);
         await exactlyEnv.depositSP("WETH", "30");
-        await exactlyEnv.enterMarkets(["WETH"]);
+        await exactlyEnv.enterMarket("WETH");
         await exactlyEnv.moveInTime(nextPoolID);
         exactlyEnv.switchWallet(owner);
       });
@@ -296,7 +296,7 @@ describe("InterestRateModel", () => {
       const fullUtilization = parseUnits("12");
       await interestRateModel.setCurveParameters(A, B, maxUtilization, fullUtilization);
       await exactlyEnv.depositSP("WETH", "10");
-      await exactlyEnv.enterMarkets(["WETH"]);
+      await exactlyEnv.enterMarket("WETH");
       await exactlyEnv.depositSP("DAI", "1200");
     });
     it("WHEN borrowing more than whats available in the SP, THEN it reverts with UtilizationExceeded", async () => {
@@ -324,7 +324,7 @@ describe("InterestRateModel", () => {
     describe("GIVEN enough collateral", () => {
       beforeEach(async () => {
         await exactlyEnv.depositSP("WETH", "10");
-        await exactlyEnv.enterMarkets(["WETH"]);
+        await exactlyEnv.enterMarket("WETH");
       });
       it("WHEN asking to borrow without a previous MP/SP deposit THEN it reverts with INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
         await expect(exactlyEnv.borrowMP("DAI", secondPoolID, "1")).to.be.reverted;
@@ -397,7 +397,7 @@ describe("InterestRateModel", () => {
           await exactlyEnv.transfer("WETH", alice, "10");
           exactlyEnv.switchWallet(alice);
           await exactlyEnv.depositSP("WETH", "10");
-          await exactlyEnv.enterMarkets(["WETH"]);
+          await exactlyEnv.enterMarket("WETH");
           await exactlyEnv.moveInTime(nextPoolID);
         });
         describe("WHEN borrowing 1DAI in the following maturity", () => {
@@ -441,7 +441,7 @@ describe("InterestRateModel", () => {
           await exactlyEnv.transfer("WETH", alice, "10");
           exactlyEnv.switchWallet(alice);
           await exactlyEnv.depositSP("WETH", "10");
-          await exactlyEnv.enterMarkets(["WETH"]);
+          await exactlyEnv.enterMarket("WETH");
           await exactlyEnv.moveInTime(nextPoolID);
         });
         describe("WHEN borrowing 1050 DAI in the following maturity", () => {
@@ -463,7 +463,7 @@ describe("InterestRateModel", () => {
           await exactlyEnv.transfer("WETH", alice, "10");
           exactlyEnv.switchWallet(alice);
           await exactlyEnv.depositSP("WETH", "10");
-          await exactlyEnv.enterMarkets(["WETH"]);
+          await exactlyEnv.enterMarket("WETH");
           await exactlyEnv.moveInTime(nextPoolID);
         });
         describe("WHEN borrowing 1200 DAI in the following maturity", () => {
@@ -483,7 +483,7 @@ describe("InterestRateModel", () => {
                 await exactlyEnv.transfer("WETH", bob, "10");
                 exactlyEnv.switchWallet(bob);
                 await exactlyEnv.depositSP("WETH", "10");
-                await exactlyEnv.enterMarkets(["WETH"]);
+                await exactlyEnv.enterMarket("WETH");
                 await exactlyEnv.borrowMP("DAI", secondPoolID, "400");
               });
               it("THEN a yearly interest of 2.24% (U 0.48->0.64, considering both borrows) is charged over four weeks", async () => {
@@ -503,7 +503,7 @@ describe("InterestRateModel", () => {
           await exactlyEnv.transfer("WETH", alice, "10");
           exactlyEnv.switchWallet(alice);
           await exactlyEnv.depositSP("WETH", "10");
-          await exactlyEnv.enterMarkets(["WETH"]);
+          await exactlyEnv.enterMarket("WETH");
           await exactlyEnv.moveInTime(nextPoolID);
         });
         describe("WHEN borrowing 1000 DAI in the following maturity", () => {

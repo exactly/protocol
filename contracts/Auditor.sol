@@ -78,25 +78,18 @@ contract Auditor is AccessControl {
     liquidationIncentive = _liquidationIncentive;
   }
 
-  /// @dev Allows wallet to enter certain markets (fixedLenderDAI, fixedLenderETH, etc).
-  /// By performing this action, the wallet's money could be used as collateral.
-  /// @param fixedLenders contracts addresses to enable for `msg.sender`.
-  function enterMarkets(FixedLender[] calldata fixedLenders) external {
-    for (uint256 i = 0; i < fixedLenders.length; ) {
-      validateMarketListed(fixedLenders[i]);
-      uint8 marketIndex = markets[fixedLenders[i]].index;
+  /// @notice Allows assets of a certain `fixedLender` market to be used as collateral for borrowing other assets.
+  /// @param fixedLender market to enable as collateral for `msg.sender`.
+  function enterMarket(FixedLender fixedLender) external {
+    validateMarketListed(fixedLender);
+    uint8 marketIndex = markets[fixedLender].index;
 
-      uint256 assets = accountAssets[msg.sender];
+    uint256 assets = accountAssets[msg.sender];
 
-      if ((assets & (1 << marketIndex)) != 0) return;
-      accountAssets[msg.sender] = assets | (1 << marketIndex);
+    if ((assets & (1 << marketIndex)) != 0) return;
+    accountAssets[msg.sender] = assets | (1 << marketIndex);
 
-      emit MarketEntered(fixedLenders[i], msg.sender);
-
-      unchecked {
-        ++i;
-      }
-    }
+    emit MarketEntered(fixedLender, msg.sender);
   }
 
   /// @notice Removes fixedLender from sender's account liquidity calculation.

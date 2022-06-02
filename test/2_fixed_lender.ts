@@ -405,7 +405,7 @@ describe("FixedLender", function () {
         parseUnits("2"),
       ]);
       await fixedLenderDAI.deposit(parseUnits("1"), maria.address);
-      await auditor.enterMarkets([fixedLenderDAI.address]);
+      await auditor.enterMarket(fixedLenderDAI.address);
       // we add liquidity to the maturity
       await fixedLenderDAI.depositAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), maria.address);
     });
@@ -434,7 +434,7 @@ describe("FixedLender", function () {
   describe("GIVEN John deposited 12 DAI to the smart pool AND Maria borrowed 6 DAI from an empty maturity", () => {
     beforeEach(async () => {
       await fixedLenderWETH.deposit(parseUnits("10"), maria.address);
-      await auditor.enterMarkets([fixedLenderWETH.address]);
+      await auditor.enterMarket(fixedLenderWETH.address);
 
       await timelockExecute(owner, interestRateModel, "setCurveParameters", [
         parseUnits("0"),
@@ -592,7 +592,8 @@ describe("FixedLender", function () {
   describe("GIVEN maria has plenty of WETH collateral", () => {
     beforeEach(async () => {
       await fixedLenderWETH.deposit(parseUnits("10"), maria.address);
-      await auditor.enterMarkets([fixedLenderDAI.address, fixedLenderWETH.address]);
+      await auditor.enterMarket(fixedLenderDAI.address);
+      await auditor.enterMarket(fixedLenderWETH.address);
     });
     describe("AND GIVEN she deposits 1000DAI into the next two maturity pools AND other 500 into the smart pool", () => {
       beforeEach(async () => {

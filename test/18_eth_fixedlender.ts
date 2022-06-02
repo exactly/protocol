@@ -274,7 +274,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
       beforeEach(async () => {
         await weth.deposit({ value: parseUnits("60") });
         await fixedLenderWETH.deposit(parseUnits("60"), alice.address);
-        await auditor.enterMarkets([fixedLenderWETH.address]);
+        await auditor.enterMarket(fixedLenderWETH.address);
       });
       describe("WHEN borrowing with ETH (native)", () => {
         let tx: ContractTransaction;
@@ -439,7 +439,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
       beforeEach(async () => {
         await weth.deposit({ value: parseUnits("60") });
         await fixedLenderWETH.deposit(parseUnits("60"), alice.address);
-        await auditor.enterMarkets([fixedLenderWETH.address]);
+        await auditor.enterMarket(fixedLenderWETH.address);
         tx = routerETH.borrowAtMaturityETH(futurePools(1)[0], parseUnits("5"), parseUnits("5"));
       });
       it("THEN the tx should revert with TooMuchSlippage", async () => {
@@ -459,7 +459,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
       beforeEach(async () => {
         await weth.deposit({ value: parseUnits("60") });
         await fixedLenderWETH.deposit(parseUnits("60"), alice.address);
-        await auditor.enterMarkets([fixedLenderWETH.address]);
+        await auditor.enterMarket(fixedLenderWETH.address);
         await routerETH.borrowAtMaturityETH(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
         tx = routerETH.repayAtMaturityETH(futurePools(1)[0], parseUnits("5"), { value: parseUnits("4") });
       });
