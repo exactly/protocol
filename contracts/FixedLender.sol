@@ -24,8 +24,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   Auditor public immutable auditor;
 
   uint8 public maxFuturePools;
+  uint32 public lastAccumulatedEarningsAccrual;
   uint256 public accumulatedEarningsSmoothFactor;
-  uint256 public lastAccumulatedEarningsAccrual;
 
   uint256 public smartPoolAssets;
 
@@ -216,7 +216,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 memSPAssets = smartPoolAssets;
     updateSmartPoolAssetsAverage(memSPAssets);
     uint256 earnings = smartPoolAccumulatedEarnings();
-    lastAccumulatedEarningsAccrual = block.timestamp;
+    lastAccumulatedEarningsAccrual = uint32(block.timestamp);
     smartPoolEarningsAccumulator -= earnings;
     emit SmartPoolEarningsAccrued(memSPAssets, earnings);
     memSPAssets = memSPAssets + earnings - assets;
@@ -231,7 +231,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 memSPAssets = smartPoolAssets;
     updateSmartPoolAssetsAverage(memSPAssets);
     uint256 earnings = smartPoolAccumulatedEarnings();
-    lastAccumulatedEarningsAccrual = block.timestamp;
+    lastAccumulatedEarningsAccrual = uint32(block.timestamp);
     smartPoolEarningsAccumulator -= earnings;
     emit SmartPoolEarningsAccrued(memSPAssets, earnings);
     smartPoolAssets = memSPAssets + earnings + assets;
