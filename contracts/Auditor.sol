@@ -30,7 +30,6 @@ contract Auditor is AccessControl {
   // Protocol Management
   mapping(address => uint256) public accountAssets;
   mapping(FixedLender => Market) public markets;
-  mapping(FixedLender => uint256) private borrowCaps;
 
   uint256 public liquidationIncentive;
   FixedLender[] public allMarkets;
@@ -59,12 +58,6 @@ contract Auditor is AccessControl {
   /// @notice Event emitted when a new liquidationIncentive has been set.
   /// @param newLiquidationIncentive represented with 1e18 decimals.
   event LiquidationIncentiveUpdated(uint256 newLiquidationIncentive);
-
-  /// @notice Event emitted when a new borrow cap has been set for a certain fixedLender.
-  /// If newBorrowCap is 0, that means that there's no cap.
-  /// @param fixedLender address of the lender that has a new borrow cap.
-  /// @param newBorrowCap new borrow cap expressed with 1e18 precision for the given market. Zero means no cap.
-  event BorrowCapUpdated(FixedLender indexed fixedLender, uint256 newBorrowCap);
 
   /// @notice Event emitted when a collateral factor is changed by admin.
   /// @param fixedLender address of the market that has a new collateral factor.
@@ -178,28 +171,6 @@ contract Auditor is AccessControl {
     emit CollateralFactorUpdated(fixedLender, collateralFactor);
   }
 
-  /// @notice Sets the given borrow caps for the given fixedLender markets.
-  /// Borrowing that brings total borrows to or above borrow cap will revert.
-  /// @param fixedLenders The addresses of the markets (tokens) to change the borrow caps for.
-  /// @param newBorrowCaps Values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
-  function setMarketBorrowCaps(FixedLender[] calldata fixedLenders, uint256[] calldata newBorrowCaps)
-    external
-    onlyRole(DEFAULT_ADMIN_ROLE)
-  {
-    if (fixedLenders.length == 0 || fixedLenders.length != newBorrowCaps.length) revert InvalidParameter();
-
-    for (uint256 i = 0; i < fixedLenders.length; ) {
-      validateMarketListed(fixedLenders[i]);
-
-      borrowCaps[fixedLenders[i]] = newBorrowCaps[i];
-      emit BorrowCapUpdated(fixedLenders[i], newBorrowCaps[i]);
-
-      unchecked {
-        ++i;
-      }
-    }
-  }
-
   /// @notice Validates that the current state of the position and system are valid (liquidity).
   /// @dev Hook function to be called after calling the poolAccounting borrowMP function.
   /// @param fixedLender address of the fixedLender that will lend money in a maturity.
@@ -219,13 +190,6 @@ contract Auditor is AccessControl {
 
       // it should be impossible to break this invariant
       assert((accountAssets[borrower] & (1 << marketIndex)) != 0);
-    }
-
-    uint256 borrowCap = borrowCaps[fixedLender];
-    // Borrow cap of 0 corresponds to unlimited borrowing
-    if (borrowCap != 0) {
-      uint256 totalBorrows = fixedLender.totalMpBorrows();
-      if (totalBorrows >= borrowCap) revert BorrowCapReached();
     }
 
     // We verify that current liquidity is not short
@@ -406,7 +370,6 @@ contract Auditor is AccessControl {
 
 error AuditorMismatch();
 error BalanceOwed();
-error BorrowCapReached();
 error InsufficientLiquidity();
 error InsufficientShortfall();
 error InvalidParameter();

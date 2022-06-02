@@ -39,11 +39,6 @@ describe("Validations", function () {
         "MarketNotListed()",
       );
     });
-    it("WHEN trying to set borrow caps, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(
-        auditor.setMarketBorrowCaps([exactlyEnv.notAnFixedLenderAddress], [parseUnits("1000")]),
-      ).to.be.revertedWith("MarketNotListed()");
-    });
     it("WHEN trying to call liquidateAllowed, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
         auditor.liquidateAllowed(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),

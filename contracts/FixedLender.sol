@@ -28,9 +28,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   uint256 public smartPoolAssets;
 
-  // Total borrows in all maturities
-  uint256 public totalMpBorrows;
-
   /// @notice Event emitted when a user deposits an amount of an asset to a certain maturity date collecting a fee at
   /// the end of the period.
   /// @param maturity maturity in which the user will be able to collect his deposit + his fee.
@@ -401,8 +398,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
       if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assetsOwed);
     }
 
-    totalMpBorrows += assetsOwed;
-
     emit SmartPoolEarningsAccrued(memSPAssets, earningsSP);
     smartPoolAssets = memSPAssets + earningsSP;
     auditor.validateBorrowMP(this, borrower);
@@ -526,8 +521,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 memSPAssets = smartPoolAssets;
     emit SmartPoolEarningsAccrued(memSPAssets, earningsSP);
     smartPoolAssets = memSPAssets + earningsSP;
-
-    totalMpBorrows -= debtCovered;
 
     emit RepayAtMaturity(maturity, msg.sender, borrower, actualRepayAssets, debtCovered);
   }

@@ -54,12 +54,6 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set collateral factor, THEN the transaction should revert with Access Control", async () => {
       await expect(auditor.setCollateralFactor(fixedLenderDAI.address, 1)).to.be.revertedWith("AccessControl");
     });
-
-    it("WHEN trying to set borrow caps, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], ["1000000"])).to.be.revertedWith(
-        "AccessControl",
-      );
-    });
   });
 
   describe("GIVEN the ADMIN/owner user", () => {
@@ -95,16 +89,6 @@ describe("Auditor Admin", function () {
       ).to.be.revertedWith("AuditorMismatch()");
     });
 
-    it("WHEN trying to set borrow caps on an unlisted market, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.setMarketBorrowCaps([laura.address], [parseUnits("1000")])).to.be.revertedWith(
-        "MarketNotListed()",
-      );
-    });
-
-    it("WHEN trying to set borrow caps with arguments mismatch, THEN the transaction should revert with INVALID_SET_BORROW_CAP", async () => {
-      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], [])).to.be.revertedWith("InvalidParameter()");
-    });
-
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
       expect(await auditor.getAllMarkets()).to.deep.equal(
         await Promise.all(network.config.tokens.map(async (token) => (await get(`FixedLender${token}`)).address)),
@@ -136,13 +120,6 @@ describe("Auditor Admin", function () {
         .to.emit(auditor, "CollateralFactorUpdated")
         .withArgs(fixedLenderDAI.address, parseUnits("0.7"));
       expect((await auditor.getMarketData(fixedLenderDAI.address))[3]).to.equal(parseUnits("0.7"));
-    });
-
-    it("WHEN setting max borrow caps, THEN the auditor should emit BorrowCapUpdated event", async () => {
-      await expect(auditor.setMarketBorrowCaps([fixedLenderDAI.address], ["10000"])).to.emit(
-        auditor,
-        "BorrowCapUpdated",
-      );
     });
   });
 });
