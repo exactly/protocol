@@ -51,7 +51,7 @@ const func: DeployFunction = async ({
     await deploy(fixedLenderName, {
       skipIfAlreadyDeployed: true,
       contract: "FixedLender",
-      args: [tokenAddress, token, ...fixedLenderArgs, auditor.address, ...poolAccountingArgs],
+      args: [tokenAddress, ...fixedLenderArgs, auditor.address, ...poolAccountingArgs],
       from: deployer,
       log: true,
     });

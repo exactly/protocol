@@ -20,7 +20,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
   uint256 public constant CLOSE_FACTOR = 5e17;
 
-  string public assetSymbol;
   Auditor public immutable auditor;
 
   uint8 public maxFuturePools;
@@ -128,7 +127,6 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   constructor(
     ERC20 asset_,
-    string memory assetSymbol_,
     uint8 maxFuturePools_,
     uint256 accumulatedEarningsSmoothFactor_,
     Auditor auditor_,
@@ -137,12 +135,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     uint256 smartPoolReserveFactor_,
     DampSpeed memory dampSpeed_
   )
-    ERC4626(asset_, string(abi.encodePacked("EToken", assetSymbol_)), string(abi.encodePacked("e", assetSymbol_)))
+    ERC4626(asset_, string(abi.encodePacked("EToken", asset_.symbol())), string(abi.encodePacked("e", asset_.symbol())))
     PoolAccounting(interestRateModel_, penaltyRate_, smartPoolReserveFactor_, dampSpeed_)
   {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    assetSymbol = assetSymbol_;
     auditor = auditor_;
     maxFuturePools = maxFuturePools_;
     accumulatedEarningsSmoothFactor = accumulatedEarningsSmoothFactor_;
