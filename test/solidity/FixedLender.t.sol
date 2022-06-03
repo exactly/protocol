@@ -187,8 +187,6 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.previewDeposit(10_000 ether), fixedLender.balanceOf(address(this)));
   }
 
-  event Debug(string test, uint256 testVar);
-
   function testPreviewOperationsWithSmartPoolCorrectlyAccountingEarnings() external {
     uint256 assets = 10_000 ether;
     uint256 maturity = TSUtils.INTERVAL * 2;
@@ -859,7 +857,7 @@ contract FixedLenderHarness is FixedLender {
   constructor(
     ERC20 asset_,
     uint8 maxFuturePools_,
-    uint256 accumulatedEarningsSmoothFactor_,
+    uint128 accumulatedEarningsSmoothFactor_,
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
