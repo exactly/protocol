@@ -15,6 +15,7 @@ import { TSUtils } from "./utils/TSUtils.sol";
 
 contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard, Pausable {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for uint128;
   using SafeTransferLib for ERC20;
 
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -24,7 +25,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   uint8 public maxFuturePools;
   uint32 public lastAccumulatedEarningsAccrual;
-  uint256 public accumulatedEarningsSmoothFactor;
+  uint128 public accumulatedEarningsSmoothFactor;
 
   uint256 public smartPoolAssets;
 
@@ -116,7 +117,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   /// @notice Event emitted when the accumulatedEarningsSmoothFactor is changed by admin.
   /// @param newAccumulatedEarningsSmoothFactor factor represented with 1e18 decimals.
-  event AccumulatedEarningsSmoothFactorUpdated(uint256 newAccumulatedEarningsSmoothFactor);
+  event AccumulatedEarningsSmoothFactorUpdated(uint128 newAccumulatedEarningsSmoothFactor);
 
   /// @notice Event emitted when the maxFuturePools is changed by admin.
   /// @param newMaxFuturePools represented with 0 decimals.
@@ -125,7 +126,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   constructor(
     ERC20 asset_,
     uint8 maxFuturePools_,
-    uint256 accumulatedEarningsSmoothFactor_,
+    uint128 accumulatedEarningsSmoothFactor_,
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
@@ -280,7 +281,7 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @dev Value can only be lower than 4. If set at 0, then all remaining accumulated earnings are
   /// distributed in following operation to the smart pool.
   /// @param accumulatedEarningsSmoothFactor_ represented with 18 decimals.
-  function setAccumulatedEarningsSmoothFactor(uint256 accumulatedEarningsSmoothFactor_)
+  function setAccumulatedEarningsSmoothFactor(uint128 accumulatedEarningsSmoothFactor_)
     external
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
