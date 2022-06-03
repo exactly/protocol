@@ -37,8 +37,8 @@ abstract contract PoolAccounting is AccessControl {
   mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
   uint256 public smartPoolBorrowed;
   uint256 public smartPoolEarningsAccumulator;
-  uint256 public lastAverageUpdate;
   uint256 public smartPoolAssetsAverage;
+  uint32 public lastAverageUpdate;
 
   InterestRateModel public interestRateModel;
 
@@ -413,7 +413,7 @@ abstract contract PoolAccounting is AccessControl {
     smartPoolAssetsAverage =
       smartPoolAssetsAverage.mulWadDown(1e18 - averageFactor) +
       averageFactor.mulWadDown(smartPoolAssets);
-    lastAverageUpdate = block.timestamp;
+    lastAverageUpdate = uint32(block.timestamp);
   }
 }
 
