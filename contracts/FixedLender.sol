@@ -268,11 +268,12 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     return super.transferFrom(from, to, shares);
   }
 
-  /// @notice Sets the protocol's max future weekly pools for borrowing and lending.
-  /// @dev Value can not be 0.
-  /// @param futurePools number of pools to be active at the same time (4 weekly pools ~= 1 month).
+  /// @notice Sets the protocol's max future pools for borrowing and lending.
+  /// @dev Value can not be 0 or higher than 224.
+  /// Value shouldn't be lower than previous value or VALID maturities will become NOT_READY.
+  /// @param futurePools number of pools to be active at the same time.
   function setMaxFuturePools(uint8 futurePools) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (futurePools == 0) revert InvalidParameter();
+    if (futurePools > 224 || futurePools == 0) revert InvalidParameter();
     maxFuturePools = futurePools;
     emit MaxFuturePoolsUpdated(futurePools);
   }
