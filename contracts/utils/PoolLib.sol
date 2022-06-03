@@ -177,16 +177,16 @@ library PoolLib {
     // we initialize the maturity date with also the 1st bit on the 33th position set
     if (encoded == 0) return maturity | (1 << 32);
 
-    uint32 baseMaturity = uint32(encoded % (1 << 32));
+    uint256 baseMaturity = encoded % (1 << 32);
     if (maturity < baseMaturity) {
       // If the new maturity date is lower than the base, then we need to set it as the new base. We wipe clean the
       // last 32 bits, we shift the amount of INTERVALS and we set the new value with the 33rd bit set
-      uint256 range = uint32((baseMaturity - maturity) / TSUtils.INTERVAL);
+      uint256 range = (baseMaturity - maturity) / TSUtils.INTERVAL;
       if (encoded >> (256 - range) != 0) revert MaturityOverflow();
       encoded = ((encoded >> 32) << (32 + range));
       return maturity | encoded | (1 << 32);
     } else {
-      uint256 range = uint32((maturity - baseMaturity) / TSUtils.INTERVAL);
+      uint256 range = (maturity - baseMaturity) / TSUtils.INTERVAL;
       if (range > 223) revert MaturityOverflow();
       return encoded | (1 << (32 + range));
     }
@@ -199,12 +199,12 @@ library PoolLib {
   function clearMaturity(uint256 encoded, uint256 maturity) internal pure returns (uint256) {
     if (encoded == 0 || encoded == maturity | (1 << 32)) return 0;
 
-    uint32 baseMaturity = uint32(encoded % (1 << 32));
+    uint256 baseMaturity = encoded % (1 << 32);
     // if the baseMaturity is the one being cleaned
     if (maturity == baseMaturity) {
       // We're wiping 32 bytes + 1 for the old base flag
-      uint224 packed = uint224(encoded >> 33);
-      uint224 range = 1;
+      uint256 packed = encoded >> 33;
+      uint256 range = 1;
       while ((packed & 1) == 0 && packed != 0) {
         unchecked {
           ++range;
@@ -224,12 +224,12 @@ library PoolLib {
   /// @param maturity maturity date.
   /// @return true if the user has positions in the maturity date.
   function hasMaturity(uint256 encoded, uint256 maturity) internal pure returns (bool) {
-    uint32 baseMaturity = uint32(encoded % (1 << 32));
+    uint256 baseMaturity = encoded % (1 << 32);
     if (maturity < baseMaturity) return false;
 
     uint256 range = (maturity - baseMaturity) / TSUtils.INTERVAL;
     if (range > 223) return false;
-    return (uint224(encoded >> 32) & (1 << range)) != 0;
+    return ((encoded >> 32) & (1 << range)) != 0;
   }
 }
 
