@@ -75,7 +75,7 @@ contract Auditor is AccessControl {
   /// @param fixedLender market to enable as collateral for `msg.sender`.
   function enterMarket(FixedLender fixedLender) external {
     validateMarketListed(fixedLender);
-    uint8 marketIndex = markets[fixedLender].index;
+    uint256 marketIndex = markets[fixedLender].index;
 
     uint256 assets = accountAssets[msg.sender];
 
@@ -91,7 +91,7 @@ contract Auditor is AccessControl {
   /// @param fixedLender The address of the asset to be removed.
   function exitMarket(FixedLender fixedLender) external {
     validateMarketListed(fixedLender);
-    uint8 marketIndex = markets[fixedLender].index;
+    uint256 marketIndex = markets[fixedLender].index;
 
     (uint256 amountHeld, uint256 borrowBalance) = fixedLender.getAccountSnapshot(msg.sender, PoolLib.MATURITY_ALL);
 
@@ -177,7 +177,7 @@ contract Auditor is AccessControl {
   /// @param borrower address of the user that will borrow money from a maturity date.
   function validateBorrowMP(FixedLender fixedLender, address borrower) external {
     validateMarketListed(fixedLender);
-    uint8 marketIndex = markets[fixedLender].index;
+    uint256 marketIndex = markets[fixedLender].index;
     uint256 assets = accountAssets[borrower];
 
     // we validate borrow state
