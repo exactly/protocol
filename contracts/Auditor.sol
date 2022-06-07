@@ -239,33 +239,6 @@ contract Auditor is AccessControl {
     if (!markets[fixedLenderCollateral].isListed || !markets[fixedLenderBorrowed].isListed) revert MarketNotListed();
   }
 
-  /// @notice Given a fixedLender address, it returns the corresponding market data.
-  /// @param fixedLender Address of the contract where we are getting the data.
-  function getMarketData(FixedLender fixedLender)
-    external
-    view
-    returns (
-      string memory,
-      string memory,
-      bool,
-      uint256,
-      uint8,
-      FixedLender
-    )
-  {
-    validateMarketListed(fixedLender);
-
-    Market memory marketData = markets[fixedLender];
-    return (
-      marketData.symbol,
-      marketData.name,
-      marketData.isListed,
-      marketData.collateralFactor,
-      marketData.decimals,
-      fixedLender
-    );
-  }
-
   /// @notice Calculates the amount of collateral to be seized when a position is undercollaterized.
   /// @param fixedLenderBorrowed market from where the debt is pending.
   /// @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol).

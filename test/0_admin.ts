@@ -119,7 +119,7 @@ describe("Auditor Admin", function () {
       await expect(auditor.setCollateralFactor(fixedLenderDAI.address, parseUnits("0.7")))
         .to.emit(auditor, "CollateralFactorUpdated")
         .withArgs(fixedLenderDAI.address, parseUnits("0.7"));
-      expect((await auditor.getMarketData(fixedLenderDAI.address))[3]).to.equal(parseUnits("0.7"));
+      expect((await auditor.markets(fixedLenderDAI.address)).collateralFactor).to.equal(parseUnits("0.7"));
     });
   });
 });
