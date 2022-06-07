@@ -68,7 +68,7 @@ export type EnvConfig = {
 
 export type MockTokenSpec = {
   decimals: BigNumber | number;
-  collateralRate: BigNumber;
+  adjustFactor: BigNumber;
   usdPrice: BigNumber;
 };
 
@@ -86,7 +86,7 @@ export const defaultMockTokens: Map<string, MockTokenSpec> = new Map([
     "DAI",
     {
       decimals: 18,
-      collateralRate: parseUnits("0.8"),
+      adjustFactor: parseUnits("0.8"),
       usdPrice: parseUnits("1"),
     },
   ],
@@ -94,7 +94,7 @@ export const defaultMockTokens: Map<string, MockTokenSpec> = new Map([
     "WETH",
     {
       decimals: 18,
-      collateralRate: parseUnits("0.7"),
+      adjustFactor: parseUnits("0.7"),
       usdPrice: parseUnits("3000"),
     },
   ],
@@ -102,7 +102,7 @@ export const defaultMockTokens: Map<string, MockTokenSpec> = new Map([
     "WBTC",
     {
       decimals: 8,
-      collateralRate: parseUnits("0.6"),
+      adjustFactor: parseUnits("0.6"),
       usdPrice: parseUnits("63000"),
     },
   ],
@@ -110,7 +110,7 @@ export const defaultMockTokens: Map<string, MockTokenSpec> = new Map([
     "USDC",
     {
       decimals: 6,
-      collateralRate: parseUnits("0.8"),
+      adjustFactor: parseUnits("0.8"),
       usdPrice: parseUnits("1"),
     },
   ],

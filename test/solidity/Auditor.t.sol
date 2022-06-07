@@ -30,7 +30,7 @@ contract AuditorTest is Test {
     (
       string memory symbol,
       string memory name,
-      uint256 collateralFactor,
+      uint256 adjustFactor,
       uint8 decimals,
       uint8 index,
       bool isListed
@@ -41,7 +41,7 @@ contract AuditorTest is Test {
     assertEq(symbol, "X");
     assertEq(index, 0);
     assertEq(decimals, 18);
-    assertEq(collateralFactor, 0.8e18);
+    assertEq(adjustFactor, 0.8e18);
     assertEq(markets.length, 1);
     assertEq(address(markets[0]), address(fixedLender));
   }

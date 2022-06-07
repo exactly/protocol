@@ -458,7 +458,7 @@ contract PreviewerTest is Test {
 
     // We sum all the collateral prices
     uint256 sumCollateral = data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
-      data[0].collateralFactor
+      data[0].adjustFactor
     );
 
     // We sum all the debt
@@ -498,7 +498,7 @@ contract PreviewerTest is Test {
 
     // We sum all the collateral prices
     uint256 sumCollateral = data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
-      data[0].collateralFactor
+      data[0].adjustFactor
     );
 
     // We sum all the debt
@@ -518,7 +518,7 @@ contract PreviewerTest is Test {
     auditor.enterMarket(fixedLenderWETH);
     data = previewer.accounts(address(this));
     sumCollateral += data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(
-      data[1].collateralFactor
+      data[1].adjustFactor
     );
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
@@ -530,12 +530,8 @@ contract PreviewerTest is Test {
     data = previewer.accounts(address(this));
 
     sumCollateral =
-      data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
-        data[0].collateralFactor
-      ) +
-      data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(
-        data[1].collateralFactor
-      );
+      data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(data[0].adjustFactor) +
+      data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(data[1].adjustFactor);
 
     sumDebt += (data[1].maturityBorrowPositions[0].position.principal + data[1].maturityBorrowPositions[0].position.fee)
       .mulDivDown(data[1].oraclePrice, 10**data[1].decimals);
@@ -594,7 +590,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].maturityBorrowPositions.length, 2);
 
     assertEq(data[0].oraclePrice, 1e18);
-    assertEq(data[0].collateralFactor, 0.8e18);
+    assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].penaltyRate, fixedLender.penaltyRate());
     assertEq(data[0].decimals, 18);
     assertEq(data[0].isCollateral, true);
@@ -610,7 +606,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].maturitySupplyPositions.length, 0);
     assertEq(data[0].maturityBorrowPositions.length, 0);
     assertEq(data[0].oraclePrice, 1e18);
-    assertEq(data[0].collateralFactor, 0.8e18);
+    assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
     assertEq(data[0].isCollateral, false);
   }
@@ -624,7 +620,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].maturitySupplyPositions.length, 0);
     assertEq(data[0].maturityBorrowPositions.length, 0);
     assertEq(data[0].oraclePrice, 1e18);
-    assertEq(data[0].collateralFactor, 0.8e18);
+    assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
     assertEq(data[0].penaltyRate, fixedLender.penaltyRate());
     assertEq(data[0].isCollateral, false);

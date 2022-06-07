@@ -130,10 +130,10 @@ describe("Auditor from User Space", function () {
     await auditor.enterMarket(fixedLenderWETH.address);
 
     const [collateral] = await auditor.accountLiquidity(user.address, AddressZero, 0);
-    const { collateralFactor: collateralFactorDAI } = await auditor.markets(fixedLenderDAI.address);
-    const { collateralFactor: collateralFactorWETH } = await auditor.markets(fixedLenderWETH.address);
-    const collateralDAI = amountDAI.mul(collateralFactorDAI).div(parseUnits("1"));
-    const collateralETH = amountETH.mul(collateralFactorWETH).div(parseUnits("1")).mul(1_000);
+    const { adjustFactor: adjustFactorDAI } = await auditor.markets(fixedLenderDAI.address);
+    const { adjustFactor: adjustFactorWETH } = await auditor.markets(fixedLenderWETH.address);
+    const collateralDAI = amountDAI.mul(adjustFactorDAI).div(parseUnits("1"));
+    const collateralETH = amountETH.mul(adjustFactorWETH).div(parseUnits("1")).mul(1_000);
     expect(collateral).to.equal(collateralDAI.add(collateralETH));
   });
 
@@ -156,9 +156,9 @@ describe("Auditor from User Space", function () {
   });
 
   it("Get data from correct market", async () => {
-    const { symbol, name, isListed, collateralFactor, decimals } = await auditor.markets(fixedLenderDAI.address);
+    const { symbol, name, isListed, adjustFactor, decimals } = await auditor.markets(fixedLenderDAI.address);
 
-    expect(collateralFactor).to.equal(parseUnits("0.8"));
+    expect(adjustFactor).to.equal(parseUnits("0.8"));
     expect(symbol).to.equal("DAI");
     expect(name).to.equal("DAI");
     expect(isListed).to.equal(true);

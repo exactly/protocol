@@ -75,7 +75,7 @@ describe("Liquidity computations", function () {
         await fixedLenderDAI.deposit(parseUnits("1000"), laura.address);
       });
 
-      it("THEN lauras liquidity is collateralRate*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
+      it("THEN lauras liquidity is adjustFactor*collateral -  0.8*1000 == 800, AND she has no shortfall", async () => {
         const [collateral, debt] = await auditor.accountLiquidity(laura.address, AddressZero, 0);
 
         expect(collateral).to.equal(parseUnits("800"));
@@ -241,7 +241,7 @@ describe("Liquidity computations", function () {
   describe("support for tokens with different decimals", () => {
     describe("GIVEN liquidity on the USDC pool ", () => {
       beforeEach(async () => {
-        await timelockExecute(multisig, auditor, "setCollateralFactor", [fixedLenderWBTC.address, parseUnits("0.6")]);
+        await timelockExecute(multisig, auditor, "setAdjustFactor", [fixedLenderWBTC.address, parseUnits("0.6")]);
         await fixedLenderUSDC.depositAtMaturity(
           futurePools(1)[0],
           parseUnits("3", 6),

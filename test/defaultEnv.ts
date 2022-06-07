@@ -83,7 +83,7 @@ export class DefaultEnv {
     // We have to enable all the FixedLenders in the auditor
     await Promise.all(
       Array.from(mockTokens.keys()).map(async (tokenName) => {
-        const { decimals, collateralRate, usdPrice } = mockTokens!.get(tokenName)!;
+        const { decimals, adjustFactor, usdPrice } = mockTokens!.get(tokenName)!;
         const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
         let underlyingToken: Contract;
         if (tokenName === "WETH") {
@@ -118,7 +118,7 @@ export class DefaultEnv {
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(fixedLender.address, usdPrice);
         // Enable Market for FixedLender-TOKEN by setting the collateral rates
-        await auditor.enableMarket(fixedLender.address, collateralRate, tokenName, tokenName, decimals);
+        await auditor.enableMarket(fixedLender.address, adjustFactor, tokenName, tokenName, decimals);
 
         // Handy maps with all the fixedLenders and underlying tokens
         fixedLenderContracts.set(tokenName, fixedLender);
@@ -271,14 +271,14 @@ export class DefaultEnv {
 
   public async enableMarket(
     fixedLender: string,
-    collateralFactor: BigNumber,
+    adjustFactor: BigNumber,
     symbol: string,
     tokenName: string,
     decimals: number,
   ) {
     return this.auditor
       .connect(this.currentWallet)
-      .enableMarket(fixedLender, collateralFactor, symbol, tokenName, decimals);
+      .enableMarket(fixedLender, adjustFactor, symbol, tokenName, decimals);
   }
 
   public async setLiquidationIncentive(incentive: string) {

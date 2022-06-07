@@ -32,7 +32,7 @@ contract Previewer {
     uint256 smartPoolShares;
     uint256 oraclePrice;
     uint128 penaltyRate;
-    uint128 collateralFactor;
+    uint128 adjustFactor;
     uint8 decimals;
     bool isCollateral;
   }
@@ -167,7 +167,7 @@ contract Previewer {
     for (uint256 i = 0; i < maxValue; ++i) {
       data[i].fixedLender = auditor.allMarkets(i);
       data[i].assetSymbol = data[i].fixedLender.asset().symbol();
-      (, , data[i].collateralFactor, data[i].decimals, , ) = auditor.markets(data[i].fixedLender);
+      (, , data[i].adjustFactor, data[i].decimals, , ) = auditor.markets(data[i].fixedLender);
       (data[i].smartPoolAssets, ) = data[i].fixedLender.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
       data[i].smartPoolShares = data[i].fixedLender.convertToShares(data[i].smartPoolAssets);
       data[i].oraclePrice = auditor.oracle().getAssetPrice(data[i].fixedLender);
