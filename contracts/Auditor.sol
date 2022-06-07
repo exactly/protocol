@@ -43,13 +43,13 @@ contract Auditor is AccessControl {
   /// @notice Event emitted when a user enters a market to use his deposit as collateral for a loan.
   /// @param fixedLender address of the market that the user entered.
   /// @param account address of the user that just entered a market.
-  event MarketEntered(FixedLender indexed fixedLender, address account);
+  event MarketEntered(FixedLender indexed fixedLender, address indexed account);
 
   /// @notice Event emitted when a user leaves a market. Means that they would stop using their deposit as collateral
   /// and won't ask for any loans in this market.
   /// @param fixedLender address of the market that the user just left.
   /// @param account address of the user that just left a market.
-  event MarketExited(FixedLender indexed fixedLender, address account);
+  event MarketExited(FixedLender indexed fixedLender, address indexed account);
 
   /// @notice Event emitted when a new Oracle has been set.
   /// @param newOracle address of the new oracle that is used to calculate liquidity.

@@ -13,8 +13,8 @@ contract AuditorTest is Test {
   MockFixedLender internal fixedLender;
 
   event MarketListed(FixedLender fixedLender);
-  event MarketEntered(FixedLender indexed fixedLender, address account);
-  event MarketExited(FixedLender indexed fixedLender, address account);
+  event MarketEntered(FixedLender indexed fixedLender, address indexed account);
+  event MarketExited(FixedLender indexed fixedLender, address indexed account);
 
   function setUp() external {
     auditor = new Auditor(ExactlyOracle(address(new MockOracle())), 1.1e18);
