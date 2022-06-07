@@ -30,19 +30,19 @@ contract AuditorTest is Test {
     (
       string memory symbol,
       string memory name,
-      bool isListed,
       uint256 collateralFactor,
       uint8 decimals,
-      FixedLender lender
-    ) = auditor.getMarketData(FixedLender(address(fixedLender)));
+      uint8 index,
+      bool isListed
+    ) = auditor.markets(FixedLender(address(fixedLender)));
     FixedLender[] memory markets = auditor.getAllMarkets();
     assertTrue(isListed);
     assertEq(name, "x");
     assertEq(symbol, "X");
+    assertEq(index, 0);
     assertEq(decimals, 18);
     assertEq(collateralFactor, 0.8e18);
     assertEq(markets.length, 1);
-    assertEq(address(lender), address(fixedLender));
     assertEq(address(markets[0]), address(fixedLender));
   }
 

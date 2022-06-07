@@ -105,7 +105,7 @@ const func: DeployFunction = async ({
         token,
         decimals,
       ]);
-    } else if (!(await auditor.getMarketData(fixedLender.address))[3].eq(underlyingCollateralFactor)) {
+    } else if (!(await auditor.markets(fixedLender.address)).collateralFactor.eq(underlyingCollateralFactor)) {
       await executeOrPropose(deployer, timelockController, auditor, "setCollateralFactor", [
         fixedLender.address,
         underlyingCollateralFactor,
