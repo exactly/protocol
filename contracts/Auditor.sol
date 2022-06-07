@@ -21,7 +21,7 @@ contract Auditor is AccessControl {
   struct Market {
     string symbol;
     string name;
-    uint128 collateralFactor;
+    uint128 adjustFactor;
     uint8 decimals;
     uint8 index;
     bool isListed;
@@ -59,10 +59,10 @@ contract Auditor is AccessControl {
   /// @param newLiquidationIncentive represented with 1e18 decimals.
   event LiquidationIncentiveUpdated(uint256 newLiquidationIncentive);
 
-  /// @notice Event emitted when a collateral factor is changed by admin.
-  /// @param fixedLender address of the market that has a new collateral factor.
-  /// @param newCollateralFactor collateral factor for the underlying asset.
-  event CollateralFactorUpdated(FixedLender indexed fixedLender, uint256 newCollateralFactor);
+  /// @notice Event emitted when a adjust factor is changed by admin.
+  /// @param fixedLender address of the market that has a new adjust factor.
+  /// @param newAdjustFactor adjust factor for the underlying asset.
+  event AdjustFactorUpdated(FixedLender indexed fixedLender, uint256 newAdjustFactor);
 
   constructor(ExactlyOracle _priceOracle, uint256 _liquidationIncentive) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -128,13 +128,13 @@ contract Auditor is AccessControl {
   /// @notice Enables a certain FixedLender market.
   /// @dev Enabling more than 256 markets will cause an overflow when casting market index to uint8.
   /// @param fixedLender address to add to the protocol.
-  /// @param collateralFactor fixedLender's collateral factor for the underlying asset.
+  /// @param adjustFactor fixedLender's adjust factor for the underlying asset.
   /// @param symbol symbol of the market's underlying asset.
   /// @param name name of the market's underlying asset.
   /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
     FixedLender fixedLender,
-    uint128 collateralFactor,
+    uint128 adjustFactor,
     string memory symbol,
     string memory name,
     uint8 decimals
@@ -145,7 +145,7 @@ contract Auditor is AccessControl {
 
     markets[fixedLender] = Market({
       isListed: true,
-      collateralFactor: collateralFactor,
+      adjustFactor: adjustFactor,
       symbol: symbol,
       name: name,
       decimals: decimals,
@@ -157,18 +157,15 @@ contract Auditor is AccessControl {
     emit MarketListed(fixedLender);
   }
 
-  /// @notice Sets the collateral factor for a certain fixedLender.
+  /// @notice Sets the adjust factor for a certain fixedLender.
   /// @dev Market should be listed and value can only be set between 90% and 30%.
-  /// @param fixedLender address of the market to change collateral factor for.
-  /// @param collateralFactor collateral factor for the underlying asset.
-  function setCollateralFactor(FixedLender fixedLender, uint128 collateralFactor)
-    external
-    onlyRole(DEFAULT_ADMIN_ROLE)
-  {
+  /// @param fixedLender address of the market to change adjust factor for.
+  /// @param adjustFactor adjust factor for the underlying asset.
+  function setAdjustFactor(FixedLender fixedLender, uint128 adjustFactor) external onlyRole(DEFAULT_ADMIN_ROLE) {
     validateMarketListed(fixedLender);
-    if (collateralFactor > 0.9e18 || collateralFactor < 0.3e18) revert InvalidParameter();
-    markets[fixedLender].collateralFactor = collateralFactor;
-    emit CollateralFactorUpdated(fixedLender, collateralFactor);
+    if (adjustFactor > 0.9e18 || adjustFactor < 0.3e18) revert InvalidParameter();
+    markets[fixedLender].adjustFactor = adjustFactor;
+    emit AdjustFactorUpdated(fixedLender, adjustFactor);
   }
 
   /// @notice Validates that the current state of the position and system are valid (liquidity).
@@ -288,7 +285,7 @@ contract Auditor is AccessControl {
   /// @param account wallet which the liquidity will be calculated.
   /// @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args).
   /// @param withdrawAmount amount to simulate withdraw.
-  /// @return sumCollateral sum of all collateral, already multiplied by each collateral factor. denominated in usd.
+  /// @return sumCollateral sum of all collateral, already multiplied by each adjust factor. denominated in usd.
   /// @return sumDebt sum of all debt. denominated in usd.
   function accountLiquidity(
     address account,
@@ -304,7 +301,7 @@ contract Auditor is AccessControl {
       if ((marketMap & (1 << i)) != 0) {
         FixedLender market = allMarkets[i];
         uint256 decimals = markets[market].decimals;
-        uint256 collateralFactor = markets[market].collateralFactor;
+        uint256 adjustFactor = markets[market].adjustFactor;
 
         // Read the balances
         (vars.balance, vars.borrowBalance) = market.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
@@ -313,7 +310,7 @@ contract Auditor is AccessControl {
         vars.oraclePrice = oracle.getAssetPrice(market);
 
         // We sum all the collateral prices
-        sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(collateralFactor);
+        sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
 
         // We sum all the debt
         sumDebt += vars.borrowBalance.mulDivDown(vars.oraclePrice, 10**decimals);
@@ -323,7 +320,7 @@ contract Auditor is AccessControl {
           // Calculate the effects of redeeming fixedLenders
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
-            sumDebt += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(collateralFactor);
+            sumDebt += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
           }
         }
       }

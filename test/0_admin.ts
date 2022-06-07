@@ -51,8 +51,8 @@ describe("Auditor Admin", function () {
       await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.be.revertedWith("AccessControl");
     });
 
-    it("WHEN trying to set collateral factor, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setCollateralFactor(fixedLenderDAI.address, 1)).to.be.revertedWith("AccessControl");
+    it("WHEN trying to set adjust factor, THEN the transaction should revert with Access Control", async () => {
+      await expect(auditor.setAdjustFactor(fixedLenderDAI.address, 1)).to.be.revertedWith("AccessControl");
     });
   });
 
@@ -115,11 +115,11 @@ describe("Auditor Admin", function () {
       expect(await auditor.liquidationIncentive()).to.eq(parseUnits("1.05"));
     });
 
-    it("WHEN setting collateral factor, THEN the auditor should emit CollateralFactorUpdated event", async () => {
-      await expect(auditor.setCollateralFactor(fixedLenderDAI.address, parseUnits("0.7")))
-        .to.emit(auditor, "CollateralFactorUpdated")
+    it("WHEN setting adjust factor, THEN the auditor should emit AdjustFactorUpdated event", async () => {
+      await expect(auditor.setAdjustFactor(fixedLenderDAI.address, parseUnits("0.7")))
+        .to.emit(auditor, "AdjustFactorUpdated")
         .withArgs(fixedLenderDAI.address, parseUnits("0.7"));
-      expect((await auditor.markets(fixedLenderDAI.address)).collateralFactor).to.equal(parseUnits("0.7"));
+      expect((await auditor.markets(fixedLenderDAI.address)).adjustFactor).to.equal(parseUnits("0.7"));
     });
   });
 });

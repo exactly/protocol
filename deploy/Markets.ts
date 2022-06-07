@@ -9,7 +9,7 @@ import grantRole from "./.utils/grantRole";
 const func: DeployFunction = async ({
   config: {
     finance: {
-      collateralFactor,
+      adjustFactor,
       penaltyRatePerDay,
       smartPoolReserveFactor,
       dampSpeed: { up, down },
@@ -96,19 +96,19 @@ const func: DeployFunction = async ({
       ]);
     }
 
-    const underlyingCollateralFactor = parseUnits(String(collateralFactor[token] ?? collateralFactor.default));
+    const underlyingAdjustFactor = parseUnits(String(adjustFactor[token] ?? adjustFactor.default));
     if (!(await auditor.getAllMarkets()).includes(fixedLender.address)) {
       await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
         fixedLender.address,
-        underlyingCollateralFactor,
+        underlyingAdjustFactor,
         symbol,
         token,
         decimals,
       ]);
-    } else if (!(await auditor.markets(fixedLender.address)).collateralFactor.eq(underlyingCollateralFactor)) {
-      await executeOrPropose(deployer, timelockController, auditor, "setCollateralFactor", [
+    } else if (!(await auditor.markets(fixedLender.address)).adjustFactor.eq(underlyingAdjustFactor)) {
+      await executeOrPropose(deployer, timelockController, auditor, "setAdjustFactor", [
         fixedLender.address,
-        underlyingCollateralFactor,
+        underlyingAdjustFactor,
       ]);
     }
 

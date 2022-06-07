@@ -181,20 +181,18 @@ describe("Validations", function () {
     it("WHEN trying to set the liquidationIncentive with less than 5%", async () => {
       await expect(auditor.setLiquidationIncentive(parseUnits("1.0499"))).to.be.revertedWith("InvalidParameter()");
     });
-    it("WHEN trying to set the collateralFactor with more than 90%", async () => {
-      await expect(auditor.setCollateralFactor(fixedLender.address, parseUnits("0.91"))).to.be.revertedWith(
+    it("WHEN trying to set the adjustFactor with more than 90%", async () => {
+      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.91"))).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
-    it("WHEN trying to set the collateralFactor with less than 30%", async () => {
-      await expect(auditor.setCollateralFactor(fixedLender.address, parseUnits("0.29"))).to.be.revertedWith(
+    it("WHEN trying to set the adjustFactor with less than 30%", async () => {
+      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.29"))).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
-    it("WHEN trying to set the collateralFactor with an unlisted fixedLender", async () => {
-      await expect(auditor.setCollateralFactor(user.address, parseUnits("0.3"))).to.be.revertedWith(
-        "MarketNotListed()",
-      );
+    it("WHEN trying to set the adjustFactor with an unlisted fixedLender", async () => {
+      await expect(auditor.setAdjustFactor(user.address, parseUnits("0.3"))).to.be.revertedWith("MarketNotListed()");
     });
   });
   describe("Configurable values: GIVEN a valid configurable value, THEN it should not revert", () => {
@@ -270,14 +268,14 @@ describe("Validations", function () {
     it("WHEN trying to set the liquidationIncentive with an intermediate value (10%)", async () => {
       await expect(auditor.setLiquidationIncentive(parseUnits("1.1"))).to.not.be.reverted;
     });
-    it("WHEN trying to set the collateralFactor with 30%", async () => {
-      await expect(auditor.setCollateralFactor(fixedLender.address, parseUnits("0.3"))).to.not.be.reverted;
+    it("WHEN trying to set the adjustFactor with 30%", async () => {
+      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.3"))).to.not.be.reverted;
     });
-    it("WHEN trying to set the collateralFactor with 90%", async () => {
-      await expect(auditor.setCollateralFactor(fixedLender.address, parseUnits("0.9"))).to.not.be.reverted;
+    it("WHEN trying to set the adjustFactor with 90%", async () => {
+      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.9"))).to.not.be.reverted;
     });
-    it("WHEN trying to set the collateralFactor with an intermediate value (60%)", async () => {
-      await expect(auditor.setCollateralFactor(fixedLender.address, parseUnits("0.6"))).to.not.be.reverted;
+    it("WHEN trying to set the adjustFactor with an intermediate value (60%)", async () => {
+      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.6"))).to.not.be.reverted;
     });
   });
 });
