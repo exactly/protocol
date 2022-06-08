@@ -19,8 +19,6 @@ contract Auditor is AccessControl {
 
   // Struct for FixedLender's markets
   struct Market {
-    string symbol;
-    string name;
     uint128 adjustFactor;
     uint8 decimals;
     uint8 index;
@@ -129,14 +127,10 @@ contract Auditor is AccessControl {
   /// @dev Enabling more than 256 markets will cause an overflow when casting market index to uint8.
   /// @param fixedLender address to add to the protocol.
   /// @param adjustFactor fixedLender's adjust factor for the underlying asset.
-  /// @param symbol symbol of the market's underlying asset.
-  /// @param name name of the market's underlying asset.
   /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
     FixedLender fixedLender,
     uint128 adjustFactor,
-    string memory symbol,
-    string memory name,
     uint8 decimals
   ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (fixedLender.auditor() != this) revert AuditorMismatch();
@@ -146,8 +140,6 @@ contract Auditor is AccessControl {
     markets[fixedLender] = Market({
       isListed: true,
       adjustFactor: adjustFactor,
-      symbol: symbol,
-      name: name,
       decimals: decimals,
       index: uint8(allMarkets.length)
     });

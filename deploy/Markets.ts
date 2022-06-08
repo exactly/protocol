@@ -101,8 +101,6 @@ const func: DeployFunction = async ({
       await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
         fixedLender.address,
         underlyingAdjustFactor,
-        symbol,
-        token,
         decimals,
       ]);
     } else if (!(await auditor.markets(fixedLender.address)).adjustFactor.eq(underlyingAdjustFactor)) {

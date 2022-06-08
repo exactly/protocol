@@ -118,7 +118,7 @@ export class DefaultEnv {
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(fixedLender.address, usdPrice);
         // Enable Market for FixedLender-TOKEN by setting the collateral rates
-        await auditor.enableMarket(fixedLender.address, adjustFactor, tokenName, tokenName, decimals);
+        await auditor.enableMarket(fixedLender.address, adjustFactor, decimals);
 
         // Handy maps with all the fixedLenders and underlying tokens
         fixedLenderContracts.set(tokenName, fixedLender);
@@ -269,16 +269,8 @@ export class DefaultEnv {
     return this.mockTokens.get(assetString)!.decimals;
   }
 
-  public async enableMarket(
-    fixedLender: string,
-    adjustFactor: BigNumber,
-    symbol: string,
-    tokenName: string,
-    decimals: number,
-  ) {
-    return this.auditor
-      .connect(this.currentWallet)
-      .enableMarket(fixedLender, adjustFactor, symbol, tokenName, decimals);
+  public async enableMarket(fixedLender: string, adjustFactor: BigNumber, decimals: number) {
+    return this.auditor.connect(this.currentWallet).enableMarket(fixedLender, adjustFactor, decimals);
   }
 
   public async setLiquidationIncentive(incentive: string) {

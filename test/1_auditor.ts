@@ -156,11 +156,9 @@ describe("Auditor from User Space", function () {
   });
 
   it("Get data from correct market", async () => {
-    const { symbol, name, isListed, adjustFactor, decimals } = await auditor.markets(fixedLenderDAI.address);
+    const { isListed, adjustFactor, decimals } = await auditor.markets(fixedLenderDAI.address);
 
     expect(adjustFactor).to.equal(parseUnits("0.8"));
-    expect(symbol).to.equal("DAI");
-    expect(name).to.equal("DAI");
     expect(isListed).to.equal(true);
     expect(decimals).to.equal(18);
   });

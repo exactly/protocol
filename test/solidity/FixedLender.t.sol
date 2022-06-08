@@ -83,7 +83,7 @@ contract FixedLenderTest is Test {
     );
     mockOracle.setPrice(fixedLender, 1e18);
 
-    auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
+    auditor.enableMarket(fixedLender, 0.8e18, 18);
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
@@ -413,7 +413,7 @@ contract FixedLenderTest is Test {
     uint256 maturity = TSUtils.INTERVAL * 2;
     mockToken.approve(address(fixedLenderHarness), 50_000 ether);
     fixedLenderHarness.approve(BOB, 50_000 ether);
-    auditor.enableMarket(fixedLenderHarness, 0.8e18, "DAI", "DAI", 18);
+    auditor.enableMarket(fixedLenderHarness, 0.8e18, 18);
 
     fixedLenderHarness.setSmartPoolAssets(500 ether);
     fixedLenderHarness.setSupply(2000 ether);
@@ -444,7 +444,7 @@ contract FixedLenderTest is Test {
     );
     uint256 maturity = TSUtils.INTERVAL * 2;
     mockToken.approve(address(fixedLenderHarness), 50_000 ether);
-    auditor.enableMarket(fixedLenderHarness, 0.8e18, "DAI", "DAI", 18);
+    auditor.enableMarket(fixedLenderHarness, 0.8e18, 18);
 
     fixedLenderHarness.setSmartPoolAssets(500 ether);
     fixedLenderHarness.setSupply(2000 ether);
@@ -470,7 +470,7 @@ contract FixedLenderTest is Test {
       0,
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
-    auditor.enableMarket(fixedLenderWETH, 1e18, "WETH", "WETH", 18);
+    auditor.enableMarket(fixedLenderWETH, 1e18, 18);
     auditor.enterMarket(fixedLenderWETH);
     weth.approve(address(fixedLenderWETH), 36 ether);
 
@@ -802,7 +802,7 @@ contract FixedLenderTest is Test {
         0,
         PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
       );
-      auditor.enableMarket(newFixedLender, 0.8e18, tokenName, tokenName, 18);
+      auditor.enableMarket(newFixedLender, 0.8e18, 18);
       mockOracle.setPrice(newFixedLender, 1e18);
       mockToken.approve(address(newFixedLender), 50_000 ether);
       mockToken.transfer(BOB, 50_000 ether);
