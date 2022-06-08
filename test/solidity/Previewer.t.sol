@@ -41,7 +41,7 @@ contract PreviewerTest is Test {
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
     mockOracle.setPrice(fixedLender, 1e18);
-    auditor.enableMarket(fixedLender, 0.8e18, "DAI", "DAI", 18);
+    auditor.enableMarket(fixedLender, 0.8e18, 18);
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
@@ -485,7 +485,7 @@ contract PreviewerTest is Test {
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
     mockOracle.setPrice(fixedLenderWETH, 2800e18);
-    auditor.enableMarket(fixedLenderWETH, 0.7e18, "WETH", "WETH", 18);
+    auditor.enableMarket(fixedLenderWETH, 0.7e18, 18);
     mockTokenWETH.approve(address(fixedLenderWETH), 50_000 ether);
 
     fixedLender.deposit(10 ether, address(this));

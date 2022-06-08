@@ -38,9 +38,9 @@ describe("Auditor Admin", function () {
 
   describe("GIVEN a regular user", () => {
     it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
-      await expect(
-        auditor.enableMarket(fixedLenderDAI.address, 0, "DAI", "DAI", await dai.decimals()),
-      ).to.be.revertedWith("AccessControl");
+      await expect(auditor.enableMarket(fixedLenderDAI.address, 0, await dai.decimals())).to.be.revertedWith(
+        "AccessControl",
+      );
     });
 
     it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
@@ -68,9 +68,9 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MARKET_ALREADY_LISTED", async () => {
-      await expect(
-        auditor.enableMarket(fixedLenderDAI.address, 0, "DAI", "DAI", await dai.decimals()),
-      ).to.be.revertedWith("MarketAlreadyListed()");
+      await expect(auditor.enableMarket(fixedLenderDAI.address, 0, await dai.decimals())).to.be.revertedWith(
+        "MarketAlreadyListed()",
+      );
     });
 
     it("WHEN trying to set a new fixedLender with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
@@ -84,9 +84,9 @@ describe("Auditor Admin", function () {
         args: [dai.address, 0, 0, newAuditor.address, AddressZero, 0, 0, { up: 0, down: 0 }],
         from: owner.address,
       });
-      await expect(
-        auditor.enableMarket(fixedLender.address, 0, "Parallel DAI", "Parallel DAI", await dai.decimals()),
-      ).to.be.revertedWith("AuditorMismatch()");
+      await expect(auditor.enableMarket(fixedLender.address, 0, await dai.decimals())).to.be.revertedWith(
+        "AuditorMismatch()",
+      );
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
@@ -101,7 +101,7 @@ describe("Auditor Admin", function () {
         args: [dai.address, 0, 0, auditor.address, AddressZero, 0, 0, { up: 0, down: 0 }],
         from: owner.address,
       });
-      await expect(auditor.enableMarket(fixedLender.address, parseUnits("0.5"), "DAI", "DAI", 18))
+      await expect(auditor.enableMarket(fixedLender.address, parseUnits("0.5"), 18))
         .to.emit(auditor, "MarketListed")
         .withArgs(fixedLender.address);
     });
