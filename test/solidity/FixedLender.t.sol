@@ -3,24 +3,25 @@ pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
+import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
 import { FixedLender, ERC20, PoolAccounting } from "../../contracts/FixedLender.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
-import { MockToken } from "../../contracts/mocks/MockToken.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
 contract FixedLenderTest is Test {
   using FixedPointMathLib for uint256;
-  address internal constant BOB = address(69);
-  address internal constant ALICE = address(70);
 
-  FixedLender internal fixedLender;
+  address internal constant BOB = address(0x69);
+  address internal constant ALICE = address(0x420);
+
   Auditor internal auditor;
-  MockInterestRateModel internal mockInterestRateModel;
   MockOracle internal mockOracle;
+  FixedLender internal fixedLender;
+  MockInterestRateModel internal mockInterestRateModel;
   string[] private tokens = ["DAI", "USDC", "WETH", "WBTC"];
 
   event Transfer(address indexed from, address indexed to, uint256 amount);
@@ -65,14 +66,14 @@ contract FixedLenderTest is Test {
   );
 
   function setUp() external {
-    MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
+    MockERC20 token = new MockERC20("DAI", "DAI", 18);
     mockOracle = new MockOracle();
     auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
     mockInterestRateModel = new MockInterestRateModel(0.1e18);
     mockInterestRateModel.setSPFeeRate(1e17);
 
     fixedLender = new FixedLender(
-      mockToken,
+      token,
       3,
       1e18,
       auditor,
@@ -87,13 +88,14 @@ contract FixedLenderTest is Test {
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
-    mockToken.transfer(BOB, 50_000 ether);
-    mockToken.transfer(ALICE, 50_000 ether);
-    mockToken.approve(address(fixedLender), 50_000 ether);
+    token.mint(BOB, 50_000 ether);
+    token.mint(ALICE, 50_000 ether);
+    token.mint(address(this), 50_000 ether);
+    token.approve(address(fixedLender), 50_000 ether);
     vm.prank(BOB);
-    mockToken.approve(address(fixedLender), 50_000 ether);
+    token.approve(address(fixedLender), 50_000 ether);
     vm.prank(ALICE);
-    mockToken.approve(address(fixedLender), 50_000 ether);
+    token.approve(address(fixedLender), 50_000 ether);
   }
 
   function testDepositToSmartPool() external {
@@ -397,11 +399,11 @@ contract FixedLenderTest is Test {
   }
 
   function testFailRoundingUpAssetsToValidateShortfallWhenTransferringFrom() external {
-    MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
+    MockERC20 token = new MockERC20("DAI", "DAI", 18);
 
     // we deploy a harness fixedlender to be able to set different supply and smartPoolAssets
     FixedLenderHarness fixedLenderHarness = new FixedLenderHarness(
-      mockToken,
+      token,
       12,
       1e18,
       auditor,
@@ -411,7 +413,8 @@ contract FixedLenderTest is Test {
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
     uint256 maturity = TSUtils.INTERVAL * 2;
-    mockToken.approve(address(fixedLenderHarness), 50_000 ether);
+    token.mint(address(this), 50_000 ether);
+    token.approve(address(fixedLenderHarness), 50_000 ether);
     fixedLenderHarness.approve(BOB, 50_000 ether);
     auditor.enableMarket(fixedLenderHarness, 0.8e18, 18);
 
@@ -429,11 +432,11 @@ contract FixedLenderTest is Test {
   }
 
   function testFailRoundingUpAssetsToValidateShortfallWhenTransferring() external {
-    MockToken mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
+    MockERC20 token = new MockERC20("DAI", "DAI", 18);
 
     // we deploy a harness fixedlender to be able to set different supply and smartPoolAssets
     FixedLenderHarness fixedLenderHarness = new FixedLenderHarness(
-      mockToken,
+      token,
       12,
       1e18,
       auditor,
@@ -443,7 +446,8 @@ contract FixedLenderTest is Test {
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
     uint256 maturity = TSUtils.INTERVAL * 2;
-    mockToken.approve(address(fixedLenderHarness), 50_000 ether);
+    token.mint(address(this), 50_000 ether);
+    token.approve(address(fixedLenderHarness), 50_000 ether);
     auditor.enableMarket(fixedLenderHarness, 0.8e18, 18);
 
     fixedLenderHarness.setSmartPoolAssets(500 ether);
@@ -459,7 +463,7 @@ contract FixedLenderTest is Test {
   }
 
   function testCrossMaturityLiquidation() external {
-    MockToken weth = new MockToken("WETH", "WETH", 18, 36 ether);
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     FixedLender fixedLenderWETH = new FixedLender(
       weth,
       12,
@@ -472,6 +476,7 @@ contract FixedLenderTest is Test {
     );
     auditor.enableMarket(fixedLenderWETH, 1e18, 18);
     auditor.enterMarket(fixedLenderWETH);
+    weth.mint(address(this), 36 ether);
     weth.approve(address(fixedLenderWETH), 36 ether);
 
     mockInterestRateModel.setBorrowRate(0);
@@ -791,9 +796,9 @@ contract FixedLenderTest is Test {
     for (uint256 i = 0; i < tokens.length; i++) {
       string memory tokenName = tokens[i];
 
-      MockToken mockToken = new MockToken(tokenName, tokenName, 18, 150_000 ether);
+      MockERC20 token = new MockERC20(tokenName, tokenName, 18);
       FixedLender newFixedLender = new FixedLender(
-        mockToken,
+        token,
         3,
         1e18,
         auditor,
@@ -804,10 +809,11 @@ contract FixedLenderTest is Test {
       );
       auditor.enableMarket(newFixedLender, 0.8e18, 18);
       mockOracle.setPrice(newFixedLender, 1e18);
-      mockToken.approve(address(newFixedLender), 50_000 ether);
-      mockToken.transfer(BOB, 50_000 ether);
+      token.mint(BOB, 50_000 ether);
+      token.mint(address(this), 50_000 ether);
+      token.approve(address(newFixedLender), 50_000 ether);
       vm.prank(BOB);
-      mockToken.approve(address(newFixedLender), 50_000 ether);
+      token.approve(address(newFixedLender), 50_000 ether);
 
       fixedLenders[i] = newFixedLender;
 

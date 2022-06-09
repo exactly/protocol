@@ -1,9 +1,8 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, FixedLender, MockChainlinkFeedRegistry, MockToken, WETH } from "../types";
+import type { Auditor, FixedLender, MockERC20, MockPriceFeed, WETH } from "../types";
 import futurePools from "./utils/futurePools";
-import USD_ADDRESS from "./utils/USD_ADDRESS";
 
 const {
   constants: { AddressZero },
@@ -14,10 +13,10 @@ const {
 } = ethers;
 
 describe("Auditor from User Space", function () {
-  let dai: MockToken;
+  let dai: MockERC20;
   let weth: WETH;
   let auditor: Auditor;
-  let feedRegistry: MockChainlinkFeedRegistry;
+  let priceFeedDAI: MockPriceFeed;
   let fixedLenderDAI: FixedLender;
   let fixedLenderWETH: FixedLender;
 
@@ -32,14 +31,14 @@ describe("Auditor from User Space", function () {
   beforeEach(async () => {
     await deployments.fixture(["Markets"]);
 
-    dai = await getContract<MockToken>("DAI", user);
+    dai = await getContract<MockERC20>("DAI", user);
     weth = await getContract<WETH>("WETH", user);
     auditor = await getContract<Auditor>("Auditor", user);
-    feedRegistry = await getContract<MockChainlinkFeedRegistry>("FeedRegistry", user);
+    priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", user);
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", user);
     fixedLenderWETH = await getContract<FixedLender>("FixedLenderWETH", user);
 
-    await dai.connect(owner).transfer(user.address, parseUnits("100000"));
+    await dai.connect(owner).mint(user.address, parseUnits("100000"));
     await weth.deposit({ value: parseUnits("10") });
     await weth.approve(fixedLenderWETH.address, parseUnits("10"));
   });
@@ -77,7 +76,7 @@ describe("Auditor from User Space", function () {
     await dai.approve(fixedLenderDAI.address, 666);
     await fixedLenderDAI.deposit(666, user.address);
     await auditor.enterMarket(fixedLenderDAI.address);
-    await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
+    await priceFeedDAI.setPrice(0);
     await expect(
       fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 1, 1, user.address, user.address),
     ).to.be.revertedWith("InvalidPrice()");
@@ -107,7 +106,7 @@ describe("Auditor from User Space", function () {
   });
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
-    await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
+    await priceFeedDAI.setPrice(0);
     await expect(
       auditor.liquidateCalculateSeizeAmount(fixedLenderDAI.address, fixedLenderDAI.address, 100),
     ).to.be.revertedWith("InvalidPrice()");
@@ -151,7 +150,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.depositAtMaturity(futurePools(1)[0], 100, 100, user.address);
     // we make it count as collateral (DAI)
     await auditor.enterMarket(fixedLenderDAI.address);
-    await feedRegistry.setPrice(dai.address, USD_ADDRESS, 0);
+    await priceFeedDAI.setPrice(0);
     await expect(auditor.accountLiquidity(user.address, AddressZero, 0)).to.revertedWith("InvalidPrice()");
   });
 

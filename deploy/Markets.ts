@@ -1,7 +1,6 @@
 import type { BigNumber } from "ethers";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, ERC20, ExactlyOracle, FixedLender, InterestRateModel, TimelockController } from "../types";
-import { BTC_ADDRESS, ETH_ADDRESS } from "./ExactlyOracle";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import grantRole from "./.utils/grantRole";
@@ -19,7 +18,6 @@ const func: DeployFunction = async ({
   },
   ethers: {
     utils: { parseUnits },
-    constants: { AddressZero },
     getContract,
     getSigner,
   },
@@ -43,21 +41,19 @@ const func: DeployFunction = async ({
   ] as [string, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
   const fixedLenderArgs = [maxFuturePools, parseUnits(String(accumulatedEarningsSmoothFactor))] as [number, BigNumber];
 
-  for (const token of config.tokens) {
-    const [{ address: tokenAddress }, tokenContract] = await Promise.all([get(token), getContract<ERC20>(token)]);
-    const [symbol, decimals] = await Promise.all([tokenContract.symbol(), tokenContract.decimals()]);
-
+  for (const symbol of config.tokens) {
+    const token = await getContract<ERC20>(symbol);
     const fixedLenderName = `FixedLender${symbol}`;
     await deploy(fixedLenderName, {
       skipIfAlreadyDeployed: true,
       contract: "FixedLender",
-      args: [tokenAddress, ...fixedLenderArgs, auditor.address, ...poolAccountingArgs],
+      args: [token.address, ...fixedLenderArgs, auditor.address, ...poolAccountingArgs],
       from: deployer,
       log: true,
     });
     const fixedLender = await getContract<FixedLender>(fixedLenderName, await getSigner(deployer));
 
-    if (token === "WETH") {
+    if (symbol === "WETH") {
       await deploy("FixedLenderETHRouter", { args: [fixedLender.address], from: deployer, log: true });
     }
 
@@ -89,19 +85,20 @@ const func: DeployFunction = async ({
       await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [poolAccountingArgs[3]]);
     }
 
-    if ((await exactlyOracle.assetsSources(fixedLender.address)) === AddressZero) {
+    const { address: priceFeedAddress } = await get(`PriceFeed${symbol}`);
+    if ((await exactlyOracle.assetsSources(fixedLender.address)) !== priceFeedAddress) {
       await executeOrPropose(deployer, timelockController, exactlyOracle, "setAssetSource", [
         fixedLender.address,
-        { WBTC: BTC_ADDRESS, WETH: ETH_ADDRESS }[token] ?? (await get(token)).address,
+        priceFeedAddress,
       ]);
     }
 
-    const underlyingAdjustFactor = parseUnits(String(adjustFactor[token] ?? adjustFactor.default));
+    const underlyingAdjustFactor = parseUnits(String(adjustFactor[symbol] ?? adjustFactor.default));
     if (!(await auditor.getAllMarkets()).includes(fixedLender.address)) {
       await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
         fixedLender.address,
         underlyingAdjustFactor,
-        decimals,
+        await token.decimals(),
       ]);
     } else if (!(await auditor.markets(fixedLender.address)).adjustFactor.eq(underlyingAdjustFactor)) {
       await executeOrPropose(deployer, timelockController, auditor, "setAdjustFactor", [

@@ -29,9 +29,9 @@ describe("Smart Pool", function () {
     fixedLenderWBTC = exactlyEnv.getFixedLender("WBTC");
 
     // From Owner to User
-    await underlyingTokenDAI.transfer(bob.address, bobBalancePre);
-    await underlyingTokenWBTC.transfer(bob.address, parseUnits("1", 8));
-    await underlyingTokenDAI.transfer(john.address, johnBalancePre);
+    await underlyingTokenDAI.mint(bob.address, bobBalancePre);
+    await underlyingTokenWBTC.mint(bob.address, parseUnits("1", 8));
+    await underlyingTokenDAI.mint(john.address, johnBalancePre);
   });
 
   describe("GIVEN bob and john have 2000DAI in balance, AND deposit 1000DAI each", () => {

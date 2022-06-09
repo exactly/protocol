@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { BigNumber, ContractTransaction } from "ethers";
-import type { Auditor, FixedLender, InterestRateModel, MockToken, WETH } from "../types";
+import type { Auditor, FixedLender, InterestRateModel, MockERC20, WETH } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 import { decodeMaturities } from "./exactlyUtils";
@@ -16,7 +16,7 @@ const {
 } = ethers;
 
 describe("FixedLender", function () {
-  let dai: MockToken;
+  let dai: MockERC20;
   let weth: WETH;
   let auditor: Auditor;
   let fixedLenderDAI: FixedLender;
@@ -36,7 +36,7 @@ describe("FixedLender", function () {
   beforeEach(async () => {
     await deployments.fixture(["Markets"]);
 
-    dai = await getContract<MockToken>("DAI", maria);
+    dai = await getContract<MockERC20>("DAI", maria);
     weth = await getContract<WETH>("WETH", maria);
     auditor = await getContract<Auditor>("Auditor", maria);
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", maria);
@@ -48,7 +48,7 @@ describe("FixedLender", function () {
     await timelockExecute(owner, interestRateModel, "setSPFeeRate", [0]);
     await timelockExecute(owner, fixedLenderDAI, "setSmartPoolReserveFactor", [0]);
     for (const signer of [maria, john]) {
-      await dai.connect(owner).transfer(signer.address, parseUnits("10000"));
+      await dai.connect(owner).mint(signer.address, parseUnits("10000"));
       await dai.connect(signer).approve(fixedLenderDAI.address, parseUnits("10000"));
       await weth.deposit({ value: parseUnits("10") });
       await weth.approve(fixedLenderWETH.address, parseUnits("10"));
