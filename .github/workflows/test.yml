@@ -16,7 +16,7 @@ jobs:
           node-version: 16
           cache: npm
       - run: export FOUNDRY_DIR=$HOME/.local && curl -L https://foundry.paradigm.xyz | bash && foundryup
-      - run: npm install
+      - run: npm install --legacy-peer-deps
       - run: npm run lint
       - run: npm run coverage
       - uses: codecov/codecov-action@v3
