@@ -35,6 +35,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Auditor"];
-func.dependencies = ["ExactlyOracle"];
+func.dependencies = ["ExactlyOracle", "TimelockController"];
 
 export default func;

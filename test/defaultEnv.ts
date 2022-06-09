@@ -80,6 +80,8 @@ export class DefaultEnv {
     const auditor = await Auditor.deploy(oracle.address, parseUnits("1.1"));
     await auditor.deployed();
 
+    const [owner] = await ethers.getSigners();
+
     // We have to enable all the FixedLenders in the auditor
     await Promise.all(
       Array.from(mockTokens.keys()).map(async (tokenName) => {
@@ -92,14 +94,10 @@ export class DefaultEnv {
           await underlyingToken.deployed();
           await underlyingToken.deposit({ value: totalSupply });
         } else {
-          const MockToken = await ethers.getContractFactory("MockToken");
-          underlyingToken = await MockToken.deploy(
-            "Fake " + tokenName,
-            "F" + tokenName,
-            decimals,
-            totalSupply.toString(),
-          );
+          const MockERC20 = await ethers.getContractFactory("MockERC20");
+          underlyingToken = await MockERC20.deploy("Fake " + tokenName, "F" + tokenName, decimals);
           await underlyingToken.deployed();
+          await underlyingToken.mint(owner.address, totalSupply);
         }
 
         const FixedLender = await ethers.getContractFactory("FixedLender");
@@ -125,8 +123,6 @@ export class DefaultEnv {
         underlyingContracts.set(tokenName, underlyingToken);
       }),
     );
-
-    const [owner] = await ethers.getSigners();
 
     return new DefaultEnv(
       oracle,

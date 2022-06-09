@@ -20,15 +20,14 @@ const config: Config = {
     },
     kovan: {
       tokens: ["DAI", "WETH"],
-      timelockDelay: 86_400 * 7,
       url: env.KOVAN_NODE ?? "https://kovan.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
     },
     rinkeby: {
-      tokens: ["DAI", "WETH"],
+      tokens: ["DAI", "WETH", "USDC", "WBTC"],
       timelockDelay: 60 * 5,
-      url: env.RINKEBY_NODE ?? "https://rinkeby.infura.io/",
       gnosisSafeTxService: "https://safe-transaction.rinkeby.gnosis.io/",
+      url: env.RINKEBY_NODE ?? "https://rinkeby.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
     },
   },

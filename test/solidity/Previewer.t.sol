@@ -3,12 +3,12 @@ pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
+import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
-import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
-import { MockToken } from "../../contracts/mocks/MockToken.sol";
-import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { FixedLender, PoolAccounting } from "../../contracts/FixedLender.sol";
+import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
+import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
+import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { Previewer } from "../../contracts/periphery/Previewer.sol";
 import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
@@ -19,19 +19,19 @@ contract PreviewerTest is Test {
 
   FixedLender internal fixedLender;
   Previewer internal previewer;
-  MockToken internal mockToken;
+  MockERC20 internal token;
   Auditor internal auditor;
   MockOracle internal mockOracle;
   InterestRateModel internal interestRateModel;
 
   function setUp() external {
-    mockToken = new MockToken("DAI", "DAI", 18, 150_000 ether);
+    token = new MockERC20("DAI", "DAI", 18);
     mockOracle = new MockOracle();
     auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
     interestRateModel = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.1e18);
 
     fixedLender = new FixedLender(
-      mockToken,
+      token,
       12,
       1e18,
       auditor,
@@ -45,13 +45,14 @@ contract PreviewerTest is Test {
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
-    mockToken.transfer(BOB, 50_000 ether);
-    mockToken.transfer(ALICE, 50_000 ether);
-    mockToken.approve(address(fixedLender), 50_000 ether);
+    token.mint(BOB, 50_000 ether);
+    token.mint(ALICE, 50_000 ether);
+    token.mint(address(this), 50_000 ether);
+    token.approve(address(fixedLender), 50_000 ether);
     vm.prank(BOB);
-    mockToken.approve(address(fixedLender), 50_000 ether);
+    token.approve(address(fixedLender), 50_000 ether);
     vm.prank(ALICE);
-    mockToken.approve(address(fixedLender), 50_000 ether);
+    token.approve(address(fixedLender), 50_000 ether);
 
     previewer = new Previewer(auditor);
   }
@@ -244,9 +245,9 @@ contract PreviewerTest is Test {
 
     vm.warp(3 days);
     uint256 repayAssetsPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, 1 ether, address(this));
-    uint256 balanceBeforeRepay = mockToken.balanceOf(address(this));
+    uint256 balanceBeforeRepay = token.balanceOf(address(this));
     fixedLender.repayAtMaturity(maturity, 1 ether, 1 ether, address(this));
-    uint256 discountAfterRepay = 1 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
+    uint256 discountAfterRepay = 1 ether - (balanceBeforeRepay - token.balanceOf(address(this)));
 
     assertEq(repayAssetsPreviewed, 1 ether - discountAfterRepay);
   }
@@ -286,26 +287,26 @@ contract PreviewerTest is Test {
 
     vm.warp(3 days);
     uint256 repayAssetsPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, 0.47 ether, address(this));
-    uint256 balanceBeforeRepay = mockToken.balanceOf(address(this));
+    uint256 balanceBeforeRepay = token.balanceOf(address(this));
     fixedLender.repayAtMaturity(maturity, 0.47 ether, 0.47 ether, address(this));
-    uint256 discountAfterRepay = 0.47 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
+    uint256 discountAfterRepay = 0.47 ether - (balanceBeforeRepay - token.balanceOf(address(this)));
     assertEq(repayAssetsPreviewed, 0.47 ether - discountAfterRepay);
 
     vm.warp(5 days);
     repayAssetsPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, 1.1 ether, address(this));
-    balanceBeforeRepay = mockToken.balanceOf(address(this));
+    balanceBeforeRepay = token.balanceOf(address(this));
     fixedLender.repayAtMaturity(maturity, 1.1 ether, 1.1 ether, address(this));
-    discountAfterRepay = 1.1 ether - (balanceBeforeRepay - mockToken.balanceOf(address(this)));
+    discountAfterRepay = 1.1 ether - (balanceBeforeRepay - token.balanceOf(address(this)));
     assertEq(repayAssetsPreviewed, 1.1 ether - discountAfterRepay);
 
     vm.warp(6 days);
     (uint256 bobOwedPrincipal, uint256 bobOwedFee) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
     uint256 totalOwedBob = bobOwedPrincipal + bobOwedFee;
     repayAssetsPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, totalOwedBob, BOB);
-    balanceBeforeRepay = mockToken.balanceOf(BOB);
+    balanceBeforeRepay = token.balanceOf(BOB);
     vm.prank(BOB);
     fixedLender.repayAtMaturity(maturity, totalOwedBob, totalOwedBob, BOB);
-    discountAfterRepay = totalOwedBob - (balanceBeforeRepay - mockToken.balanceOf(BOB));
+    discountAfterRepay = totalOwedBob - (balanceBeforeRepay - token.balanceOf(BOB));
     (bobOwedPrincipal, ) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
     assertEq(repayAssetsPreviewed, totalOwedBob - discountAfterRepay);
     assertEq(bobOwedPrincipal, 0);
@@ -344,9 +345,9 @@ contract PreviewerTest is Test {
 
     vm.warp(3 days);
     uint256 withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, 10 ether);
-    uint256 balanceBeforeWithdraw = mockToken.balanceOf(address(this));
+    uint256 balanceBeforeWithdraw = token.balanceOf(address(this));
     fixedLender.withdrawAtMaturity(maturity, 10 ether, 0.9 ether, address(this), address(this));
-    uint256 feeAfterWithdraw = 10 ether - (mockToken.balanceOf(address(this)) - balanceBeforeWithdraw);
+    uint256 feeAfterWithdraw = 10 ether - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
 
     assertEq(withdrawAssetsPreviewed, 10 ether - feeAfterWithdraw);
   }
@@ -391,16 +392,16 @@ contract PreviewerTest is Test {
 
     vm.warp(3 days);
     uint256 withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, 0.47 ether);
-    uint256 balanceBeforeWithdraw = mockToken.balanceOf(address(this));
+    uint256 balanceBeforeWithdraw = token.balanceOf(address(this));
     fixedLender.withdrawAtMaturity(maturity, 0.47 ether, 0.4 ether, address(this), address(this));
-    uint256 feeAfterWithdraw = 0.47 ether - (mockToken.balanceOf(address(this)) - balanceBeforeWithdraw);
+    uint256 feeAfterWithdraw = 0.47 ether - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
     assertEq(withdrawAssetsPreviewed, 0.47 ether - feeAfterWithdraw);
 
     vm.warp(5 days);
     withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, 1.1 ether);
-    balanceBeforeWithdraw = mockToken.balanceOf(address(this));
+    balanceBeforeWithdraw = token.balanceOf(address(this));
     fixedLender.withdrawAtMaturity(maturity, 1.1 ether, 1 ether, address(this), address(this));
-    feeAfterWithdraw = 1.1 ether - (mockToken.balanceOf(address(this)) - balanceBeforeWithdraw);
+    feeAfterWithdraw = 1.1 ether - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
     assertEq(withdrawAssetsPreviewed, 1.1 ether - feeAfterWithdraw);
 
     vm.warp(6 days);
@@ -410,7 +411,7 @@ contract PreviewerTest is Test {
     );
     uint256 contractPosition = contractPositionPrincipal + contractPositionEarnings;
     withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(fixedLender, maturity, contractPosition);
-    balanceBeforeWithdraw = mockToken.balanceOf(address(this));
+    balanceBeforeWithdraw = token.balanceOf(address(this));
     fixedLender.withdrawAtMaturity(
       maturity,
       contractPosition,
@@ -418,7 +419,7 @@ contract PreviewerTest is Test {
       address(this),
       address(this)
     );
-    feeAfterWithdraw = contractPosition - (mockToken.balanceOf(address(this)) - balanceBeforeWithdraw);
+    feeAfterWithdraw = contractPosition - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
     (contractPositionPrincipal, ) = fixedLender.mpUserSuppliedAmount(maturity, address(this));
 
     assertEq(withdrawAssetsPreviewed, contractPosition - feeAfterWithdraw);
@@ -473,9 +474,9 @@ contract PreviewerTest is Test {
 
   function testAccountsWithIntermediateOperationsReturningAccurateAmounts() external {
     // we deploy a new token for more liquidity combinations
-    MockToken mockTokenWETH = new MockToken("WETH", "WETH", 18, 150_000 ether);
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     FixedLender fixedLenderWETH = new FixedLender(
-      mockTokenWETH,
+      weth,
       12,
       1e18,
       auditor,
@@ -486,7 +487,8 @@ contract PreviewerTest is Test {
     );
     mockOracle.setPrice(fixedLenderWETH, 2800e18);
     auditor.enableMarket(fixedLenderWETH, 0.7e18, 18);
-    mockTokenWETH.approve(address(fixedLenderWETH), 50_000 ether);
+    weth.mint(address(this), 50_000 ether);
+    weth.approve(address(fixedLenderWETH), 50_000 ether);
 
     fixedLender.deposit(10 ether, address(this));
     vm.warp(100 seconds);

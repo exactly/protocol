@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments, network } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, FixedLender, MockToken } from "../types";
+import type { Auditor, FixedLender, MockERC20 } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
@@ -15,7 +15,7 @@ const {
 const { deploy, fixture, get } = deployments;
 
 describe("Auditor Admin", function () {
-  let dai: MockToken;
+  let dai: MockERC20;
   let auditor: Auditor;
   let fixedLenderDAI: FixedLender;
   let laura: SignerWithAddress;
@@ -29,11 +29,11 @@ describe("Auditor Admin", function () {
   beforeEach(async () => {
     await fixture(["Markets"]);
 
-    dai = await getContract<MockToken>("DAI", laura);
+    dai = await getContract<MockERC20>("DAI", laura);
     auditor = await getContract<Auditor>("Auditor", laura);
     fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", laura);
 
-    await dai.connect(owner).transfer(laura.address, "10000");
+    await dai.connect(owner).mint(laura.address, "10000");
   });
 
   describe("GIVEN a regular user", () => {

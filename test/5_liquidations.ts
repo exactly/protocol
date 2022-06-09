@@ -44,8 +44,8 @@ describe("Liquidations", function () {
     wbtc = exactlyEnv.getUnderlying("WBTC");
 
     // From alice to bob
-    await dai.transfer(bob.address, parseUnits("200000"));
-    await dai.transfer(john.address, parseUnits("10000"));
+    await dai.mint(bob.address, parseUnits("200000"));
+    await dai.mint(john.address, parseUnits("10000"));
   });
 
   describe("GIVEN alice deposits USD63k worth of WBTC, USD3k worth of WETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob deposits 65kDAI", () => {
@@ -391,7 +391,7 @@ describe("Liquidations", function () {
         describe("AND GIVEN a DAI liquidity deposit to the smart pool", () => {
           beforeEach(async () => {
             exactlyEnv.switchWallet(john);
-            await dai.transfer(john.address, parseUnits("10000"));
+            await dai.mint(john.address, parseUnits("10000"));
             await exactlyEnv.depositSP("DAI", "10000");
             await eth.connect(john).approve(fixedLenderETH.address, parseUnits("1"));
           });
@@ -422,7 +422,7 @@ describe("Liquidations", function () {
   describe("GIVEN john funds the DAI maturity pool", () => {
     beforeEach(async () => {
       exactlyEnv.switchWallet(john);
-      await dai.transfer(john.address, parseUnits("10000"));
+      await dai.mint(john.address, parseUnits("10000"));
       // we add DAI liquidity to the maturities
       await exactlyEnv.depositMP("DAI", futurePools(1)[0].toNumber(), "1000");
       await exactlyEnv.depositMP("DAI", futurePools(2)[1].toNumber(), "6000");

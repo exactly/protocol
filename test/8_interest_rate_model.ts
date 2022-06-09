@@ -21,9 +21,7 @@ describe("InterestRateModel", () => {
   let snapshot: any;
 
   beforeEach(async () => {
-    exactlyEnv = await DefaultEnv.create({
-      useRealInterestRateModel: true,
-    });
+    exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
     [owner, alice, bob] = await ethers.getSigners();
 
     interestRateModel = exactlyEnv.interestRateModel;
@@ -380,11 +378,11 @@ describe("InterestRateModel", () => {
                 .borrowAtMaturity(secondPoolID, 10000, 100000, owner.address, owner.address);
               await tx;
             });
-            it("THEN the fee didnt round down to zero", async () => {
+            it("THEN the fee didn't round down to zero", async () => {
               const { fee } = (await (await tx).wait()).events.filter((it: any) => it.event === "BorrowAtMaturity")[0]
                 .args;
               expect(fee).to.gt(0);
-              expect(fee).to.lt(21);
+              expect(fee).to.lt(31);
             });
           });
         });

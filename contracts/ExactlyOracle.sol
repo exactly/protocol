@@ -2,55 +2,48 @@
 pragma solidity 0.8.13;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { FeedRegistryInterface } from "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
+import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import { FixedLender } from "./FixedLender.sol";
 
 /// @title ExactlyOracle
-/// @notice Proxy to get the price of an asset from a price source, with Chainlink Feed Registry as the primary option.
+/// @notice Proxy to get the price of an asset from a price source (Chainlink Price Feed Aggregator).
 contract ExactlyOracle is AccessControl {
   /// @notice Auditor's target precision.
   uint256 public constant TARGET_DECIMALS = 18;
-  /// @notice Chainlink's Feed Registry price precision when using USD as the base currency.
+  /// @notice Chainlink's Price Feed precision when using USD as the base currency.
   uint256 public constant ORACLE_DECIMALS = 8;
-  /// @notice USD base currency to be used when fetching prices from Chainlink's Feed Registry.
-  address public constant BASE_CURRENCY = 0x0000000000000000000000000000000000000348;
 
-  mapping(FixedLender => address) public assetsSources;
-  FeedRegistryInterface public chainlinkFeedRegistry;
+  mapping(FixedLender => AggregatorV3Interface) public assetsSources;
   uint256 public immutable maxDelayTime;
 
   /// @notice Emitted when a FixedLender and source is changed by admin.
   /// @param fixedLender address of the asset used to get the price from this oracle.
-  /// @param source address of the asset used to query the price from Chainlink's Feed Registry.
-  event AssetSourceUpdated(FixedLender indexed fixedLender, address indexed source);
+  /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
+  event AssetSourceUpdated(FixedLender indexed fixedLender, AggregatorV3Interface indexed source);
 
   /// @notice Constructor.
-  /// @param chainlinkFeedRegistry_ The address of Chainlink's Feed Registry implementation.
   /// @param maxDelayTime_ The max delay time for Chainlink's prices to be considered as updated.
-  constructor(FeedRegistryInterface chainlinkFeedRegistry_, uint256 maxDelayTime_) {
+  constructor(uint256 maxDelayTime_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    chainlinkFeedRegistry = chainlinkFeedRegistry_;
     maxDelayTime = maxDelayTime_;
   }
 
-  /// @notice Sets the Chainlink Feed Registry source for an asset.
+  /// @notice Sets the Chainlink Price Feed Aggregator source for an asset.
   /// @param fixedLender The FixedLender address of the asset.
-  /// @param source The address of the sources of each asset.
-  function setAssetSource(FixedLender fixedLender, address source) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
+  function setAssetSource(FixedLender fixedLender, AggregatorV3Interface source) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (source.decimals() != ORACLE_DECIMALS) revert InvalidSource();
     assetsSources[fixedLender] = source;
     emit AssetSourceUpdated(fixedLender, source);
   }
 
   /// @notice Gets an asset price by FixedLender.
-  /// @dev If Chainlink's Feed Registry price is <= 0 or the updatedAt time is outdated the call is reverted.
+  /// @dev If Chainlink's asset price is <= 0 or the updatedAt time is outdated the call is reverted.
   /// @param fixedLender The FixedLender address of the asset.
   /// @return The price of the asset scaled to 18-digit decimals.
   function getAssetPrice(FixedLender fixedLender) public view returns (uint256) {
-    (, int256 price, , uint256 updatedAt, ) = chainlinkFeedRegistry.latestRoundData(
-      assetsSources[fixedLender],
-      BASE_CURRENCY
-    );
+    (, int256 price, , uint256 updatedAt, ) = assetsSources[fixedLender].latestRoundData();
     if (price > 0 && updatedAt >= block.timestamp - maxDelayTime) return scaleOraclePriceByDigits(uint256(price));
     else revert InvalidPrice();
   }
@@ -64,4 +57,4 @@ contract ExactlyOracle is AccessControl {
 }
 
 error InvalidPrice();
-error InvalidSources();
+error InvalidSource();
