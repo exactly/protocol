@@ -24,21 +24,21 @@ contract Previewer {
   }
 
   struct MarketAccount {
-    FixedLender fixedLender;
+    FixedLender market;
     string assetSymbol;
-    MaturityPosition[] maturitySupplyPositions;
-    MaturityPosition[] maturityBorrowPositions;
-    uint256 smartPoolAssets;
-    uint256 smartPoolShares;
     uint256 oraclePrice;
     uint128 penaltyRate;
     uint128 adjustFactor;
     uint8 decimals;
+    uint8 maxFuturePools;
     bool isCollateral;
+    uint256 smartPoolShares;
+    uint256 smartPoolAssets;
+    MaturityPosition[] maturitySupplyPositions;
+    MaturityPosition[] maturityBorrowPositions;
   }
 
   struct MaturityBitmap {
-    uint256 encoded;
     uint256 base;
     uint256 packed;
   }
@@ -48,108 +48,102 @@ contract Previewer {
   }
 
   /// @notice Gets the assets plus yield offered by a maturity when depositing a certain amount.
-  /// @param fixedLender address of the market.
+  /// @param market address of the market.
   /// @param maturity maturity date/pool where the assets will be deposited.
   /// @param assets amount of assets that will be deposited.
   /// @return positionAssets amount plus yield that the depositor will receive after maturity.
   function previewDepositAtMaturity(
-    FixedLender fixedLender,
+    FixedLender market,
     uint256 maturity,
     uint256 assets
   ) external view returns (uint256 positionAssets) {
     if (block.timestamp > maturity) revert AlreadyMatured();
 
     PoolLib.MaturityPool memory pool;
-    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = fixedLender.maturityPools(maturity);
-    (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(fixedLender, maturity);
+    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.maturityPools(maturity);
+    (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(market, maturity);
 
-    (uint256 yield, ) = fixedLender.interestRateModel().getYieldForDeposit(
-      smartPoolBorrowed,
-      unassignedEarnings,
-      assets
-    );
+    (uint256 yield, ) = market.interestRateModel().getYieldForDeposit(smartPoolBorrowed, unassignedEarnings, assets);
     positionAssets = assets + yield;
   }
 
-  /// @notice Gets the amount plus fees to be repayed at maturity when borrowing certain amount of assets.
-  /// @param fixedLender address of the market.
+  /// @notice Gets the amount plus fees to be repaid at maturity when borrowing certain amount of assets.
+  /// @param market address of the market.
   /// @param maturity maturity date/pool where the assets will be borrowed.
   /// @param assets amount of assets that will be borrowed.
   /// @return positionAssets amount plus fees that the depositor will repay at maturity.
   function previewBorrowAtMaturity(
-    FixedLender fixedLender,
+    FixedLender market,
     uint256 maturity,
     uint256 assets
   ) external view returns (uint256 positionAssets) {
     PoolLib.MaturityPool memory pool;
-    (pool.borrowed, pool.supplied, , ) = fixedLender.maturityPools(maturity);
+    (pool.borrowed, pool.supplied, , ) = market.maturityPools(maturity);
 
     uint256 fees = assets.mulWadDown(
-      fixedLender.interestRateModel().getRateToBorrow(
+      market.interestRateModel().getRateToBorrow(
         maturity,
         block.timestamp,
         assets,
         pool.borrowed,
         pool.supplied,
-        smartPoolAssetsAverage(fixedLender)
+        smartPoolAssetsAverage(market)
       )
     );
     positionAssets = assets + fees;
   }
 
   /// @notice Gets the amount to be withdrawn for a certain positionAmount of assets at maturity.
-  /// @param fixedLender address of the market.
+  /// @param market address of the market.
   /// @param maturity maturity date/pool where the assets will be withdrawn.
   /// @param positionAssets amount of assets that will be tried to withdraw.
   /// @return withdrawAssets amount that will be withdrawn.
   function previewWithdrawAtMaturity(
-    FixedLender fixedLender,
+    FixedLender market,
     uint256 maturity,
     uint256 positionAssets
   ) external view returns (uint256 withdrawAssets) {
     if (block.timestamp >= maturity) return positionAssets;
 
     PoolLib.MaturityPool memory pool;
-    (pool.borrowed, pool.supplied, , ) = fixedLender.maturityPools(maturity);
+    (pool.borrowed, pool.supplied, , ) = market.maturityPools(maturity);
 
     withdrawAssets = positionAssets.divWadDown(
       1e18 +
-        fixedLender.interestRateModel().getRateToBorrow(
+        market.interestRateModel().getRateToBorrow(
           maturity,
           block.timestamp,
           positionAssets,
           pool.borrowed,
           pool.supplied,
-          smartPoolAssetsAverage(fixedLender)
+          smartPoolAssetsAverage(market)
         )
     );
   }
 
   /// @notice Gets the assets that will be repaid when repaying a certain amount at the current maturity.
-  /// @param fixedLender address of the market.
+  /// @param market address of the market.
   /// @param maturity maturity date/pool where the assets will be repaid.
-  /// @param positionAssets amount of assets that will be substracted from the position.
+  /// @param positionAssets amount of assets that will be subtracted from the position.
   /// @param borrower address of the borrower.
   /// @return repayAssets amount of assets that will be repaid.
   function previewRepayAtMaturity(
-    FixedLender fixedLender,
+    FixedLender market,
     uint256 maturity,
     uint256 positionAssets,
     address borrower
   ) external view returns (uint256 repayAssets) {
     if (block.timestamp >= maturity) {
       return
-        repayAssets =
-          positionAssets +
-          positionAssets.mulWadDown((block.timestamp - maturity) * fixedLender.penaltyRate());
+        repayAssets = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
     }
 
-    (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(fixedLender, maturity);
+    (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(market, maturity);
     PoolLib.Position memory debt;
-    (debt.principal, debt.fee) = fixedLender.mpUserBorrowedAmount(maturity, borrower);
+    (debt.principal, debt.fee) = market.mpUserBorrowedAmount(maturity, borrower);
     PoolLib.Position memory coveredDebt = debt.scaleProportionally(positionAssets);
 
-    (uint256 discount, ) = fixedLender.interestRateModel().getYieldForDeposit(
+    (uint256 discount, ) = market.interestRateModel().getYieldForDeposit(
       smartPoolBorrowed,
       unassignedEarnings,
       coveredDebt.principal
@@ -161,65 +155,62 @@ contract Previewer {
   /// @param account address which the extended data will be calculated.
   /// @return data extended accountability of all markets for the account.
   function accounts(address account) external view returns (MarketAccount[] memory data) {
-    uint256 assets = auditor.accountMarkets(account);
+    uint256 markets = auditor.accountMarkets(account);
     uint256 maxValue = auditor.getAllMarkets().length;
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
-      data[i].fixedLender = auditor.allMarkets(i);
-      data[i].assetSymbol = data[i].fixedLender.asset().symbol();
-      (data[i].adjustFactor, data[i].decimals, , ) = auditor.markets(data[i].fixedLender);
-      (data[i].smartPoolAssets, ) = data[i].fixedLender.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
-      data[i].smartPoolShares = data[i].fixedLender.convertToShares(data[i].smartPoolAssets);
-      data[i].oraclePrice = auditor.oracle().getAssetPrice(data[i].fixedLender);
-      data[i].isCollateral = assets & (1 << i) != 0 ? true : false;
-      data[i].penaltyRate = uint128(data[i].fixedLender.penaltyRate());
-      data[i].maturitySupplyPositions = maturityPoolPositions(
-        account,
-        data[i].fixedLender.userMpSupplied,
-        data[i].fixedLender.mpUserSuppliedAmount
-      );
-      data[i].maturityBorrowPositions = maturityPoolPositions(
-        account,
-        data[i].fixedLender.userMpBorrowed,
-        data[i].fixedLender.mpUserBorrowedAmount
-      );
+      FixedLender market = auditor.getAllMarkets()[i];
+      (uint128 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
+      data[i] = MarketAccount({
+        market: market,
+        assetSymbol: market.asset().symbol(),
+        oraclePrice: auditor.oracle().getAssetPrice(market),
+        penaltyRate: uint128(market.penaltyRate()),
+        adjustFactor: adjustFactor,
+        decimals: decimals,
+        maxFuturePools: market.maxFuturePools(),
+        isCollateral: markets & (1 << i) != 0 ? true : false,
+        smartPoolShares: market.balanceOf(account),
+        smartPoolAssets: market.maxWithdraw(account),
+        maturitySupplyPositions: maturityPositions(account, market.userMpSupplied, market.mpUserSuppliedAmount),
+        maturityBorrowPositions: maturityPositions(account, market.userMpBorrowed, market.mpUserBorrowedAmount)
+      });
     }
   }
 
-  function maturityPoolPositions(
+  function maturityPositions(
     address account,
-    function(address) external view returns (uint256) userMaturityOperation,
-    function(uint256, address) external view returns (uint256, uint256) userMaturityOperationAmount
-  ) internal view returns (MaturityPosition[] memory maturityPoolDataPositions) {
-    MaturityBitmap memory maturityBitmap;
-    maturityBitmap.encoded = userMaturityOperation(account);
-    maturityBitmap.base = maturityBitmap.encoded % (1 << 32);
-    maturityBitmap.packed = maturityBitmap.encoded >> 32;
-    MaturityPosition[] memory maturityPositions = new MaturityPosition[](224);
-
-    uint256 maturityCount = 0;
-    for (uint256 j = 0; j < 224; ++j) {
-      if ((maturityBitmap.packed & (1 << j)) != 0) {
-        uint256 maturity = maturityBitmap.base + (j * TSUtils.INTERVAL);
-        (uint256 principal, uint256 fee) = userMaturityOperationAmount(maturity, account);
-        maturityPositions[maturityCount].maturity = maturity;
-        maturityPositions[maturityCount].position = PoolLib.Position(principal, fee);
-        ++maturityCount;
+    function(address) external view returns (uint256) getMaturities,
+    function(uint256, address) external view returns (uint256, uint256) getPositions
+  ) internal view returns (MaturityPosition[] memory userMaturityPositions) {
+    uint256 userMaturityCount = 0;
+    MaturityPosition[] memory allMaturityPositions = new MaturityPosition[](224);
+    MaturityBitmap memory maturities;
+    maturities.packed = getMaturities(account);
+    maturities.base = maturities.packed % (1 << 32);
+    maturities.packed = maturities.packed >> 32;
+    for (uint256 i = 0; i < 224; ++i) {
+      if ((maturities.packed & (1 << i)) != 0) {
+        uint256 maturity = maturities.base + (i * TSUtils.INTERVAL);
+        (uint256 principal, uint256 fee) = getPositions(maturity, account);
+        allMaturityPositions[userMaturityCount].maturity = maturity;
+        allMaturityPositions[userMaturityCount].position = PoolLib.Position(principal, fee);
+        ++userMaturityCount;
       }
-      if ((1 << j) > maturityBitmap.packed) break;
+      if ((1 << i) > maturities.packed) break;
     }
 
-    maturityPoolDataPositions = new MaturityPosition[](maturityCount);
-    for (uint256 j = 0; j < maturityCount; ++j) maturityPoolDataPositions[j] = maturityPositions[j];
+    userMaturityPositions = new MaturityPosition[](userMaturityCount);
+    for (uint256 i = 0; i < userMaturityCount; ++i) userMaturityPositions[i] = allMaturityPositions[i];
   }
 
-  function getPoolData(FixedLender fixedLender, uint256 maturity)
+  function getPoolData(FixedLender market, uint256 maturity)
     internal
     view
     returns (uint256 smartPoolBorrowed, uint256 unassignedEarnings)
   {
     PoolLib.MaturityPool memory pool;
-    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = fixedLender.maturityPools(maturity);
+    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.maturityPools(maturity);
 
     smartPoolBorrowed = pool.borrowed - Math.min(pool.borrowed, pool.supplied);
     unassignedEarnings =
@@ -227,15 +218,15 @@ contract Previewer {
       pool.earningsUnassigned.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
   }
 
-  function smartPoolAssetsAverage(FixedLender fixedLender) internal view returns (uint256) {
-    uint256 dampSpeedFactor = fixedLender.smartPoolAssets() < fixedLender.smartPoolAssetsAverage()
-      ? fixedLender.dampSpeedDown()
-      : fixedLender.dampSpeedUp();
+  function smartPoolAssetsAverage(FixedLender market) internal view returns (uint256) {
+    uint256 dampSpeedFactor = market.smartPoolAssets() < market.smartPoolAssetsAverage()
+      ? market.dampSpeedDown()
+      : market.dampSpeedUp();
     uint256 averageFactor = uint256(
-      1e18 - (-int256(dampSpeedFactor * (block.timestamp - fixedLender.lastAverageUpdate()))).expWad()
+      1e18 - (-int256(dampSpeedFactor * (block.timestamp - market.lastAverageUpdate()))).expWad()
     );
     return
-      fixedLender.smartPoolAssetsAverage().mulWadDown(1e18 - averageFactor) +
-      averageFactor.mulWadDown(fixedLender.smartPoolAssets());
+      market.smartPoolAssetsAverage().mulWadDown(1e18 - averageFactor) +
+      averageFactor.mulWadDown(market.smartPoolAssets());
   }
 }

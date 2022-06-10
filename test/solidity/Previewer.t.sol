@@ -593,6 +593,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].penaltyRate, fixedLender.penaltyRate());
     assertEq(data[0].decimals, 18);
+    assertEq(data[0].maxFuturePools, 12);
     assertEq(data[0].isCollateral, true);
   }
 
@@ -608,6 +609,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].oraclePrice, 1e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
+    assertEq(data[0].maxFuturePools, 12);
     assertEq(data[0].isCollateral, false);
   }
 
@@ -622,6 +624,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].oraclePrice, 1e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
+    assertEq(data[0].maxFuturePools, 12);
     assertEq(data[0].penaltyRate, fixedLender.penaltyRate());
     assertEq(data[0].isCollateral, false);
   }
