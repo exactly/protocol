@@ -12,7 +12,7 @@ contract AuditorTest is Test {
   Auditor internal auditor;
   MockFixedLender internal fixedLender;
 
-  event MarketListed(FixedLender fixedLender);
+  event MarketListed(FixedLender fixedLender, uint8 decimals);
   event MarketEntered(FixedLender indexed fixedLender, address indexed account);
   event MarketExited(FixedLender indexed fixedLender, address indexed account);
 
@@ -22,8 +22,8 @@ contract AuditorTest is Test {
   }
 
   function testEnableMarket() external {
-    vm.expectEmit(false, false, false, true);
-    emit MarketListed(FixedLender(address(fixedLender)));
+    vm.expectEmit(false, false, false, true, address(auditor));
+    emit MarketListed(FixedLender(address(fixedLender)), 18);
 
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, 18);
 
@@ -43,14 +43,14 @@ contract AuditorTest is Test {
     fixedLender.setBalance(1 ether);
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, 18);
 
-    vm.expectEmit(true, false, false, true);
+    vm.expectEmit(true, false, false, true, address(auditor));
     emit MarketEntered(FixedLender(address(fixedLender)), address(this));
     auditor.enterMarket(FixedLender(address(fixedLender)));
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(collateral, uint256(1 ether).mulWadDown(0.8e18));
     assertEq(debt, 0);
 
-    vm.expectEmit(true, false, false, true);
+    vm.expectEmit(true, false, false, true, address(auditor));
     emit MarketExited(FixedLender(address(fixedLender)), address(this));
     auditor.exitMarket(FixedLender(address(fixedLender)));
     (collateral, debt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
@@ -64,7 +64,7 @@ contract AuditorTest is Test {
       markets[i] = FixedLender(address(new MockFixedLender(auditor)));
       auditor.enableMarket(markets[i], 0.8e18, 18);
       auditor.enterMarket(markets[i]);
-      vm.expectEmit(true, false, false, true);
+      vm.expectEmit(true, false, false, true, address(auditor));
       emit MarketExited(markets[i], address(this));
       auditor.exitMarket(markets[i]);
     }
