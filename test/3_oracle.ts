@@ -90,7 +90,7 @@ describe("ExactlyOracle", function () {
       from: owner.address,
     });
     await expect(await exactlyOracle.connect(owner).setAssetSource(fixedLenderDAI.address, address))
-      .to.emit(exactlyOracle, "AssetSourceUpdated")
+      .to.emit(exactlyOracle, "AssetSourceSet")
       .withArgs(fixedLenderDAI.address, address);
     await priceFeedDAI.setPrice(1);
     await priceFeedDAI.setUpdatedAt(timestamp - 86_400);

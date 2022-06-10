@@ -19,7 +19,7 @@ contract ExactlyOracle is AccessControl {
   /// @notice Emitted when a FixedLender and source is changed by admin.
   /// @param fixedLender address of the asset used to get the price from this oracle.
   /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
-  event AssetSourceUpdated(FixedLender indexed fixedLender, AggregatorV3Interface indexed source);
+  event AssetSourceSet(FixedLender indexed fixedLender, AggregatorV3Interface indexed source);
 
   /// @notice Constructor.
   /// @param maxDelayTime_ The max delay time for Chainlink's prices to be considered as updated.
@@ -35,7 +35,7 @@ contract ExactlyOracle is AccessControl {
   function setAssetSource(FixedLender fixedLender, AggregatorV3Interface source) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (source.decimals() != ORACLE_DECIMALS) revert InvalidSource();
     assetsSources[fixedLender] = source;
-    emit AssetSourceUpdated(fixedLender, source);
+    emit AssetSourceSet(fixedLender, source);
   }
 
   /// @notice Gets an asset price by FixedLender.

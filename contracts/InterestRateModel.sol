@@ -25,37 +25,37 @@ contract InterestRateModel is AccessControl {
   /// @param b new curve parameter B.
   /// @param maxUtilization new max utilization rate.
   /// @param fullUtilization new full utilization rate.
-  event CurveParametersUpdated(uint256 a, int256 b, uint256 maxUtilization, uint256 fullUtilization);
+  event CurveParametersSet(uint256 a, int256 b, uint256 maxUtilization, uint256 fullUtilization);
 
   /// @notice Emitted when the spFeeRate parameter is changed by admin.
   /// @param spFeeRate rate charged to the mp suppliers to be accrued by the sp suppliers.
-  event SpFeeRateUpdated(uint256 spFeeRate);
+  event SpFeeRateSet(uint256 spFeeRate);
 
   constructor(
-    uint256 _curveParameterA,
-    int256 _curveParameterB,
-    uint256 _maxUtilization,
-    uint256 _fullUtilization,
-    uint256 _spFeeRate
+    uint256 curveParameterA_,
+    int256 curveParameterB_,
+    uint256 maxUtilization_,
+    uint256 fullUtilization_,
+    uint256 spFeeRate_
   ) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    setCurveParameters(_curveParameterA, _curveParameterB, _maxUtilization, _fullUtilization);
-    spFeeRate = _spFeeRate;
+    setCurveParameters(curveParameterA_, curveParameterB_, maxUtilization_, fullUtilization_);
+    setSPFeeRate(spFeeRate_);
   }
 
   /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
   /// liquidity.
   /// @dev Value can only be set between 20% and 0%.
-  /// @param _spFeeRate percentage amount represented with 1e18 decimals.
-  function setSPFeeRate(uint256 _spFeeRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (_spFeeRate > 0.2e18) revert InvalidParameter();
-    spFeeRate = _spFeeRate;
-    emit SpFeeRateUpdated(_spFeeRate);
+  /// @param spFeeRate_ percentage amount represented with 1e18 decimals.
+  function setSPFeeRate(uint256 spFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (spFeeRate_ > 0.2e18) revert InvalidParameter();
+    spFeeRate = spFeeRate_;
+    emit SpFeeRateSet(spFeeRate_);
   }
 
   /// @notice Gets this model's curve parameters.
-  /// @return parameters (_curveA, _curveB, maxUtilization, fullUtilization).
+  /// @return parameters (curveA, curveB, maxUtilization, fullUtilization).
   function getCurveParameters()
     external
     view
@@ -90,33 +90,33 @@ contract InterestRateModel is AccessControl {
 
   /// @notice Updates this model's curve parameters.
   /// @dev FullUR can only be between 1 and 52. UMaxUR can only be higher than FullUR and at most 3 times FullUR.
-  /// @param _curveParameterA curve parameter A.
-  /// @param _curveParameterB curve parameter B.
-  /// @param _maxUtilization % of MP supp.
-  /// @param _fullUtilization full UR.
+  /// @param curveParameterA_ curve parameter A.
+  /// @param curveParameterB_ curve parameter B.
+  /// @param maxUtilization_ % of MP supp.
+  /// @param fullUtilization_ full UR.
   function setCurveParameters(
-    uint256 _curveParameterA,
-    int256 _curveParameterB,
-    uint256 _maxUtilization,
-    uint256 _fullUtilization
+    uint256 curveParameterA_,
+    int256 curveParameterB_,
+    uint256 maxUtilization_,
+    uint256 fullUtilization_
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (
-      _fullUtilization > 52e18 ||
-      _fullUtilization < 1e18 ||
-      _fullUtilization >= _maxUtilization ||
-      _fullUtilization < _maxUtilization / 3
+      fullUtilization_ > 52e18 ||
+      fullUtilization_ < 1e18 ||
+      fullUtilization_ >= maxUtilization_ ||
+      fullUtilization_ < maxUtilization_ / 3
     ) revert InvalidParameter();
 
-    curveParameterA = _curveParameterA;
-    curveParameterB = _curveParameterB;
-    maxUtilization = _maxUtilization;
-    fullUtilization = _fullUtilization;
+    curveParameterA = curveParameterA_;
+    curveParameterB = curveParameterB_;
+    maxUtilization = maxUtilization_;
+    fullUtilization = fullUtilization_;
 
     // reverts if it's an invalid curve (such as one yielding a negative interest rate).
     // doing it works because it's a monotonously increasing function.
     rate(0, 0);
 
-    emit CurveParametersUpdated(_curveParameterA, _curveParameterB, _maxUtilization, _fullUtilization);
+    emit CurveParametersSet(curveParameterA_, curveParameterB_, maxUtilization_, fullUtilization_);
   }
 
   /// @notice Gets fee to borrow a certain amount in a certain maturity with supply/demand values in the maturity pool

@@ -51,22 +51,22 @@ contract Auditor is AccessControl {
 
   /// @notice Event emitted when a new Oracle has been set.
   /// @param newOracle address of the new oracle that is used to calculate liquidity.
-  event OracleUpdated(ExactlyOracle newOracle);
+  event OracleSet(ExactlyOracle newOracle);
 
   /// @notice Event emitted when a new liquidationIncentive has been set.
   /// @param newLiquidationIncentive represented with 1e18 decimals.
-  event LiquidationIncentiveUpdated(uint256 newLiquidationIncentive);
+  event LiquidationIncentiveSet(uint256 newLiquidationIncentive);
 
   /// @notice Event emitted when a adjust factor is changed by admin.
   /// @param fixedLender address of the market that has a new adjust factor.
   /// @param newAdjustFactor adjust factor for the underlying asset.
-  event AdjustFactorUpdated(FixedLender indexed fixedLender, uint256 newAdjustFactor);
+  event AdjustFactorSet(FixedLender indexed fixedLender, uint256 newAdjustFactor);
 
-  constructor(ExactlyOracle _priceOracle, uint256 _liquidationIncentive) {
+  constructor(ExactlyOracle oracle_, uint256 liquidationIncentive_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    oracle = _priceOracle;
-    liquidationIncentive = _liquidationIncentive;
+    setOracle(oracle_);
+    setLiquidationIncentive(liquidationIncentive_);
   }
 
   /// @notice Allows assets of a certain `fixedLender` market to be used as collateral for borrowing other assets.
@@ -109,18 +109,18 @@ contract Auditor is AccessControl {
 
   /// @notice Sets Oracle's to be used.
   /// @param _priceOracle address of the new oracle.
-  function setOracle(ExactlyOracle _priceOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setOracle(ExactlyOracle _priceOracle) public onlyRole(DEFAULT_ADMIN_ROLE) {
     oracle = _priceOracle;
-    emit OracleUpdated(_priceOracle);
+    emit OracleSet(_priceOracle);
   }
 
   /// @notice Sets liquidation incentive for the whole ecosystem.
   /// @dev Value can only be set between 20% and 5%.
   /// @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18.
-  function setLiquidationIncentive(uint256 _liquidationIncentive) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setLiquidationIncentive(uint256 _liquidationIncentive) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (_liquidationIncentive > 1.2e18 || _liquidationIncentive < 1.05e18) revert InvalidParameter();
     liquidationIncentive = _liquidationIncentive;
-    emit LiquidationIncentiveUpdated(_liquidationIncentive);
+    emit LiquidationIncentiveSet(_liquidationIncentive);
   }
 
   /// @notice Enables a certain FixedLender market.
@@ -147,17 +147,18 @@ contract Auditor is AccessControl {
     allMarkets.push(fixedLender);
 
     emit MarketListed(fixedLender);
+    setAdjustFactor(fixedLender, adjustFactor);
   }
 
   /// @notice Sets the adjust factor for a certain fixedLender.
   /// @dev Market should be listed and value can only be set between 90% and 30%.
   /// @param fixedLender address of the market to change adjust factor for.
   /// @param adjustFactor adjust factor for the underlying asset.
-  function setAdjustFactor(FixedLender fixedLender, uint128 adjustFactor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setAdjustFactor(FixedLender fixedLender, uint128 adjustFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
     validateMarketListed(fixedLender);
     if (adjustFactor > 0.9e18 || adjustFactor < 0.3e18) revert InvalidParameter();
     markets[fixedLender].adjustFactor = adjustFactor;
-    emit AdjustFactorUpdated(fixedLender, adjustFactor);
+    emit AdjustFactorSet(fixedLender, adjustFactor);
   }
 
   /// @notice Validates that the current state of the position and system are valid (liquidity).
