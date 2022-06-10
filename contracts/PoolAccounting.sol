@@ -49,20 +49,20 @@ abstract contract PoolAccounting is AccessControl {
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param newInterestRateModel new interest rate model to be used by this PoolAccounting.
-  event InterestRateModelUpdated(InterestRateModel indexed newInterestRateModel);
+  event InterestRateModelSet(InterestRateModel indexed newInterestRateModel);
 
   /// @notice emitted when the penaltyRate is changed by admin.
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
-  event PenaltyRateUpdated(uint256 newPenaltyRate);
+  event PenaltyRateSet(uint256 newPenaltyRate);
 
   /// @notice emitted when the smartPoolReserveFactor is changed by admin.
   /// @param newSmartPoolReserveFactor smartPoolReserveFactor percentage.
-  event SmartPoolReserveFactorUpdated(uint256 newSmartPoolReserveFactor);
+  event SmartPoolReserveFactorSet(uint256 newSmartPoolReserveFactor);
 
   /// @notice emitted when the damp speeds are changed by admin.
   /// @param newDampSpeedUp represented with 1e18 decimals.
   /// @param newDampSpeedDown represented with 1e18 decimals.
-  event DampSpeedUpdated(uint256 newDampSpeedUp, uint256 newDampSpeedDown);
+  event DampSpeedSet(uint256 newDampSpeedUp, uint256 newDampSpeedDown);
 
   constructor(
     InterestRateModel interestRateModel_,
@@ -71,47 +71,45 @@ abstract contract PoolAccounting is AccessControl {
     DampSpeed memory dampSpeed
   ) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    interestRateModel = interestRateModel_;
-
-    penaltyRate = penaltyRate_;
-    smartPoolReserveFactor = smartPoolReserveFactor_;
-    dampSpeedUp = dampSpeed.up;
-    dampSpeedDown = dampSpeed.down;
+    setInterestRateModel(interestRateModel_);
+    setPenaltyRate(penaltyRate_);
+    setSmartPoolReserveFactor(smartPoolReserveFactor_);
+    setDampSpeed(dampSpeed);
   }
 
   /// @notice Sets the interest rate model to be used by this PoolAccounting.
-  /// @param _interestRateModel new interest rate model.
-  function setInterestRateModel(InterestRateModel _interestRateModel) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    interestRateModel = _interestRateModel;
-    emit InterestRateModelUpdated(_interestRateModel);
+  /// @param interestRateModel_ new interest rate model.
+  function setInterestRateModel(InterestRateModel interestRateModel_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    interestRateModel = interestRateModel_;
+    emit InterestRateModelSet(interestRateModel_);
   }
 
   /// @notice Sets the penalty rate per second.
   /// @dev Value can only be set approximately between 5% and 1% daily.
-  /// @param _penaltyRate percentage represented with 18 decimals.
-  function setPenaltyRate(uint256 _penaltyRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (_penaltyRate > 5.79e11 || _penaltyRate < 1.15e11) revert InvalidParameter();
-    penaltyRate = _penaltyRate;
-    emit PenaltyRateUpdated(_penaltyRate);
+  /// @param penaltyRate_ percentage represented with 18 decimals.
+  function setPenaltyRate(uint256 penaltyRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (penaltyRate_ > 5.79e11 || penaltyRate_ < 1.15e11) revert InvalidParameter();
+    penaltyRate = penaltyRate_;
+    emit PenaltyRateSet(penaltyRate_);
   }
 
   /// @notice Sets the percentage that represents the smart pool liquidity reserves that can't be borrowed.
   /// @dev Value can only be set between 20% and 0%.
-  /// @param _smartPoolReserveFactor parameter represented with 18 decimals.
-  function setSmartPoolReserveFactor(uint256 _smartPoolReserveFactor) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (_smartPoolReserveFactor > 0.2e18) revert InvalidParameter();
-    smartPoolReserveFactor = _smartPoolReserveFactor;
-    emit SmartPoolReserveFactorUpdated(_smartPoolReserveFactor);
+  /// @param smartPoolReserveFactor_ parameter represented with 18 decimals.
+  function setSmartPoolReserveFactor(uint256 smartPoolReserveFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (smartPoolReserveFactor_ > 0.2e18) revert InvalidParameter();
+    smartPoolReserveFactor = smartPoolReserveFactor_;
+    emit SmartPoolReserveFactorSet(smartPoolReserveFactor_);
   }
 
   /// @notice Sets the damp speed used to update the smartPoolAssetsAverage.
   /// @dev Values can only be set between 0 and 100%.
   /// @param dampSpeed represented with 18 decimals.
-  function setDampSpeed(DampSpeed memory dampSpeed) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setDampSpeed(DampSpeed memory dampSpeed) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (dampSpeed.up > 1e18 || dampSpeed.down > 1e18) revert InvalidParameter();
     dampSpeedUp = dampSpeed.up;
     dampSpeedDown = dampSpeed.down;
-    emit DampSpeedUpdated(dampSpeed.up, dampSpeed.down);
+    emit DampSpeedSet(dampSpeed.up, dampSpeed.down);
   }
 
   /// @notice Accounts for borrowing from a maturity pool.

@@ -474,17 +474,17 @@ contract FixedLenderTest is Test {
       0,
       PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
     );
-    auditor.enableMarket(fixedLenderWETH, 1e18, 18);
+    auditor.enableMarket(fixedLenderWETH, 0.9e18, 18);
     auditor.enterMarket(fixedLenderWETH);
-    weth.mint(address(this), 36 ether);
-    weth.approve(address(fixedLenderWETH), 36 ether);
+    weth.mint(address(this), 40 ether);
+    weth.approve(address(fixedLenderWETH), 40 ether);
 
     mockInterestRateModel.setBorrowRate(0);
     mockOracle.setPrice(fixedLenderWETH, 1_000e18);
     fixedLender.setMaxFuturePools(36);
 
     fixedLender.deposit(50_000 ether, BOB);
-    fixedLenderWETH.deposit(36 ether, address(this));
+    fixedLenderWETH.deposit(40 ether, address(this));
     for (uint256 i = 1; i <= 36; i++) {
       fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }

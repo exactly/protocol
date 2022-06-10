@@ -117,11 +117,11 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
 
   /// @notice Event emitted when the accumulatedEarningsSmoothFactor is changed by admin.
   /// @param newAccumulatedEarningsSmoothFactor factor represented with 1e18 decimals.
-  event AccumulatedEarningsSmoothFactorUpdated(uint128 newAccumulatedEarningsSmoothFactor);
+  event AccumulatedEarningsSmoothFactorSet(uint128 newAccumulatedEarningsSmoothFactor);
 
   /// @notice Event emitted when the maxFuturePools is changed by admin.
   /// @param newMaxFuturePools represented with 0 decimals.
-  event MaxFuturePoolsUpdated(uint256 newMaxFuturePools);
+  event MaxFuturePoolsSet(uint256 newMaxFuturePools);
 
   constructor(
     ERC20 asset_,
@@ -139,8 +139,8 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     auditor = auditor_;
-    maxFuturePools = maxFuturePools_;
-    accumulatedEarningsSmoothFactor = accumulatedEarningsSmoothFactor_;
+    setMaxFuturePools(maxFuturePools_);
+    setAccumulatedEarningsSmoothFactor(accumulatedEarningsSmoothFactor_);
   }
 
   /// @notice Calculates the smart pool balance plus earnings to be accrued at current timestamp
@@ -272,10 +272,10 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// @dev Value can not be 0 or higher than 224.
   /// Value shouldn't be lower than previous value or VALID maturities will become NOT_READY.
   /// @param futurePools number of pools to be active at the same time.
-  function setMaxFuturePools(uint8 futurePools) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setMaxFuturePools(uint8 futurePools) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (futurePools > 224 || futurePools == 0) revert InvalidParameter();
     maxFuturePools = futurePools;
-    emit MaxFuturePoolsUpdated(futurePools);
+    emit MaxFuturePoolsSet(futurePools);
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the smart pool.
@@ -283,12 +283,12 @@ contract FixedLender is ERC4626, AccessControl, PoolAccounting, ReentrancyGuard,
   /// distributed in following operation to the smart pool.
   /// @param accumulatedEarningsSmoothFactor_ represented with 18 decimals.
   function setAccumulatedEarningsSmoothFactor(uint128 accumulatedEarningsSmoothFactor_)
-    external
+    public
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
     if (accumulatedEarningsSmoothFactor_ > 4e18) revert InvalidParameter();
     accumulatedEarningsSmoothFactor = accumulatedEarningsSmoothFactor_;
-    emit AccumulatedEarningsSmoothFactorUpdated(accumulatedEarningsSmoothFactor_);
+    emit AccumulatedEarningsSmoothFactorSet(accumulatedEarningsSmoothFactor_);
   }
 
   /// @notice Sets the _pause state to true in case of emergency, triggered by an authorized account.

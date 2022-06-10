@@ -799,12 +799,12 @@ describe("InterestRateModel", () => {
     await interestRateModel.setSPFeeRate(parseUnits("0.2"));
     expect(await interestRateModel.spFeeRate()).to.eq(parseUnits("0.2"));
   });
-  it("WHEN calling setSPFeeRate function, THEN it should emit SpFeeRateUpdated", async () => {
+  it("WHEN calling setSPFeeRate function, THEN it should emit SpFeeRateSet", async () => {
     await expect(interestRateModel.setSPFeeRate(parseUnits("0.2")))
-      .to.emit(interestRateModel, "SpFeeRateUpdated")
+      .to.emit(interestRateModel, "SpFeeRateSet")
       .withArgs(parseUnits("0.2"));
   });
-  it("WHEN calling setCurveParameters function, THEN it should emit CurveParametersUpdated", async () => {
+  it("WHEN calling setCurveParameters function, THEN it should emit CurveParametersSet", async () => {
     await expect(
       interestRateModel.setCurveParameters(
         parseUnits("0.08"),
@@ -813,7 +813,7 @@ describe("InterestRateModel", () => {
         parseUnits("1"),
       ),
     )
-      .to.emit(interestRateModel, "CurveParametersUpdated")
+      .to.emit(interestRateModel, "CurveParametersSet")
       .withArgs(parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2"), parseUnits("1"));
   });
 

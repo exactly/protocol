@@ -32,10 +32,10 @@ describe("PoolAccounting", () => {
       await poolAccountingHarness.setPenaltyRate(penaltyRate);
       expect(await poolAccountingHarness.penaltyRate()).to.be.equal(penaltyRate);
     });
-    it("WHEN calling setPenaltyRate, THEN it should emit PenaltyRateUpdated event", async () => {
+    it("WHEN calling setPenaltyRate, THEN it should emit PenaltyRateSet event", async () => {
       const penaltyRate = parseUnits("0.04").div(86_400);
       await expect(await poolAccountingHarness.setPenaltyRate(penaltyRate))
-        .to.emit(poolAccountingHarness, "PenaltyRateUpdated")
+        .to.emit(poolAccountingHarness, "PenaltyRateSet")
         .withArgs(penaltyRate);
     });
     it("WHEN calling setPenaltyRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
@@ -49,9 +49,9 @@ describe("PoolAccounting", () => {
       await poolAccountingHarness.setSmartPoolReserveFactor(parseUnits("0.04"));
       expect(await poolAccountingHarness.smartPoolReserveFactor()).to.be.equal(parseUnits("0.04"));
     });
-    it("WHEN calling setSmartPoolReserveFactor, THEN it should emit SmartPoolReserveFactorUpdated event", async () => {
+    it("WHEN calling setSmartPoolReserveFactor, THEN it should emit SmartPoolReserveFactorSet event", async () => {
       await expect(await poolAccountingHarness.setSmartPoolReserveFactor(parseUnits("0.04")))
-        .to.emit(poolAccountingHarness, "SmartPoolReserveFactorUpdated")
+        .to.emit(poolAccountingHarness, "SmartPoolReserveFactorSet")
         .withArgs(parseUnits("0.04"));
     });
     it("WHEN calling setSmartPoolReserveFactor from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
@@ -80,9 +80,9 @@ describe("PoolAccounting", () => {
       await poolAccountingHarness.setInterestRateModel(newInterestRateModel.address);
       expect(await poolAccountingHarness.interestRateModel()).to.not.equal(interestRateModelBefore);
     });
-    it("WHEN calling setInterestRateModel, THEN it should emit InterestRateModelUpdated event", async () => {
+    it("WHEN calling setInterestRateModel, THEN it should emit InterestRateModelSet event", async () => {
       await expect(await poolAccountingHarness.setInterestRateModel(newInterestRateModel.address))
-        .to.emit(poolAccountingHarness, "InterestRateModelUpdated")
+        .to.emit(poolAccountingHarness, "InterestRateModelSet")
         .withArgs(newInterestRateModel.address);
     });
     it("WHEN calling setInterestRateModel from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {

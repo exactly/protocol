@@ -76,17 +76,26 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new fixedLender with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
       const newAuditor = await deploy("NewAuditor", {
         contract: "Auditor",
-        args: [laura.address, 0],
+        args: [laura.address, parseUnits("1.1")],
         from: owner.address,
       });
       const fixedLender = await deploy("NewFixedLender", {
         contract: "FixedLender",
-        args: [dai.address, 0, 0, newAuditor.address, AddressZero, 0, 0, { up: 0, down: 0 }],
+        args: [
+          dai.address,
+          12,
+          2,
+          newAuditor.address,
+          AddressZero,
+          parseUnits("4", 11),
+          parseUnits("0.1"),
+          { up: parseUnits("1"), down: parseUnits("1") },
+        ],
         from: owner.address,
       });
-      await expect(auditor.enableMarket(fixedLender.address, 0, await dai.decimals())).to.be.revertedWith(
-        "AuditorMismatch()",
-      );
+      await expect(
+        auditor.enableMarket(fixedLender.address, parseUnits("0.5"), await dai.decimals()),
+      ).to.be.revertedWith("AuditorMismatch()");
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
@@ -98,7 +107,16 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
       const fixedLender = await deploy("NewFixedLender", {
         contract: "FixedLender",
-        args: [dai.address, 0, 0, auditor.address, AddressZero, 0, 0, { up: 0, down: 0 }],
+        args: [
+          dai.address,
+          12,
+          2,
+          auditor.address,
+          AddressZero,
+          parseUnits("4", 11),
+          parseUnits("0.1"),
+          { up: parseUnits("1"), down: parseUnits("1") },
+        ],
         from: owner.address,
       });
       await expect(auditor.enableMarket(fixedLender.address, parseUnits("0.5"), 18))
@@ -106,18 +124,18 @@ describe("Auditor Admin", function () {
         .withArgs(fixedLender.address);
     });
 
-    it("WHEN setting new oracle, THEN the auditor should emit OracleUpdated event", async () => {
-      await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.emit(auditor, "OracleUpdated");
+    it("WHEN setting new oracle, THEN the auditor should emit OracleSet event", async () => {
+      await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.emit(auditor, "OracleSet");
     });
 
-    it("WHEN setting a new liquidation incentive, THEN the auditor should emit LiquidationIncentiveUpdated event", async () => {
-      await expect(auditor.setLiquidationIncentive(parseUnits("1.05"))).to.emit(auditor, "LiquidationIncentiveUpdated");
+    it("WHEN setting a new liquidation incentive, THEN the auditor should emit LiquidationIncentiveSet event", async () => {
+      await expect(auditor.setLiquidationIncentive(parseUnits("1.05"))).to.emit(auditor, "LiquidationIncentiveSet");
       expect(await auditor.liquidationIncentive()).to.eq(parseUnits("1.05"));
     });
 
-    it("WHEN setting adjust factor, THEN the auditor should emit AdjustFactorUpdated event", async () => {
+    it("WHEN setting adjust factor, THEN the auditor should emit AdjustFactorSet event", async () => {
       await expect(auditor.setAdjustFactor(fixedLenderDAI.address, parseUnits("0.7")))
-        .to.emit(auditor, "AdjustFactorUpdated")
+        .to.emit(auditor, "AdjustFactorSet")
         .withArgs(fixedLenderDAI.address, parseUnits("0.7"));
       expect((await auditor.markets(fixedLenderDAI.address)).adjustFactor).to.equal(parseUnits("0.7"));
     });
