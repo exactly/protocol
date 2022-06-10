@@ -36,7 +36,7 @@ contract Auditor is AccessControl {
 
   /// @notice Event emitted when a new market is listed for borrow/lending.
   /// @param fixedLender address of the fixedLender market that was listed.
-  event MarketListed(FixedLender fixedLender);
+  event MarketListed(FixedLender fixedLender, uint8 decimals);
 
   /// @notice Event emitted when a user enters a market to use his deposit as collateral for a loan.
   /// @param fixedLender address of the market that the user entered.
@@ -146,7 +146,7 @@ contract Auditor is AccessControl {
 
     allMarkets.push(fixedLender);
 
-    emit MarketListed(fixedLender);
+    emit MarketListed(fixedLender, decimals);
     setAdjustFactor(fixedLender, adjustFactor);
   }
 

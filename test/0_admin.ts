@@ -121,7 +121,7 @@ describe("Auditor Admin", function () {
       });
       await expect(auditor.enableMarket(fixedLender.address, parseUnits("0.5"), 18))
         .to.emit(auditor, "MarketListed")
-        .withArgs(fixedLender.address);
+        .withArgs(fixedLender.address, 18);
     });
 
     it("WHEN setting new oracle, THEN the auditor should emit OracleSet event", async () => {

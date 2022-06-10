@@ -99,7 +99,7 @@ contract FixedLenderTest is Test {
   }
 
   function testDepositToSmartPool() external {
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, true, true, address(fixedLender));
     emit Deposit(address(this), address(this), 1 ether, 1 ether);
 
     fixedLender.deposit(1 ether, address(this));
@@ -108,13 +108,13 @@ contract FixedLenderTest is Test {
   function testWithdrawFromSmartPool() external {
     fixedLender.deposit(1 ether, address(this));
 
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, true, true, address(fixedLender.asset()));
     emit Transfer(address(fixedLender), address(this), 1 ether);
     fixedLender.withdraw(1 ether, address(this), address(this));
   }
 
   function testDepositAtMaturity() external {
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, true, true, address(fixedLender));
     emit DepositAtMaturity(TSUtils.INTERVAL, address(this), address(this), 1 ether, 0);
     fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
   }
@@ -122,7 +122,7 @@ contract FixedLenderTest is Test {
   function testWithdrawAtMaturity() external {
     fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
 
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, true, true, address(fixedLender));
     emit WithdrawAtMaturity(TSUtils.INTERVAL, address(this), address(this), address(this), 1 ether, 909090909090909090);
     fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
   }
@@ -130,7 +130,7 @@ contract FixedLenderTest is Test {
   function testBorrowAtMaturity() external {
     fixedLender.deposit(12 ether, address(this));
 
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, true, true, address(fixedLender));
     emit BorrowAtMaturity(TSUtils.INTERVAL, address(this), address(this), address(this), 1 ether, 0.1 ether);
     fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
   }
@@ -139,7 +139,7 @@ contract FixedLenderTest is Test {
     fixedLender.deposit(12 ether, address(this));
     fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
 
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, true, true, address(fixedLender));
     emit RepayAtMaturity(TSUtils.INTERVAL, address(this), address(this), 1.01 ether, 1.1 ether);
     fixedLender.repayAtMaturity(TSUtils.INTERVAL, 1.5 ether, 1.5 ether, address(this));
   }
