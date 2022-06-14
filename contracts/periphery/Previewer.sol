@@ -36,7 +36,7 @@ contract Previewer {
     uint256 smartPoolShares;
     uint256 smartPoolAssets;
     MaturityPosition[] maturitySupplyPositions;
-    MaturityPosition[] maturityBorrowPositions;
+    MaturityPosition[] fixedBorrowPositions;
   }
 
   struct MaturityBitmap {
@@ -60,8 +60,8 @@ contract Previewer {
   ) external view returns (uint256 positionAssets) {
     if (block.timestamp > maturity) revert AlreadyMatured();
 
-    PoolLib.MaturityPool memory pool;
-    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.maturityPools(maturity);
+    PoolLib.FixedPool memory pool;
+    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.fixedPools(maturity);
     (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(market, maturity);
 
     (uint256 yield, ) = market.interestRateModel().getYieldForDeposit(smartPoolBorrowed, unassignedEarnings, assets);
@@ -78,8 +78,8 @@ contract Previewer {
     uint256 maturity,
     uint256 assets
   ) external view returns (uint256 positionAssets) {
-    PoolLib.MaturityPool memory pool;
-    (pool.borrowed, pool.supplied, , ) = market.maturityPools(maturity);
+    PoolLib.FixedPool memory pool;
+    (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
     uint256 fees = assets.mulWadDown(
       market.interestRateModel().getRateToBorrow(
@@ -106,8 +106,8 @@ contract Previewer {
   ) external view returns (uint256 withdrawAssets) {
     if (block.timestamp >= maturity) return positionAssets;
 
-    PoolLib.MaturityPool memory pool;
-    (pool.borrowed, pool.supplied, , ) = market.maturityPools(maturity);
+    PoolLib.FixedPool memory pool;
+    (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
     withdrawAssets = positionAssets.divWadDown(
       1e18 +
@@ -141,7 +141,7 @@ contract Previewer {
 
     (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(market, maturity);
     PoolLib.Position memory debt;
-    (debt.principal, debt.fee) = market.mpUserBorrowedAmount(maturity, borrower);
+    (debt.principal, debt.fee) = market.fixedBorrowPositions(maturity, borrower);
     PoolLib.Position memory coveredDebt = debt.scaleProportionally(positionAssets);
 
     (uint256 discount, ) = market.interestRateModel().getYieldForDeposit(
@@ -174,8 +174,8 @@ contract Previewer {
         isCollateral: markets & (1 << i) != 0 ? true : false,
         smartPoolShares: market.balanceOf(account),
         smartPoolAssets: market.maxWithdraw(account),
-        maturitySupplyPositions: maturityPositions(account, market.userMpSupplied, market.mpUserSuppliedAmount),
-        maturityBorrowPositions: maturityPositions(account, market.userMpBorrowed, market.mpUserBorrowedAmount)
+        maturitySupplyPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
+        fixedBorrowPositions: maturityPositions(account, market.fixedBorrows, market.fixedBorrowPositions)
       });
     }
   }
@@ -211,8 +211,8 @@ contract Previewer {
     view
     returns (uint256 smartPoolBorrowed, uint256 unassignedEarnings)
   {
-    PoolLib.MaturityPool memory pool;
-    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.maturityPools(maturity);
+    PoolLib.FixedPool memory pool;
+    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.fixedPools(maturity);
 
     smartPoolBorrowed = pool.borrowed - Math.min(pool.borrowed, pool.supplied);
     unassignedEarnings =

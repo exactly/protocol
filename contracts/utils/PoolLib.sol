@@ -8,21 +8,21 @@ import { TSUtils } from "./TSUtils.sol";
 library PoolLib {
   using FixedPointMathLib for uint256;
 
-  /// @notice contains the accountability of a maturity.
-  /// @param borrowed total amount borrowed from the maturity.
-  /// @param supplied total amount supplied to the maturity.
+  /// @notice contains the accountability of a fixed interest rate pool.
+  /// @param borrowed total amount borrowed from the pool.
+  /// @param supplied total amount supplied to the pool.
   /// @param earningsUnassigned total amount of earnings not yet distributed and accrued.
   /// @param lastAccrual timestamp for the last time that some earnings have been distributed to earningsSP.
-  struct MaturityPool {
+  struct FixedPool {
     uint256 borrowed;
     uint256 supplied;
     uint256 earningsUnassigned;
     uint256 lastAccrual;
   }
 
-  /// @notice contains principal and fee of a borrow or a supply position of a user in a maturity.
-  /// @param principal amount borrowed or supplied to the maturity.
-  /// @param fee amount of fees to be repaid or earned at maturity.
+  /// @notice contains principal and fee of a borrow or a supply position of a user in a fixed rate pool.
+  /// @param principal amount borrowed or supplied to the fixed rate pool.
+  /// @param fee amount of fees to be repaid or earned at the maturity of the fixed rate pool.
   struct Position {
     uint256 principal;
     uint256 fee;
@@ -30,43 +30,45 @@ library PoolLib {
 
   uint256 public constant MATURITY_ALL = type(uint256).max;
 
-  /// @notice calculates the amount that a maturity borrowed from the smart pool.
-  /// @param pool maturity pool.
-  /// @return amount borrowed from the maturity.
-  function smartPoolBorrowed(MaturityPool storage pool) internal view returns (uint256) {
+  /// @notice calculates the amount that a fixed rate pool borrowed from the smart pool.
+  /// @param pool fixed rate pool.
+  /// @return amount borrowed from the fixed rate pool.
+  function smartPoolBorrowed(FixedPool storage pool) internal view returns (uint256) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
     return borrowed - Math.min(borrowed, supplied);
   }
 
-  /// @notice registers an operation to add supply to a maturity and potentially reduce smart pool debt.
-  /// @param pool maturity pool where an amount will be added to the supply.
+  /// @notice registers an operation to add supply to a fixed rate pool and potentially reduce smart pool debt.
+  /// @param pool fixed rate pool where an amount will be added to the supply.
   /// @param amount amount to be added to the supply.
   /// @return smartPoolDebtReduction amount that will be reduced from the smart pool debt.
-  function deposit(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
+  function deposit(FixedPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
     pool.supplied = supplied + amount;
     smartPoolDebtReduction = Math.min(borrowed - Math.min(borrowed, supplied), amount);
   }
 
-  /// @notice registers an operation to reduce borrowed amount from a maturity and potentially reduce smart pool debt.
-  /// @param pool maturity where an amount will be repaid.
-  /// @param amount amount to be added to the maturity.
+  /// @notice registers an operation to reduce borrowed amount from a fixed rate pool
+  /// and potentially reduce smart pool debt.
+  /// @param pool fixed rate pool where an amount will be repaid.
+  /// @param amount amount to be added to the fixed rate pool.
   /// @return smartPoolDebtReduction amount that will be reduced from the smart pool debt.
-  function repay(MaturityPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
+  function repay(FixedPool storage pool, uint256 amount) internal returns (uint256 smartPoolDebtReduction) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
     pool.borrowed = borrowed - amount;
     smartPoolDebtReduction = Math.min(borrowed - Math.min(borrowed, supplied), amount);
   }
 
-  /// @notice registers an operation to increase borrowed amount of a maturity and potentially increase smart pool debt.
-  /// @param pool maturity where an amount will be borrowed.
-  /// @param amount amount to be borrowed from the maturity.
+  /// @notice registers an operation to increase borrowed amount of a fixed rate pool
+  ///  and potentially increase smart pool debt.
+  /// @param pool fixed rate pool where an amount will be borrowed.
+  /// @param amount amount to be borrowed from the fixed rate pool.
   /// @return smartPoolDebtAddition amount of new debt that needs to be borrowed from the smart pool.
   function borrow(
-    MaturityPool storage pool,
+    FixedPool storage pool,
     uint256 amount,
     uint256 maxDebt
   ) internal returns (uint256 smartPoolDebtAddition) {
@@ -81,12 +83,12 @@ library PoolLib {
     pool.borrowed = newBorrowed;
   }
 
-  /// @notice registers an operation to reduce supply from a maturity and potentially increase smart pool debt.
-  /// @param pool maturity where amount will be withdrawn.
-  /// @param amountToDiscount amoun to be withdrawn from the maturity.
+  /// @notice registers an operation to reduce supply from a fixed rate pool and potentially increase smart pool debt.
+  /// @param pool fixed rate pool where amount will be withdrawn.
+  /// @param amountToDiscount amount to be withdrawn from the fixed rate pool.
   /// @return smartPoolDebtAddition amount of new debt that needs to be borrowed from the smart pool.
   function withdraw(
-    MaturityPool storage pool,
+    FixedPool storage pool,
     uint256 amountToDiscount,
     uint256 maxDebt
   ) internal returns (uint256 smartPoolDebtAddition) {
@@ -102,12 +104,12 @@ library PoolLib {
   }
 
   /// @notice accrues smart pool earnings from earningsUnassigned based on the lastAccrual time.
-  /// @param pool maturity where earnings will be accrued.
+  /// @param pool fixed rate pool where earnings will be accrued.
   /// @param currentTimestamp timestamp of the current transaction.
   /// @param maturity maturity date of the pool.
   /// @return earningsSP amount of earnings to be distributed to the smart pool.
   function accrueEarnings(
-    MaturityPool storage pool,
+    FixedPool storage pool,
     uint256 maturity,
     uint256 currentTimestamp
   ) internal returns (uint256 earningsSP) {
@@ -154,8 +156,8 @@ library PoolLib {
 
   /// @notice calculates what proportion of earnings would amountFunded represent considering suppliedSP.
   /// @param earnings amount to be distributed.
-  /// @param suppliedSP amount that the maturity borrowed from the smart pool.
-  /// @param amountFunded amount that will be checked if came from the smart pool or maturity.
+  /// @param suppliedSP amount that the fixed rate pool borrowed from the smart pool.
+  /// @param amountFunded amount that will be checked if came from the smart pool or fixed rate pool.
   /// @return earningsUnassigned earnings to be added to earningsUnassigned.
   /// @return earningsSP earnings to be distributed to the smart pool.
   function distributeEarningsAccordingly(

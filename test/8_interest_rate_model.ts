@@ -254,7 +254,7 @@ describe("InterestRateModel", () => {
           let aliceFirstBorrow: Array<BigNumber>;
           beforeEach(async () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1000");
-            aliceFirstBorrow = await exactlyEnv.getFixedLender("DAI").mpUserBorrowedAmount(secondPoolID, alice.address);
+            aliceFirstBorrow = await exactlyEnv.getFixedLender("DAI").fixedBorrowPositions(secondPoolID, alice.address);
           });
           describe("WHEN borrowing 1000 DAI in a following maturity", () => {
             beforeEach(async () => {
@@ -263,7 +263,7 @@ describe("InterestRateModel", () => {
             it("THEN the rate charged is the same one as the last borrow, since the sp total supply is the same", async () => {
               const aliceNewBorrow = await exactlyEnv
                 .getFixedLender("DAI")
-                .mpUserBorrowedAmount(thirdPoolID, alice.address);
+                .fixedBorrowPositions(thirdPoolID, alice.address);
               // the fee charged is the double since third pool id has one more week
               // we subtract 500 for rounding division
               expect(aliceFirstBorrow[1]).to.be.equal(aliceNewBorrow[1].div(2).sub(500));

@@ -62,11 +62,11 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(parseUnits("5"));
       });
       it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
-        const position = await fixedLenderWETH.mpUserSuppliedAmount(futurePools(1)[0], alice.address);
+        const position = await fixedLenderWETH.fixedDepositPositions(futurePools(1)[0], alice.address);
         expect(position[0]).to.be.equal(parseUnits("5"));
       });
-      it("AND contract's state variable userMpSupplied registers the maturity where the user deposited to", async () => {
-        const maturities = await fixedLenderWETH.userMpSupplied(alice.address);
+      it("AND contract's state variable fixedDeposits registers the maturity where the user deposited to", async () => {
+        const maturities = await fixedLenderWETH.fixedDeposits(alice.address);
         expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
       });
     });
@@ -94,11 +94,11 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
           expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(parseUnits("5"));
         });
         it("AND the ETHFixedLender registers a supply of 5 WETH for the user", async () => {
-          const position = await fixedLenderWETH.mpUserSuppliedAmount(futurePools(1)[0], alice.address);
+          const position = await fixedLenderWETH.fixedDepositPositions(futurePools(1)[0], alice.address);
           expect(position[0]).to.be.equal(parseUnits("5"));
         });
-        it("AND contract's state variable userMpSupplied registers the maturity where the user deposited to", async () => {
-          const maturities = await fixedLenderWETH.userMpSupplied(alice.address);
+        it("AND contract's state variable fixedDeposits registers the maturity where the user deposited to", async () => {
+          const maturities = await fixedLenderWETH.fixedDeposits(alice.address);
           expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
         });
       });
@@ -231,8 +231,8 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         it("AND the ETHFixedLender contracts WETH balance decreased accordingly", async () => {
           expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(parseUnits("0"));
         });
-        it("AND contract's state variable userMpSupplied registers the maturity where the user deposited to", async () => {
-          const maturities = await fixedLenderWETH.userMpSupplied(alice.address);
+        it("AND contract's state variable fixedDeposits registers the maturity where the user deposited to", async () => {
+          const maturities = await fixedLenderWETH.fixedDeposits(alice.address);
           expect(decodeMaturities(maturities).length).equal(0);
         });
       });
@@ -287,10 +287,10 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
             .withArgs(futurePools(1)[0], routerETH.address, routerETH.address, alice.address, parseUnits("5"), 0);
         });
         it("AND a 5 WETH borrow is registered", async () => {
-          expect((await fixedLenderWETH.maturityPools(futurePools(1)[0]))[0]).to.equal(parseUnits("5"));
+          expect((await fixedLenderWETH.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("5"));
         });
-        it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
-          const maturities = await fixedLenderWETH.userMpBorrowed(alice.address);
+        it("AND contract's state variable fixedBorrows registers the maturity where the user borrowed from", async () => {
+          const maturities = await fixedLenderWETH.fixedBorrows(alice.address);
           expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
         });
       });
@@ -311,10 +311,10 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
             .withArgs(futurePools(1)[0], alice.address, alice.address, alice.address, parseUnits("5"), 0);
         });
         it("AND a 5 WETH borrow is registered", async () => {
-          expect((await fixedLenderWETH.maturityPools(futurePools(1)[0]))[0]).to.equal(parseUnits("5"));
+          expect((await fixedLenderWETH.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("5"));
         });
-        it("AND contract's state variable userMpBorrowed registers the maturity where the user borrowed from", async () => {
-          const maturities = await fixedLenderWETH.userMpBorrowed(alice.address);
+        it("AND contract's state variable fixedBorrows registers the maturity where the user borrowed from", async () => {
+          const maturities = await fixedLenderWETH.fixedBorrows(alice.address);
           expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
         });
       });

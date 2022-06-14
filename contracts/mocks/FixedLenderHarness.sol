@@ -23,7 +23,7 @@ contract FixedLenderHarness is FixedLender {
     Auditor auditor,
     InterestRateModel interestRateModel,
     uint256 penaltyRate,
-    uint256 smartPoolReserveFactor,
+    uint128 smartPoolReserveFactor,
     DampSpeed memory dampSpeed
   )
     FixedLender(

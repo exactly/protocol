@@ -3,14 +3,14 @@ import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 
 export class PoolEnv {
-  mpHarness: Contract;
+  fpHarness: Contract;
 
-  constructor(_mpHarness: Contract) {
-    this.mpHarness = _mpHarness;
+  constructor(_fpHarness: Contract) {
+    this.fpHarness = _fpHarness;
   }
 
-  public getMpHarness(): Contract {
-    return this.mpHarness;
+  public getFpHarness(): Contract {
+    return this.fpHarness;
   }
 
   public async moveInTime(timestamp: number) {
@@ -18,51 +18,51 @@ export class PoolEnv {
   }
 
   public async setNextTimestamp(timestamp: number) {
-    return this.mpHarness.setNextTimestamp(timestamp);
+    return this.fpHarness.setNextTimestamp(timestamp);
   }
 
   public async accrueEarnings(timestamp: number) {
-    return this.mpHarness.accrueEarnings(timestamp);
+    return this.fpHarness.accrueEarnings(timestamp);
   }
 
   public async deposit(amount: string) {
-    return this.mpHarness.deposit(parseUnits(amount));
+    return this.fpHarness.deposit(parseUnits(amount));
   }
 
   public async repay(amount: string) {
-    return this.mpHarness.repay(parseUnits(amount));
+    return this.fpHarness.repay(parseUnits(amount));
   }
 
   public async addFee(amount: string) {
-    return this.mpHarness.addFee(parseUnits(amount));
+    return this.fpHarness.addFee(parseUnits(amount));
   }
 
   public async setMaturity(userBorrows: number, timestamp: number) {
-    this.mpHarness.setMaturity(userBorrows, timestamp);
+    this.fpHarness.setMaturity(userBorrows, timestamp);
   }
 
   public async clearMaturity(userBorrows: number, timestamp: number) {
-    this.mpHarness.clearMaturity(userBorrows, timestamp);
+    this.fpHarness.clearMaturity(userBorrows, timestamp);
   }
 
   public async addFeeMP(amount: string) {
-    return this.mpHarness.addFeeMP(parseUnits(amount));
+    return this.fpHarness.addFeeMP(parseUnits(amount));
   }
 
   public async addFeeSP(amount: string) {
-    return this.mpHarness.addFeeSP(parseUnits(amount));
+    return this.fpHarness.addFeeSP(parseUnits(amount));
   }
 
   public async removeFee(amount: string) {
-    return this.mpHarness.removeFee(parseUnits(amount));
+    return this.fpHarness.removeFee(parseUnits(amount));
   }
 
   public async returnFee(amount: string) {
-    return this.mpHarness.returnFee(parseUnits(amount));
+    return this.fpHarness.returnFee(parseUnits(amount));
   }
 
   public async distributeEarningsAccordingly(earnings: string, suppliedSP: string, amountFunded: string) {
-    return this.mpHarness.distributeEarningsAccordingly(
+    return this.fpHarness.distributeEarningsAccordingly(
       parseUnits(earnings),
       parseUnits(suppliedSP),
       parseUnits(amountFunded),
@@ -70,7 +70,7 @@ export class PoolEnv {
   }
 
   public async scaleProportionally(scaledDebtPrincipal: string, scaledDebtFee: string, amount: string) {
-    return this.mpHarness.scaleProportionally(
+    return this.fpHarness.scaleProportionally(
       parseUnits(scaledDebtPrincipal),
       parseUnits(scaledDebtFee),
       parseUnits(amount),
@@ -78,7 +78,7 @@ export class PoolEnv {
   }
 
   public async reduceProportionally(scaledDebtPrincipal: string, scaledDebtFee: string, amount: string) {
-    return this.mpHarness.reduceProportionally(
+    return this.fpHarness.reduceProportionally(
       parseUnits(scaledDebtPrincipal),
       parseUnits(scaledDebtFee),
       parseUnits(amount),
@@ -86,18 +86,18 @@ export class PoolEnv {
   }
 
   public async borrow(amount: string, maxDebt: string) {
-    return this.mpHarness.borrow(parseUnits(amount), parseUnits(maxDebt));
+    return this.fpHarness.borrow(parseUnits(amount), parseUnits(maxDebt));
   }
 
   public async withdraw(amount: string, maxDebt: string) {
-    return this.mpHarness.withdraw(parseUnits(amount), parseUnits(maxDebt));
+    return this.fpHarness.withdraw(parseUnits(amount), parseUnits(maxDebt));
   }
 
   static async create(): Promise<PoolEnv> {
-    const MaturityPoolHarness = await ethers.getContractFactory("MaturityPoolHarness");
-    let maturityPoolHarness = await MaturityPoolHarness.deploy();
-    await maturityPoolHarness.deployed();
+    const FixedPoolHarness = await ethers.getContractFactory("FixedPoolHarness");
+    let fixedPoolHarness = await FixedPoolHarness.deploy();
+    await fixedPoolHarness.deployed();
 
-    return new PoolEnv(maturityPoolHarness);
+    return new PoolEnv(fixedPoolHarness);
   }
 }
