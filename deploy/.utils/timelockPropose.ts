@@ -8,6 +8,7 @@ const {
     constants: { HashZero },
   },
   deployments: { log },
+  network,
 } = hre;
 
 export default async (
@@ -25,5 +26,10 @@ export default async (
     ).wait();
   }
 
-  await multisigPropose(hre, "deployer", timelock, "execute", [contract.address, 0, calldata, HashZero, HashZero]);
+  if (network.config.gnosisSafeTxService) {
+    await multisigPropose(hre, "deployer", timelock, "execute", [contract.address, 0, calldata, HashZero, HashZero]);
+  } else {
+    log("timelock: executing", contract.address, functionName, args);
+    await (await timelock.execute(contract.address, 0, calldata, HashZero, HashZero)).wait();
+  }
 };
