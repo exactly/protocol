@@ -20,7 +20,9 @@ export default async (
 
   if (!(await timelock.isOperation(await timelock.hashOperation(contract.address, 0, calldata, HashZero, HashZero)))) {
     log("timelock: proposing", contract.address, functionName, args);
-    await timelock.schedule(contract.address, 0, calldata, HashZero, HashZero, await timelock.getMinDelay());
+    await (
+      await timelock.schedule(contract.address, 0, calldata, HashZero, HashZero, await timelock.getMinDelay())
+    ).wait();
   }
 
   await multisigPropose(hre, "deployer", timelock, "execute", [contract.address, 0, calldata, HashZero, HashZero]);
