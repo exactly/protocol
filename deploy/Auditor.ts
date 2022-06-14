@@ -4,7 +4,7 @@ import executeOrPropose from "./.utils/executeOrPropose";
 
 const func: DeployFunction = async ({
   config: {
-    finance: { liquidationIncentive },
+    finance: { liquidationIncentive: liquidationIncentiveFloat },
   },
   ethers: {
     utils: { parseUnits },
@@ -14,23 +14,27 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [timelockController, { deployer }] = await Promise.all([
+  const [timelockController, { address: oracleAddress }, { deployer }] = await Promise.all([
     getContract<TimelockController>("TimelockController"),
+    get("ExactlyOracle"),
     getNamedAccounts(),
   ]);
+  const liquidationIncentive = parseUnits(String(liquidationIncentiveFloat));
 
   await deploy("Auditor", {
     skipIfAlreadyDeployed: true,
-    args: [(await get("ExactlyOracle")).address, parseUnits(String(liquidationIncentive))],
+    args: [oracleAddress, liquidationIncentive],
     from: deployer,
     log: true,
   });
   const auditor = await getContract<Auditor>("Auditor", await getSigner(deployer));
 
-  if (!(await auditor.liquidationIncentive()).eq(parseUnits(String(liquidationIncentive)))) {
-    await executeOrPropose(deployer, timelockController, auditor, "setLiquidationIncentive", [
-      parseUnits(String(liquidationIncentive)),
-    ]);
+  if ((await auditor.oracle()) !== oracleAddress) {
+    await executeOrPropose(deployer, timelockController, auditor, "setOracle", [oracleAddress]);
+  }
+
+  if (!(await auditor.liquidationIncentive()).eq(liquidationIncentive)) {
+    await executeOrPropose(deployer, timelockController, auditor, "setLiquidationIncentive", [liquidationIncentive]);
   }
 };
 

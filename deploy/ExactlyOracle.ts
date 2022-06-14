@@ -1,8 +1,14 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 
-const func: DeployFunction = async ({ deployments: { deploy }, getNamedAccounts }) => {
+const func: DeployFunction = async ({
+  network: {
+    config: { priceExpiration = 7 * 86_400 },
+  },
+  deployments: { deploy },
+  getNamedAccounts,
+}) => {
   const { deployer } = await getNamedAccounts();
-  await deploy("ExactlyOracle", { args: [86_400], from: deployer, log: true });
+  await deploy("ExactlyOracle", { args: [priceExpiration], from: deployer, log: true });
 };
 
 func.tags = ["ExactlyOracle"];

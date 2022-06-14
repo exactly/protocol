@@ -22,6 +22,7 @@ describe("ExactlyOracle", function () {
   let user: SignerWithAddress;
   let owner: SignerWithAddress;
   let timestamp: number;
+  let priceExpiration: number;
 
   before(async () => {
     owner = await getNamedSigner("multisig");
@@ -39,6 +40,7 @@ describe("ExactlyOracle", function () {
 
     await dai.connect(owner).mint(user.address, parseUnits("100000"));
     timestamp = Math.floor(Date.now() / 1_000) + 1_000;
+    priceExpiration = (await exactlyOracle.priceExpiration()).toNumber();
   });
 
   it("GetAssetPrice returns a positive and valid price value", async () => {
@@ -47,22 +49,22 @@ describe("ExactlyOracle", function () {
     expect(await exactlyOracle.getAssetPrice(fixedLenderWETH.address)).to.equal(1_000n * 10n ** 18n);
   });
 
-  it("GetAssetPrice does not fail when Chainlink price is not older than maxDelayTime", async () => {
-    await priceFeedDAI.setUpdatedAt(timestamp - (86_400 - 1));
+  it("GetAssetPrice does not fail when Chainlink price is not older than priceExpiration", async () => {
+    await priceFeedDAI.setUpdatedAt(timestamp - priceExpiration + 1);
     await provider.send("evm_setNextBlockTimestamp", [timestamp]);
     await provider.send("evm_mine", []);
     await expect(exactlyOracle.getAssetPrice(fixedLenderDAI.address)).to.not.be.reverted;
   });
 
-  it("GetAssetPrice does not fail when Chainlink price is equal to maxDelayTime", async () => {
-    await priceFeedDAI.setUpdatedAt(timestamp - 86_400);
+  it("GetAssetPrice does not fail when Chainlink price is equal to priceExpiration", async () => {
+    await priceFeedDAI.setUpdatedAt(timestamp - priceExpiration);
     await provider.send("evm_setNextBlockTimestamp", [timestamp]);
     await provider.send("evm_mine", []);
     await expect(exactlyOracle.getAssetPrice(fixedLenderDAI.address)).to.not.be.reverted;
   });
 
-  it("GetAssetPrice should fail when Chainlink price is older than maxDelayTime", async () => {
-    await priceFeedDAI.setUpdatedAt(timestamp - (86_400 + 1));
+  it("GetAssetPrice should fail when Chainlink price is older than priceExpiration", async () => {
+    await priceFeedDAI.setUpdatedAt(timestamp - priceExpiration - 1);
     await provider.send("evm_setNextBlockTimestamp", [timestamp]);
     await provider.send("evm_mine", []);
     await expect(exactlyOracle.getAssetPrice(fixedLenderDAI.address)).to.be.revertedWith("InvalidPrice()");

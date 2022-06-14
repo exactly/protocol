@@ -25,7 +25,6 @@ const config: Config = {
     },
     rinkeby: {
       tokens: ["DAI", "WETH", "USDC", "WBTC"],
-      timelockDelay: 60 * 5,
       gnosisSafeTxService: "https://safe-transaction.rinkeby.gnosis.io/",
       url: env.RINKEBY_NODE ?? "https://rinkeby.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
@@ -99,6 +98,12 @@ declare module "hardhat/types/config" {
     };
   }
 
+  export interface NetworksUserConfig {
+    hardhat?: HardhatNetworkUserConfig;
+    mainnet?: MainnetNetworkUserConfig;
+    [networkName: string]: NetworkUserConfig;
+  }
+
   export interface HardhatUserConfig {
     finance: FinanceConfig;
   }
@@ -111,21 +116,30 @@ declare module "hardhat/types/config" {
     tokens: string[];
   }
 
+  export interface MainnetNetworkUserConfig extends HttpNetworkUserConfig {
+    timelockDelay: number;
+    priceExpiration: number;
+    gnosisSafeTxService: string;
+  }
+
   export interface HttpNetworkUserConfig {
     tokens: string[];
     timelockDelay?: number;
+    priceExpiration?: number;
     gnosisSafeTxService?: string;
   }
 
   export interface HardhatNetworkConfig {
     tokens: string[];
     timelockDelay?: number;
+    priceExpiration?: number;
     gnosisSafeTxService: string;
   }
 
   export interface HttpNetworkConfig {
     tokens: string[];
     timelockDelay?: number;
+    priceExpiration?: number;
     gnosisSafeTxService: string;
   }
 }
