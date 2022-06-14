@@ -3,7 +3,7 @@ pragma solidity 0.8.13;
 
 import { FixedLender, InterestRateModel, ERC20, Auditor } from "../FixedLender.sol";
 
-contract PoolAccountingHarness is FixedLender {
+contract FixedLenderHarness is FixedLender {
   struct ReturnValues {
     uint256 totalOwedNewBorrow;
     uint256 currentTotalDeposit;

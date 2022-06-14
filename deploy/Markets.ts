@@ -33,13 +33,15 @@ const func: DeployFunction = async ({
     getNamedAccounts(),
   ]);
 
-  const poolAccountingArgs = [
+  const fixedLenderArgs = [
+    maxFuturePools,
+    parseUnits(String(accumulatedEarningsSmoothFactor)),
+    auditor.address,
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
     parseUnits(String(smartPoolReserveFactor)),
     { up: parseUnits(String(up)), down: parseUnits(String(down)) },
-  ] as [string, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
-  const fixedLenderArgs = [maxFuturePools, parseUnits(String(accumulatedEarningsSmoothFactor))] as [number, BigNumber];
+  ] as [number, BigNumber, string, string, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
 
   for (const symbol of config.tokens) {
     const token = await getContract<ERC20>(symbol);
@@ -47,7 +49,7 @@ const func: DeployFunction = async ({
     await deploy(fixedLenderName, {
       skipIfAlreadyDeployed: true,
       contract: "FixedLender",
-      args: [token.address, ...fixedLenderArgs, auditor.address, ...poolAccountingArgs],
+      args: [token.address, ...fixedLenderArgs],
       from: deployer,
       log: true,
     });
@@ -70,12 +72,12 @@ const func: DeployFunction = async ({
         fixedLenderArgs[1],
       ]);
     }
-    if (!(await fixedLender.penaltyRate()).eq(poolAccountingArgs[1])) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [poolAccountingArgs[1]]);
+    if (!(await fixedLender.penaltyRate()).eq(fixedLenderArgs[4])) {
+      await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [fixedLenderArgs[4]]);
     }
-    if (!(await fixedLender.smartPoolReserveFactor()).eq(poolAccountingArgs[2])) {
+    if (!(await fixedLender.smartPoolReserveFactor()).eq(fixedLenderArgs[5])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserveFactor", [
-        poolAccountingArgs[2],
+        fixedLenderArgs[5],
       ]);
     }
     if (!((await fixedLender.interestRateModel()) === interestRateModel.address)) {
@@ -84,10 +86,10 @@ const func: DeployFunction = async ({
       ]);
     }
     if (
-      !(await fixedLender.dampSpeedUp()).eq(poolAccountingArgs[3].up) ||
-      !(await fixedLender.dampSpeedDown()).eq(poolAccountingArgs[3].down)
+      !(await fixedLender.dampSpeedUp()).eq(fixedLenderArgs[6].up) ||
+      !(await fixedLender.dampSpeedDown()).eq(fixedLenderArgs[6].down)
     ) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [poolAccountingArgs[3]]);
+      await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [fixedLenderArgs[6]]);
     }
 
     const { address: priceFeedAddress } = await get(`PriceFeed${symbol}`);
