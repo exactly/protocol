@@ -162,7 +162,7 @@ contract Auditor is AccessControl {
   }
 
   /// @notice Validates that the current state of the position and system are valid (liquidity).
-  /// @dev Hook function to be called after calling the poolAccounting borrowMP function.
+  /// @dev Hook function to be called after adding the borrowed debt to the user position.
   /// @param fixedLender address of the fixedLender that will lend money in a maturity.
   /// @param borrower address of the user that will borrow money from a maturity date.
   function validateBorrowMP(FixedLender fixedLender, address borrower) external {

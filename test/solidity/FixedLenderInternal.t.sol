@@ -6,12 +6,11 @@ import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
-import { FixedLender, InterestRateModel, ERC20 } from "../../contracts/FixedLender.sol";
+import { FixedLender, InterestRateModel, ERC20, PoolLib } from "../../contracts/FixedLender.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
-import { PoolLib } from "../../contracts/utils/PoolLib.sol";
 
-contract PoolAccountingTest is Test, FixedLender {
+contract FixedLenderInternalTest is Test, FixedLender {
   using FixedPointMathLib for uint256;
 
   uint256 internal constant POOL_ID = 4 weeks;
