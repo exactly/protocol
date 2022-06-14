@@ -7,7 +7,7 @@ import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
-import { FixedLender, ERC20, PoolAccounting } from "../../contracts/FixedLender.sol";
+import { FixedLender, ERC20 } from "../../contracts/FixedLender.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { TSUtils } from "../../contracts/utils/TSUtils.sol";
@@ -80,7 +80,7 @@ contract FixedLenderTest is Test {
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
       0,
-      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
+      FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
     mockOracle.setPrice(fixedLender, 1e18);
 
@@ -410,7 +410,7 @@ contract FixedLenderTest is Test {
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
       0,
-      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
+      FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
     uint256 maturity = TSUtils.INTERVAL * 2;
     token.mint(address(this), 50_000 ether);
@@ -443,7 +443,7 @@ contract FixedLenderTest is Test {
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
       0,
-      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
+      FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
     uint256 maturity = TSUtils.INTERVAL * 2;
     token.mint(address(this), 50_000 ether);
@@ -472,7 +472,7 @@ contract FixedLenderTest is Test {
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
       0,
-      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
+      FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
     auditor.enableMarket(fixedLenderWETH, 0.9e18, 18);
     auditor.enterMarket(fixedLenderWETH);
@@ -805,7 +805,7 @@ contract FixedLenderTest is Test {
         InterestRateModel(address(mockInterestRateModel)),
         0.02e18 / uint256(1 days),
         0,
-        PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
+        FixedLender.DampSpeed(0.0046e18, 0.42e18)
       );
       auditor.enableMarket(newFixedLender, 0.8e18, 18);
       mockOracle.setPrice(newFixedLender, 1e18);

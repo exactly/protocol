@@ -5,7 +5,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import { FixedLender, PoolAccounting } from "../../contracts/FixedLender.sol";
+import { FixedLender } from "../../contracts/FixedLender.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
@@ -38,7 +38,7 @@ contract PreviewerTest is Test {
       interestRateModel,
       0.02e18 / uint256(1 days),
       0,
-      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
+      FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
     mockOracle.setPrice(fixedLender, 1e18);
     auditor.enableMarket(fixedLender, 0.8e18, 18);
@@ -483,7 +483,7 @@ contract PreviewerTest is Test {
       interestRateModel,
       0.02e18 / uint256(1 days),
       0,
-      PoolAccounting.DampSpeed(0.0046e18, 0.42e18)
+      FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
     mockOracle.setPrice(fixedLenderWETH, 2800e18);
     auditor.enableMarket(fixedLenderWETH, 0.7e18, 18);
