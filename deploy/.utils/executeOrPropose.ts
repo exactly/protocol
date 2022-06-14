@@ -12,7 +12,7 @@ export default async (
 ) => {
   if (await contract.hasRole(await contract.DEFAULT_ADMIN_ROLE(), address)) {
     deployments.log("executing", contract.address, functionName, args);
-    await contract[functionName](...(args ?? []));
+    await (await contract[functionName](...(args ?? []))).wait();
   } else {
     await timelockPropose(timelock, contract.connect(address), functionName, args);
   }
