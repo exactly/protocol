@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { PoolAccounting, InterestRateModel } from "../PoolAccounting.sol";
-import { FixedLender } from "../FixedLender.sol";
+import { FixedLender, InterestRateModel, ERC20, Auditor } from "../FixedLender.sol";
 
-contract PoolAccountingHarness is PoolAccounting {
+contract PoolAccountingHarness is FixedLender {
   struct ReturnValues {
     uint256 totalOwedNewBorrow;
     uint256 currentTotalDeposit;
@@ -18,11 +17,26 @@ contract PoolAccountingHarness is PoolAccounting {
   uint256 public timestamp;
 
   constructor(
+    ERC20 asset,
+    uint8 maxFuturePools,
+    uint128 accumulatedEarningsSmoothFactor,
+    Auditor auditor,
     InterestRateModel interestRateModel,
     uint256 penaltyRate,
     uint256 smartPoolReserveFactor,
     DampSpeed memory dampSpeed
-  ) PoolAccounting(interestRateModel, penaltyRate, smartPoolReserveFactor, dampSpeed) {
+  )
+    FixedLender(
+      asset,
+      maxFuturePools,
+      accumulatedEarningsSmoothFactor,
+      auditor,
+      interestRateModel,
+      penaltyRate,
+      smartPoolReserveFactor,
+      dampSpeed
+    )
+  {
     timestamp = block.timestamp;
   }
 
@@ -30,16 +44,9 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 maturity,
     address borrower,
     uint256 amount,
-    uint256 maxAmountAllowed,
-    uint256 eTokenTotalSupply
+    uint256 maxAmountAllowed
   ) external {
-    (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = borrowMP(
-      maturity,
-      borrower,
-      amount,
-      maxAmountAllowed,
-      eTokenTotalSupply
-    );
+    (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = borrowMP(maturity, borrower, amount, maxAmountAllowed);
   }
 
   function depositMPWithReturnValues(
@@ -60,15 +67,13 @@ contract PoolAccountingHarness is PoolAccounting {
     uint256 maturity,
     address redeemer,
     uint256 amount,
-    uint256 minAmountRequired,
-    uint256 eTokenTotalSupply
+    uint256 minAmountRequired
   ) external {
     (returnValues.redeemAmountDiscounted, returnValues.earningsSP) = withdrawMP(
       maturity,
       redeemer,
       amount,
-      minAmountRequired,
-      eTokenTotalSupply
+      minAmountRequired
     );
   }
 
@@ -86,8 +91,12 @@ contract PoolAccountingHarness is PoolAccounting {
     );
   }
 
+  function setSmartPoolAssets(uint256 smartPoolAssets_) external {
+    smartPoolAssets = smartPoolAssets_;
+  }
+
   // function to avoid range value validation
-  function setFreePenaltyRate(uint256 _penaltyRate) external {
-    penaltyRate = _penaltyRate;
+  function setFreePenaltyRate(uint256 penaltyRate_) external {
+    penaltyRate = penaltyRate_;
   }
 }
