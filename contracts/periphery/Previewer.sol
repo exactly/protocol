@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { FixedLender } from "../FixedLender.sol";
+import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
+import { ExactlyOracle } from "../ExactlyOracle.sol";
+import { FixedLender } from "../FixedLender.sol";
 import { Auditor } from "../Auditor.sol";
 import { PoolLib } from "../utils/PoolLib.sol";
 import { TSUtils } from "../utils/TSUtils.sol";
@@ -155,6 +156,7 @@ contract Previewer {
   /// @param account address which the extended data will be calculated.
   /// @return data extended accountability of all markets for the account.
   function accounts(address account) external view returns (MarketAccount[] memory data) {
+    ExactlyOracle oracle = auditor.oracle();
     uint256 markets = auditor.accountMarkets(account);
     uint256 maxValue = auditor.getAllMarkets().length;
     data = new MarketAccount[](maxValue);
@@ -164,7 +166,7 @@ contract Previewer {
       data[i] = MarketAccount({
         market: market,
         assetSymbol: market.asset().symbol(),
-        oraclePrice: auditor.oracle().getAssetPrice(market),
+        oraclePrice: oracle.getAssetPrice(market),
         penaltyRate: uint128(market.penaltyRate()),
         adjustFactor: adjustFactor,
         decimals: decimals,
