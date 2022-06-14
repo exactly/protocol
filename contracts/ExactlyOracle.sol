@@ -14,7 +14,7 @@ contract ExactlyOracle is AccessControl {
   uint256 public constant ORACLE_DECIMALS = 8;
 
   mapping(FixedLender => AggregatorV3Interface) public assetsSources;
-  uint256 public immutable maxDelayTime;
+  uint256 public immutable priceExpiration;
 
   /// @notice Emitted when a FixedLender and source is changed by admin.
   /// @param fixedLender address of the asset used to get the price from this oracle.
@@ -22,11 +22,11 @@ contract ExactlyOracle is AccessControl {
   event AssetSourceSet(FixedLender indexed fixedLender, AggregatorV3Interface indexed source);
 
   /// @notice Constructor.
-  /// @param maxDelayTime_ The max delay time for Chainlink's prices to be considered as updated.
-  constructor(uint256 maxDelayTime_) {
+  /// @param priceExpiration_ The max delay time for Chainlink's prices to be considered as updated.
+  constructor(uint256 priceExpiration_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    maxDelayTime = maxDelayTime_;
+    priceExpiration = priceExpiration_;
   }
 
   /// @notice Sets the Chainlink Price Feed Aggregator source for an asset.
@@ -44,7 +44,7 @@ contract ExactlyOracle is AccessControl {
   /// @return The price of the asset scaled to 18-digit decimals.
   function getAssetPrice(FixedLender fixedLender) public view returns (uint256) {
     (, int256 price, , uint256 updatedAt, ) = assetsSources[fixedLender].latestRoundData();
-    if (price > 0 && updatedAt >= block.timestamp - maxDelayTime) return scaleOraclePriceByDigits(uint256(price));
+    if (price > 0 && updatedAt >= block.timestamp - priceExpiration) return scaleOraclePriceByDigits(uint256(price));
     else revert InvalidPrice();
   }
 
