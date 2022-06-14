@@ -279,7 +279,7 @@ export class DefaultEnv {
 
   public async maturityPool(assetString: string, maturityPoolID: number) {
     const fixedLender = this.getFixedLender(assetString);
-    return fixedLender.maturityPools(maturityPoolID);
+    return fixedLender.fixedPools(maturityPoolID);
   }
 
   public async accountSnapshot(assetString: string, maturityPoolID: number) {

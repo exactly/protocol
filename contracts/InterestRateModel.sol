@@ -6,10 +6,8 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 
 import { InvalidParameter } from "./Auditor.sol";
-import { PoolLib } from "./utils/PoolLib.sol";
 
 contract InterestRateModel is AccessControl {
-  using PoolLib for PoolLib.MaturityPool;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
 
@@ -70,7 +68,7 @@ contract InterestRateModel is AccessControl {
   }
 
   /// @notice Calculates the amount of revenue sharing between the smart pool and the new MP supplier.
-  /// @param suppliedSP amount of money currently being supplied in the maturity pool.
+  /// @param suppliedSP amount of money currently being supplied in the fixed rate pool.
   /// @param unassignedEarnings earnings not yet accrued to the SP that should be shared with the current supplier.
   /// @param amount amount being provided by the MP supplier.
   /// @return earningsShare yield to be offered to the MP supplier.
@@ -119,13 +117,13 @@ contract InterestRateModel is AccessControl {
     emit CurveParametersSet(curveParameterA_, curveParameterB_, maxUtilization_, fullUtilization_);
   }
 
-  /// @notice Gets fee to borrow a certain amount in a certain maturity with supply/demand values in the maturity pool
+  /// @notice Gets fee to borrow a certain amount at a certain maturity with supply/demand values in the fixed rate pool
   /// and supply/demand values in the smart pool.
   /// @param maturity maturity date for calculating days left to maturity.
   /// @param currentDate the current block timestamp. Received from caller for easier testing.
   /// @param amount the current borrow's amount.
   /// @param borrowedMP ex-ante amount borrowed from this maturity.
-  /// @param suppliedMP deposits in maturity pool.
+  /// @param suppliedMP deposits in the fixed rate pool.
   /// @param smartPoolAssetsAverage the average of the smart pool's assets.
   /// @return fee the borrower will have to pay, as a factor (1% interest is represented as the wad for 0.01 == 10^16).
   function getRateToBorrow(

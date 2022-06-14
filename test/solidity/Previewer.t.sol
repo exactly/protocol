@@ -66,7 +66,7 @@ contract PreviewerTest is Test {
     vm.warp(3 days);
     uint256 positionAssetsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 1 ether);
     fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
-    (uint256 principalAfterDeposit, uint256 earningsAfterDeposit) = fixedLender.mpUserSuppliedAmount(
+    (uint256 principalAfterDeposit, uint256 earningsAfterDeposit) = fixedLender.fixedDepositPositions(
       maturity,
       address(this)
     );
@@ -110,7 +110,7 @@ contract PreviewerTest is Test {
     vm.warp(3 days);
     uint256 positionAssetsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 0.47 ether);
     fixedLender.depositAtMaturity(maturity, 0.47 ether, 0.47 ether, address(this));
-    (uint256 principalAfterDeposit, uint256 earningsAfterDeposit) = fixedLender.mpUserSuppliedAmount(
+    (uint256 principalAfterDeposit, uint256 earningsAfterDeposit) = fixedLender.fixedDepositPositions(
       maturity,
       address(this)
     );
@@ -119,13 +119,13 @@ contract PreviewerTest is Test {
     vm.warp(5 days);
     positionAssetsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 1 ether);
     fixedLender.depositAtMaturity(maturity, 1 ether, 1 ether, BOB);
-    (principalAfterDeposit, earningsAfterDeposit) = fixedLender.mpUserSuppliedAmount(maturity, BOB);
+    (principalAfterDeposit, earningsAfterDeposit) = fixedLender.fixedDepositPositions(maturity, BOB);
     assertEq(positionAssetsPreviewed, principalAfterDeposit + earningsAfterDeposit);
 
     vm.warp(6 days);
     positionAssetsPreviewed = previewer.previewDepositAtMaturity(fixedLender, maturity, 20 ether);
     fixedLender.depositAtMaturity(maturity, 20 ether, 20 ether, ALICE);
-    (principalAfterDeposit, earningsAfterDeposit) = fixedLender.mpUserSuppliedAmount(maturity, ALICE);
+    (principalAfterDeposit, earningsAfterDeposit) = fixedLender.fixedDepositPositions(maturity, ALICE);
     assertEq(positionAssetsPreviewed, principalAfterDeposit + earningsAfterDeposit);
   }
 
@@ -159,7 +159,7 @@ contract PreviewerTest is Test {
     vm.warp(180 seconds);
     uint256 positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
-    (uint256 principalAfterBorrow, uint256 feesAfterBorrow) = fixedLender.mpUserBorrowedAmount(maturity, address(this));
+    (uint256 principalAfterBorrow, uint256 feesAfterBorrow) = fixedLender.fixedBorrowPositions(maturity, address(this));
 
     assertEq(positionAssetsPreviewed, principalAfterBorrow + feesAfterBorrow);
   }
@@ -193,7 +193,7 @@ contract PreviewerTest is Test {
     vm.warp(2 days);
     uint256 positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 2.3 ether);
     fixedLender.borrowAtMaturity(maturity, 2.3 ether, 3 ether, address(this), address(this));
-    (uint256 principalAfterBorrow, uint256 feesAfterBorrow) = fixedLender.mpUserBorrowedAmount(maturity, address(this));
+    (uint256 principalAfterBorrow, uint256 feesAfterBorrow) = fixedLender.fixedBorrowPositions(maturity, address(this));
     assertEq(positionAssetsPreviewed, principalAfterBorrow + feesAfterBorrow);
 
     vm.warp(3 days);
@@ -203,14 +203,14 @@ contract PreviewerTest is Test {
     positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
     vm.prank(BOB);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, BOB, BOB);
-    (principalAfterBorrow, feesAfterBorrow) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
+    (principalAfterBorrow, feesAfterBorrow) = fixedLender.fixedBorrowPositions(maturity, BOB);
     assertEq(positionAssetsPreviewed, principalAfterBorrow + feesAfterBorrow);
 
     vm.warp(6 days);
     positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 20 ether);
     vm.prank(ALICE);
     fixedLender.borrowAtMaturity(maturity, 20 ether, 30 ether, ALICE, ALICE);
-    (principalAfterBorrow, feesAfterBorrow) = fixedLender.mpUserBorrowedAmount(maturity, ALICE);
+    (principalAfterBorrow, feesAfterBorrow) = fixedLender.fixedBorrowPositions(maturity, ALICE);
     assertEq(positionAssetsPreviewed, principalAfterBorrow + feesAfterBorrow);
   }
 
@@ -300,14 +300,14 @@ contract PreviewerTest is Test {
     assertEq(repayAssetsPreviewed, 1.1 ether - discountAfterRepay);
 
     vm.warp(6 days);
-    (uint256 bobOwedPrincipal, uint256 bobOwedFee) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
+    (uint256 bobOwedPrincipal, uint256 bobOwedFee) = fixedLender.fixedBorrowPositions(maturity, BOB);
     uint256 totalOwedBob = bobOwedPrincipal + bobOwedFee;
     repayAssetsPreviewed = previewer.previewRepayAtMaturity(fixedLender, maturity, totalOwedBob, BOB);
     balanceBeforeRepay = token.balanceOf(BOB);
     vm.prank(BOB);
     fixedLender.repayAtMaturity(maturity, totalOwedBob, totalOwedBob, BOB);
     discountAfterRepay = totalOwedBob - (balanceBeforeRepay - token.balanceOf(BOB));
-    (bobOwedPrincipal, ) = fixedLender.mpUserBorrowedAmount(maturity, BOB);
+    (bobOwedPrincipal, ) = fixedLender.fixedBorrowPositions(maturity, BOB);
     assertEq(repayAssetsPreviewed, totalOwedBob - discountAfterRepay);
     assertEq(bobOwedPrincipal, 0);
   }
@@ -405,7 +405,7 @@ contract PreviewerTest is Test {
     assertEq(withdrawAssetsPreviewed, 1.1 ether - feeAfterWithdraw);
 
     vm.warp(6 days);
-    (uint256 contractPositionPrincipal, uint256 contractPositionEarnings) = fixedLender.mpUserSuppliedAmount(
+    (uint256 contractPositionPrincipal, uint256 contractPositionEarnings) = fixedLender.fixedDepositPositions(
       maturity,
       address(this)
     );
@@ -420,7 +420,7 @@ contract PreviewerTest is Test {
       address(this)
     );
     feeAfterWithdraw = contractPosition - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
-    (contractPositionPrincipal, ) = fixedLender.mpUserSuppliedAmount(maturity, address(this));
+    (contractPositionPrincipal, ) = fixedLender.fixedDepositPositions(maturity, address(this));
 
     assertEq(withdrawAssetsPreviewed, contractPosition - feeAfterWithdraw);
   }
@@ -463,8 +463,8 @@ contract PreviewerTest is Test {
     );
 
     // We sum all the debt
-    uint256 sumDebt = (data[0].maturityBorrowPositions[0].position.principal +
-      data[0].maturityBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals);
+    uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
+      data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals);
 
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
 
@@ -504,8 +504,8 @@ contract PreviewerTest is Test {
     );
 
     // We sum all the debt
-    uint256 sumDebt = (data[0].maturityBorrowPositions[0].position.principal +
-      data[0].maturityBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals);
+    uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
+      data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals);
 
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
@@ -535,7 +535,7 @@ contract PreviewerTest is Test {
       data[0].smartPoolAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(data[0].adjustFactor) +
       data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(data[1].adjustFactor);
 
-    sumDebt += (data[1].maturityBorrowPositions[0].position.principal + data[1].maturityBorrowPositions[0].position.fee)
+    sumDebt += (data[1].fixedBorrowPositions[0].position.principal + data[1].fixedBorrowPositions[0].position.fee)
       .mulDivDown(data[1].oraclePrice, 10**data[1].decimals);
 
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
@@ -553,19 +553,19 @@ contract PreviewerTest is Test {
     fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
     fixedLender.borrowAtMaturity(TSUtils.INTERVAL * 2, 2.33 ether, 3 ether, address(this), address(this));
     fixedLender.depositAtMaturity(TSUtils.INTERVAL * 2, 1.19 ether, 1.19 ether, address(this));
-    (uint256 firstMaturitySupplyPrincipal, uint256 firstMaturitySupplyFee) = fixedLender.mpUserSuppliedAmount(
+    (uint256 firstMaturitySupplyPrincipal, uint256 firstMaturitySupplyFee) = fixedLender.fixedDepositPositions(
       TSUtils.INTERVAL,
       address(this)
     );
-    (uint256 secondMaturitySupplyPrincipal, uint256 secondMaturitySupplyFee) = fixedLender.mpUserSuppliedAmount(
+    (uint256 secondMaturitySupplyPrincipal, uint256 secondMaturitySupplyFee) = fixedLender.fixedDepositPositions(
       TSUtils.INTERVAL * 2,
       address(this)
     );
-    (uint256 firstMaturityBorrowPrincipal, uint256 firstMaturityBorrowFee) = fixedLender.mpUserBorrowedAmount(
+    (uint256 firstMaturityBorrowPrincipal, uint256 firstMaturityBorrowFee) = fixedLender.fixedBorrowPositions(
       TSUtils.INTERVAL,
       address(this)
     );
-    (uint256 secondMaturityBorrowPrincipal, uint256 secondMaturityBorrowFee) = fixedLender.mpUserBorrowedAmount(
+    (uint256 secondMaturityBorrowPrincipal, uint256 secondMaturityBorrowFee) = fixedLender.fixedBorrowPositions(
       TSUtils.INTERVAL * 2,
       address(this)
     );
@@ -583,13 +583,13 @@ contract PreviewerTest is Test {
     assertEq(data[0].maturitySupplyPositions[1].position.principal, secondMaturitySupplyPrincipal);
     assertEq(data[0].maturitySupplyPositions[1].position.fee, secondMaturitySupplyFee);
     assertEq(data[0].maturitySupplyPositions.length, 2);
-    assertEq(data[0].maturityBorrowPositions[0].maturity, TSUtils.INTERVAL);
-    assertEq(data[0].maturityBorrowPositions[0].position.principal, firstMaturityBorrowPrincipal);
-    assertEq(data[0].maturityBorrowPositions[0].position.fee, firstMaturityBorrowFee);
-    assertEq(data[0].maturityBorrowPositions[1].maturity, TSUtils.INTERVAL * 2);
-    assertEq(data[0].maturityBorrowPositions[1].position.principal, secondMaturityBorrowPrincipal);
-    assertEq(data[0].maturityBorrowPositions[1].position.fee, secondMaturityBorrowFee);
-    assertEq(data[0].maturityBorrowPositions.length, 2);
+    assertEq(data[0].fixedBorrowPositions[0].maturity, TSUtils.INTERVAL);
+    assertEq(data[0].fixedBorrowPositions[0].position.principal, firstMaturityBorrowPrincipal);
+    assertEq(data[0].fixedBorrowPositions[0].position.fee, firstMaturityBorrowFee);
+    assertEq(data[0].fixedBorrowPositions[1].maturity, TSUtils.INTERVAL * 2);
+    assertEq(data[0].fixedBorrowPositions[1].position.principal, secondMaturityBorrowPrincipal);
+    assertEq(data[0].fixedBorrowPositions[1].position.fee, secondMaturityBorrowFee);
+    assertEq(data[0].fixedBorrowPositions.length, 2);
 
     assertEq(data[0].oraclePrice, 1e18);
     assertEq(data[0].adjustFactor, 0.8e18);
@@ -607,7 +607,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].smartPoolAssets, 10 ether);
     assertEq(data[0].smartPoolShares, fixedLender.convertToShares(10 ether));
     assertEq(data[0].maturitySupplyPositions.length, 0);
-    assertEq(data[0].maturityBorrowPositions.length, 0);
+    assertEq(data[0].fixedBorrowPositions.length, 0);
     assertEq(data[0].oraclePrice, 1e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
@@ -622,7 +622,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].smartPoolAssets, 0);
     assertEq(data[0].smartPoolShares, 0);
     assertEq(data[0].maturitySupplyPositions.length, 0);
-    assertEq(data[0].maturityBorrowPositions.length, 0);
+    assertEq(data[0].fixedBorrowPositions.length, 0);
     assertEq(data[0].oraclePrice, 1e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);

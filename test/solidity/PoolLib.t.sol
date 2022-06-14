@@ -7,57 +7,57 @@ import { PoolLib, InsufficientProtocolLiquidity, MaturityOverflow } from "../../
 import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
 contract PoolLibTest is Test {
-  using PoolLib for PoolLib.MaturityPool;
+  using PoolLib for PoolLib.FixedPool;
   using PoolLib for uint256;
 
-  PoolLib.MaturityPool private mp;
+  PoolLib.FixedPool private fp;
 
   function testAtomicDepositBorrowRepayWithdraw() external {
-    uint256 smartPoolDebtReduction = mp.deposit(1 ether);
-    assertEq(mp.borrowed, 0);
-    assertEq(mp.supplied, 1 ether);
-    assertEq(mp.earningsUnassigned, 0);
-    assertEq(mp.lastAccrual, 0);
+    uint256 smartPoolDebtReduction = fp.deposit(1 ether);
+    assertEq(fp.borrowed, 0);
+    assertEq(fp.supplied, 1 ether);
+    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.lastAccrual, 0);
     assertEq(smartPoolDebtReduction, 0);
 
-    uint256 smartPoolDebt = mp.borrow(1 ether, 0);
-    assertEq(mp.borrowed, 1 ether);
-    assertEq(mp.supplied, 1 ether);
-    assertEq(mp.earningsUnassigned, 0);
-    assertEq(mp.lastAccrual, 0);
+    uint256 smartPoolDebt = fp.borrow(1 ether, 0);
+    assertEq(fp.borrowed, 1 ether);
+    assertEq(fp.supplied, 1 ether);
+    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.lastAccrual, 0);
     assertEq(smartPoolDebt, 0);
 
-    smartPoolDebtReduction = mp.repay(1 ether);
-    assertEq(mp.borrowed, 0);
-    assertEq(mp.supplied, 1 ether);
-    assertEq(mp.earningsUnassigned, 0);
-    assertEq(mp.lastAccrual, 0);
+    smartPoolDebtReduction = fp.repay(1 ether);
+    assertEq(fp.borrowed, 0);
+    assertEq(fp.supplied, 1 ether);
+    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.lastAccrual, 0);
     assertEq(smartPoolDebtReduction, 0);
 
-    smartPoolDebt = mp.withdraw(1 ether, 0);
-    assertEq(mp.borrowed, 0);
-    assertEq(mp.supplied, 0);
-    assertEq(mp.earningsUnassigned, 0);
-    assertEq(mp.lastAccrual, 0);
+    smartPoolDebt = fp.withdraw(1 ether, 0);
+    assertEq(fp.borrowed, 0);
+    assertEq(fp.supplied, 0);
+    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.lastAccrual, 0);
     assertEq(smartPoolDebt, 0);
   }
 
   function testSmartPoolBorrow() external {
-    uint256 smartPoolDebt = mp.borrow(1 ether, 1 ether);
-    assertEq(mp.borrowed, 1 ether);
-    assertEq(mp.supplied, 0);
-    assertEq(mp.earningsUnassigned, 0);
-    assertEq(mp.lastAccrual, 0);
+    uint256 smartPoolDebt = fp.borrow(1 ether, 1 ether);
+    assertEq(fp.borrowed, 1 ether);
+    assertEq(fp.supplied, 0);
+    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.lastAccrual, 0);
     assertEq(smartPoolDebt, 1 ether);
   }
 
   function testEarningsAccrual() external {
-    mp.earningsUnassigned = 1 ether;
-    uint256 earnings = mp.accrueEarnings(1 days, 1 days);
-    assertEq(mp.borrowed, 0);
-    assertEq(mp.supplied, 0);
-    assertEq(mp.earningsUnassigned, 0);
-    assertEq(mp.lastAccrual, 1 days);
+    fp.earningsUnassigned = 1 ether;
+    uint256 earnings = fp.accrueEarnings(1 days, 1 days);
+    assertEq(fp.borrowed, 0);
+    assertEq(fp.supplied, 0);
+    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.lastAccrual, 1 days);
     assertEq(earnings, 1 ether);
   }
 
@@ -130,7 +130,7 @@ contract PoolLibTest is Test {
   }
 
   function borrow(uint256 amount, uint256 maxDebt) external returns (uint256) {
-    return mp.borrow(amount, maxDebt);
+    return fp.borrow(amount, maxDebt);
   }
 
   function setMaturity(uint256 encoded, uint256 maturity) external pure returns (uint256) {

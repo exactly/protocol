@@ -17,7 +17,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
   using SafeTransferLib for ERC20;
-  using PoolLib for PoolLib.MaturityPool;
+  using PoolLib for PoolLib.FixedPool;
   using PoolLib for PoolLib.Position;
   using PoolLib for uint256;
 
@@ -37,35 +37,34 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 down;
   }
 
-  mapping(uint256 => mapping(address => PoolLib.Position)) public mpUserSuppliedAmount;
-  mapping(uint256 => mapping(address => PoolLib.Position)) public mpUserBorrowedAmount;
+  mapping(uint256 => mapping(address => PoolLib.Position)) public fixedDepositPositions;
+  mapping(uint256 => mapping(address => PoolLib.Position)) public fixedBorrowPositions;
 
-  mapping(address => uint256) public userMpBorrowed;
-  mapping(address => uint256) public userMpSupplied;
-  mapping(uint256 => PoolLib.MaturityPool) public maturityPools;
+  mapping(address => uint256) public fixedBorrows;
+  mapping(address => uint256) public fixedDeposits;
+  mapping(uint256 => PoolLib.FixedPool) public fixedPools;
   uint256 public smartPoolBorrowed;
   uint256 public smartPoolEarningsAccumulator;
-  uint256 public smartPoolAssetsAverage;
-  uint32 public lastAverageUpdate;
-
-  InterestRateModel public interestRateModel;
-
   uint256 public penaltyRate;
-  uint256 public smartPoolReserveFactor;
   uint256 public dampSpeedUp;
   uint256 public dampSpeedDown;
 
-  Auditor public immutable auditor;
-
   uint8 public maxFuturePools;
   uint32 public lastAccumulatedEarningsAccrual;
+  uint32 public lastAverageUpdate;
+
+  InterestRateModel public interestRateModel;
+  Auditor public immutable auditor;
+
   uint128 public accumulatedEarningsSmoothFactor;
+  uint128 public smartPoolReserveFactor;
 
   uint256 public smartPoolAssets;
+  uint256 public smartPoolAssetsAverage;
 
-  /// @notice Event emitted when a user deposits an amount of an asset to a certain maturity date collecting a fee at
+  /// @notice Event emitted when a user deposits an amount of an asset to a certain fixed rate pool collecting a fee at
   /// the end of the period.
-  /// @param maturity maturity in which the user will be able to collect his deposit + his fee.
+  /// @param maturity maturity at which the user will be able to collect his deposit + his fee.
   /// @param caller address which deposited the assets.
   /// @param owner address that will be able to withdraw the deposited assets.
   /// @param assets amount of the asset that were deposited.
@@ -78,8 +77,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 fee
   );
 
-  /// @notice Event emitted when a user collects its deposits after maturity.
-  /// @param maturity maturity where the user collected its deposits.
+  /// @notice Event emitted when a user withdraws from a fixed rate pool.
+  /// @param maturity maturity where the user withdraw its deposits.
   /// @param caller address which withdraw the asset.
   /// @param receiver address which will be collecting the assets.
   /// @param owner address which had the assets withdrawn.
@@ -167,7 +166,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   /// @notice emitted when the smartPoolReserveFactor is changed by admin.
   /// @param newSmartPoolReserveFactor smartPoolReserveFactor percentage.
-  event SmartPoolReserveFactorSet(uint256 newSmartPoolReserveFactor);
+  event SmartPoolReserveFactorSet(uint128 newSmartPoolReserveFactor);
 
   /// @notice emitted when the damp speeds are changed by admin.
   /// @param newDampSpeedUp represented with 1e18 decimals.
@@ -181,7 +180,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
-    uint256 smartPoolReserveFactor_,
+    uint128 smartPoolReserveFactor_,
     DampSpeed memory dampSpeed_
   )
     ERC4626(asset_, string(abi.encodePacked("EToken", asset_.symbol())), string(abi.encodePacked("e", asset_.symbol())))
@@ -211,13 +210,13 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       uint256 maxMaturity = latestMaturity + memMaxFuturePools * TSUtils.INTERVAL;
 
       assembly {
-        mstore(0x20, maturityPools.slot) // hashing scratch space, second word for storage location hashing
+        mstore(0x20, fixedPools.slot) // hashing scratch space, second word for storage location hashing
       }
 
       for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += TSUtils.INTERVAL) {
         assembly {
           mstore(0x00, maturity) // hashing scratch space, first word for storage location hashing
-          let location := keccak256(0x00, 0x40) // struct storage location: keccak256([maturity, maturityPools.slot])
+          let location := keccak256(0x00, 0x40) // struct storage location: keccak256([maturity, fixedPools.slot])
           unassignedEarnings := sload(add(location, 2)) // third word
           lastAccrual := sload(add(location, 3)) // forth word
         }
@@ -364,7 +363,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @notice Sets the percentage that represents the smart pool liquidity reserves that can't be borrowed.
   /// @dev Value can only be set between 20% and 0%.
   /// @param smartPoolReserveFactor_ parameter represented with 18 decimals.
-  function setSmartPoolReserveFactor(uint256 smartPoolReserveFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setSmartPoolReserveFactor(uint128 smartPoolReserveFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (smartPoolReserveFactor_ > 0.2e18) revert InvalidParameter();
     smartPoolReserveFactor = smartPoolReserveFactor_;
     emit SmartPoolReserveFactorSet(smartPoolReserveFactor_);
@@ -409,7 +408,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     (uint256 sumBorrows, ) = getAccountBorrows(borrower, PoolLib.MATURITY_ALL);
     positionAssets = Math.min(positionAssets, CLOSE_FACTOR.mulWadDown(sumBorrows));
 
-    uint256 encodedMaturities = userMpBorrowed[borrower];
+    uint256 encodedMaturities = fixedBorrows[borrower];
     uint256 baseMaturity = encodedMaturities % (1 << 32);
     uint256 packedMaturities = encodedMaturities >> 32;
     for (uint224 i = 0; i < 224; ) {
@@ -644,7 +643,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     emit AssetSeized(liquidator, borrower, assets);
   }
 
-  /// @notice Accounts for borrowing from a maturity pool.
+  /// @notice Accounts for borrowing from a fixed rate pool.
   /// @dev It doesn't check liquidity for the borrower.
   /// The `fixedLender` should call `validateBorrowMP` immediately after calling this function.
   /// @param maturity maturity date / pool id where the assets will be borrowed.
@@ -660,7 +659,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 maxAmountAllowed
   ) internal returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
     BorrowVars memory borrowVars;
-    PoolLib.MaturityPool storage pool = maturityPools[maturity];
+    PoolLib.FixedPool storage pool = fixedPools[maturity];
 
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
@@ -687,9 +686,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
 
     // If user doesn't have a current position, we add it to the list of all of them
-    borrowVars.position = mpUserBorrowedAmount[maturity][borrower];
+    borrowVars.position = fixedBorrowPositions[maturity][borrower];
     if (borrowVars.position.principal == 0) {
-      userMpBorrowed[borrower] = userMpBorrowed[borrower].setMaturity(maturity);
+      fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
     }
 
     // We calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
@@ -701,13 +700,13 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     smartPoolEarningsAccumulator += borrowVars.earningsSP;
     pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
 
-    mpUserBorrowedAmount[maturity][borrower] = PoolLib.Position(
+    fixedBorrowPositions[maturity][borrower] = PoolLib.Position(
       borrowVars.position.principal + amount,
       borrowVars.position.fee + borrowVars.fee
     );
   }
 
-  /// @notice Accounts for depositing to a maturity pool.
+  /// @notice Accounts for depositing to a fixed rate pool.
   /// @param maturity maturity date / pool id where the assets will be deposited.
   /// @param supplier address that will be depositing the assets.
   /// @param amount amount that the supplier will be depositing.
@@ -720,7 +719,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 amount,
     uint256 minAmountRequired
   ) internal returns (uint256 currentTotalDeposit, uint256 earningsSP) {
-    PoolLib.MaturityPool storage pool = maturityPools[maturity];
+    PoolLib.FixedPool storage pool = fixedPools[maturity];
 
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
@@ -738,17 +737,17 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     smartPoolEarningsAccumulator += feeSP;
 
     // We update users's position
-    PoolLib.Position memory position = mpUserSuppliedAmount[maturity][supplier];
+    PoolLib.Position memory position = fixedDepositPositions[maturity][supplier];
 
     // If user doesn't have a current position, we add it to the list of all of them
     if (position.principal == 0) {
-      userMpSupplied[supplier] = userMpSupplied[supplier].setMaturity(maturity);
+      fixedDeposits[supplier] = fixedDeposits[supplier].setMaturity(maturity);
     }
 
-    mpUserSuppliedAmount[maturity][supplier] = PoolLib.Position(position.principal + amount, position.fee + fee);
+    fixedDepositPositions[maturity][supplier] = PoolLib.Position(position.principal + amount, position.fee + fee);
   }
 
-  /// @notice Accounts for withdrawing from a maturity pool.
+  /// @notice Accounts for withdrawing from a fixed rate pool.
   /// @param maturity maturity date / pool id where the asset should be accounted for.
   /// @param redeemer address that should have the assets withdrawn.
   /// @param positionAssets amount that the redeemer will be extracting from his position.
@@ -761,11 +760,11 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 positionAssets,
     uint256 minAmountRequired
   ) internal returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
-    PoolLib.MaturityPool storage pool = maturityPools[maturity];
+    PoolLib.FixedPool storage pool = fixedPools[maturity];
 
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
-    PoolLib.Position memory position = mpUserSuppliedAmount[maturity][redeemer];
+    PoolLib.Position memory position = fixedDepositPositions[maturity][redeemer];
 
     if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
 
@@ -808,15 +807,15 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // the user gets discounted the full amount
     position.reduceProportionally(positionAssets);
     if (position.principal + position.fee == 0) {
-      delete mpUserSuppliedAmount[maturity][redeemer];
-      userMpSupplied[redeemer] = userMpSupplied[redeemer].clearMaturity(maturity);
+      delete fixedDepositPositions[maturity][redeemer];
+      fixedDeposits[redeemer] = fixedDeposits[redeemer].clearMaturity(maturity);
     } else {
       // we proportionally reduce the values
-      mpUserSuppliedAmount[maturity][redeemer] = position;
+      fixedDepositPositions[maturity][redeemer] = position;
     }
   }
 
-  /// @notice Accounts for repaying from a maturity pool.
+  /// @notice Accounts for repaying from a fixed rate pool.
   /// @param maturity maturity date / pool id where the asset should be accounted for.
   /// @param borrower address where the debt will be reduced.
   /// @param positionAssets the sum of principal and fees that this repayment covers.
@@ -837,11 +836,11 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       uint256 earningsSP
     )
   {
-    PoolLib.MaturityPool storage pool = maturityPools[maturity];
+    PoolLib.FixedPool storage pool = fixedPools[maturity];
 
     earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
-    PoolLib.Position memory position = mpUserBorrowedAmount[maturity][borrower];
+    PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
 
     debtCovered = Math.min(positionAssets, position.principal + position.fee);
 
@@ -882,11 +881,11 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // We update the user position
     position.reduceProportionally(debtCovered);
     if (position.principal + position.fee == 0) {
-      delete mpUserBorrowedAmount[maturity][borrower];
-      userMpBorrowed[borrower] = userMpBorrowed[borrower].clearMaturity(maturity);
+      delete fixedBorrowPositions[maturity][borrower];
+      fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
     } else {
       // We proportionally reduce the values
-      mpUserBorrowedAmount[maturity][borrower] = position;
+      fixedBorrowPositions[maturity][borrower] = position;
     }
   }
 
@@ -901,7 +900,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     returns (uint256 sumPositions, uint256 sumPenalties)
   {
     if (maturity == PoolLib.MATURITY_ALL) {
-      uint256 encodedMaturities = userMpBorrowed[who];
+      uint256 encodedMaturities = fixedBorrows[who];
       uint256 baseMaturity = encodedMaturities % (1 << 32);
       uint256 packedMaturities = encodedMaturities >> 32;
       // We calculate all the timestamps using the baseMaturity and the following bits representing the following weeks
@@ -925,7 +924,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @return position the position debt denominated in number of tokens.
   /// @return penalties the penalties for late repayment.
   function getAccountDebt(address who, uint256 maturity) internal view returns (uint256 position, uint256 penalties) {
-    PoolLib.Position memory data = mpUserBorrowedAmount[maturity][who];
+    PoolLib.Position memory data = fixedBorrowPositions[maturity][who];
     position = data.principal + data.fee;
     uint256 secondsDelayed = TSUtils.secondsPre(maturity, block.timestamp);
     if (secondsDelayed > 0) penalties = position.mulWadDown(secondsDelayed * penaltyRate);

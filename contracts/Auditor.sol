@@ -163,8 +163,8 @@ contract Auditor is AccessControl {
 
   /// @notice Validates that the current state of the position and system are valid (liquidity).
   /// @dev Hook function to be called after adding the borrowed debt to the user position.
-  /// @param fixedLender address of the fixedLender that will lend money in a maturity.
-  /// @param borrower address of the user that will borrow money from a maturity date.
+  /// @param fixedLender address of the fixedLender where the borrow is made.
+  /// @param borrower address of the account that will repay the debt.
   function validateBorrowMP(FixedLender fixedLender, address borrower) external {
     validateMarketListed(fixedLender);
     uint256 marketIndex = markets[fixedLender].index;
@@ -274,7 +274,7 @@ contract Auditor is AccessControl {
     if (collateral < debt) revert InsufficientLiquidity();
   }
 
-  /// @notice Returns account's liquidity for a certain market/maturity pool.
+  /// @notice Returns account's liquidity for a certain market.
   /// @param account wallet which the liquidity will be calculated.
   /// @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args).
   /// @param withdrawAmount amount to simulate withdraw.

@@ -72,7 +72,7 @@ export type MockTokenSpec = {
   usdPrice: BigNumber;
 };
 
-export type MaturityPoolState = {
+export type FixedPoolState = {
   borrowFees: BigNumber;
   earningsUnassigned: BigNumber;
   earningsSP: BigNumber;

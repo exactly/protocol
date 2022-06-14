@@ -4,12 +4,12 @@ pragma solidity 0.8.13;
 import { TimelockController } from "@openzeppelin/contracts/governance/TimelockController.sol";
 import { PoolLib } from "../utils/PoolLib.sol";
 
-contract MaturityPoolHarness {
-  using PoolLib for PoolLib.MaturityPool;
+contract FixedPoolHarness {
+  using PoolLib for PoolLib.FixedPool;
   using PoolLib for PoolLib.Position;
   using PoolLib for uint256;
 
-  PoolLib.MaturityPool public maturityPool;
+  PoolLib.FixedPool public fixedPool;
   uint256 public newDebtSP;
   uint256 public newUserBorrows;
   uint256 public smartPoolDebtReduction;
@@ -19,19 +19,19 @@ contract MaturityPoolHarness {
   PoolLib.Position public scaledDebt;
 
   function accrueEarnings(uint256 _maturityID) external {
-    lastEarningsSP = maturityPool.accrueEarnings(_maturityID, nextTimestamp != 0 ? nextTimestamp : block.timestamp);
+    lastEarningsSP = fixedPool.accrueEarnings(_maturityID, nextTimestamp != 0 ? nextTimestamp : block.timestamp);
   }
 
   function deposit(uint256 _amount) external {
-    smartPoolDebtReduction = maturityPool.deposit(_amount);
+    smartPoolDebtReduction = fixedPool.deposit(_amount);
   }
 
   function repay(uint256 _amount) external {
-    smartPoolDebtReduction = maturityPool.repay(_amount);
+    smartPoolDebtReduction = fixedPool.repay(_amount);
   }
 
   function borrow(uint256 _amount, uint256 _maxDebt) external {
-    newDebtSP = maturityPool.borrow(_amount, _maxDebt);
+    newDebtSP = fixedPool.borrow(_amount, _maxDebt);
   }
 
   function distributeEarningsAccordingly(
@@ -43,7 +43,7 @@ contract MaturityPoolHarness {
   }
 
   function withdraw(uint256 _amountToDiscount, uint256 _maxDebt) external {
-    newDebtSP = maturityPool.withdraw(_amountToDiscount, _maxDebt);
+    newDebtSP = fixedPool.withdraw(_amountToDiscount, _maxDebt);
   }
 
   function setMaturity(uint256 _userBorrows, uint256 _maturityDate) external {
@@ -55,11 +55,11 @@ contract MaturityPoolHarness {
   }
 
   function addFee(uint256 _fee) external {
-    maturityPool.earningsUnassigned += _fee;
+    fixedPool.earningsUnassigned += _fee;
   }
 
   function removeFee(uint256 _fee) external {
-    maturityPool.earningsUnassigned -= _fee;
+    fixedPool.earningsUnassigned -= _fee;
   }
 
   function scaleProportionally(
