@@ -7,7 +7,7 @@ import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
-import { FixedLender, ERC20 } from "../../contracts/FixedLender.sol";
+import { FixedLender, ERC20, PoolLib, TooMuchSlippage } from "../../contracts/FixedLender.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { TSUtils } from "../../contracts/utils/TSUtils.sol";
@@ -142,6 +142,44 @@ contract FixedLenderTest is Test {
     vm.expectEmit(true, true, true, true, address(fixedLender));
     emit RepayAtMaturity(TSUtils.INTERVAL, address(this), address(this), 1.01 ether, 1.1 ether);
     fixedLender.repayAtMaturity(TSUtils.INTERVAL, 1.5 ether, 1.5 ether, address(this));
+  }
+
+  function testDepositTooMuchSlippage() external {
+    vm.expectRevert(TooMuchSlippage.selector);
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this));
+  }
+
+  function testBorrowTooMuchSlippage() external {
+    fixedLender.deposit(12 ether, address(this));
+    vm.expectRevert(TooMuchSlippage.selector);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this), address(this));
+  }
+
+  function testRepayTooMuchSlippage() external {
+    fixedLender.deposit(12 ether, address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
+    vm.expectRevert(TooMuchSlippage.selector);
+    fixedLender.repayAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this));
+  }
+
+  function testMultipleFixedBorrowsRepays() external {
+    uint256 total = 0;
+    fixedLender.deposit(100 ether, address(this));
+    for (uint256 i = 1; i < 3 + 1; i++) {
+      total += fixedLender.borrowAtMaturity(i * TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
+    }
+
+    (uint256 position, ) = fixedLender.getAccountBorrows(address(this), PoolLib.MATURITY_ALL);
+    assertEq(position, total);
+
+    for (uint256 i = 1; i < 3 + 1; i++) {
+      fixedLender.repayAtMaturity(
+        i * TSUtils.INTERVAL,
+        uint256(1 ether).mulWadDown(1e18 + (0.1e18 * i * TSUtils.INTERVAL) / 365 days),
+        1.01 ether,
+        address(this)
+      );
+    }
   }
 
   function testMultipleDepositsToSmartPool() external {

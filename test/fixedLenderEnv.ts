@@ -7,11 +7,18 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 export class FixedLenderEnv {
   mockInterestRateModel: Contract;
   fixedLenderHarness: Contract;
+  asset: Contract;
   currentWallet: SignerWithAddress;
 
-  constructor(mockInterestRateModel_: Contract, fixedLenderHarness_: Contract, currentWallet_: SignerWithAddress) {
+  constructor(
+    mockInterestRateModel_: Contract,
+    fixedLenderHarness_: Contract,
+    asset_: Contract,
+    currentWallet_: SignerWithAddress,
+  ) {
     this.mockInterestRateModel = mockInterestRateModel_;
     this.fixedLenderHarness = fixedLenderHarness_;
+    this.asset = asset_;
     this.currentWallet = currentWallet_;
   }
 
@@ -42,19 +49,6 @@ export class FixedLenderEnv {
     return this.fixedLenderHarness
       .connect(this.currentWallet)
       .repayMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount);
-  }
-
-  public async depositMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
-    let expectedAmount: BigNumber;
-    const amount = parseUnits(units);
-    if (expectedAtMaturity) {
-      expectedAmount = parseUnits(expectedAtMaturity);
-    } else {
-      expectedAmount = noDiscount(amount);
-    }
-    return this.fixedLenderHarness
-      .connect(this.currentWallet)
-      .depositMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount);
   }
 
   public async withdrawMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
@@ -120,6 +114,6 @@ export class FixedLenderEnv {
 
     const [owner] = await ethers.getSigners();
 
-    return new FixedLenderEnv(mockInterestRateModel, fixedLenderHarness, owner);
+    return new FixedLenderEnv(mockInterestRateModel, fixedLenderHarness, asset, owner);
   }
 }
