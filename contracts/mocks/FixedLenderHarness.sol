@@ -49,18 +49,13 @@ contract FixedLenderHarness is FixedLender {
     (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = borrowMP(maturity, borrower, amount, maxAmountAllowed);
   }
 
-  function depositMPWithReturnValues(
+  function depositMaturityWithReturnValue(
     uint256 maturity,
-    address supplier,
-    uint256 amount,
-    uint256 minAmountRequired
+    uint256 assets,
+    uint256 minAssetsRequired,
+    address receiver
   ) external {
-    (returnValues.currentTotalDeposit, returnValues.earningsSP) = depositMP(
-      maturity,
-      supplier,
-      amount,
-      minAmountRequired
-    );
+    returnValues.currentTotalDeposit = depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
   }
 
   function withdrawMPWithReturnValues(

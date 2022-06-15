@@ -502,24 +502,47 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param assets amount to receive from the msg.sender.
   /// @param minAssetsRequired minimum amount of assets required by the depositor for the transaction to be accepted.
   /// @param receiver address that will be able to withdraw the deposited assets.
-  /// @return maturityAssets total amount of assets (principal + fee) to be withdrawn at maturity.
+  /// @return positionAssets total amount of assets (principal + fee) to be withdrawn at maturity.
   function depositAtMaturity(
     uint256 maturity,
     uint256 assets,
     uint256 minAssetsRequired,
     address receiver
-  ) public nonReentrant whenNotPaused returns (uint256 maturityAssets) {
+  ) public nonReentrant whenNotPaused returns (uint256 positionAssets) {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    uint256 earningsSP;
-    (maturityAssets, earningsSP) = depositMP(maturity, receiver, assets, minAssetsRequired);
+    PoolLib.FixedPool storage pool = fixedPools[maturity];
+
+    uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
+
+    (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
+      pool.smartPoolBorrowed(),
+      pool.earningsUnassigned,
+      assets
+    );
+    positionAssets = assets + fee;
+    if (positionAssets < minAssetsRequired) revert TooMuchSlippage();
+
+    smartPoolBorrowed -= pool.deposit(assets);
+    pool.earningsUnassigned -= fee + feeSP;
+    smartPoolEarningsAccumulator += feeSP;
+
+    // We update user's position
+    PoolLib.Position memory position = fixedDepositPositions[maturity][receiver];
+
+    // If user doesn't have a current position, we add it to the list of all of them
+    if (position.principal == 0) {
+      fixedDeposits[receiver] = fixedDeposits[receiver].setMaturity(maturity);
+    }
+
+    fixedDepositPositions[maturity][receiver] = PoolLib.Position(position.principal + assets, position.fee + fee);
 
     uint256 memSPAssets = smartPoolAssets;
     emit SmartPoolEarningsAccrued(memSPAssets, earningsSP);
     smartPoolAssets = memSPAssets + earningsSP;
 
-    emit DepositAtMaturity(maturity, msg.sender, receiver, assets, maturityAssets - assets);
+    emit DepositAtMaturity(maturity, msg.sender, receiver, assets, fee);
     asset.safeTransferFrom(msg.sender, address(this), assets);
   }
 
@@ -704,47 +727,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       borrowVars.position.principal + amount,
       borrowVars.position.fee + borrowVars.fee
     );
-  }
-
-  /// @notice Accounts for depositing to a fixed rate pool.
-  /// @param maturity maturity date / pool id where the assets will be deposited.
-  /// @param supplier address that will be depositing the assets.
-  /// @param amount amount that the supplier will be depositing.
-  /// @param minAmountRequired minimum amount that the supplier is expecting to receive at maturity.
-  /// @return currentTotalDeposit the amount that should be collected at maturity for this deposit.
-  /// @return earningsSP amount of earnings to be accrued by the smart pool.
-  function depositMP(
-    uint256 maturity,
-    address supplier,
-    uint256 amount,
-    uint256 minAmountRequired
-  ) internal returns (uint256 currentTotalDeposit, uint256 earningsSP) {
-    PoolLib.FixedPool storage pool = fixedPools[maturity];
-
-    earningsSP = pool.accrueEarnings(maturity, block.timestamp);
-
-    (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
-      pool.smartPoolBorrowed(),
-      pool.earningsUnassigned,
-      amount
-    );
-
-    currentTotalDeposit = amount + fee;
-    if (currentTotalDeposit < minAmountRequired) revert TooMuchSlippage();
-
-    smartPoolBorrowed -= pool.deposit(amount);
-    pool.earningsUnassigned -= fee + feeSP;
-    smartPoolEarningsAccumulator += feeSP;
-
-    // We update users's position
-    PoolLib.Position memory position = fixedDepositPositions[maturity][supplier];
-
-    // If user doesn't have a current position, we add it to the list of all of them
-    if (position.principal == 0) {
-      fixedDeposits[supplier] = fixedDeposits[supplier].setMaturity(maturity);
-    }
-
-    fixedDepositPositions[maturity][supplier] = PoolLib.Position(position.principal + amount, position.fee + fee);
   }
 
   /// @notice Accounts for withdrawing from a fixed rate pool.
