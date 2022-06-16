@@ -2,6 +2,7 @@
 pragma solidity 0.8.13;
 
 import { FixedLender, InterestRateModel, ERC20, Auditor } from "../FixedLender.sol";
+import "hardhat/console.sol";
 
 contract FixedLenderHarness is FixedLender {
   struct ReturnValues {
@@ -58,17 +59,19 @@ contract FixedLenderHarness is FixedLender {
     returnValues.currentTotalDeposit = depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
   }
 
-  function withdrawMPWithReturnValues(
+  function withdrawMaturityWithReturnValue(
     uint256 maturity,
-    address redeemer,
-    uint256 amount,
-    uint256 minAmountRequired
+    uint256 positionAssets,
+    uint256 minAssetsRequired,
+    address receiver,
+    address owner
   ) external {
-    (returnValues.redeemAmountDiscounted, returnValues.earningsSP) = withdrawMP(
+    returnValues.redeemAmountDiscounted = withdrawAtMaturity(
       maturity,
-      redeemer,
-      amount,
-      minAmountRequired
+      positionAssets,
+      minAssetsRequired,
+      receiver,
+      owner
     );
   }
 

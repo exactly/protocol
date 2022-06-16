@@ -562,13 +562,62 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address owner
   ) public nonReentrant returns (uint256 assetsDiscounted) {
     if (positionAssets == 0) revert ZeroWithdraw();
-
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
-    uint256 earningsSP;
-    // We check if there's any discount to be applied for early withdrawal
-    (assetsDiscounted, earningsSP) = withdrawMP(maturity, owner, positionAssets, minAssetsRequired);
+    PoolLib.FixedPool storage pool = fixedPools[maturity];
+
+    uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
+
+    PoolLib.Position memory position = fixedDepositPositions[maturity][owner];
+
+    if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
+
+    // We verify if there are any penalties/fee for him because of
+    // early withdrawal - if so: discount
+    if (block.timestamp < maturity) {
+      updateSmartPoolAssetsAverage();
+      assetsDiscounted = positionAssets.divWadDown(
+        1e18 +
+          interestRateModel.getRateToBorrow(
+            maturity,
+            block.timestamp,
+            positionAssets,
+            pool.borrowed,
+            pool.supplied,
+            smartPoolAssetsAverage
+          )
+      );
+    } else {
+      assetsDiscounted = positionAssets;
+    }
+
+    if (assetsDiscounted < minAssetsRequired) revert TooMuchSlippage();
+
+    // We remove the supply from the fixed rate pool
+    smartPoolBorrowed += pool.withdraw(
+      PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
+      smartPoolAssets - smartPoolBorrowed
+    );
+
+    // All the fees go to unassigned or to the smart pool
+    (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
+      positionAssets - assetsDiscounted,
+      pool.smartPoolBorrowed(),
+      assetsDiscounted
+    );
+    pool.earningsUnassigned += earningsUnassigned;
+    smartPoolEarningsAccumulator += newEarningsSP;
+
+    // the user gets discounted the full amount
+    position.reduceProportionally(positionAssets);
+    if (position.principal + position.fee == 0) {
+      delete fixedDepositPositions[maturity][owner];
+      fixedDeposits[owner] = fixedDeposits[owner].clearMaturity(maturity);
+    } else {
+      // we proportionally reduce the values
+      fixedDepositPositions[maturity][owner] = position;
+    }
 
     if (msg.sender != owner) {
       uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
@@ -727,74 +776,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       borrowVars.position.principal + amount,
       borrowVars.position.fee + borrowVars.fee
     );
-  }
-
-  /// @notice Accounts for withdrawing from a fixed rate pool.
-  /// @param maturity maturity date / pool id where the asset should be accounted for.
-  /// @param redeemer address that should have the assets withdrawn.
-  /// @param positionAssets amount that the redeemer will be extracting from his position.
-  /// @param minAmountRequired minimum amount that the supplier is expecting to withdraw.
-  /// @return redeemAmountDiscounted amount of assets to be withdrawn (can include a discount for early withdraw).
-  /// @return earningsSP amount of earnings to be accrued by the smart pool.
-  function withdrawMP(
-    uint256 maturity,
-    address redeemer,
-    uint256 positionAssets,
-    uint256 minAmountRequired
-  ) internal returns (uint256 redeemAmountDiscounted, uint256 earningsSP) {
-    PoolLib.FixedPool storage pool = fixedPools[maturity];
-
-    earningsSP = pool.accrueEarnings(maturity, block.timestamp);
-
-    PoolLib.Position memory position = fixedDepositPositions[maturity][redeemer];
-
-    if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
-
-    // We verify if there are any penalties/fee for him because of
-    // early withdrawal - if so: discount
-    if (block.timestamp < maturity) {
-      updateSmartPoolAssetsAverage();
-      redeemAmountDiscounted = positionAssets.divWadDown(
-        1e18 +
-          interestRateModel.getRateToBorrow(
-            maturity,
-            block.timestamp,
-            positionAssets,
-            pool.borrowed,
-            pool.supplied,
-            smartPoolAssetsAverage
-          )
-      );
-    } else {
-      redeemAmountDiscounted = positionAssets;
-    }
-
-    if (redeemAmountDiscounted < minAmountRequired) revert TooMuchSlippage();
-
-    // We remove the supply from the offer
-    smartPoolBorrowed += pool.withdraw(
-      PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
-      smartPoolAssets - smartPoolBorrowed
-    );
-
-    // All the fees go to unassigned or to the smart pool
-    (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
-      positionAssets - redeemAmountDiscounted,
-      pool.smartPoolBorrowed(),
-      redeemAmountDiscounted
-    );
-    pool.earningsUnassigned += earningsUnassigned;
-    smartPoolEarningsAccumulator += newEarningsSP;
-
-    // the user gets discounted the full amount
-    position.reduceProportionally(positionAssets);
-    if (position.principal + position.fee == 0) {
-      delete fixedDepositPositions[maturity][redeemer];
-      fixedDeposits[redeemer] = fixedDeposits[redeemer].clearMaturity(maturity);
-    } else {
-      // we proportionally reduce the values
-      fixedDepositPositions[maturity][redeemer] = position;
-    }
   }
 
   /// @notice Accounts for repaying from a fixed rate pool.
