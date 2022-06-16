@@ -54,7 +54,12 @@ const func: DeployFunction = async ({
     const fixedLender = await getContract<FixedLender>(fixedLenderName, await getSigner(deployer));
 
     if (symbol === "WETH") {
-      await deploy("FixedLenderETHRouter", { args: [fixedLender.address], from: deployer, log: true });
+      await deploy("FixedLenderETHRouter", {
+        skipIfAlreadyDeployed: true,
+        args: [fixedLender.address],
+        from: deployer,
+        log: true,
+      });
     }
 
     if (!((await fixedLender.maxFuturePools()) === maxFuturePools)) {
