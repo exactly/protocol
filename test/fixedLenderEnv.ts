@@ -51,19 +51,6 @@ export class FixedLenderEnv {
       .repayMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount);
   }
 
-  public async withdrawMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
-    let minAmountRequired: BigNumber;
-    const amount = parseUnits(units);
-    if (expectedAtMaturity) {
-      minAmountRequired = parseUnits(expectedAtMaturity);
-    } else {
-      minAmountRequired = noDiscount(amount);
-    }
-    return this.fixedLenderHarness
-      .connect(this.currentWallet)
-      .withdrawMPWithReturnValues(maturityPool, this.currentWallet.address, amount, minAmountRequired);
-  }
-
   public async borrowMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
     let expectedAmount: BigNumber;
     const amount = parseUnits(units);
