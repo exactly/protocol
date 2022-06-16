@@ -3,6 +3,7 @@ import type { DeployFunction } from "hardhat-deploy/types";
 const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
   await deploy("Previewer", {
+    skipIfAlreadyDeployed: true,
     args: [(await get("Auditor")).address],
     from: deployer,
     log: true,

@@ -8,7 +8,7 @@ const func: DeployFunction = async ({
   getNamedAccounts,
 }) => {
   const { deployer } = await getNamedAccounts();
-  await deploy("ExactlyOracle", { args: [priceExpiration], from: deployer, log: true });
+  await deploy("ExactlyOracle", { skipIfAlreadyDeployed: true, args: [priceExpiration], from: deployer, log: true });
 };
 
 func.tags = ["ExactlyOracle"];
