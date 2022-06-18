@@ -850,5 +850,279 @@ describe("FixedLender", function () {
         });
       });
     });
+    describe("Operations in more than one pool", () => {
+      describe("GIVEN a smart pool supply of 100 AND a borrow of 30 in a first maturity pool", () => {
+        beforeEach(async () => {
+          const tx = await fixedLenderDAI.deposit(parseUnits("100"), maria.address);
+          // we make 9011 seconds to go by so the smartPoolAssetsAverage is equal to the smartPoolAssets
+          const { blockNumber } = await tx.wait();
+          const { timestamp } = await provider.getBlock(blockNumber);
+          await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
+
+          await fixedLenderDAI.borrowAtMaturity(
+            futurePools(1)[0],
+            parseUnits("30"),
+            parseUnits("30"),
+            maria.address,
+            maria.address,
+          );
+        });
+        it("WHEN a borrow of 70 is made to the second mp, THEN it should not revert", async () => {
+          await expect(
+            fixedLenderDAI.borrowAtMaturity(
+              futurePools(2)[1],
+              parseUnits("70"),
+              parseUnits("70"),
+              maria.address,
+              maria.address,
+            ),
+          ).to.not.be.reverted;
+        });
+        it("WHEN a borrow of 70.01 is made to the second mp, THEN it should fail with error InsufficientProtocolLiquidity", async () => {
+          await expect(
+            fixedLenderDAI.borrowAtMaturity(
+              futurePools(2)[1],
+              parseUnits("70.01"),
+              parseUnits("70.01"),
+              maria.address,
+              maria.address,
+            ),
+          ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+        });
+        describe("AND GIVEN a deposit to the first mp of 30 AND a borrow of 70 in the second mp", () => {
+          beforeEach(async () => {
+            await fixedLenderDAI.depositAtMaturity(
+              futurePools(1)[0],
+              parseUnits("30"),
+              parseUnits("30"),
+              maria.address,
+            );
+            await fixedLenderDAI.borrowAtMaturity(
+              futurePools(2)[1],
+              parseUnits("70"),
+              parseUnits("70"),
+              maria.address,
+              maria.address,
+            );
+          });
+          it("WHEN a borrow of 30 is made to the first mp, THEN it should not revert", async () => {
+            await expect(
+              fixedLenderDAI.borrowAtMaturity(
+                futurePools(1)[0],
+                parseUnits("30"),
+                parseUnits("30"),
+                maria.address,
+                maria.address,
+              ),
+            ).to.not.be.reverted;
+          });
+          it("WHEN a borrow of 30.01 is made to the first mp, THEN it should fail with error InsufficientProtocolLiquidity", async () => {
+            await expect(
+              fixedLenderDAI.borrowAtMaturity(
+                futurePools(1)[0],
+                parseUnits("31"),
+                parseUnits("31"),
+                maria.address,
+                maria.address,
+              ),
+            ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+          });
+          describe("AND GIVEN a borrow of 30 in the first mp", () => {
+            beforeEach(async () => {
+              await fixedLenderDAI.borrowAtMaturity(
+                futurePools(1)[0],
+                parseUnits("30"),
+                parseUnits("30"),
+                maria.address,
+                maria.address,
+              );
+            });
+            it("WHEN a withdraw of 30 is made to the first mp, THEN it should revert", async () => {
+              await expect(
+                fixedLenderDAI.withdrawAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("30"),
+                  parseUnits("30"),
+                  maria.address,
+                  maria.address,
+                ),
+              ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+            });
+            it("AND WHEN a supply of 30 is added to the sp, THEN the withdraw of 30 is not reverted", async () => {
+              await fixedLenderDAI.deposit(parseUnits("30"), maria.address);
+              await expect(
+                fixedLenderDAI.withdrawAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("30"),
+                  parseUnits("30"),
+                  maria.address,
+                  maria.address,
+                ),
+              ).to.not.be.reverted;
+            });
+            it("AND WHEN a deposit of 30 is added to the mp, THEN the withdraw of 30 is not reverted", async () => {
+              await fixedLenderDAI.depositAtMaturity(
+                futurePools(1)[0],
+                parseUnits("30"),
+                parseUnits("30"),
+                maria.address,
+              );
+              await expect(
+                fixedLenderDAI.withdrawAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("30"),
+                  parseUnits("30"),
+                  maria.address,
+                  maria.address,
+                ),
+              ).to.not.be.reverted;
+            });
+          });
+        });
+      });
+    });
+    describe("Smart Pool Reserve", () => {
+      describe("GIVEN a sp total supply of 100, a 10% smart pool reserve and a borrow for 80", () => {
+        let tx: any;
+        beforeEach(async () => {
+          const depositTx = await fixedLenderDAI.deposit(parseUnits("100"), maria.address);
+          // we make 9011 seconds to go by so the smartPoolAssetsAverage is equal to the smartPoolAssets
+          const { blockNumber } = await depositTx.wait();
+          const { timestamp } = await provider.getBlock(blockNumber);
+          await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
+
+          await timelockExecute(owner, fixedLenderDAI, "setSmartPoolReserveFactor", [parseUnits("0.1")]);
+          tx = fixedLenderDAI.borrowAtMaturity(
+            futurePools(1)[0],
+            parseUnits("80"),
+            parseUnits("80"),
+            maria.address,
+            maria.address,
+          );
+        });
+        it("THEN the borrow transaction should not revert", async () => {
+          await expect(tx).to.not.be.reverted;
+        });
+        it("AND WHEN trying to borrow 10 more, THEN it should not revert", async () => {
+          await expect(
+            fixedLenderDAI.borrowAtMaturity(
+              futurePools(1)[0],
+              parseUnits("10"),
+              parseUnits("10"),
+              maria.address,
+              maria.address,
+            ),
+          ).to.not.be.reverted;
+        });
+        it("AND WHEN trying to borrow 10.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+          await expect(
+            fixedLenderDAI.borrowAtMaturity(
+              futurePools(1)[0],
+              parseUnits("10.01"),
+              parseUnits("10.01"),
+              maria.address,
+              maria.address,
+            ),
+          ).to.be.revertedWith("SmartPoolReserveExceeded()");
+        });
+        it("AND WHEN depositing 0.1 more to the sp, THEN it should not revert when trying to borrow 10.01 more", async () => {
+          await fixedLenderDAI.deposit(parseUnits("0.1"), maria.address);
+          await expect(
+            fixedLenderDAI.borrowAtMaturity(
+              futurePools(1)[0],
+              parseUnits("10.01"),
+              parseUnits("10.01"),
+              maria.address,
+              maria.address,
+            ),
+          ).to.not.be.reverted;
+        });
+        describe("AND GIVEN a deposit of 10 to the maturity pool", () => {
+          beforeEach(async () => {
+            await fixedLenderDAI.depositAtMaturity(
+              futurePools(1)[0],
+              parseUnits("10"),
+              parseUnits("10"),
+              maria.address,
+            );
+          });
+          it("AND WHEN trying to borrow 20 more, THEN it should not revert", async () => {
+            await expect(
+              fixedLenderDAI.borrowAtMaturity(
+                futurePools(1)[0],
+                parseUnits("20"),
+                parseUnits("20"),
+                maria.address,
+                maria.address,
+              ),
+            ).to.not.be.reverted;
+          });
+          describe("AND GIVEN a borrow of 10 to the maturity pool AND a withdraw of 10", () => {
+            beforeEach(async () => {
+              await fixedLenderDAI.borrowAtMaturity(
+                futurePools(1)[0],
+                parseUnits("10"),
+                parseUnits("10"),
+                maria.address,
+                maria.address,
+              );
+              tx = fixedLenderDAI.withdrawAtMaturity(
+                futurePools(1)[0],
+                parseUnits("10"),
+                parseUnits("10"),
+                maria.address,
+                maria.address,
+              );
+            });
+            it("THEN the withdraw transaction should not revert", async () => {
+              await expect(tx).to.not.be.reverted;
+            });
+            it("AND WHEN trying to borrow 0.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+              await expect(
+                fixedLenderDAI.borrowAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("0.01"),
+                  parseUnits("0.01"),
+                  maria.address,
+                  maria.address,
+                ),
+              ).to.be.revertedWith("SmartPoolReserveExceeded()");
+            });
+            describe("AND GIVEN a repay of 5", () => {
+              beforeEach(async () => {
+                await fixedLenderDAI.repayAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("5"),
+                  parseUnits("5"),
+                  maria.address,
+                );
+              });
+              it("WHEN trying to borrow 5 more, THEN it should not revert", async () => {
+                await expect(
+                  fixedLenderDAI.borrowAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("5"),
+                    parseUnits("5"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
+              it("AND WHEN trying to borrow 5.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+                await expect(
+                  fixedLenderDAI.borrowAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("5.01"),
+                    parseUnits("5.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.be.revertedWith("SmartPoolReserveExceeded()");
+              });
+            });
+          });
+        });
+      });
+    });
   });
 });

@@ -2,7 +2,6 @@
 pragma solidity 0.8.13;
 
 import { FixedLender, InterestRateModel, ERC20, Auditor } from "../FixedLender.sol";
-import "hardhat/console.sol";
 
 contract FixedLenderHarness is FixedLender {
   struct ReturnValues {
@@ -41,13 +40,14 @@ contract FixedLenderHarness is FixedLender {
     timestamp = block.timestamp;
   }
 
-  function borrowMPWithReturnValues(
+  function borrowMaturityWithReturnValue(
     uint256 maturity,
-    address borrower,
-    uint256 amount,
-    uint256 maxAmountAllowed
+    uint256 assets,
+    uint256 maxAssetsAllowed,
+    address receiver,
+    address borrower
   ) external {
-    (returnValues.totalOwedNewBorrow, returnValues.earningsSP) = borrowMP(maturity, borrower, amount, maxAmountAllowed);
+    returnValues.totalOwedNewBorrow = borrowAtMaturity(maturity, assets, maxAssetsAllowed, receiver, borrower);
   }
 
   function depositMaturityWithReturnValue(
