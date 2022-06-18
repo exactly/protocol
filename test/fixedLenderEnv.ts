@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
 import { BigNumber, Contract } from "ethers";
-import { applyMaxFee, noDiscount, FixedPoolState } from "./exactlyUtils";
+import { noDiscount, FixedPoolState } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -51,23 +51,6 @@ export class FixedLenderEnv {
       .repayMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount);
   }
 
-  public async borrowMP(maturityPool: number, units: string, expectedAtMaturity?: string) {
-    let expectedAmount: BigNumber;
-    const amount = parseUnits(units);
-    if (expectedAtMaturity) {
-      expectedAmount = parseUnits(expectedAtMaturity);
-    } else {
-      expectedAmount = applyMaxFee(amount);
-    }
-    return this.fixedLenderHarness
-      .connect(this.currentWallet)
-      .borrowMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount);
-  }
-
-  public async setSmartPoolAssets(smartPoolAssets: BigNumber) {
-    this.fixedLenderHarness.setSmartPoolAssets(smartPoolAssets);
-  }
-
   static async create(): Promise<FixedLenderEnv> {
     const MockInterestRateModelFactory = await ethers.getContractFactory("MockInterestRateModel");
     const mockInterestRateModel = await MockInterestRateModelFactory.deploy(0);
@@ -88,7 +71,7 @@ export class FixedLenderEnv {
     const FixedLenderHarness = await ethers.getContractFactory("FixedLenderHarness");
     const fixedLenderHarness = await FixedLenderHarness.deploy(
       asset.address,
-      3,
+      4,
       parseUnits("1"),
       auditor.address,
       mockInterestRateModel.address,
@@ -97,6 +80,8 @@ export class FixedLenderEnv {
       { up: parseUnits("0.0046"), down: parseUnits("0.42") },
     );
     await fixedLenderHarness.deployed();
+    await oracle.setPrice(fixedLenderHarness.address, parseUnits("1"));
+    await auditor.enableMarket(fixedLenderHarness.address, parseUnits("0.9"), 18);
     fixedLenderHarness.setSmartPoolAssets(parseUnits("100000"));
 
     const [owner] = await ethers.getSigners();

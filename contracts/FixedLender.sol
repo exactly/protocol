@@ -475,11 +475,55 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address receiver,
     address borrower
   ) public nonReentrant whenNotPaused returns (uint256 assetsOwed) {
+    BorrowVars memory borrowVars;
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    uint256 earningsSP;
-    (assetsOwed, earningsSP) = borrowMP(maturity, borrower, assets, maxAssetsAllowed);
+    PoolLib.FixedPool storage pool = fixedPools[maturity];
+
+    uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
+
+    updateSmartPoolAssetsAverage();
+    borrowVars.fee = assets.mulWadDown(
+      interestRateModel.getRateToBorrow(
+        maturity,
+        block.timestamp,
+        assets,
+        pool.borrowed,
+        pool.supplied,
+        smartPoolAssetsAverage
+      )
+    );
+    assetsOwed = assets + borrowVars.fee;
+
+    uint256 memSPBorrowed = smartPoolBorrowed;
+    memSPBorrowed = memSPBorrowed + pool.borrow(assets, smartPoolAssets - memSPBorrowed);
+    smartPoolBorrowed = memSPBorrowed;
+    if (memSPBorrowed > smartPoolAssets.mulWadDown(1e18 - smartPoolReserveFactor)) {
+      revert SmartPoolReserveExceeded();
+    }
+    // We validate that the user is not taking arbitrary fees
+    if (assetsOwed > maxAssetsAllowed) revert TooMuchSlippage();
+
+    // If user doesn't have a current position, we add it to the list of all of them
+    borrowVars.position = fixedBorrowPositions[maturity][borrower];
+    if (borrowVars.position.principal == 0) {
+      fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
+    }
+
+    // We calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
+    (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
+      borrowVars.fee,
+      pool.smartPoolBorrowed(),
+      assets
+    );
+    smartPoolEarningsAccumulator += borrowVars.earningsSP;
+    pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
+
+    fixedBorrowPositions[maturity][borrower] = PoolLib.Position(
+      borrowVars.position.principal + assets,
+      borrowVars.position.fee + borrowVars.fee
+    );
 
     if (msg.sender != borrower) {
       uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
@@ -494,7 +538,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     asset.safeTransfer(receiver, assets);
 
-    emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, assetsOwed - assets);
+    emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, borrowVars.fee);
   }
 
   /// @notice Deposits a certain amount to a maturity.
@@ -713,69 +757,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     asset.safeTransfer(liquidator, assets);
     emit AssetSeized(liquidator, borrower, assets);
-  }
-
-  /// @notice Accounts for borrowing from a fixed rate pool.
-  /// @dev It doesn't check liquidity for the borrower.
-  /// The `fixedLender` should call `validateBorrowMP` immediately after calling this function.
-  /// @param maturity maturity date / pool id where the assets will be borrowed.
-  /// @param borrower borrower that will take the debt.
-  /// @param amount amount that the borrower will be borrowing.
-  /// @param maxAmountAllowed maximum amount that the borrower is willing to pay at maturity.
-  /// @return totalOwedNewBorrow total amount that will need to be paid at maturity for this borrow.
-  /// @return earningsSP amount of earnings to be accrued by the smart pool.
-  function borrowMP(
-    uint256 maturity,
-    address borrower,
-    uint256 amount,
-    uint256 maxAmountAllowed
-  ) internal returns (uint256 totalOwedNewBorrow, uint256 earningsSP) {
-    BorrowVars memory borrowVars;
-    PoolLib.FixedPool storage pool = fixedPools[maturity];
-
-    earningsSP = pool.accrueEarnings(maturity, block.timestamp);
-
-    updateSmartPoolAssetsAverage();
-    borrowVars.fee = amount.mulWadDown(
-      interestRateModel.getRateToBorrow(
-        maturity,
-        block.timestamp,
-        amount,
-        pool.borrowed,
-        pool.supplied,
-        smartPoolAssetsAverage
-      )
-    );
-    totalOwedNewBorrow = amount + borrowVars.fee;
-
-    uint256 memSPBorrowed = smartPoolBorrowed;
-    memSPBorrowed = memSPBorrowed + pool.borrow(amount, smartPoolAssets - memSPBorrowed);
-    smartPoolBorrowed = memSPBorrowed;
-    if (memSPBorrowed > smartPoolAssets.mulWadDown(1e18 - smartPoolReserveFactor)) {
-      revert SmartPoolReserveExceeded();
-    }
-    // We validate that the user is not taking arbitrary fees
-    if (totalOwedNewBorrow > maxAmountAllowed) revert TooMuchSlippage();
-
-    // If user doesn't have a current position, we add it to the list of all of them
-    borrowVars.position = fixedBorrowPositions[maturity][borrower];
-    if (borrowVars.position.principal == 0) {
-      fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
-    }
-
-    // We calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
-    (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
-      borrowVars.fee,
-      pool.smartPoolBorrowed(),
-      amount
-    );
-    smartPoolEarningsAccumulator += borrowVars.earningsSP;
-    pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
-
-    fixedBorrowPositions[maturity][borrower] = PoolLib.Position(
-      borrowVars.position.principal + amount,
-      borrowVars.position.fee + borrowVars.fee
-    );
   }
 
   /// @notice Accounts for repaying from a fixed rate pool.
