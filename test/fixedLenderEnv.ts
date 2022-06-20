@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
 import { BigNumber, Contract } from "ethers";
-import { noDiscount, FixedPoolState } from "./exactlyUtils";
+import { FixedPoolState } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -36,19 +36,6 @@ export class FixedLenderEnv {
       .add(fixedPoolState.earningsMP)
       .add(fixedPoolState.earningsUnassigned)
       .add(fixedPoolState.earningsDiscounted);
-  }
-
-  public async repayMP(maturityPool: number, units: string, expectedUnits?: string) {
-    let expectedAmount: BigNumber;
-    const amount = parseUnits(units);
-    if (expectedUnits) {
-      expectedAmount = parseUnits(expectedUnits);
-    } else {
-      expectedAmount = noDiscount(amount);
-    }
-    return this.fixedLenderHarness
-      .connect(this.currentWallet)
-      .repayMPWithReturnValues(maturityPool, this.currentWallet.address, amount, expectedAmount);
   }
 
   static async create(): Promise<FixedLenderEnv> {

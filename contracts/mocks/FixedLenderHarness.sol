@@ -8,7 +8,6 @@ contract FixedLenderHarness is FixedLender {
     uint256 totalOwedNewBorrow;
     uint256 currentTotalDeposit;
     uint256 actualRepayAmount;
-    uint256 earningsSP;
     uint256 debtCovered;
     uint256 redeemAmountDiscounted;
   }
@@ -75,18 +74,13 @@ contract FixedLenderHarness is FixedLender {
     );
   }
 
-  function repayMPWithReturnValues(
+  function repayMaturityWithReturnValue(
     uint256 maturity,
-    address borrower,
-    uint256 repayAmount,
-    uint256 maxAmountAllowed
+    uint256 positionAssets,
+    uint256 maxAssetsAllowed,
+    address borrower
   ) external {
-    (returnValues.actualRepayAmount, returnValues.debtCovered, returnValues.earningsSP) = repayMP(
-      maturity,
-      borrower,
-      repayAmount,
-      maxAmountAllowed
-    );
+    returnValues.actualRepayAmount = repayAtMaturity(maturity, positionAssets, maxAssetsAllowed, borrower);
   }
 
   function setSmartPoolAssets(uint256 smartPoolAssets_) external {

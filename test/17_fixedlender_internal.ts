@@ -5,7 +5,7 @@ import { parseUnits } from "ethers/lib/utils";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { FixedPoolState } from "./exactlyUtils";
 import { FixedLenderEnv } from "./fixedLenderEnv";
-import futurePools, { INTERVAL } from "./utils/futurePools";
+import futurePools from "./utils/futurePools";
 
 const { provider } = ethers;
 const nextPoolID = futurePools(3)[2].toNumber();
@@ -170,7 +170,7 @@ describe("FixedLender Internal Functions", () => {
         borrowFees = 250;
         await mockInterestRateModel.setBorrowRate(parseUnits("0.05"));
         await fixedLenderEnv.moveInTime(fourDaysToMaturity);
-        await fixedLenderHarness
+        tx = await fixedLenderHarness
           .connect(laura)
           .borrowMaturityWithReturnValue(
             nextPoolID,
@@ -221,7 +221,7 @@ describe("FixedLender Internal Functions", () => {
           borrowAmount = 5000;
           borrowFees = 250;
           await fixedLenderEnv.moveInTime(threeDaysToMaturity);
-          await fixedLenderHarness
+          tx = await fixedLenderHarness
             .connect(laura)
             .borrowMaturityWithReturnValue(
               nextPoolID,
@@ -280,7 +280,7 @@ describe("FixedLender Internal Functions", () => {
             borrowAmount = 5000;
             borrowFees = 250;
             await fixedLenderEnv.moveInTime(twoDaysToMaturity);
-            await fixedLenderHarness
+            tx = await fixedLenderHarness
               .connect(laura)
               .borrowMaturityWithReturnValue(
                 nextPoolID,
@@ -292,7 +292,6 @@ describe("FixedLender Internal Functions", () => {
 
             returnValues = await fixedLenderHarness.returnValues();
             mp = await fixedLenderHarness.fixedPools(nextPoolID);
-            fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
             fixedPoolState.borrowFees = fixedPoolState.borrowFees.add(
               returnValues.totalOwedNewBorrow.sub(parseUnits(borrowAmount.toString())),
             );
@@ -331,11 +330,18 @@ describe("FixedLender Internal Functions", () => {
             beforeEach(async () => {
               repayAmount = 15750;
               await fixedLenderEnv.moveInTime(oneDayToMaturity);
-              await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString());
+              tx = await fixedLenderHarness
+                .connect(laura)
+                .repayMaturityWithReturnValue(
+                  nextPoolID,
+                  parseUnits(repayAmount.toString()),
+                  parseUnits(repayAmount.toString()),
+                  laura.address,
+                );
 
               fixedBorrowPositions = await fixedLenderHarness.fixedBorrowPositions(nextPoolID, laura.address);
               returnValues = await fixedLenderHarness.returnValues();
-              fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
+              fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(parseUnits("150"));
               mp = await fixedLenderHarness.fixedPools(nextPoolID);
             });
 
@@ -353,7 +359,9 @@ describe("FixedLender Internal Functions", () => {
             });
             it("THEN the debtCovered was equal to full repayAmount", async () => {
               // debtCovered=5775*5250/5775=5250
-              expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
+              await expect(tx)
+                .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                .withArgs(nextPoolID, laura.address, laura.address, parseUnits("15625"), parseUnits("15750"));
             });
             it("THEN the fixedBorrowPositions position is 0", async () => {
               expect(fixedBorrowPositions[0]).to.be.eq(0);
@@ -365,7 +373,12 @@ describe("FixedLender Internal Functions", () => {
               );
             });
             it("THEN earningsSP returned 125", async () => {
-              expect(returnValues.earningsSP).to.eq(parseUnits("125")); // earningsUnassigned were 250, then 1 day passed so earningsSP accrued half
+              const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+              // earningsUnassigned were 250, then 1 day passed so earningsSP accrued half
+              const earnings = parseUnits("125");
+              await expect(tx)
+                .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+                .withArgs(smartPoolAssets.sub(earnings), earnings);
             });
             it("THEN the actualRepayAmount returned is 15750 - 125", async () => {
               // Takes all the unassignedEarnings
@@ -381,11 +394,18 @@ describe("FixedLender Internal Functions", () => {
             beforeEach(async () => {
               repayAmount = 8000;
               await fixedLenderEnv.moveInTime(oneDayToMaturity);
-              await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString());
+              tx = await fixedLenderHarness
+                .connect(laura)
+                .repayMaturityWithReturnValue(
+                  nextPoolID,
+                  parseUnits(repayAmount.toString()),
+                  parseUnits(repayAmount.toString()),
+                  laura.address,
+                );
 
               fixedBorrowPositions = await fixedLenderHarness.fixedBorrowPositions(nextPoolID, laura.address);
               returnValues = await fixedLenderHarness.returnValues();
-              fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
+              fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(parseUnits("125"));
               mp = await fixedLenderHarness.fixedPools(nextPoolID);
             });
 
@@ -403,7 +423,9 @@ describe("FixedLender Internal Functions", () => {
               );
             });
             it("THEN the debtCovered was equal to full repayAmount (8000)", async () => {
-              expect(returnValues.debtCovered).to.eq(parseUnits("8000"));
+              await expect(tx)
+                .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                .withArgs(nextPoolID, laura.address, laura.address, parseUnits("7875"), parseUnits("8000"));
             });
             it("THEN the fixedBorrowPositions is correctly updated (principal + fees = 7750)", async () => {
               expect(fixedBorrowPositions[0]).to.be.gt(parseUnits("7380"));
@@ -417,7 +439,12 @@ describe("FixedLender Internal Functions", () => {
               );
             });
             it("THEN earningsSP returned 125", async () => {
-              expect(returnValues.earningsSP).to.eq(parseUnits("125")); // earningsUnassigned were 250, then 1 day passed so earningsSP accrued half
+              const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+              const earnings = parseUnits("125");
+              // earningsUnassigned were 250, then 1 day passed so earningsSP accrued half
+              await expect(tx)
+                .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+                .withArgs(smartPoolAssets.sub(earnings), earnings);
             });
             it("THEN the actualRepayAmount returned is 8000 - 125", async () => {
               // Takes all the unassignedEarnings
@@ -433,7 +460,14 @@ describe("FixedLender Internal Functions", () => {
             beforeEach(async () => {
               await fixedLenderEnv.moveInTime(oneDayToMaturity);
               repayAmount = 15750;
-              tx = fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString(), (repayAmount - 126).toString());
+              tx = fixedLenderHarness
+                .connect(laura)
+                .repayMaturityWithReturnValue(
+                  nextPoolID,
+                  parseUnits(repayAmount.toString()),
+                  parseUnits((repayAmount - 126).toString()),
+                  laura.address,
+                );
             });
 
             it("THEN the tx is reverted with TOO_MUCH_SLIPPAGE", async () => {
@@ -450,11 +484,18 @@ describe("FixedLender Internal Functions", () => {
               await fixedLenderHarness.setFreePenaltyRate(parseUnits("0.1").div(86_400));
               await fixedLenderEnv.moveInTime(nextPoolID + 86_400);
               repayAmount = 17325;
-              await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString());
+              tx = await fixedLenderHarness
+                .connect(laura)
+                .repayMaturityWithReturnValue(
+                  nextPoolID,
+                  parseUnits(repayAmount.toString()),
+                  parseUnits(repayAmount.toString()),
+                  laura.address,
+                );
 
               fixedBorrowPositions = await fixedLenderHarness.fixedBorrowPositions(nextPoolID, laura.address);
               returnValues = await fixedLenderHarness.returnValues();
-              fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
+              fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(parseUnits("250"));
               mp = await fixedLenderHarness.fixedPools(nextPoolID);
             });
 
@@ -472,11 +513,17 @@ describe("FixedLender Internal Functions", () => {
             });
             it("THEN the debtCovered was equal to full repayAmount", async () => {
               // debtCovered=5775*5250/5775=5250
-              expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
+              await expect(tx)
+                .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                .withArgs(nextPoolID, laura.address, laura.address, "17324999999999445600000", parseUnits("15750"));
             });
             it("THEN earningsSP receive no % of penalties", async () => {
+              const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
               // 250 (previous earnings unassigned)
-              expect(returnValues.earningsSP).to.eq(parseUnits("250"));
+              const earnings = parseUnits("250");
+              await expect(tx)
+                .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+                .withArgs(smartPoolAssets.sub(earnings), earnings);
             });
             it("THEN the smartPoolEarningsAccumulator receives all penalties", async () => {
               // 17325 - 15750 = 1575
@@ -636,7 +683,6 @@ describe("FixedLender Internal Functions", () => {
                 );
 
               returnValues = await fixedLenderHarness.returnValues();
-              fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
               mp = await fixedLenderHarness.fixedPools(nextPoolID);
             });
 
@@ -667,8 +713,14 @@ describe("FixedLender Internal Functions", () => {
                 repayAmount = 5250;
 
                 await fixedLenderEnv.moveInTime(twelveHoursToMaturity);
-                await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString());
-                fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
+                tx = await fixedLenderHarness
+                  .connect(laura)
+                  .repayMaturityWithReturnValue(
+                    nextPoolID,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits(repayAmount.toString()),
+                    laura.address,
+                  );
 
                 returnValues = await fixedLenderHarness.returnValues();
                 mp = await fixedLenderHarness.fixedPools(nextPoolID);
@@ -691,13 +743,22 @@ describe("FixedLender Internal Functions", () => {
                 expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
               });
               it("THEN the earningsSP returned are 0", async () => {
-                expect(returnValues.earningsSP).to.eq(parseUnits("0"));
+                const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+                await expect(tx).to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued").withArgs(smartPoolAssets, 0);
               });
               it("THEN lastAccrual is 12 hours before maturity", async () => {
                 expect(mp.lastAccrual).to.eq(twelveHoursToMaturity);
               });
               it("THEN the debtCovered was the full repayAmount", async () => {
-                expect(returnValues.debtCovered).to.eq(parseUnits(repayAmount.toString()));
+                await expect(tx)
+                  .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                  .withArgs(
+                    nextPoolID,
+                    laura.address,
+                    laura.address,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits(repayAmount.toString()),
+                  );
               });
             });
 
@@ -708,7 +769,14 @@ describe("FixedLender Internal Functions", () => {
                 repayAmount = 15750;
 
                 await fixedLenderEnv.moveInTime(twelveHoursToMaturity);
-                await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString());
+                tx = await fixedLenderHarness
+                  .connect(laura)
+                  .repayMaturityWithReturnValue(
+                    nextPoolID,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits(repayAmount.toString()),
+                    laura.address,
+                  );
 
                 mp = await fixedLenderHarness.fixedPools(nextPoolID);
                 returnValues = await fixedLenderHarness.returnValues();
@@ -717,10 +785,19 @@ describe("FixedLender Internal Functions", () => {
                 expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
               });
               it("THEN the debtCovered was the full amount repaid", async () => {
-                expect(returnValues.debtCovered).to.eq(parseUnits(repayAmount.toString()));
+                await expect(tx)
+                  .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                  .withArgs(
+                    nextPoolID,
+                    laura.address,
+                    laura.address,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits(repayAmount.toString()),
+                  );
               });
               it("THEN the earningsSP returned are 0", async () => {
-                expect(returnValues.earningsSP).to.eq(parseUnits("0"));
+                const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+                await expect(tx).to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued").withArgs(smartPoolAssets, 0);
               });
             });
 
@@ -729,7 +806,14 @@ describe("FixedLender Internal Functions", () => {
                 repayAmount = 15750;
 
                 await fixedLenderEnv.moveInTime(nextPoolID);
-                await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString());
+                tx = await fixedLenderHarness
+                  .connect(laura)
+                  .repayMaturityWithReturnValue(
+                    nextPoolID,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits(repayAmount.toString()),
+                    laura.address,
+                  );
 
                 mp = await fixedLenderHarness.fixedPools(nextPoolID);
                 returnValues = await fixedLenderHarness.returnValues();
@@ -741,13 +825,22 @@ describe("FixedLender Internal Functions", () => {
                 );
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
-                expect(returnValues.debtCovered).to.eq(parseUnits(repayAmount.toString()));
+                await expect(tx)
+                  .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                  .withArgs(
+                    nextPoolID,
+                    laura.address,
+                    laura.address,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits(repayAmount.toString()),
+                  );
               });
               it("THEN earningsUnassigned are still 0", async () => {
                 expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
               });
               it("THEN the earningsSP returned are 0", async () => {
-                expect(returnValues.earningsSP).to.eq(parseUnits("0"));
+                const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+                await expect(tx).to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued").withArgs(smartPoolAssets, 0);
               });
               describe("AND GIVEN a partial withdrawMP of 50M", () => {
                 beforeEach(async () => {
@@ -878,10 +971,16 @@ describe("FixedLender Internal Functions", () => {
 
                 await fixedLenderEnv.moveInTime(nextPoolID + 86_400);
                 repayAmount = 8000;
-                await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString(), "9000");
+                tx = await fixedLenderHarness
+                  .connect(laura)
+                  .repayMaturityWithReturnValue(
+                    nextPoolID,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits("9000"),
+                    laura.address,
+                  );
                 returnValues = await fixedLenderHarness.returnValues();
                 mp = await fixedLenderHarness.fixedPools(nextPoolID);
-                fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
               });
 
               it("THEN borrowed field is updated correctly (~8073)", async () => {
@@ -895,14 +994,17 @@ describe("FixedLender Internal Functions", () => {
                 );
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
-                expect(returnValues.debtCovered).to.equal(parseUnits("8000"));
+                await expect(tx)
+                  .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                  .withArgs(nextPoolID, laura.address, laura.address, "8799999999999718400000", parseUnits("8000"));
               });
               it("THEN smartPoolEarningsAccumulator receives the 10% of penalties", async () => {
                 expect(await fixedLenderHarness.smartPoolEarningsAccumulator()).to.gt(parseUnits("1299.999"));
                 expect(await fixedLenderHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("1300"));
               });
               it("THEN the earningsSP returned are 0", async () => {
-                expect(returnValues.earningsSP).to.eq(0);
+                const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+                await expect(tx).to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued").withArgs(smartPoolAssets, 0);
               });
 
               afterEach(async () => {
@@ -917,9 +1019,15 @@ describe("FixedLender Internal Functions", () => {
 
                 await fixedLenderEnv.moveInTime(nextPoolID + 86_400);
                 repayAmount = 17325;
-                await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString());
+                tx = await fixedLenderHarness
+                  .connect(laura)
+                  .repayMaturityWithReturnValue(
+                    nextPoolID,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits(repayAmount.toString()),
+                    laura.address,
+                  );
                 returnValues = await fixedLenderHarness.returnValues();
-                fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
                 mp = await fixedLenderHarness.fixedPools(nextPoolID);
               });
 
@@ -937,7 +1045,9 @@ describe("FixedLender Internal Functions", () => {
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
                 // debtCovered=17325*15750/17325=15750
-                expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
+                await expect(tx)
+                  .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                  .withArgs(nextPoolID, laura.address, laura.address, "17324999999999445600000", parseUnits("15750"));
               });
               it("THEN smartPoolEarningsAccumulator receives 10% of penalties", async () => {
                 // 17325 - 15750 = 1575 (10% of the debt)
@@ -946,7 +1056,8 @@ describe("FixedLender Internal Functions", () => {
                 expect(await fixedLenderHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("2075"));
               });
               it("THEN the earningsSP returned are 0", async () => {
-                expect(returnValues.earningsSP).to.eq(0);
+                const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+                await expect(tx).to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued").withArgs(smartPoolAssets, 0);
               });
               it("THEN the actualRepayAmount returned is almost 17325", async () => {
                 expect(returnValues.actualRepayAmount).to.lt(parseUnits(repayAmount.toString()));
@@ -961,9 +1072,15 @@ describe("FixedLender Internal Functions", () => {
 
                 await fixedLenderEnv.moveInTime(nextPoolID + 86_400);
                 repayAmount = 20000;
-                await fixedLenderEnv.repayMP(nextPoolID, repayAmount.toString());
+                tx = await fixedLenderHarness
+                  .connect(laura)
+                  .repayMaturityWithReturnValue(
+                    nextPoolID,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits(repayAmount.toString()),
+                    laura.address,
+                  );
                 returnValues = await fixedLenderHarness.returnValues();
-                fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
                 mp = await fixedLenderHarness.fixedPools(nextPoolID);
               });
 
@@ -981,7 +1098,9 @@ describe("FixedLender Internal Functions", () => {
               });
               it("THEN the debtCovered was equal to full repayAmount", async () => {
                 // debtCovered=17325*15750/17325=15750
-                expect(returnValues.debtCovered).to.eq(parseUnits("15750"));
+                await expect(tx)
+                  .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                  .withArgs(nextPoolID, laura.address, laura.address, "17324999999999445600000", parseUnits("15750"));
               });
               it("THEN smartPoolEarningsAccumulator receive the 10% of penalties", async () => {
                 // 17325 - 15750 = 1575 (10% of the debt)
@@ -990,7 +1109,8 @@ describe("FixedLender Internal Functions", () => {
                 expect(await fixedLenderHarness.smartPoolEarningsAccumulator()).to.lt(parseUnits("2075"));
               });
               it("THEN the earningsSP returned are 0", async () => {
-                expect(returnValues.earningsSP).to.eq(0);
+                const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+                await expect(tx).to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued").withArgs(smartPoolAssets, 0);
               });
               it("THEN the actualRepayAmount returned is ~= 17325 (paid 20000 on a 17325 debt)", async () => {
                 expect(returnValues.actualRepayAmount).to.be.gt(parseUnits("17324.9"));
@@ -1110,7 +1230,14 @@ describe("FixedLender Internal Functions", () => {
             describe("AND GIVEN a repayMP of 10600.75 (half of borrowed) - 8 days to maturity", () => {
               beforeEach(async () => {
                 await fixedLenderEnv.moveInTime(eightDaysToMaturity);
-                await fixedLenderEnv.repayMP(nextPoolID, "10600.75");
+                tx = await fixedLenderHarness
+                  .connect(laura)
+                  .repayMaturityWithReturnValue(
+                    nextPoolID,
+                    parseUnits("10600.75"),
+                    parseUnits("10600.75"),
+                    laura.address,
+                  );
                 mp = await fixedLenderHarness.fixedPools(nextPoolID);
                 returnValues = await fixedLenderHarness.returnValues();
               });
@@ -1118,7 +1245,11 @@ describe("FixedLender Internal Functions", () => {
                 expect(mp.earningsUnassigned).to.eq(parseUnits("303"));
               });
               it("THEN the earningsSP returned are 303", async () => {
-                expect(returnValues.earningsSP).to.eq(parseUnits("303")); // 909 / 3
+                const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+                const earnings = parseUnits("303"); // 909 / 3
+                await expect(tx)
+                  .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+                  .withArgs(smartPoolAssets.sub(earnings), earnings);
               });
               it("THEN the actualRepayAmount returned is 10600.75 - 303", async () => {
                 expect(returnValues.actualRepayAmount).to.eq(
@@ -1126,12 +1257,21 @@ describe("FixedLender Internal Functions", () => {
                 );
               });
               it("THEN the debtCovered returned is 10600.75", async () => {
-                expect(returnValues.debtCovered).to.eq(parseUnits("10600.75"));
+                await expect(tx)
+                  .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                  .withArgs(nextPoolID, laura.address, laura.address, parseUnits("10297.75"), parseUnits("10600.75"));
               });
               describe("AND GIVEN a repayMP of the other half (10600.75) - 4 days to maturity", () => {
                 beforeEach(async () => {
                   await fixedLenderEnv.moveInTime(fourDaysToMaturity);
-                  await fixedLenderEnv.repayMP(nextPoolID, "10600.75");
+                  tx = await fixedLenderHarness
+                    .connect(laura)
+                    .repayMaturityWithReturnValue(
+                      nextPoolID,
+                      parseUnits("10600.75"),
+                      parseUnits("10600.75"),
+                      laura.address,
+                    );
                   mp = await fixedLenderHarness.fixedPools(nextPoolID);
                   returnValues = await fixedLenderHarness.returnValues();
                 });
@@ -1139,13 +1279,19 @@ describe("FixedLender Internal Functions", () => {
                   expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
                 });
                 it("THEN the earningsSP returned are 151.5", async () => {
-                  expect(returnValues.earningsSP).to.eq(parseUnits("151.5")); // 303 / 2
+                  const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+                  const earnings = parseUnits("151.5"); // 303 / 2
+                  await expect(tx)
+                    .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+                    .withArgs(smartPoolAssets.sub(earnings), earnings);
                 });
                 it("THEN the actualRepayAmount returned is 10600.75 - 151.5", async () => {
                   expect(returnValues.actualRepayAmount).to.eq(parseUnits("10449.25"));
                 });
                 it("THEN the debtCovered returned is 10600.75", async () => {
-                  expect(returnValues.debtCovered).to.eq(parseUnits("10600.75"));
+                  await expect(tx)
+                    .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                    .withArgs(nextPoolID, laura.address, laura.address, parseUnits("10449.25"), parseUnits("10600.75"));
                 });
               });
             });
@@ -1228,10 +1374,12 @@ describe("FixedLender Internal Functions", () => {
       describe("WHEN an early repayment of 5250", () => {
         beforeEach(async () => {
           await fixedLenderEnv.moveInTime(fourDaysToMaturity);
-          await fixedLenderEnv.repayMP(nextPoolID, "5250");
+          tx = await fixedLenderHarness
+            .connect(laura)
+            .repayMaturityWithReturnValue(nextPoolID, parseUnits("5250"), parseUnits("5250"), laura.address);
           returnValues = await fixedLenderHarness.returnValues();
           mp = await fixedLenderHarness.fixedPools(nextPoolID);
-          fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
+          fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(parseUnits("100"));
           fixedPoolState.earningsDiscounted = parseUnits("5250").sub(returnValues.actualRepayAmount);
         });
         it("THEN borrowed is 5000", async () => {
@@ -1242,22 +1390,30 @@ describe("FixedLender Internal Functions", () => {
           expect(mp.earningsUnassigned).to.eq(parseUnits("200"));
         });
         it("THEN the debtCovered returned is 5250", async () => {
-          expect(returnValues.debtCovered).eq(parseUnits("5250"));
+          await expect(tx)
+            .to.emit(fixedLenderHarness, "RepayAtMaturity")
+            .withArgs(nextPoolID, laura.address, laura.address, parseUnits("5050"), parseUnits("5250"));
         });
         it("THEN the earningsSP returned are 100", async () => {
-          expect(returnValues.earningsSP).eq(parseUnits("100")); // =1/5th of 500 since one day went by
+          const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+          const earnings = parseUnits("100"); // =1/5th of 500 since one day went by
+          await expect(tx)
+            .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+            .withArgs(smartPoolAssets.sub(earnings), earnings);
         });
-        it("THEN the actualRepayAmount returned is 5000 (got a 200 discount)", async () => {
+        it("THEN the actualRepayAmount returned is 5050 (got a 200 discount)", async () => {
           expect(returnValues.actualRepayAmount).to.eq(parseUnits("5050"));
         });
 
         describe("AND WHEN an early repayment of 5250", () => {
           beforeEach(async () => {
             await fixedLenderEnv.moveInTime(threeDaysToMaturity);
-            await fixedLenderEnv.repayMP(nextPoolID, "5250");
+            tx = await fixedLenderHarness
+              .connect(laura)
+              .repayMaturityWithReturnValue(nextPoolID, parseUnits("5250"), parseUnits("5250"), laura.address);
             returnValues = await fixedLenderHarness.returnValues();
             mp = await fixedLenderHarness.fixedPools(nextPoolID);
-            fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
+            fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(parseUnits("50"));
             fixedPoolState.earningsDiscounted = fixedPoolState.earningsDiscounted.add(
               parseUnits("5250").sub(returnValues.actualRepayAmount),
             );
@@ -1272,12 +1428,18 @@ describe("FixedLender Internal Functions", () => {
             expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
           });
           it("THEN the debtCovered returned is 5250", async () => {
-            expect(returnValues.debtCovered).eq(parseUnits("5250"));
+            await expect(tx)
+              .to.emit(fixedLenderHarness, "RepayAtMaturity")
+              .withArgs(nextPoolID, laura.address, laura.address, parseUnits("5100"), parseUnits("5250"));
           });
           it("THEN the earningsSP returned are 50", async () => {
-            expect(returnValues.earningsSP).eq(parseUnits("50")); // 1 day passed (1/5) since last accrual
+            const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+            const earnings = parseUnits("50"); // 1 day passed (1/5) since last accrual
+            await expect(tx)
+              .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+              .withArgs(smartPoolAssets.sub(earnings), earnings);
           });
-          it("THEN the actualRepayAmount returned is 5000 (got a 150 discount)", async () => {
+          it("THEN the actualRepayAmount returned is 5100 (got a 150 discount)", async () => {
             expect(returnValues.actualRepayAmount).to.eq(parseUnits("5100"));
           });
           it("THEN the borrow fees are equal to all earnings distributed", async () => {
@@ -1288,10 +1450,12 @@ describe("FixedLender Internal Functions", () => {
           beforeEach(async () => {
             await mockInterestRateModel.setSPFeeRate(parseUnits("0.1"));
             await fixedLenderEnv.moveInTime(threeDaysToMaturity);
-            await fixedLenderEnv.repayMP(nextPoolID, "5250");
+            tx = await fixedLenderHarness
+              .connect(laura)
+              .repayMaturityWithReturnValue(nextPoolID, parseUnits("5250"), parseUnits("5250"), laura.address);
             returnValues = await fixedLenderHarness.returnValues();
             mp = await fixedLenderHarness.fixedPools(nextPoolID);
-            fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(returnValues.earningsSP);
+            fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(parseUnits("50"));
             fixedPoolState.earningsAccumulator = await fixedLenderHarness.smartPoolEarningsAccumulator();
             fixedPoolState.earningsDiscounted = fixedPoolState.earningsDiscounted.add(
               parseUnits("5250").sub(returnValues.actualRepayAmount),
@@ -1307,10 +1471,16 @@ describe("FixedLender Internal Functions", () => {
             expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
           });
           it("THEN the debtCovered returned is 5250", async () => {
-            expect(returnValues.debtCovered).eq(parseUnits("5250"));
+            await expect(tx)
+              .to.emit(fixedLenderHarness, "RepayAtMaturity")
+              .withArgs(nextPoolID, laura.address, laura.address, parseUnits("5115"), parseUnits("5250"));
           });
           it("THEN the earningsSP returned are 50 accrued", async () => {
-            expect(returnValues.earningsSP).eq(parseUnits("50"));
+            const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+            const earnings = parseUnits("50");
+            await expect(tx)
+              .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+              .withArgs(smartPoolAssets.sub(earnings), earnings);
           });
           it("THEN the smartPoolEarningsAccumulator are 15 (10% spFeeRate)", async () => {
             expect(await fixedLenderHarness.smartPoolEarningsAccumulator()).to.eq(parseUnits("15"));
@@ -1350,7 +1520,7 @@ describe("FixedLender Internal Functions", () => {
         fixedPoolState.earningsMP = returnValues.currentTotalDeposit.sub(parseUnits("5000"));
         fixedPoolState.borrowFees = returnValues.totalOwedNewBorrow.sub(parseUnits(borrowAmount.toString()));
         fixedPoolState.earningsDiscounted = parseUnits("0");
-        fixedPoolState.earningsSP = returnValues.earningsSP.add(parseUnits("50"));
+        fixedPoolState.earningsSP = parseUnits("50");
       });
       it("THEN all earningsUnassigned should be 0", async () => {
         expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
@@ -1368,10 +1538,11 @@ describe("FixedLender Internal Functions", () => {
 
       describe("WHEN an early repayment of 5250", () => {
         beforeEach(async () => {
-          await fixedLenderEnv.repayMP(nextPoolID, "5250");
+          tx = await fixedLenderHarness
+            .connect(laura)
+            .repayMaturityWithReturnValue(nextPoolID, parseUnits("5250"), parseUnits("5250"), laura.address);
           returnValues = await fixedLenderHarness.returnValues();
           mp = await fixedLenderHarness.fixedPools(nextPoolID);
-          fixedPoolState.earningsSP = returnValues.earningsSP.add(fixedPoolState.earningsSP);
         });
         it("THEN borrowed is 0", async () => {
           expect(mp.borrowed).to.eq(parseUnits("0"));
@@ -1380,10 +1551,13 @@ describe("FixedLender Internal Functions", () => {
           expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
         });
         it("THEN the earningsSP returned are 0", async () => {
-          expect(returnValues.earningsSP).eq(parseUnits("0"));
+          const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
+          await expect(tx).to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued").withArgs(smartPoolAssets, 0);
         });
         it("THEN the debtCovered returned is 5250", async () => {
-          expect(returnValues.debtCovered).eq(parseUnits("5250"));
+          await expect(tx)
+            .to.emit(fixedLenderHarness, "RepayAtMaturity")
+            .withArgs(nextPoolID, laura.address, laura.address, parseUnits("5250"), parseUnits("5250"));
         });
         it("THEN the actualRepayAmount returned is 5250 (didn't get a discount since it was gotten all before)", async () => {
           expect(returnValues.actualRepayAmount).to.eq(parseUnits("5250"));
@@ -1605,7 +1779,9 @@ describe("FixedLender Internal Functions", () => {
             beforeEach(async () => {
               fixedLenderEnv.switchWallet(laura);
               await fixedLenderEnv.moveInTime(threeDaysToMaturity);
-              await fixedLenderEnv.repayMP(nextPoolID, "16000");
+              tx = await fixedLenderHarness
+                .connect(laura)
+                .repayMaturityWithReturnValue(nextPoolID, parseUnits("16000"), parseUnits("16000"), laura.address);
               returnValues = await fixedLenderHarness.returnValues();
               mp = await fixedLenderHarness.fixedPools(nextPoolID);
             });
@@ -1618,11 +1794,17 @@ describe("FixedLender Internal Functions", () => {
               expect(mp.earningsUnassigned).to.eq(parseUnits("4350"));
             });
             it("THEN the debtCovered returned is 16000", async () => {
-              expect(returnValues.debtCovered).eq(parseUnits("16000"));
+              await expect(tx)
+                .to.emit(fixedLenderHarness, "RepayAtMaturity")
+                .withArgs(nextPoolID, laura.address, laura.address, parseUnits("11650"), parseUnits("16000"));
             });
             it("THEN the earningsSP returned are 2900", async () => {
+              const smartPoolAssets = await fixedLenderHarness.smartPoolAssets();
               // 11600 * .25 = 2900 => (1 out of 4 days went by)
-              expect(returnValues.earningsSP).eq(parseUnits("2900"));
+              const earnings = parseUnits("2900");
+              await expect(tx)
+                .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
+                .withArgs(smartPoolAssets.sub(earnings), earnings);
             });
             it("THEN the actualRepayAmount returned is 11650 (got a 4350 discount)", async () => {
               // Repaying 16000 minus 4350 for the half taken from unassigned earnings
