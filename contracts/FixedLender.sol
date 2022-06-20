@@ -844,11 +844,13 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   /// @notice Updates the smartPoolAssetsAverage.
   function updateSmartPoolAssetsAverage() internal {
-    uint256 dampSpeedFactor = smartPoolAssets < smartPoolAssetsAverage ? dampSpeedDown : dampSpeedUp;
+    uint256 memSmartPoolAssets = smartPoolAssets;
+    uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage;
+    uint256 dampSpeedFactor = memSmartPoolAssets < memSmartPoolAssetsAverage ? dampSpeedDown : dampSpeedUp;
     uint256 averageFactor = uint256(1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWad());
     smartPoolAssetsAverage =
-      smartPoolAssetsAverage.mulWadDown(1e18 - averageFactor) +
-      averageFactor.mulWadDown(smartPoolAssets);
+      memSmartPoolAssetsAverage.mulWadDown(1e18 - averageFactor) +
+      averageFactor.mulWadDown(memSmartPoolAssets);
     lastAverageUpdate = uint32(block.timestamp);
   }
 }
