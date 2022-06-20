@@ -488,12 +488,13 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     assetsOwed = assets + fee;
 
     {
+      uint256 memSPAssets = smartPoolAssets;
       uint256 memSPBorrowed = smartPoolBorrowed;
-      memSPBorrowed = memSPBorrowed + pool.borrow(assets, smartPoolAssets - memSPBorrowed);
+      memSPBorrowed += pool.borrow(assets, memSPAssets - memSPBorrowed);
+
+      if (memSPBorrowed > memSPAssets.mulWadDown(1e18 - smartPoolReserveFactor)) revert SmartPoolReserveExceeded();
+
       smartPoolBorrowed = memSPBorrowed;
-      if (memSPBorrowed > smartPoolAssets.mulWadDown(1e18 - smartPoolReserveFactor)) {
-        revert SmartPoolReserveExceeded();
-      }
     }
 
     // We validate that the user is not taking arbitrary fees
