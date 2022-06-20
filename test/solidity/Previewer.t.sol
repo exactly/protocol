@@ -30,7 +30,7 @@ contract PreviewerTest is Test {
   function setUp() external {
     token = new MockERC20("DAI", "DAI", 18);
     mockOracle = new MockOracle();
-    auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
+    auditor = new Auditor(ExactlyOracle(address(mockOracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     interestRateModel = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.1e18);
 
     fixedLender = new FixedLender(
@@ -43,7 +43,6 @@ contract PreviewerTest is Test {
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
-    mockOracle.setPrice(fixedLender, 1e18);
     auditor.enableMarket(fixedLender, 0.8e18, 18);
 
     vm.label(BOB, "Bob");
@@ -685,7 +684,9 @@ contract PreviewerTest is Test {
 
     // We sum all the debt
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
-      data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals);
+      data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals).divWadUp(
+        data[0].adjustFactor
+      );
 
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
 
@@ -726,7 +727,9 @@ contract PreviewerTest is Test {
 
     // We sum all the debt
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
-      data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals);
+      data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals).divWadDown(
+        data[0].adjustFactor
+      );
 
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
@@ -757,7 +760,8 @@ contract PreviewerTest is Test {
       data[1].smartPoolAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(data[1].adjustFactor);
 
     sumDebt += (data[1].fixedBorrowPositions[0].position.principal + data[1].fixedBorrowPositions[0].position.fee)
-      .mulDivDown(data[1].oraclePrice, 10**data[1].decimals);
+      .mulDivDown(data[1].oraclePrice, 10**data[1].decimals)
+      .divWadDown(data[1].adjustFactor);
 
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);

@@ -282,8 +282,7 @@ export class DefaultEnv {
     return fixedLender.fixedPools(maturityPoolID);
   }
 
-  public async accountSnapshot(assetString: string, maturityPoolID: number) {
-    const fixedLender = this.getFixedLender(assetString);
-    return fixedLender.getAccountSnapshot(this.currentWallet.address, maturityPoolID);
+  public async getDebt(market: string) {
+    return this.getFixedLender(market).getDebt(this.currentWallet.address);
   }
 }

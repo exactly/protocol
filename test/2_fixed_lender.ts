@@ -56,21 +56,21 @@ describe("FixedLender", function () {
   });
 
   describe("small positions", () => {
-    describe("WHEN depositing 2wei of a dai", () => {
+    describe("WHEN depositing 3wei of a dai", () => {
       beforeEach(async () => {
-        await fixedLenderDAI.deposit(2, maria.address);
+        await fixedLenderDAI.deposit(3, maria.address);
         // we add liquidity to the maturity
-        await fixedLenderDAI.depositAtMaturity(futurePools(1)[0], 2, 0, maria.address);
+        await fixedLenderDAI.depositAtMaturity(futurePools(1)[0], 3, 0, maria.address);
       });
-      it("THEN the FixedLender registers a supply of 2 wei DAI for the user (exposed via getAccountSnapshot)", async () => {
-        expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[0]).to.equal(2);
+      it("THEN the FixedLender registers a supply of 3 wei DAI for the user (exposed via getAccountSnapshot)", async () => {
+        expect(await fixedLenderDAI.maxWithdraw(maria.address)).to.equal(3);
       });
-      it("AND the Market Size of the smart pool is 2 wei of a dai", async () => {
-        expect(await fixedLenderDAI.totalAssets()).to.equal(2);
+      it("AND the Market Size of the smart pool is 3 wei of a dai", async () => {
+        expect(await fixedLenderDAI.totalAssets()).to.equal(3);
       });
-      it("AND its not possible to borrow 2 wei of a dai", async () => {
+      it("AND its not possible to borrow 3 wei of a dai", async () => {
         await expect(
-          fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 2, 2, maria.address, maria.address),
+          fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 3, 6, maria.address, maria.address),
         ).to.be.revertedWith("InsufficientLiquidity()");
       });
       describe("AND WHEN borrowing 1 wei of DAI", () => {
@@ -83,8 +83,8 @@ describe("FixedLender", function () {
             .to.emit(fixedLenderDAI, "BorrowAtMaturity")
             .withArgs(futurePools(1)[0], maria.address, maria.address, maria.address, 1, 0);
         });
-        it("AND the Market Size of the smart pool remains in 2 wei of a dai", async () => {
-          expect(await fixedLenderDAI.totalAssets()).to.be.equal(2);
+        it("AND the Market Size of the smart pool remains in 3 wei of a dai", async () => {
+          expect(await fixedLenderDAI.totalAssets()).to.be.equal(3);
         });
         it("AND a 1 wei of DAI borrow is registered", async () => {
           expect((await fixedLenderDAI.fixedPools(futurePools(1)[0]))[0]).to.equal(1);
@@ -139,7 +139,7 @@ describe("FixedLender", function () {
         expect(await dai.balanceOf(fixedLenderDAI.address)).to.equal(parseUnits("150"));
       });
       it("AND the FixedLender does not register a smart pool balance deposit (exposed via getAccountSnapshot)", async () => {
-        expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[0]).to.equal(0);
+        expect(await fixedLenderDAI.maxWithdraw(maria.address)).to.equal(0);
       });
     });
 
@@ -174,7 +174,7 @@ describe("FixedLender", function () {
           await fixedLenderDAI.repayAtMaturity(futurePools(1)[0], parseUnits("100"), parseUnits("100"), maria.address);
         });
         it("THEN all debt is repaid", async () => {
-          expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[1]).to.equal(0);
+          expect(await fixedLenderDAI.getDebt(maria.address)).to.equal(0);
         });
         it("THEN the 40 spare amount is not discounted from the user balance", async () => {
           expect(await dai.balanceOf(maria.address)).to.equal(balanceBefore.sub(parseUnits("60")));
@@ -303,9 +303,7 @@ describe("FixedLender", function () {
             .withArgs(futurePools(1)[0], maria.address, maria.address, parseUnits("40"), parseUnits("40"));
         });
         it("AND Maria still owes 20 DAI", async () => {
-          expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[1]).to.equal(
-            parseUnits("20"),
-          );
+          expect(await fixedLenderDAI.getDebt(maria.address)).to.equal(parseUnits("20"));
         });
 
         describe("AND WHEN moving in time to 1 day after maturity", () => {
@@ -317,9 +315,7 @@ describe("FixedLender", function () {
           });
           it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 ~= 0.0400032 ) DAI of late payment penalties", async () => {
             await provider.send("evm_mine", []);
-            expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[1]).to.equal(
-              parseUnits("20").add(penalty),
-            );
+            expect(await fixedLenderDAI.getDebt(maria.address)).to.equal(parseUnits("20").add(penalty));
           });
           describe("AND WHEN repaying the rest of the 20.4 owed DAI", () => {
             beforeEach(async () => {
@@ -327,7 +323,7 @@ describe("FixedLender", function () {
               await fixedLenderDAI.repayAtMaturity(futurePools(1)[0], amount, amount, maria.address);
             });
             it("THEN all debt is repaid", async () => {
-              expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[1]).to.equal(0);
+              expect(await fixedLenderDAI.getDebt(maria.address)).to.equal(0);
             });
           });
           describe("AND WHEN repaying more than what is owed (30 DAI)", () => {
@@ -340,7 +336,7 @@ describe("FixedLender", function () {
               );
             });
             it("THEN all debt is repaid", async () => {
-              expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[1]).to.equal(0);
+              expect(await fixedLenderDAI.getDebt(maria.address)).to.equal(0);
             });
           });
         });
@@ -814,7 +810,7 @@ describe("FixedLender", function () {
         });
         it("THEN Maria owes (getAccountSnapshot) 5k + aprox 2.8k DAI in penalties", async () => {
           await provider.send("evm_mine", []);
-          expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[1]).to.equal(
+          expect(await fixedLenderDAI.getDebt(maria.address)).to.equal(
             parseUnits("5000").add(
               parseUnits("5000")
                 .mul(penaltyRate)
@@ -838,7 +834,7 @@ describe("FixedLender", function () {
         });
         it("THEN Maria owes (getAccountSnapshot) 5k + aprox 2.8k DAI in penalties (no debt was compounded)", async () => {
           await provider.send("evm_mine", []);
-          expect((await fixedLenderDAI.getAccountSnapshot(maria.address, futurePools(1)[0]))[1]).to.be.closeTo(
+          expect(await fixedLenderDAI.getDebt(maria.address)).to.be.closeTo(
             parseUnits("5000").add(
               parseUnits("5000")
                 .mul(penaltyRate)

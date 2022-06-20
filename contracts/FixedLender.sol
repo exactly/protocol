@@ -119,13 +119,15 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param receiver address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
   /// @param assets amount of the asset that were repaid.
-  /// @param collateralFixedLender address of the asset that were seized by the liquidator.
+  /// @param lendersAssets incentive paid to lenders.
+  /// @param collateralMarket address of the asset that were seized by the liquidator.
   /// @param seizedAssets amount seized of the collateral.
   event LiquidateBorrow(
     address indexed receiver,
     address indexed borrower,
     uint256 assets,
-    FixedLender indexed collateralFixedLender,
+    uint256 lendersAssets,
+    FixedLender indexed collateralMarket,
     uint256 seizedAssets
   );
 
@@ -393,62 +395,113 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     _unpause();
   }
 
-  /// @notice Liquidates uncollaterized position(s).
+  /// @notice Liquidates undercollateralized position(s).
   /// @dev Msg.sender liquidates borrower's position(s) and repays a certain amount of debt for multiple maturities,
   /// seizing a part of borrower's collateral.
   /// @param borrower wallet that has an outstanding debt across all maturities.
-  /// @param positionAssets amount of debt to be covered by liquidator(msg.sender).
-  /// @param maxAssetsAllowed maximum amount of debt that the liquidator is willing to accept.
-  /// @param collateralFixedLender fixedLender from which the collateral will be seized to give the liquidator.
+  /// @param maxAssets maximum amount of debt that the liquidator is willing to accept. (it can be less)
+  /// @param collateralMarket fixedLender from which the collateral will be seized to give the liquidator.
   function liquidate(
     address borrower,
-    uint256 positionAssets,
-    uint256 maxAssetsAllowed,
-    FixedLender collateralFixedLender
+    uint256 maxAssets,
+    FixedLender collateralMarket
   ) external nonReentrant whenNotPaused returns (uint256 repaidAssets) {
-    // reverts on failure
-    auditor.liquidateAllowed(this, collateralFixedLender, msg.sender, borrower);
+    bool moreCollateral;
+    {
+      uint256 maxRepay;
+      (maxRepay, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, msg.sender, borrower);
+      maxAssets = Math.min(maxRepay, maxAssets);
 
-    (uint256 sumBorrows, ) = getAccountBorrows(borrower, PoolLib.MATURITY_ALL);
-    positionAssets = Math.min(positionAssets, CLOSE_FACTOR.mulWadDown(sumBorrows));
+      (, uint256 lendersIncentive) = auditor.liquidationIncentive();
+      maxAssets = maxAssets.divWadDown(1e18 + lendersIncentive); 
+    }
+    if (maxAssets == 0) revert ZeroRepay();
 
-    uint256 encodedMaturities = fixedBorrows[borrower];
-    uint256 baseMaturity = encodedMaturities % (1 << 32);
-    uint256 packedMaturities = encodedMaturities >> 32;
-    for (uint224 i = 0; i < 224; ) {
+    uint256 packedMaturities = fixedBorrows[borrower];
+    uint256 baseMaturity = packedMaturities % (1 << 32);
+    packedMaturities = packedMaturities >> 32;
+    for (uint256 i = 0; i < 224; ) {
       if ((packedMaturities & (1 << i)) != 0) {
-        (uint256 actualRepay, uint256 coveredDebt) = noTransferRepay(
-          baseMaturity + (i * TSUtils.INTERVAL),
-          positionAssets,
-          maxAssetsAllowed,
-          borrower
-        );
-        repaidAssets += actualRepay;
-        positionAssets -= coveredDebt;
-        maxAssetsAllowed -= actualRepay;
+        uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
+        if (maxAssets > 0) {
+          uint256 actualRepay;
+          if (block.timestamp < maturity) {
+            actualRepay = noTransferRepay(maturity, maxAssets, maxAssets, borrower, false);
+            maxAssets -= actualRepay;
+          } else {
+            uint256 position;
+            {
+              PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
+              position = p.principal + p.fee;
+            }
+            uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
+            actualRepay = debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets;
+
+            if (actualRepay == 0) maxAssets = 0;
+            else {
+              actualRepay = noTransferRepay(maturity, actualRepay, maxAssets, borrower, false);
+              maxAssets -= actualRepay;
+
+              {
+                PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
+                position = p.principal + p.fee;
+              }
+              debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
+              if ((debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets) == 0) maxAssets = 0;
+            }
+          }
+          repaidAssets += actualRepay;
+
+          if ((1 << (i + 1)) > packedMaturities) maxAssets = 0;
+
+          if (maxAssets == 0) {
+            // reverts on failure
+            (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
+              this,
+              collateralMarket,
+              repaidAssets
+            );
+
+            moreCollateral =
+              (
+                // if this is also the collateral run `_seize` to avoid re-entrancy, otherwise make an external call.
+                // both revert on failure
+                address(collateralMarket) == address(this)
+                  ? _seize(this, msg.sender, borrower, seizeAssets)
+                  : collateralMarket.seize(msg.sender, borrower, seizeAssets)
+              ) ||
+              moreCollateral;
+
+            emit LiquidateBorrow(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, seizeAssets);
+
+            asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
+          }
+        }
+
+        if (maxAssets == 0 && !moreCollateral) {
+          PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
+          uint256 debt = position.principal + position.fee;
+          if (debt > 0) {
+            smartPoolBorrowed -= position.principal;
+
+            {
+              uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
+              uint256 fromAccumulator = Math.min(memEarningsAccumulator, debt);
+              smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
+              if (fromAccumulator < debt) smartPoolAssets -= debt - fromAccumulator;
+            }
+
+            delete fixedBorrowPositions[maturity][borrower];
+            fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
+          }
+        }
       }
-      if (positionAssets == 0) break;
+
       unchecked {
         ++i;
       }
       if ((1 << i) > packedMaturities) break;
     }
-
-    // reverts on failure
-    uint256 seizeTokens = auditor.liquidateCalculateSeizeAmount(this, collateralFixedLender, repaidAssets);
-
-    // If this is also the collateral run seizeInternal to avoid re-entrancy, otherwise make an external call.
-    // both revert on failure
-    if (address(collateralFixedLender) == address(this)) {
-      _seize(this, msg.sender, borrower, seizeTokens);
-    } else {
-      collateralFixedLender.seize(msg.sender, borrower, seizeTokens);
-    }
-
-    // We emit a LiquidateBorrow event
-    emit LiquidateBorrow(msg.sender, borrower, repaidAssets, collateralFixedLender, seizeTokens);
-
-    asset.safeTransferFrom(msg.sender, address(this), repaidAssets);
   }
 
   /// @notice Public function to seize a certain amount of tokens.
@@ -462,20 +515,20 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address liquidator,
     address borrower,
     uint256 assets
-  ) external nonReentrant whenNotPaused {
-    _seize(FixedLender(msg.sender), liquidator, borrower, assets);
+  ) external nonReentrant whenNotPaused returns (bool) {
+    return _seize(FixedLender(msg.sender), liquidator, borrower, assets);
   }
 
   /// @dev Borrows a certain amount from a maturity date.
   /// @param maturity maturity date for repayment.
   /// @param assets amount to send to borrower.
-  /// @param maxAssetsAllowed maximum amount of debt that the user is willing to accept.
+  /// @param maxAssets maximum amount of debt that the user is willing to accept.
   /// @param receiver address that will receive the borrowed assets.
   /// @param borrower address that will repay the borrowed assets.
   function borrowAtMaturity(
     uint256 maturity,
     uint256 assets,
-    uint256 maxAssetsAllowed,
+    uint256 maxAssets,
     address receiver,
     address borrower
   ) public nonReentrant whenNotPaused returns (uint256 assetsOwed) {
@@ -510,7 +563,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // We validate that the user is not taking arbitrary fees
-    if (assetsOwed > maxAssetsAllowed) revert TooMuchSlippage();
+    if (assetsOwed > maxAssets) revert TooMuchSlippage();
 
     if (msg.sender != borrower) {
       uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
@@ -541,7 +594,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       smartPoolAssets = memSPAssets + earningsSP;
     }
 
-    auditor.validateBorrowMP(this, borrower);
+    auditor.validateBorrow(this, borrower);
     asset.safeTransfer(receiver, assets);
 
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
@@ -712,44 +765,36 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @notice Repays a certain amount to a maturity.
   /// @param maturity maturity date where the assets will be repaid.
   /// @param positionAssets amount to be paid for the borrower's debt.
-  /// @param maxAssetsAllowed maximum amount of debt that the user is willing to accept to be repaid.
+  /// @param maxAssets maximum amount of debt that the user is willing to accept to be repaid.
   /// @param borrower address of the account that has the debt.
   /// @return actualRepayAssets the actual amount that was transferred into the protocol.
   function repayAtMaturity(
     uint256 maturity,
     uint256 positionAssets,
-    uint256 maxAssetsAllowed,
+    uint256 maxAssets,
     address borrower
   ) public nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
-    (actualRepayAssets, ) = noTransferRepay(maturity, positionAssets, maxAssetsAllowed, borrower);
+    actualRepayAssets = noTransferRepay(maturity, positionAssets, maxAssets, borrower, true);
     asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
-  }
-
-  /// @notice Gets current snapshot for a wallet in certain maturity.
-  /// @param who wallet to return status snapshot in the specified maturity date.
-  /// @param maturity maturity. `PoolLib.MATURITY_ALL` (`type(uint256).max`) for all maturities.
-  /// @return the amount the user deposited to the smart pool and the total money he owes from maturities.
-  function getAccountSnapshot(address who, uint256 maturity) public view returns (uint256, uint256) {
-    (uint256 position, uint256 penalties) = getAccountBorrows(who, maturity);
-    return (maxWithdraw(who), position + penalties);
   }
 
   /// @notice This function allows to (partially) repay a position. It does not transfer tokens.
   /// @dev Internal repay function, allows partial repayment.
   /// @param maturity the maturity to access the pool.
   /// @param positionAssets the amount of debt of the pool that should be paid.
-  /// @param maxAssetsAllowed maximum amount of debt that the user is willing to accept to be repaid.
+  /// @param maxAssets maximum amount of debt that the user is willing to accept to be repaid.
   /// @param borrower the address of the account that has the debt.
   /// @return actualRepayAssets the actual amount that should be transferred into the protocol.
   function noTransferRepay(
     uint256 maturity,
     uint256 positionAssets,
-    uint256 maxAssetsAllowed,
-    address borrower
-  ) internal returns (uint256 actualRepayAssets, uint256 debtCovered) {
+    uint256 maxAssets,
+    address borrower,
+    bool canDiscount
+  ) internal returns (uint256 actualRepayAssets) {
     if (positionAssets == 0) revert ZeroRepay();
 
     PoolLib.FixedPool storage pool = fixedPools[maturity];
@@ -758,7 +803,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
 
-    debtCovered = Math.min(positionAssets, position.principal + position.fee);
+    uint256 debtCovered = Math.min(positionAssets, position.principal + position.fee);
 
     PoolLib.Position memory scaleDebtCovered = PoolLib.Position(position.principal, position.fee).scaleProportionally(
       debtCovered
@@ -766,21 +811,25 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     // Early repayment allows you to get a discount from the unassigned earnings
     if (block.timestamp < maturity) {
-      // We calculate the deposit fee considering the amount of debt the user'll pay
-      (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
-        pool.smartPoolBorrowed(),
-        pool.earningsUnassigned,
-        scaleDebtCovered.principal
-      );
+      if (canDiscount) {
+        // We calculate the deposit fee considering the amount of debt the user'll pay
+        (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
+          pool.smartPoolBorrowed(),
+          pool.earningsUnassigned,
+          scaleDebtCovered.principal
+        );
 
-      // We remove the fee from unassigned earnings
-      pool.earningsUnassigned -= discountFee + feeSP;
+        // We remove the fee from unassigned earnings
+        pool.earningsUnassigned -= discountFee + feeSP;
 
-      // The fee gets discounted from the user through `repayAmount`
-      actualRepayAssets = debtCovered - discountFee;
+        // The fee charged to the MP supplier go to the smart pool accumulator
+        smartPoolEarningsAccumulator += feeSP;
 
-      // The fee charged to the MP supplier go to the smart pool accumulator
-      smartPoolEarningsAccumulator += feeSP;
+        // The fee gets discounted from the user through `repayAmount`
+        actualRepayAssets = debtCovered - discountFee;
+      } else {
+        actualRepayAssets = debtCovered;
+      }
     } else {
       actualRepayAssets = debtCovered + debtCovered.mulWadDown((block.timestamp - maturity) * penaltyRate);
 
@@ -789,7 +838,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // We verify that the user agrees to this discount or penalty
-    if (actualRepayAssets > maxAssetsAllowed) revert TooMuchSlippage();
+    if (actualRepayAssets > maxAssets) revert TooMuchSlippage();
 
     // We reduce the borrowed and we might decrease the SP debt
     smartPoolBorrowed -= pool.repay(scaleDebtCovered.principal);
@@ -832,11 +881,11 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address liquidator,
     address borrower,
     uint256 assets
-  ) internal {
+  ) internal returns (bool moreCollateral) {
     if (assets == 0) revert ZeroWithdraw();
 
     // reverts on failure
-    auditor.seizeAllowed(this, seizerFixedLender, liquidator, borrower);
+    auditor.checkSeize(this, seizerFixedLender, liquidator, borrower);
 
     uint256 shares = previewWithdraw(assets);
     beforeWithdraw(assets, shares);
@@ -846,47 +895,43 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     asset.safeTransfer(liquidator, assets);
     emit AssetSeized(liquidator, borrower, assets);
     emit MarketUpdated(block.timestamp, totalSupply, smartPoolAssets, smartPoolEarningsAccumulator, 0, 0);
+
+    return balanceOf[borrower] > 0;
   }
 
-  /// @dev Gets all borrows for an account in certain maturity (or MATURITY_ALL).
-  /// @param who account to return status snapshot in the specified maturity date.
-  /// @param maturity maturity where the borrow is taking place. MATURITY_ALL returns all borrows.
-  /// @return sumPositions the total amount of borrows in user position.
-  /// @return sumPenalties the total penalties for late repayment in all maturities.
-  function getAccountBorrows(address who, uint256 maturity)
-    public
-    view
-    returns (uint256 sumPositions, uint256 sumPenalties)
-  {
-    if (maturity == PoolLib.MATURITY_ALL) {
-      uint256 encodedMaturities = fixedBorrows[who];
-      uint256 baseMaturity = encodedMaturities % (1 << 32);
-      uint256 packedMaturities = encodedMaturities >> 32;
-      // We calculate all the timestamps using the baseMaturity and the following bits representing the following weeks
-      for (uint256 i = 0; i < 224; ) {
-        if ((packedMaturities & (1 << i)) != 0) {
-          (uint256 position, uint256 penalties) = getAccountDebt(who, baseMaturity + (i * TSUtils.INTERVAL));
-          sumPositions += position;
-          sumPenalties += penalties;
-        }
-        unchecked {
-          ++i;
-        }
-        if ((1 << i) > packedMaturities) break;
+  /// @notice Gets current snapshot for an account across all maturities.
+  /// @param account account to return status snapshot in the specified maturity date.
+  /// @return the amount the user deposited to the smart pool and the total money he owes from maturities.
+  function getAccountSnapshot(address account) public view returns (uint256, uint256) {
+    return (convertToAssets(balanceOf[account]), getDebt(account));
+  }
+
+  /// @dev Gets all borrows and penalties for an account.
+  /// @param account account to return status snapshot in the specified maturity date.
+  /// @return debt the total debt, denominated in number of tokens.
+  function getDebt(address account) public view returns (uint256 debt) {
+    uint256 memPenaltyRate = penaltyRate;
+    uint256 packedMaturities = fixedBorrows[account];
+    uint256 baseMaturity = packedMaturities % (1 << 32);
+    packedMaturities = packedMaturities >> 32;
+    // calculate all maturities using the baseMaturity and the following bits representing the following intervals
+    for (uint256 i = 0; i < 224; ) {
+      if ((packedMaturities & (1 << i)) != 0) {
+        uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
+        PoolLib.Position memory position = fixedBorrowPositions[maturity][account];
+        uint256 positionAssets = position.principal + position.fee;
+
+        debt += positionAssets;
+
+        uint256 secondsDelayed = TSUtils.secondsPre(maturity, block.timestamp);
+        if (secondsDelayed > 0) debt += positionAssets.mulWadDown(secondsDelayed * memPenaltyRate);
       }
-    } else (sumPositions, sumPenalties) = getAccountDebt(who, maturity);
-  }
 
-  /// @notice Gets the debt + penalties of an account for a certain maturity.
-  /// @param who account to return debt status for the specified maturity.
-  /// @param maturity amount to be transferred.
-  /// @return position the position debt denominated in number of tokens.
-  /// @return penalties the penalties for late repayment.
-  function getAccountDebt(address who, uint256 maturity) internal view returns (uint256 position, uint256 penalties) {
-    PoolLib.Position memory data = fixedBorrowPositions[maturity][who];
-    position = data.principal + data.fee;
-    uint256 secondsDelayed = TSUtils.secondsPre(maturity, block.timestamp);
-    if (secondsDelayed > 0) penalties = position.mulWadDown(secondsDelayed * penaltyRate);
+      unchecked {
+        ++i;
+      }
+      if ((1 << i) > packedMaturities) break;
+    }
   }
 
   /// @notice Updates the smartPoolAssetsAverage.
@@ -902,9 +947,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   }
 }
 
-error NotFixedLender();
-error ZeroWithdraw();
-error ZeroRepay();
 error AlreadyInitialized();
+error NotFixedLender();
 error TooMuchSlippage();
 error SmartPoolReserveExceeded();
+error ZeroWithdraw();
+error ZeroRepay();

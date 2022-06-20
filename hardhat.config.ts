@@ -34,7 +34,10 @@ const config: Config = {
   },
   finance: {
     adjustFactor: { default: 0.8, WBTC: 0.6 },
-    liquidationIncentive: 1.1,
+    liquidationIncentive: {
+      liquidator: 0.05,
+      lenders: 0.01,
+    },
     penaltyRatePerDay: 0.02,
     smartPoolReserveFactor: 0.1,
     dampSpeed: {
@@ -75,7 +78,7 @@ export default config;
 declare module "hardhat/types/config" {
   export interface FinanceConfig {
     adjustFactor: { default: number; [token: string]: number };
-    liquidationIncentive: number;
+    liquidationIncentive: { liquidator: number; lenders: number };
     penaltyRatePerDay: number;
     smartPoolReserveFactor: number;
     dampSpeed: {

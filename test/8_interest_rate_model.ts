@@ -403,7 +403,7 @@ describe("InterestRateModel", () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1");
           });
           it("THEN a yearly interest of 2% is charged over four week (0.02*28/365)", async () => {
-            const [, borrowed] = await exactlyEnv.accountSnapshot("DAI", secondPoolID);
+            const borrowed = await exactlyEnv.getDebt("DAI");
             // (0.02 * 28) / 365 = 0.00153
             expect(borrowed).to.be.gt(parseUnits("1.00153"));
             expect(borrowed).to.be.lt(parseUnits("1.00154"));
@@ -414,8 +414,7 @@ describe("InterestRateModel", () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "300");
           });
           it("THEN a yearly interest of 2.05% (U 0->0.25) is charged over four weeks", async () => {
-            const [, borrowed] = await exactlyEnv.accountSnapshot("DAI", secondPoolID);
-
+            const borrowed = await exactlyEnv.getDebt("DAI");
             expect(borrowed).to.be.gt(parseUnits("300.472"));
             expect(borrowed).to.be.lt(parseUnits("300.473"));
           });
@@ -425,8 +424,7 @@ describe("InterestRateModel", () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "900");
           });
           it("THEN a yearly interest of 2.16% (U 0 -> 0.75) is charged over four weeks", async () => {
-            const [, borrowed] = await exactlyEnv.accountSnapshot("DAI", secondPoolID);
-
+            const borrowed = await exactlyEnv.getDebt("DAI");
             expect(borrowed).to.be.gt(parseUnits("901.491"));
             expect(borrowed).to.be.lt(parseUnits("901.492"));
           });
@@ -447,8 +445,7 @@ describe("InterestRateModel", () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1050");
           });
           it("THEN a yearly interest of 2.18% (U 0->0.84) is charged over four weeks", async () => {
-            const [, borrowed] = await exactlyEnv.accountSnapshot("DAI", secondPoolID);
-
+            const borrowed = await exactlyEnv.getDebt("DAI");
             expect(borrowed).to.be.gt(parseUnits("1051.756"));
             expect(borrowed).to.be.lt(parseUnits("1051.757"));
           });
@@ -469,8 +466,7 @@ describe("InterestRateModel", () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1200");
           });
           it("THEN a yearly interest of 2.1% (U 0->0.48) is charged over four weeks", async () => {
-            const [, borrowed] = await exactlyEnv.accountSnapshot("DAI", secondPoolID);
-
+            const borrowed = await exactlyEnv.getDebt("DAI");
             expect(borrowed).to.be.gt(parseUnits("1201.934"));
             expect(borrowed).to.be.lt(parseUnits("1201.935"));
           });
@@ -485,8 +481,7 @@ describe("InterestRateModel", () => {
                 await exactlyEnv.borrowMP("DAI", secondPoolID, "400");
               });
               it("THEN a yearly interest of 2.24% (U 0.48->0.64, considering both borrows) is charged over four weeks", async () => {
-                const [, borrowed] = await exactlyEnv.accountSnapshot("DAI", secondPoolID);
-
+                const borrowed = await exactlyEnv.getDebt("DAI");
                 expect(borrowed).to.be.gt(parseUnits("400.687"));
                 expect(borrowed).to.be.lt(parseUnits("400.688"));
               });
@@ -509,8 +504,7 @@ describe("InterestRateModel", () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1000");
           });
           it("THEN a yearly interest of 2.1% (U 0->0.71) is charged over four weeks", async () => {
-            const [, borrowed] = await exactlyEnv.accountSnapshot("DAI", secondPoolID);
-
+            const borrowed = await exactlyEnv.getDebt("DAI");
             expect(borrowed).to.be.gt(parseUnits("1001.651"));
             expect(borrowed).to.be.lt(parseUnits("1001.652"));
           });

@@ -28,8 +28,6 @@ library PoolLib {
     uint256 fee;
   }
 
-  uint256 public constant MATURITY_ALL = type(uint256).max;
-
   /// @notice calculates the amount that a fixed rate pool borrowed from the smart pool.
   /// @param pool fixed rate pool.
   /// @return amount borrowed from the fixed rate pool.

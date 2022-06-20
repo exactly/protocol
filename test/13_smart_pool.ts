@@ -135,10 +135,10 @@ describe("Smart Pool", function () {
       expect(await fixedLenderWBTC.balanceOf(bob.address)).to.be.equal(0);
       expect(await fixedLenderWBTC.balanceOf(john.address)).to.be.equal(parseUnits("1", 8));
     });
-    describe("AND GIVEN bob borrows 0.5 WBTC from a maturity", () => {
+    describe("AND GIVEN bob borrows 0.35 WBTC from a maturity", () => {
       beforeEach(async () => {
         exactlyEnv.switchWallet(bob);
-        await exactlyEnv.borrowMP("WBTC", futurePools(3)[2].toNumber(), "0.5");
+        await exactlyEnv.borrowMP("WBTC", futurePools(3)[2].toNumber(), "0.35");
       });
       it("WHEN bob tries to transfer his eWBTC THEN it fails with InsufficientLiquidity error", async () => {
         await expect(
@@ -188,19 +188,19 @@ describe("Smart Pool", function () {
           fixedLenderDAI.connect(bob).transferFrom(bob.address, john.address, parseUnits("100")),
         ).to.be.revertedWith("InsufficientLiquidity()");
       });
-      it("AND WHEN trying to transfer a small amount that doesnt cause a shortfall (10 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
-        await expect(fixedLenderDAI.connect(bob).transfer(john.address, parseUnits("10"))).to.not.be.reverted;
+      it("AND WHEN trying to transfer a small amount that doesnt cause a shortfall (5 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
+        await expect(fixedLenderDAI.connect(bob).transfer(john.address, parseUnits("5"))).to.not.be.reverted;
       });
-      it("AND WHEN trying to call transferFrom to transfer a small amount that doesnt cause a shortfall (10 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
-        fixedLenderDAI.connect(bob).approve(john.address, parseUnits("10"));
-        await expect(fixedLenderDAI.connect(john).transferFrom(bob.address, john.address, parseUnits("10"))).to.not.be
+      it("AND WHEN trying to call transferFrom to transfer a small amount that doesnt cause a shortfall (5 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
+        fixedLenderDAI.connect(bob).approve(john.address, parseUnits("5"));
+        await expect(fixedLenderDAI.connect(john).transferFrom(bob.address, john.address, parseUnits("5"))).to.not.be
           .reverted;
       });
       it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith("InsufficientLiquidity()");
       });
-      it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (10 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
-        await expect(exactlyEnv.withdrawSP("DAI", "10")).to.not.be.reverted;
+      it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (5 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
+        await expect(exactlyEnv.withdrawSP("DAI", "5")).to.not.be.reverted;
       });
     });
   });

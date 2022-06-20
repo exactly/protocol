@@ -34,25 +34,25 @@ describe("Validations", function () {
     it("WHEN trying to exit market, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress)).to.be.revertedWith("MarketNotListed()");
     });
-    it("WHEN trying to call validateBorrowMP, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.validateBorrowMP(exactlyEnv.notAnFixedLenderAddress, owner.address)).to.be.revertedWith(
+    it("WHEN trying to call validateBorrow, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
+      await expect(auditor.validateBorrow(exactlyEnv.notAnFixedLenderAddress, owner.address)).to.be.revertedWith(
         "MarketNotListed()",
       );
     });
-    it("WHEN trying to call liquidateAllowed, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
+    it("WHEN trying to call checkLiquidation, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
-        auditor.liquidateAllowed(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
+        auditor.checkLiquidation(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
       await expect(
-        auditor.liquidateAllowed(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
+        auditor.checkLiquidation(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
     });
-    it("WHEN trying to call seizeAllowed, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
+    it("WHEN trying to call checkSeize, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
-        auditor.seizeAllowed(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
+        auditor.checkSeize(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
       await expect(
-        auditor.seizeAllowed(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
+        auditor.checkSeize(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
     });
   });
