@@ -24,14 +24,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
   uint256 public constant CLOSE_FACTOR = 5e17;
 
-  // Vars used in `borrowMP` to avoid stack too deep problem
-  struct BorrowVars {
-    PoolLib.Position position;
-    uint256 fee;
-    uint256 newUnassignedEarnings;
-    uint256 earningsSP;
-  }
-
   struct DampSpeed {
     uint256 up;
     uint256 down;
@@ -475,7 +467,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address receiver,
     address borrower
   ) public nonReentrant whenNotPaused returns (uint256 assetsOwed) {
-    BorrowVars memory borrowVars;
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
@@ -484,7 +475,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
     updateSmartPoolAssetsAverage();
-    borrowVars.fee = assets.mulWadDown(
+    uint256 fee = assets.mulWadDown(
       interestRateModel.getRateToBorrow(
         maturity,
         block.timestamp,
@@ -494,36 +485,36 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         smartPoolAssetsAverage
       )
     );
-    assetsOwed = assets + borrowVars.fee;
+    assetsOwed = assets + fee;
 
-    uint256 memSPBorrowed = smartPoolBorrowed;
-    memSPBorrowed = memSPBorrowed + pool.borrow(assets, smartPoolAssets - memSPBorrowed);
-    smartPoolBorrowed = memSPBorrowed;
-    if (memSPBorrowed > smartPoolAssets.mulWadDown(1e18 - smartPoolReserveFactor)) {
-      revert SmartPoolReserveExceeded();
+    {
+      uint256 memSPBorrowed = smartPoolBorrowed;
+      memSPBorrowed = memSPBorrowed + pool.borrow(assets, smartPoolAssets - memSPBorrowed);
+      smartPoolBorrowed = memSPBorrowed;
+      if (memSPBorrowed > smartPoolAssets.mulWadDown(1e18 - smartPoolReserveFactor)) {
+        revert SmartPoolReserveExceeded();
+      }
     }
+
     // We validate that the user is not taking arbitrary fees
     if (assetsOwed > maxAssetsAllowed) revert TooMuchSlippage();
 
     // If user doesn't have a current position, we add it to the list of all of them
-    borrowVars.position = fixedBorrowPositions[maturity][borrower];
-    if (borrowVars.position.principal == 0) {
+    PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
+    if (position.principal == 0) {
       fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
     }
 
     // We calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
-    (borrowVars.newUnassignedEarnings, borrowVars.earningsSP) = PoolLib.distributeEarningsAccordingly(
-      borrowVars.fee,
+    (uint256 newUnassignedEarnings, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
+      fee,
       pool.smartPoolBorrowed(),
       assets
     );
-    smartPoolEarningsAccumulator += borrowVars.earningsSP;
-    pool.earningsUnassigned += borrowVars.newUnassignedEarnings;
+    smartPoolEarningsAccumulator += newEarningsSP;
+    pool.earningsUnassigned += newUnassignedEarnings;
 
-    fixedBorrowPositions[maturity][borrower] = PoolLib.Position(
-      borrowVars.position.principal + assets,
-      borrowVars.position.fee + borrowVars.fee
-    );
+    fixedBorrowPositions[maturity][borrower] = PoolLib.Position(position.principal + assets, position.fee + fee);
 
     if (msg.sender != borrower) {
       uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
@@ -531,14 +522,16 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assetsOwed);
     }
 
-    uint256 memSPAssets = smartPoolAssets;
-    emit SmartPoolEarningsAccrued(memSPAssets, earningsSP);
-    smartPoolAssets = memSPAssets + earningsSP;
-    auditor.validateBorrowMP(this, borrower);
+    {
+      uint256 memSPAssets = smartPoolAssets;
+      emit SmartPoolEarningsAccrued(memSPAssets, earningsSP);
+      smartPoolAssets = memSPAssets + earningsSP;
+    }
 
+    auditor.validateBorrowMP(this, borrower);
     asset.safeTransfer(receiver, assets);
 
-    emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, borrowVars.fee);
+    emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
   }
 
   /// @notice Deposits a certain amount to a maturity.
