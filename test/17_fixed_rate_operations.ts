@@ -10,7 +10,7 @@ import futurePools from "./utils/futurePools";
 const { provider } = ethers;
 const nextPoolID = futurePools(3)[2].toNumber();
 
-describe("FixedLender Internal Functions", () => {
+describe("Fixed Rate Operations", () => {
   let laura: SignerWithAddress;
   let tina: SignerWithAddress;
   let fixedLenderEnv: FixedLenderEnv;
