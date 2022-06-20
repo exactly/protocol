@@ -499,6 +499,12 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // We validate that the user is not taking arbitrary fees
     if (assetsOwed > maxAssetsAllowed) revert TooMuchSlippage();
 
+    if (msg.sender != borrower) {
+      uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assetsOwed);
+    }
+
     // If user doesn't have a current position, we add it to the list of all of them
     PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
     if (position.principal == 0) {
@@ -515,12 +521,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     pool.earningsUnassigned += newUnassignedEarnings;
 
     fixedBorrowPositions[maturity][borrower] = PoolLib.Position(position.principal + assets, position.fee + fee);
-
-    if (msg.sender != borrower) {
-      uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
-
-      if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assetsOwed);
-    }
 
     {
       uint256 memSPAssets = smartPoolAssets;
@@ -631,6 +631,12 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     if (assetsDiscounted < minAssetsRequired) revert TooMuchSlippage();
 
+    if (msg.sender != owner) {
+      uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - previewWithdraw(assetsDiscounted);
+    }
+
     // We remove the supply from the fixed rate pool
     smartPoolBorrowed += pool.withdraw(
       PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
@@ -654,12 +660,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     } else {
       // we proportionally reduce the values
       fixedDepositPositions[maturity][owner] = position;
-    }
-
-    if (msg.sender != owner) {
-      uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
-
-      if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - previewWithdraw(assetsDiscounted);
     }
 
     uint256 memSPAssets = smartPoolAssets;
