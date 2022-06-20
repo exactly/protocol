@@ -721,8 +721,57 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   ) internal returns (uint256 actualRepayAssets, uint256 debtCovered) {
     if (positionAssets == 0) revert ZeroRepay();
 
-    uint256 earningsSP;
-    (actualRepayAssets, debtCovered, earningsSP) = repayMP(maturity, borrower, positionAssets, maxAssetsAllowed);
+    PoolLib.FixedPool storage pool = fixedPools[maturity];
+
+    uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
+
+    PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
+
+    debtCovered = Math.min(positionAssets, position.principal + position.fee);
+
+    PoolLib.Position memory scaleDebtCovered = PoolLib.Position(position.principal, position.fee).scaleProportionally(
+      debtCovered
+    );
+
+    // Early repayment allows you to get a discount from the unassigned earnings
+    if (block.timestamp < maturity) {
+      // We calculate the deposit fee considering the amount of debt the user'll pay
+      (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
+        pool.smartPoolBorrowed(),
+        pool.earningsUnassigned,
+        scaleDebtCovered.principal
+      );
+
+      // We remove the fee from unassigned earnings
+      pool.earningsUnassigned -= discountFee + feeSP;
+
+      // The fee gets discounted from the user through `repayAmount`
+      actualRepayAssets = debtCovered - discountFee;
+
+      // The fee charged to the MP supplier go to the smart pool accumulator
+      smartPoolEarningsAccumulator += feeSP;
+    } else {
+      actualRepayAssets = debtCovered + debtCovered.mulWadDown((block.timestamp - maturity) * penaltyRate);
+
+      // All penalties go to the smart pool accumulator
+      smartPoolEarningsAccumulator += actualRepayAssets - debtCovered;
+    }
+
+    // We verify that the user agrees to this discount or penalty
+    if (actualRepayAssets > maxAssetsAllowed) revert TooMuchSlippage();
+
+    // We reduce the borrowed and we might decrease the SP debt
+    smartPoolBorrowed -= pool.repay(scaleDebtCovered.principal);
+
+    // We update the user position
+    position.reduceProportionally(debtCovered);
+    if (position.principal + position.fee == 0) {
+      delete fixedBorrowPositions[maturity][borrower];
+      fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
+    } else {
+      // We proportionally reduce the values
+      fixedBorrowPositions[maturity][borrower] = position;
+    }
 
     uint256 memSPAssets = smartPoolAssets;
     emit SmartPoolEarningsAccrued(memSPAssets, earningsSP);
@@ -757,80 +806,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     asset.safeTransfer(liquidator, assets);
     emit AssetSeized(liquidator, borrower, assets);
-  }
-
-  /// @notice Accounts for repaying from a fixed rate pool.
-  /// @param maturity maturity date / pool id where the asset should be accounted for.
-  /// @param borrower address where the debt will be reduced.
-  /// @param positionAssets the sum of principal and fees that this repayment covers.
-  /// @param maxAmountAllowed maximum amount of debt that the user is willing to accept to be repaid.
-  /// @return repayAmount the amount with discounts included that will finally be transferred.
-  /// @return debtCovered the sum of principal and fees that this repayment covers.
-  /// @return earningsSP amount of earnings to be accrued by the smart pool depositors.
-  function repayMP(
-    uint256 maturity,
-    address borrower,
-    uint256 positionAssets,
-    uint256 maxAmountAllowed
-  )
-    internal
-    returns (
-      uint256 repayAmount,
-      uint256 debtCovered,
-      uint256 earningsSP
-    )
-  {
-    PoolLib.FixedPool storage pool = fixedPools[maturity];
-
-    earningsSP = pool.accrueEarnings(maturity, block.timestamp);
-
-    PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
-
-    debtCovered = Math.min(positionAssets, position.principal + position.fee);
-
-    PoolLib.Position memory scaleDebtCovered = PoolLib.Position(position.principal, position.fee).scaleProportionally(
-      debtCovered
-    );
-
-    // Early repayment allows you to get a discount from the unassigned earnings
-    if (block.timestamp < maturity) {
-      // We calculate the deposit fee considering the amount of debt the user'll pay
-      (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
-        pool.smartPoolBorrowed(),
-        pool.earningsUnassigned,
-        scaleDebtCovered.principal
-      );
-
-      // We remove the fee from unassigned earnings
-      pool.earningsUnassigned -= discountFee + feeSP;
-
-      // The fee gets discounted from the user through `repayAmount`
-      repayAmount = debtCovered - discountFee;
-
-      // The fee charged to the MP supplier go to the smart pool accumulator
-      smartPoolEarningsAccumulator += feeSP;
-    } else {
-      repayAmount = debtCovered + debtCovered.mulWadDown((block.timestamp - maturity) * penaltyRate);
-
-      // All penalties go to the smart pool accumulator
-      smartPoolEarningsAccumulator += repayAmount - debtCovered;
-    }
-
-    // We verify that the user agrees to this discount or penalty
-    if (repayAmount > maxAmountAllowed) revert TooMuchSlippage();
-
-    // We reduce the borrowed and we might decrease the SP debt
-    smartPoolBorrowed -= pool.repay(scaleDebtCovered.principal);
-
-    // We update the user position
-    position.reduceProportionally(debtCovered);
-    if (position.principal + position.fee == 0) {
-      delete fixedBorrowPositions[maturity][borrower];
-      fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
-    } else {
-      // We proportionally reduce the values
-      fixedBorrowPositions[maturity][borrower] = position;
-    }
   }
 
   /// @dev Gets all borrows for an account in certain maturity (or MATURITY_ALL).
