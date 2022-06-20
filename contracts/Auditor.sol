@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { FixedLender, NotFixedLender } from "./FixedLender.sol";
@@ -24,6 +25,22 @@ contract Auditor is AccessControl {
     uint8 index;
     bool isListed;
   }
+
+  struct MarketVars {
+    uint256 price;
+    uint128 adjustFactor;
+    uint8 decimals;
+  }
+
+  struct LiquidityVars {
+    uint256 totalDebt;
+    uint256 totalCollateral;
+    uint256 adjustedDebt;
+    uint256 adjustedCollateral;
+    uint256 seizeAvailable;
+  }
+
+  uint256 public constant TARGET_HEALTH = 1.25e18;
 
   // Protocol Management
   mapping(address => uint256) public accountMarkets;
@@ -62,6 +79,25 @@ contract Auditor is AccessControl {
   /// @param newAdjustFactor adjust factor for the underlying asset.
   event AdjustFactorSet(FixedLender indexed fixedLender, uint256 newAdjustFactor);
 
+  event log(string);
+  event logs(bytes);
+
+  event log_address(address);
+  event log_bytes32(bytes32);
+  event log_int(int256);
+  event log_uint(uint256);
+  event log_bytes(bytes);
+  event log_string(string);
+
+  event log_named_address(string key, address val);
+  event log_named_bytes32(string key, bytes32 val);
+  event log_named_decimal_int(string key, int256 val, uint256 decimals);
+  event log_named_decimal_uint(string key, uint256 val, uint256 decimals);
+  event log_named_int(string key, int256 val);
+  event log_named_uint(string key, uint256 val);
+  event log_named_bytes(string key, bytes val);
+  event log_named_string(string key, string val);
+
   constructor(ExactlyOracle oracle_, uint256 liquidationIncentive_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
@@ -91,13 +127,13 @@ contract Auditor is AccessControl {
     validateMarketListed(fixedLender);
     uint256 marketIndex = markets[fixedLender].index;
 
-    (uint256 amountHeld, uint256 borrowBalance) = fixedLender.getAccountSnapshot(msg.sender, PoolLib.MATURITY_ALL);
+    (uint256 assets, uint256 debt) = fixedLender.getAccountSnapshot(msg.sender);
 
     // Fail if the sender has a borrow balance
-    if (borrowBalance != 0) revert BalanceOwed();
+    if (debt != 0) revert BalanceOwed();
 
     // Fail if the sender is not permitted to redeem all of their tokens
-    validateAccountShortfall(fixedLender, msg.sender, amountHeld);
+    validateAccountShortfall(fixedLender, msg.sender, assets);
 
     uint256 marketMap = accountMarkets[msg.sender];
 
@@ -165,14 +201,14 @@ contract Auditor is AccessControl {
   /// @dev Hook function to be called after adding the borrowed debt to the user position.
   /// @param fixedLender address of the fixedLender where the borrow is made.
   /// @param borrower address of the account that will repay the debt.
-  function validateBorrowMP(FixedLender fixedLender, address borrower) external {
+  function validateBorrow(FixedLender fixedLender, address borrower) external {
     validateMarketListed(fixedLender);
     uint256 marketIndex = markets[fixedLender].index;
     uint256 marketMap = accountMarkets[borrower];
 
     // we validate borrow state
     if ((marketMap & (1 << marketIndex)) == 0) {
-      // only fixedLenders may call validateBorrowMP if borrower not in market
+      // only fixedLenders may call validateBorrow if borrower not in market
       if (msg.sender != address(fixedLender)) revert NotFixedLender();
 
       accountMarkets[borrower] = marketMap | (1 << marketIndex);
@@ -184,68 +220,140 @@ contract Auditor is AccessControl {
 
     // We verify that current liquidity is not short
     (uint256 collateral, uint256 debt) = accountLiquidity(borrower, fixedLender, 0);
-
     if (collateral < debt) revert InsufficientLiquidity();
   }
 
   /// @notice Allows/rejects liquidation of assets.
   /// @dev This function can be called externally, but only will have effect when called from a fixedLender.
-  /// @param fixedLenderBorrowed market from where the debt is pending.
-  /// @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
+  /// @param repayMarket market from where the debt is pending.
+  /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
   /// @param liquidator address that is liquidating the assets.
   /// @param borrower address which the assets are being liquidated.
-  function liquidateAllowed(
-    FixedLender fixedLenderBorrowed,
-    FixedLender fixedLenderCollateral,
+  function checkLiquidation(
+    FixedLender repayMarket,
+    FixedLender seizeMarket,
     address liquidator,
     address borrower
-  ) external view {
-    if (borrower == liquidator) revert LiquidatorNotBorrower();
+  ) external returns (uint256 maxRepayAssets, bool moreCollateral) {
+    if (borrower == liquidator) revert SelfLiquidation();
 
     // if markets are listed, they have the same auditor
-    if (!markets[fixedLenderBorrowed].isListed || !markets[fixedLenderCollateral].isListed) revert MarketNotListed();
+    if (!markets[repayMarket].isListed || !markets[seizeMarket].isListed) revert MarketNotListed();
 
-    // The borrower must have shortfall in order to be liquidatable
-    (uint256 sumCollateral, uint256 sumDebt) = accountLiquidity(borrower, FixedLender(address(0)), 0);
+    MarketVars memory repay;
+    LiquidityVars memory usd;
+    uint256 marketMap = accountMarkets[borrower];
+    uint256 marketCount = allMarkets.length;
+    for (uint256 i = 0; i < marketCount; ) {
+      if ((marketMap & (1 << i)) != 0) {
+        FixedLender market = allMarkets[i];
+        Market memory memMarket = markets[market];
+        MarketVars memory m = MarketVars({
+          price: oracle.getAssetPrice(market),
+          adjustFactor: memMarket.adjustFactor,
+          decimals: memMarket.decimals
+        });
 
-    if (sumCollateral >= sumDebt) revert InsufficientShortfall();
+        if (market == repayMarket) repay = m;
+
+        (uint256 collateral, uint256 debt) = market.getAccountSnapshot(borrower);
+
+        emit log_named_uint("decimals", m.decimals);
+        emit log_named_decimal_uint("        collateral", collateral, m.decimals);
+        emit log_named_decimal_uint("              debt", debt, m.decimals);
+        emit log_named_decimal_uint("             price", m.price, 18);
+        emit log_named_decimal_uint("      adjustFactor", m.adjustFactor, 18);
+        emit log_named_decimal_uint(
+          "adjustedCollateral",
+          collateral.mulDivDown(m.price, 10**m.decimals).mulWadDown(m.adjustFactor),
+          18
+        );
+        emit log_named_decimal_uint(
+          "      adjustedDebt",
+          debt.mulDivUp(m.price, 10**m.decimals).divWadUp(m.adjustFactor),
+          18
+        );
+
+        uint256 value = debt.mulDivUp(m.price, 10**m.decimals);
+        usd.totalDebt += value;
+        usd.adjustedDebt += value.divWadUp(m.adjustFactor);
+
+        value = collateral.mulDivDown(m.price, 10**m.decimals);
+        usd.totalCollateral += value;
+        usd.adjustedCollateral += value.mulWadDown(m.adjustFactor);
+        if (market == seizeMarket) usd.seizeAvailable = value;
+      }
+      unchecked {
+        ++i;
+      }
+      if ((1 << i) > marketMap) break;
+    }
+
+    if (usd.adjustedCollateral >= usd.adjustedDebt) revert InsufficientShortfall();
+
+    uint256 adjustFactor = usd.adjustedCollateral.mulDivUp(
+      usd.totalDebt,
+      usd.totalCollateral.mulWadDown(usd.adjustedDebt)
+    );
+    uint256 closeFactor = (TARGET_HEALTH - usd.adjustedCollateral.divWadUp(usd.adjustedDebt)).divWadUp(
+      TARGET_HEALTH - adjustFactor.mulWadDown(liquidationIncentive)
+    );
+    maxRepayAssets = Math
+      .min(usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)), usd.seizeAvailable.divWadUp(liquidationIncentive))
+      .mulDivUp(10**repay.decimals, repay.price);
+    moreCollateral = usd.totalCollateral > usd.seizeAvailable;
+
+    emit log("global");
+    emit log_named_decimal_uint("   totalCollateral", usd.totalCollateral, 18);
+    emit log_named_decimal_uint("adjustedCollateral", usd.adjustedCollateral, 18);
+    emit log_named_decimal_uint("  collateralFactor", usd.adjustedCollateral.divWadUp(usd.totalCollateral), 18);
+    emit log_named_decimal_uint("         totalDebt", usd.totalDebt, 18);
+    emit log_named_decimal_uint("      adjustedDebt", usd.adjustedDebt, 18);
+    emit log_named_decimal_uint("        debtFactor", usd.totalDebt.divWadUp(usd.adjustedDebt), 18);
+    emit log_named_decimal_uint("      adjustFactor", adjustFactor, 18);
+    emit log_named_decimal_uint("      healthFactor", usd.adjustedCollateral.divWadUp(usd.adjustedDebt), 18);
+    emit log_named_decimal_uint("       closeFactor", closeFactor, 18);
+    emit log_named_decimal_uint("       maxRepayUSD", usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)), 18);
+    emit log_named_uint("    repay.decimals", repay.decimals);
+    emit log_named_decimal_uint("       repay.price", repay.price, 18);
+    emit log_named_decimal_uint("    maxRepayAssets", maxRepayAssets, repay.decimals);
   }
 
   /// @notice Allow/rejects seizing of assets.
   /// @dev This function can be called externally, but only will have effect when called from a fixedLender.
-  /// @param fixedLenderCollateral market where the assets will be seized (should be msg.sender on FixedLender.sol).
-  /// @param fixedLenderBorrowed market from where the debt will be paid.
+  /// @param seizeMarket market where the assets will be seized (should be msg.sender on FixedLender.sol).
+  /// @param repayMarket market from where the debt will be paid.
   /// @param liquidator address to validate where the seized assets will be received.
   /// @param borrower address to validate where the assets will be removed.
   function seizeAllowed(
-    FixedLender fixedLenderCollateral,
-    FixedLender fixedLenderBorrowed,
+    FixedLender seizeMarket,
+    FixedLender repayMarket,
     address liquidator,
     address borrower
   ) external view {
-    if (borrower == liquidator) revert LiquidatorNotBorrower();
+    if (borrower == liquidator) revert SelfLiquidation();
 
     // If markets are listed, they have also the same Auditor
-    if (!markets[fixedLenderCollateral].isListed || !markets[fixedLenderBorrowed].isListed) revert MarketNotListed();
+    if (!markets[seizeMarket].isListed || !markets[repayMarket].isListed) revert MarketNotListed();
   }
 
   /// @notice Calculates the amount of collateral to be seized when a position is undercollaterized.
-  /// @param fixedLenderBorrowed market from where the debt is pending.
-  /// @param fixedLenderCollateral market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
+  /// @param repayMarket market from where the debt is pending.
+  /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
   /// @param actualRepayAmount repay amount in the borrowed asset.
   /// @return amount of collateral to be seized.
   function liquidateCalculateSeizeAmount(
-    FixedLender fixedLenderBorrowed,
-    FixedLender fixedLenderCollateral,
+    FixedLender repayMarket,
+    FixedLender seizeMarket,
     uint256 actualRepayAmount
   ) external view returns (uint256) {
     // Read oracle prices for borrowed and collateral markets
-    uint256 priceBorrowed = oracle.getAssetPrice(fixedLenderBorrowed);
-    uint256 priceCollateral = oracle.getAssetPrice(fixedLenderCollateral);
+    uint256 priceBorrowed = oracle.getAssetPrice(repayMarket);
+    uint256 priceCollateral = oracle.getAssetPrice(seizeMarket);
 
-    uint256 amountInUSD = actualRepayAmount.mulDivDown(priceBorrowed, 10**markets[fixedLenderBorrowed].decimals);
+    uint256 amountInUSD = actualRepayAmount.mulDivDown(priceBorrowed, 10**markets[repayMarket].decimals);
     // 10**18: usd amount decimals
-    uint256 seizeTokens = amountInUSD.mulDivDown(10**markets[fixedLenderCollateral].decimals, priceCollateral);
+    uint256 seizeTokens = amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral);
 
     return seizeTokens.mulWadDown(liquidationIncentive);
   }
@@ -297,7 +405,7 @@ contract Auditor is AccessControl {
         uint256 adjustFactor = markets[market].adjustFactor;
 
         // Read the balances
-        (vars.balance, vars.borrowBalance) = market.getAccountSnapshot(account, PoolLib.MATURITY_ALL);
+        (vars.balance, vars.borrowBalance) = market.getAccountSnapshot(account);
 
         // Get the normalized price of the asset (18 decimals)
         vars.oraclePrice = oracle.getAssetPrice(market);
@@ -307,6 +415,7 @@ contract Auditor is AccessControl {
 
         // We sum all the debt
         sumDebt += vars.borrowBalance.mulDivDown(vars.oraclePrice, 10**decimals);
+        // sumDebt += vars.borrowBalance.mulDivUp(vars.oraclePrice, 10**decimals).divWadUp(adjustFactor);
 
         // Simulate the effects of borrowing from/lending to a pool
         if (market == FixedLender(fixedLenderToSimulate)) {
@@ -336,6 +445,6 @@ error BalanceOwed();
 error InsufficientLiquidity();
 error InsufficientShortfall();
 error InvalidParameter();
-error LiquidatorNotBorrower();
 error MarketAlreadyListed();
 error MarketNotListed();
+error SelfLiquidation();

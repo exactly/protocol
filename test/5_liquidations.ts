@@ -133,7 +133,7 @@ describe("Liquidations", function () {
           });
 
           it("AND 19k DAI of debt has been repaid, making debt ~36860 DAI", async () => {
-            const [, debt] = await fixedLenderDAI.getAccountSnapshot(alice.address, nextPoolID);
+            const debt = await fixedLenderDAI.getDebt(alice.address);
 
             // Borrowed is 39850
             const totalBorrowAmount = parseUnits("39900");
@@ -159,7 +159,7 @@ describe("Liquidations", function () {
               await expect(tx).to.emit(fixedLenderWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 18k DAI of debt has been repaid, making debt ~18k DAI", async () => {
-              const [, debt] = await fixedLenderDAI.getAccountSnapshot(alice.address, nextPoolID);
+              const debt = await fixedLenderDAI.getDebt(alice.address);
               expect(debt).to.be.lt(parseUnits("14631"));
               expect(debt).to.be.gt(parseUnits("14630"));
             });
@@ -226,8 +226,7 @@ describe("Liquidations", function () {
               );
             });
             it("THEN theres nearly no WETH supplied by Alice", async () => {
-              const [depositedETH] = await fixedLenderETH.getAccountSnapshot(alice.address, nextPoolID);
-              expect(depositedETH).to.be.lt(parseUnits("0.001"));
+              expect(await fixedLenderETH.maxWithdraw(alice.address)).to.be.lt(parseUnits("0.001"));
             });
             describe("AND WHEN liquidating $27500 of Alices WBTC collateral (two steps required)", () => {
               beforeEach(async () => {
@@ -252,13 +251,11 @@ describe("Liquidations", function () {
                     .liquidate(alice.address, parseUnits("2045"), parseUnits("2045"), fixedLenderWBTC.address);
                 });
                 it("THEN the Alice has zero WBTC deposited", async () => {
-                  const [depositedWBTC] = await fixedLenderWBTC.getAccountSnapshot(alice.address, nextPoolID);
-                  expect(depositedWBTC).to.be.lt(parseUnits("0.0005", 8));
+                  expect(await fixedLenderWBTC.maxWithdraw(alice.address)).to.be.lt(parseUnits("0.0005", 8));
                 });
                 // now theres no incentive to liquidate those 7500 dai
                 it("AND alice still has some DAI debt", async () => {
-                  const [, debt] = await fixedLenderDAI.getAccountSnapshot(alice.address, nextPoolID);
-                  expect(debt).to.eq(parseUnits("7628"));
+                  expect(await fixedLenderDAI.getDebt(alice.address)).to.eq(parseUnits("7628"));
                 });
               });
             });
@@ -287,7 +284,7 @@ describe("Liquidations", function () {
           // We expect self liquidation to fail
           await expect(
             fixedLenderDAI.liquidate(alice.address, parseUnits("15000"), parseUnits("15000"), fixedLenderETH.address),
-          ).to.be.revertedWith("LiquidatorNotBorrower()");
+          ).to.be.revertedWith("SelfLiquidation()");
         });
 
         describe("GIVEN an insufficient allowance on the liquidator", () => {

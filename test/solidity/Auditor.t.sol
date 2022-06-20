@@ -9,7 +9,10 @@ import { Auditor, FixedLender, ExactlyOracle } from "../../contracts/Auditor.sol
 contract AuditorTest is Test {
   using FixedPointMathLib for uint256;
 
+  address internal constant BOB = address(0x420);
+
   Auditor internal auditor;
+  MockOracle internal oracle;
   MockFixedLender internal fixedLender;
 
   event MarketListed(FixedLender fixedLender, uint8 decimals);
@@ -17,8 +20,10 @@ contract AuditorTest is Test {
   event MarketExited(FixedLender indexed fixedLender, address indexed account);
 
   function setUp() external {
-    auditor = new Auditor(ExactlyOracle(address(new MockOracle())), 1.1e18);
+    oracle = new MockOracle();
+    auditor = new Auditor(ExactlyOracle(address(oracle)), 1.1e18);
     fixedLender = new MockFixedLender(auditor);
+    vm.label(BOB, "bob");
   }
 
   function testEnableMarket() external {
@@ -40,7 +45,7 @@ contract AuditorTest is Test {
   }
 
   function testEnterExitMarket() external {
-    fixedLender.setBalance(1 ether);
+    fixedLender.setCollateral(1 ether);
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, 18);
 
     vm.expectEmit(true, false, false, true, address(auditor));
@@ -60,10 +65,13 @@ contract AuditorTest is Test {
 
   function testEnableEnterExitMultipleMarkets() external {
     FixedLender[] memory markets = new FixedLender[](4);
-    for (uint256 i = 0; i < markets.length; i++) {
+    for (uint8 i = 0; i < markets.length; i++) {
       markets[i] = FixedLender(address(new MockFixedLender(auditor)));
       auditor.enableMarket(markets[i], 0.8e18, 18);
       auditor.enterMarket(markets[i]);
+    }
+
+    for (uint8 i = 0; i < markets.length; i++) {
       vm.expectEmit(true, false, false, true, address(auditor));
       emit MarketExited(markets[i], address(this));
       auditor.exitMarket(markets[i]);
@@ -73,7 +81,7 @@ contract AuditorTest is Test {
   function testFailExitMarketOwning() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, 18);
     auditor.enterMarket(FixedLender(address(fixedLender)));
-    fixedLender.setBorrowed(1);
+    fixedLender.setDebt(1);
     auditor.exitMarket(FixedLender(address(fixedLender)));
   }
 
@@ -90,14 +98,14 @@ contract AuditorTest is Test {
   function testBorrowMPValidation() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, 18);
     auditor.enterMarket(FixedLender(address(fixedLender)));
-    auditor.validateBorrowMP(FixedLender(address(fixedLender)), address(this));
+    auditor.validateBorrow(FixedLender(address(fixedLender)), address(this));
   }
 
   function testFailBorrowMPValidation() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, 18);
     auditor.enterMarket(FixedLender(address(fixedLender)));
-    fixedLender.setBorrowed(1);
-    auditor.validateBorrowMP(FixedLender(address(fixedLender)), address(this));
+    fixedLender.setDebt(1);
+    auditor.validateBorrow(FixedLender(address(fixedLender)), address(this));
   }
 
   function testAccountShortfall() external {
@@ -109,15 +117,32 @@ contract AuditorTest is Test {
   function testFailAccountShortfall() external {
     auditor.enableMarket(FixedLender(address(fixedLender)), 0.8e18, 18);
     auditor.enterMarket(FixedLender(address(fixedLender)));
-    fixedLender.setBorrowed(1);
+    fixedLender.setDebt(1);
     auditor.validateAccountShortfall(FixedLender(address(fixedLender)), address(this), 1);
+  }
+
+  function testDynamicCloseFactor() external {
+    FixedLender[] memory markets = new FixedLender[](4);
+    for (uint8 i = 0; i < markets.length; i++) {
+      markets[i] = FixedLender(address(new MockFixedLender(auditor)));
+      auditor.enableMarket(markets[i], 0.9e18 - (i * 0.1e18), 18 - (i * 3));
+
+      if (i % 2 != 0) oracle.setPrice(markets[i], i * 10**(i + 18));
+
+      vm.prank(BOB);
+      auditor.enterMarket(markets[i]);
+    }
+
+    MockFixedLender(address(markets[1])).setDebt(200e15);
+    MockFixedLender(address(markets[3])).setCollateral(1e9);
+    auditor.checkLiquidation(markets[1], markets[3], address(this), BOB);
   }
 }
 
 contract MockFixedLender {
   Auditor public auditor;
-  uint256 internal balance;
-  uint256 internal borrowed;
+  uint256 internal collateral;
+  uint256 internal debt;
 
   constructor(Auditor auditor_) {
     auditor = auditor_;
@@ -127,21 +152,27 @@ contract MockFixedLender {
     auditor = Auditor(auditor_);
   }
 
-  function setBalance(uint256 balance_) external {
-    balance = balance_;
+  function setCollateral(uint256 collateral_) external {
+    collateral = collateral_;
   }
 
-  function setBorrowed(uint256 borrowed_) external {
-    borrowed = borrowed_;
+  function setDebt(uint256 debt_) external {
+    debt = debt_;
   }
 
-  function getAccountSnapshot(address, uint256) external view returns (uint256, uint256) {
-    return (balance, borrowed);
+  function getAccountSnapshot(address) external view returns (uint256, uint256) {
+    return (collateral, debt);
   }
 }
 
 contract MockOracle {
-  function getAssetPrice(FixedLender) external pure returns (uint256) {
-    return 1e18;
+  mapping(FixedLender => uint256) public prices;
+
+  function setPrice(FixedLender market, uint256 value) public {
+    prices[market] = value;
+  }
+
+  function getAssetPrice(FixedLender market) public view returns (uint256) {
+    return prices[market] > 0 ? prices[market] : 1e18;
   }
 }

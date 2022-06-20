@@ -72,7 +72,7 @@ describe("Auditor from User Space", function () {
       .withArgs(fixedLenderDAI.address, user.address);
   });
 
-  it("validateBorrowMP should fail for when oracle gets weird", async () => {
+  it("validateBorrow should fail for when oracle gets weird", async () => {
     await dai.approve(fixedLenderDAI.address, 666);
     await fixedLenderDAI.deposit(666, user.address);
     await auditor.enterMarket(fixedLenderDAI.address);
@@ -85,12 +85,12 @@ describe("Auditor from User Space", function () {
   it("SeizeAllowed should fail when liquidator is borrower", async () => {
     await expect(
       auditor.seizeAllowed(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, owner.address),
-    ).to.be.revertedWith("LiquidatorNotBorrower()");
+    ).to.be.revertedWith("SelfLiquidation()");
   });
 
-  it("LiquidateAllowed should revert with INSUFFICIENT_SHORTFALL if user has no shortfall", async () => {
+  it("checkLiquidation should revert with INSUFFICIENT_SHORTFALL if user has no shortfall", async () => {
     await expect(
-      auditor.liquidateAllowed(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, user.address),
+      auditor.checkLiquidation(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, user.address),
     ).to.be.revertedWith("InsufficientShortfall()"); // Any failure except MARKET_NOT_LISTED
   });
 
@@ -100,7 +100,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.deposit(100, user.address);
 
     // we make it count as collateral (DAI)
-    await expect(auditor.validateBorrowMP(fixedLenderDAI.address, owner.address)).to.be.revertedWith(
+    await expect(auditor.validateBorrow(fixedLenderDAI.address, owner.address)).to.be.revertedWith(
       "NotFixedLender()",
     );
   });

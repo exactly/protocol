@@ -348,7 +348,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
                 .withArgs(futurePools(1)[0], alice.address, alice.address, parseUnits("5"), parseUnits("5"));
             });
             it("AND Alice's debt is cleared", async () => {
-              const [, amountOwed] = await fixedLenderWETH.getAccountSnapshot(alice.address, futurePools(1)[0]);
+              const amountOwed = await fixedLenderWETH.getDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND WETH is returned to the contract", async () => {
@@ -377,7 +377,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
                 .withArgs(futurePools(1)[0], routerETH.address, alice.address, parseUnits("5"), parseUnits("5"));
             });
             it("AND Alice's debt is cleared", async () => {
-              const [, amountOwed] = await fixedLenderWETH.getAccountSnapshot(alice.address, futurePools(1)[0]);
+              const amountOwed = await fixedLenderWETH.getDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND ETH is returned to the contract", async () => {
@@ -395,7 +395,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
               await routerETH.repayAtMaturityETH(futurePools(1)[0], parseUnits("10"), { value: parseUnits("10") });
             });
             it("AND Alice's debt is cleared", async () => {
-              const [, amountOwed] = await fixedLenderWETH.getAccountSnapshot(alice.address, futurePools(1)[0]);
+              const amountOwed = await fixedLenderWETH.getDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND ETH is returned to the contract", async () => {

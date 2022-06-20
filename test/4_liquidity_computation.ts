@@ -89,7 +89,7 @@ describe("Liquidity computations", function () {
       });
       // TODO: a test where the supply interest is != 0, see if there's an error like the one described in this commit
       it("AND she has zero debt and is owed 1000DAI", async () => {
-        const [supplied, owed] = await fixedLenderDAI.getAccountSnapshot(laura.address, futurePools(1)[0]);
+        const [supplied, owed] = await fixedLenderDAI.getAccountSnapshot(laura.address);
         expect(supplied).to.equal(parseUnits("1000"));
         expect(owed).to.equal(parseUnits("0"));
       });
@@ -144,7 +144,7 @@ describe("Liquidity computations", function () {
           expect(collateral).to.equal(debt);
         });
         it("AND she has 799+interest debt and is owed 1000DAI", async () => {
-          const [supplied, borrowed] = await fixedLenderDAI.getAccountSnapshot(laura.address, futurePools(1)[0]);
+          const [supplied, borrowed] = await fixedLenderDAI.getAccountSnapshot(laura.address);
 
           expect(supplied).to.equal(parseUnits("1000"));
           expect(borrowed).to.equal(parseUnits("800"));
