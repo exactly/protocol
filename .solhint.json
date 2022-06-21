@@ -10,6 +10,7 @@
     "constructor-syntax": "error",
     "no-inline-assembly": "off",
     "not-rely-on-time": "off",
+    "max-states-count": "off",
     "prettier/prettier": "error"
   }
 }
