@@ -31,11 +31,17 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   mapping(uint256 => mapping(address => PoolLib.Position)) public fixedDepositPositions;
   mapping(uint256 => mapping(address => PoolLib.Position)) public fixedBorrowPositions;
+  mapping(address => uint256) public flexibleBorrowPositions;
 
   mapping(address => uint256) public fixedBorrows;
   mapping(address => uint256) public fixedDeposits;
   mapping(uint256 => PoolLib.FixedPool) public fixedPools;
-  uint256 public smartPoolBorrowed;
+
+  /// @notice Total amount of smart pool assets borrowed from maturities (not counting fees).
+  uint256 public smartPoolFixedBorrows;
+  /// @notice Total amount of smart pool assets borrowed directly from the smart pool (counting flexible debt).
+  uint256 public smartPoolFlexibleBorrows;
+
   uint256 public smartPoolEarningsAccumulator;
   uint256 public penaltyRate;
   uint256 public dampSpeedUp;
@@ -53,6 +59,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   uint256 public smartPoolAssets;
   uint256 public smartPoolAssetsAverage;
+
+  uint256 public totalFlexibleBorrowsShares;
+  uint256 public lastUpdatedSmartPoolURate;
 
   /// @notice Event emitted when a user deposits an amount of an asset to a certain fixed rate pool collecting a fee at
   /// the end of the period.
@@ -275,7 +284,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     memSPAssets = memSPAssets + earnings - assets;
     smartPoolAssets = memSPAssets;
     // we check if the underlying liquidity that the user wants to withdraw is borrowed
-    if (memSPAssets < smartPoolBorrowed) revert InsufficientProtocolLiquidity();
+    if (memSPAssets < smartPoolFixedBorrows) revert InsufficientProtocolLiquidity();
   }
 
   /// @notice Hook to update the smart pool average, smart pool balance and distribute earnings from accumulator.
@@ -478,7 +487,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
           PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
           uint256 debt = position.principal + position.fee;
           if (debt > 0) {
-            smartPoolBorrowed -= fixedPools[maturity].repay(position.principal);
+            smartPoolFixedBorrows -= fixedPools[maturity].repay(position.principal);
 
             {
               uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
@@ -515,9 +524,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     return _seize(FixedLender(msg.sender), liquidator, borrower, assets);
   }
 
-  /// @dev Borrows a certain amount from a maturity date.
+  /// @notice Borrows a certain amount from a maturity.
   /// @param maturity maturity date for repayment.
-  /// @param assets amount to send to borrower.
+  /// @param assets amount to be sent to receiver and repaid by borrower.
   /// @param maxAssets maximum amount of debt that the user is willing to accept.
   /// @param receiver address that will receive the borrowed assets.
   /// @param borrower address that will repay the borrowed assets.
@@ -549,13 +558,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     assetsOwed = assets + fee;
 
     {
-      uint256 memSPAssets = smartPoolAssets;
-      uint256 memSPBorrowed = smartPoolBorrowed;
-      memSPBorrowed += pool.borrow(assets, memSPAssets - memSPBorrowed);
-
-      if (memSPBorrowed > memSPAssets.mulWadDown(1e18 - smartPoolReserveFactor)) revert SmartPoolReserveExceeded();
-
-      smartPoolBorrowed = memSPBorrowed;
+      uint256 memSPFixedBorrows = smartPoolFixedBorrows;
+      memSPFixedBorrows += pool.borrow(assets, smartPoolAssets - memSPFixedBorrows);
+      smartPoolFixedBorrows = memSPFixedBorrows;
+      checkSmartPoolReserveExceeded();
     }
 
     // We validate that the user is not taking arbitrary fees
@@ -631,7 +637,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     positionAssets = assets + fee;
     if (positionAssets < minAssetsRequired) revert TooMuchSlippage();
 
-    smartPoolBorrowed -= pool.deposit(assets);
+    smartPoolFixedBorrows -= pool.deposit(assets);
     pool.earningsUnassigned -= fee + feeSP;
     smartPoolEarningsAccumulator += feeSP;
 
@@ -717,9 +723,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // We remove the supply from the fixed rate pool
-    smartPoolBorrowed += pool.withdraw(
+    smartPoolFixedBorrows += pool.withdraw(
       PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
-      smartPoolAssets - smartPoolBorrowed
+      smartPoolAssets - smartPoolFixedBorrows
     );
 
     // All the fees go to unassigned or to the smart pool
@@ -837,7 +843,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (actualRepayAssets > maxAssets) revert TooMuchSlippage();
 
     // We reduce the borrowed and we might decrease the SP debt
-    smartPoolBorrowed -= pool.repay(scaleDebtCovered.principal);
+    smartPoolFixedBorrows -= pool.repay(scaleDebtCovered.principal);
 
     // We update the user position
     position.reduceProportionally(debtCovered);
@@ -940,6 +946,80 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       memSmartPoolAssetsAverage.mulWadDown(1e18 - averageFactor) +
       averageFactor.mulWadDown(memSmartPoolAssets);
     lastAverageUpdate = uint32(block.timestamp);
+  }
+
+  /// @notice Checks and reverts if smart pool reserve is exceeded when trying to borrow assets from the protocol.
+  function checkSmartPoolReserveExceeded() internal view {
+    if (smartPoolFixedBorrows + smartPoolFlexibleBorrows > smartPoolAssets.mulWadDown(1e18 - smartPoolReserveFactor))
+      revert SmartPoolReserveExceeded();
+  }
+
+  /*//////////////////////////////////////////////////////////////
+                    FLEXIBLE BORROW/REPAY LOGIC
+  //////////////////////////////////////////////////////////////*/
+
+  /// @notice Borrows a certain amount from the smart pool.
+  /// @param assets amount to be sent to receiver and repaid by borrower.
+  /// @param receiver address that will receive the borrowed assets.
+  /// @param borrower address that will repay the borrowed assets.
+  function borrow(
+    uint256 assets,
+    address receiver,
+    address borrower
+  ) external nonReentrant {
+    if (msg.sender != borrower) {
+      uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assets);
+    }
+
+    updateSmartPoolVariableBorrows();
+
+    uint256 shares = convertToBorrowShares(assets);
+
+    smartPoolFlexibleBorrows += assets;
+    totalFlexibleBorrowsShares += shares;
+    flexibleBorrowPositions[receiver] += shares;
+    checkSmartPoolReserveExceeded();
+
+    asset.safeTransfer(receiver, assets);
+  }
+
+  /// @notice Repays a certain amount to the smart pool.
+  /// @param assets amount to be repaid by sender and subtracted from the borrower's debt.
+  /// @param borrower address of the account that has the debt.
+  function repay(uint256 assets, address borrower) external nonReentrant {
+    updateSmartPoolVariableBorrows();
+
+    uint256 shares = previewRepay(assets);
+
+    smartPoolFlexibleBorrows -= assets;
+    flexibleBorrowPositions[borrower] -= shares;
+    totalFlexibleBorrowsShares -= shares;
+
+    asset.safeTransferFrom(msg.sender, address(this), assets);
+  }
+
+  function convertToBorrowShares(uint256 assets) public view virtual returns (uint256) {
+    uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
+
+    return supply == 0 ? assets : assets.mulDivDown(supply, smartPoolFlexibleBorrows);
+  }
+
+  function previewRepay(uint256 assets) public view virtual returns (uint256) {
+    uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
+
+    return supply == 0 ? assets : assets.mulDivUp(supply, smartPoolFlexibleBorrows);
+  }
+
+  /// @notice Updates the smart pool variable borrows' variables.
+  function updateSmartPoolVariableBorrows() internal {
+    uint256 newDebt = smartPoolFlexibleBorrows.mulWadDown(
+      interestRateModel.smartPoolUtilizationRate().mulDivDown(block.timestamp - lastUpdatedSmartPoolURate, 365 days)
+    );
+    lastUpdatedSmartPoolURate = block.timestamp;
+    smartPoolFlexibleBorrows += newDebt;
+    smartPoolAssets += newDebt;
   }
 }
 

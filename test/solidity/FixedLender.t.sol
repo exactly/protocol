@@ -7,7 +7,14 @@ import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
-import { FixedLender, ERC20, PoolLib, TooMuchSlippage, ZeroRepay } from "../../contracts/FixedLender.sol";
+import {
+  FixedLender,
+  ERC20,
+  PoolLib,
+  TooMuchSlippage,
+  ZeroRepay,
+  SmartPoolReserveExceeded
+} from "../../contracts/FixedLender.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { TSUtils } from "../../contracts/utils/TSUtils.sol";
@@ -822,7 +829,7 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.fixedBorrows(address(this)), 0);
   }
 
-  function testDistributionOfLossesShouldReduceFromSmartPoolBorrowedAccordingly() external {
+  function testDistributionOfLossesShouldReduceFromSmartPoolFixedBorrowsAccordingly() external {
     mockInterestRateModel.setBorrowRate(0);
     fixedLenderWETH.deposit(1.15 ether, address(this));
     fixedLender.deposit(50_000 ether, ALICE);
@@ -832,32 +839,32 @@ contract FixedLenderTest is Test {
     for (uint256 i = 1; i <= 4; i++) {
       fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
-      // we deposit so smartPoolBorrowed is 0
+      // we deposit so smartPoolFixedBorrows is 0
       fixedLender.depositAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this));
     }
     mockOracle.setPrice(fixedLenderWETH, 3_000e18);
 
-    assertEq(fixedLender.smartPoolBorrowed(), 0);
+    assertEq(fixedLender.smartPoolFixedBorrows(), 0);
     vm.prank(BOB);
-    // distribution of losses should not reduce more of smartPoolBorrowed
+    // distribution of losses should not reduce more of smartPoolFixedBorrows
     fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
-    assertEq(fixedLender.smartPoolBorrowed(), 0);
+    assertEq(fixedLender.smartPoolFixedBorrows(), 0);
 
     fixedLenderWETH.deposit(1.15 ether, address(this));
     mockOracle.setPrice(fixedLenderWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
       fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
-      // we withdraw 500 so smartPoolBorrowed is half
+      // we withdraw 500 so smartPoolFixedBorrows is half
       fixedLender.withdrawAtMaturity(TSUtils.INTERVAL * i, 500 ether, 500 ether, address(this), address(this));
     }
     mockOracle.setPrice(fixedLenderWETH, 3_000e18);
 
-    assertEq(fixedLender.smartPoolBorrowed(), (1_000 ether * 4) / 2);
+    assertEq(fixedLender.smartPoolFixedBorrows(), (1_000 ether * 4) / 2);
     vm.prank(BOB);
-    // distribution of losses should reduce the remaining from smartPoolBorrowed
+    // distribution of losses should reduce the remaining from smartPoolFixedBorrows
     fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
-    assertEq(fixedLender.smartPoolBorrowed(), 0);
+    assertEq(fixedLender.smartPoolFixedBorrows(), 0);
   }
 
   function testCappedLiquidation() external {
@@ -1193,6 +1200,136 @@ contract FixedLenderTest is Test {
     vm.warp(500);
     fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
+  }
+
+  function testFlexibleBorrow() external {
+    fixedLender.deposit(10 ether, address(this));
+    uint256 balanceBefore = fixedLender.asset().balanceOf(address(this));
+    fixedLender.borrow(1 ether, address(this), address(this));
+    uint256 balanceAfter = fixedLender.asset().balanceOf(address(this));
+    uint256 borrowedShares = fixedLender.flexibleBorrowPositions(address(this));
+
+    assertEq(borrowedShares, 1 ether);
+    assertEq(balanceAfter, balanceBefore + 1 ether);
+  }
+
+  function testFlexibleBorrowFromAnotherUserWithAllowance() external {
+    fixedLender.deposit(10 ether, address(this));
+    vm.prank(BOB);
+    fixedLender.approve(address(this), type(uint256).max);
+    fixedLender.borrow(1 ether, address(this), address(BOB));
+  }
+
+  function testFlexibleBorrowFromAnotherUserSubtractsAllowance() external {
+    fixedLender.deposit(10 ether, address(this));
+    vm.prank(BOB);
+    fixedLender.approve(address(this), 2 ether);
+    fixedLender.borrow(1 ether, address(this), address(BOB));
+
+    assertEq(fixedLender.allowance(address(BOB), address(this)), 2 ether - 1 ether);
+  }
+
+  function testFailFlexibleBorrowFromAnotherUserWithoutAllowance() external {
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.borrow(1 ether, address(this), address(BOB));
+  }
+
+  function testFlexibleBorrowAccountingDebt() external {
+    vm.warp(0);
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.borrow(1 ether, address(this), address(this));
+    assertEq(fixedLender.smartPoolFlexibleBorrows(), 1 ether);
+    assertEq(fixedLender.totalFlexibleBorrowsShares(), fixedLender.flexibleBorrowPositions(address(this)));
+
+    // after 1 year 5% is the accumulated debt (using a mock interest rate model)
+    vm.warp(365 days);
+    fixedLender.repay(1 ether, address(this));
+    assertEq(fixedLender.smartPoolFlexibleBorrows(), 0.05 ether);
+    assertEq(fixedLender.totalFlexibleBorrowsShares(), fixedLender.flexibleBorrowPositions(address(this)));
+
+    uint256 borrowedShares = fixedLender.flexibleBorrowPositions(address(this));
+    assertGt(borrowedShares, 0);
+    fixedLender.repay(0.05 ether, address(this));
+    borrowedShares = fixedLender.flexibleBorrowPositions(address(this));
+    assertEq(borrowedShares, 0);
+  }
+
+  function testFlexibleBorrowAccountingDebtMultipleAccounts() external {
+    vm.warp(0);
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.borrow(1 ether, address(this), address(this));
+
+    // after 1/2 year 2.5% is the accumulated debt (using a mock interest rate model)
+    vm.warp(182.5 days);
+    vm.prank(BOB);
+    fixedLender.borrow(1 ether, address(BOB), address(BOB));
+    // TODO: check rounding
+    assertEq(fixedLender.previewRepay(1 ether), fixedLender.flexibleBorrowPositions(address(BOB)) + 1);
+    assertEq(fixedLender.previewRepay(1.025 ether), fixedLender.flexibleBorrowPositions(address(this)));
+
+    // after 1/4 year 1.25% is the accumulated debt
+    // contract now owes 1.025 * 1.0125 = 1.0378125 ether
+    // bob now owes      1 * 1.0125     = 1.0125 ether
+    vm.warp(273.75 days);
+    vm.prank(ALICE);
+    fixedLender.borrow(1 ether, address(ALICE), address(ALICE));
+    // TODO: check rounding
+    assertEq(fixedLender.previewRepay(1 ether), fixedLender.flexibleBorrowPositions(address(ALICE)) + 1);
+    assertEq(fixedLender.previewRepay(1.0125 ether), fixedLender.flexibleBorrowPositions(address(BOB)));
+    assertEq(fixedLender.previewRepay(1.0378125 ether), fixedLender.flexibleBorrowPositions(address(this)));
+
+    // after another 1/4 year 1.25% is the accumulated debt
+    // contract now owes 1.0378125 * 1.0125 = 1.0507851525 ether
+    // bob now owes      1.0125 * 1.0125    = 1.02515625 ether
+    // alice now owes    1 * 1.0125         = 1.0125 ether
+    vm.warp(365 days);
+    vm.prank(ALICE);
+    fixedLender.repay(1.05078515625 ether, address(this));
+    vm.prank(BOB);
+    fixedLender.repay(1.02515625 ether, address(BOB));
+    vm.prank(ALICE);
+    fixedLender.repay(1.0125 ether, address(ALICE));
+
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), 0);
+    assertEq(fixedLender.flexibleBorrowPositions(address(BOB)), 0);
+    assertEq(fixedLender.flexibleBorrowPositions(address(ALICE)), 0);
+
+    uint256 flexibleDebtAccrued = 0.05078515625 ether + 0.02515625 ether + 0.0125 ether;
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + flexibleDebtAccrued);
+  }
+
+  function testFlexibleBorrowExceedingSmartPoolReserve() external {
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.setSmartPoolReserveFactor(0.1e18);
+
+    fixedLender.borrow(9 ether, address(this), address(this));
+    fixedLender.repay(9 ether, address(this));
+
+    vm.expectRevert(SmartPoolReserveExceeded.selector);
+    fixedLender.borrow(9.01 ether, address(this), address(this));
+  }
+
+  function testFlexibleBorrowExceedingSmartPoolReserveIncludingFixedBorrow() external {
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.setSmartPoolReserveFactor(0.1e18);
+
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+
+    fixedLender.borrow(8 ether, address(this), address(this));
+    fixedLender.repay(8 ether, address(this));
+
+    vm.expectRevert(SmartPoolReserveExceeded.selector);
+    fixedLender.borrow(8.01 ether, address(this), address(this));
+  }
+
+  function testFlexibleBorrowExceedingSmartPoolReserveWithNewDebt() external {
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.setSmartPoolReserveFactor(0.1e18);
+    fixedLender.borrow(8.8 ether, address(this), address(this));
+    vm.warp(365 days);
+
+    // it doesn't revert because the flexible debt also increases the smart pool assets
+    fixedLender.borrow(0.1 ether, address(this), address(this));
   }
 
   function testMultipleBorrowsForMultipleAssets() external {

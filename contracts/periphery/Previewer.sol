@@ -226,7 +226,7 @@ contract Previewer {
       availableLiquidities[i].maturity = maturity;
       availableLiquidities[i].assets =
         Math.min(
-          borrowableAssets - Math.min(borrowableAssets, market.smartPoolBorrowed()),
+          borrowableAssets - Math.min(borrowableAssets, market.smartPoolFixedBorrows()),
           smartPoolAssetsAverage(market)
         ) +
         fixedDeposits;

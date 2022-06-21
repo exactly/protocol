@@ -613,7 +613,7 @@ describe("FixedLender", function () {
           expect(borrowed).to.gt(supplied);
         });
         it("AND 200 are borrowed from the smart pool", async () => {
-          expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("200"));
+          expect(await fixedLenderDAI.smartPoolFixedBorrows()).to.equal(parseUnits("200"));
         });
         it("AND WHEN trying to withdraw 300 ==(500 available, 200 borrowed to MP) from the smart pool, THEN it succeeds", async () => {
           await expect(fixedLenderDAI.withdraw(parseUnits("300"), maria.address, maria.address)).to.not.be.reverted;
@@ -642,7 +642,7 @@ describe("FixedLender", function () {
             expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
           });
           it("THEN the smart pool has lent 300 (100 from the later maturity one, 200 from the first one)", async () => {
-            expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("300"));
+            expect(await fixedLenderDAI.smartPoolFixedBorrows()).to.equal(parseUnits("300"));
           });
           describe("AND WHEN repaying 50 DAI in the later maturity", () => {
             beforeEach(async () => {
@@ -665,7 +665,7 @@ describe("FixedLender", function () {
               expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("50"));
             });
             it("THEN the smart pool was repaid 50 DAI (SPborrowed=250)", async () => {
-              expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("250"));
+              expect(await fixedLenderDAI.smartPoolFixedBorrows()).to.equal(parseUnits("250"));
             });
           });
           describe("AND WHEN john deposits 800 to the later maturity", () => {
@@ -686,7 +686,7 @@ describe("FixedLender", function () {
               expect(mp.supplied).to.gt(mp.borrowed);
             });
             it("THEN the smart pool was repaid, and is still owed 200 from the current one", async () => {
-              expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("200"));
+              expect(await fixedLenderDAI.smartPoolFixedBorrows()).to.equal(parseUnits("200"));
             });
           });
         });
@@ -708,7 +708,7 @@ describe("FixedLender", function () {
             expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
           });
           it("THEN the smart pool was repaid the other 100 (is owed still 100)", async () => {
-            expect(await fixedLenderDAI.smartPoolBorrowed()).to.equal(parseUnits("100"));
+            expect(await fixedLenderDAI.smartPoolFixedBorrows()).to.equal(parseUnits("100"));
           });
         });
         describe("AND WHEN john deposits 300 to the same maturity", () => {

@@ -17,6 +17,7 @@ contract InterestRateModel is AccessControl {
   uint256 public maxUtilization;
   uint256 public fullUtilization;
   uint256 public spFeeRate;
+  uint256 public smartPoolUtilizationRate = 0.05e18;
 
   /// @notice Emitted when the curve parameters are changed by admin.
   /// @param a new curve parameter A.
