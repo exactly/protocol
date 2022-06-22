@@ -7,12 +7,11 @@ import { FixedLender } from "../FixedLender.sol";
 contract MockOracle {
   mapping(FixedLender => uint256) public prices;
 
-  function setPrice(FixedLender fixedLender, uint256 value) public {
-    prices[fixedLender] = value;
+  function setPrice(FixedLender market, uint256 value) public {
+    prices[market] = value;
   }
 
-  function getAssetPrice(FixedLender fixedLender) public view returns (uint256) {
-    if (prices[fixedLender] > 0) return prices[fixedLender];
-    else revert InvalidPrice();
+  function getAssetPrice(FixedLender market) public view returns (uint256) {
+    return prices[market] > 0 ? prices[market] : 1e18;
   }
 }
