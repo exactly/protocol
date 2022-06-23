@@ -19,17 +19,24 @@ export default async (
 ) => {
   const calldata = contract.interface.encodeFunctionData(functionName, args);
 
-  if (!(await timelock.isOperation(await timelock.hashOperation(contract.address, 0, calldata, HashZero, HashZero)))) {
+  let predecessor = HashZero;
+  let operation = await timelock.hashOperation(contract.address, 0, calldata, predecessor, HashZero);
+  while ((await Promise.all([timelock.isOperation(operation), timelock.isOperationDone(operation)])).every(Boolean)) {
+    predecessor = operation;
+    operation = await timelock.hashOperation(contract.address, 0, calldata, predecessor, HashZero);
+  }
+
+  if (!(await timelock.isOperation(operation))) {
     log("timelock: proposing", contract.address, functionName, args);
     await (
-      await timelock.schedule(contract.address, 0, calldata, HashZero, HashZero, await timelock.getMinDelay())
+      await timelock.schedule(contract.address, 0, calldata, predecessor, HashZero, await timelock.getMinDelay())
     ).wait();
   }
 
   if (network.config.gnosisSafeTxService) {
-    await multisigPropose(hre, "deployer", timelock, "execute", [contract.address, 0, calldata, HashZero, HashZero]);
+    await multisigPropose(hre, "deployer", timelock, "execute", [contract.address, 0, calldata, predecessor, HashZero]);
   } else {
     log("timelock: executing", contract.address, functionName, args);
-    await (await timelock.execute(contract.address, 0, calldata, HashZero, HashZero)).wait();
+    await (await timelock.execute(contract.address, 0, calldata, predecessor, HashZero)).wait();
   }
 };
