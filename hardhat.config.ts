@@ -47,10 +47,14 @@ const config: Config = {
     maxFuturePools: 3,
     accumulatedEarningsSmoothFactor: 2,
     interestRateModel: {
-      curveA: 1.526175,
-      curveB: -0.1695,
-      maxUtilization: 7.65,
-      fullUtilization: 7.5,
+      fixedCurveA: 1.526175,
+      fixedCurveB: -0.1695,
+      fixedMaxUtilization: 7.65,
+      fixedFullUtilization: 7.5,
+      flexibleCurveA: 1.526175,
+      flexibleCurveB: -0.1695,
+      flexibleMaxUtilization: 7.65,
+      flexibleFullUtilization: 7.5,
       smartPoolRate: 0.1,
     },
   },
@@ -88,10 +92,14 @@ declare module "hardhat/types/config" {
     maxFuturePools: number;
     accumulatedEarningsSmoothFactor: number;
     interestRateModel: {
-      curveA: number;
-      curveB: number;
-      maxUtilization: number;
-      fullUtilization: number;
+      fixedCurveA: number;
+      fixedCurveB: number;
+      fixedMaxUtilization: number;
+      fixedFullUtilization: number;
+      flexibleCurveA: number;
+      flexibleCurveB: number;
+      flexibleMaxUtilization: number;
+      flexibleFullUtilization: number;
       smartPoolRate: number;
     };
   }

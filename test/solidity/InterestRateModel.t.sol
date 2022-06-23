@@ -5,17 +5,32 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 
-contract InterestRateModelTest is Test, InterestRateModel(3.75e16, 0.75e16, 3e18, 2e18, 0) {
-  function testReferenceRate(uint256 v0, uint64 delta) external {
-    uint256 u0 = v0 % fullUtilization;
-    uint256 u1 = u0 + (delta % (maxUtilization - u0));
+contract InterestRateModelTest is
+  Test,
+  InterestRateModel(3.75e16, 0.75e16, 3e18, 2e18, 3.75e16, 0.75e16, 3e18, 2e18, 0)
+{
+  function testReferenceFlexibleRate(uint256 v0, uint64 delta) external {
+    uint256 u0 = v0 % flexibleFullUtilization;
+    uint256 u1 = u0 + (delta % (flexibleMaxUtilization - u0));
 
     string[] memory ffi = new string[](2);
     ffi[0] = "ffi/irm";
-    ffi[1] = encodeHex(abi.encode(u0, u1, curveParameterA, curveParameterB, maxUtilization));
+    ffi[1] = encodeHex(abi.encode(u0, u1, flexibleCurveA, flexibleCurveB, flexibleMaxUtilization));
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
 
-    assertApproxEqRel(rate(u0, u1), refRate, 1.5e9);
+    assertApproxEqRel(flexibleRate(u0, u1), refRate, 1.5e9);
+  }
+
+  function testReferenceFixedRate(uint256 v0, uint64 delta) external {
+    uint256 u0 = v0 % fixedFullUtilization;
+    uint256 u1 = u0 + (delta % (fixedMaxUtilization - u0));
+
+    string[] memory ffi = new string[](2);
+    ffi[0] = "ffi/irm";
+    ffi[1] = encodeHex(abi.encode(u0, u1, fixedCurveA, fixedCurveB, fixedMaxUtilization));
+    uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
+
+    assertApproxEqRel(fixedRate(u0, u1), refRate, 1.5e9);
   }
 
   function encodeHex(bytes memory raw) internal pure returns (string memory) {
