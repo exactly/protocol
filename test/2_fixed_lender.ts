@@ -443,7 +443,7 @@ describe("FixedLender", function () {
         parseUnits("1.1"),
         parseUnits("1"),
       ]);
-      const tx = await fixedLenderDAI.connect(john).deposit(parseUnits("12"), maria.address);
+      const tx = await fixedLenderDAI.connect(john).deposit(parseUnits("12"), john.address);
       const { blockNumber } = await tx.wait();
       const { timestamp } = await provider.getBlock(blockNumber);
       await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
@@ -467,6 +467,9 @@ describe("FixedLender", function () {
         ),
       ).to.not.be.reverted;
     });
+    it("WHEN Maria tries to borrow 5.99 more DAI from the smart pool, THEN it does not revert", async () => {
+      await expect(fixedLenderDAI.borrow(parseUnits("5.99"), maria.address, maria.address)).to.not.be.reverted;
+    });
     it("WHEN Maria tries to borrow 6 more DAI on the same maturity (remaining liquidity), THEN it does not revert", async () => {
       await expect(
         fixedLenderDAI.borrowAtMaturity(
@@ -477,6 +480,9 @@ describe("FixedLender", function () {
           maria.address,
         ),
       ).to.not.be.reverted;
+    });
+    it("WHEN Maria tries to borrow 6 more DAI from the smart pool, THEN it does not revert", async () => {
+      await expect(fixedLenderDAI.borrow(parseUnits("6"), maria.address, maria.address)).to.not.be.reverted;
     });
     it("WHEN Maria tries to borrow 6.01 more DAI on another maturity, THEN it fails with InsufficientProtocolLiquidity", async () => {
       await expect(
@@ -489,6 +495,11 @@ describe("FixedLender", function () {
         ),
       ).to.be.revertedWith("InsufficientProtocolLiquidity()");
     });
+    it("WHEN Maria tries to borrow 6.01 more DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
+      await expect(fixedLenderDAI.borrow(parseUnits("6.01"), maria.address, maria.address)).to.be.revertedWith(
+        "InsufficientProtocolLiquidity()",
+      );
+    });
     it("WHEN Maria tries to borrow 12 more DAI on the same maturity, THEN it fails with UtilizationExceeded", async () => {
       await expect(
         fixedLenderDAI.borrowAtMaturity(
@@ -500,6 +511,64 @@ describe("FixedLender", function () {
         ),
       ).to.be.revertedWith("UtilizationExceeded()");
     });
+    it("WHEN Maria tries to borrow 12 more DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
+      await expect(fixedLenderDAI.borrow(parseUnits("12"), maria.address, maria.address)).to.be.revertedWith(
+        "InsufficientProtocolLiquidity()",
+      );
+    });
+    it("WHEN John tries to withdraw 6 DAI from the smart pool, THEN it does not revert", async () => {
+      await expect(fixedLenderDAI.connect(john).withdraw(parseUnits("6"), john.address, john.address)).to.not.be
+        .reverted;
+    });
+    it("WHEN John tries to withdraw his 12 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
+      await expect(
+        fixedLenderDAI.connect(john).withdraw(parseUnits("12"), john.address, john.address),
+      ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+    });
+    describe("AND GIVEN maria borrows 3 from the smart pool", () => {
+      let tx: any;
+      beforeEach(async () => {
+        tx = await fixedLenderDAI.borrow(parseUnits("3"), maria.address, maria.address);
+      });
+      it("WHEN John tries to withdraw 6 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
+        await expect(
+          fixedLenderDAI.connect(john).withdraw(parseUnits("6"), john.address, john.address),
+        ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+      });
+      it("WHEN John tries to withdraw 3 DAI from the smart pool, THEN it does not revert", async () => {
+        await expect(fixedLenderDAI.connect(john).withdraw(parseUnits("3"), john.address, john.address)).to.not.be
+          .reverted;
+      });
+      it("WHEN Maria tries to borrow 3 more DAI from the smart pool, THEN it does not revert", async () => {
+        await expect(fixedLenderDAI.borrow(parseUnits("3"), maria.address, maria.address)).to.not.be.reverted;
+      });
+      it("WHEN Maria tries to borrow 3.01 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
+        await expect(fixedLenderDAI.borrow(parseUnits("3.01"), maria.address, maria.address)).to.be.revertedWith(
+          "InsufficientProtocolLiquidity()",
+        );
+      });
+      describe("AND WHEN 5 years go by and a lot of flexible borrows are added", () => {
+        beforeEach(async () => {
+          const { blockNumber } = await tx.wait();
+          const { timestamp } = await provider.getBlock(blockNumber);
+          await provider.send("evm_setNextBlockTimestamp", [timestamp + 86_400 * 365 * 5]);
+
+          // we borrow and repay to have all those flexible fees accrued
+          await fixedLenderDAI.borrow("1", maria.address, maria.address);
+          await fixedLenderDAI.repay("1", maria.address);
+        });
+        it("WHEN Maria tries to borrow 3 more DAI from the smart pool, THEN it does not revert", async () => {
+          // despite a lot of fees being added to the smartPoolFlexibleBorrows all those same fees are also added
+          // to the smartPoolAssets at the same time
+          await expect(fixedLenderDAI.borrow(parseUnits("3"), maria.address, maria.address)).to.not.be.reverted;
+        });
+        it("WHEN Maria tries to borrow 3.01 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
+          await expect(fixedLenderDAI.borrow(parseUnits("3.01"), maria.address, maria.address)).to.be.revertedWith(
+            "InsufficientProtocolLiquidity()",
+          );
+        });
+      });
+    });
     describe("AND John deposited 2388 DAI to the smart pool", () => {
       beforeEach(async () => {
         const tx = await fixedLenderDAI.connect(john).deposit(parseUnits("2388"), maria.address);
@@ -507,7 +576,7 @@ describe("FixedLender", function () {
         const { timestamp } = await provider.getBlock(blockNumber);
         await provider.send("evm_setNextBlockTimestamp", [timestamp + 218]);
       });
-      it("WHEN Maria tries to borrow 2500 DAI, THEN it fails with UtilizationExceeded", async () => {
+      it("WHEN Maria tries to borrow 2500 DAI from a maturity, THEN it fails with UtilizationExceeded", async () => {
         await expect(
           fixedLenderDAI.borrowAtMaturity(
             futurePools(1)[0],
@@ -518,7 +587,12 @@ describe("FixedLender", function () {
           ),
         ).to.be.revertedWith("UtilizationExceeded");
       });
-      it("WHEN Maria tries to borrow 150 DAI, THEN it succeeds", async () => {
+      it("WHEN Maria tries to borrow 2500 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
+        await expect(fixedLenderDAI.borrow(parseUnits("2500"), maria.address, maria.address)).to.be.revertedWith(
+          "InsufficientProtocolLiquidity",
+        );
+      });
+      it("WHEN Maria tries to borrow 150 DAI from a maturity, THEN it succeeds", async () => {
         await expect(
           fixedLenderDAI.borrowAtMaturity(
             futurePools(1)[0],
@@ -528,6 +602,9 @@ describe("FixedLender", function () {
             maria.address,
           ),
         ).to.not.be.reverted;
+      });
+      it("WHEN Maria tries to borrow 150 DAI from the smart pool, THEN it succeeds", async () => {
+        await expect(fixedLenderDAI.borrow(parseUnits("150"), maria.address, maria.address)).to.not.be.reverted;
       });
     });
     describe("AND John deposited 100 DAI to maturity", () => {
@@ -928,6 +1005,100 @@ describe("FixedLender", function () {
               ),
             ).to.be.revertedWith("InsufficientProtocolLiquidity()");
           });
+          describe("AND GIVEN a flexible borrow of 15", () => {
+            beforeEach(async () => {
+              await fixedLenderDAI.borrow(parseUnits("15"), maria.address, maria.address);
+            });
+            it("WHEN a borrow of 15 is made to the first mp, THEN it should not revert", async () => {
+              await expect(
+                fixedLenderDAI.borrowAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("15"),
+                  parseUnits("15"),
+                  maria.address,
+                  maria.address,
+                ),
+              ).to.not.be.reverted;
+            });
+            it("WHEN a borrow of 15.01 is made to the first mp, THEN it should fail with error InsufficientProtocolLiquidity", async () => {
+              await expect(
+                fixedLenderDAI.borrowAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("15.01"),
+                  parseUnits("15.01"),
+                  maria.address,
+                  maria.address,
+                ),
+              ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+            });
+            describe("AND GIVEN a deposit to the first mp of 100", () => {
+              beforeEach(async () => {
+                await fixedLenderDAI.borrow(parseUnits("15"), maria.address, maria.address);
+              });
+            });
+            describe("AND GIVEN a deposit of 100 in the first mp", () => {
+              beforeEach(async () => {
+                await fixedLenderDAI.depositAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("100"),
+                  parseUnits("100"),
+                  maria.address,
+                );
+              });
+              it("WHEN a borrow of 15 is made to the flexible pool, THEN it should not revert", async () => {
+                await expect(fixedLenderDAI.borrow(parseUnits("15"), maria.address, maria.address)).to.not.be.reverted;
+              });
+              it("WHEN a borrow of 15 is made to the second mp, THEN it should not revert", async () => {
+                await expect(
+                  fixedLenderDAI.borrowAtMaturity(
+                    futurePools(2)[1],
+                    parseUnits("15"),
+                    parseUnits("15"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
+              it("WHEN a borrow of 115 is made to the first mp, THEN it should not revert", async () => {
+                await expect(
+                  fixedLenderDAI.borrowAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("115"),
+                    parseUnits("115"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
+              it("WHEN a borrow of 15.01 is made to the second mp, THEN it should fail with error InsufficientProtocolLiquidity", async () => {
+                await expect(
+                  fixedLenderDAI.borrowAtMaturity(
+                    futurePools(2)[1],
+                    parseUnits("15.01"),
+                    parseUnits("15.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+              });
+              it("WHEN a borrow of 115.01 is made to the first mp, THEN it should fail with error InsufficientProtocolLiquidity", async () => {
+                await expect(
+                  fixedLenderDAI.borrowAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("115.01"),
+                    parseUnits("115.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+              });
+              it("WHEN a borrow of 15.01 is made to the flexible pool, THEN it should fail with error InsufficientProtocolLiquidity", async () => {
+                await expect(
+                  fixedLenderDAI.borrow(parseUnits("15.01"), maria.address, maria.address),
+                ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+              });
+            });
+          });
           describe("AND GIVEN a borrow of 30 in the first mp", () => {
             beforeEach(async () => {
               await fixedLenderDAI.borrowAtMaturity(
@@ -977,6 +1148,114 @@ describe("FixedLender", function () {
                   maria.address,
                 ),
               ).to.not.be.reverted;
+            });
+            describe("AND GIVEN a smart pool supply of 30 AND a flexible borrow of 15", () => {
+              beforeEach(async () => {
+                const tx = await fixedLenderDAI.deposit(parseUnits("30"), maria.address);
+                // we make 9011 seconds to go by so the smartPoolAssetsAverage is equal to the smartPoolAssets
+                const { blockNumber } = await tx.wait();
+                const { timestamp } = await provider.getBlock(blockNumber);
+                await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
+
+                await fixedLenderDAI.borrow(parseUnits("15"), maria.address, maria.address);
+              });
+              it("WHEN a withdraw of 15 is made to the first mp, THEN it should not revert", async () => {
+                await expect(
+                  fixedLenderDAI.withdrawAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("15"),
+                    parseUnits("15"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
+              it("WHEN a withdraw of 15.01 is made to the first mp, THEN it should revert", async () => {
+                await expect(
+                  fixedLenderDAI.withdrawAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("15.01"),
+                    parseUnits("15.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+              });
+              it("AND WHEN a supply of 0.01 is added to the sp, THEN the withdraw of 15.01 is not reverted", async () => {
+                await fixedLenderDAI.deposit(parseUnits("0.01"), maria.address);
+                await expect(
+                  fixedLenderDAI.withdrawAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("15.01"),
+                    parseUnits("15.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
+              it("AND WHEN a deposit of 0.01 is added to the mp, THEN the withdraw of 15.01 is not reverted", async () => {
+                await fixedLenderDAI.depositAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("0.01"),
+                  parseUnits("0.01"),
+                  maria.address,
+                );
+                await expect(
+                  fixedLenderDAI.withdrawAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("15.01"),
+                    parseUnits("15.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
+              it("AND WHEN a smart pool repay of 0.01 is done, THEN the withdraw of 15.01 is not reverted", async () => {
+                await fixedLenderDAI.repay(parseUnits("0.01"), maria.address);
+                await expect(
+                  fixedLenderDAI.withdrawAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("15.01"),
+                    parseUnits("15.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
+              it("AND WHEN a repay in the first maturity of 0.01 is done, THEN the withdraw of 15.01 is not reverted", async () => {
+                await fixedLenderDAI.repayAtMaturity(
+                  futurePools(1)[0],
+                  parseUnits("0.01"),
+                  parseUnits("0.01"),
+                  maria.address,
+                );
+                await expect(
+                  fixedLenderDAI.withdrawAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("15.01"),
+                    parseUnits("15.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
+              it("AND WHEN a repay in the second maturity of 0.01 is done, THEN the withdraw of 15.01 is not reverted", async () => {
+                await fixedLenderDAI.repayAtMaturity(
+                  futurePools(2)[1],
+                  parseUnits("0.01"),
+                  parseUnits("0.01"),
+                  maria.address,
+                );
+                await expect(
+                  fixedLenderDAI.withdrawAtMaturity(
+                    futurePools(1)[0],
+                    parseUnits("15.01"),
+                    parseUnits("15.01"),
+                    maria.address,
+                    maria.address,
+                  ),
+                ).to.not.be.reverted;
+              });
             });
           });
         });

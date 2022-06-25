@@ -224,7 +224,11 @@ contract InterestRateModel is AccessControl {
   {
     if (spCurrentUtilization > flexibleFullUtilization) revert UtilizationExceeded();
 
-    return flexibleRate(spPreviousUtilization, spCurrentUtilization);
+    return
+      flexibleRate(
+        Math.min(spPreviousUtilization, spCurrentUtilization),
+        Math.max(spPreviousUtilization, spCurrentUtilization)
+      );
   }
 
   /// @notice Returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).

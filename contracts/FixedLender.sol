@@ -61,7 +61,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   uint256 public smartPoolAssetsAverage;
 
   uint256 public totalFlexibleBorrowsShares;
-  uint256 public lastUpdatedSmartPoolURate;
+  uint256 public lastUpdatedSmartPoolRate;
+  uint256 public spPreviousUtilization;
 
   /// @notice Event emitted when a user deposits an amount of an asset to a certain fixed rate pool collecting a fee at
   /// the end of the period.
@@ -284,7 +285,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     memSPAssets = memSPAssets + earnings - assets;
     smartPoolAssets = memSPAssets;
     // we check if the underlying liquidity that the user wants to withdraw is borrowed
-    if (memSPAssets < smartPoolFixedBorrows) revert InsufficientProtocolLiquidity();
+    if (memSPAssets < smartPoolFixedBorrows + smartPoolFlexibleBorrows) revert InsufficientProtocolLiquidity();
   }
 
   /// @notice Hook to update the smart pool average, smart pool balance and distribute earnings from accumulator.
@@ -559,7 +560,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     {
       uint256 memSPFixedBorrows = smartPoolFixedBorrows;
-      memSPFixedBorrows += pool.borrow(assets, smartPoolAssets - memSPFixedBorrows);
+      memSPFixedBorrows += pool.borrow(assets, smartPoolAssets - memSPFixedBorrows - smartPoolFlexibleBorrows);
       smartPoolFixedBorrows = memSPFixedBorrows;
       checkSmartPoolReserveExceeded();
     }
@@ -725,7 +726,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // We remove the supply from the fixed rate pool
     smartPoolFixedBorrows += pool.withdraw(
       PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
-      smartPoolAssets - smartPoolFixedBorrows
+      smartPoolAssets - smartPoolFixedBorrows - smartPoolFlexibleBorrows
     );
 
     // All the fees go to unassigned or to the smart pool
@@ -978,6 +979,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 shares = convertToBorrowShares(assets);
 
     smartPoolFlexibleBorrows += assets;
+    // we check if the underlying liquidity that the user wants to withdraw is borrowed
+    if (smartPoolAssets < smartPoolFixedBorrows + smartPoolFlexibleBorrows) revert InsufficientProtocolLiquidity();
+
     totalFlexibleBorrowsShares += shares;
     flexibleBorrowPositions[receiver] += shares;
     checkSmartPoolReserveExceeded();
@@ -1014,12 +1018,21 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   /// @notice Updates the smart pool variable borrows' variables.
   function updateSmartPoolVariableBorrows() internal {
-    uint256 newDebt = smartPoolFlexibleBorrows.mulWadDown(
-      interestRateModel.smartPoolUtilizationRate().mulDivDown(block.timestamp - lastUpdatedSmartPoolURate, 365 days)
+    updateSmartPoolAssetsAverage();
+    uint256 spCurrentUtilization = smartPoolFlexibleBorrows.divWadDown(
+      smartPoolAssetsAverage.divWadDown(interestRateModel.flexibleFullUtilization())
     );
-    lastUpdatedSmartPoolURate = block.timestamp;
+    uint256 newDebt = smartPoolFlexibleBorrows.mulWadDown(
+      interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
+        block.timestamp - lastUpdatedSmartPoolRate,
+        365 days
+      )
+    );
+
     smartPoolFlexibleBorrows += newDebt;
     smartPoolAssets += newDebt;
+    spPreviousUtilization = spCurrentUtilization;
+    lastUpdatedSmartPoolRate = block.timestamp;
   }
 }
 
