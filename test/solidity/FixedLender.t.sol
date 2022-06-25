@@ -1394,21 +1394,6 @@ contract FixedLenderTest is Test {
   }
 
   function testInsufficientProtocolLiquidity() external {
-    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
-    FixedLender fixedLenderWETH = new FixedLender(
-      weth,
-      3,
-      1e18,
-      auditor,
-      InterestRateModel(address(mockInterestRateModel)),
-      0.02e18 / uint256(1 days),
-      0,
-      FixedLender.DampSpeed(0.0046e18, 0.42e18)
-    );
-    auditor.enableMarket(fixedLenderWETH, 0.9e18, 18);
-    auditor.enterMarket(fixedLenderWETH);
-    weth.mint(address(this), 50 ether);
-    weth.approve(address(fixedLenderWETH), 50 ether);
     mockOracle.setPrice(fixedLenderWETH, 1_000e18);
 
     fixedLenderWETH.deposit(50 ether, address(this));

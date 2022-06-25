@@ -35,7 +35,7 @@ FixedLenderTest:testFlexibleBorrowExceedingSmartPoolReserveWithNewDebt() (gas: 3
 FixedLenderTest:testFlexibleBorrowFromAnotherUserSubtractsAllowance() (gas: 316612)
 FixedLenderTest:testFlexibleBorrowFromAnotherUserWithAllowance() (gas: 295450)
 FixedLenderTest:testFrontRunSmartPoolEarningsDistributionWithBigPenaltyRepayment() (gas: 482799)
-FixedLenderTest:testInsufficientProtocolLiquidity() (gas: 7118289)
+FixedLenderTest:testInsufficientProtocolLiquidity() (gas: 838394)
 FixedLenderTest:testLiquidateAndChargeIncentiveForLenders() (gas: 938974)
 FixedLenderTest:testLiquidateAndDistributeLosses() (gas: 947165)
 FixedLenderTest:testLiquidateAndSeizeExactAmountWithDustAsCollateral() (gas: 748010)
