@@ -23,7 +23,6 @@ contract InterestRateModel is AccessControl {
   uint256 public flexibleFullUtilization;
 
   uint256 public spFeeRate;
-  uint256 public smartPoolUtilizationRate = 0.05e18;
 
   /// @notice Emitted when the fixed curve parameters are changed by admin.
   /// @param fixedCurveA new curve parameter A.
@@ -217,18 +216,15 @@ contract InterestRateModel is AccessControl {
     return fixedRate(utilizationBefore, utilizationAfter).mulDivDown(maturity - currentDate, 365 days);
   }
 
-  function getFlexibleBorrowRate(uint256 spPreviousUtilization, uint256 spCurrentUtilization)
-    external
-    view
-    returns (uint256)
-  {
-    if (spCurrentUtilization > flexibleFullUtilization) revert UtilizationExceeded();
+  /// @notice Returns the interest rate integral from utilizationBefore to utilizationAfter.
+  /// @dev Minimum and maximum checks to avoid negative rate.
+  /// @param utilizationBefore ex-ante utilization rate, with 18 decimals precision.
+  /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.
+  /// @return the interest rate, with 18 decimals precision.
+  function getFlexibleBorrowRate(uint256 utilizationBefore, uint256 utilizationAfter) external view returns (uint256) {
+    if (utilizationAfter > flexibleFullUtilization) revert UtilizationExceeded();
 
-    return
-      flexibleRate(
-        Math.min(spPreviousUtilization, spCurrentUtilization),
-        Math.max(spPreviousUtilization, spCurrentUtilization)
-      );
+    return flexibleRate(Math.min(utilizationBefore, utilizationAfter), Math.max(utilizationBefore, utilizationAfter));
   }
 
   /// @notice Returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).
