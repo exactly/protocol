@@ -1018,9 +1018,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   /// @notice Updates the smart pool variable borrows' variables.
   function updateSmartPoolVariableBorrows() internal {
-    updateSmartPoolAssetsAverage();
     uint256 spCurrentUtilization = smartPoolFlexibleBorrows.divWadDown(
-      smartPoolAssetsAverage.divWadDown(interestRateModel.flexibleFullUtilization())
+      smartPoolAssets.divWadDown(interestRateModel.flexibleFullUtilization())
     );
     uint256 newDebt = smartPoolFlexibleBorrows.mulWadDown(
       interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(

@@ -1151,12 +1151,7 @@ describe("FixedLender", function () {
             });
             describe("AND GIVEN a smart pool supply of 30 AND a flexible borrow of 15", () => {
               beforeEach(async () => {
-                const tx = await fixedLenderDAI.deposit(parseUnits("30"), maria.address);
-                // we make 9011 seconds to go by so the smartPoolAssetsAverage is equal to the smartPoolAssets
-                const { blockNumber } = await tx.wait();
-                const { timestamp } = await provider.getBlock(blockNumber);
-                await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
-
+                await fixedLenderDAI.deposit(parseUnits("30"), maria.address);
                 await fixedLenderDAI.borrow(parseUnits("15"), maria.address, maria.address);
               });
               it("WHEN a withdraw of 15 is made to the first mp, THEN it should not revert", async () => {
