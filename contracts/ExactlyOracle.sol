@@ -2,7 +2,7 @@
 pragma solidity 0.8.13;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import { AggregatorV2V3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol";
 import { FixedLender } from "./FixedLender.sol";
 
 /// @title ExactlyOracle
@@ -13,13 +13,13 @@ contract ExactlyOracle is AccessControl {
   /// @notice Chainlink's Price Feed precision when using USD as the base currency.
   uint256 public constant ORACLE_DECIMALS = 8;
 
-  mapping(FixedLender => AggregatorV3Interface) public assetsSources;
+  mapping(FixedLender => AggregatorV2V3Interface) public assetsSources;
   uint256 public immutable priceExpiration;
 
   /// @notice Emitted when a FixedLender and source is changed by admin.
   /// @param fixedLender address of the asset used to get the price from this oracle.
   /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
-  event AssetSourceSet(FixedLender indexed fixedLender, AggregatorV3Interface indexed source);
+  event AssetSourceSet(FixedLender indexed fixedLender, AggregatorV2V3Interface indexed source);
 
   /// @notice Constructor.
   /// @param priceExpiration_ The max delay time for Chainlink's prices to be considered as updated.
@@ -32,7 +32,10 @@ contract ExactlyOracle is AccessControl {
   /// @notice Sets the Chainlink Price Feed Aggregator source for an asset.
   /// @param fixedLender The FixedLender address of the asset.
   /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
-  function setAssetSource(FixedLender fixedLender, AggregatorV3Interface source) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setAssetSource(FixedLender fixedLender, AggregatorV2V3Interface source)
+    external
+    onlyRole(DEFAULT_ADMIN_ROLE)
+  {
     if (source.decimals() != ORACLE_DECIMALS) revert InvalidSource();
     assetsSources[fixedLender] = source;
     emit AssetSourceSet(fixedLender, source);
