@@ -165,6 +165,15 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param newDampSpeedDown represented with 1e18 decimals.
   event DampSpeedSet(uint256 newDampSpeedUp, uint256 newDampSpeedDown);
 
+  event MarketUpdated(
+    uint256 timestamp,
+    uint256 smartPoolShares,
+    uint256 smartPoolAssets,
+    uint256 smartPoolEarningsAccumulator,
+    uint256 indexed maturity,
+    uint256 maturityUnassignedEarnings
+  );
+
   constructor(
     ERC20 asset_,
     uint8 maxFuturePools_,
@@ -231,9 +240,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 assets,
     address receiver,
     address owner
-  ) public override returns (uint256) {
+  ) public override returns (uint256 shares) {
     auditor.validateAccountShortfall(this, owner, assets);
-    return super.withdraw(assets, receiver, owner);
+    shares = super.withdraw(assets, receiver, owner);
+    emit MarketUpdated(block.timestamp, totalSupply, smartPoolAssets, smartPoolEarningsAccumulator, 0, 0);
   }
 
   /// @notice Redeems the owner's smart pool assets to the receiver address.
@@ -245,9 +255,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 shares,
     address receiver,
     address owner
-  ) public override returns (uint256) {
+  ) public override returns (uint256 assets) {
     auditor.validateAccountShortfall(this, owner, previewMint(shares));
-    return super.redeem(shares, receiver, owner);
+    assets = super.redeem(shares, receiver, owner);
+    emit MarketUpdated(block.timestamp, totalSupply, smartPoolAssets, smartPoolEarningsAccumulator, 0, 0);
   }
 
   /// @notice Hook to update the smart pool average, smart pool balance and distribute earnings from accumulator.
@@ -275,6 +286,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     smartPoolEarningsAccumulator -= earnings;
     emit SmartPoolEarningsAccrued(memSPAssets, earnings);
     smartPoolAssets = memSPAssets + earnings + assets;
+    emit MarketUpdated(block.timestamp, totalSupply, smartPoolAssets, smartPoolEarningsAccumulator, 0, 0);
   }
 
   /// @notice Calculates the earnings to be distributed from the accumulator given the current timestamp.
@@ -533,6 +545,14 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     asset.safeTransfer(receiver, assets);
 
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
+    emit MarketUpdated(
+      block.timestamp,
+      totalSupply,
+      smartPoolAssets,
+      smartPoolEarningsAccumulator,
+      maturity,
+      pool.earningsUnassigned
+    );
   }
 
   /// @notice Deposits a certain amount to a maturity.
@@ -581,6 +601,15 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     smartPoolAssets = memSPAssets + earningsSP;
 
     emit DepositAtMaturity(maturity, msg.sender, receiver, assets, fee);
+    emit MarketUpdated(
+      block.timestamp,
+      totalSupply,
+      smartPoolAssets,
+      smartPoolEarningsAccumulator,
+      maturity,
+      pool.earningsUnassigned
+    );
+
     asset.safeTransferFrom(msg.sender, address(this), assets);
   }
 
@@ -670,6 +699,14 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     asset.safeTransfer(receiver, assetsDiscounted);
 
     emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
+    emit MarketUpdated(
+      block.timestamp,
+      totalSupply,
+      smartPoolAssets,
+      smartPoolEarningsAccumulator,
+      maturity,
+      pool.earningsUnassigned
+    );
   }
 
   /// @notice Repays a certain amount to a maturity.
@@ -772,6 +809,14 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     smartPoolAssets = memSPAssets + earningsSP;
 
     emit RepayAtMaturity(maturity, msg.sender, borrower, actualRepayAssets, debtCovered);
+    emit MarketUpdated(
+      block.timestamp,
+      totalSupply,
+      smartPoolAssets,
+      smartPoolEarningsAccumulator,
+      maturity,
+      pool.earningsUnassigned
+    );
   }
 
   /// @notice Internal function to seize a certain amount of tokens.
@@ -800,6 +845,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     asset.safeTransfer(liquidator, assets);
     emit AssetSeized(liquidator, borrower, assets);
+    emit MarketUpdated(block.timestamp, totalSupply, smartPoolAssets, smartPoolEarningsAccumulator, 0, 0);
   }
 
   /// @dev Gets all borrows for an account in certain maturity (or MATURITY_ALL).
