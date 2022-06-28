@@ -1,6 +1,7 @@
 import type { BigNumber } from "ethers";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, ERC20, ExactlyOracle, FixedLender, InterestRateModel, TimelockController } from "../types";
+import { mockPrices } from "./mocks/Tokens";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import grantRole from "./.utils/grantRole";
@@ -92,7 +93,7 @@ const func: DeployFunction = async ({
       await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [fixedLenderArgs[6]]);
     }
 
-    const { address: priceFeedAddress } = await get(`PriceFeed${symbol}`);
+    const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
     if ((await exactlyOracle.assetsSources(fixedLender.address)) !== priceFeedAddress) {
       await executeOrPropose(deployer, timelockController, exactlyOracle, "setAssetSource", [
         fixedLender.address,

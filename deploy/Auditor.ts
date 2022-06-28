@@ -1,9 +1,6 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, TimelockController } from "../types";
-import { MOCK_ORACLE } from "./mocks/MockOracle";
 import executeOrPropose from "./.utils/executeOrPropose";
-
-const oracleName = MOCK_ORACLE ? "MockOracle" : "ExactlyOracle";
 
 const func: DeployFunction = async ({
   config: {
@@ -19,7 +16,7 @@ const func: DeployFunction = async ({
 }) => {
   const [timelockController, { address: oracleAddress }, { deployer }] = await Promise.all([
     getContract<TimelockController>("TimelockController"),
-    get(oracleName),
+    get("ExactlyOracle"),
     getNamedAccounts(),
   ]);
   const liquidationIncentive = parseUnits(String(liquidationIncentiveFloat));
@@ -42,6 +39,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Auditor"];
-func.dependencies = [oracleName, "TimelockController"];
+func.dependencies = ["ExactlyOracle", "TimelockController"];
 
 export default func;
