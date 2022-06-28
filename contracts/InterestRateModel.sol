@@ -9,18 +9,19 @@ import { InvalidParameter } from "./Auditor.sol";
 
 contract InterestRateModel is AccessControl {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for uint128;
   using FixedPointMathLib for int256;
 
   // Parameters to the system, expressed with 1e18 decimals
-  uint256 public fixedCurveA;
-  int256 public fixedCurveB;
-  uint256 public fixedMaxUtilization;
-  uint256 public fixedFullUtilization;
+  uint128 public fixedCurveA;
+  int128 public fixedCurveB;
+  uint128 public fixedMaxUtilization;
+  uint128 public fixedFullUtilization;
 
-  uint256 public flexibleCurveA;
-  int256 public flexibleCurveB;
-  uint256 public flexibleMaxUtilization;
-  uint256 public flexibleFullUtilization;
+  uint128 public flexibleCurveA;
+  int128 public flexibleCurveB;
+  uint128 public flexibleMaxUtilization;
+  uint128 public flexibleFullUtilization;
 
   uint256 public spFeeRate;
 
@@ -30,10 +31,10 @@ contract InterestRateModel is AccessControl {
   /// @param fixedMaxUtilization new max utilization rate.
   /// @param fixedFullUtilization new full utilization rate.
   event FixedCurveParametersSet(
-    uint256 fixedCurveA,
-    int256 fixedCurveB,
-    uint256 fixedMaxUtilization,
-    uint256 fixedFullUtilization
+    uint128 fixedCurveA,
+    int128 fixedCurveB,
+    uint128 fixedMaxUtilization,
+    uint128 fixedFullUtilization
   );
 
   /// @notice Emitted when the flexible curve parameters are changed by admin.
@@ -42,10 +43,10 @@ contract InterestRateModel is AccessControl {
   /// @param flexibleMaxUtilization new max utilization rate.
   /// @param flexibleFullUtilization new full utilization rate.
   event FlexibleCurveParametersSet(
-    uint256 flexibleCurveA,
-    int256 flexibleCurveB,
-    uint256 flexibleMaxUtilization,
-    uint256 flexibleFullUtilization
+    uint128 flexibleCurveA,
+    int128 flexibleCurveB,
+    uint128 flexibleMaxUtilization,
+    uint128 flexibleFullUtilization
   );
 
   /// @notice Emitted when the spFeeRate parameter is changed by admin.
@@ -53,14 +54,14 @@ contract InterestRateModel is AccessControl {
   event SpFeeRateSet(uint256 spFeeRate);
 
   constructor(
-    uint256 fixedCurveA_,
-    int256 fixedCurveB_,
-    uint256 fixedMaxUtilization_,
-    uint256 fixedFullUtilization_,
-    uint256 flexibleCurveA_,
-    int256 flexibleCurveB_,
-    uint256 flexibleMaxUtilization_,
-    uint256 flexibleFullUtilization_,
+    uint128 fixedCurveA_,
+    int128 fixedCurveB_,
+    uint128 fixedMaxUtilization_,
+    uint128 fixedFullUtilization_,
+    uint128 flexibleCurveA_,
+    int128 flexibleCurveB_,
+    uint128 flexibleMaxUtilization_,
+    uint128 flexibleFullUtilization_,
     uint256 spFeeRate_
   ) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -86,10 +87,10 @@ contract InterestRateModel is AccessControl {
     external
     view
     returns (
-      uint256,
-      int256,
-      uint256,
-      uint256
+      uint128,
+      int128,
+      uint128,
+      uint128
     )
   {
     return (fixedCurveA, fixedCurveB, fixedMaxUtilization, fixedFullUtilization);
@@ -101,10 +102,10 @@ contract InterestRateModel is AccessControl {
     external
     view
     returns (
-      uint256,
-      int256,
-      uint256,
-      uint256
+      uint128,
+      int128,
+      uint128,
+      uint128
     )
   {
     return (flexibleCurveA, flexibleCurveB, flexibleMaxUtilization, flexibleFullUtilization);
@@ -136,10 +137,10 @@ contract InterestRateModel is AccessControl {
   /// @param fixedMaxUtilization_ max UR.
   /// @param fixedFullUtilization_ full UR.
   function setFixedCurveParameters(
-    uint256 fixedCurveA_,
-    int256 fixedCurveB_,
-    uint256 fixedMaxUtilization_,
-    uint256 fixedFullUtilization_
+    uint128 fixedCurveA_,
+    int128 fixedCurveB_,
+    uint128 fixedMaxUtilization_,
+    uint128 fixedFullUtilization_
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (
       fixedFullUtilization_ > 52e18 ||
@@ -166,10 +167,10 @@ contract InterestRateModel is AccessControl {
   /// @param flexibleMaxUtilization_ max UR.
   /// @param flexibleFullUtilization_ full UR.
   function setFlexibleCurveParameters(
-    uint256 flexibleCurveA_,
-    int256 flexibleCurveB_,
-    uint256 flexibleMaxUtilization_,
-    uint256 flexibleFullUtilization_
+    uint128 flexibleCurveA_,
+    int128 flexibleCurveB_,
+    uint128 flexibleMaxUtilization_,
+    uint128 flexibleFullUtilization_
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     flexibleCurveA = flexibleCurveA_;
     flexibleCurveB = flexibleCurveB_;
