@@ -18,11 +18,6 @@ const config: Config = {
       tokens: ["DAI", "WETH", "USDC", "WBTC"],
       accounts: { accountsBalance: `1${"0".repeat(32)}` },
     },
-    kovan: {
-      tokens: ["DAI", "WETH"],
-      url: env.KOVAN_NODE ?? "https://kovan.infura.io/",
-      ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
-    },
     rinkeby: {
       tokens: ["DAI", "WETH", "USDC", "WBTC"],
       gnosisSafeTxService: "https://safe-transaction.rinkeby.gnosis.io/",

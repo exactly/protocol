@@ -14,8 +14,7 @@
     "coverage:foundry:test": "FOUNDRY_PROFILE=production forge test",
     "coverage:foundry:snapshot": "forge snapshot --check",
     "coverage:hardhat": "hardhat coverage",
-    "deploy:kovan": "hardhat --network kovan deploy",
-    "deploy:hardhat": "hardhat --network hardhat deploy",
+    "deploy:rinkeby": "hardhat --network rinkeby deploy",
     "postinstall": "run-s --continue-on-error postinstall:** || cd .",
     "postinstall:foundry": "forge install",
     "postinstall:hardhat": "hardhat compile --force"

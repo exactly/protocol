@@ -36,5 +36,5 @@ export REPORT_GAS=1 && npm test
 ## Deploy
 
 ```bash
-npm run deploy:kovan
+npm run deploy:rinkeby
 ```
