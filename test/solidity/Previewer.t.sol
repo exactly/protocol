@@ -868,4 +868,24 @@ contract PreviewerTest is Test {
 
     return smartPoolAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(smartPoolAssets);
   }
+
+  function testAccountsReturningFlexibleBorrowRate() external {
+    vm.warp(0);
+    fixedLender.deposit(100 ether, address(this));
+    fixedLender.borrow(10 ether, address(this), address(this));
+    Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
+    vm.warp(73 days); // 365 / 5
+    fixedLender.borrow(1, address(this), address(this));
+
+    uint256 borrowDebtCharged = fixedLender.smartPoolFlexibleBorrows() - 10 ether - 1;
+    assertEq(data[0].flexibleBorrowRate / 5, borrowDebtCharged.mulDivDown(1e18, 10 ether));
+  }
+
+  function testAccountsReturningFlexibleBorrowRateWithNoPreviousBorrows() external {
+    vm.warp(0);
+    fixedLender.deposit(100 ether, address(this));
+    Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
+
+    assertEq(data[0].flexibleBorrowRate, fixedLender.interestRateModel().getFlexibleBorrowRate(0, 0));
+  }
 }

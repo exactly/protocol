@@ -40,6 +40,7 @@ contract Previewer {
     bool isCollateral;
     uint256 smartPoolShares;
     uint256 smartPoolAssets;
+    uint256 flexibleBorrowRate;
     MaturityLiquidity[] availableLiquidity;
     MaturityPosition[] maturitySupplyPositions;
     MaturityPosition[] fixedBorrowPositions;
@@ -200,11 +201,27 @@ contract Previewer {
         isCollateral: markets & (1 << i) != 0 ? true : false,
         smartPoolShares: market.balanceOf(account),
         smartPoolAssets: market.maxWithdraw(account),
+        flexibleBorrowRate: flexibleBorrowRate(market),
         availableLiquidity: availableLiquidity(market),
         maturitySupplyPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
         fixedBorrowPositions: maturityPositions(account, market.fixedBorrows, market.fixedBorrowPositions)
       });
     }
+  }
+
+  function flexibleBorrowRate(FixedLender market) internal view returns (uint256) {
+    InterestRateModel interestRateModel = market.interestRateModel();
+    uint256 smartPoolAssets = market.smartPoolAssets();
+
+    return
+      smartPoolAssets > 0
+        ? interestRateModel.getFlexibleBorrowRate(
+          market.spPreviousUtilization(),
+          market.smartPoolFlexibleBorrows().divWadDown(
+            smartPoolAssets.divWadDown(interestRateModel.flexibleFullUtilization())
+          )
+        )
+        : 0;
   }
 
   function availableLiquidity(FixedLender market)
