@@ -77,6 +77,49 @@ contract PreviewerTest is Test {
     assertEq(positionAssetsPreviewed, principalAfterDeposit + earningsAfterDeposit);
   }
 
+  function testPreviewDepositAtAllMaturitiesReturningAccurateAmounts() external {
+    uint256 firstMaturity = TSUtils.INTERVAL;
+    uint256 secondMaturity = TSUtils.INTERVAL * 2;
+    uint256 thirdMaturity = TSUtils.INTERVAL * 3;
+    fixedLender.deposit(10 ether, address(this));
+    vm.warp(200 seconds);
+    fixedLender.borrowAtMaturity(firstMaturity, 1 ether, 2 ether, address(this), address(this));
+
+    vm.warp(500 seconds);
+    fixedLender.borrowAtMaturity(secondMaturity, 0.389 ether, 1 ether, address(this), address(this));
+
+    vm.warp(1 days);
+    fixedLender.borrowAtMaturity(thirdMaturity, 2.31 ether, 3 ether, address(this), address(this));
+
+    vm.warp(2 days + 3 hours);
+    fixedLender.depositAtMaturity(thirdMaturity, 1.1 ether, 1.1 ether, address(BOB));
+
+    vm.warp(3 days);
+    Previewer.MaturityLiquidity[] memory positionAssetsMaturities = previewer.previewDepositAtAllMaturities(
+      fixedLender,
+      1 ether
+    );
+
+    fixedLender.depositAtMaturity(firstMaturity, 1 ether, 1 ether, address(this));
+    (uint256 principalAfterDeposit, uint256 earningsAfterDeposit) = fixedLender.fixedDepositPositions(
+      firstMaturity,
+      address(this)
+    );
+    assertEq(positionAssetsMaturities[0].maturity, firstMaturity);
+    assertEq(positionAssetsMaturities[0].assets, principalAfterDeposit + earningsAfterDeposit);
+
+    fixedLender.depositAtMaturity(secondMaturity, 1 ether, 1 ether, address(this));
+    (principalAfterDeposit, earningsAfterDeposit) = fixedLender.fixedDepositPositions(secondMaturity, address(this));
+    assertEq(positionAssetsMaturities[1].maturity, secondMaturity);
+    assertEq(positionAssetsMaturities[1].assets, principalAfterDeposit + earningsAfterDeposit);
+
+    positionAssetsMaturities = previewer.previewDepositAtAllMaturities(fixedLender, 0.18239 ether);
+    fixedLender.depositAtMaturity(thirdMaturity, 0.18239 ether, 0.18239 ether, address(this));
+    (principalAfterDeposit, earningsAfterDeposit) = fixedLender.fixedDepositPositions(thirdMaturity, address(this));
+    assertEq(positionAssetsMaturities[2].maturity, thirdMaturity);
+    assertEq(positionAssetsMaturities[2].assets, principalAfterDeposit + earningsAfterDeposit);
+  }
+
   function testPreviewDepositAtMaturityWithZeroAmount() external {
     uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));

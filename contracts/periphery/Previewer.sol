@@ -63,7 +63,7 @@ contract Previewer {
     FixedLender market,
     uint256 maturity,
     uint256 assets
-  ) external view returns (uint256 positionAssets) {
+  ) public view returns (uint256 positionAssets) {
     if (block.timestamp > maturity) revert AlreadyMatured();
 
     PoolLib.FixedPool memory pool;
@@ -72,6 +72,26 @@ contract Previewer {
 
     (uint256 yield, ) = market.interestRateModel().getYieldForDeposit(smartPoolBorrowed, unassignedEarnings, assets);
     positionAssets = assets + yield;
+  }
+
+  /// @notice Gets the assets plus yield offered by all VALID maturities when depositing a certain amount.
+  /// @param market address of the market.
+  /// @param assets amount of assets that will be deposited.
+  /// @return positionAssetsMaturities array containing amount plus yield that user will receive after each maturity.
+  function previewDepositAtAllMaturities(FixedLender market, uint256 assets)
+    external
+    view
+    returns (MaturityLiquidity[] memory positionAssetsMaturities)
+  {
+    uint256 maxFuturePools = market.maxFuturePools();
+    uint256 nextMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL) + TSUtils.INTERVAL;
+    positionAssetsMaturities = new MaturityLiquidity[](maxFuturePools);
+    for (uint256 i = 0; i < maxFuturePools; i++) {
+      uint256 maturity = nextMaturity + TSUtils.INTERVAL * i;
+
+      positionAssetsMaturities[i].maturity = maturity;
+      positionAssetsMaturities[i].assets = previewDepositAtMaturity(market, maturity, assets);
+    }
   }
 
   /// @notice Gets the amount plus fees to be repaid at maturity when borrowing certain amount of assets.
