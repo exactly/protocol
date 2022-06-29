@@ -69,7 +69,6 @@ export class FixedLenderEnv {
     await fixedLenderHarness.deployed();
     await oracle.setPrice(fixedLenderHarness.address, parseUnits("1"));
     await auditor.enableMarket(fixedLenderHarness.address, parseUnits("0.9"), 18);
-    fixedLenderHarness.setSmartPoolAssets(parseUnits("100000"));
 
     const [owner] = await ethers.getSigners();
 

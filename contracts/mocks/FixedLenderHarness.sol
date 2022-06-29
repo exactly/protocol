@@ -4,16 +4,7 @@ pragma solidity 0.8.13;
 import { FixedLender, InterestRateModel, ERC20, Auditor } from "../FixedLender.sol";
 
 contract FixedLenderHarness is FixedLender {
-  struct ReturnValues {
-    uint256 totalOwedNewBorrow;
-    uint256 currentTotalDeposit;
-    uint256 actualRepayAmount;
-    uint256 debtCovered;
-    uint256 redeemAmountDiscounted;
-  }
-
-  ReturnValues public returnValues;
-  uint256 public timestamp;
+  uint256 public returnValue;
 
   constructor(
     ERC20 asset,
@@ -35,9 +26,7 @@ contract FixedLenderHarness is FixedLender {
       smartPoolReserveFactor,
       dampSpeed
     )
-  {
-    timestamp = block.timestamp;
-  }
+  {}
 
   function borrowMaturityWithReturnValue(
     uint256 maturity,
@@ -46,7 +35,7 @@ contract FixedLenderHarness is FixedLender {
     address receiver,
     address borrower
   ) external {
-    returnValues.totalOwedNewBorrow = borrowAtMaturity(maturity, assets, maxAssetsAllowed, receiver, borrower);
+    returnValue = borrowAtMaturity(maturity, assets, maxAssetsAllowed, receiver, borrower);
   }
 
   function depositMaturityWithReturnValue(
@@ -55,7 +44,7 @@ contract FixedLenderHarness is FixedLender {
     uint256 minAssetsRequired,
     address receiver
   ) external {
-    returnValues.currentTotalDeposit = depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
+    returnValue = depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
   }
 
   function withdrawMaturityWithReturnValue(
@@ -65,13 +54,7 @@ contract FixedLenderHarness is FixedLender {
     address receiver,
     address owner
   ) external {
-    returnValues.redeemAmountDiscounted = withdrawAtMaturity(
-      maturity,
-      positionAssets,
-      minAssetsRequired,
-      receiver,
-      owner
-    );
+    returnValue = withdrawAtMaturity(maturity, positionAssets, minAssetsRequired, receiver, owner);
   }
 
   function repayMaturityWithReturnValue(
@@ -80,11 +63,7 @@ contract FixedLenderHarness is FixedLender {
     uint256 maxAssetsAllowed,
     address borrower
   ) external {
-    returnValues.actualRepayAmount = repayAtMaturity(maturity, positionAssets, maxAssetsAllowed, borrower);
-  }
-
-  function setSmartPoolAssets(uint256 smartPoolAssets_) external {
-    smartPoolAssets = smartPoolAssets_;
+    returnValue = repayAtMaturity(maturity, positionAssets, maxAssetsAllowed, borrower);
   }
 
   // function to avoid range value validation
