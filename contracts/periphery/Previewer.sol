@@ -24,6 +24,11 @@ contract Previewer {
     PoolLib.Position position;
   }
 
+  struct MaturityLiquidity {
+    uint256 maturity;
+    uint256 assets;
+  }
+
   struct MarketAccount {
     FixedLender market;
     string assetSymbol;
@@ -35,6 +40,7 @@ contract Previewer {
     bool isCollateral;
     uint256 smartPoolShares;
     uint256 smartPoolAssets;
+    MaturityLiquidity[] availableLiquidity;
     MaturityPosition[] maturitySupplyPositions;
     MaturityPosition[] fixedBorrowPositions;
   }
@@ -174,9 +180,36 @@ contract Previewer {
         isCollateral: markets & (1 << i) != 0 ? true : false,
         smartPoolShares: market.balanceOf(account),
         smartPoolAssets: market.maxWithdraw(account),
+        availableLiquidity: availableLiquidity(market),
         maturitySupplyPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
         fixedBorrowPositions: maturityPositions(account, market.fixedBorrows, market.fixedBorrowPositions)
       });
+    }
+  }
+
+  function availableLiquidity(FixedLender market)
+    internal
+    view
+    returns (MaturityLiquidity[] memory availableLiquidities)
+  {
+    uint256 maxFuturePools = market.maxFuturePools();
+    uint256 nextMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL) + TSUtils.INTERVAL;
+    availableLiquidities = new MaturityLiquidity[](maxFuturePools);
+    for (uint256 i = 0; i < maxFuturePools; i++) {
+      uint256 maturity = nextMaturity + TSUtils.INTERVAL * i;
+      PoolLib.FixedPool memory pool;
+      (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
+
+      uint256 borrowableAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
+      uint256 fixedDeposits = pool.supplied - Math.min(pool.supplied, pool.borrowed);
+
+      availableLiquidities[i].maturity = maturity;
+      availableLiquidities[i].assets =
+        Math.min(
+          borrowableAssets - Math.min(borrowableAssets, market.smartPoolBorrowed()),
+          smartPoolAssetsAverage(market)
+        ) +
+        fixedDeposits;
     }
   }
 
