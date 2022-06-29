@@ -23,8 +23,6 @@ contract InterestRateModel is AccessControl {
   uint128 public flexibleMaxUtilization;
   uint128 public flexibleFullUtilization;
 
-  uint256 public spFeeRate;
-
   /// @notice Emitted when the fixed curve parameters are changed by admin.
   /// @param fixedCurveA new curve parameter A.
   /// @param fixedCurveB new curve parameter B.
@@ -49,10 +47,6 @@ contract InterestRateModel is AccessControl {
     uint128 flexibleFullUtilization
   );
 
-  /// @notice Emitted when the spFeeRate parameter is changed by admin.
-  /// @param spFeeRate rate charged to the mp suppliers to be accrued by the sp suppliers.
-  event SpFeeRateSet(uint256 spFeeRate);
-
   constructor(
     uint128 fixedCurveA_,
     int128 fixedCurveB_,
@@ -61,24 +55,12 @@ contract InterestRateModel is AccessControl {
     uint128 flexibleCurveA_,
     int128 flexibleCurveB_,
     uint128 flexibleMaxUtilization_,
-    uint128 flexibleFullUtilization_,
-    uint256 spFeeRate_
+    uint128 flexibleFullUtilization_
   ) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setFixedCurveParameters(fixedCurveA_, fixedCurveB_, fixedMaxUtilization_, fixedFullUtilization_);
     setFlexibleCurveParameters(flexibleCurveA_, flexibleCurveB_, flexibleMaxUtilization_, flexibleFullUtilization_);
-    setSPFeeRate(spFeeRate_);
-  }
-
-  /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
-  /// liquidity.
-  /// @dev Value can only be set between 20% and 0%.
-  /// @param spFeeRate_ percentage amount represented with 1e18 decimals.
-  function setSPFeeRate(uint256 spFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (spFeeRate_ > 0.2e18) revert InvalidParameter();
-    spFeeRate = spFeeRate_;
-    emit SpFeeRateSet(spFeeRate_);
   }
 
   /// @notice Gets this model's fixed curve rate parameters.
@@ -109,25 +91,6 @@ contract InterestRateModel is AccessControl {
     )
   {
     return (flexibleCurveA, flexibleCurveB, flexibleMaxUtilization, flexibleFullUtilization);
-  }
-
-  /// @notice Calculates the amount of revenue sharing between the smart pool and the new MP supplier.
-  /// @param suppliedSP amount of money currently being supplied in the fixed rate pool.
-  /// @param unassignedEarnings earnings not yet accrued to the SP that should be shared with the current supplier.
-  /// @param amount amount being provided by the MP supplier.
-  /// @return earningsShare yield to be offered to the MP supplier.
-  /// @return earningsShareSP yield to be accrued by the SP suppliers for initially providing the liquidity.
-  function getYieldForDeposit(
-    uint256 suppliedSP,
-    uint256 unassignedEarnings,
-    uint256 amount
-  ) external view returns (uint256 earningsShare, uint256 earningsShareSP) {
-    if (suppliedSP != 0) {
-      // User can't make more fees after the total borrowed amount
-      earningsShare = unassignedEarnings.mulDivDown(Math.min(amount, suppliedSP), suppliedSP);
-      earningsShareSP = earningsShare.mulWadDown(spFeeRate);
-      earningsShare -= earningsShareSP;
-    }
   }
 
   /// @notice Updates this model's fixed curve parameters.

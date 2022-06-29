@@ -50,6 +50,22 @@ describe("Fixed Rate Operations", () => {
       );
     });
   });
+  describe("setSmartPoolRate", () => {
+    it("WHEN calling setSmartPoolFeeRate function, THEN it should update smartPoolFeeRate", async () => {
+      await fixedLenderHarness.setSmartPoolFeeRate(parseUnits("0.2"));
+      expect(await fixedLenderHarness.smartPoolFeeRate()).to.eq(parseUnits("0.2"));
+    });
+    it("WHEN calling setSmartPoolFeeRate function, THEN it should emit SmartPoolFeeRateSet", async () => {
+      await expect(fixedLenderHarness.setSmartPoolFeeRate(parseUnits("0.2")))
+        .to.emit(fixedLenderHarness, "SmartPoolFeeRateSet")
+        .withArgs(parseUnits("0.2"));
+    });
+    it("WHEN calling setSmartPoolFeeRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(fixedLenderHarness.connect(laura).setSmartPoolFeeRate(parseUnits("0.2"))).to.be.revertedWith(
+        "AccessControl",
+      );
+    });
+  });
   describe("setSmartPoolReserveFactor", () => {
     it("WHEN calling setSmartPoolReserveFactor, THEN the smartPoolReserveFactor should be updated", async () => {
       await fixedLenderHarness.setSmartPoolReserveFactor(parseUnits("0.04"));
@@ -80,7 +96,6 @@ describe("Fixed Rate Operations", () => {
         parseUnits("-0.105"),
         parseUnits("6"),
         parseUnits("4"),
-        parseUnits("0"),
       );
       await newInterestRateModel.deployed();
     });
@@ -612,11 +627,11 @@ describe("Fixed Rate Operations", () => {
             });
           });
 
-          describe("AND GIVEN another depositMP with an amount of 5000 and with a spFeeRate of 10% (125 - (125 * 0.1) fees earned)", () => {
+          describe("AND GIVEN another depositMP with an amount of 5000 and with a smartPoolFeeRate of 10% (125 - (125 * 0.1) fees earned)", () => {
             beforeEach(async () => {
               depositAmount = 5000;
 
-              await mockInterestRateModel.setSPFeeRate(parseUnits("0.1")); // 10% fees charged from the mp depositor yield to the sp earnings
+              await fixedLenderHarness.setSmartPoolFeeRate(parseUnits("0.1")); // 10% fees charged from the mp depositor yield to the sp earnings
               await fixedLenderEnv.moveInTime(oneDayToMaturity);
               tx = await fixedLenderHarness
                 .connect(laura)
@@ -1443,9 +1458,9 @@ describe("Fixed Rate Operations", () => {
             expect(fixedPoolState.borrowFees).to.eq(fixedLenderEnv.getAllEarnings(fixedPoolState));
           });
         });
-        describe("AND WHEN an early repayment of 5250 with a spFeeRate of 10%", () => {
+        describe("AND WHEN an early repayment of 5250 with a smartPoolFeeRate of 10%", () => {
           beforeEach(async () => {
-            await mockInterestRateModel.setSPFeeRate(parseUnits("0.1"));
+            await fixedLenderHarness.setSmartPoolFeeRate(parseUnits("0.1"));
             await fixedLenderEnv.moveInTime(threeDaysToMaturity);
             tx = await fixedLenderHarness
               .connect(laura)
@@ -1479,7 +1494,7 @@ describe("Fixed Rate Operations", () => {
               .to.emit(fixedLenderHarness, "SmartPoolEarningsAccrued")
               .withArgs(smartPoolAssets.sub(earnings), earnings);
           });
-          it("THEN the smartPoolEarningsAccumulator are 15 (10% spFeeRate)", async () => {
+          it("THEN the smartPoolEarningsAccumulator are 15 (10% smartPoolFeeRate)", async () => {
             expect(await fixedLenderHarness.smartPoolEarningsAccumulator()).to.eq(parseUnits("15"));
           });
           it("THEN the actualRepayAmount returned is 5115 = 5250 - earningsSP(t-1)(are 50) - earningsSP(t)(are 50) - accumulator(t)(are 15)", async () => {

@@ -14,7 +14,6 @@ const func: DeployFunction = async ({
         flexibleCurveB,
         flexibleMaxUtilization,
         flexibleFullUtilization,
-        smartPoolRate,
       },
     },
   },
@@ -40,7 +39,6 @@ const func: DeployFunction = async ({
   ];
   const args = fixedCurveArgs.slice();
   args.push(...flexibleCurveArgs);
-  args.push(parseUnits(String(smartPoolRate)));
 
   await deploy("InterestRateModel", { skipIfAlreadyDeployed: true, args, from: deployer, log: true });
 
@@ -52,10 +50,6 @@ const func: DeployFunction = async ({
   if ((await interestRateModel.getFlexibleCurveParameters()).some((param, i) => !param.eq(flexibleCurveArgs[i]))) {
     const timelock = await getContract<TimelockController>("TimelockController", deployer);
     await timelockPropose(timelock, interestRateModel, "setFlexibleCurveParameters", flexibleCurveArgs);
-  }
-  if (!(await interestRateModel.spFeeRate()).eq(parseUnits(String(smartPoolRate)))) {
-    const timelock = await getContract<TimelockController>("TimelockController", deployer);
-    await timelockPropose(timelock, interestRateModel, "setSPFeeRate", [parseUnits(String(smartPoolRate))]);
   }
 };
 

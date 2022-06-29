@@ -7,10 +7,7 @@ import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMat
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
-contract InterestRateModelTest is
-  Test,
-  InterestRateModel(3.75e16, 0.75e16, 3e18, 2e18, 3.75e16, 0.75e16, 3e18, 2e18, 0)
-{
+contract InterestRateModelTest is Test, InterestRateModel(3.75e16, 0.75e16, 3e18, 2e18, 3.75e16, 0.75e16, 3e18, 2e18) {
   using FixedPointMathLib for uint256;
 
   function testGetRateToBorrow() external {
@@ -41,8 +38,6 @@ contract InterestRateModelTest is
 
     assertEq(rate, newRate);
   }
-
-  event Debug(string test, uint256 testVar);
 
   function testReferenceFlexibleRate(uint256 v0, uint64 delta) external {
     uint256 u0 = v0 % flexibleFullUtilization;

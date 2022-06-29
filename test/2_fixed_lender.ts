@@ -50,7 +50,8 @@ describe("FixedLender", function () {
       parseUnits("6"),
       parseUnits("2"),
     ]);
-    await timelockExecute(owner, interestRateModel, "setSPFeeRate", [0]);
+    await timelockExecute(owner, fixedLenderDAI, "setSmartPoolFeeRate", [0]);
+    await timelockExecute(owner, fixedLenderWETH, "setSmartPoolFeeRate", [0]);
     await timelockExecute(owner, fixedLenderDAI, "setSmartPoolReserveFactor", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).mint(signer.address, parseUnits("10000"));

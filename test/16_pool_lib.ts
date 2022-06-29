@@ -160,6 +160,66 @@ describe("Fixed Pool Management Library", () => {
       });
     });
 
+    describe("getDepositYield without a smartPoolFeeRate (0%)", () => {
+      it("WHEN smartPoolBorrowed is 100, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 100 (0 for the SP)", async () => {
+        const result = await poolEnv.getDepositYield("100", "100", "100", "0");
+
+        expect(result[0]).to.equal(parseUnits("100"));
+        expect(result[1]).to.equal(parseUnits("0"));
+      });
+
+      it("WHEN smartPoolBorrowed is 101, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 99.0099... (0 for the SP)", async () => {
+        const result = await poolEnv.getDepositYield("100", "100", "101", "0");
+
+        expect(result[0]).to.closeTo(parseUnits("99.00990099"), parseUnits("00.00000001").toNumber());
+        expect(result[1]).to.eq(parseUnits("0"));
+      });
+
+      it("WHEN smartPoolBorrowed is 200, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 50 (0 for the SP)", async () => {
+        const result = await poolEnv.getDepositYield("100", "100", "200", "0");
+
+        expect(result[0]).to.equal(parseUnits("50"));
+        expect(result[1]).to.equal(parseUnits("0"));
+      });
+
+      it("WHEN smartPoolBorrowed is 0, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 0 (0 for the SP)", async () => {
+        const result = await poolEnv.getDepositYield("100", "100", "0", "0");
+
+        expect(result[0]).to.equal(parseUnits("0"));
+        expect(result[1]).to.equal(parseUnits("0"));
+      });
+
+      it("WHEN smartPoolBorrowed is 100, unassignedEarnings are 0, and amount deposited is 100, THEN earnings is 0 (0 for the SP)", async () => {
+        const result = await poolEnv.getDepositYield("0", "0", "100", "0");
+
+        expect(result[0]).to.equal(parseUnits("0"));
+        expect(result[1]).to.equal(parseUnits("0"));
+      });
+
+      it("WHEN smartPoolBorrowed is 100, unassignedEarnings are 100, and amount deposited is 0, THEN earnings is 0 (0 for the SP)", async () => {
+        const result = await poolEnv.getDepositYield("100", "0", "100", "0");
+
+        expect(result[0]).to.equal(parseUnits("0"));
+        expect(result[1]).to.equal(parseUnits("0"));
+      });
+    });
+
+    describe("getYieldForDeposit with a custom spFeeRate, smartPoolBorrowed of 100, unassignedEarnings of 100 and amount deposited of 100", () => {
+      it("WHEN spFeeRate is 20%, THEN earnings is 80 (20 for the SP)", async () => {
+        const result = await poolEnv.getDepositYield("100", "100", "100", "0.2");
+
+        expect(result[0]).to.eq(parseUnits("80"));
+        expect(result[1]).to.eq(parseUnits("20"));
+      });
+
+      it("WHEN spFeeRate is 20% AND smartPoolBorrowed is 101 THEN earnings is 79.2079... (19.8019... for the SP)", async () => {
+        const result = await poolEnv.getDepositYield("100", "100", "101", "0.2");
+
+        expect(result[0]).to.closeTo(parseUnits("79.20792079"), parseUnits("00.00000001").toNumber());
+        expect(result[1]).to.closeTo(parseUnits("19.80198019"), parseUnits("00.00000001").toNumber());
+      });
+    });
+
     describe("addFee & removeFee", () => {
       describe("WHEN 100 fees are added", () => {
         beforeEach(async () => {

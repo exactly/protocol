@@ -72,7 +72,6 @@ export class DefaultEnv {
       parseUnits("-0.025"), // flexible: B parameter for the curve
       parseUnits("1.1"), // flexible: Max utilization rate
       parseUnits("1"), // flexible: Full utilization rate
-      parseUnits("0"), // SP rate if 0 then no fees charged for the mp depositors' yield
     );
 
     const interestRateModel = useRealInterestRateModel
@@ -112,6 +111,7 @@ export class DefaultEnv {
           auditor.address,
           interestRateModel.address,
           parseUnits("0.02").div(86_400),
+          0, // SP rate if 0 then no fees charged for the mp depositors' yield
           0,
           { up: parseUnits("0.0046"), down: parseUnits("0.42") },
         );

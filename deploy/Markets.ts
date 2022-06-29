@@ -11,6 +11,7 @@ const func: DeployFunction = async ({
     finance: {
       adjustFactor,
       penaltyRatePerDay,
+      smartPoolFeeRate,
       smartPoolReserveFactor,
       dampSpeed: { up, down },
       maxFuturePools,
@@ -40,9 +41,10 @@ const func: DeployFunction = async ({
     auditor.address,
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
+    parseUnits(String(smartPoolFeeRate)),
     parseUnits(String(smartPoolReserveFactor)),
     { up: parseUnits(String(up)), down: parseUnits(String(down)) },
-  ] as [number, BigNumber, string, string, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
+  ] as [number, BigNumber, string, string, BigNumber, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
 
   for (const symbol of config.tokens) {
     const token = await getContract<ERC20>(symbol);
@@ -76,9 +78,12 @@ const func: DeployFunction = async ({
     if (!(await fixedLender.penaltyRate()).eq(fixedLenderArgs[4])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [fixedLenderArgs[4]]);
     }
-    if (!(await fixedLender.smartPoolReserveFactor()).eq(fixedLenderArgs[5])) {
+    if (!(await fixedLender.smartPoolFeeRate()).eq(fixedLenderArgs[5])) {
+      await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolFeeRate", [fixedLenderArgs[5]]);
+    }
+    if (!(await fixedLender.smartPoolReserveFactor()).eq(fixedLenderArgs[6])) {
       await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserveFactor", [
-        fixedLenderArgs[5],
+        fixedLenderArgs[6],
       ]);
     }
     if (!((await fixedLender.interestRateModel()) === interestRateModel.address)) {
@@ -87,10 +92,10 @@ const func: DeployFunction = async ({
       ]);
     }
     if (
-      !(await fixedLender.dampSpeedUp()).eq(fixedLenderArgs[6].up) ||
-      !(await fixedLender.dampSpeedDown()).eq(fixedLenderArgs[6].down)
+      !(await fixedLender.dampSpeedUp()).eq(fixedLenderArgs[7].up) ||
+      !(await fixedLender.dampSpeedDown()).eq(fixedLenderArgs[7].down)
     ) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [fixedLenderArgs[6]]);
+      await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [fixedLenderArgs[7]]);
     }
 
     const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);

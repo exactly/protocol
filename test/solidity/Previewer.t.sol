@@ -31,7 +31,7 @@ contract PreviewerTest is Test {
     token = new MockERC20("DAI", "DAI", 18);
     mockOracle = new MockOracle();
     auditor = new Auditor(ExactlyOracle(address(mockOracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
-    interestRateModel = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.72e18, -0.22e18, 3e18, 2e18, 0.1e18);
+    interestRateModel = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.72e18, -0.22e18, 3e18, 2e18);
 
     fixedLender = new FixedLender(
       token,
@@ -40,6 +40,7 @@ contract PreviewerTest is Test {
       auditor,
       interestRateModel,
       0.02e18 / uint256(1 days),
+      0.1e18,
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
@@ -367,6 +368,7 @@ contract PreviewerTest is Test {
       auditor,
       interestRateModel,
       0.02e18 / uint256(1 days),
+      0.1e18,
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
@@ -456,6 +458,7 @@ contract PreviewerTest is Test {
       auditor,
       interestRateModel,
       0.02e18 / uint256(1 days),
+      0.1e18,
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
@@ -704,6 +707,7 @@ contract PreviewerTest is Test {
       auditor,
       interestRateModel,
       0.02e18 / uint256(1 days),
+      0.1e18,
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );

@@ -16,6 +16,7 @@ contract Previewer {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
   using PoolLib for PoolLib.Position;
+  using PoolLib for uint256;
 
   Auditor public immutable auditor;
 
@@ -71,7 +72,7 @@ contract Previewer {
     (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.fixedPools(maturity);
     (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(market, maturity);
 
-    (uint256 yield, ) = market.interestRateModel().getYieldForDeposit(smartPoolBorrowed, unassignedEarnings, assets);
+    (uint256 yield, ) = unassignedEarnings.getDepositYield(assets, smartPoolBorrowed, market.smartPoolFeeRate());
     positionAssets = assets + yield;
   }
 
@@ -171,10 +172,10 @@ contract Previewer {
     (debt.principal, debt.fee) = market.fixedBorrowPositions(maturity, borrower);
     PoolLib.Position memory coveredDebt = debt.scaleProportionally(positionAssets);
 
-    (uint256 discount, ) = market.interestRateModel().getYieldForDeposit(
+    (uint256 discount, ) = unassignedEarnings.getDepositYield(
+      coveredDebt.principal,
       smartPoolBorrowed,
-      unassignedEarnings,
-      coveredDebt.principal
+      market.smartPoolFeeRate()
     );
     repayAssets = positionAssets - discount;
   }

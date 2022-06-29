@@ -93,6 +93,20 @@ export class PoolEnv {
     return this.fpHarness.withdraw(parseUnits(amount), parseUnits(maxDebt));
   }
 
+  public async getDepositYield(
+    unassignedEarnings: string,
+    amount: string,
+    spBorrowed: string,
+    smartPoolFeeRate: string,
+  ) {
+    return this.fpHarness.getDepositYield(
+      parseUnits(unassignedEarnings),
+      parseUnits(amount),
+      parseUnits(spBorrowed),
+      parseUnits(smartPoolFeeRate),
+    );
+  }
+
   static async create(): Promise<PoolEnv> {
     const FixedPoolHarness = await ethers.getContractFactory("FixedPoolHarness");
     let fixedPoolHarness = await FixedPoolHarness.deploy();

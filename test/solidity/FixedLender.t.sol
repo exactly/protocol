@@ -81,7 +81,6 @@ contract FixedLenderTest is Test {
     mockOracle = new MockOracle();
     auditor = new Auditor(ExactlyOracle(address(mockOracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     mockInterestRateModel = new MockInterestRateModel(0.1e18);
-    mockInterestRateModel.setSPFeeRate(1e17);
 
     fixedLender = new FixedLender(
       token,
@@ -90,6 +89,7 @@ contract FixedLenderTest is Test {
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
+      1e17,
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
@@ -102,9 +102,11 @@ contract FixedLenderTest is Test {
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
+      1e17,
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
+
     auditor.enableMarket(fixedLender, 0.8e18, 18);
     auditor.enableMarket(fixedLenderWETH, 0.9e18, 18);
     auditor.enterMarket(fixedLenderWETH);
@@ -384,7 +386,7 @@ contract FixedLenderTest is Test {
     vm.warp(TSUtils.INTERVAL / 2);
     fixedLender.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
-    // accumulator accounts 10% of the fees, spFeeRate -> 0.1
+    // accumulator accounts 10% of the fees, smartPoolFeeRate -> 0.1
     fixedLender.depositAtMaturity(maturity, 1_000 ether, 1_000 ether, address(this));
     assertEq(fixedLender.smartPoolEarningsAccumulator(), 10 ether);
 
@@ -472,6 +474,7 @@ contract FixedLenderTest is Test {
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
+      1e17,
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
@@ -505,6 +508,7 @@ contract FixedLenderTest is Test {
       auditor,
       InterestRateModel(address(mockInterestRateModel)),
       0.02e18 / uint256(1 days),
+      1e17,
       0,
       FixedLender.DampSpeed(0.0046e18, 0.42e18)
     );
@@ -791,7 +795,7 @@ contract FixedLenderTest is Test {
 
   function testLiquidateAndSubtractLossesFromAccumulator() external {
     mockInterestRateModel.setBorrowRate(0.1e18);
-    mockInterestRateModel.setSPFeeRate(0);
+    fixedLender.setSmartPoolFeeRate(0);
     fixedLenderWETH.deposit(1.3 ether, address(this));
     fixedLender.deposit(50_000 ether, ALICE);
     fixedLender.setMaxFuturePools(12);
@@ -1425,6 +1429,7 @@ contract FixedLenderTest is Test {
         auditor,
         InterestRateModel(address(mockInterestRateModel)),
         0.02e18 / uint256(1 days),
+        1e17,
         0,
         FixedLender.DampSpeed(0.0046e18, 0.42e18)
       );
@@ -1477,6 +1482,7 @@ contract FixedLenderHarness is FixedLender {
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
+    uint256 smartPoolFeeRate_,
     uint128 smartPoolReserveFactor_,
     DampSpeed memory dampSpeed_
   )
@@ -1487,6 +1493,7 @@ contract FixedLenderHarness is FixedLender {
       auditor_,
       interestRateModel_,
       penaltyRate_,
+      smartPoolFeeRate_,
       smartPoolReserveFactor_,
       dampSpeed_
     )

@@ -39,6 +39,7 @@ const config: Config = {
       lenders: 0.01,
     },
     penaltyRatePerDay: 0.02,
+    smartPoolFeeRate: 0.1,
     smartPoolReserveFactor: 0.1,
     dampSpeed: {
       up: 0.0046,
@@ -55,7 +56,6 @@ const config: Config = {
       flexibleCurveB: -0.1695,
       flexibleMaxUtilization: 7.65,
       flexibleFullUtilization: 7.5,
-      smartPoolRate: 0.1,
     },
   },
   dodoc: { exclude: ["mocks", "k", "elin", "ital"] },
@@ -84,6 +84,7 @@ declare module "hardhat/types/config" {
     adjustFactor: { default: number; [token: string]: number };
     liquidationIncentive: { liquidator: number; lenders: number };
     penaltyRatePerDay: number;
+    smartPoolFeeRate: number;
     smartPoolReserveFactor: number;
     dampSpeed: {
       up: number;
@@ -100,7 +101,6 @@ declare module "hardhat/types/config" {
       flexibleCurveB: number;
       flexibleMaxUtilization: number;
       flexibleFullUtilization: number;
-      smartPoolRate: number;
     };
   }
 

@@ -44,6 +44,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   uint256 public smartPoolEarningsAccumulator;
   uint256 public penaltyRate;
+  uint256 public smartPoolFeeRate;
   uint256 public dampSpeedUp;
   uint256 public dampSpeedDown;
 
@@ -168,6 +169,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
   event PenaltyRateSet(uint256 newPenaltyRate);
 
+  /// @notice Emitted when the smartPoolFeeRate parameter is changed by admin.
+  /// @param smartPoolFeeRate rate charged to the mp suppliers to be accrued by the sp suppliers.
+  event SmartPoolFeeRateSet(uint256 smartPoolFeeRate);
+
   /// @notice emitted when the smartPoolReserveFactor is changed by admin.
   /// @param newSmartPoolReserveFactor smartPoolReserveFactor percentage.
   event SmartPoolReserveFactorSet(uint128 newSmartPoolReserveFactor);
@@ -193,6 +198,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
+    uint256 smartPoolFeeRate_,
     uint128 smartPoolReserveFactor_,
     DampSpeed memory dampSpeed_
   )
@@ -205,6 +211,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     setAccumulatedEarningsSmoothFactor(accumulatedEarningsSmoothFactor_);
     setInterestRateModel(interestRateModel_);
     setPenaltyRate(penaltyRate_);
+    setSmartPoolFeeRate(smartPoolFeeRate_);
     setSmartPoolReserveFactor(smartPoolReserveFactor_);
     setDampSpeed(dampSpeed_);
   }
@@ -374,6 +381,16 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (penaltyRate_ > 5.79e11 || penaltyRate_ < 1.15e11) revert InvalidParameter();
     penaltyRate = penaltyRate_;
     emit PenaltyRateSet(penaltyRate_);
+  }
+
+  /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
+  /// liquidity.
+  /// @dev Value can only be set between 20% and 0%.
+  /// @param smartPoolFeeRate_ percentage amount represented with 1e18 decimals.
+  function setSmartPoolFeeRate(uint256 smartPoolFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (smartPoolFeeRate_ > 0.2e18) revert InvalidParameter();
+    smartPoolFeeRate = smartPoolFeeRate_;
+    emit SmartPoolFeeRateSet(smartPoolFeeRate_);
   }
 
   /// @notice Sets the percentage that represents the smart pool liquidity reserves that can't be borrowed.
@@ -630,10 +647,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
-    (uint256 fee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
+    (uint256 fee, uint256 feeSP) = pool.earningsUnassigned.getDepositYield(
+      assets,
       pool.smartPoolBorrowed(),
-      pool.earningsUnassigned,
-      assets
+      smartPoolFeeRate
     );
     positionAssets = assets + fee;
     if (positionAssets < minAssetsRequired) revert TooMuchSlippage();
@@ -816,10 +833,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (block.timestamp < maturity) {
       if (canDiscount) {
         // We calculate the deposit fee considering the amount of debt the user'll pay
-        (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
+        (uint256 discountFee, uint256 feeSP) = pool.earningsUnassigned.getDepositYield(
+          scaleDebtCovered.principal,
           pool.smartPoolBorrowed(),
-          pool.earningsUnassigned,
-          scaleDebtCovered.principal
+          smartPoolFeeRate
         );
 
         // We remove the fee from unassigned earnings

@@ -18,6 +18,15 @@ contract FixedPoolHarness {
   uint256 public lastEarningsTreasury;
   PoolLib.Position public scaledDebt;
 
+  function getDepositYield(
+    uint256 unassignedEarnings,
+    uint256 amount,
+    uint256 spBorrowed,
+    uint256 smartPoolFeeRate
+  ) external pure returns (uint256, uint256) {
+    return unassignedEarnings.getDepositYield(amount, spBorrowed, smartPoolFeeRate);
+  }
+
   function accrueEarnings(uint256 _maturityID) external {
     lastEarningsSP = fixedPool.accrueEarnings(_maturityID, nextTimestamp != 0 ? nextTimestamp : block.timestamp);
   }
