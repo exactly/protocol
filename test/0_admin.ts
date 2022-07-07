@@ -44,7 +44,9 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setLiquidationIncentive(parseUnits("1.01"))).to.be.revertedWith("AccessControl");
+      await expect(
+        auditor.setLiquidationIncentive({ liquidator: parseUnits("0.05"), lenders: parseUnits("0.01") }),
+      ).to.be.revertedWith("AccessControl");
     });
 
     it("WHEN trying to set a new oracle, THEN the transaction should revert with Access Control", async () => {
@@ -76,7 +78,7 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new fixedLender with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
       const newAuditor = await deploy("NewAuditor", {
         contract: "Auditor",
-        args: [laura.address, parseUnits("1.1")],
+        args: [laura.address, { liquidator: parseUnits("0.05"), lenders: parseUnits("0.01") }],
         from: owner.address,
       });
       const fixedLender = await deploy("NewFixedLender", {
@@ -129,8 +131,9 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN setting a new liquidation incentive, THEN the auditor should emit LiquidationIncentiveSet event", async () => {
-      await expect(auditor.setLiquidationIncentive(parseUnits("1.05"))).to.emit(auditor, "LiquidationIncentiveSet");
-      expect(await auditor.liquidationIncentive()).to.eq(parseUnits("1.05"));
+      const incentive = { liquidator: parseUnits("0.05"), lenders: parseUnits("0.01") };
+      await expect(auditor.setLiquidationIncentive(incentive)).to.emit(auditor, "LiquidationIncentiveSet");
+      expect(await auditor.liquidationIncentive()).to.deep.eq([incentive.liquidator, incentive.lenders]);
     });
 
     it("WHEN setting adjust factor, THEN the auditor should emit AdjustFactorSet event", async () => {

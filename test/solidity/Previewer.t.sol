@@ -30,7 +30,7 @@ contract PreviewerTest is Test {
   function setUp() external {
     token = new MockERC20("DAI", "DAI", 18);
     mockOracle = new MockOracle();
-    auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
+    auditor = new Auditor(ExactlyOracle(address(mockOracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     interestRateModel = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.1e18);
 
     fixedLender = new FixedLender(

@@ -4,7 +4,9 @@ import executeOrPropose from "./.utils/executeOrPropose";
 
 const func: DeployFunction = async ({
   config: {
-    finance: { liquidationIncentive: liquidationIncentiveFloat },
+    finance: {
+      liquidationIncentive: { liquidator: liquidatorIncentive, lenders: lendersIncentive },
+    },
   },
   ethers: {
     utils: { parseUnits },
@@ -19,7 +21,10 @@ const func: DeployFunction = async ({
     get("ExactlyOracle"),
     getNamedAccounts(),
   ]);
-  const liquidationIncentive = parseUnits(String(liquidationIncentiveFloat));
+  const liquidationIncentive = {
+    liquidator: parseUnits(String(liquidatorIncentive)),
+    lenders: parseUnits(String(lendersIncentive)),
+  };
 
   await deploy("Auditor", {
     skipIfAlreadyDeployed: true,
@@ -33,7 +38,11 @@ const func: DeployFunction = async ({
     await executeOrPropose(deployer, timelockController, auditor, "setOracle", [oracleAddress]);
   }
 
-  if (!(await auditor.liquidationIncentive()).eq(liquidationIncentive)) {
+  const currentLiquidationIncentive = await auditor.liquidationIncentive();
+  if (
+    !currentLiquidationIncentive.liquidator.eq(liquidationIncentive.liquidator) ||
+    !currentLiquidationIncentive.lenders.eq(liquidationIncentive.lenders)
+  ) {
     await executeOrPropose(deployer, timelockController, auditor, "setLiquidationIncentive", [liquidationIncentive]);
   }
 };

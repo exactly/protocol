@@ -70,7 +70,7 @@ contract FixedLenderTest is Test {
   function setUp() external {
     MockERC20 token = new MockERC20("DAI", "DAI", 18);
     mockOracle = new MockOracle();
-    auditor = new Auditor(ExactlyOracle(address(mockOracle)), 1.1e18);
+    auditor = new Auditor(ExactlyOracle(address(mockOracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     mockInterestRateModel = new MockInterestRateModel(0.1e18);
     mockInterestRateModel.setSPFeeRate(1e17);
 

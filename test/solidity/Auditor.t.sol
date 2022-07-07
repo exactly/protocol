@@ -21,7 +21,7 @@ contract AuditorTest is Test {
 
   function setUp() external {
     oracle = new MockOracle();
-    auditor = new Auditor(ExactlyOracle(address(oracle)), 1.1e18);
+    auditor = new Auditor(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     fixedLender = new MockFixedLender(auditor);
     vm.label(BOB, "bob");
   }

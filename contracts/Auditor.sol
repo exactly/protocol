@@ -11,6 +11,11 @@ import { PoolLib } from "./utils/PoolLib.sol";
 contract Auditor is AccessControl {
   using FixedPointMathLib for uint256;
 
+  struct LiquidationIncentive {
+    uint128 liquidator;
+    uint128 lenders;
+  }
+
   // Struct to avoid stack too deep
   struct AccountLiquidity {
     uint256 balance;
@@ -46,7 +51,7 @@ contract Auditor is AccessControl {
   mapping(address => uint256) public accountMarkets;
   mapping(FixedLender => Market) public markets;
 
-  uint256 public liquidationIncentive;
+  LiquidationIncentive public liquidationIncentive;
   FixedLender[] public allMarkets;
 
   ExactlyOracle public oracle;
@@ -72,14 +77,14 @@ contract Auditor is AccessControl {
 
   /// @notice Event emitted when a new liquidationIncentive has been set.
   /// @param newLiquidationIncentive represented with 18 decimals.
-  event LiquidationIncentiveSet(uint256 newLiquidationIncentive);
+  event LiquidationIncentiveSet(LiquidationIncentive newLiquidationIncentive);
 
   /// @notice Event emitted when a adjust factor is changed by admin.
   /// @param fixedLender address of the market that has a new adjust factor.
   /// @param newAdjustFactor adjust factor for the underlying asset.
   event AdjustFactorSet(FixedLender indexed fixedLender, uint256 newAdjustFactor);
 
-  constructor(ExactlyOracle oracle_, uint256 liquidationIncentive_) {
+  constructor(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setOracle(oracle_);
@@ -133,11 +138,20 @@ contract Auditor is AccessControl {
 
   /// @notice Sets liquidation incentive for the whole ecosystem.
   /// @dev Value can only be set between 20% and 5%.
-  /// @param _liquidationIncentive new liquidation incentive. It's a factor, so 15% would be 1.15e18.
-  function setLiquidationIncentive(uint256 _liquidationIncentive) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (_liquidationIncentive > 1.2e18 || _liquidationIncentive < 1.05e18) revert InvalidParameter();
-    liquidationIncentive = _liquidationIncentive;
-    emit LiquidationIncentiveSet(_liquidationIncentive);
+  /// @param liquidationIncentive_ new liquidation incentive.
+  function setLiquidationIncentive(LiquidationIncentive memory liquidationIncentive_)
+    public
+    onlyRole(DEFAULT_ADMIN_ROLE)
+  {
+    if (
+      liquidationIncentive_.liquidator > 0.2e18 ||
+      liquidationIncentive_.liquidator < 0.05e18 ||
+      liquidationIncentive_.lenders > 0.1e18
+    ) {
+      revert InvalidParameter();
+    }
+    liquidationIncentive = liquidationIncentive_;
+    emit LiquidationIncentiveSet(liquidationIncentive_);
   }
 
   /// @notice Enables a certain FixedLender market.
@@ -256,15 +270,19 @@ contract Auditor is AccessControl {
 
     if (usd.adjustedCollateral >= usd.adjustedDebt) revert InsufficientShortfall();
 
+    LiquidationIncentive memory memIncentive = liquidationIncentive;
     uint256 adjustFactor = usd.adjustedCollateral.mulDivUp(
       usd.totalDebt,
       usd.totalCollateral.mulWadDown(usd.adjustedDebt)
     );
     uint256 closeFactor = (TARGET_HEALTH - usd.adjustedCollateral.divWadUp(usd.adjustedDebt)).divWadUp(
-      TARGET_HEALTH - adjustFactor.mulWadDown(liquidationIncentive)
+      TARGET_HEALTH - adjustFactor.mulWadDown(1e18 + memIncentive.liquidator + memIncentive.lenders)
     );
     maxRepayAssets = Math
-      .min(usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)), usd.seizeAvailable.divWadUp(liquidationIncentive))
+      .min(
+        usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)),
+        usd.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
+      )
       .mulDivUp(10**repay.decimals, repay.price);
     moreCollateral = usd.totalCollateral > usd.seizeAvailable;
   }
@@ -305,7 +323,7 @@ contract Auditor is AccessControl {
     // 10**18: usd amount decimals
     uint256 seizeAssets = amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral);
 
-    return seizeAssets.mulWadDown(liquidationIncentive);
+    return seizeAssets.mulWadDown(1e18 + liquidationIncentive.liquidator + liquidationIncentive.lenders);
   }
 
   /// @notice Retrieves all markets.
