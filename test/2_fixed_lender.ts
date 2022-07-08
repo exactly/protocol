@@ -56,21 +56,21 @@ describe("FixedLender", function () {
   });
 
   describe("small positions", () => {
-    describe("WHEN depositing 2wei of a dai", () => {
+    describe("WHEN depositing 3wei of a dai", () => {
       beforeEach(async () => {
-        await fixedLenderDAI.deposit(2, maria.address);
+        await fixedLenderDAI.deposit(3, maria.address);
         // we add liquidity to the maturity
-        await fixedLenderDAI.depositAtMaturity(futurePools(1)[0], 2, 0, maria.address);
+        await fixedLenderDAI.depositAtMaturity(futurePools(1)[0], 3, 0, maria.address);
       });
-      it("THEN the FixedLender registers a supply of 2 wei DAI for the user (exposed via getAccountSnapshot)", async () => {
-        expect(await fixedLenderDAI.maxWithdraw(maria.address)).to.equal(2);
+      it("THEN the FixedLender registers a supply of 3 wei DAI for the user (exposed via getAccountSnapshot)", async () => {
+        expect(await fixedLenderDAI.maxWithdraw(maria.address)).to.equal(3);
       });
-      it("AND the Market Size of the smart pool is 2 wei of a dai", async () => {
-        expect(await fixedLenderDAI.totalAssets()).to.equal(2);
+      it("AND the Market Size of the smart pool is 3 wei of a dai", async () => {
+        expect(await fixedLenderDAI.totalAssets()).to.equal(3);
       });
-      it("AND its not possible to borrow 2 wei of a dai", async () => {
+      it("AND its not possible to borrow 3 wei of a dai", async () => {
         await expect(
-          fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 2, 2, maria.address, maria.address),
+          fixedLenderDAI.borrowAtMaturity(futurePools(1)[0], 3, 6, maria.address, maria.address),
         ).to.be.revertedWith("InsufficientLiquidity()");
       });
       describe("AND WHEN borrowing 1 wei of DAI", () => {
@@ -83,8 +83,8 @@ describe("FixedLender", function () {
             .to.emit(fixedLenderDAI, "BorrowAtMaturity")
             .withArgs(futurePools(1)[0], maria.address, maria.address, maria.address, 1, 0);
         });
-        it("AND the Market Size of the smart pool remains in 2 wei of a dai", async () => {
-          expect(await fixedLenderDAI.totalAssets()).to.be.equal(2);
+        it("AND the Market Size of the smart pool remains in 3 wei of a dai", async () => {
+          expect(await fixedLenderDAI.totalAssets()).to.be.equal(3);
         });
         it("AND a 1 wei of DAI borrow is registered", async () => {
           expect((await fixedLenderDAI.fixedPools(futurePools(1)[0]))[0]).to.equal(1);

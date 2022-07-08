@@ -79,25 +79,6 @@ contract Auditor is AccessControl {
   /// @param newAdjustFactor adjust factor for the underlying asset.
   event AdjustFactorSet(FixedLender indexed fixedLender, uint256 newAdjustFactor);
 
-  event log(string);
-  event logs(bytes);
-
-  event log_address(address);
-  event log_bytes32(bytes32);
-  event log_int(int256);
-  event log_uint(uint256);
-  event log_bytes(bytes);
-  event log_string(string);
-
-  event log_named_address(string key, address val);
-  event log_named_bytes32(string key, bytes32 val);
-  event log_named_decimal_int(string key, int256 val, uint256 decimals);
-  event log_named_decimal_uint(string key, uint256 val, uint256 decimals);
-  event log_named_int(string key, int256 val);
-  event log_named_uint(string key, uint256 val);
-  event log_named_bytes(string key, bytes val);
-  event log_named_string(string key, string val);
-
   constructor(ExactlyOracle oracle_, uint256 liquidationIncentive_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
@@ -234,7 +215,7 @@ contract Auditor is AccessControl {
     FixedLender seizeMarket,
     address liquidator,
     address borrower
-  ) external returns (uint256 maxRepayAssets, bool moreCollateral) {
+  ) external view returns (uint256 maxRepayAssets, bool moreCollateral) {
     if (borrower == liquidator) revert SelfLiquidation();
 
     // if markets are listed, they have the same auditor
@@ -257,22 +238,6 @@ contract Auditor is AccessControl {
         if (market == repayMarket) repay = m;
 
         (uint256 collateral, uint256 debt) = market.getAccountSnapshot(borrower);
-
-        emit log_named_uint("decimals", m.decimals);
-        emit log_named_decimal_uint("        collateral", collateral, m.decimals);
-        emit log_named_decimal_uint("              debt", debt, m.decimals);
-        emit log_named_decimal_uint("             price", m.price, 18);
-        emit log_named_decimal_uint("      adjustFactor", m.adjustFactor, 18);
-        emit log_named_decimal_uint(
-          "adjustedCollateral",
-          collateral.mulDivDown(m.price, 10**m.decimals).mulWadDown(m.adjustFactor),
-          18
-        );
-        emit log_named_decimal_uint(
-          "      adjustedDebt",
-          debt.mulDivUp(m.price, 10**m.decimals).divWadUp(m.adjustFactor),
-          18
-        );
 
         uint256 value = debt.mulDivUp(m.price, 10**m.decimals);
         usd.totalDebt += value;
@@ -302,21 +267,6 @@ contract Auditor is AccessControl {
       .min(usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)), usd.seizeAvailable.divWadUp(liquidationIncentive))
       .mulDivUp(10**repay.decimals, repay.price);
     moreCollateral = usd.totalCollateral > usd.seizeAvailable;
-
-    emit log("global");
-    emit log_named_decimal_uint("   totalCollateral", usd.totalCollateral, 18);
-    emit log_named_decimal_uint("adjustedCollateral", usd.adjustedCollateral, 18);
-    emit log_named_decimal_uint("  collateralFactor", usd.adjustedCollateral.divWadUp(usd.totalCollateral), 18);
-    emit log_named_decimal_uint("         totalDebt", usd.totalDebt, 18);
-    emit log_named_decimal_uint("      adjustedDebt", usd.adjustedDebt, 18);
-    emit log_named_decimal_uint("        debtFactor", usd.totalDebt.divWadUp(usd.adjustedDebt), 18);
-    emit log_named_decimal_uint("      adjustFactor", adjustFactor, 18);
-    emit log_named_decimal_uint("      healthFactor", usd.adjustedCollateral.divWadUp(usd.adjustedDebt), 18);
-    emit log_named_decimal_uint("       closeFactor", closeFactor, 18);
-    emit log_named_decimal_uint("       maxRepayUSD", usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)), 18);
-    emit log_named_uint("    repay.decimals", repay.decimals);
-    emit log_named_decimal_uint("       repay.price", repay.price, 18);
-    emit log_named_decimal_uint("    maxRepayAssets", maxRepayAssets, repay.decimals);
   }
 
   /// @notice Allow/rejects seizing of assets.
@@ -387,12 +337,12 @@ contract Auditor is AccessControl {
   /// @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args).
   /// @param withdrawAmount amount to simulate withdraw.
   /// @return sumCollateral sum of all collateral, already multiplied by each adjust factor. denominated in usd.
-  /// @return sumDebt sum of all debt. denominated in usd.
+  /// @return sumDebtPlusEffects sum of all debt. denominated in usd.
   function accountLiquidity(
     address account,
     FixedLender fixedLenderToSimulate,
     uint256 withdrawAmount
-  ) public view returns (uint256 sumCollateral, uint256 sumDebt) {
+  ) public view returns (uint256 sumCollateral, uint256 sumDebtPlusEffects) {
     AccountLiquidity memory vars; // Holds all our calculation results
 
     // For each asset the account is in
@@ -414,15 +364,14 @@ contract Auditor is AccessControl {
         sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
 
         // We sum all the debt
-        sumDebt += vars.borrowBalance.mulDivDown(vars.oraclePrice, 10**decimals);
-        // sumDebt += vars.borrowBalance.mulDivUp(vars.oraclePrice, 10**decimals).divWadUp(adjustFactor);
+        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.oraclePrice, 10**decimals).divWadUp(adjustFactor);
 
-        // Simulate the effects of borrowing from/lending to a pool
-        if (market == FixedLender(fixedLenderToSimulate)) {
+        // Simulate the effects of withdrawing from a pool
+        if (market == fixedLenderToSimulate) {
           // Calculate the effects of redeeming fixedLenders
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
-            sumDebt += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
+            sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
           }
         }
       }

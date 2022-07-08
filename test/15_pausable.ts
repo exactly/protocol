@@ -66,7 +66,7 @@ describe("FixedLender - Pausable", function () {
         );
       });
       it("THEN it should revert when trying to liquidate a maturity pool position", async () => {
-        await expect(fixedLender.liquidate(owner.address, "0", "0", fixedLender.address)).to.be.revertedWith(
+        await expect(fixedLender.liquidate(owner.address, "0", fixedLender.address)).to.be.revertedWith(
           "Pausable: paused",
         );
       });

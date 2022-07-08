@@ -54,25 +54,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   uint256 public smartPoolAssets;
   uint256 public smartPoolAssetsAverage;
 
-  event log(string);
-  event logs(bytes);
-
-  event log_address(address);
-  event log_bytes32(bytes32);
-  event log_int(int256);
-  event log_uint(uint256);
-  event log_bytes(bytes);
-  event log_string(string);
-
-  event log_named_address(string key, address val);
-  event log_named_bytes32(string key, bytes32 val);
-  event log_named_decimal_int(string key, int256 val, uint256 decimals);
-  event log_named_decimal_uint(string key, uint256 val, uint256 decimals);
-  event log_named_int(string key, int256 val);
-  event log_named_uint(string key, uint256 val);
-  event log_named_bytes(string key, bytes val);
-  event log_named_string(string key, string val);
-
   /// @notice Event emitted when a user deposits an amount of an asset to a certain fixed rate pool collecting a fee at
   /// the end of the period.
   /// @param maturity maturity at which the user will be able to collect his deposit + his fee.
@@ -429,23 +410,19 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       (maxRepay, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, msg.sender, borrower);
       maxAssets = Math.min(maxRepay, maxAssets);
     }
+    if (maxAssets == 0) revert ZeroRepay();
 
     uint256 packedMaturities = fixedBorrows[borrower];
     uint256 baseMaturity = packedMaturities % (1 << 32);
     packedMaturities = packedMaturities >> 32;
     for (uint256 i = 0; i < 224; ) {
-      emit log("------------");
-      emit log_named_uint("   maxAssets", maxAssets);
       if ((packedMaturities & (1 << i)) != 0) {
         uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
-
         if (maxAssets > 0) {
           uint256 actualRepay;
-
           if (block.timestamp < maturity) {
-            uint256 coveredDebt;
-            (actualRepay, coveredDebt) = noTransferRepay(maturity, maxAssets, maxAssets, borrower);
-            maxAssets -= coveredDebt; // ignore early repay discount
+            actualRepay = noTransferRepay(maturity, maxAssets, maxAssets, borrower, false);
+            maxAssets -= actualRepay;
           } else {
             uint256 position;
             {
@@ -455,25 +432,22 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
             uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
             actualRepay = debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets;
 
-            emit log_named_uint("    position", position);
-            emit log_named_uint("        debt", debt);
-            emit log_named_uint("liqPosAssets", actualRepay);
-
             if (actualRepay == 0) maxAssets = 0;
             else {
-              (actualRepay, ) = noTransferRepay(
-                maturity,
-                actualRepay,
-                maxAssets,
-                borrower
-              );
+              actualRepay = noTransferRepay(maturity, actualRepay, maxAssets, borrower, false);
               maxAssets -= actualRepay;
+
+              {
+                PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
+                position = p.principal + p.fee;
+              }
+              debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
+              if ((debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets) == 0) maxAssets = 0;
             }
           }
-
           repaidAssets += actualRepay;
-          emit log_named_uint(" actualRepay", actualRepay);
-          emit log_named_uint("maxAssets(1)", maxAssets);
+
+          if ((1 << (i + 1)) > packedMaturities) maxAssets = 0;
 
           if (maxAssets == 0) {
             // reverts on failure
@@ -499,7 +473,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
           PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
           uint256 debt = position.principal + position.fee;
           if (debt > 0) {
-            emit log_named_uint("    bad debt", debt);
             smartPoolBorrowed -= position.principal;
 
             {
@@ -795,7 +768,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
-    (actualRepayAssets, ) = noTransferRepay(maturity, positionAssets, maxAssets, borrower);
+    actualRepayAssets = noTransferRepay(maturity, positionAssets, maxAssets, borrower, true);
     asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
   }
 
@@ -810,8 +783,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 maturity,
     uint256 positionAssets,
     uint256 maxAssets,
-    address borrower
-  ) internal returns (uint256 actualRepayAssets, uint256 debtCovered) {
+    address borrower,
+    bool canDiscount
+  ) internal returns (uint256 actualRepayAssets) {
     if (positionAssets == 0) revert ZeroRepay();
 
     PoolLib.FixedPool storage pool = fixedPools[maturity];
@@ -820,7 +794,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
 
-    debtCovered = Math.min(positionAssets, position.principal + position.fee);
+    uint256 debtCovered = Math.min(positionAssets, position.principal + position.fee);
 
     PoolLib.Position memory scaleDebtCovered = PoolLib.Position(position.principal, position.fee).scaleProportionally(
       debtCovered
@@ -828,37 +802,31 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     // Early repayment allows you to get a discount from the unassigned earnings
     if (block.timestamp < maturity) {
-      // We calculate the deposit fee considering the amount of debt the user'll pay
-      (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
-        pool.smartPoolBorrowed(),
-        pool.earningsUnassigned,
-        scaleDebtCovered.principal
-      );
+      if (canDiscount) {
+        // We calculate the deposit fee considering the amount of debt the user'll pay
+        (uint256 discountFee, uint256 feeSP) = interestRateModel.getYieldForDeposit(
+          pool.smartPoolBorrowed(),
+          pool.earningsUnassigned,
+          scaleDebtCovered.principal
+        );
 
-      // We remove the fee from unassigned earnings
-      pool.earningsUnassigned -= discountFee + feeSP;
+        // We remove the fee from unassigned earnings
+        pool.earningsUnassigned -= discountFee + feeSP;
 
-      // The fee gets discounted from the user through `repayAmount`
-      actualRepayAssets = debtCovered - discountFee;
+        // The fee charged to the MP supplier go to the smart pool accumulator
+        smartPoolEarningsAccumulator += feeSP;
 
-      // The fee charged to the MP supplier go to the smart pool accumulator
-      smartPoolEarningsAccumulator += feeSP;
+        // The fee gets discounted from the user through `repayAmount`
+        actualRepayAssets = debtCovered - discountFee;
+      } else {
+        actualRepayAssets = debtCovered;
+      }
     } else {
       actualRepayAssets = debtCovered + debtCovered.mulWadDown((block.timestamp - maturity) * penaltyRate);
 
       // All penalties go to the smart pool accumulator
       smartPoolEarningsAccumulator += actualRepayAssets - debtCovered;
-
-      emit log_named_uint(
-        "xxxxxxxxxxxxxxxxx",
-        (debtCovered - 1) + (debtCovered - 1).mulWadDown((block.timestamp - maturity) * penaltyRate)
-      );
-      emit log_named_uint("      debtCovered", debtCovered);
-      emit log_named_uint("        penalties", actualRepayAssets - debtCovered);
     }
-
-    emit log_named_uint("actualRepayAssets", actualRepayAssets);
-    emit log_named_uint("        maxAssets", maxAssets);
 
     // We verify that the user agrees to this discount or penalty
     if (actualRepayAssets > maxAssets) revert TooMuchSlippage();

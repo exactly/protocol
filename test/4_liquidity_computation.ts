@@ -122,18 +122,18 @@ describe("Liquidity computations", function () {
         });
       });
 
-      describe("AND WHEN laura asks for a 800 DAI loan", () => {
+      describe("AND WHEN laura asks for a 640 DAI loan (640 / 0.8 = 800)", () => {
         beforeEach(async () => {
           // we add liquidity to the maturity
           await fixedLenderDAI.depositAtMaturity(
             futurePools(1)[0],
-            parseUnits("800"),
-            parseUnits("800"),
+            parseUnits("640"),
+            parseUnits("640"),
             laura.address,
           );
           await fixedLenderDAI.borrowAtMaturity(
             futurePools(1)[0],
-            parseUnits("800"),
+            parseUnits("640"),
             parseUnits("800"),
             laura.address,
             laura.address,
@@ -143,17 +143,17 @@ describe("Liquidity computations", function () {
           const [collateral, debt] = await auditor.accountLiquidity(laura.address, AddressZero, 0);
           expect(collateral).to.equal(debt);
         });
-        it("AND she has 799+interest debt and is owed 1000DAI", async () => {
+        it("AND she has 640 debt and is owed 1000DAI", async () => {
           const [supplied, borrowed] = await fixedLenderDAI.getAccountSnapshot(laura.address);
 
           expect(supplied).to.equal(parseUnits("1000"));
-          expect(borrowed).to.equal(parseUnits("800"));
+          expect(borrowed).to.equal(parseUnits("640"));
         });
         it("AND WHEN laura tries to exit her collateral DAI market it reverts since there's unpaid debt", async () => {
           await expect(auditor.exitMarket(fixedLenderDAI.address)).to.be.revertedWith("BalanceOwed()");
         });
         it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
-          await fixedLenderDAI.repayAtMaturity(futurePools(1)[0], parseUnits("800"), parseUnits("800"), laura.address);
+          await fixedLenderDAI.repayAtMaturity(futurePools(1)[0], parseUnits("640"), parseUnits("640"), laura.address);
           await expect(auditor.exitMarket(fixedLenderDAI.address)).to.not.be.reverted;
         });
         describe("AND GIVEN laura deposits more collateral for another asset", () => {
@@ -183,11 +183,11 @@ describe("Liquidity computations", function () {
         );
         await fixedLenderUSDC.connect(bob).deposit(parseUnits("10000", 6), bob.address);
       });
-      describe("WHEN bob asks for a 7k dai loan (10k usdc should give him 8k usd liquidity)", () => {
+      describe("WHEN bob asks for a 5600 dai loan (10k usdc should give him 6400 DAI liquidity)", () => {
         beforeEach(async () => {
           await fixedLenderDAI
             .connect(bob)
-            .borrowAtMaturity(futurePools(1)[0], parseUnits("7000"), parseUnits("7000"), bob.address, bob.address);
+            .borrowAtMaturity(futurePools(1)[0], parseUnits("5600"), parseUnits("5600"), bob.address, bob.address);
         });
         it("THEN bob has 1k usd liquidity and no shortfall", async () => {
           const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
@@ -209,7 +209,7 @@ describe("Liquidity computations", function () {
             // This is because we need to take into account the fixed rates
             // that the borrow and the lent got at the time of the transaction
             const totalSupplyAmount = parseUnits("10000");
-            const totalBorrowAmount = parseUnits("7000");
+            const totalBorrowAmount = parseUnits("5400");
             const calculatedLiquidity = totalSupplyAmount.sub(
               totalBorrowAmount.mul(2).mul(5).div(100), // 2% * 5 days
             );
@@ -281,9 +281,9 @@ describe("Liquidity computations", function () {
               .connect(bob)
               .borrowAtMaturity(futurePools(1)[0], "300", "300", bob.address, bob.address);
           });
-          it("THEN he has 7.8*10^13 usd left of liquidity", async () => {
+          it("THEN he has 3*10^12 usd left of liquidity", async () => {
             const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
-            expect(collateral.sub(debt)).to.equal(parseUnits("7.8", 13));
+            expect(collateral.sub(debt)).to.equal(parseUnits("3", 12));
           });
         });
       });
@@ -331,8 +331,8 @@ describe("Liquidity computations", function () {
               .connect(bob)
               .borrowAtMaturity(
                 futurePools(1)[0],
-                parseUnits("0.5", 8),
-                parseUnits("0.5", 8),
+                parseUnits("0.45", 8),
+                parseUnits("0.45", 8),
                 bob.address,
                 bob.address,
               );
@@ -343,9 +343,9 @@ describe("Liquidity computations", function () {
           // collateral to withdraw is passed as the supplyAmount
           it("WHEN he tries to withdraw the usdc (6 decimals) collateral, THEN it reverts ()", async () => {
             // We expect liquidity to be equal to zero
-            await expect(
-              fixedLenderUSDC.withdraw(parseUnits("40000", 6), laura.address, laura.address),
-            ).to.be.revertedWith("InsufficientLiquidity()");
+            await expect(fixedLenderUSDC.withdraw(parseUnits("40000", 6), bob.address, bob.address)).to.be.revertedWith(
+              "InsufficientLiquidity()",
+            );
           });
         });
       });
