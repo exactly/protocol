@@ -308,22 +308,22 @@ contract Auditor is AccessControl {
   /// @notice Calculates the amount of collateral to be seized when a position is undercollateralized.
   /// @param repayMarket market from where the debt is pending.
   /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
-  /// @param actualRepayAmount repay amount in the borrowed asset.
-  /// @return amount of collateral to be seized.
+  /// @param actualRepayAssets repay amount in the borrowed asset.
   function liquidateCalculateSeizeAmount(
     FixedLender repayMarket,
     FixedLender seizeMarket,
-    uint256 actualRepayAmount
-  ) external view returns (uint256) {
+    uint256 actualRepayAssets
+  ) external view returns (uint256 seizeAssets, uint256 lendersAssets) {
     // Read oracle prices for borrowed and collateral markets
     uint256 priceBorrowed = oracle.getAssetPrice(repayMarket);
     uint256 priceCollateral = oracle.getAssetPrice(seizeMarket);
 
-    uint256 amountInUSD = actualRepayAmount.mulDivDown(priceBorrowed, 10**markets[repayMarket].decimals);
+    uint256 amountInUSD = actualRepayAssets.mulDivDown(priceBorrowed, 10**markets[repayMarket].decimals);
     // 10**18: usd amount decimals
-    uint256 seizeAssets = amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral);
-
-    return seizeAssets.mulWadDown(1e18 + liquidationIncentive.liquidator + liquidationIncentive.lenders);
+    seizeAssets = amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadDown(
+      1e18 + liquidationIncentive.liquidator
+    );
+    lendersAssets = actualRepayAssets.mulWadDown(liquidationIncentive.lenders);
   }
 
   /// @notice Retrieves all markets.

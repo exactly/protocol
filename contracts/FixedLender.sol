@@ -119,12 +119,14 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param receiver address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
   /// @param assets amount of the asset that were repaid.
+  /// @param lendersAssets incentive paid to lenders.
   /// @param collateralMarket address of the asset that were seized by the liquidator.
   /// @param seizedAssets amount seized of the collateral.
   event LiquidateBorrow(
     address indexed receiver,
     address indexed borrower,
     uint256 assets,
+    uint256 lendersAssets,
     FixedLender indexed collateralMarket,
     uint256 seizedAssets
   );
@@ -409,6 +411,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       uint256 maxRepay;
       (maxRepay, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, msg.sender, borrower);
       maxAssets = Math.min(maxRepay, maxAssets);
+
+      (, uint256 lendersIncentive) = auditor.liquidationIncentive();
+      maxAssets = maxAssets.divWadDown(1e18 + lendersIncentive); 
     }
     if (maxAssets == 0) revert ZeroRepay();
 
@@ -451,7 +456,11 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
           if (maxAssets == 0) {
             // reverts on failure
-            uint256 seizeAssets = auditor.liquidateCalculateSeizeAmount(this, collateralMarket, repaidAssets);
+            (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
+              this,
+              collateralMarket,
+              repaidAssets
+            );
 
             moreCollateral =
               (
@@ -463,9 +472,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
               ) ||
               moreCollateral;
 
-            emit LiquidateBorrow(msg.sender, borrower, repaidAssets, collateralMarket, seizeAssets);
+            emit LiquidateBorrow(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, seizeAssets);
 
-            asset.safeTransferFrom(msg.sender, address(this), repaidAssets);
+            asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
           }
         }
 
