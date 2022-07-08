@@ -82,9 +82,9 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith("InvalidPrice()");
   });
 
-  it("SeizeAllowed should fail when liquidator is borrower", async () => {
+  it("CheckSeize should fail when liquidator is borrower", async () => {
     await expect(
-      auditor.seizeAllowed(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, owner.address),
+      auditor.checkSeize(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, owner.address),
     ).to.be.revertedWith("SelfLiquidation()");
   });
 
@@ -100,9 +100,7 @@ describe("Auditor from User Space", function () {
     await fixedLenderDAI.deposit(100, user.address);
 
     // we make it count as collateral (DAI)
-    await expect(auditor.validateBorrow(fixedLenderDAI.address, owner.address)).to.be.revertedWith(
-      "NotFixedLender()",
-    );
+    await expect(auditor.validateBorrow(fixedLenderDAI.address, owner.address)).to.be.revertedWith("NotFixedLender()");
   });
 
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {

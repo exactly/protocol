@@ -47,12 +47,12 @@ describe("Validations", function () {
         auditor.checkLiquidation(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
     });
-    it("WHEN trying to call seizeAllowed, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
+    it("WHEN trying to call checkSeize, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
-        auditor.seizeAllowed(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
+        auditor.checkSeize(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
       await expect(
-        auditor.seizeAllowed(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
+        auditor.checkSeize(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
       ).to.be.revertedWith("MarketNotListed()");
     });
   });

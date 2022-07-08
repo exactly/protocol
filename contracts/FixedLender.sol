@@ -393,7 +393,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     _unpause();
   }
 
-  /// @notice Liquidates uncollaterized position(s).
+  /// @notice Liquidates undercollateralized position(s).
   /// @dev Msg.sender liquidates borrower's position(s) and repays a certain amount of debt for multiple maturities,
   /// seizing a part of borrower's collateral.
   /// @param borrower wallet that has an outstanding debt across all maturities.
@@ -876,7 +876,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (assets == 0) revert ZeroWithdraw();
 
     // reverts on failure
-    auditor.seizeAllowed(this, seizerFixedLender, liquidator, borrower);
+    auditor.checkSeize(this, seizerFixedLender, liquidator, borrower);
 
     uint256 shares = previewWithdraw(assets);
     beforeWithdraw(assets, shares);

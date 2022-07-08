@@ -71,7 +71,7 @@ contract Auditor is AccessControl {
   event OracleSet(ExactlyOracle newOracle);
 
   /// @notice Event emitted when a new liquidationIncentive has been set.
-  /// @param newLiquidationIncentive represented with 1e18 decimals.
+  /// @param newLiquidationIncentive represented with 18 decimals.
   event LiquidationIncentiveSet(uint256 newLiquidationIncentive);
 
   /// @notice Event emitted when a adjust factor is changed by admin.
@@ -275,7 +275,7 @@ contract Auditor is AccessControl {
   /// @param repayMarket market from where the debt will be paid.
   /// @param liquidator address to validate where the seized assets will be received.
   /// @param borrower address to validate where the assets will be removed.
-  function seizeAllowed(
+  function checkSeize(
     FixedLender seizeMarket,
     FixedLender repayMarket,
     address liquidator,
@@ -287,7 +287,7 @@ contract Auditor is AccessControl {
     if (!markets[seizeMarket].isListed || !markets[repayMarket].isListed) revert MarketNotListed();
   }
 
-  /// @notice Calculates the amount of collateral to be seized when a position is undercollaterized.
+  /// @notice Calculates the amount of collateral to be seized when a position is undercollateralized.
   /// @param repayMarket market from where the debt is pending.
   /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
   /// @param actualRepayAmount repay amount in the borrowed asset.
@@ -303,9 +303,9 @@ contract Auditor is AccessControl {
 
     uint256 amountInUSD = actualRepayAmount.mulDivDown(priceBorrowed, 10**markets[repayMarket].decimals);
     // 10**18: usd amount decimals
-    uint256 seizeTokens = amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral);
+    uint256 seizeAssets = amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral);
 
-    return seizeTokens.mulWadDown(liquidationIncentive);
+    return seizeAssets.mulWadDown(liquidationIncentive);
   }
 
   /// @notice Retrieves all markets.
