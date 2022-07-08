@@ -62,7 +62,8 @@ contract FixedLenderTest is Test {
   event LiquidateBorrow(
     address indexed receiver,
     address indexed borrower,
-    uint256 assets,
+    uint256 repaidAssets,
+    uint256 lendersAssets,
     FixedLender indexed collateralFixedLender,
     uint256 seizedAssets
   );
@@ -550,8 +551,8 @@ contract FixedLenderTest is Test {
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(fixedLender));
-    emit LiquidateBorrow(BOB, address(this), 10454545454545454545, fixedLenderWETH, 1.15 ether);
-    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
+    emit LiquidateBorrow(BOB, address(this), 10454545454545454545, 104545454545454545, fixedLenderWETH, 1.15 ether);
+    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
       FixedLender(address(0)),
@@ -569,6 +570,7 @@ contract FixedLenderTest is Test {
     fixedLender.deposit(5_000 ether, ALICE);
     fixedLender.setPenaltyRate(2e11);
     mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
     mockOracle.setPrice(fixedLenderWETH, 1_000e18);
@@ -639,6 +641,7 @@ contract FixedLenderTest is Test {
     fixedLender.deposit(5_000 ether, ALICE);
     fixedLender.setPenaltyRate(2e11);
     mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     for (uint256 i = 1; i <= 3; i++) {
       fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
@@ -658,10 +661,35 @@ contract FixedLenderTest is Test {
     assertGt(remainingDebt, 0);
 
     vm.prank(BOB);
-    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
+    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
     (remainingCollateral, remainingDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(remainingCollateral, 0);
     assertEq(remainingDebt, 0);
+  }
+
+  function testLiquidateAndChargeIncentiveForLenders() external {
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLenderWETH.deposit(1.15 ether, address(this));
+    fixedLender.deposit(50_000 ether, ALICE);
+    fixedLender.setMaxFuturePools(12);
+
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    for (uint256 i = 1; i <= 4; i++) {
+      fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+    }
+    mockOracle.setPrice(fixedLenderWETH, 3_000e18);
+
+    uint256 bobDAIBalanceBefore = ERC20(fixedLender.asset()).balanceOf(BOB);
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), 5_000_000 ether, fixedLenderWETH);
+    uint256 bobDAIBalanceAfter = ERC20(fixedLender.asset()).balanceOf(BOB);
+    // if 110% is 1.15 ether then 100% is 1.0454545455 ether * 3_000 (eth price) = 3136363636363636363637
+    // bob will repay 1% of that amount
+    uint256 totalBobRepayment = uint256(3136363636363636363637).mulWadDown(1.01e18);
+
+    // BOB STILL SEIZES ALL USER COLLATERAL
+    assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
+    assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment);
   }
 
   function testLiquidateAndDistributeLosses() external {
@@ -679,16 +707,17 @@ contract FixedLenderTest is Test {
     uint256 bobDAIBalanceBefore = ERC20(fixedLender.asset()).balanceOf(BOB);
     uint256 smartPoolAssetsBefore = fixedLender.smartPoolAssets();
     vm.prank(BOB);
-    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
+    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
     uint256 bobDAIBalanceAfter = ERC20(fixedLender.asset()).balanceOf(BOB);
     uint256 smartPoolAssetsAfter = fixedLender.smartPoolAssets();
     uint256 totalUsdDebt = 1_000 ether * 4;
     // if 110% is 1.15 ether then 100% is 1.0454545455 ether * 3_000 (eth price) = 3136363636363636363637
     uint256 totalBobRepayment = 3136363636363636363637;
+    uint256 lendersIncentive = uint256(3136363636363636363637).mulWadDown(0.01e18);
 
     // BOB SEIZES ALL USER COLLATERAL
     assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
-    assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment);
+    assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment + lendersIncentive);
     assertEq(smartPoolAssetsBefore - smartPoolAssetsAfter, totalUsdDebt - totalBobRepayment);
     assertEq(fixedLender.fixedBorrows(address(this)), 0);
     for (uint256 i = 1; i <= 4; i++) {
@@ -713,21 +742,6 @@ contract FixedLenderTest is Test {
     fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 5_000 ether, 5_500 ether, address(ALICE), address(ALICE));
     mockOracle.setPrice(fixedLenderWETH, 100e18);
 
-    // 114600550470736640121
-    // 118181280049793543883
-    // 118181818181818181819
-
-    // 118181818181818181819
-
-    // (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
-    //   address(this),
-    //   FixedLender(address(0)),
-    //   0
-    // );
-    // 117000000000000000000
-    // emit Debug("remainingCollateral", remainingCollateral);
-    // emit Debug("remainingDebt      ", remainingDebt);
-
     vm.warp(TSUtils.INTERVAL * 2);
 
     (uint256 principal, uint256 fee) = fixedLender.fixedBorrowPositions(TSUtils.INTERVAL, ALICE);
@@ -735,54 +749,22 @@ contract FixedLenderTest is Test {
     vm.prank(ALICE);
     fixedLender.repayAtMaturity(TSUtils.INTERVAL, principal + fee, debt, address(ALICE));
     uint256 smartPoolEarningsAccumulator = fixedLender.smartPoolEarningsAccumulator();
+    uint256 smartPoolAssets = fixedLender.smartPoolAssets();
 
     assertEq(smartPoolEarningsAccumulator, debt - principal - fee);
 
-    // 4400000000000000000000
-    // --23636363636363636364
     vm.prank(BOB);
-    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
+    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
 
-    // (uint256 balance, ) = fixedLenderWETH.getAccountSnapshot(address(this));
-    // uint256 usdCollateralContract = uint256(1.5 ether).mulWadDown(3_000e18);
+    uint256 badDebt = 981818181818181818181 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
+    uint256 earningsSPDistributedInRepayment = 66666662073779496497;
 
-    // (, amountOwedByContract) = fixedLender.getAccountSnapshot(address(this));
-    // (uint256 balance, ) = fixedLenderWETH.getAccountSnapshot(address(this));
-    // emit Debug("amountOwedByContract", amountOwedByContract);
-    // emit Debug("balance             ", balance);
-    // emit Debug("balance             ", balance);
-
-    // assertEq(remainingCollateral, 0);
-    // assertEq(remainingDebt, 0);
-
-    // emit Debug("smartPoolEarningsAccumulator              ", smartPoolEarningsAccumulator);
-    // emit Debug("fixedLender.smartPoolEarningsAccumulator()", fixedLender.smartPoolEarningsAccumulator());
-    // assertEq(
-    //   smartPoolEarningsAccumulator - fixedLender.smartPoolEarningsAccumulator(),
-    //   amountOwedByContract - usdCollateralContract
-    // );
-    // 4932224000000000000000
-    // 4500
-
-    // uint256 bobDAIBalanceBefore = ERC20(fixedLender.asset()).balanceOf(BOB);
-    // uint256 smartPoolAssetsBefore = fixedLender.smartPoolAssets();
-    // vm.prank(BOB);
-    // fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
-    // uint256 bobDAIBalanceAfter = ERC20(fixedLender.asset()).balanceOf(BOB);
-    // uint256 smartPoolAssetsAfter = fixedLender.smartPoolAssets();
-    // uint256 totalUsdDebt = 1_000 ether * 4;
-    // // if 110% is 1.15 ether then 100% is 1.0454545455 ether * 3_000 (eth price) = 3136363636363636363637
-    // uint256 totalBobRepayment = 3136363636363636363637;
-
-    // // BOB SEIZES ALL USER COLLATERAL
-    // assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
-    // assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment);
-    // assertEq(smartPoolAssetsBefore - smartPoolAssetsAfter, totalUsdDebt - totalBobRepayment);
-    // assertEq(fixedLender.fixedBorrows(address(this)), 0);
-    // for (uint256 i = 1; i <= 4; i++) {
-    //   (uint256 principal, uint256 fee) = fixedLender.fixedBorrowPositions(TSUtils.INTERVAL * i, address(this));
-    //   assertEq(principal + fee, 0);
-    // }
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
+    assertEq(
+      badDebt,
+      smartPoolEarningsAccumulator + smartPoolAssets - fixedLender.smartPoolAssets() + earningsSPDistributedInRepayment
+    );
+    assertEq(fixedLender.fixedBorrows(address(this)), 0);
   }
 
   function testCappedLiquidation() external {
@@ -797,9 +779,9 @@ contract FixedLenderTest is Test {
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(fixedLender));
-    emit LiquidateBorrow(BOB, address(this), 818181818181818181819, fixedLenderWETH, 1 ether);
+    emit LiquidateBorrow(BOB, address(this), 818181818181818181819, 8181818181818181818, fixedLenderWETH, 1 ether);
     // we expect the liquidation to cap the max amount of possible assets to repay
-    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
+    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
     (uint256 remainingCollateral, ) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(remainingCollateral, 0);
   }
@@ -816,7 +798,7 @@ contract FixedLenderTest is Test {
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(fixedLender));
-    emit LiquidateBorrow(BOB, address(this), 818181818181818181819, fixedLenderWETH, 1 ether);
+    emit LiquidateBorrow(BOB, address(this), 818181818181818181819, 8181818181818181818, fixedLenderWETH, 1 ether);
     fixedLender.liquidate(address(this), 1_000 ether, fixedLenderWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),

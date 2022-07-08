@@ -409,11 +409,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     bool moreCollateral;
     {
       uint256 maxRepay;
+      (, uint256 lendersIncentive) = auditor.liquidationIncentive();
+      maxAssets = maxAssets.divWadDown(1e18 + lendersIncentive);
       (maxRepay, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, msg.sender, borrower);
       maxAssets = Math.min(maxRepay, maxAssets);
-
-      (, uint256 lendersIncentive) = auditor.liquidationIncentive();
-      maxAssets = maxAssets.divWadDown(1e18 + lendersIncentive); 
     }
     if (maxAssets == 0) revert ZeroRepay();
 
