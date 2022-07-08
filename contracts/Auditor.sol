@@ -321,7 +321,7 @@ contract Auditor is AccessControl {
     uint256 amountInUSD = actualRepayAssets.mulDivDown(priceBorrowed, 10**markets[repayMarket].decimals);
     // 10**18: usd amount decimals
     seizeAssets = amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadDown(
-      1e18 + liquidationIncentive.liquidator
+      1e18 + liquidationIncentive.liquidator + liquidationIncentive.lenders
     );
     lendersAssets = actualRepayAssets.mulWadDown(liquidationIncentive.lenders);
   }
