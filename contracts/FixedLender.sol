@@ -481,7 +481,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
           PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
           uint256 debt = position.principal + position.fee;
           if (debt > 0) {
-            smartPoolBorrowed -= position.principal;
+            smartPoolBorrowed -= fixedPools[maturity].repay(position.principal);
 
             {
               uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
