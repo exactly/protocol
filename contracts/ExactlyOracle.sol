@@ -47,7 +47,7 @@ contract ExactlyOracle is AccessControl {
   /// @return The price of the asset scaled to 18-digit decimals.
   function getAssetPrice(FixedLender fixedLender) public view returns (uint256) {
     (, int256 price, , uint256 updatedAt, ) = assetsSources[fixedLender].latestRoundData();
-    if (price > 0 && updatedAt >= block.timestamp - priceExpiration) return scaleOraclePriceByDigits(uint256(price));
+    if (price > 0 && block.timestamp - updatedAt <= priceExpiration) return scaleOraclePriceByDigits(uint256(price));
     else revert InvalidPrice();
   }
 
