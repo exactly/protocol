@@ -11,7 +11,7 @@ const {
 
 export const mockPrices = Object.fromEntries(
   network.config.tokens
-    .filter((symbol) => env[`${symbol}_PRICE`])
+    .filter((symbol) => network.live && env[`${symbol}_PRICE`])
     .map((symbol) => [symbol, parseUnits(env[`${symbol}_PRICE`] as string, 8)]),
 );
 
