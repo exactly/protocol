@@ -9,6 +9,10 @@ import futurePools, { INTERVAL } from "./utils/futurePools";
 
 const nextPoolId = futurePools(1)[0].toNumber();
 
+const {
+  constants: { MaxUint256 },
+} = ethers;
+
 describe("Validations", function () {
   let auditor: Contract;
   let fixedLender: Contract;
@@ -41,19 +45,19 @@ describe("Validations", function () {
     });
     it("WHEN trying to call checkLiquidation, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
-        auditor.checkLiquidation(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
+        auditor.checkLiquidation(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, user.address, MaxUint256),
       ).to.be.revertedWith("MarketNotListed()");
       await expect(
-        auditor.checkLiquidation(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
+        auditor.checkLiquidation(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, user.address, MaxUint256),
       ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call checkSeize, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(
-        auditor.checkSeize(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, owner.address, user.address),
-      ).to.be.revertedWith("MarketNotListed()");
-      await expect(
-        auditor.checkSeize(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, owner.address, user.address),
-      ).to.be.revertedWith("MarketNotListed()");
+      await expect(auditor.checkSeize(exactlyEnv.notAnFixedLenderAddress, fixedLender.address)).to.be.revertedWith(
+        "MarketNotListed()",
+      );
+      await expect(auditor.checkSeize(fixedLender.address, exactlyEnv.notAnFixedLenderAddress)).to.be.revertedWith(
+        "MarketNotListed()",
+      );
     });
   });
   describe("FixedLender:", () => {
@@ -176,10 +180,14 @@ describe("Validations", function () {
       );
     });
     it("WHEN trying to set the liquidationIncentive with more than 20%", async () => {
-      await expect(auditor.setLiquidationIncentive(parseUnits("1.21"))).to.be.revertedWith("InvalidParameter()");
+      await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.21"), lenders: 0 })).to.be.revertedWith(
+        "InvalidParameter()",
+      );
     });
     it("WHEN trying to set the liquidationIncentive with less than 5%", async () => {
-      await expect(auditor.setLiquidationIncentive(parseUnits("1.0499"))).to.be.revertedWith("InvalidParameter()");
+      await expect(
+        auditor.setLiquidationIncentive({ liquidator: parseUnits("0.0499"), lenders: 0 }),
+      ).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the adjustFactor with more than 90%", async () => {
       await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.91"))).to.be.revertedWith(
@@ -260,13 +268,13 @@ describe("Validations", function () {
       await expect(fixedLender.setDampSpeed({ up: parseUnits("1"), down: parseUnits("0") })).to.not.be.reverted;
     });
     it("WHEN trying to set the liquidationIncentive with 5%", async () => {
-      await expect(auditor.setLiquidationIncentive(parseUnits("1.05"))).to.not.be.reverted;
+      await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.05"), lenders: 0 })).to.not.be.reverted;
     });
     it("WHEN trying to set the liquidationIncentive with 20%", async () => {
-      await expect(auditor.setLiquidationIncentive(parseUnits("1.2"))).to.not.be.reverted;
+      await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.2"), lenders: 0 })).to.not.be.reverted;
     });
     it("WHEN trying to set the liquidationIncentive with an intermediate value (10%)", async () => {
-      await expect(auditor.setLiquidationIncentive(parseUnits("1.1"))).to.not.be.reverted;
+      await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.1"), lenders: 0 })).to.not.be.reverted;
     });
     it("WHEN trying to set the adjustFactor with 30%", async () => {
       await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.3"))).to.not.be.reverted;

@@ -5,7 +5,7 @@ import type { Auditor, FixedLender, MockERC20, MockPriceFeed, WETH } from "../ty
 import futurePools from "./utils/futurePools";
 
 const {
-  constants: { AddressZero },
+  constants: { AddressZero, MaxUint256 },
   utils: { parseUnits },
   getUnnamedSigners,
   getNamedSigner,
@@ -90,7 +90,7 @@ describe("Auditor from User Space", function () {
 
   it("checkLiquidation should revert with INSUFFICIENT_SHORTFALL if user has no shortfall", async () => {
     await expect(
-      auditor.checkLiquidation(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, user.address),
+      auditor.checkLiquidation(fixedLenderDAI.address, fixedLenderDAI.address, user.address, MaxUint256),
     ).to.be.revertedWith("InsufficientShortfall()"); // Any failure except MARKET_NOT_LISTED
   });
 
