@@ -767,6 +767,44 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.fixedBorrows(address(this)), 0);
   }
 
+  function testDistributionOfLossesShouldReduceFromSmartPoolBorrowedAccordingly() external {
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLenderWETH.deposit(1.15 ether, address(this));
+    fixedLender.deposit(50_000 ether, ALICE);
+    fixedLender.setMaxFuturePools(12);
+
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    for (uint256 i = 1; i <= 4; i++) {
+      fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+
+      // we deposit so smartPoolBorrowed is 0
+      fixedLender.depositAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this));
+    }
+    mockOracle.setPrice(fixedLenderWETH, 3_000e18);
+
+    assertEq(fixedLender.smartPoolBorrowed(), 0);
+    vm.prank(BOB);
+    // distribution of losses should not reduce more of smartPoolBorrowed
+    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    assertEq(fixedLender.smartPoolBorrowed(), 0);
+
+    fixedLenderWETH.deposit(1.15 ether, address(this));
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    for (uint256 i = 1; i <= 4; i++) {
+      fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+
+      // we withdraw 500 so smartPoolBorrowed is half
+      fixedLender.withdrawAtMaturity(TSUtils.INTERVAL * i, 500 ether, 500 ether, address(this), address(this));
+    }
+    mockOracle.setPrice(fixedLenderWETH, 3_000e18);
+
+    assertEq(fixedLender.smartPoolBorrowed(), (1_000 ether * 4) / 2);
+    vm.prank(BOB);
+    // distribution of losses should reduce the remaining from smartPoolBorrowed
+    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    assertEq(fixedLender.smartPoolBorrowed(), 0);
+  }
+
   function testCappedLiquidation() external {
     mockInterestRateModel.setBorrowRate(0);
     mockOracle.setPrice(fixedLenderWETH, 2_000e18);
