@@ -52,7 +52,7 @@ export class FixedLenderEnv {
     await oracle.deployed();
 
     const Auditor = await ethers.getContractFactory("Auditor");
-    const auditor = await Auditor.deploy(oracle.address, parseUnits("1.1"));
+    const auditor = await Auditor.deploy(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
     await auditor.deployed();
 
     const FixedLenderHarness = await ethers.getContractFactory("FixedLenderHarness");

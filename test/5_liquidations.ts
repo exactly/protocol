@@ -84,7 +84,7 @@ describe("Liquidations", function () {
         });
         describe("AND the liquidation incentive is increased to 15%", () => {
           beforeEach(async () => {
-            await auditor.setLiquidationIncentive({ liquidator: parseUnits("1.15"), lenders: parseUnits("0") });
+            await auditor.setLiquidationIncentive({ liquidator: parseUnits("0.15"), lenders: parseUnits("0") });
           });
           describe("AND the position is liquidated (19kdai)", () => {
             let tx: any;
