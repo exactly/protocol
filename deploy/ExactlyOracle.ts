@@ -1,8 +1,10 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 
 const func: DeployFunction = async ({
+  ethers: { constants: MaxUint256 },
   network: {
-    config: { priceExpiration = 7 * 86_400 },
+    live,
+    config: { priceExpiration = live ? MaxUint256 : 86_400 },
   },
   deployments: { deploy },
   getNamedAccounts,
