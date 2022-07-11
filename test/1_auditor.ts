@@ -100,7 +100,7 @@ describe("Auditor from User Space", function () {
   it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
     await priceFeedDAI.setPrice(0);
     await expect(
-      auditor.liquidateCalculateSeizeAmount(fixedLenderDAI.address, fixedLenderDAI.address, 100),
+      auditor.liquidateCalculateSeizeAmount(fixedLenderDAI.address, fixedLenderDAI.address, user.address, 100),
     ).to.be.revertedWith("InvalidPrice()");
   });
 
