@@ -306,16 +306,20 @@ contract Auditor is AccessControl {
   function liquidateCalculateSeizeAmount(
     FixedLender repayMarket,
     FixedLender seizeMarket,
+    address borrower,
     uint256 actualRepayAssets
   ) external view returns (uint256 seizeAssets, uint256 lendersAssets) {
     // Read oracle prices for borrowed and collateral markets
     uint256 priceBorrowed = oracle.getAssetPrice(repayMarket);
     uint256 priceCollateral = oracle.getAssetPrice(seizeMarket);
 
-    uint256 amountInUSD = actualRepayAssets.mulDivDown(priceBorrowed, 10**markets[repayMarket].decimals);
+    uint256 amountInUSD = actualRepayAssets.mulDivUp(priceBorrowed, 10**markets[repayMarket].decimals);
     // 10**18: usd amount decimals
-    seizeAssets = amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadDown(
-      1e18 + liquidationIncentive.liquidator + liquidationIncentive.lenders
+    seizeAssets = Math.min(
+      amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadUp(
+        1e18 + liquidationIncentive.liquidator + liquidationIncentive.lenders
+      ),
+      seizeMarket.maxWithdraw(borrower)
     );
     lendersAssets = actualRepayAssets.mulWadDown(liquidationIncentive.lenders);
   }

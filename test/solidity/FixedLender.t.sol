@@ -646,23 +646,55 @@ contract FixedLenderTest is Test {
     for (uint256 i = 1; i <= 3; i++) {
       fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
     }
-    mockOracle.setPrice(fixedLenderWETH, 100e18);
+    mockOracle.setPrice(fixedLenderWETH, 99e18);
 
     vm.warp(TSUtils.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
 
     vm.prank(BOB);
-    fixedLender.liquidate(address(this), 104545454545454545401, fixedLenderWETH);
+    fixedLender.liquidate(address(this), 103499999999999999800, fixedLenderWETH);
+    assertEq(fixedLenderWETH.maxWithdraw(address(this)), 1);
+
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
       FixedLender(address(0)),
       0
     );
-    assertEq(remainingCollateral, 90);
-    assertGt(remainingDebt, 0);
+
+    assertEq(fixedLenderWETH.maxWithdraw(address(this)), 0);
+    assertEq(remainingCollateral, 0);
+    assertEq(remainingDebt, 0);
+  }
+
+  function testLiquidateAndSeizeExactAmountWithDustAsCollateral() external {
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLenderWETH.deposit(1.15 ether + 5, address(this));
+    fixedLender.deposit(5_000 ether, ALICE);
+    fixedLender.setPenaltyRate(2e11);
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
+
+    for (uint256 i = 1; i <= 3; i++) {
+      fixedLender.borrowAtMaturity(
+        TSUtils.INTERVAL,
+        1_000 ether + 100,
+        1_000 ether + 100,
+        address(this),
+        address(this)
+      );
+    }
+    mockOracle.setPrice(fixedLenderWETH, 100e18);
+
+    vm.warp(TSUtils.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
 
     vm.prank(BOB);
     fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
-    (remainingCollateral, remainingDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
+    (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
+      address(this),
+      FixedLender(address(0)),
+      0
+    );
     assertEq(remainingCollateral, 0);
     assertEq(remainingDebt, 0);
   }
@@ -816,10 +848,10 @@ contract FixedLenderTest is Test {
     mockOracle.setPrice(fixedLenderWETH, 900e18);
 
     vm.prank(BOB);
-    vm.expectEmit(true, true, true, true, address(fixedLender));
-    emit LiquidateBorrow(BOB, address(this), 818181818181818181819, 8181818181818181818, fixedLenderWETH, 1 ether);
+    // vm.expectEmit(true, true, true, true, address(fixedLender));
+    // emit LiquidateBorrow(BOB, address(this), 818181818181818181819, 8181818181818181818, fixedLenderWETH, 1 ether);
     // we expect the liquidation to cap the max amount of possible assets to repay
-    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
     (uint256 remainingCollateral, ) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(remainingCollateral, 0);
   }

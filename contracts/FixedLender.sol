@@ -454,6 +454,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
             (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
               this,
               collateralMarket,
+              borrower,
               repaidAssets
             );
 
