@@ -552,7 +552,7 @@ contract FixedLenderTest is Test {
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(fixedLender));
     emit LiquidateBorrow(BOB, address(this), 10454545454545454545, 104545454545454545, fixedLenderWETH, 1.15 ether);
-    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
       FixedLender(address(0)),
@@ -661,7 +661,7 @@ contract FixedLenderTest is Test {
     assertGt(remainingDebt, 0);
 
     vm.prank(BOB);
-    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
     (remainingCollateral, remainingDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
     assertEq(remainingCollateral, 0);
     assertEq(remainingDebt, 0);
@@ -681,7 +681,7 @@ contract FixedLenderTest is Test {
 
     uint256 bobDAIBalanceBefore = ERC20(fixedLender.asset()).balanceOf(BOB);
     vm.prank(BOB);
-    fixedLender.liquidate(address(this), 5_000_000 ether, fixedLenderWETH);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
     uint256 bobDAIBalanceAfter = ERC20(fixedLender.asset()).balanceOf(BOB);
     // if 110% is 1.15 ether then 100% is 1.0454545455 ether * 3_000 (eth price) = 3136363636363636363637
     // bob will repay 1% of that amount
@@ -707,7 +707,7 @@ contract FixedLenderTest is Test {
     uint256 bobDAIBalanceBefore = ERC20(fixedLender.asset()).balanceOf(BOB);
     uint256 smartPoolAssetsBefore = fixedLender.smartPoolAssets();
     vm.prank(BOB);
-    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
     uint256 bobDAIBalanceAfter = ERC20(fixedLender.asset()).balanceOf(BOB);
     uint256 smartPoolAssetsAfter = fixedLender.smartPoolAssets();
     uint256 totalUsdDebt = 1_000 ether * 4;
@@ -754,7 +754,7 @@ contract FixedLenderTest is Test {
     assertEq(smartPoolEarningsAccumulator, debt - principal - fee);
 
     vm.prank(BOB);
-    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
 
     uint256 badDebt = 981818181818181818181 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
     uint256 earningsSPDistributedInRepayment = 66666662073779496497;
@@ -785,7 +785,7 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolBorrowed(), 0);
     vm.prank(BOB);
     // distribution of losses should not reduce more of smartPoolBorrowed
-    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
     assertEq(fixedLender.smartPoolBorrowed(), 0);
 
     fixedLenderWETH.deposit(1.15 ether, address(this));
@@ -801,7 +801,7 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolBorrowed(), (1_000 ether * 4) / 2);
     vm.prank(BOB);
     // distribution of losses should reduce the remaining from smartPoolBorrowed
-    fixedLender.liquidate(address(this), 1_000_000 ether, fixedLenderWETH);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
     assertEq(fixedLender.smartPoolBorrowed(), 0);
   }
 
@@ -1193,7 +1193,7 @@ contract FixedLenderTest is Test {
 
     // liquidate function to user's borrows DOES increase in cost
     vm.prank(BOB);
-    fixedLenders[0].liquidate(address(this), 1000 ether, fixedLenders[0]);
+    fixedLenders[0].liquidate(address(this), 1_000 ether, fixedLenders[0]);
   }
 }
 

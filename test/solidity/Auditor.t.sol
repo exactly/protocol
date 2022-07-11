@@ -135,7 +135,7 @@ contract AuditorTest is Test {
 
     MockFixedLender(address(markets[1])).setDebt(200e15);
     MockFixedLender(address(markets[3])).setCollateral(1e9);
-    auditor.checkLiquidation(markets[1], markets[3], address(this), BOB);
+    auditor.checkLiquidation(markets[1], markets[3], BOB, type(uint256).max);
   }
 }
 

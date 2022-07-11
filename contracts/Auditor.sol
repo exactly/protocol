@@ -222,16 +222,14 @@ contract Auditor is AccessControl {
   /// @dev This function can be called externally, but only will have effect when called from a fixedLender.
   /// @param repayMarket market from where the debt is pending.
   /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
-  /// @param liquidator address that is liquidating the assets.
   /// @param borrower address which the assets are being liquidated.
+  /// @param maxLiquidatorAssets maximum amount the liquidator can pay.
   function checkLiquidation(
     FixedLender repayMarket,
     FixedLender seizeMarket,
-    address liquidator,
-    address borrower
+    address borrower,
+    uint256 maxLiquidatorAssets
   ) external view returns (uint256 maxRepayAssets, bool moreCollateral) {
-    if (borrower == liquidator) revert SelfLiquidation();
-
     // if markets are listed, they have the same auditor
     if (!markets[repayMarket].isListed || !markets[seizeMarket].isListed) revert MarketNotListed();
 
@@ -278,12 +276,17 @@ contract Auditor is AccessControl {
     uint256 closeFactor = (TARGET_HEALTH - usd.adjustedCollateral.divWadUp(usd.adjustedDebt)).divWadUp(
       TARGET_HEALTH - adjustFactor.mulWadDown(1e18 + memIncentive.liquidator + memIncentive.lenders)
     );
-    maxRepayAssets = Math
-      .min(
-        usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)),
-        usd.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
-      )
-      .mulDivUp(10**repay.decimals, repay.price);
+    maxRepayAssets = Math.min(
+      Math
+        .min(
+          usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)),
+          usd.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
+        )
+        .mulDivUp(10**repay.decimals, repay.price),
+      maxLiquidatorAssets < type(uint256).max
+        ? maxLiquidatorAssets.divWadDown(1e18 + memIncentive.lenders)
+        : type(uint256).max
+    );
     moreCollateral = usd.totalCollateral > usd.seizeAvailable;
   }
 
@@ -291,16 +294,7 @@ contract Auditor is AccessControl {
   /// @dev This function can be called externally, but only will have effect when called from a fixedLender.
   /// @param seizeMarket market where the assets will be seized (should be msg.sender on FixedLender.sol).
   /// @param repayMarket market from where the debt will be paid.
-  /// @param liquidator address to validate where the seized assets will be received.
-  /// @param borrower address to validate where the assets will be removed.
-  function checkSeize(
-    FixedLender seizeMarket,
-    FixedLender repayMarket,
-    address liquidator,
-    address borrower
-  ) external view {
-    if (borrower == liquidator) revert SelfLiquidation();
-
+  function checkSeize(FixedLender seizeMarket, FixedLender repayMarket) external view {
     // If markets are listed, they have also the same Auditor
     if (!markets[seizeMarket].isListed || !markets[repayMarket].isListed) revert MarketNotListed();
   }
@@ -414,4 +408,3 @@ error InsufficientShortfall();
 error InvalidParameter();
 error MarketAlreadyListed();
 error MarketNotListed();
-error SelfLiquidation();

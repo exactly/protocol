@@ -82,12 +82,6 @@ describe("Auditor from User Space", function () {
     ).to.be.revertedWith("InvalidPrice()");
   });
 
-  it("CheckSeize should fail when liquidator is borrower", async () => {
-    await expect(
-      auditor.checkSeize(fixedLenderDAI.address, fixedLenderDAI.address, owner.address, owner.address),
-    ).to.be.revertedWith("SelfLiquidation()");
-  });
-
   it("checkLiquidation should revert with INSUFFICIENT_SHORTFALL if user has no shortfall", async () => {
     await expect(
       auditor.checkLiquidation(fixedLenderDAI.address, fixedLenderDAI.address, user.address, MaxUint256),
