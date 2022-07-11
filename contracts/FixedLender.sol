@@ -406,14 +406,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 maxAssets,
     FixedLender collateralMarket
   ) external nonReentrant whenNotPaused returns (uint256 repaidAssets) {
+    if (msg.sender == borrower) revert SelfLiquidation();
+
     bool moreCollateral;
-    {
-      uint256 maxRepay;
-      (, uint256 lendersIncentive) = auditor.liquidationIncentive();
-      maxAssets = maxAssets.divWadDown(1e18 + lendersIncentive);
-      (maxRepay, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, msg.sender, borrower);
-      maxAssets = Math.min(maxRepay, maxAssets);
-    }
+    (maxAssets, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
     if (maxAssets == 0) revert ZeroRepay();
 
     uint256 packedMaturities = fixedBorrows[borrower];
@@ -884,7 +880,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (assets == 0) revert ZeroWithdraw();
 
     // reverts on failure
-    auditor.checkSeize(this, seizerFixedLender, liquidator, borrower);
+    auditor.checkSeize(this, seizerFixedLender);
 
     uint256 shares = previewWithdraw(assets);
     beforeWithdraw(assets, shares);
@@ -948,7 +944,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
 error AlreadyInitialized();
 error NotFixedLender();
-error TooMuchSlippage();
+error SelfLiquidation();
 error SmartPoolReserveExceeded();
+error TooMuchSlippage();
 error ZeroWithdraw();
 error ZeroRepay();
