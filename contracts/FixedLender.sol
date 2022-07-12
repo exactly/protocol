@@ -324,7 +324,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// Makes sure that the caller doesn't have shortfall after transferring.
   /// @param to address to which the tokens will be transferred.
   /// @param shares amount of tokens.
-  function transfer(address to, uint256 shares) public virtual override returns (bool) {
+  function transfer(address to, uint256 shares) public override returns (bool) {
     auditor.validateAccountShortfall(this, msg.sender, previewMint(shares));
     return super.transfer(to, shares);
   }
@@ -339,7 +339,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address from,
     address to,
     uint256 shares
-  ) public virtual override returns (bool) {
+  ) public override returns (bool) {
     auditor.validateAccountShortfall(this, from, previewMint(shares));
     return super.transferFrom(from, to, shares);
   }
@@ -554,7 +554,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 maxAssets,
     address receiver,
     address borrower
-  ) public nonReentrant whenNotPaused returns (uint256 assetsOwed) {
+  ) external nonReentrant whenNotPaused returns (uint256 assetsOwed) {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
@@ -639,7 +639,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 assets,
     uint256 minAssetsRequired,
     address receiver
-  ) public nonReentrant whenNotPaused returns (uint256 positionAssets) {
+  ) external nonReentrant whenNotPaused returns (uint256 positionAssets) {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
@@ -700,7 +700,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 minAssetsRequired,
     address receiver,
     address owner
-  ) public nonReentrant returns (uint256 assetsDiscounted) {
+  ) external nonReentrant returns (uint256 assetsDiscounted) {
     if (positionAssets == 0) revert ZeroWithdraw();
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
@@ -793,7 +793,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 positionAssets,
     uint256 maxAssets,
     address borrower
-  ) public nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
+  ) external nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
@@ -922,7 +922,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @notice Gets current snapshot for an account across all maturities.
   /// @param account account to return status snapshot in the specified maturity date.
   /// @return the amount the user deposited to the smart pool and the total money he owes from maturities.
-  function getAccountSnapshot(address account) public view returns (uint256, uint256) {
+  function getAccountSnapshot(address account) external view returns (uint256, uint256) {
     return (convertToAssets(balanceOf[account]), getDebt(account));
   }
 
@@ -1021,13 +1021,13 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     asset.safeTransferFrom(msg.sender, address(this), assets);
   }
 
-  function convertToBorrowShares(uint256 assets) public view virtual returns (uint256) {
+  function convertToBorrowShares(uint256 assets) public view returns (uint256) {
     uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
 
     return supply == 0 ? assets : assets.mulDivDown(supply, smartPoolFlexibleBorrows);
   }
 
-  function previewRepay(uint256 assets) public view virtual returns (uint256) {
+  function previewRepay(uint256 assets) public view returns (uint256) {
     uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
 
     return supply == 0 ? assets : assets.mulDivUp(supply, smartPoolFlexibleBorrows);
