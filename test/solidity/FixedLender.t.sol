@@ -699,6 +699,29 @@ contract FixedLenderTest is Test {
     assertEq(remainingDebt, 0);
   }
 
+  function testLiquidateWithTwoUnitsAsMaxAssets() external {
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLenderWETH.deposit(1.15 ether, address(this));
+    fixedLender.deposit(5_000 ether, ALICE);
+    fixedLender.setPenaltyRate(2e11);
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL * 2, 1_000 ether, 1_000 ether, address(this), address(this));
+    mockOracle.setPrice(fixedLenderWETH, 100e18);
+
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), 2, fixedLenderWETH);
+
+    (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
+      address(this),
+      FixedLender(address(0)),
+      0
+    );
+    assertGt(remainingCollateral, 0);
+    assertGt(remainingDebt, 0);
+  }
+
   function testLiquidateAndChargeIncentiveForLenders() external {
     mockInterestRateModel.setBorrowRate(0);
     fixedLenderWETH.deposit(1.15 ether, address(this));
