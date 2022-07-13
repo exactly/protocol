@@ -991,7 +991,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assets);
     }
 
-    updateSmartPoolVariableBorrows();
+    updateSmartPoolFlexibleBorrows();
 
     uint256 shares = convertToBorrowShares(assets);
 
@@ -1010,7 +1010,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param assets amount to be repaid by sender and subtracted from the borrower's debt.
   /// @param borrower address of the account that has the debt.
   function repay(uint256 assets, address borrower) external nonReentrant {
-    updateSmartPoolVariableBorrows();
+    updateSmartPoolFlexibleBorrows();
 
     uint256 shares = previewRepay(assets);
 
@@ -1033,8 +1033,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     return supply == 0 ? assets : assets.mulDivUp(supply, smartPoolFlexibleBorrows);
   }
 
-  /// @notice Updates the smart pool variable borrows' variables.
-  function updateSmartPoolVariableBorrows() internal {
+  /// @notice Updates the smart pool flexible borrows' variables.
+  function updateSmartPoolFlexibleBorrows() internal {
     uint256 spCurrentUtilization = smartPoolFlexibleBorrows.divWadDown(
       smartPoolAssets.divWadDown(interestRateModel.flexibleFullUtilization())
     );
