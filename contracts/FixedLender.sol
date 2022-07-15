@@ -191,6 +191,11 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 maturityUnassignedEarnings
   );
 
+  struct LiquidateVars {
+    bool moreCollateral;
+    bool moreRepayment;
+  }
+
   constructor(
     ERC20 asset_,
     uint8 maxFuturePools_,
@@ -435,17 +440,18 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   ) external nonReentrant whenNotPaused returns (uint256 repaidAssets) {
     if (msg.sender == borrower) revert SelfLiquidation();
 
-    bool moreCollateral;
-    (maxAssets, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
+    LiquidateVars memory l;
+    (maxAssets, l.moreCollateral) = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
     if (maxAssets == 0) revert ZeroRepay();
 
+    l.moreRepayment = true;
     uint256 packedMaturities = fixedBorrows[borrower];
     uint256 baseMaturity = packedMaturities % (1 << 32);
     packedMaturities = packedMaturities >> 32;
     for (uint256 i = 0; i < 224; ) {
       if ((packedMaturities & (1 << i)) != 0) {
         uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
-        if (maxAssets > 0) {
+        if (maxAssets > 0 && l.moreRepayment) {
           uint256 actualRepay;
           if (block.timestamp < maturity) {
             actualRepay = noTransferRepay(maturity, maxAssets, maxAssets, borrower, false);
@@ -474,9 +480,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
           }
           repaidAssets += actualRepay;
 
-          if ((1 << (i + 1)) > packedMaturities) maxAssets = 0;
+          if ((1 << (i + 1)) > packedMaturities) l.moreRepayment = false;
 
-          if (maxAssets == 0) {
+          if (maxAssets == 0 || !l.moreRepayment) {
             // reverts on failure
             (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
               this,
@@ -485,7 +491,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
               repaidAssets
             );
 
-            moreCollateral =
+            l.moreCollateral =
               (
                 // if this is also the collateral run `_seize` to avoid re-entrancy, otherwise make an external call.
                 // both revert on failure
@@ -493,7 +499,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
                   ? _seize(this, msg.sender, borrower, seizeAssets)
                   : collateralMarket.seize(msg.sender, borrower, seizeAssets)
               ) ||
-              moreCollateral;
+              l.moreCollateral;
 
             emit LiquidateBorrow(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, seizeAssets);
 
@@ -501,7 +507,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
           }
         }
 
-        if (maxAssets == 0 && !moreCollateral) {
+        if ((maxAssets == 0 || !l.moreRepayment) && !l.moreCollateral) {
           PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
           uint256 debt = position.principal + position.fee;
           if (debt > 0) {
@@ -524,6 +530,55 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         ++i;
       }
       if ((1 << i) > packedMaturities) break;
+    }
+
+    if (maxAssets > 0) {
+      {
+        uint256 shares = previewRepay(maxAssets);
+
+        smartPoolFlexibleBorrows -= maxAssets;
+        flexibleBorrowPositions[borrower] -= shares;
+        totalFlexibleBorrowsShares -= shares;
+      }
+
+      // reverts on failure
+      (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
+        this,
+        collateralMarket,
+        borrower,
+        maxAssets
+      );
+
+      l.moreCollateral =
+        (
+          // if this is also the collateral run `_seize` to avoid re-entrancy, otherwise make an external call.
+          // both revert on failure
+          address(collateralMarket) == address(this)
+            ? _seize(this, msg.sender, borrower, seizeAssets)
+            : collateralMarket.seize(msg.sender, borrower, seizeAssets)
+        ) ||
+        l.moreCollateral;
+      emit LiquidateBorrow(msg.sender, borrower, maxAssets, lendersAssets, collateralMarket, seizeAssets);
+
+      asset.safeTransferFrom(msg.sender, address(this), maxAssets + lendersAssets);
+      maxAssets -= maxAssets;
+    }
+    if (maxAssets == 0 && !l.moreCollateral) {
+      uint256 memFlexibleBorrowPositions = flexibleBorrowPositions[borrower];
+      if (memFlexibleBorrowPositions > 0) {
+        smartPoolFlexibleBorrows -= convertToBorrowAssets(memFlexibleBorrowPositions);
+
+        {
+          uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
+          uint256 fromAccumulator = Math.min(memEarningsAccumulator, memFlexibleBorrowPositions);
+          smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
+          if (fromAccumulator < memFlexibleBorrowPositions)
+            smartPoolAssets -= memFlexibleBorrowPositions - fromAccumulator;
+        }
+
+        totalFlexibleBorrowsShares -= memFlexibleBorrowPositions;
+        delete flexibleBorrowPositions[borrower];
+      }
     }
   }
 
@@ -554,7 +609,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 maxAssets,
     address receiver,
     address borrower
-  ) external nonReentrant whenNotPaused returns (uint256 assetsOwed) {
+  ) public nonReentrant whenNotPaused returns (uint256 assetsOwed) {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
@@ -639,7 +694,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 assets,
     uint256 minAssetsRequired,
     address receiver
-  ) external nonReentrant whenNotPaused returns (uint256 positionAssets) {
+  ) public nonReentrant whenNotPaused returns (uint256 positionAssets) {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
@@ -700,7 +755,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 minAssetsRequired,
     address receiver,
     address owner
-  ) external nonReentrant returns (uint256 assetsDiscounted) {
+  ) public nonReentrant returns (uint256 assetsDiscounted) {
     if (positionAssets == 0) revert ZeroWithdraw();
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
@@ -793,7 +848,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 positionAssets,
     uint256 maxAssets,
     address borrower
-  ) external nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
+  ) public nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
@@ -952,6 +1007,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       }
       if ((1 << i) > packedMaturities) break;
     }
+
+    debt += convertToBorrowAssets(flexibleBorrowPositions[account]);
   }
 
   /// @notice Updates the smartPoolAssetsAverage.
@@ -1003,6 +1060,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     flexibleBorrowPositions[receiver] += shares;
     checkSmartPoolReserveExceeded();
 
+    auditor.validateBorrow(this, borrower);
     asset.safeTransfer(receiver, assets);
   }
 
@@ -1025,6 +1083,12 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
 
     return supply == 0 ? assets : assets.mulDivDown(supply, smartPoolFlexibleBorrows);
+  }
+
+  function convertToBorrowAssets(uint256 shares) public view returns (uint256) {
+    uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
+
+    return supply == 0 ? shares : shares.mulDivDown(smartPoolFlexibleBorrows, supply);
   }
 
   function previewRepay(uint256 assets) public view returns (uint256) {

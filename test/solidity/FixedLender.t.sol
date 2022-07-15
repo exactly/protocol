@@ -734,6 +734,102 @@ contract FixedLenderTest is Test {
     assertGt(remainingDebt, 0);
   }
 
+  function testLiquidateFlexibleBorrow() external {
+    fixedLenderWETH.deposit(1.15 ether, address(this));
+    fixedLender.deposit(50_000 ether, ALICE);
+
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    fixedLender.borrow(4_000 ether, address(this), address(this));
+    mockOracle.setPrice(fixedLenderWETH, 4_000e18);
+
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), 4_000 ether);
+
+    // partial liquidation
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
+    uint256 assetsRepaid = 3685589519650655024000;
+
+    (, uint256 remainingDebt) = fixedLender.getAccountSnapshot(address(this));
+    (uint256 remainingCollateral, ) = fixedLenderWETH.getAccountSnapshot(address(this));
+    assertEq(weth.balanceOf(address(BOB)), assetsRepaid.divWadDown(4_000 ether).mulWadUp(1.1e18));
+    assertEq(remainingCollateral, 1.15 ether - assetsRepaid.divWadDown(4_000 ether).mulWadUp(1.1e18));
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), 4_000 ether - assetsRepaid);
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), remainingDebt);
+
+    (uint256 usdCollateral, uint256 usdDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
+    assertEq(usdCollateral, remainingCollateral.mulWadDown(4_000 ether).mulWadDown(0.9e18));
+    assertEq(usdDebt, remainingDebt.divWadUp(0.8e18));
+
+    mockOracle.setPrice(fixedLenderWETH, 1_000e18);
+    // full liquidation
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
+
+    (, remainingDebt) = fixedLender.getAccountSnapshot(address(this));
+    (remainingCollateral, ) = fixedLenderWETH.getAccountSnapshot(address(this));
+    (usdCollateral, usdDebt) = auditor.accountLiquidity(address(this), FixedLender(address(0)), 0);
+    assertEq(remainingCollateral, 0);
+    assertEq(remainingDebt, 0);
+    assertEq(usdCollateral, 0);
+    assertEq(usdDebt, 0);
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), 0);
+    assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
+  }
+
+  function testLiquidateFlexibleBorrowChargeLendersAssetsToLiquidator() external {
+    fixedLenderWETH.deposit(1.15 ether, address(this));
+    fixedLender.deposit(50_000 ether, ALICE);
+
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    fixedLender.borrow(4_000 ether, address(this), address(this));
+    mockOracle.setPrice(fixedLenderWETH, 3_000e18);
+
+    uint256 bobDAIBalanceBefore = ERC20(fixedLender.asset()).balanceOf(BOB);
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), 100 ether, fixedLenderWETH);
+    uint256 assetsRepaid = uint256(100 ether).divWadDown(1.01e18);
+    uint256 lendersIncentiveRepaid = assetsRepaid.mulWadDown(0.01e18);
+    uint256 assetsSeized = assetsRepaid.mulDivUp(10**18, 3_000 ether).mulWadUp(1.1e18);
+    assertEq(ERC20(fixedLender.asset()).balanceOf(BOB), bobDAIBalanceBefore - assetsRepaid - lendersIncentiveRepaid);
+    assertEq(weth.balanceOf(address(BOB)), assetsSeized);
+  }
+
+  function testLiquidateFlexibleAndFixedBorrowPositionsInSingleCall() external {
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLenderWETH.deposit(1.15 ether, address(this));
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    fixedLender.deposit(50_000 ether, ALICE);
+
+    for (uint256 i = 1; i <= 2; i++) {
+      fixedLender.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+    }
+
+    fixedLender.borrow(2_000 ether, address(this), address(this));
+    mockOracle.setPrice(fixedLenderWETH, 4_000e18);
+
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), 1000 ether, fixedLenderWETH);
+    uint256 assetsRepaid = uint256(1000 ether).divWadDown(1.01e18);
+    // only repaid in the first maturity
+    (uint256 principal, uint256 fee) = fixedLender.fixedBorrowPositions(TSUtils.INTERVAL, address(this));
+    assertEq(principal + fee, 1_000 ether - assetsRepaid);
+    (principal, fee) = fixedLender.fixedBorrowPositions(TSUtils.INTERVAL * 2, address(this));
+    assertEq(principal + fee, 1_000 ether);
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), 2_000 ether);
+
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), 1500 ether, fixedLenderWETH);
+    assetsRepaid += uint256(1500 ether).divWadDown(1.01e18);
+    (principal, fee) = fixedLender.fixedBorrowPositions(TSUtils.INTERVAL, address(this));
+    assertEq(principal + fee, 0);
+    (principal, fee) = fixedLender.fixedBorrowPositions(TSUtils.INTERVAL * 2, address(this));
+    assertEq(principal + fee, 0);
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), 2_000 ether - (assetsRepaid - 2_000 ether));
+
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), 1500 ether, fixedLenderWETH);
+  }
+
   function testLiquidateAndChargeIncentiveForLenders() external {
     mockInterestRateModel.setBorrowRate(0);
     fixedLenderWETH.deposit(1.15 ether, address(this));
@@ -1261,6 +1357,24 @@ contract FixedLenderTest is Test {
 
   function testFlexibleBorrowAccountingDebtMultipleAccounts() external {
     vm.warp(0);
+
+    mockOracle.setPrice(fixedLenderWETH, 1_000e18);
+    weth.mint(BOB, 1 ether);
+    vm.prank(BOB);
+    weth.approve(address(fixedLenderWETH), 1 ether);
+    vm.prank(BOB);
+    fixedLenderWETH.deposit(1 ether, BOB);
+    vm.prank(BOB);
+    auditor.enterMarket(fixedLenderWETH);
+
+    weth.mint(ALICE, 1 ether);
+    vm.prank(ALICE);
+    weth.approve(address(fixedLenderWETH), 1 ether);
+    vm.prank(ALICE);
+    fixedLenderWETH.deposit(1 ether, ALICE);
+    vm.prank(ALICE);
+    auditor.enterMarket(fixedLenderWETH);
+
     fixedLender.deposit(10 ether, address(this));
     fixedLender.borrow(1 ether, address(this), address(this));
 
@@ -1305,6 +1419,9 @@ contract FixedLenderTest is Test {
   }
 
   function testFlexibleBorrowExceedingSmartPoolReserve() external {
+    fixedLenderWETH.deposit(1 ether, address(this));
+    mockOracle.setPrice(fixedLenderWETH, 1_000e18);
+
     fixedLender.deposit(10 ether, address(this));
     fixedLender.setSmartPoolReserveFactor(0.1e18);
 
@@ -1316,6 +1433,9 @@ contract FixedLenderTest is Test {
   }
 
   function testFlexibleBorrowExceedingSmartPoolReserveIncludingFixedBorrow() external {
+    fixedLenderWETH.deposit(1 ether, address(this));
+    mockOracle.setPrice(fixedLenderWETH, 1_000e18);
+
     fixedLender.deposit(10 ether, address(this));
     fixedLender.setSmartPoolReserveFactor(0.1e18);
 
@@ -1329,6 +1449,9 @@ contract FixedLenderTest is Test {
   }
 
   function testFlexibleBorrowExceedingSmartPoolReserveWithNewDebt() external {
+    fixedLenderWETH.deposit(1 ether, address(this));
+    mockOracle.setPrice(fixedLenderWETH, 1_000e18);
+
     fixedLender.deposit(10 ether, address(this));
     fixedLender.setSmartPoolReserveFactor(0.1e18);
     fixedLender.borrow(8.8 ether, address(this), address(this));
