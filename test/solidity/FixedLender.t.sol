@@ -1333,6 +1333,68 @@ contract FixedLenderTest is Test {
     vm.warp(365 days);
     vm.expectRevert(InsufficientLiquidity.selector);
     fixedLender.borrowAtMaturity(TSUtils.INTERVAL * 14, 10 ether, 15 ether, address(this), address(this));
+
+    vm.expectRevert(InsufficientLiquidity.selector);
+    fixedLender.transfer(address(BOB), 15 ether);
+
+    vm.expectRevert(InsufficientLiquidity.selector);
+    fixedLender.withdraw(15 ether, address(this), address(this));
+
+    vm.expectRevert(InsufficientLiquidity.selector);
+    fixedLender.withdraw(15 ether, address(this), address(this));
+
+    fixedLender.approve(address(BOB), 15 ether);
+
+    vm.prank(BOB);
+    vm.expectRevert(InsufficientLiquidity.selector);
+    fixedLender.transferFrom(address(this), address(BOB), 15 ether);
+  }
+
+  function testDepositShouldUpdateFlexibleBorrowVariables() external {
+    vm.warp(0);
+    fixedLender.deposit(100 ether, address(this));
+    fixedLender.borrow(10 ether, address(this), address(this));
+    uint256 spPreviousUtilization = fixedLender.spPreviousUtilization();
+
+    vm.warp(365 days);
+    fixedLender.deposit(1, address(this));
+
+    assertEq(fixedLender.smartPoolFlexibleBorrows(), 11 ether);
+    assertEq(fixedLender.smartPoolAssets(), 101 ether + 1);
+    assertEq(fixedLender.lastUpdatedSmartPoolRate(), 365 days);
+    assertGt(fixedLender.spPreviousUtilization(), spPreviousUtilization);
+    spPreviousUtilization = fixedLender.spPreviousUtilization();
+
+    vm.warp(730 days);
+    fixedLender.mint(1, address(this));
+    assertEq(fixedLender.smartPoolFlexibleBorrows(), 12.1 ether);
+    assertEq(fixedLender.smartPoolAssets(), 102.1 ether + 3);
+    assertEq(fixedLender.lastUpdatedSmartPoolRate(), 730 days);
+    assertGt(fixedLender.spPreviousUtilization(), spPreviousUtilization);
+  }
+
+  function testWithdrawShouldUpdateFlexibleBorrowVariables() external {
+    vm.warp(0);
+    fixedLender.deposit(100 ether, address(this));
+    fixedLender.borrow(10 ether, address(this), address(this));
+    uint256 spPreviousUtilization = fixedLender.spPreviousUtilization();
+
+    vm.warp(365 days);
+    fixedLender.withdraw(1, address(this), address(this));
+
+    assertEq(fixedLender.smartPoolFlexibleBorrows(), 11 ether);
+    assertEq(fixedLender.smartPoolAssets(), 101 ether - 1);
+    assertEq(fixedLender.lastUpdatedSmartPoolRate(), 365 days);
+    assertGt(fixedLender.spPreviousUtilization(), spPreviousUtilization);
+    spPreviousUtilization = fixedLender.spPreviousUtilization();
+
+    vm.warp(730 days);
+    fixedLender.redeem(1, address(this), address(this));
+
+    assertEq(fixedLender.smartPoolFlexibleBorrows(), 12.1 ether);
+    assertEq(fixedLender.smartPoolAssets(), 102.1 ether - 2);
+    assertEq(fixedLender.lastUpdatedSmartPoolRate(), 730 days);
+    assertGt(fixedLender.spPreviousUtilization(), spPreviousUtilization);
   }
 
   function testFlexibleBorrow() external {

@@ -288,6 +288,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @notice Hook to update the smart pool average, smart pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be withdrawn from the smart pool.
   function beforeWithdraw(uint256 assets, uint256) internal override {
+    updateSmartPoolFlexibleBorrows();
     updateSmartPoolAssetsAverage();
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = uint32(block.timestamp);
@@ -303,8 +304,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @notice Hook to update the smart pool average, smart pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the smart pool.
   function afterDeposit(uint256 assets, uint256) internal virtual override whenNotPaused {
-    uint256 memSPAssets = smartPoolAssets;
+    updateSmartPoolFlexibleBorrows();
     updateSmartPoolAssetsAverage();
+    uint256 memSPAssets = smartPoolAssets;
     uint256 earnings = smartPoolAccumulatedEarnings();
     lastAccumulatedEarningsAccrual = uint32(block.timestamp);
     smartPoolEarningsAccumulator -= earnings;
@@ -1116,9 +1118,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   /// @notice Updates the smart pool flexible borrows' variables.
   function updateSmartPoolFlexibleBorrows() internal {
-    uint256 spCurrentUtilization = smartPoolFlexibleBorrows.divWadDown(
-      smartPoolAssets.divWadDown(interestRateModel.flexibleFullUtilization())
-    );
+    uint256 spCurrentUtilization = smartPoolAssets > 0
+      ? smartPoolFlexibleBorrows.divWadDown(smartPoolAssets.divWadUp(interestRateModel.flexibleFullUtilization()))
+      : 0;
     uint256 newDebt = smartPoolFlexibleBorrows.mulWadDown(
       interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
         block.timestamp - lastUpdatedSmartPoolRate,
