@@ -531,53 +531,55 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       }
       if ((1 << i) > packedMaturities) break;
     }
-
-    if (maxAssets > 0) {
-      {
-        uint256 shares = previewRepay(maxAssets);
-
-        smartPoolFlexibleBorrows -= maxAssets;
-        flexibleBorrowPositions[borrower] -= shares;
-        totalFlexibleBorrowsShares -= shares;
-      }
-
-      // reverts on failure
-      (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
-        this,
-        collateralMarket,
-        borrower,
-        maxAssets
-      );
-
-      l.moreCollateral =
-        (
-          // if this is also the collateral run `_seize` to avoid re-entrancy, otherwise make an external call.
-          // both revert on failure
-          address(collateralMarket) == address(this)
-            ? _seize(this, msg.sender, borrower, seizeAssets)
-            : collateralMarket.seize(msg.sender, borrower, seizeAssets)
-        ) ||
-        l.moreCollateral;
-      emit LiquidateBorrow(msg.sender, borrower, maxAssets, lendersAssets, collateralMarket, seizeAssets);
-
-      asset.safeTransferFrom(msg.sender, address(this), maxAssets + lendersAssets);
-      maxAssets -= maxAssets;
-    }
-    if (maxAssets == 0 && !l.moreCollateral) {
-      uint256 memFlexibleBorrowPositions = flexibleBorrowPositions[borrower];
-      if (memFlexibleBorrowPositions > 0) {
-        smartPoolFlexibleBorrows -= convertToBorrowAssets(memFlexibleBorrowPositions);
-
+    if (flexibleBorrowPositions[borrower] > 0) {
+      updateSmartPoolFlexibleBorrows();
+      if (maxAssets > 0) {
         {
-          uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
-          uint256 fromAccumulator = Math.min(memEarningsAccumulator, memFlexibleBorrowPositions);
-          smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
-          if (fromAccumulator < memFlexibleBorrowPositions)
-            smartPoolAssets -= memFlexibleBorrowPositions - fromAccumulator;
+          uint256 shares = previewRepay(maxAssets);
+
+          smartPoolFlexibleBorrows -= maxAssets;
+          flexibleBorrowPositions[borrower] -= shares;
+          totalFlexibleBorrowsShares -= shares;
         }
 
-        totalFlexibleBorrowsShares -= memFlexibleBorrowPositions;
-        delete flexibleBorrowPositions[borrower];
+        // reverts on failure
+        (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
+          this,
+          collateralMarket,
+          borrower,
+          maxAssets
+        );
+
+        l.moreCollateral =
+          (
+            // if this is also the collateral run `_seize` to avoid re-entrancy, otherwise make an external call.
+            // both revert on failure
+            address(collateralMarket) == address(this)
+              ? _seize(this, msg.sender, borrower, seizeAssets)
+              : collateralMarket.seize(msg.sender, borrower, seizeAssets)
+          ) ||
+          l.moreCollateral;
+        emit LiquidateBorrow(msg.sender, borrower, maxAssets, lendersAssets, collateralMarket, seizeAssets);
+
+        asset.safeTransferFrom(msg.sender, address(this), maxAssets + lendersAssets);
+        maxAssets -= maxAssets;
+      }
+      if (maxAssets == 0 && !l.moreCollateral) {
+        uint256 memFlexibleBorrowPositions = flexibleBorrowPositions[borrower];
+        if (memFlexibleBorrowPositions > 0) {
+          smartPoolFlexibleBorrows -= convertToBorrowAssets(memFlexibleBorrowPositions);
+
+          {
+            uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
+            uint256 fromAccumulator = Math.min(memEarningsAccumulator, memFlexibleBorrowPositions);
+            smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
+            if (fromAccumulator < memFlexibleBorrowPositions)
+              smartPoolAssets -= memFlexibleBorrowPositions - fromAccumulator;
+          }
+
+          totalFlexibleBorrowsShares -= memFlexibleBorrowPositions;
+          delete flexibleBorrowPositions[borrower];
+        }
       }
     }
   }
@@ -982,7 +984,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   }
 
   /// @dev Gets all borrows and penalties for an account.
-  /// @param account account to return status snapshot in the specified maturity date.
+  /// @param account account to return status snapshot for fixed and flexible borrows.
   /// @return debt the total debt, denominated in number of tokens.
   function getDebt(address account) public view returns (uint256 debt) {
     uint256 memPenaltyRate = penaltyRate;
@@ -1007,8 +1009,23 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       }
       if ((1 << i) > packedMaturities) break;
     }
+    // calculate flexible borrowed debt
+    uint256 shares = flexibleBorrowPositions[account];
+    if (shares > 0) {
+      uint256 totalBorrowedAssets = smartPoolFlexibleBorrows;
+      uint256 spCurrentUtilization = totalBorrowedAssets.divWadDown(
+        smartPoolAssets.divWadDown(interestRateModel.flexibleFullUtilization())
+      );
+      uint256 newDebt = totalBorrowedAssets.mulWadDown(
+        interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
+          block.timestamp - lastUpdatedSmartPoolRate,
+          365 days
+        )
+      );
+      uint256 supply = totalFlexibleBorrowsShares;
 
-    debt += convertToBorrowAssets(flexibleBorrowPositions[account]);
+      debt += supply == 0 ? shares : shares.mulDivDown(totalBorrowedAssets + newDebt, supply);
+    }
   }
 
   /// @notice Updates the smartPoolAssetsAverage.

@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
-import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
+import { Auditor, ExactlyOracle, InsufficientLiquidity } from "../../contracts/Auditor.sol";
 import {
   FixedLender,
   ERC20,
@@ -855,6 +855,28 @@ contract FixedLenderTest is Test {
     assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment);
   }
 
+  function testLiquidateFlexibleBorrowConsideringDebtOverTime() external {
+    vm.warp(0);
+    fixedLenderWETH.deposit(1.15 ether, address(this));
+    fixedLender.deposit(50_000 ether, ALICE);
+
+    mockOracle.setPrice(fixedLenderWETH, 5_000e18);
+    fixedLender.borrow(4_000 ether, address(this), address(this));
+
+    // 10% yearly interest
+    vm.warp(365 days);
+    assertEq(fixedLender.getDebt(address(this)), 4_000 ether + 400 ether);
+
+    // bob is allowed to repay 2970
+    vm.prank(BOB);
+    fixedLender.liquidate(address(this), type(uint256).max, fixedLenderWETH);
+
+    assertApproxEqRel(fixedLender.getDebt(address(this)), 1_430 ether, 1e18);
+    assertApproxEqRel(fixedLender.smartPoolFlexibleBorrows(), 1_430 ether, 1e18);
+    assertEq(fixedLender.smartPoolAssets(), 50_400 ether);
+    assertEq(fixedLender.lastUpdatedSmartPoolRate(), 365 days);
+  }
+
   function testLiquidateAndDistributeLosses() external {
     mockInterestRateModel.setBorrowRate(0);
     fixedLenderWETH.deposit(1.15 ether, address(this));
@@ -1301,6 +1323,16 @@ contract FixedLenderTest is Test {
     vm.warp(500);
     fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
     assertEq(fixedLender.smartPoolAssetsAverage(), fixedLender.smartPoolAssets());
+  }
+
+  function testFixedBorrowFailingWhenFlexibleBorrowAccruesDebt() external {
+    fixedLender.deposit(100 ether, address(this));
+
+    fixedLender.borrow(50 ether, address(this), address(this));
+
+    vm.warp(365 days);
+    vm.expectRevert(InsufficientLiquidity.selector);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL * 14, 10 ether, 15 ether, address(this), address(this));
   }
 
   function testFlexibleBorrow() external {
