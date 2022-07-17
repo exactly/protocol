@@ -41,9 +41,12 @@ contract Previewer {
     bool isCollateral;
     uint256 smartPoolShares;
     uint256 smartPoolAssets;
+    uint256 flexibleBorrowShares;
+    uint256 flexibleBorrowAssets;
     uint256 flexibleBorrowRate;
-    MaturityLiquidity[] availableLiquidity;
-    MaturityPosition[] maturitySupplyPositions;
+    uint256 flexibleAvailableLiquidity;
+    MaturityLiquidity[] fixedAvailableLiquidity;
+    MaturityPosition[] fixedSupplyPositions;
     MaturityPosition[] fixedBorrowPositions;
   }
 
@@ -202,11 +205,33 @@ contract Previewer {
         isCollateral: markets & (1 << i) != 0 ? true : false,
         smartPoolShares: market.balanceOf(account),
         smartPoolAssets: market.maxWithdraw(account),
+        flexibleBorrowShares: market.flexibleBorrowPositions(account),
+        flexibleBorrowAssets: flexibleBorrowAssets(account, market),
         flexibleBorrowRate: flexibleBorrowRate(market),
-        availableLiquidity: availableLiquidity(market),
-        maturitySupplyPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
+        flexibleAvailableLiquidity: flexibleAvailableLiquidity(market),
+        fixedAvailableLiquidity: fixedAvailableLiquidity(market),
+        fixedSupplyPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
         fixedBorrowPositions: maturityPositions(account, market.fixedBorrows, market.fixedBorrowPositions)
       });
+    }
+  }
+
+  function flexibleBorrowAssets(address account, FixedLender market) internal view returns (uint256 borrowedAssets) {
+    uint256 shares = market.flexibleBorrowPositions(account);
+    if (shares > 0) {
+      uint256 totalBorrowedAssets = market.smartPoolFlexibleBorrows();
+      uint256 spCurrentUtilization = totalBorrowedAssets.divWadDown(
+        market.smartPoolAssets().divWadDown(market.interestRateModel().flexibleFullUtilization())
+      );
+      uint256 newDebt = totalBorrowedAssets.mulWadDown(
+        market
+          .interestRateModel()
+          .getFlexibleBorrowRate(market.spPreviousUtilization(), spCurrentUtilization)
+          .mulDivDown(block.timestamp - market.lastUpdatedSmartPoolRate(), 365 days)
+      );
+      uint256 supply = market.totalFlexibleBorrowsShares();
+
+      borrowedAssets = supply == 0 ? shares : shares.mulDivDown(totalBorrowedAssets + newDebt, supply);
     }
   }
 
@@ -225,7 +250,7 @@ contract Previewer {
         : 0;
   }
 
-  function availableLiquidity(FixedLender market)
+  function fixedAvailableLiquidity(FixedLender market)
     internal
     view
     returns (MaturityLiquidity[] memory availableLiquidities)
@@ -244,11 +269,18 @@ contract Previewer {
       availableLiquidities[i].maturity = maturity;
       availableLiquidities[i].assets =
         Math.min(
-          borrowableAssets - Math.min(borrowableAssets, market.smartPoolFixedBorrows()),
+          borrowableAssets -
+            Math.min(borrowableAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows()),
           smartPoolAssetsAverage(market)
         ) +
         fixedDeposits;
     }
+  }
+
+  function flexibleAvailableLiquidity(FixedLender market) internal view returns (uint256) {
+    uint256 borrowableAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
+    return
+      borrowableAssets - Math.min(borrowableAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows());
   }
 
   function maturityPositions(
