@@ -197,7 +197,7 @@ describe("Fixed Pool Management Library", () => {
       });
 
       it("WHEN smartPoolBorrowed is 100, unassignedEarnings are 100, and amount deposited is 0, THEN earnings is 0 (0 for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("100", "0", "100", "0");
+        const result = await poolEnv.getDepositYield("0", "100", "100", "0");
 
         expect(result[0]).to.equal(parseUnits("0"));
         expect(result[1]).to.equal(parseUnits("0"));

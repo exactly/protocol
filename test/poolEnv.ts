@@ -94,14 +94,14 @@ export class PoolEnv {
   }
 
   public async getDepositYield(
-    unassignedEarnings: string,
     amount: string,
+    unassignedEarnings: string,
     spBorrowed: string,
     smartPoolFeeRate: string,
   ) {
     return this.fpHarness.getDepositYield(
-      parseUnits(unassignedEarnings),
       parseUnits(amount),
+      parseUnits(unassignedEarnings),
       parseUnits(spBorrowed),
       parseUnits(smartPoolFeeRate),
     );

@@ -706,8 +706,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
 
-    (uint256 fee, uint256 feeSP) = pool.earningsUnassigned.getDepositYield(
-      assets,
+    (uint256 fee, uint256 feeSP) = assets.getDepositYield(
+      pool.earningsUnassigned,
       pool.smartPoolBorrowed(),
       smartPoolFeeRate
     );
@@ -892,8 +892,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (block.timestamp < maturity) {
       if (canDiscount) {
         // We calculate the deposit fee considering the amount of debt the user'll pay
-        (uint256 discountFee, uint256 feeSP) = pool.earningsUnassigned.getDepositYield(
-          scaleDebtCovered.principal,
+        (uint256 discountFee, uint256 feeSP) = scaleDebtCovered.principal.getDepositYield(
+          pool.earningsUnassigned,
           pool.smartPoolBorrowed(),
           smartPoolFeeRate
         );

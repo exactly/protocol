@@ -38,15 +38,15 @@ library PoolLib {
   }
 
   /// @notice Gets the amount of revenue sharing between the smart pool and the new fixed pool supplier.
-  /// @param unassignedEarnings earnings not yet accrued to the SP that should be shared with the current supplier.
   /// @param amount amount being provided by the fixed pool supplier.
+  /// @param unassignedEarnings earnings not yet accrued to the SP that should be shared with the current supplier.
   /// @param spBorrowed amount of smart pool assets currently being borrowed by the fixed rate pool.
   /// @param smartPoolFeeRate rate charged to the fixed pool supplier to be accrued by the sp suppliers.
   /// @return yield amount to be offered to the fixed pool supplier.
   /// @return earningsSP yield to be accrued by the SP suppliers for initially providing the liquidity.
   function getDepositYield(
-    uint256 unassignedEarnings,
     uint256 amount,
+    uint256 unassignedEarnings,
     uint256 spBorrowed,
     uint256 smartPoolFeeRate
   ) internal pure returns (uint256 yield, uint256 earningsSP) {

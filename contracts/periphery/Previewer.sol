@@ -75,7 +75,7 @@ contract Previewer {
     (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.fixedPools(maturity);
     (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(market, maturity);
 
-    (uint256 yield, ) = unassignedEarnings.getDepositYield(assets, smartPoolBorrowed, market.smartPoolFeeRate());
+    (uint256 yield, ) = assets.getDepositYield(unassignedEarnings, smartPoolBorrowed, market.smartPoolFeeRate());
     positionAssets = assets + yield;
   }
 
@@ -175,8 +175,8 @@ contract Previewer {
     (debt.principal, debt.fee) = market.fixedBorrowPositions(maturity, borrower);
     PoolLib.Position memory coveredDebt = debt.scaleProportionally(positionAssets);
 
-    (uint256 discount, ) = unassignedEarnings.getDepositYield(
-      coveredDebt.principal,
+    (uint256 discount, ) = coveredDebt.principal.getDepositYield(
+      unassignedEarnings,
       smartPoolBorrowed,
       market.smartPoolFeeRate()
     );
