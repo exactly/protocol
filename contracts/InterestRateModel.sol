@@ -161,14 +161,14 @@ contract InterestRateModel is AccessControl {
   /// @param suppliedMP deposits in the fixed rate pool.
   /// @param smartPoolAssetsAverage the average of the smart pool's assets.
   /// @return rate of the fee that the borrower will have to pay (represented with 1e18 decimals).
-  function getRateToBorrow(
+  function getFixedBorrowRate(
     uint256 maturity,
     uint256 currentDate,
     uint256 amount,
     uint256 borrowedMP,
     uint256 suppliedMP,
     uint256 smartPoolAssetsAverage
-  ) public view returns (uint256) {
+  ) external view returns (uint256) {
     if (currentDate >= maturity) revert AlreadyMatured();
 
     uint256 supplied = suppliedMP + smartPoolAssetsAverage.divWadDown(fixedFullUtilization);
@@ -236,5 +236,4 @@ contract InterestRateModel is AccessControl {
 }
 
 error AlreadyMatured();
-error InvalidAmount();
 error UtilizationExceeded();

@@ -125,7 +125,7 @@ describe("InterestRateModel", () => {
         expect(await interestRateModel.fixedMaxUtilization()).to.be.equal(fixedMaxUtilization);
       });
       it("AND the curves R0 stayed the same", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400, // force yearly calculation
           parseUnits("0.00000000000001"),
@@ -137,7 +137,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.lt(parseUnits("0.021"));
       });
       it("AND the curves Rb and Ub changed accordingly", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400, // force yearly calculation
           parseUnits("0.00000000000001"),
@@ -149,7 +149,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.lt(parseUnits("0.23"));
       });
       it("AND the curves Umax changed", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400, // force yearly calculation
           parseUnits("0.00000000000001"),
@@ -177,7 +177,7 @@ describe("InterestRateModel", () => {
         expect(await interestRateModel.fixedMaxUtilization()).to.be.equal(fixedMaxUtilization);
       });
       it("AND the curves R0 changed accordingly", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400, // force yearly calculation
           parseUnits("0.000000000001"),
@@ -189,7 +189,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.lt(parseUnits("0.051"));
       });
       it("AND the curves Rb stays the same", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400, // force yearly calculation
           parseUnits("0.0000000001"),
@@ -546,7 +546,7 @@ describe("InterestRateModel", () => {
     });
     describe("GIVEN a token with 6 decimals instead of 18", () => {
       it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400, // force yearly calculation
           parseUnits("0.00001", 6),
@@ -558,7 +558,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.lt(parseUnits("0.020001"));
       });
       it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400, // force yearly calculation
           parseUnits("0.00001", 6),
@@ -572,7 +572,7 @@ describe("InterestRateModel", () => {
     });
 
     it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
-      const rate = await interestRateModel.getRateToBorrow(
+      const rate = await interestRateModel.getFixedBorrowRate(
         nextPoolID,
         nextPoolID - 365 * 86_400, // force yearly calculation
         parseUnits("0.0000000000001"),
@@ -583,7 +583,7 @@ describe("InterestRateModel", () => {
       expect(rate).to.equal(parseUnits("0.02"));
     });
     it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
-      const rate = await interestRateModel.getRateToBorrow(
+      const rate = await interestRateModel.getFixedBorrowRate(
         nextPoolID,
         nextPoolID - 365 * 86_400, // force yearly calculation
         parseUnits("0.0000001"),
@@ -595,7 +595,7 @@ describe("InterestRateModel", () => {
     });
     describe("high utilization rates", () => {
       it("AND WHEN asking for the interest at 90% (>Ub)utilization rate THEN it returns R=0.22 (price hike)", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400, // force yearly calculation
           parseUnits("0.0000001"),
@@ -606,7 +606,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.equal(parseUnits("0.2225"));
       });
       it("AND WHEN asking for the interest at 100% (>Ub)utilization rate THEN it returns R=0.47 (price hike)", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400,
           parseUnits("0.000000001"),
@@ -619,7 +619,7 @@ describe("InterestRateModel", () => {
       });
       it("AND WHEN asking for the interest at 105% ur (higher than Ufull) THEN it reverts", async () => {
         await expect(
-          interestRateModel.getRateToBorrow(
+          interestRateModel.getFixedBorrowRate(
             nextPoolID,
             nextPoolID - 365 * 86_400,
             parseUnits("0.0000001"),
@@ -630,7 +630,7 @@ describe("InterestRateModel", () => {
         ).to.be.revertedWith("UtilizationExceeded()");
       });
       it("AND WHEN asking for the interest at Umax, THEN it reverts", async () => {
-        const tx = interestRateModel.getRateToBorrow(
+        const tx = interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400,
           parseUnits("0.000001"),
@@ -642,7 +642,7 @@ describe("InterestRateModel", () => {
         await expect(tx).to.be.revertedWith("UtilizationExceeded()");
       });
       it("AND WHEN asking for the interest at U>Umax, THEN it reverts", async () => {
-        const tx = interestRateModel.getRateToBorrow(
+        const tx = interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 365 * 86_400,
           parseUnits("0.0000001"),
@@ -656,7 +656,7 @@ describe("InterestRateModel", () => {
     });
     describe("interest for durations other than a full year", () => {
       it("WHEN asking for the interest for negative time difference, THEN it reverts", async () => {
-        const tx = interestRateModel.getRateToBorrow(
+        const tx = interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID + 86_400,
           parseUnits("0.00000001"),
@@ -668,7 +668,7 @@ describe("InterestRateModel", () => {
         await expect(tx).to.be.revertedWith("AlreadyMatured()");
       });
       it("WHEN asking for the interest for a time difference of zero, THEN it reverts", async () => {
-        const tx = interestRateModel.getRateToBorrow(
+        const tx = interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID,
           parseUnits("0.00000001"),
@@ -680,7 +680,7 @@ describe("InterestRateModel", () => {
         await expect(tx).to.be.revertedWith("AlreadyMatured()");
       });
       it("WHEN asking for the interest for a 5-day period at Ub, THEN it returns Rb*(5/365)", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 5 * 86_400,
           parseUnits("0.00000001"),
@@ -694,7 +694,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.lt(parseUnits(".0019179"));
       });
       it("WHEN asking for the interest for a two-week period at Ub, THEN it returns Rb*(14/365)", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 14 * 86_400,
           parseUnits("0.00000001"),
@@ -708,7 +708,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.be.lt(parseUnits(".00536987"));
       });
       it("WHEN asking for the interest for a one-day period at U0, THEN it returns R0*(1/365)", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 86_400,
           parseUnits("0.00000001"),
@@ -724,7 +724,7 @@ describe("InterestRateModel", () => {
       });
 
       it("WHEN asking for the interest for a five-second period at U0, THEN it returns R0*(5/(365*24*60*60))", async () => {
-        const rate = await interestRateModel.getRateToBorrow(
+        const rate = await interestRateModel.getFixedBorrowRate(
           nextPoolID,
           nextPoolID - 5,
           parseUnits("0.0000000000001"),

@@ -113,7 +113,7 @@ contract Previewer {
     (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
     uint256 fees = assets.mulWadDown(
-      market.interestRateModel().getRateToBorrow(
+      market.interestRateModel().getFixedBorrowRate(
         maturity,
         block.timestamp,
         assets,
@@ -142,7 +142,7 @@ contract Previewer {
 
     withdrawAssets = positionAssets.divWadDown(
       1e18 +
-        market.interestRateModel().getRateToBorrow(
+        market.interestRateModel().getFixedBorrowRate(
           maturity,
           block.timestamp,
           positionAssets,

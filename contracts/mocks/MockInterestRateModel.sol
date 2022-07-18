@@ -17,7 +17,7 @@ contract MockInterestRateModel {
     return borrowRate;
   }
 
-  function getRateToBorrow(
+  function getFixedBorrowRate(
     uint256,
     uint256,
     uint256,

@@ -623,7 +623,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     updateSmartPoolAssetsAverage();
     uint256 fee = assets.mulWadDown(
-      interestRateModel.getRateToBorrow(
+      interestRateModel.getFixedBorrowRate(
         maturity,
         block.timestamp,
         assets,
@@ -778,7 +778,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       updateSmartPoolAssetsAverage();
       assetsDiscounted = positionAssets.divWadDown(
         1e18 +
-          interestRateModel.getRateToBorrow(
+          interestRateModel.getFixedBorrowRate(
             maturity,
             block.timestamp,
             positionAssets,
