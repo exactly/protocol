@@ -65,6 +65,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   uint256 public lastUpdatedSmartPoolRate;
   uint256 public spPreviousUtilization;
 
+  address public treasury;
+  uint128 public treasuryFee;
+
   /// @notice Event emitted when a user deposits an amount of an asset to a certain fixed rate pool collecting a fee at
   /// the end of the period.
   /// @param maturity maturity at which the user will be able to collect his deposit + his fee.
@@ -181,6 +184,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param newDampSpeedUp represented with 1e18 decimals.
   /// @param newDampSpeedDown represented with 1e18 decimals.
   event DampSpeedSet(uint256 newDampSpeedUp, uint256 newDampSpeedDown);
+
+  event TreasurySet(address treasury, uint128 treasuryFee);
 
   event MarketUpdated(
     uint256 timestamp,
@@ -359,6 +364,13 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (futurePools > 224 || futurePools == 0) revert InvalidParameter();
     maxFuturePools = futurePools;
     emit MaxFuturePoolsSet(futurePools);
+  }
+
+  function setTreasury(address treasury_, uint128 treasuryFee_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (treasuryFee_ > 1e17) revert InvalidParameter();
+    treasury = treasury_;
+    treasuryFee = treasuryFee_;
+    emit TreasurySet(treasury_, treasuryFee_);
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the smart pool.
@@ -658,12 +670,12 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     // We calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
     (uint256 newUnassignedEarnings, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
-      fee,
+      chargeTreasuryFee(fee),
       pool.smartPoolBorrowed(),
       assets
     );
-    smartPoolEarningsAccumulator += newEarningsSP;
     pool.earningsUnassigned += newUnassignedEarnings;
+    collectFreeLunch(newEarningsSP);
 
     fixedBorrowPositions[maturity][borrower] = PoolLib.Position(position.principal + assets, position.fee + fee);
 
@@ -807,12 +819,12 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     // All the fees go to unassigned or to the smart pool
     (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
-      positionAssets - assetsDiscounted,
+      chargeTreasuryFee(positionAssets - assetsDiscounted),
       pool.smartPoolBorrowed(),
       assetsDiscounted
     );
     pool.earningsUnassigned += earningsUnassigned;
-    smartPoolEarningsAccumulator += newEarningsSP;
+    collectFreeLunch(newEarningsSP);
 
     // the user gets discounted the full amount
     position.reduceProportionally(positionAssets);
@@ -1121,10 +1133,12 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 spCurrentUtilization = smartPoolAssets > 0
       ? smartPoolFlexibleBorrows.divWadDown(smartPoolAssets.divWadUp(interestRateModel.flexibleFullUtilization()))
       : 0;
-    uint256 newDebt = smartPoolFlexibleBorrows.mulWadDown(
-      interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
-        block.timestamp - lastUpdatedSmartPoolRate,
-        365 days
+    uint256 newDebt = chargeTreasuryFee(
+      smartPoolFlexibleBorrows.mulWadDown(
+        interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
+          block.timestamp - lastUpdatedSmartPoolRate,
+          365 days
+        )
       )
     );
 
@@ -1132,6 +1146,27 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     smartPoolAssets += newDebt;
     spPreviousUtilization = spCurrentUtilization;
     lastUpdatedSmartPoolRate = block.timestamp;
+  }
+
+  function chargeTreasuryFee(uint256 earnings) internal returns (uint256) {
+    uint256 memTreasuryFee = treasuryFee;
+    if (memTreasuryFee == 0) return earnings;
+
+    uint256 assets = earnings.mulWadDown(memTreasuryFee);
+    _mint(treasury, previewDeposit(assets));
+    smartPoolAssets += assets;
+    return earnings - assets;
+  }
+
+  function collectFreeLunch(uint256 earnings) internal {
+    if (earnings == 0) return;
+
+    if (treasuryFee > 0) {
+      _mint(treasury, previewDeposit(earnings));
+      smartPoolAssets += earnings;
+    } else {
+      smartPoolEarningsAccumulator += earnings;
+    }
   }
 }
 
