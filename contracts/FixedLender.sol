@@ -463,40 +463,54 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 baseMaturity = packedMaturities % (1 << 32);
     packedMaturities = packedMaturities >> 32;
     for (uint256 i = 0; i < 224; ) {
-      if ((packedMaturities & (1 << i)) != 0) {
+      if ((packedMaturities & (1 << i)) != 0 || i == 0) {
         uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
         if (maxAssets > 0 && l.moreRepayment) {
-          uint256 actualRepay;
-          if (block.timestamp < maturity) {
-            actualRepay = noTransferRepay(maturity, maxAssets, maxAssets, borrower, false);
-            maxAssets -= actualRepay;
-          } else {
-            uint256 position;
-            {
-              PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
-              position = p.principal + p.fee;
-            }
-            uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
-            actualRepay = debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets;
-
-            if (actualRepay == 0) maxAssets = 0;
-            else {
-              actualRepay = noTransferRepay(maturity, actualRepay, maxAssets, borrower, false);
+          if ((packedMaturities & (1 << i)) != 0) {
+            uint256 actualRepay;
+            if (block.timestamp < maturity) {
+              actualRepay = noTransferRepay(maturity, maxAssets, maxAssets, borrower, false);
               maxAssets -= actualRepay;
-
+            } else {
+              uint256 position;
               {
                 PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
                 position = p.principal + p.fee;
               }
-              debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
-              if ((debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets) == 0) maxAssets = 0;
+              uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
+              actualRepay = debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets;
+
+              if (actualRepay == 0) maxAssets = 0;
+              else {
+                actualRepay = noTransferRepay(maturity, actualRepay, maxAssets, borrower, false);
+                maxAssets -= actualRepay;
+                {
+                  PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
+                  position = p.principal + p.fee;
+                }
+                debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
+                if ((debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets) == 0) maxAssets = 0;
+              }
             }
+            repaidAssets += actualRepay;
           }
-          repaidAssets += actualRepay;
 
           if ((1 << (i + 1)) > packedMaturities) l.moreRepayment = false;
 
           if (maxAssets == 0 || !l.moreRepayment) {
+            if (maxAssets > 0 && flexibleBorrowPositions[borrower] > 0) {
+              updateSmartPoolFlexibleBorrows();
+              {
+                uint256 shares = previewRepay(maxAssets);
+
+                smartPoolFlexibleBorrows -= maxAssets;
+                flexibleBorrowPositions[borrower] -= shares;
+                totalFlexibleBorrowsShares -= shares;
+              }
+              repaidAssets += maxAssets;
+              maxAssets -= maxAssets;
+            }
+
             // reverts on failure
             (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
               this,
@@ -537,6 +551,21 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
             delete fixedBorrowPositions[maturity][borrower];
             fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
           }
+          uint256 memFlexibleBorrowPositions = flexibleBorrowPositions[borrower];
+          if (memFlexibleBorrowPositions > 0) {
+            smartPoolFlexibleBorrows -= convertToBorrowAssets(memFlexibleBorrowPositions);
+
+            {
+              uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
+              uint256 fromAccumulator = Math.min(memEarningsAccumulator, memFlexibleBorrowPositions);
+              smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
+              if (fromAccumulator < memFlexibleBorrowPositions)
+                smartPoolAssets -= memFlexibleBorrowPositions - fromAccumulator;
+            }
+
+            totalFlexibleBorrowsShares -= memFlexibleBorrowPositions;
+            delete flexibleBorrowPositions[borrower];
+          }
         }
       }
 
@@ -544,57 +573,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         ++i;
       }
       if ((1 << i) > packedMaturities) break;
-    }
-    if (flexibleBorrowPositions[borrower] > 0) {
-      updateSmartPoolFlexibleBorrows();
-      if (maxAssets > 0) {
-        {
-          uint256 shares = previewRepay(maxAssets);
-
-          smartPoolFlexibleBorrows -= maxAssets;
-          flexibleBorrowPositions[borrower] -= shares;
-          totalFlexibleBorrowsShares -= shares;
-        }
-
-        // reverts on failure
-        (uint256 seizeAssets, uint256 lendersAssets) = auditor.liquidateCalculateSeizeAmount(
-          this,
-          collateralMarket,
-          borrower,
-          maxAssets
-        );
-
-        l.moreCollateral =
-          (
-            // if this is also the collateral run `_seize` to avoid re-entrancy, otherwise make an external call.
-            // both revert on failure
-            address(collateralMarket) == address(this)
-              ? _seize(this, msg.sender, borrower, seizeAssets)
-              : collateralMarket.seize(msg.sender, borrower, seizeAssets)
-          ) ||
-          l.moreCollateral;
-        emit LiquidateBorrow(msg.sender, borrower, maxAssets, lendersAssets, collateralMarket, seizeAssets);
-
-        asset.safeTransferFrom(msg.sender, address(this), maxAssets + lendersAssets);
-        maxAssets -= maxAssets;
-      }
-      if (maxAssets == 0 && !l.moreCollateral) {
-        uint256 memFlexibleBorrowPositions = flexibleBorrowPositions[borrower];
-        if (memFlexibleBorrowPositions > 0) {
-          smartPoolFlexibleBorrows -= convertToBorrowAssets(memFlexibleBorrowPositions);
-
-          {
-            uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
-            uint256 fromAccumulator = Math.min(memEarningsAccumulator, memFlexibleBorrowPositions);
-            smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
-            if (fromAccumulator < memFlexibleBorrowPositions)
-              smartPoolAssets -= memFlexibleBorrowPositions - fromAccumulator;
-          }
-
-          totalFlexibleBorrowsShares -= memFlexibleBorrowPositions;
-          delete flexibleBorrowPositions[borrower];
-        }
-      }
     }
   }
 
