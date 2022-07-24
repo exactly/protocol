@@ -203,31 +203,59 @@ contract PreviewerTest is Test {
     uint256 maturity = TSUtils.INTERVAL;
     fixedLender.deposit(10 ether, address(this));
     vm.warp(180 seconds);
-    uint256 positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
+    (uint256 positionAssetsPreviewed, ) = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
     (uint256 principalAfterBorrow, uint256 feesAfterBorrow) = fixedLender.fixedBorrowPositions(maturity, address(this));
 
     assertEq(positionAssetsPreviewed, principalAfterBorrow + feesAfterBorrow);
   }
 
+  function testPreviewBorrowAtMaturityReturningAccurateUtilization() external {
+    uint256 maturity = TSUtils.INTERVAL;
+    fixedLender.deposit(10 ether, address(this));
+    vm.warp(180 seconds);
+    (, uint256 utilization) = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
+    assertEq(
+      utilization,
+      uint256(1 ether).divWadDown(
+        getUpdatedSmartPoolAssetsAverage().divWadDown(fixedLender.interestRateModel().fixedFullUtilization())
+      )
+    );
+
+    fixedLender.depositAtMaturity(maturity, 1.47 ether, 1.47 ether, address(this));
+    vm.warp(5301 seconds);
+    (, utilization) = previewer.previewBorrowAtMaturity(fixedLender, maturity, 2.33 ether);
+
+    assertEq(
+      utilization,
+      uint256(2.33 ether).divWadDown(
+        1.47 ether +
+          getUpdatedSmartPoolAssetsAverage().divWadDown(fixedLender.interestRateModel().fixedFullUtilization())
+      )
+    );
+  }
+
   function testPreviewBorrowAtMaturityWithZeroAmount() external {
     fixedLender.deposit(10 ether, address(this));
     vm.warp(5 seconds);
-    assertEq(previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 0), 0);
+    (uint256 positionAssets, ) = previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 0);
+    assertEq(positionAssets, 0);
   }
 
   function testPreviewBorrowAtMaturityWithOneUnit() external {
     fixedLender.deposit(5 ether, address(this));
     vm.warp(100 seconds);
     fixedLender.deposit(5 ether, address(this));
-    assertEq(previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 1), 1);
+    (uint256 positionAssets, ) = previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 1);
+    assertEq(positionAssets, 1);
   }
 
   function testPreviewBorrowAtMaturityWithFiveUnits() external {
     fixedLender.deposit(5 ether, address(this));
     vm.warp(100 seconds);
     fixedLender.deposit(5 ether, address(this));
-    assertEq(previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 5), 5);
+    (uint256 positionAssets, ) = previewer.previewBorrowAtMaturity(fixedLender, TSUtils.INTERVAL, 5);
+    assertEq(positionAssets, 5);
   }
 
   function testPreviewBorrowAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
@@ -237,7 +265,7 @@ contract PreviewerTest is Test {
     fixedLender.deposit(50 ether, ALICE);
 
     vm.warp(2 days);
-    uint256 positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 2.3 ether);
+    (uint256 positionAssetsPreviewed, ) = previewer.previewBorrowAtMaturity(fixedLender, maturity, 2.3 ether);
     fixedLender.borrowAtMaturity(maturity, 2.3 ether, 3 ether, address(this), address(this));
     (uint256 principalAfterBorrow, uint256 feesAfterBorrow) = fixedLender.fixedBorrowPositions(maturity, address(this));
     assertEq(positionAssetsPreviewed, principalAfterBorrow + feesAfterBorrow);
@@ -246,14 +274,14 @@ contract PreviewerTest is Test {
     fixedLender.depositAtMaturity(maturity, 1.47 ether, 1.47 ether, address(this));
 
     vm.warp(5 days);
-    positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
+    (positionAssetsPreviewed, ) = previewer.previewBorrowAtMaturity(fixedLender, maturity, 1 ether);
     vm.prank(BOB);
     fixedLender.borrowAtMaturity(maturity, 1 ether, 2 ether, BOB, BOB);
     (principalAfterBorrow, feesAfterBorrow) = fixedLender.fixedBorrowPositions(maturity, BOB);
     assertEq(positionAssetsPreviewed, principalAfterBorrow + feesAfterBorrow);
 
     vm.warp(6 days);
-    positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, maturity, 20 ether);
+    (positionAssetsPreviewed, ) = previewer.previewBorrowAtMaturity(fixedLender, maturity, 20 ether);
     vm.prank(ALICE);
     fixedLender.borrowAtMaturity(maturity, 20 ether, 30 ether, ALICE, ALICE);
     (principalAfterBorrow, feesAfterBorrow) = fixedLender.fixedBorrowPositions(maturity, ALICE);
@@ -263,7 +291,7 @@ contract PreviewerTest is Test {
   function testPreviewBorrowAtMaturityWithInvalidMaturity() external {
     fixedLender.deposit(10 ether, address(this));
     vm.warp(100 seconds);
-    uint256 positionAssetsPreviewed = previewer.previewBorrowAtMaturity(fixedLender, 376 seconds, 1 ether);
+    (uint256 positionAssetsPreviewed, ) = previewer.previewBorrowAtMaturity(fixedLender, 376 seconds, 1 ether);
     assertGe(positionAssetsPreviewed, 1 ether);
   }
 
@@ -953,6 +981,75 @@ contract PreviewerTest is Test {
     assertEq(data[0].decimals, 18);
     assertEq(data[0].maxFuturePools, 12);
     assertEq(data[0].isCollateral, false);
+  }
+
+  function testAccountsReturningUtilizationForDifferentMaturities() external {
+    fixedLender.deposit(10 ether, address(this));
+
+    vm.warp(2113);
+    Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
+
+    assertEq(data[0].fixedAvailableLiquidity.length, 12);
+    assertEq(data[0].fixedAvailableLiquidity[0].maturity, TSUtils.INTERVAL);
+    assertEq(data[0].fixedAvailableLiquidity[0].utilization, 0);
+    assertEq(data[0].fixedAvailableLiquidity[1].maturity, TSUtils.INTERVAL * 2);
+    assertEq(data[0].fixedAvailableLiquidity[1].utilization, 0);
+    assertEq(data[0].fixedAvailableLiquidity[2].maturity, TSUtils.INTERVAL * 3);
+    assertEq(data[0].fixedAvailableLiquidity[2].utilization, 0);
+
+    vm.warp(3490);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    data = previewer.accounts(address(this));
+
+    assertEq(
+      data[0].fixedAvailableLiquidity[0].utilization,
+      uint256(1 ether).divWadDown(
+        getUpdatedSmartPoolAssetsAverage().divWadDown(fixedLender.interestRateModel().fixedFullUtilization())
+      )
+    );
+    assertEq(data[0].fixedAvailableLiquidity[1].utilization, 0);
+    assertEq(data[0].fixedAvailableLiquidity[2].utilization, 0);
+
+    vm.warp(8491);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL * 2, 0.172 ether, 1 ether, address(this), address(this));
+    data = previewer.accounts(address(this));
+
+    assertEq(
+      data[0].fixedAvailableLiquidity[0].utilization,
+      uint256(1 ether).divWadDown(
+        getUpdatedSmartPoolAssetsAverage().divWadDown(fixedLender.interestRateModel().fixedFullUtilization())
+      )
+    );
+    assertEq(
+      data[0].fixedAvailableLiquidity[1].utilization,
+      uint256(0.172 ether).divWadDown(
+        getUpdatedSmartPoolAssetsAverage().divWadDown(fixedLender.interestRateModel().fixedFullUtilization())
+      )
+    );
+    assertEq(data[0].fixedAvailableLiquidity[2].utilization, 0);
+
+    vm.warp(8999);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL * 3, 1.929 ether, 3 ether, address(this), address(this));
+    data = previewer.accounts(address(this));
+
+    assertEq(
+      data[0].fixedAvailableLiquidity[0].utilization,
+      uint256(1 ether).divWadDown(
+        getUpdatedSmartPoolAssetsAverage().divWadDown(fixedLender.interestRateModel().fixedFullUtilization())
+      )
+    );
+    assertEq(
+      data[0].fixedAvailableLiquidity[1].utilization,
+      uint256(0.172 ether).divWadDown(
+        getUpdatedSmartPoolAssetsAverage().divWadDown(fixedLender.interestRateModel().fixedFullUtilization())
+      )
+    );
+    assertEq(
+      data[0].fixedAvailableLiquidity[2].utilization,
+      uint256(1.929 ether).divWadDown(
+        getUpdatedSmartPoolAssetsAverage().divWadDown(fixedLender.interestRateModel().fixedFullUtilization())
+      )
+    );
   }
 
   function testAccountsWithEmptyAccount() external {
