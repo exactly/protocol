@@ -1001,7 +1001,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (shares > 0) {
       uint256 totalBorrowedAssets = smartPoolFlexibleBorrows;
       uint256 spCurrentUtilization = totalBorrowedAssets.divWadDown(
-        smartPoolAssets.divWadDown(interestRateModel.flexibleFullUtilization())
+        smartPoolAssets.divWadUp(interestRateModel.flexibleFullUtilization())
       );
       uint256 newDebt = totalBorrowedAssets.mulWadDown(
         interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
