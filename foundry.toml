@@ -1,4 +1,4 @@
-[default]
+[profile.default]
 solc = '0.8.13'
 optimizer = true
 optimizer_runs = 200
@@ -10,13 +10,9 @@ cache_path = 'cache/.foundry'
 fuzz_runs = 6_666
 verbosity = 3
 
-[production]
-src = 'test/solidity'
-out = 'artifacts/.foundry'
+[profile.production]
 fuzz_runs = 66_666
 
-[development]
-src = 'test/solidity'
-out = 'artifacts/.foundry'
+[profile.development]
 fuzz_runs = 666
 verbosity = 5
