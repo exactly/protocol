@@ -271,7 +271,7 @@ contract Auditor is AccessControl {
     LiquidationIncentive memory memIncentive = liquidationIncentive;
     uint256 adjustFactor = usd.adjustedCollateral.mulDivUp(
       usd.totalDebt,
-      usd.totalCollateral.mulWadDown(usd.adjustedDebt)
+      usd.totalCollateral.mulWadUp(usd.adjustedDebt)
     );
     uint256 closeFactor = (TARGET_HEALTH - usd.adjustedCollateral.divWadUp(usd.adjustedDebt)).divWadUp(
       TARGET_HEALTH - adjustFactor.mulWadDown(1e18 + memIncentive.liquidator + memIncentive.lenders)
