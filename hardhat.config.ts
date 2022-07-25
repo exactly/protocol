@@ -17,6 +17,7 @@ const config: Config = {
     hardhat: {
       tokens: ["DAI", "WETH", "USDC", "WBTC"],
       accounts: { accountsBalance: `1${"0".repeat(32)}` },
+      allowUnlimitedContractSize: true,
     },
     rinkeby: {
       tokens: ["DAI", "WETH", "USDC", "WBTC"],
