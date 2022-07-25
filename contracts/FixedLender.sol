@@ -506,7 +506,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     if (maxAssets > 0 && flexibleBorrowPositions[borrower] > 0) {
-      (uint256 actualRepayAssets, ) = noTransferRepay(maxAssets, borrower);
+      uint256 actualRepayAssets = noTransferRepay(
+        maxAssets.mulDivDown(totalFlexibleBorrowsShares, floatingBorrowAssets()),
+        borrower
+      );
       repaidAssets += actualRepayAssets;
       maxAssets -= actualRepayAssets;
     }
@@ -561,14 +564,8 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       }
       uint256 borrowShares = flexibleBorrowPositions[borrower];
       if (borrowShares > 0) {
-        updateSmartPoolFlexibleBorrows();
-        uint256 badDebt = convertToBorrowAssets(borrowShares);
-        smartPoolFlexibleBorrows -= badDebt;
+        uint256 badDebt = noTransferRepay(borrowShares, borrower);
         spreadBadDebt(badDebt);
-        totalFlexibleBorrowsShares -= borrowShares;
-        delete flexibleBorrowPositions[borrower];
-
-        emit Repay(msg.sender, borrower, badDebt, borrowShares);
         emit MarketUpdated(
           block.timestamp,
           totalSupply,
@@ -1009,21 +1006,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
     // calculate flexible borrowed debt
     uint256 shares = flexibleBorrowPositions[account];
-    if (shares > 0) {
-      uint256 totalBorrowedAssets = smartPoolFlexibleBorrows;
-      uint256 spCurrentUtilization = totalBorrowedAssets.divWadDown(
-        smartPoolAssets.divWadUp(interestRateModel.flexibleFullUtilization())
-      );
-      uint256 newDebt = totalBorrowedAssets.mulWadDown(
-        interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
-          block.timestamp - lastUpdatedSmartPoolRate,
-          365 days
-        )
-      );
-      uint256 supply = totalFlexibleBorrowsShares;
-
-      debt += supply == 0 ? shares : shares.mulDivDown(totalBorrowedAssets + newDebt, supply);
-    }
+    if (shares > 0) debt += previewRepay(shares);
   }
 
   /// @notice Updates the smartPoolAssetsAverage.
@@ -1065,7 +1048,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     updateSmartPoolFlexibleBorrows();
 
-    shares = convertToBorrowShares(assets);
+    shares = previewBorrow(assets);
 
     smartPoolFlexibleBorrows += assets;
     // we check if the underlying liquidity that the user wants to withdraw is borrowed
@@ -1081,46 +1064,54 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   }
 
   /// @notice Repays a certain amount to the smart pool.
-  /// @param maxAssets amount to be repaid by sender and subtracted from the borrower's debt.
+  /// @param borrowShares amount to be repaid by sender and subtracted from the borrower's debt.
   /// @param borrower address of the account that has the debt.
-  function repay(uint256 maxAssets, address borrower) external nonReentrant returns (uint256 shares) {
-    uint256 actualRepayAssets;
-    (actualRepayAssets, shares) = noTransferRepay(maxAssets, borrower);
-    asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
+  function repay(uint256 borrowShares, address borrower) external nonReentrant returns (uint256 assets) {
+    assets = noTransferRepay(borrowShares, borrower);
+    asset.safeTransferFrom(msg.sender, address(this), assets);
   }
 
-  function noTransferRepay(uint256 maxAssets, address borrower)
-    internal
-    returns (uint256 actualRepayAssets, uint256 shares)
-  {
+  function noTransferRepay(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
     updateSmartPoolFlexibleBorrows();
+    uint256 userBorrowShares = flexibleBorrowPositions[borrower];
+    borrowShares = Math.min(borrowShares, userBorrowShares);
+    assets = previewRepay(borrowShares);
 
-    actualRepayAssets = Math.min(maxAssets, convertToBorrowAssets(flexibleBorrowPositions[borrower]));
-    shares = previewRepay(actualRepayAssets);
+    smartPoolFlexibleBorrows -= assets;
+    flexibleBorrowPositions[borrower] = userBorrowShares - borrowShares;
+    totalFlexibleBorrowsShares -= borrowShares;
 
-    smartPoolFlexibleBorrows -= actualRepayAssets;
-    flexibleBorrowPositions[borrower] -= shares;
-    totalFlexibleBorrowsShares -= shares;
-
-    emit Repay(msg.sender, borrower, actualRepayAssets, shares);
+    emit Repay(msg.sender, borrower, assets, borrowShares);
   }
 
-  function convertToBorrowShares(uint256 assets) public view returns (uint256) {
+  function previewBorrow(uint256 assets) public view virtual returns (uint256) {
     uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
 
-    return supply == 0 ? assets : assets.mulDivDown(supply, smartPoolFlexibleBorrows);
+    return supply == 0 ? assets : assets.mulDivUp(supply, floatingBorrowAssets());
   }
 
-  function convertToBorrowAssets(uint256 shares) public view returns (uint256) {
+  function previewRepay(uint256 shares) public view returns (uint256) {
     uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
 
-    return supply == 0 ? shares : shares.mulDivDown(smartPoolFlexibleBorrows, supply);
+    return supply == 0 ? shares : shares.mulDivUp(floatingBorrowAssets(), supply);
   }
 
-  function previewRepay(uint256 assets) public view returns (uint256) {
-    uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
+  function maxRepay(address borrower) public view returns (uint256) {
+    return previewRepay(flexibleBorrowPositions[borrower]);
+  }
 
-    return supply == 0 ? assets : assets.mulDivUp(supply, smartPoolFlexibleBorrows);
+  function floatingBorrowAssets() public view returns (uint256) {
+    uint256 memTotalBorrowAssets = smartPoolFlexibleBorrows;
+    uint256 spCurrentUtilization = memTotalBorrowAssets.divWadDown(
+      smartPoolAssets.divWadUp(interestRateModel.flexibleFullUtilization())
+    );
+    uint256 newDebt = memTotalBorrowAssets.mulWadDown(
+      interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
+        block.timestamp - lastUpdatedSmartPoolRate,
+        365 days
+      )
+    );
+    return memTotalBorrowAssets + newDebt;
   }
 
   /// @notice Updates the smart pool flexible borrows' variables.

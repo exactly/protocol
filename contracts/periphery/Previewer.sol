@@ -223,32 +223,13 @@ contract Previewer {
         smartPoolShares: market.balanceOf(account),
         smartPoolAssets: market.maxWithdraw(account),
         flexibleBorrowShares: market.flexibleBorrowPositions(account),
-        flexibleBorrowAssets: flexibleBorrowAssets(account, market),
+        flexibleBorrowAssets: market.maxRepay(account),
         flexibleBorrowRate: flexibleBorrowRate(market),
         flexibleAvailableLiquidity: flexibleAvailableLiquidity(market),
         fixedAvailableLiquidity: fixedAvailableLiquidity(market),
         fixedSupplyPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
         fixedBorrowPositions: maturityPositions(account, market.fixedBorrows, market.fixedBorrowPositions)
       });
-    }
-  }
-
-  function flexibleBorrowAssets(address account, FixedLender market) internal view returns (uint256 borrowedAssets) {
-    uint256 shares = market.flexibleBorrowPositions(account);
-    if (shares > 0) {
-      uint256 totalBorrowedAssets = market.smartPoolFlexibleBorrows();
-      uint256 spCurrentUtilization = totalBorrowedAssets.divWadDown(
-        market.smartPoolAssets().divWadDown(market.interestRateModel().flexibleFullUtilization())
-      );
-      uint256 newDebt = totalBorrowedAssets.mulWadDown(
-        market
-          .interestRateModel()
-          .getFlexibleBorrowRate(market.spPreviousUtilization(), spCurrentUtilization)
-          .mulDivDown(block.timestamp - market.lastUpdatedSmartPoolRate(), 365 days)
-      );
-      uint256 supply = market.totalFlexibleBorrowsShares();
-
-      borrowedAssets = supply == 0 ? shares : shares.mulDivDown(totalBorrowedAssets + newDebt, supply);
     }
   }
 

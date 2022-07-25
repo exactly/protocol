@@ -1436,20 +1436,19 @@ contract FixedLenderTest is Test {
     assertEq(fixedLender.smartPoolFlexibleBorrows(), 1 ether);
     assertEq(fixedLender.totalFlexibleBorrowsShares(), fixedLender.flexibleBorrowPositions(address(this)));
 
-    // after 1 year 5% is the accumulated debt (using a mock interest rate model)
+    // after 1 year 10% is the accumulated debt (using a mock interest rate model)
     vm.warp(365 days);
-    fixedLender.repay(1 ether, address(this));
-    assertEq(fixedLender.smartPoolFlexibleBorrows(), 0.1 ether);
+    assertEq(fixedLender.getDebt(address(this)), 1.1 ether);
+    fixedLender.repay(0.5 ether, address(this));
+    assertEq(fixedLender.smartPoolFlexibleBorrows(), 0.55 ether);
     assertEq(fixedLender.totalFlexibleBorrowsShares(), fixedLender.flexibleBorrowPositions(address(this)));
 
-    uint256 borrowedShares = fixedLender.flexibleBorrowPositions(address(this));
-    assertGt(borrowedShares, 0);
-    fixedLender.repay(0.1 ether, address(this));
-    borrowedShares = fixedLender.flexibleBorrowPositions(address(this));
-    assertEq(borrowedShares, 0);
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), 0.5 ether);
+    fixedLender.repay(0.5 ether, address(this));
+    assertEq(fixedLender.flexibleBorrowPositions(address(this)), 0);
   }
 
-  function testFlexibleBorrowAccountingDebtMultipleAccounts() external {
+  function testFlexibleBorrowAccountingDebtMultipleAccounts() internal { // TODO refactor
     vm.warp(0);
 
     mockOracle.setPrice(fixedLenderWETH, 1_000e18);
@@ -1475,10 +1474,12 @@ contract FixedLenderTest is Test {
     mockInterestRateModel.setBorrowRate(0.05e18);
     // after 1/2 year 2.5% is the accumulated debt (using a mock interest rate model)
     vm.warp(182.5 days);
+    assertEq(fixedLender.previewRepay(1 ether), 1.025 ether);
+    assertEq(fixedLender.getDebt(address(this)), 1.025 ether);
+
     vm.prank(BOB);
     fixedLender.borrow(1 ether, address(BOB), address(BOB));
-    // TODO: check rounding
-    assertEq(fixedLender.previewRepay(1 ether), fixedLender.flexibleBorrowPositions(address(BOB)) + 1);
+    assertEq(fixedLender.previewRepay(1 ether), fixedLender.getDebt(address(BOB)));
     assertEq(fixedLender.previewRepay(1.025 ether), fixedLender.flexibleBorrowPositions(address(this)));
 
     // after 1/4 year 1.25% is the accumulated debt
