@@ -30,15 +30,25 @@ contract FixedLenderETHRouter {
     if (msg.sender != address(weth)) revert NotFromWETH();
   }
 
-  function depositETH() public payable wrap returns (uint256 shares) {
+  function deposit() public payable wrap returns (uint256 shares) {
     shares = fixedLender.deposit(msg.value, msg.sender);
   }
 
-  function withdrawETH(uint256 assets) external unwrap(assets, msg.sender) returns (uint256 shares) {
+  function withdraw(uint256 assets) external unwrap(assets, msg.sender) returns (uint256 shares) {
     shares = fixedLender.withdraw(assets, address(this), msg.sender);
   }
 
-  function depositAtMaturityETH(uint256 maturity, uint256 minAssetsRequired)
+  function borrow(uint256 assets) external unwrap(assets, msg.sender) returns (uint256 borrowShares) {
+    borrowShares = fixedLender.borrow(assets, address(this), msg.sender);
+  }
+
+  function repay(uint256 borrowShares) public payable wrap returns (uint256 repaidAssets) {
+    repaidAssets = fixedLender.repay(borrowShares, msg.sender);
+
+    if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets, msg.sender);
+  }
+
+  function depositAtMaturity(uint256 maturity, uint256 minAssetsRequired)
     external
     payable
     wrap
@@ -47,7 +57,7 @@ contract FixedLenderETHRouter {
     return fixedLender.depositAtMaturity(maturity, msg.value, minAssetsRequired, msg.sender);
   }
 
-  function withdrawAtMaturityETH(
+  function withdrawAtMaturity(
     uint256 maturity,
     uint256 assets,
     uint256 minAssetsRequired
@@ -56,7 +66,7 @@ contract FixedLenderETHRouter {
     unwrapAndTransfer(actualAssets, msg.sender);
   }
 
-  function borrowAtMaturityETH(
+  function borrowAtMaturity(
     uint256 maturity,
     uint256 assets,
     uint256 maxAssetsAllowed
@@ -64,7 +74,7 @@ contract FixedLenderETHRouter {
     return fixedLender.borrowAtMaturity(maturity, assets, maxAssetsAllowed, address(this), msg.sender);
   }
 
-  function repayAtMaturityETH(uint256 maturity, uint256 assets) external payable wrap returns (uint256 repaidAssets) {
+  function repayAtMaturity(uint256 maturity, uint256 assets) external payable wrap returns (uint256 repaidAssets) {
     repaidAssets = fixedLender.repayAtMaturity(maturity, assets, msg.value, msg.sender);
 
     if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets, msg.sender);

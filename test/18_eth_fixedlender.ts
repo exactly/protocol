@@ -51,7 +51,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     describe("WHEN depositing 5 ETH (bare ETH, not WETH) to a maturity pool", () => {
       let tx: ContractTransaction;
       beforeEach(async () => {
-        tx = await routerETH.depositAtMaturityETH(futurePools(1)[0], parseUnits("5"), { value: parseUnits("5") });
+        tx = await routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("5") });
       });
       it("THEN a DepositAtMaturity event is emitted", async () => {
         await expect(tx)
@@ -109,7 +109,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     describe("WHEN alice deposits 5 ETH (bare ETH, not WETH) to a maturity pool", () => {
       let tx: ContractTransaction;
       beforeEach(async () => {
-        tx = await routerETH.depositETH({ value: parseUnits("5") });
+        tx = await routerETH.deposit({ value: parseUnits("5") });
       });
       it("THEN a Deposit event is emitted", async () => {
         await expect(tx)
@@ -159,7 +159,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         let aliceETHBalanceBefore: BigNumber;
         beforeEach(async () => {
           aliceETHBalanceBefore = await provider.getBalance(alice.address);
-          tx = await routerETH.withdrawETH(parseUnits("3"));
+          tx = await routerETH.withdraw(parseUnits("3"));
         });
         it("THEN a Withdraw event is emitted", async () => {
           await expect(tx)
@@ -208,7 +208,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         let aliceETHBalanceBefore: BigNumber;
         beforeEach(async () => {
           aliceETHBalanceBefore = await provider.getBalance(alice.address);
-          tx = await routerETH.withdrawAtMaturityETH(futurePools(1)[0], parseUnits("10"), 0);
+          tx = await routerETH.withdrawAtMaturity(futurePools(1)[0], parseUnits("10"), 0);
         });
         it("THEN a WithdrawFromMaturityPool event is emmitted", async () => {
           await expect(tx)
@@ -279,7 +279,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
       describe("WHEN borrowing with ETH (native)", () => {
         let tx: ContractTransaction;
         beforeEach(async () => {
-          tx = await routerETH.borrowAtMaturityETH(futurePools(1)[0], parseUnits("5"), parseUnits("6"));
+          tx = await routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("6"));
         });
         it("THEN a BorrowFromMaturityPool event is emitted", async () => {
           await expect(tx)
@@ -360,7 +360,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
 
         describe("AND she borrows some ETH (native) AND maturity is reached", () => {
           beforeEach(async () => {
-            await routerETH.borrowAtMaturityETH(futurePools(1)[0], parseUnits("5"), parseUnits("6"));
+            await routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("6"));
             await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber()]);
           });
 
@@ -369,7 +369,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
             let aliceETHBalanceBefore: BigNumber;
             beforeEach(async () => {
               aliceETHBalanceBefore = await provider.getBalance(alice.address);
-              tx = await routerETH.repayAtMaturityETH(futurePools(1)[0], parseUnits("5"), { value: parseUnits("6") });
+              tx = await routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("6") });
             });
             it("THEN a RepayToMaturityPool event is emitted", async () => {
               await expect(tx)
@@ -392,7 +392,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
             let aliceETHBalanceBefore: BigNumber;
             beforeEach(async () => {
               aliceETHBalanceBefore = await provider.getBalance(alice.address);
-              await routerETH.repayAtMaturityETH(futurePools(1)[0], parseUnits("10"), { value: parseUnits("10") });
+              await routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("10"), { value: parseUnits("10") });
             });
             it("AND Alice's debt is cleared", async () => {
               const amountOwed = await fixedLenderWETH.getDebt(alice.address);
@@ -429,7 +429,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     });
     describe("WHEN trying to deposit a high rate amount expected", () => {
       beforeEach(async () => {
-        tx = routerETH.depositAtMaturityETH(futurePools(1)[0], parseUnits("10"), { value: parseUnits("5") });
+        tx = routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("10"), { value: parseUnits("5") });
       });
       it("THEN the tx should revert with TooMuchSlippage", async () => {
         await expect(tx).to.be.revertedWith("TooMuchSlippage()");
@@ -440,7 +440,7 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         await weth.deposit({ value: parseUnits("60") });
         await fixedLenderWETH.deposit(parseUnits("60"), alice.address);
         await auditor.enterMarket(fixedLenderWETH.address);
-        tx = routerETH.borrowAtMaturityETH(futurePools(1)[0], parseUnits("5"), parseUnits("5"));
+        tx = routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("5"));
       });
       it("THEN the tx should revert with TooMuchSlippage", async () => {
         await expect(tx).to.be.revertedWith("TooMuchSlippage()");
@@ -448,8 +448,8 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     });
     describe("WHEN trying to withdraw with a high rate amount expected", () => {
       beforeEach(async () => {
-        await routerETH.depositAtMaturityETH(futurePools(1)[0], parseUnits("5"), { value: parseUnits("5") });
-        tx = routerETH.withdrawAtMaturityETH(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
+        await routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("5") });
+        tx = routerETH.withdrawAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
       });
       it("THEN the tx should revert with TooMuchSlippage", async () => {
         await expect(tx).to.be.revertedWith("TooMuchSlippage()");
@@ -460,8 +460,8 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
         await weth.deposit({ value: parseUnits("60") });
         await fixedLenderWETH.deposit(parseUnits("60"), alice.address);
         await auditor.enterMarket(fixedLenderWETH.address);
-        await routerETH.borrowAtMaturityETH(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
-        tx = routerETH.repayAtMaturityETH(futurePools(1)[0], parseUnits("5"), { value: parseUnits("4") });
+        await routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
+        tx = routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("4") });
       });
       it("THEN the tx should revert with TooMuchSlippage", async () => {
         await expect(tx).to.be.revertedWith("TooMuchSlippage()");
