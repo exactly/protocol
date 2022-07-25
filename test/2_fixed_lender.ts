@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { BigNumber, ContractTransaction } from "ethers";
-import type { Auditor, FixedLender, InterestRateModel, MockERC20, WETH } from "../types";
+import type { Auditor, FixedLender, InterestRateModel, MockERC20, MockPriceFeed, WETH } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 import { decodeMaturities } from "./exactlyUtils";
@@ -553,6 +553,8 @@ describe("FixedLender", function () {
           const { blockNumber } = await tx.wait();
           const { timestamp } = await provider.getBlock(blockNumber);
           await provider.send("evm_setNextBlockTimestamp", [timestamp + 86_400 * 365 * 5]);
+          await (await getContract<MockPriceFeed>("PriceFeedDAI")).setUpdatedAt(timestamp + 86_400 * 365 * 5);
+          await (await getContract<MockPriceFeed>("PriceFeedWETH")).setUpdatedAt(timestamp + 86_400 * 365 * 5);
 
           // we borrow and repay to have all those flexible fees accrued
           await fixedLenderDAI.borrow("1", maria.address, maria.address);
@@ -891,7 +893,7 @@ describe("FixedLender", function () {
         beforeEach(async () => {
           await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 20]);
         });
-        it("THEN Maria owes (getAccountSnapshot) 5k + aprox 2.8k DAI in penalties", async () => {
+        it("THEN Maria owes (getAccountSnapshot) 5k + approx 2.8k DAI in penalties", async () => {
           await provider.send("evm_mine", []);
           expect(await fixedLenderDAI.getDebt(maria.address)).to.equal(
             parseUnits("5000").add(
@@ -915,7 +917,7 @@ describe("FixedLender", function () {
             await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * days]);
           }
         });
-        it("THEN Maria owes (getAccountSnapshot) 5k + aprox 2.8k DAI in penalties (no debt was compounded)", async () => {
+        it("THEN Maria owes (getAccountSnapshot) 5k + approx 2.8k DAI in penalties (no debt was compounded)", async () => {
           await provider.send("evm_mine", []);
           expect(await fixedLenderDAI.getDebt(maria.address)).to.be.closeTo(
             parseUnits("5000").add(
