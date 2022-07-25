@@ -81,7 +81,7 @@ describe("ExactlyOracle", function () {
   });
 
   it("GetAssetPrice should fail when asset address is invalid", async () => {
-    await expect(exactlyOracle.getAssetPrice(user.address)).to.be.revertedWith("InvalidPrice()");
+    await expect(exactlyOracle.getAssetPrice(user.address)).to.be.revertedWith("0x");
   });
 
   it("SetAssetSource should set the address source of an asset", async () => {

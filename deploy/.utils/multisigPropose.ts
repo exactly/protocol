@@ -23,11 +23,13 @@ export default async (
   ) {
     log("multisig: proposing", contract.address, functionName, args);
     const safeTransaction = await safeSdk.createTransaction({ to: contract.address, value: "0", data: calldata });
-    await safeSdk.signTransaction(safeTransaction);
+    const safeTxHash = await safeSdk.getTransactionHash(safeTransaction);
+    const senderSignature = await safeSdk.signTransactionHash(safeTxHash);
     await safeService.proposeTransaction({
       safeAddress,
-      safeTransaction,
-      safeTxHash: await safeSdk.getTransactionHash(safeTransaction),
+      safeTxHash,
+      safeTransactionData: safeTransaction.data,
+      senderSignature: senderSignature.data,
       senderAddress,
     });
   }

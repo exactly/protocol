@@ -101,7 +101,7 @@ describe("Auditor from User Space", function () {
     await priceFeedDAI.setPrice(0);
     await expect(
       auditor.liquidateCalculateSeizeAmount(fixedLenderDAI.address, fixedLenderDAI.address, user.address, 100),
-    ).to.be.revertedWith("InvalidPrice()");
+    ).to.be.revertedWith("0x00bfc921");
   });
 
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
@@ -143,7 +143,7 @@ describe("Auditor from User Space", function () {
     // we make it count as collateral (DAI)
     await auditor.enterMarket(fixedLenderDAI.address);
     await priceFeedDAI.setPrice(0);
-    await expect(auditor.accountLiquidity(user.address, AddressZero, 0)).to.revertedWith("InvalidPrice()");
+    await expect(auditor.accountLiquidity(user.address, AddressZero, 0)).to.revertedWith("0x00bfc921");
   });
 
   it("Get data from correct market", async () => {
