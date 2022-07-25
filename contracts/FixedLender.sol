@@ -68,6 +68,16 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   address public treasury;
   uint128 public treasuryFee;
 
+  event Borrow(
+    address indexed caller,
+    address indexed receiver,
+    address indexed borrower,
+    uint256 assets,
+    uint256 shares
+  );
+
+  event Repay(address indexed caller, address indexed borrower, uint256 assets, uint256 shares);
+
   /// @notice Event emitted when a user deposits an amount of an asset to a certain fixed rate pool collecting a fee at
   /// the end of the period.
   /// @param maturity maturity at which the user will be able to collect his deposit + his fee.
@@ -463,7 +473,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
         uint256 actualRepay;
         if (block.timestamp < maturity) {
-          actualRepay = noTransferRepay(maturity, maxAssets, maxAssets, borrower, false);
+          actualRepay = noTransferRepayAtMaturity(maturity, maxAssets, maxAssets, borrower, false);
           maxAssets -= actualRepay;
         } else {
           uint256 position;
@@ -476,7 +486,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
           if (actualRepay == 0) maxAssets = 0;
           else {
-            actualRepay = noTransferRepay(maturity, actualRepay, maxAssets, borrower, false);
+            actualRepay = noTransferRepayAtMaturity(maturity, actualRepay, maxAssets, borrower, false);
             maxAssets -= actualRepay;
             {
               PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
@@ -496,16 +506,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     if (maxAssets > 0 && flexibleBorrowPositions[borrower] > 0) {
-      updateSmartPoolFlexibleBorrows();
-      {
-        uint256 shares = previewRepay(maxAssets);
-
-        smartPoolFlexibleBorrows -= maxAssets;
-        flexibleBorrowPositions[borrower] -= shares;
-        totalFlexibleBorrowsShares -= shares;
-      }
-      repaidAssets += maxAssets;
-      maxAssets -= maxAssets;
+      (uint256 actualRepayAssets, ) = noTransferRepay(maxAssets, borrower);
+      repaidAssets += actualRepayAssets;
+      maxAssets -= actualRepayAssets;
     }
 
     uint256 lendersAssets;
@@ -532,19 +535,22 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
           uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
 
           PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
-          uint256 debt = position.principal + position.fee;
-          if (debt > 0) {
+          uint256 badDebt = position.principal + position.fee;
+          if (badDebt > 0) {
             smartPoolFixedBorrows -= fixedPools[maturity].repay(position.principal);
-
-            {
-              uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
-              uint256 fromAccumulator = Math.min(memEarningsAccumulator, debt);
-              smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
-              if (fromAccumulator < debt) smartPoolAssets -= debt - fromAccumulator;
-            }
-
+            spreadBadDebt(badDebt);
             delete fixedBorrowPositions[maturity][borrower];
             fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
+
+            emit RepayAtMaturity(maturity, msg.sender, borrower, badDebt, badDebt);
+            emit MarketUpdated(
+              block.timestamp,
+              totalSupply,
+              smartPoolAssets,
+              smartPoolEarningsAccumulator,
+              maturity,
+              fixedPools[maturity].earningsUnassigned
+            );
           }
         }
 
@@ -553,20 +559,24 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         }
         if ((1 << i) > packedMaturities) break;
       }
-      uint256 memFlexibleBorrowPositions = flexibleBorrowPositions[borrower];
-      if (memFlexibleBorrowPositions > 0) {
-        smartPoolFlexibleBorrows -= convertToBorrowAssets(memFlexibleBorrowPositions);
-
-        {
-          uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
-          uint256 fromAccumulator = Math.min(memEarningsAccumulator, memFlexibleBorrowPositions);
-          smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
-          if (fromAccumulator < memFlexibleBorrowPositions)
-            smartPoolAssets -= memFlexibleBorrowPositions - fromAccumulator;
-        }
-
-        totalFlexibleBorrowsShares -= memFlexibleBorrowPositions;
+      uint256 borrowShares = flexibleBorrowPositions[borrower];
+      if (borrowShares > 0) {
+        updateSmartPoolFlexibleBorrows();
+        uint256 badDebt = convertToBorrowAssets(borrowShares);
+        smartPoolFlexibleBorrows -= badDebt;
+        spreadBadDebt(badDebt);
+        totalFlexibleBorrowsShares -= borrowShares;
         delete flexibleBorrowPositions[borrower];
+
+        emit Repay(msg.sender, borrower, badDebt, borrowShares);
+        emit MarketUpdated(
+          block.timestamp,
+          totalSupply,
+          smartPoolAssets,
+          smartPoolEarningsAccumulator,
+          type(uint256).max,
+          0
+        );
       }
     }
   }
@@ -582,8 +592,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address liquidator,
     address borrower,
     uint256 assets
-  ) external nonReentrant whenNotPaused returns (bool) {
-    return _seize(FixedLender(msg.sender), liquidator, borrower, assets);
+  ) external nonReentrant whenNotPaused returns (bool moreCollateral) {
+    moreCollateral = _seize(FixedLender(msg.sender), liquidator, borrower, assets);
+    emit MarketUpdated(block.timestamp, totalSupply, smartPoolAssets, smartPoolEarningsAccumulator, 0, 0);
   }
 
   /// @notice Borrows a certain amount from a maturity.
@@ -841,7 +852,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
-    actualRepayAssets = noTransferRepay(maturity, positionAssets, maxAssets, borrower, true);
+    actualRepayAssets = noTransferRepayAtMaturity(maturity, positionAssets, maxAssets, borrower, true);
     asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
   }
 
@@ -852,7 +863,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param maxAssets maximum amount of debt that the user is willing to accept to be repaid.
   /// @param borrower the address of the account that has the debt.
   /// @return actualRepayAssets the actual amount that should be transferred into the protocol.
-  function noTransferRepay(
+  function noTransferRepayAtMaturity(
     uint256 maturity,
     uint256 positionAssets,
     uint256 maxAssets,
@@ -1045,7 +1056,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 assets,
     address receiver,
     address borrower
-  ) external nonReentrant {
+  ) external nonReentrant returns (uint256 shares) {
     if (msg.sender != borrower) {
       uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
 
@@ -1054,7 +1065,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     updateSmartPoolFlexibleBorrows();
 
-    uint256 shares = convertToBorrowShares(assets);
+    shares = convertToBorrowShares(assets);
 
     smartPoolFlexibleBorrows += assets;
     // we check if the underlying liquidity that the user wants to withdraw is borrowed
@@ -1065,22 +1076,33 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     checkSmartPoolReserveExceeded();
 
     auditor.validateBorrow(this, borrower);
+    emit Borrow(msg.sender, receiver, borrower, assets, shares);
     asset.safeTransfer(receiver, assets);
   }
 
   /// @notice Repays a certain amount to the smart pool.
-  /// @param assets amount to be repaid by sender and subtracted from the borrower's debt.
+  /// @param maxAssets amount to be repaid by sender and subtracted from the borrower's debt.
   /// @param borrower address of the account that has the debt.
-  function repay(uint256 assets, address borrower) external nonReentrant {
+  function repay(uint256 maxAssets, address borrower) external nonReentrant returns (uint256 shares) {
+    uint256 actualRepayAssets;
+    (actualRepayAssets, shares) = noTransferRepay(maxAssets, borrower);
+    asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
+  }
+
+  function noTransferRepay(uint256 maxAssets, address borrower)
+    internal
+    returns (uint256 actualRepayAssets, uint256 shares)
+  {
     updateSmartPoolFlexibleBorrows();
 
-    uint256 shares = previewRepay(assets);
+    actualRepayAssets = Math.min(maxAssets, convertToBorrowAssets(flexibleBorrowPositions[borrower]));
+    shares = previewRepay(actualRepayAssets);
 
-    smartPoolFlexibleBorrows -= assets;
+    smartPoolFlexibleBorrows -= actualRepayAssets;
     flexibleBorrowPositions[borrower] -= shares;
     totalFlexibleBorrowsShares -= shares;
 
-    asset.safeTransferFrom(msg.sender, address(this), assets);
+    emit Repay(msg.sender, borrower, actualRepayAssets, shares);
   }
 
   function convertToBorrowShares(uint256 assets) public view returns (uint256) {
@@ -1119,6 +1141,22 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     smartPoolAssets += newDebt;
     spPreviousUtilization = spCurrentUtilization;
     lastUpdatedSmartPoolRate = block.timestamp;
+
+    emit MarketUpdated(
+      block.timestamp,
+      totalSupply,
+      smartPoolAssets,
+      smartPoolEarningsAccumulator,
+      type(uint256).max,
+      0
+    );
+  }
+
+  function spreadBadDebt(uint256 badDebt) internal {
+    uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
+    uint256 fromAccumulator = Math.min(memEarningsAccumulator, badDebt);
+    smartPoolEarningsAccumulator = memEarningsAccumulator - fromAccumulator;
+    if (fromAccumulator < badDebt) smartPoolAssets -= badDebt - fromAccumulator;
   }
 
   function chargeTreasuryFee(uint256 earnings) internal returns (uint256) {
