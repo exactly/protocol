@@ -195,6 +195,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param newDampSpeedDown represented with 1e18 decimals.
   event DampSpeedSet(uint256 newDampSpeedUp, uint256 newDampSpeedDown);
 
+  /// @notice emitted when the treasury variables are changed by admin.
+  /// @param treasury address of the treasury that will receive the minted eTokens.
+  /// @param treasuryFee represented with 1e18 decimals.
   event TreasurySet(address treasury, uint128 treasuryFee);
 
   event MarketUpdated(
@@ -371,6 +374,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     emit MaxFuturePoolsSet(futurePools);
   }
 
+  /// @notice Sets the treasury variables.
+  /// @param treasury_ address of the treasury that will receive the minted eTokens.
+  /// @param treasuryFee_ represented with 1e18 decimals.
   function setTreasury(address treasury_, uint128 treasuryFee_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (treasuryFee_ > 1e17) revert InvalidParameter();
     treasury = treasury_;
@@ -978,7 +984,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     return (convertToAssets(balanceOf[account]), getDebt(account));
   }
 
-  /// @dev Gets all borrows and penalties for an account.
+  /// @notice Gets all borrows and penalties for an account.
   /// @param account account to return status snapshot for fixed and flexible borrows.
   /// @return debt the total debt, denominated in number of tokens.
   function getDebt(address account) public view returns (uint256 debt) {
@@ -1148,6 +1154,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (fromAccumulator < badDebt) smartPoolAssets -= badDebt - fromAccumulator;
   }
 
+  /// @notice Charges treasury fee to certain amount of earnings.
+  /// @dev Mints amount of eTokens on behalf of the treasury address.
+  /// @param earnings amount of earnings.
+  /// @return earnings minus the fees charged by the treasury.
   function chargeTreasuryFee(uint256 earnings) internal returns (uint256) {
     uint256 memTreasuryFee = treasuryFee;
     if (memTreasuryFee == 0 || earnings == 0) return earnings;
@@ -1158,6 +1168,10 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     return earnings - assets;
   }
 
+  /// @notice Collects all earnings that are charged to borrowers that make use of fixed pool
+  /// deposits' assets.
+  /// @dev Mints amount of eTokens on behalf of the treasury address.
+  /// @param earnings amount of earnings.
   function collectFreeLunch(uint256 earnings) internal {
     if (earnings == 0) return;
 

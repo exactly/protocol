@@ -1397,6 +1397,180 @@ contract FixedLenderTest is Test {
     assertGt(fixedLender.spPreviousUtilization(), spPreviousUtilization);
   }
 
+  function testChargeTreasuryToFixedBorrows() external {
+    fixedLender.setTreasury(address(BOB), 0.1e18);
+    assertEq(fixedLender.treasury(), address(BOB));
+    assertEq(fixedLender.treasuryFee(), 0.1e18);
+
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    // treasury earns 10% of the 10% that is charged to the borrower
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.01 ether);
+    // the treasury earnings are instantly added to the smart pool assets
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.01 ether);
+
+    (, , uint256 earningsUnassigned, ) = fixedLender.fixedPools(TSUtils.INTERVAL);
+    // rest of it goes to earningsUnassigned of the fixed pool
+    assertEq(earningsUnassigned, 0.09 ether);
+
+    // when no fees are charged, the treasury logic should not revert
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this), address(this));
+
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.01 ether);
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.01 ether);
+
+    vm.warp(TSUtils.INTERVAL / 2);
+
+    vm.prank(ALICE);
+    fixedLender.deposit(5 ether, address(this));
+    mockInterestRateModel.setBorrowRate(0.1e18);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    // treasury even ends up accruing more earnings
+    assertLt(fixedLender.balanceOf(address(BOB)), 0.02 ether);
+    assertGt(fixedLender.maxWithdraw(address(BOB)), 0.02 ether);
+  }
+
+  function testCollectTreasuryFreeLunchToFixedBorrows() external {
+    fixedLender.setTreasury(address(BOB), 0.1e18);
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    // treasury should earn all inefficient earnings charged to the borrower
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.1 ether);
+    // the treasury earnings are instantly added to the smart pool assets
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.1 ether);
+
+    (, , uint256 earningsUnassigned, ) = fixedLender.fixedPools(TSUtils.INTERVAL);
+    // earningsUnassigned and accumulator should not receive anything
+    assertEq(earningsUnassigned, 0);
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
+
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 2 ether, 3 ether, address(this), address(this));
+
+    // treasury should earn 10% of 0.2 = 0.02
+    // and HALF of inefficient earnings charged to the borrower = (0.2 - 0.02) / 2 = 0.09
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.1 ether + 0.02 ether + 0.09 ether);
+    // the treasury earnings are instantly added to the smart pool assets
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.1 ether + 0.02 ether + 0.09 ether);
+
+    (, , earningsUnassigned, ) = fixedLender.fixedPools(TSUtils.INTERVAL);
+    // earningsUnassigned should receive the other half
+    assertEq(earningsUnassigned, 0.09 ether);
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
+
+    // now when treasury fee is 0 again, all inefficient fees charged go to accumulator
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 2 ether, 1 ether, address(this));
+    fixedLender.setTreasury(address(BOB), 0);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    assertGt(fixedLender.smartPoolEarningsAccumulator(), 0.1 ether);
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.1 ether + 0.02 ether + 0.09 ether);
+  }
+
+  function testCollectTreasuryFreeLunchToFixedBorrowsWithZeroFees() external {
+    fixedLender.setTreasury(address(BOB), 0.1e18);
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    // when no fees are charged, the treasury logic should not revert
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    // treasury shouldn't earn earnings
+    assertEq(fixedLender.balanceOf(address(BOB)), 0);
+    assertEq(fixedLender.smartPoolAssets(), 10 ether);
+
+    (, , uint256 earningsUnassigned, ) = fixedLender.fixedPools(TSUtils.INTERVAL);
+    // earningsUnassigned and accumulator should not receive anything either
+    assertEq(earningsUnassigned, 0);
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
+  }
+
+  function testChargeTreasuryToEarlyWithdraws() external {
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 2 ether, 2 ether, address(this));
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 2 ether, 3 ether, address(this), address(this));
+
+    fixedLender.setTreasury(address(BOB), 0.1e18);
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    // treasury earns 10% of the 10% that is charged to the borrower
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.009090909090909091 ether);
+    // the treasury earnings are instantly added to the smart pool assets
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.009090909090909091 ether);
+
+    (, , uint256 earningsUnassigned, ) = fixedLender.fixedPools(TSUtils.INTERVAL);
+    // rest of it goes to earningsUnassigned of the fixed pool
+    assertEq(earningsUnassigned, 1 ether - 0.909090909090909090 ether - 0.009090909090909091 ether);
+
+    // when no fees are charged, the treasury logic should not revert
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 0.5 ether, 0.4 ether, address(this), address(this));
+
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.009090909090909091 ether);
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.009090909090909091 ether);
+
+    vm.warp(TSUtils.INTERVAL / 2);
+
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 0.5 ether, 0.4 ether, address(this), address(this));
+    // treasury even ends up accruing more earnings
+    assertGt(fixedLender.maxWithdraw(address(BOB)), fixedLender.balanceOf(address(BOB)));
+  }
+
+  function testCollectTreasuryFreeLunchToEarlyWithdraws() external {
+    fixedLender.setTreasury(address(BOB), 0.1e18);
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    // treasury should earn all inefficient earnings charged to the borrower
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.090909090909090910 ether);
+    // the treasury earnings are instantly added to the smart pool assets
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.090909090909090910 ether);
+
+    (, , uint256 earningsUnassigned, ) = fixedLender.fixedPools(TSUtils.INTERVAL);
+    // earningsUnassigned and accumulator should not receive anything
+    assertEq(earningsUnassigned, 0);
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
+
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 0.5 ether, 1 ether, address(this), address(this));
+    mockInterestRateModel.setBorrowRate(0.1e18);
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+
+    // treasury and earningsUnassigned should earn earnings
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.136818181818181819 ether);
+    // the treasury earnings are instantly added to the smart pool assets
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.136818181818181819 ether);
+
+    (, , earningsUnassigned, ) = fixedLender.fixedPools(TSUtils.INTERVAL);
+    // earningsUnassigned should receive the other part
+    assertEq(earningsUnassigned, 0.045000000000000001 ether);
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
+
+    // now when treasury fee is 0 again, all inefficient fees charged go to accumulator
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    fixedLender.setTreasury(address(BOB), 0);
+    fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 0.0545 ether);
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.136818181818181819 ether);
+  }
+
+  function testCollectTreasuryFreeLunchToEarlyWithdrawsWithZeroFees() external {
+    fixedLender.setTreasury(address(BOB), 0.1e18);
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    // when no fees are charged, the treasury logic should not revert
+    mockInterestRateModel.setBorrowRate(0);
+    fixedLender.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    // treasury shouldn't earn earnings charged to the borrower
+    assertEq(fixedLender.balanceOf(address(BOB)), 0);
+    assertEq(fixedLender.smartPoolAssets(), 10 ether);
+
+    (, , uint256 earningsUnassigned, ) = fixedLender.fixedPools(TSUtils.INTERVAL);
+    // earningsUnassigned and accumulator should not receive anything either
+    assertEq(earningsUnassigned, 0);
+    assertEq(fixedLender.smartPoolEarningsAccumulator(), 0);
+  }
+
   function testFlexibleBorrow() external {
     fixedLender.deposit(10 ether, address(this));
     uint256 balanceBefore = fixedLender.asset().balanceOf(address(this));
@@ -1406,6 +1580,25 @@ contract FixedLenderTest is Test {
 
     assertEq(borrowedShares, 1 ether);
     assertEq(balanceAfter, balanceBefore + 1 ether);
+  }
+
+  function testFlexibleBorrowChargingDebtToTreasury() external {
+    vm.warp(0);
+    fixedLender.setTreasury(address(BOB), 0.1e18);
+
+    fixedLender.deposit(10 ether, address(this));
+    fixedLender.borrow(1 ether, address(this), address(this));
+
+    vm.warp(365 days);
+    // we can dynamically calculate borrow debt
+    assertEq(fixedLender.getDebt(address(this)), 1.1 ether);
+    // we distribute borrow debt with another borrow
+    fixedLender.borrow(1, address(this), address(this));
+
+    // treasury earns 10% of the 10% that is charged to the borrower
+    assertEq(fixedLender.balanceOf(address(BOB)), 0.01 ether);
+    // the treasury earnings + debt accrued are instantly added to the smart pool assets
+    assertEq(fixedLender.smartPoolAssets(), 10 ether + 0.1 ether);
   }
 
   function testFlexibleBorrowFromAnotherUserWithAllowance() external {

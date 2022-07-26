@@ -202,6 +202,9 @@ describe("Validations", function () {
     it("WHEN trying to set the adjustFactor with an unlisted fixedLender", async () => {
       await expect(auditor.setAdjustFactor(user.address, parseUnits("0.3"))).to.be.revertedWith("MarketNotListed()");
     });
+    it("WHEN trying to set the treasuryFee with more than 10%", async () => {
+      await expect(fixedLender.setTreasury(user.address, parseUnits("0.11"))).to.be.revertedWith("InvalidParameter()");
+    });
   });
   describe("Configurable values: GIVEN a valid configurable value, THEN it should not revert", () => {
     it("WHEN trying to set the smartPoolFeeRate with 20%", async () => {
@@ -288,6 +291,12 @@ describe("Validations", function () {
     });
     it("WHEN trying to set the adjustFactor with an intermediate value (60%)", async () => {
       await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.6"))).to.not.be.reverted;
+    });
+    it("WHEN trying to set the treasuryFee with 10%", async () => {
+      await expect(fixedLender.setTreasury(user.address, parseUnits("0.1"))).to.not.be.reverted;
+    });
+    it("WHEN trying to set the treasuryFee with 0", async () => {
+      await expect(fixedLender.setTreasury(user.address, 0)).to.not.be.reverted;
     });
   });
 });

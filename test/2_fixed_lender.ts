@@ -396,6 +396,14 @@ describe("FixedLender", function () {
       await timelockExecute(owner, fixedLenderDAI, "setAccumulatedEarningsSmoothFactor", [parseUnits("2")]);
       expect(await fixedLenderDAI.accumulatedEarningsSmoothFactor()).to.be.equal(parseUnits("2"));
     });
+    it("WHEN calling setTreasury from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(fixedLenderDAI.setTreasury(maria.address, 0)).to.be.revertedWith("AccessControl");
+    });
+    it("WHEN calling setTreasury, THEN the treasury address and treasury fee should be updated", async () => {
+      await timelockExecute(owner, fixedLenderDAI, "setTreasury", [maria.address, parseUnits("0.1")]);
+      expect(await fixedLenderDAI.treasury()).to.be.equal(maria.address);
+      expect(await fixedLenderDAI.treasuryFee()).to.be.equal(parseUnits("0.1"));
+    });
   });
 
   describe("GIVEN an interest rate of 2%", () => {
