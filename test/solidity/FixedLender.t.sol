@@ -1409,14 +1409,16 @@ contract FixedLenderTest is Test {
   }
 
   function testFlexibleBorrowFromAnotherUserWithAllowance() external {
-    fixedLender.deposit(10 ether, address(this));
+    vm.prank(BOB);
+    fixedLender.deposit(10 ether, address(BOB));
     vm.prank(BOB);
     fixedLender.approve(address(this), type(uint256).max);
     fixedLender.borrow(1 ether, address(this), address(BOB));
   }
 
   function testFlexibleBorrowFromAnotherUserSubtractsAllowance() external {
-    fixedLender.deposit(10 ether, address(this));
+    vm.prank(BOB);
+    fixedLender.deposit(10 ether, address(BOB));
     vm.prank(BOB);
     fixedLender.approve(address(this), 2 ether);
     fixedLender.borrow(1 ether, address(this), address(BOB));

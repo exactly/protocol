@@ -411,6 +411,121 @@ describe("ETHFixedLender - receive bare ETH instead of WETH", function () {
     });
   });
 
+  describe("flexibleBorrowETH vs flexibleBorrow", () => {
+    describe("GIVEN alice has some WETH collateral", () => {
+      beforeEach(async () => {
+        await weth.deposit({ value: parseUnits("60") });
+        await fixedLenderWETH.deposit(parseUnits("60"), alice.address);
+        await auditor.enterMarket(fixedLenderWETH.address);
+      });
+      describe("WHEN borrowing with ETH (native)", () => {
+        let tx: ContractTransaction;
+        beforeEach(async () => {
+          tx = await routerETH.borrow(parseUnits("5"));
+        });
+        it("THEN a Borrow event is emitted", async () => {
+          await expect(tx)
+            .to.emit(fixedLenderWETH, "Borrow")
+            .withArgs(routerETH.address, routerETH.address, alice.address, parseUnits("5"), parseUnits("5"));
+        });
+        it("AND a 5 WETH borrow is registered", async () => {
+          expect(await fixedLenderWETH.flexibleBorrowPositions(alice.address)).to.equal(parseUnits("5"));
+        });
+      });
+      describe("WHEN borrowing with WETH (erc20)", () => {
+        let tx: ContractTransaction;
+        beforeEach(async () => {
+          tx = await fixedLenderWETH.borrow(parseUnits("5"), alice.address, alice.address);
+        });
+        it("THEN a Borrow event is emitted", async () => {
+          await expect(tx)
+            .to.emit(fixedLenderWETH, "Borrow")
+            .withArgs(alice.address, alice.address, alice.address, parseUnits("5"), parseUnits("5"));
+        });
+        it("AND a 5 WETH borrow is registered", async () => {
+          expect(await fixedLenderWETH.flexibleBorrowPositions(alice.address)).to.equal(parseUnits("5"));
+        });
+      });
+
+      describe("flexibleRepayETH vs flexibleRepay", () => {
+        describe("AND she borrows some WETH (erc20) AND maturity is reached", () => {
+          beforeEach(async () => {
+            await fixedLenderWETH.borrow(parseUnits("5"), alice.address, alice.address);
+          });
+
+          describe("WHEN repaying in WETH (erc20)", () => {
+            let tx: ContractTransaction;
+            beforeEach(async () => {
+              tx = await fixedLenderWETH.repay(parseUnits("5"), alice.address);
+            });
+            it("THEN a Repay event is emitted", async () => {
+              await expect(tx)
+                .to.emit(fixedLenderWETH, "Repay")
+                .withArgs(alice.address, alice.address, parseUnits("5"), parseUnits("5"));
+            });
+            it("AND Alice's debt is cleared", async () => {
+              const amountOwed = await fixedLenderWETH.getDebt(alice.address);
+              expect(amountOwed).to.equal(parseUnits("0"));
+            });
+            it("AND WETH is returned to the contract", async () => {
+              expect(await weth.balanceOf(alice.address)).to.equal(parseUnits("0"));
+              expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(parseUnits("60"));
+            });
+          });
+        });
+
+        describe("AND she borrows some ETH (native) AND maturity is reached", () => {
+          beforeEach(async () => {
+            await routerETH.borrow(parseUnits("5"));
+          });
+
+          describe("WHEN repaying in ETH (native)", () => {
+            let tx: ContractTransaction;
+            let aliceETHBalanceBefore: BigNumber;
+            beforeEach(async () => {
+              aliceETHBalanceBefore = await provider.getBalance(alice.address);
+              tx = await routerETH.repay(parseUnits("5"), { value: parseUnits("5") });
+            });
+            it("THEN a Repay event is emitted", async () => {
+              await expect(tx)
+                .to.emit(fixedLenderWETH, "Repay")
+                .withArgs(routerETH.address, alice.address, parseUnits("5"), parseUnits("5"));
+            });
+            it("AND Alice's debt is cleared", async () => {
+              const amountOwed = await fixedLenderWETH.getDebt(alice.address);
+              expect(amountOwed).to.equal(parseUnits("0"));
+            });
+            it("AND ETH is returned to the contract", async () => {
+              expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(parseUnits("60"));
+              const newBalance = await provider.getBalance(alice.address);
+              const balanceDiff = aliceETHBalanceBefore.sub(newBalance);
+              expect(balanceDiff).to.be.gt(parseUnits("5"));
+              expect(balanceDiff).to.be.lt(parseUnits("5.001"));
+            });
+          });
+          describe("WHEN repaying more than debt amount in ETH (native)", () => {
+            let aliceETHBalanceBefore: BigNumber;
+            beforeEach(async () => {
+              aliceETHBalanceBefore = await provider.getBalance(alice.address);
+              await routerETH.repay(parseUnits("10"), { value: parseUnits("10") });
+            });
+            it("AND Alice's debt is cleared", async () => {
+              const amountOwed = await fixedLenderWETH.getDebt(alice.address);
+              expect(amountOwed).to.equal(parseUnits("0"));
+            });
+            it("AND ETH is returned to the contract", async () => {
+              expect(await weth.balanceOf(fixedLenderWETH.address)).to.equal(parseUnits("60"));
+              const newBalance = await provider.getBalance(alice.address);
+              const balanceDiff = aliceETHBalanceBefore.sub(newBalance);
+              expect(balanceDiff).to.be.gt(parseUnits("5"));
+              expect(balanceDiff).to.be.lt(parseUnits("5.001"));
+            });
+          });
+        });
+      });
+    });
+  });
+
   describe("GIVEN alice mistakenly transfers ETH to the router contract", () => {
     it("THEN it reverts with NotFromWETH error", async () => {
       await expect(
