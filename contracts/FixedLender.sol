@@ -68,6 +68,12 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   address public treasury;
   uint128 public treasuryFee;
 
+  /// @notice Event emitted when a user borrows amount of assets from a floating pool.
+  /// @param caller address which borrowed the asset.
+  /// @param receiver address that received the borrowed assets.
+  /// @param borrower address which will be repaying the borrowed assets.
+  /// @param assets amount of assets that were borrowed.
+  /// @param shares amount of borrow shares asigned to the user.
   event Borrow(
     address indexed caller,
     address indexed receiver,
@@ -76,6 +82,11 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 shares
   );
 
+  /// @notice Event emitted when a user repays amount of assets to a floating pool.
+  /// @param caller address which repaid the previously borrowed amount.
+  /// @param borrower address which had the original debt.
+  /// @param assets amount of assets that was repaid.
+  /// @param shares amount of borrow shares that were subtracted from the user's accountability.
   event Repay(address indexed caller, address indexed borrower, uint256 assets, uint256 shares);
 
   /// @notice Event emitted when a user deposits an amount of an asset to a certain fixed rate pool collecting a fee at
@@ -597,7 +608,6 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 assets
   ) external nonReentrant whenNotPaused returns (bool moreCollateral) {
     moreCollateral = _seize(FixedLender(msg.sender), liquidator, borrower, assets);
-    emit MarketUpdated(block.timestamp, totalSupply, smartPoolAssets, smartPoolEarningsAccumulator, 0, 0);
   }
 
   /// @notice Borrows a certain amount from a maturity.
@@ -859,8 +869,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
   }
 
-  /// @notice This function allows to (partially) repay a position. It does not transfer tokens.
-  /// @dev Internal repay function, allows partial repayment.
+  /// @notice Allows to (partially) repay a fixed rate position. It does not transfer tokens.
   /// @param maturity the maturity to access the pool.
   /// @param positionAssets the amount of debt of the pool that should be paid.
   /// @param maxAssets maximum amount of debt that the user is willing to accept to be repaid.
@@ -1070,13 +1079,17 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   }
 
   /// @notice Repays a certain amount to the smart pool.
-  /// @param borrowShares amount to be repaid by sender and subtracted from the borrower's debt.
+  /// @param borrowShares shares to be subtracted from the borrower's accountability.
   /// @param borrower address of the account that has the debt.
   function repay(uint256 borrowShares, address borrower) external nonReentrant returns (uint256 assets) {
     assets = noTransferRepay(borrowShares, borrower);
     asset.safeTransferFrom(msg.sender, address(this), assets);
   }
 
+  /// @notice Allows to (partially) repay a floating borrow. It does not transfer tokens.
+  /// @param borrowShares shares to be subtracted from the borrower's accountability.
+  /// @param borrower the address of the account that has the debt.
+  /// @return assets the actual amount that should be transferred into the protocol.
   function noTransferRepay(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
     updateSmartPoolFlexibleBorrows();
     uint256 userBorrowShares = flexibleBorrowPositions[borrower];
@@ -1090,7 +1103,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     emit Repay(msg.sender, borrower, assets, borrowShares);
   }
 
-  function previewBorrow(uint256 assets) public view virtual returns (uint256) {
+  function previewBorrow(uint256 assets) public view returns (uint256) {
     uint256 supply = totalFlexibleBorrowsShares; // Saves an extra SLOAD if totalFlexibleBorrowsShares is non-zero.
 
     return supply == 0 ? assets : assets.mulDivUp(supply, floatingBorrowAssets());
@@ -1147,6 +1160,9 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     );
   }
 
+  /// @notice Spreads bad debt subtracting the amount from the smartPoolEarningsAccumulator
+  /// and/or smartPoolAssets.
+  /// @param badDebt amount that it's assumed a user won't repay due to insufficient collateral.
   function spreadBadDebt(uint256 badDebt) internal {
     uint256 memEarningsAccumulator = smartPoolEarningsAccumulator;
     uint256 fromAccumulator = Math.min(memEarningsAccumulator, badDebt);

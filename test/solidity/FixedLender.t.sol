@@ -60,6 +60,13 @@ contract FixedLenderTest is Test {
     uint256 assets,
     uint256 fee
   );
+  event Borrow(
+    address indexed caller,
+    address indexed receiver,
+    address indexed borrower,
+    uint256 assets,
+    uint256 shares
+  );
   event RepayAtMaturity(
     uint256 indexed maturity,
     address indexed caller,
@@ -67,6 +74,7 @@ contract FixedLenderTest is Test {
     uint256 assets,
     uint256 debtCovered
   );
+  event Repay(address indexed caller, address indexed borrower, uint256 assets, uint256 shares);
   event LiquidateBorrow(
     address indexed receiver,
     address indexed borrower,
@@ -163,6 +171,14 @@ contract FixedLenderTest is Test {
     fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
   }
 
+  function testSingleFloatingBorrow() external {
+    fixedLender.deposit(12 ether, address(this));
+
+    vm.expectEmit(true, true, true, true, address(fixedLender));
+    emit Borrow(address(this), address(this), address(this), 1 ether, 1 ether);
+    fixedLender.borrow(1 ether, address(this), address(this));
+  }
+
   function testRepayAtMaturity() external {
     fixedLender.deposit(12 ether, address(this));
     fixedLender.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
@@ -170,6 +186,15 @@ contract FixedLenderTest is Test {
     vm.expectEmit(true, true, true, true, address(fixedLender));
     emit RepayAtMaturity(TSUtils.INTERVAL, address(this), address(this), 1.01 ether, 1.1 ether);
     fixedLender.repayAtMaturity(TSUtils.INTERVAL, 1.5 ether, 1.5 ether, address(this));
+  }
+
+  function testSingleFloatingRepay() external {
+    fixedLender.deposit(12 ether, address(this));
+    fixedLender.borrow(1 ether, address(this), address(this));
+
+    vm.expectEmit(true, true, true, true, address(fixedLender));
+    emit Repay(address(this), address(this), 1 ether, 1 ether);
+    fixedLender.repay(1 ether, address(this));
   }
 
   function testDepositTooMuchSlippage() external {
