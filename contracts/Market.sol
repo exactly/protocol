@@ -266,7 +266,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
           mstore(0x00, maturity) // hashing scratch space, first word for storage location hashing
           let location := keccak256(0x00, 0x40) // struct storage location: keccak256([maturity, fixedPools.slot])
           unassignedEarnings := sload(add(location, 2)) // third word
-          lastAccrual := sload(add(location, 3)) // forth word
+          lastAccrual := sload(add(location, 3)) // fourth word
         }
 
         if (maturity > lastAccrual) {
@@ -631,14 +631,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     updateSmartPoolAssetsAverage();
     uint256 fee = assets.mulWadDown(
-      interestRateModel.getFixedBorrowRate(
-        maturity,
-        block.timestamp,
-        assets,
-        pool.borrowed,
-        pool.supplied,
-        smartPoolAssetsAverage
-      )
+      interestRateModel.getFixedBorrowRate(maturity, assets, pool.borrowed, pool.supplied, smartPoolAssetsAverage)
     );
     assetsOwed = assets + fee;
 
@@ -780,7 +773,6 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         1e18 +
           interestRateModel.getFixedBorrowRate(
             maturity,
-            block.timestamp,
             positionAssets,
             pool.borrowed,
             pool.supplied,
@@ -1106,32 +1098,37 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   }
 
   function floatingBorrowAssets() public view returns (uint256) {
-    uint256 memTotalBorrowAssets = smartPoolFlexibleBorrows;
-    uint256 spCurrentUtilization = memTotalBorrowAssets.divWadDown(
-      smartPoolAssets.divWadUp(interestRateModel.flexibleFullUtilization())
-    );
-    uint256 newDebt = memTotalBorrowAssets.mulWadDown(
-      interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
+    InterestRateModel memIRM = interestRateModel;
+    uint256 memSmartPoolAssets = smartPoolAssets;
+    uint256 memSmartPoolFlexibleBorrows = smartPoolFlexibleBorrows;
+    uint256 spCurrentUtilization = memSmartPoolAssets > 0
+      ? memSmartPoolFlexibleBorrows.divWadDown(memSmartPoolAssets.divWadUp(memIRM.floatingFullUtilization()))
+      : 0;
+    uint256 newDebt = memSmartPoolFlexibleBorrows.mulWadDown(
+      memIRM.getFloatingBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
         block.timestamp - lastUpdatedSmartPoolRate,
         365 days
       )
     );
-    return memTotalBorrowAssets + newDebt;
+    return memSmartPoolFlexibleBorrows + newDebt;
   }
 
   /// @notice Updates the smart pool flexible borrows' variables.
   function updateSmartPoolFlexibleBorrows() internal {
-    uint256 spCurrentUtilization = smartPoolAssets > 0
-      ? smartPoolFlexibleBorrows.divWadDown(smartPoolAssets.divWadUp(interestRateModel.flexibleFullUtilization()))
+    InterestRateModel memIRM = interestRateModel;
+    uint256 memSmartPoolAssets = smartPoolAssets;
+    uint256 memSmartPoolFlexibleBorrows = smartPoolFlexibleBorrows;
+    uint256 spCurrentUtilization = memSmartPoolAssets > 0
+      ? memSmartPoolFlexibleBorrows.divWadDown(memSmartPoolAssets.divWadUp(memIRM.floatingFullUtilization()))
       : 0;
-    uint256 newDebt = smartPoolFlexibleBorrows.mulWadDown(
-      interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
+    uint256 newDebt = memSmartPoolFlexibleBorrows.mulWadDown(
+      memIRM.getFloatingBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
         block.timestamp - lastUpdatedSmartPoolRate,
         365 days
       )
     );
 
-    smartPoolFlexibleBorrows += newDebt;
+    smartPoolFlexibleBorrows = memSmartPoolFlexibleBorrows + newDebt;
     smartPoolAssets += chargeTreasuryFee(newDebt);
     spPreviousUtilization = spCurrentUtilization;
     lastUpdatedSmartPoolRate = block.timestamp;

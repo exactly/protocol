@@ -7,57 +7,67 @@ import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMat
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
-contract InterestRateModelTest is Test, InterestRateModel(3.75e16, 0.75e16, 3e18, 2e18, 3.75e16, 0.75e16, 3e18, 2e18) {
+contract InterestRateModelTest is
+  Test,
+  InterestRateModel(
+    InterestRateModel.Curve({ a: 3.75e16, b: 0.75e16, maxUtilization: 3e18 }),
+    2e18,
+    InterestRateModel.Curve({ a: 3.75e16, b: 0.75e16, maxUtilization: 3e18 }),
+    2e18
+  )
+{
   using FixedPointMathLib for uint256;
 
   function testGetFixedBorrowRate() external {
     uint256 assets = 10 ether;
     uint256 smartPoolAssetsAverage = 100 ether;
-    uint256 rate = this.getFixedBorrowRate(FixedLib.INTERVAL, 1, assets, 0, 0, smartPoolAssetsAverage);
+    uint256 rate = this.getFixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, smartPoolAssetsAverage);
     assertEq(rate, 1567705037744728);
   }
 
-  function testGetFlexibleBorrowRate() external {
-    uint256 smartPoolFlexibleBorrows = 50 ether;
+  function testGetFloatingBorrowRate() external {
+    uint256 smartPoolFloatingBorrows = 50 ether;
     uint256 smartPoolAssets = 100 ether;
-    uint256 spCurrentUtilization = smartPoolFlexibleBorrows.divWadDown(
-      smartPoolAssets.divWadDown(this.flexibleFullUtilization())
+    uint256 spCurrentUtilization = smartPoolFloatingBorrows.divWadDown(
+      smartPoolAssets.divWadDown(floatingFullUtilization)
     );
-    uint256 rate = this.getFlexibleBorrowRate(0, spCurrentUtilization);
+    uint256 rate = this.getFloatingBorrowRate(0, spCurrentUtilization);
     assertEq(rate, 22704941554056164);
   }
 
-  function testGetFlexibleBorrowRateUsingMinMaxUtilizations() external {
+  function testGetFloatingBorrowRateUsingMinMaxUtilizations() external {
     uint256 utilizationBefore = 0.5e18;
     uint256 utilizationAfter = 1.5e18;
-    uint256 rate = this.getFlexibleBorrowRate(utilizationBefore, utilizationAfter);
+    uint256 rate = this.getFloatingBorrowRate(utilizationBefore, utilizationAfter);
 
     utilizationBefore = 1.5e18;
     utilizationAfter = 0.5e18;
-    uint256 newRate = this.getFlexibleBorrowRate(utilizationBefore, utilizationAfter);
+    uint256 newRate = this.getFloatingBorrowRate(utilizationBefore, utilizationAfter);
 
     assertEq(rate, newRate);
   }
 
-  function testReferenceFlexibleRate(uint256 v0, uint64 delta) external {
-    uint256 u0 = v0 % flexibleFullUtilization;
-    uint256 u1 = u0 + (delta % (flexibleMaxUtilization - u0));
+  function testReferenceFloatingRate(uint256 v0, uint64 delta) external {
+    Curve memory params = floatingCurve;
+    uint256 u0 = v0 % floatingFullUtilization;
+    uint256 u1 = u0 + (delta % (params.maxUtilization - u0));
 
     string[] memory ffi = new string[](2);
     ffi[0] = "ffi/irm";
-    ffi[1] = encodeHex(abi.encode(u0, u1, flexibleCurveA, flexibleCurveB, flexibleMaxUtilization));
+    ffi[1] = encodeHex(abi.encode(u0, u1, params.a, params.b, params.maxUtilization));
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
 
-    assertApproxEqRel(flexibleRate(u0, u1), refRate, 1.5e9);
+    assertApproxEqRel(floatingRate(u0, u1), refRate, 1.5e9);
   }
 
   function testReferenceFixedRate(uint256 v0, uint64 delta) external {
+    Curve memory params = fixedCurve;
     uint256 u0 = v0 % fixedFullUtilization;
-    uint256 u1 = u0 + (delta % (fixedMaxUtilization - u0));
+    uint256 u1 = u0 + (delta % (params.maxUtilization - u0));
 
     string[] memory ffi = new string[](2);
     ffi[0] = "ffi/irm";
-    ffi[1] = encodeHex(abi.encode(u0, u1, fixedCurveA, fixedCurveB, fixedMaxUtilization));
+    ffi[1] = encodeHex(abi.encode(u0, u1, params.a, params.b, params.maxUtilization));
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
 
     assertApproxEqRel(fixedRate(u0, u1), refRate, 1.5e9);

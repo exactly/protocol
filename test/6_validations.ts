@@ -124,27 +124,27 @@ describe("Validations", function () {
     });
     it("WHEN trying to set the UFullRate with more than 52", async () => {
       await expect(
-        interestRateModel.setFixedCurveParameters(0, 0, parseUnits("53"), parseUnits("52.1")),
+        interestRateModel.setFixedParameters([0, 0, parseUnits("53")], parseUnits("52.1")),
       ).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the UFullRate with UMax same value", async () => {
-      await expect(
-        interestRateModel.setFixedCurveParameters(0, 0, parseUnits("5"), parseUnits("5")),
-      ).to.be.revertedWith("InvalidParameter()");
+      await expect(interestRateModel.setFixedParameters([0, 0, parseUnits("5")], parseUnits("5"))).to.be.revertedWith(
+        "InvalidParameter()",
+      );
     });
     it("WHEN trying to set the UFullRate with more than UMax", async () => {
-      await expect(
-        interestRateModel.setFixedCurveParameters(0, 0, parseUnits("3"), parseUnits("3.1")),
-      ).to.be.revertedWith("InvalidParameter()");
+      await expect(interestRateModel.setFixedParameters([0, 0, parseUnits("3")], parseUnits("3.1"))).to.be.revertedWith(
+        "InvalidParameter()",
+      );
     });
     it("WHEN trying to set the UMax with more than UFullRate * 3", async () => {
-      await expect(
-        interestRateModel.setFixedCurveParameters(0, 0, parseUnits("9.1"), parseUnits("3")),
-      ).to.be.revertedWith("InvalidParameter()");
+      await expect(interestRateModel.setFixedParameters([0, 0, parseUnits("9.1")], parseUnits("3"))).to.be.revertedWith(
+        "InvalidParameter()",
+      );
     });
     it("WHEN trying to set the UFullRate with less than 1", async () => {
       await expect(
-        interestRateModel.setFixedCurveParameters(0, 0, parseUnits("2"), parseUnits("0.99")),
+        interestRateModel.setFixedParameters([0, 0, parseUnits("2")], parseUnits("0.99")),
       ).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the smartPoolReserveFactor with more than 20%", async () => {
@@ -217,20 +217,16 @@ describe("Validations", function () {
       await expect(market.setBackupFeeRate(0)).to.not.be.reverted;
     });
     it("WHEN trying to set the UMax with UFullRate * 3", async () => {
-      await expect(interestRateModel.setFixedCurveParameters(0, 0, parseUnits("9"), parseUnits("3"))).to.not.be
-        .reverted;
+      await expect(interestRateModel.setFixedParameters([0, 0, parseUnits("9")], parseUnits("3"))).to.not.be.reverted;
     });
     it("WHEN trying to set the UFullRate with 1", async () => {
-      await expect(interestRateModel.setFixedCurveParameters(0, 0, parseUnits("2"), parseUnits("1"))).to.not.be
-        .reverted;
+      await expect(interestRateModel.setFixedParameters([0, 0, parseUnits("2")], parseUnits("1"))).to.not.be.reverted;
     });
     it("WHEN trying to set the UFullRate with 52", async () => {
-      await expect(interestRateModel.setFixedCurveParameters(0, 0, parseUnits("53"), parseUnits("52"))).to.not.be
-        .reverted;
+      await expect(interestRateModel.setFixedParameters([0, 0, parseUnits("53")], parseUnits("52"))).to.not.be.reverted;
     });
     it("WHEN trying to set the UFullRate with an intermediate value (4)", async () => {
-      await expect(interestRateModel.setFixedCurveParameters(0, 0, parseUnits("10"), parseUnits("4"))).to.not.be
-        .reverted;
+      await expect(interestRateModel.setFixedParameters([0, 0, parseUnits("10")], parseUnits("4"))).to.not.be.reverted;
     });
     it("WHEN trying to set the smartPoolReserveFactor with 20%", async () => {
       await expect(market.setSmartPoolReserveFactor(parseUnits("0.2"))).to.not.be.reverted;

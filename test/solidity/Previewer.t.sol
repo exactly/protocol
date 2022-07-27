@@ -31,7 +31,12 @@ contract PreviewerTest is Test {
     token = new MockERC20("DAI", "DAI", 18);
     mockOracle = new MockOracle();
     auditor = new Auditor(ExactlyOracle(address(mockOracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
-    interestRateModel = new InterestRateModel(0.72e18, -0.22e18, 3e18, 2e18, 0.72e18, -0.22e18, 3e18, 2e18);
+    interestRateModel = new InterestRateModel(
+      InterestRateModel.Curve({ a: 0.72e18, b: -0.22e18, maxUtilization: 3e18 }),
+      2e18,
+      InterestRateModel.Curve({ a: 0.72e18, b: -0.22e18, maxUtilization: 3e18 }),
+      2e18
+    );
 
     market = new Market(
       token,
@@ -215,12 +220,8 @@ contract PreviewerTest is Test {
     market.deposit(10 ether, address(this));
     vm.warp(180 seconds);
     (, uint256 utilization) = previewer.previewBorrowAtMaturity(market, maturity, 1 ether);
-    assertEq(
-      utilization,
-      uint256(1 ether).divWadDown(
-        getUpdatedSmartPoolAssetsAverage().divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
-    );
+    uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
+    assertEq(utilization, uint256(1 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization)));
 
     market.depositAtMaturity(maturity, 1.47 ether, 1.47 ether, address(this));
     vm.warp(5301 seconds);
@@ -228,9 +229,7 @@ contract PreviewerTest is Test {
 
     assertEq(
       utilization,
-      uint256(2.33 ether).divWadDown(
-        1.47 ether + getUpdatedSmartPoolAssetsAverage().divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
+      uint256(2.33 ether).divWadDown(1.47 ether + getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
     );
   }
 
@@ -990,12 +989,11 @@ contract PreviewerTest is Test {
     vm.warp(3490);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     data = previewer.accounts(address(this));
+    uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
 
     assertEq(
       data[0].fixedAvailableLiquidity[0].utilization,
-      uint256(1 ether).divWadDown(
-        getUpdatedSmartPoolAssetsAverage().divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
+      uint256(1 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(data[0].fixedAvailableLiquidity[1].utilization, 0);
     assertEq(data[0].fixedAvailableLiquidity[2].utilization, 0);
@@ -1006,15 +1004,11 @@ contract PreviewerTest is Test {
 
     assertEq(
       data[0].fixedAvailableLiquidity[0].utilization,
-      uint256(1 ether).divWadDown(
-        getUpdatedSmartPoolAssetsAverage().divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
+      uint256(1 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(
       data[0].fixedAvailableLiquidity[1].utilization,
-      uint256(0.172 ether).divWadDown(
-        getUpdatedSmartPoolAssetsAverage().divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
+      uint256(0.172 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(data[0].fixedAvailableLiquidity[2].utilization, 0);
 
@@ -1024,21 +1018,15 @@ contract PreviewerTest is Test {
 
     assertEq(
       data[0].fixedAvailableLiquidity[0].utilization,
-      uint256(1 ether).divWadDown(
-        getUpdatedSmartPoolAssetsAverage().divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
+      uint256(1 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(
       data[0].fixedAvailableLiquidity[1].utilization,
-      uint256(0.172 ether).divWadDown(
-        getUpdatedSmartPoolAssetsAverage().divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
+      uint256(0.172 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(
       data[0].fixedAvailableLiquidity[2].utilization,
-      uint256(1.929 ether).divWadDown(
-        getUpdatedSmartPoolAssetsAverage().divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
+      uint256(1.929 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
     );
   }
 
@@ -1086,6 +1074,6 @@ contract PreviewerTest is Test {
     market.deposit(100 ether, address(this));
     Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
 
-    assertEq(data[0].flexibleBorrowRate, market.interestRateModel().getFlexibleBorrowRate(0, 0));
+    assertEq(data[0].flexibleBorrowRate, market.interestRateModel().getFloatingBorrowRate(0, 0));
   }
 }

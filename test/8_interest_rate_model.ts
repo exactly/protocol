@@ -1,15 +1,15 @@
 import { expect } from "chai";
-import { parseUnits } from "@ethersproject/units";
-import { Contract, BigNumber } from "ethers";
-import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
-import { expectFee } from "./exactlyUtils";
+import { parseUnits } from "@ethersproject/units";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { Contract, BigNumber } from "ethers";
 import { DefaultEnv } from "./defaultEnv";
+import { expectFee } from "./exactlyUtils";
 import futurePools from "./utils/futurePools";
 
-const nextPoolID = futurePools(1)[0].toNumber();
-const secondPoolID = futurePools(2)[1].toNumber();
-const thirdPoolID = futurePools(3)[2].toNumber();
+const [nextPoolID, secondPoolID, thirdPoolID] = futurePools(3).map((bn) => bn.toNumber());
+
+const { provider } = ethers;
 
 describe("InterestRateModel", () => {
   let exactlyEnv: DefaultEnv;
@@ -19,19 +19,21 @@ describe("InterestRateModel", () => {
   let bob: SignerWithAddress;
   let interestRateModel: Contract;
   let snapshot: any;
+  let now: number;
+
+  before(() => {
+    now = Math.floor(Date.now() / 1000) + 6_666_666;
+  });
 
   beforeEach(async () => {
     exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
     [owner, alice, bob] = await ethers.getSigners();
 
     interestRateModel = exactlyEnv.interestRateModel;
-    // This helps with tests that use evm_setNextBlockTimestamp
-    snapshot = await exactlyEnv.takeSnapshot();
+    snapshot = await provider.send("evm_snapshot", []);
   });
 
-  afterEach(async () => {
-    await exactlyEnv.revertSnapshot(snapshot);
-  });
+  afterEach(() => provider.send("evm_revert", [snapshot]));
 
   describe("setting different curve parameters", () => {
     it("WHEN deploying a contract with A and B parameters yielding an invalid FIXED curve THEN it reverts", async () => {
@@ -69,36 +71,32 @@ describe("InterestRateModel", () => {
       const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const fixedMaxUtilization = parseUnits("1.2"); // Maximum utilization rate
       const fixedFullUtilization = parseUnits("1"); // Full utilization rate
-      const tx = interestRateModel.setFixedCurveParameters(A, B, fixedMaxUtilization, fixedFullUtilization);
+      const tx = interestRateModel.setFixedParameters([A, B, fixedMaxUtilization], fixedFullUtilization);
 
       await expect(tx).to.be.reverted;
     });
-    it("WHEN deploying a contract with A and B parameters yielding an invalid FLEXIBLE curve THEN it reverts", async () => {
+    it("WHEN deploying a contract with A and B parameters yielding an invalid floating curve THEN it reverts", async () => {
       const A = parseUnits("0.092"); // A parameter for the curve
       const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
-      const flexibleMaxUtilization = parseUnits("1.2"); // Maximum utilization rate
-      const flexibleFullUtilization = parseUnits("1"); // Full utilization rate
+      const floatingMaxUtilization = parseUnits("1.2"); // Maximum utilization rate
+      const floatingFullUtilization = parseUnits("1"); // Full utilization rate
       const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel", {});
       const tx = InterestRateModelFactory.deploy(
-        parseUnits("0.72"),
-        parseUnits("-0.22"),
-        parseUnits("3"),
+        [parseUnits("0.72"), parseUnits("-0.22"), parseUnits("3")],
         parseUnits("2"),
-        A, // A parameter for the curve
-        B, // B parameter for the curve
-        flexibleMaxUtilization, // High UR slope rate
-        flexibleFullUtilization, // Full UR
+        [A, B, floatingMaxUtilization],
+        floatingFullUtilization,
         0,
       );
       await expect(tx).to.be.reverted;
     });
-    it("WHEN setting A and B parameters yielding an invalid FLEXIBLE curve THEN it reverts", async () => {
+    it("WHEN setting A and B parameters yielding an invalid floating curve THEN it reverts", async () => {
       // same as case above
       const A = parseUnits("0.092"); // A parameter for the curve
       const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
-      const flexibleMaxUtilization = parseUnits("1.2"); // Maximum utilization rate
-      const flexibleFullUtilization = parseUnits("1"); // Full utilization rate
-      const tx = interestRateModel.setFlexibleCurveParameters(A, B, flexibleMaxUtilization, flexibleFullUtilization);
+      const floatingMaxUtilization = parseUnits("1.2"); // Maximum utilization rate
+      const floatingFullUtilization = parseUnits("1"); // Full utilization rate
+      const tx = interestRateModel.setFloatingParameters([A, B, floatingMaxUtilization], floatingFullUtilization);
 
       await expect(tx).to.be.reverted;
     });
@@ -119,15 +117,21 @@ describe("InterestRateModel", () => {
       const fixedFullUtilization = parseUnits("1"); // Full utilization rate
 
       beforeEach(async () => {
-        await interestRateModel.setFixedCurveParameters(A, B, fixedMaxUtilization, fixedFullUtilization);
+        await interestRateModel.setFixedParameters([A, B, fixedMaxUtilization], fixedFullUtilization);
+        await provider.send("evm_setNextBlockTimestamp", [now]);
+        await provider.send("evm_mine", []);
       });
-      it("THEN the new fixedMaxUtilization is readable", async () => {
-        expect(await interestRateModel.fixedMaxUtilization()).to.be.equal(fixedMaxUtilization);
+
+      it("THEN the new fixed parameters are readable", async () => {
+        const curve = await interestRateModel.fixedCurve();
+        expect(curve.a).to.equal(A);
+        expect(curve.b).to.equal(B);
+        expect(curve.maxUtilization).to.equal(fixedMaxUtilization);
+        expect(await interestRateModel.fixedFullUtilization()).to.equal(fixedFullUtilization);
       });
       it("AND the curves R0 stayed the same", async () => {
         const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400, // force yearly calculation
+          now + 365 * 86_400,
           parseUnits("0.00000000000001"),
           parseUnits("0"),
           parseUnits("50"),
@@ -138,8 +142,7 @@ describe("InterestRateModel", () => {
       });
       it("AND the curves Rb and Ub changed accordingly", async () => {
         const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400, // force yearly calculation
+          now + 365 * 86_400,
           parseUnits("0.00000000000001"),
           parseUnits("90"),
           parseUnits("50"),
@@ -150,8 +153,7 @@ describe("InterestRateModel", () => {
       });
       it("AND the curves Umax changed", async () => {
         const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400, // force yearly calculation
+          now + 365 * 86_400,
           parseUnits("0.00000000000001"),
           parseUnits("99.99999999999999"), // if borrowed more than supply then UR after is invalid (more than fullUR)
           parseUnits("50"),
@@ -169,17 +171,19 @@ describe("InterestRateModel", () => {
       const fixedFullUtilization = parseUnits("1"); // Full utilization rate
 
       beforeEach(async () => {
-        await interestRateModel.setFixedCurveParameters(A, B, fixedMaxUtilization, fixedFullUtilization);
+        await interestRateModel.setFixedParameters([A, B, fixedMaxUtilization], fixedFullUtilization);
+        await provider.send("evm_setNextBlockTimestamp", [now]);
+        await provider.send("evm_mine", []);
       });
       it("THEN the new parameters are readable", async () => {
-        expect(await interestRateModel.fixedCurveA()).to.be.equal(A);
-        expect(await interestRateModel.fixedCurveB()).to.be.equal(B);
-        expect(await interestRateModel.fixedMaxUtilization()).to.be.equal(fixedMaxUtilization);
+        const curve = await interestRateModel.fixedCurve();
+        expect(curve.a).to.equal(A);
+        expect(curve.b).to.equal(B);
+        expect(curve.maxUtilization).to.equal(fixedMaxUtilization);
       });
       it("AND the curves R0 changed accordingly", async () => {
         const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400, // force yearly calculation
+          now + 365 * 86_400,
           parseUnits("0.000000000001"),
           parseUnits("0"),
           parseUnits("50"),
@@ -190,8 +194,7 @@ describe("InterestRateModel", () => {
       });
       it("AND the curves Rb stays the same", async () => {
         const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400, // force yearly calculation
+          now + 365 * 86_400,
           parseUnits("0.0000000001"),
           parseUnits("80"),
           parseUnits("50"),
@@ -228,7 +231,7 @@ describe("InterestRateModel", () => {
           const B = parseUnits("-0.22"); // B parameter for the curve
           const fixedMaxUtilization = parseUnits("3"); // Maximum utilization rate
           const fixedFullUtilization = parseUnits("2"); // Full utilization rate
-          await interestRateModel.setFixedCurveParameters(A, B, fixedMaxUtilization, fixedFullUtilization);
+          await interestRateModel.setFixedParameters([A, B, fixedMaxUtilization], fixedFullUtilization);
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to 3.2, THEN it reverts because the utilization rate is too high", async () => {
@@ -263,7 +266,7 @@ describe("InterestRateModel", () => {
           const B = parseUnits("-1.74"); // B parameter for the curve
           const fixedMaxUtilization = parseUnits("12"); // Maximum utilization rate
           const fixedFullUtilization = parseUnits("11.99"); // Full utilization rate
-          await interestRateModel.setFixedCurveParameters(A, B, fixedMaxUtilization, fixedFullUtilization);
+          await interestRateModel.setFixedParameters([A, B, fixedMaxUtilization], fixedFullUtilization);
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to the full UR, THEN it does not revert", async () => {
@@ -323,7 +326,7 @@ describe("InterestRateModel", () => {
       const B = parseUnits("-418");
       const fixedMaxUtilization = parseUnits("20");
       const fixedFullUtilization = parseUnits("12");
-      await interestRateModel.setFixedCurveParameters(A, B, fixedMaxUtilization, fixedFullUtilization);
+      await interestRateModel.setFixedParameters([A, B, fixedMaxUtilization], fixedFullUtilization);
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarket("WETH");
       await exactlyEnv.depositSP("DAI", "1200");
@@ -348,7 +351,7 @@ describe("InterestRateModel", () => {
       const B = parseUnits("-0.025"); // B parameter for the curve
       const fixedMaxUtilization = parseUnits("1.1"); // Maximum utilization rate
       const fixedFullUtilization = parseUnits("1"); // Full utilization rate
-      await interestRateModel.setFixedCurveParameters(A, B, fixedMaxUtilization, fixedFullUtilization);
+      await interestRateModel.setFixedParameters([A, B, fixedMaxUtilization], fixedFullUtilization);
     });
     describe("GIVEN enough collateral", () => {
       beforeEach(async () => {
@@ -541,10 +544,13 @@ describe("InterestRateModel", () => {
       });
     });
     describe("GIVEN a token with 6 decimals instead of 18", () => {
+      beforeEach(async () => {
+        await provider.send("evm_setNextBlockTimestamp", [now]);
+        await provider.send("evm_mine", []);
+      });
       it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
         const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400, // force yearly calculation
+          now + 365 * 86_400,
           parseUnits("0.00001", 6),
           parseUnits("0", 6), // 0 previous borrows
           parseUnits("50", 6), // 50 available liquidity (mp deposits)
@@ -555,8 +561,7 @@ describe("InterestRateModel", () => {
       });
       it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
         const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400, // force yearly calculation
+          now + 365 * 86_400,
           parseUnits("0.00001", 6),
           parseUnits("80", 6), // 80 borrowed, this is what makes U=0.8
           parseUnits("50", 6), // 50 available liquidity (mp deposits)
@@ -567,218 +572,207 @@ describe("InterestRateModel", () => {
       });
     });
 
-    it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
-      const rate = await interestRateModel.getFixedBorrowRate(
-        nextPoolID,
-        nextPoolID - 365 * 86_400, // force yearly calculation
-        parseUnits("0.0000000000001"),
-        parseUnits("0"),
-        parseUnits("50"),
-        parseUnits("50"),
-      );
-      expect(rate).to.equal(parseUnits("0.02"));
-    });
-    it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
-      const rate = await interestRateModel.getFixedBorrowRate(
-        nextPoolID,
-        nextPoolID - 365 * 86_400, // force yearly calculation
-        parseUnits("0.0000001"),
-        parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-        parseUnits("50"),
-        parseUnits("50"),
-      );
-      expect(rate).to.equal(parseUnits("0.14"));
-    });
-    describe("high utilization rates", () => {
-      it("AND WHEN asking for the interest at 90% (>Ub)utilization rate THEN it returns R=0.22 (price hike)", async () => {
+    describe("GIVEN time sensitive scenarios", () => {
+      beforeEach(async () => {
+        await provider.send("evm_setNextBlockTimestamp", [now]);
+        await provider.send("evm_mine", []);
+      });
+
+      it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
         const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400, // force yearly calculation
-          parseUnits("0.0000001"),
-          parseUnits("90"), // 90 borrowed, this is what makes U=0.9
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-        expect(rate).to.equal(parseUnits("0.2225"));
-      });
-      it("AND WHEN asking for the interest at 100% (>Ub)utilization rate THEN it returns R=0.47 (price hike)", async () => {
-        const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400,
-          parseUnits("0.000000001"),
-          parseUnits("99.999999999"),
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-        expect(rate).to.gt(parseUnits("0.469"));
-        expect(rate).to.lt(parseUnits("0.47"));
-      });
-      it("AND WHEN asking for the interest at 105% ur (higher than Ufull) THEN it reverts", async () => {
-        await expect(
-          interestRateModel.getFixedBorrowRate(
-            nextPoolID,
-            nextPoolID - 365 * 86_400,
-            parseUnits("0.0000001"),
-            parseUnits("105"),
-            parseUnits("50"),
-            parseUnits("50"),
-          ),
-        ).to.be.revertedWith("UtilizationExceeded()");
-      });
-      it("AND WHEN asking for the interest at Umax, THEN it reverts", async () => {
-        const tx = interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400,
-          parseUnits("0.000001"),
-          parseUnits("110"),
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-
-        await expect(tx).to.be.revertedWith("UtilizationExceeded()");
-      });
-      it("AND WHEN asking for the interest at U>Umax, THEN it reverts", async () => {
-        const tx = interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 365 * 86_400,
-          parseUnits("0.0000001"),
-          parseUnits("115"),
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-
-        await expect(tx).to.be.revertedWith("UtilizationExceeded()");
-      });
-    });
-    describe("interest for durations other than a full year", () => {
-      it("WHEN asking for the interest for negative time difference, THEN it reverts", async () => {
-        const tx = interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID + 86_400,
-          parseUnits("0.00000001"),
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-
-        await expect(tx).to.be.revertedWith("AlreadyMatured()");
-      });
-      it("WHEN asking for the interest for a time difference of zero, THEN it reverts", async () => {
-        const tx = interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID,
-          parseUnits("0.00000001"),
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-
-        await expect(tx).to.be.revertedWith("AlreadyMatured()");
-      });
-      it("WHEN asking for the interest for a 5-day period at Ub, THEN it returns Rb*(5/365)", async () => {
-        const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 5 * 86_400,
-          parseUnits("0.00000001"),
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-
-        // 0.14*5/365
-        expect(rate).to.gt(parseUnits(".0019178"));
-        expect(rate).to.lt(parseUnits(".0019179"));
-      });
-      it("WHEN asking for the interest for a two-week period at Ub, THEN it returns Rb*(14/365)", async () => {
-        const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 14 * 86_400,
-          parseUnits("0.00000001"),
-          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-
-        // 0.14*14/365
-        expect(rate).to.be.gt(parseUnits(".00536986"));
-        expect(rate).to.be.lt(parseUnits(".00536987"));
-      });
-      it("WHEN asking for the interest for a one-day period at U0, THEN it returns R0*(1/365)", async () => {
-        const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 86_400,
-          parseUnits("0.00000001"),
-          parseUnits("0.0000000000001"), // 0 borrowed, this is what makes U=0
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-
-        // 0.02*1/365
-        // .00005479452054794520
-        expect(rate).to.be.gt(parseUnits(".0000547945"));
-        expect(rate).to.be.lt(parseUnits(".0000547946"));
-      });
-
-      it("WHEN asking for the interest for a five-second period at U0, THEN it returns R0*(5/(365*24*60*60))", async () => {
-        const rate = await interestRateModel.getFixedBorrowRate(
-          nextPoolID,
-          nextPoolID - 5,
+          now + 365 * 86_400,
           parseUnits("0.0000000000001"),
           parseUnits("0"),
           parseUnits("50"),
           parseUnits("50"),
         );
+        expect(rate).to.equal(parseUnits("0.02"));
+      });
+      it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
+        const rate = await interestRateModel.getFixedBorrowRate(
+          now + 365 * 86_400,
+          parseUnits("0.0000001"),
+          parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+          parseUnits("50"),
+          parseUnits("50"),
+        );
+        expect(rate).to.equal(parseUnits("0.14"));
+      });
 
-        // 0.02*5/(365*24*60*60)
-        expect(rate).to.be.gt(parseUnits(".00000000317097"));
-        expect(rate).to.be.lt(parseUnits(".00000000317098"));
+      describe("high utilization rates", () => {
+        it("AND WHEN asking for the interest at 90% (>Ub)utilization rate THEN it returns R=0.22 (price hike)", async () => {
+          const rate = await interestRateModel.getFixedBorrowRate(
+            now + 365 * 86_400,
+            parseUnits("0.0000001"),
+            parseUnits("90"), // 90 borrowed, this is what makes U=0.9
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+          expect(rate).to.equal(parseUnits("0.2225"));
+        });
+        it("AND WHEN asking for the interest at 100% (>Ub)utilization rate THEN it returns R=0.47 (price hike)", async () => {
+          const rate = await interestRateModel.getFixedBorrowRate(
+            now + 365 * 86_400,
+            parseUnits("0.000000001"),
+            parseUnits("99.999999999"),
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+          expect(rate).to.gt(parseUnits("0.469"));
+          expect(rate).to.lt(parseUnits("0.47"));
+        });
+        it("AND WHEN asking for the interest at 105% ur (higher than Ufull) THEN it reverts", async () => {
+          await expect(
+            interestRateModel.getFixedBorrowRate(
+              now + 365 * 86_400,
+              parseUnits("0.0000001"),
+              parseUnits("105"),
+              parseUnits("50"),
+              parseUnits("50"),
+            ),
+          ).to.be.revertedWith("UtilizationExceeded()");
+        });
+        it("AND WHEN asking for the interest at Umax, THEN it reverts", async () => {
+          const tx = interestRateModel.getFixedBorrowRate(
+            now + 365 * 86_400,
+            parseUnits("0.000001"),
+            parseUnits("110"),
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+
+          await expect(tx).to.be.revertedWith("UtilizationExceeded()");
+        });
+        it("AND WHEN asking for the interest at U>Umax, THEN it reverts", async () => {
+          const tx = interestRateModel.getFixedBorrowRate(
+            now + 365 * 86_400,
+            parseUnits("0.0000001"),
+            parseUnits("115"),
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+
+          await expect(tx).to.be.revertedWith("UtilizationExceeded()");
+        });
+      });
+      describe("interest for durations other than a full year", () => {
+        it("WHEN asking for the interest for negative time difference, THEN it reverts", async () => {
+          const tx = interestRateModel.getFixedBorrowRate(
+            now - 86_400,
+            parseUnits("0.00000001"),
+            parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+
+          await expect(tx).to.be.revertedWith("AlreadyMatured()");
+        });
+        it("WHEN asking for the interest for a time difference of zero, THEN it reverts", async () => {
+          const tx = interestRateModel.getFixedBorrowRate(
+            now,
+            parseUnits("0.00000001"),
+            parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+
+          await expect(tx).to.be.revertedWith("AlreadyMatured()");
+        });
+        it("WHEN asking for the interest for a 5-day period at Ub, THEN it returns Rb*(5/365)", async () => {
+          const rate = await interestRateModel.getFixedBorrowRate(
+            now + 5 * 86_400,
+            parseUnits("0.00000001"),
+            parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+
+          // 0.14*5/365
+          expect(rate).to.gt(parseUnits(".0019178"));
+          expect(rate).to.lt(parseUnits(".0019179"));
+        });
+        it("WHEN asking for the interest for a two-week period at Ub, THEN it returns Rb*(14/365)", async () => {
+          const rate = await interestRateModel.getFixedBorrowRate(
+            now + 14 * 86_400,
+            parseUnits("0.00000001"),
+            parseUnits("80"), // 80 borrowed, this is what makes U=0.8
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+
+          // 0.14*14/365
+          expect(rate).to.be.gt(parseUnits(".00536986"));
+          expect(rate).to.be.lt(parseUnits(".00536987"));
+        });
+        it("WHEN asking for the interest for a one-day period at U0, THEN it returns R0*(1/365)", async () => {
+          const rate = await interestRateModel.getFixedBorrowRate(
+            now + 86_400,
+            parseUnits("0.00000001"),
+            parseUnits("0.0000000000001"), // 0 borrowed, this is what makes U=0
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+
+          // 0.02*1/365
+          // .00005479452054794520
+          expect(rate).to.be.gt(parseUnits(".0000547945"));
+          expect(rate).to.be.lt(parseUnits(".0000547946"));
+        });
+
+        it("WHEN asking for the interest for a five-second period at U0, THEN it returns R0*(5/(365*24*60*60))", async () => {
+          const rate = await interestRateModel.getFixedBorrowRate(
+            now + 5,
+            parseUnits("0.0000000000001"),
+            parseUnits("0"),
+            parseUnits("50"),
+            parseUnits("50"),
+          );
+
+          // 0.02*5/(365*24*60*60)
+          expect(rate).to.be.gt(parseUnits(".00000000317097"));
+          expect(rate).to.be.lt(parseUnits(".00000000317098"));
+        });
       });
     });
   });
 
-  it("WHEN calling setFixedCurveParameters function, THEN it should emit FixedCurveParametersSet", async () => {
+  it("WHEN calling setFixedParameters function, THEN it should emit FixedParametersSet", async () => {
     await expect(
-      interestRateModel.setFixedCurveParameters(
-        parseUnits("0.08"),
-        parseUnits("-0.046"),
-        parseUnits("1.2"),
+      interestRateModel.setFixedParameters(
+        [parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2")],
         parseUnits("1"),
       ),
     )
-      .to.emit(interestRateModel, "FixedCurveParametersSet")
-      .withArgs(parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2"), parseUnits("1"));
+      .to.emit(interestRateModel, "FixedParametersSet")
+      .withArgs([parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2")], parseUnits("1"));
   });
-  it("WHEN calling setFlexibleCurveParameters function, THEN it should emit FlexibleCurveParametersSet", async () => {
+  it("WHEN calling setFloatingParameters function, THEN it should emit FloatingParametersSet", async () => {
     await expect(
-      interestRateModel.setFlexibleCurveParameters(
-        parseUnits("0.08"),
-        parseUnits("-0.046"),
-        parseUnits("1.2"),
+      interestRateModel.setFloatingParameters(
+        [parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2")],
         parseUnits("1"),
       ),
     )
-      .to.emit(interestRateModel, "FlexibleCurveParametersSet")
-      .withArgs(parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2"), parseUnits("1"));
+      .to.emit(interestRateModel, "FloatingParametersSet")
+      .withArgs([parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2")], parseUnits("1"));
   });
 
-  it("WHEN an unauthorized user calls setFixedCurveParameters function, THEN it should revert", async () => {
+  it("WHEN an unauthorized user calls setFixedParameters function, THEN it should revert", async () => {
     const A = parseUnits("0.092"); // A parameter for the curve
     const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
     const fixedMaxUtilization = parseUnits("1.2"); // Maximum utilization rate
     const fixedFullUtilization = parseUnits("1"); // Full utilization rate
     await expect(
-      interestRateModel.connect(alice).setFixedCurveParameters(A, B, fixedMaxUtilization, fixedFullUtilization),
+      interestRateModel.connect(alice).setFixedParameters([A, B, fixedMaxUtilization], fixedFullUtilization),
     ).to.be.revertedWith("AccessControl");
   });
-  it("WHEN an unauthorized user calls setFlexibleCurveParameters function, THEN it should revert", async () => {
+  it("WHEN an unauthorized user calls setFloatingParameters function, THEN it should revert", async () => {
     const A = parseUnits("0.092"); // A parameter for the curve
     const B = parseUnits("-0.086666666666666666"); // B parameter for the curve
-    const flexibleMaxUtilization = parseUnits("1.2"); // Maximum utilization rate
-    const flexibleFullUtilization = parseUnits("1"); // Full utilization rate
+    const floatingMaxUtilization = parseUnits("1.2"); // Maximum utilization rate
+    const floatingFullUtilization = parseUnits("1"); // Full utilization rate
     await expect(
-      interestRateModel
-        .connect(alice)
-        .setFlexibleCurveParameters(A, B, flexibleMaxUtilization, flexibleFullUtilization),
+      interestRateModel.connect(alice).setFloatingParameters([A, B, floatingMaxUtilization], floatingFullUtilization),
     ).to.be.revertedWith("AccessControl");
   });
 });

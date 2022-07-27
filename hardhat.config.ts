@@ -49,14 +49,18 @@ const config: Config = {
     maxFuturePools: 3,
     accumulatedEarningsSmoothFactor: 2,
     interestRateModel: {
-      fixedCurveA: 1.526175,
-      fixedCurveB: -0.1695,
-      fixedMaxUtilization: 7.65,
+      fixedCurve: {
+        a: 1.526175,
+        b: -0.1695,
+        maxUtilization: 7.65,
+      },
       fixedFullUtilization: 7.5,
-      flexibleCurveA: 1.526175,
-      flexibleCurveB: -0.1695,
-      flexibleMaxUtilization: 7.65,
-      flexibleFullUtilization: 7.5,
+      floatingCurve: {
+        a: 1.526175,
+        b: -0.1695,
+        maxUtilization: 7.65,
+      },
+      floatingFullUtilization: 7.5,
     },
   },
   dodoc: { exclude: ["mocks", "k", "elin", "ital"] },
@@ -81,6 +85,11 @@ task(
 export default config;
 
 declare module "hardhat/types/config" {
+  export interface Curve {
+    a: number;
+    b: number;
+    maxUtilization: number;
+  }
   export interface FinanceConfig {
     adjustFactor: { default: number; [token: string]: number };
     liquidationIncentive: { liquidator: number; lenders: number };
@@ -94,14 +103,10 @@ declare module "hardhat/types/config" {
     maxFuturePools: number;
     accumulatedEarningsSmoothFactor: number;
     interestRateModel: {
-      fixedCurveA: number;
-      fixedCurveB: number;
-      fixedMaxUtilization: number;
+      fixedCurve: Curve;
       fixedFullUtilization: number;
-      flexibleCurveA: number;
-      flexibleCurveB: number;
-      flexibleMaxUtilization: number;
-      flexibleFullUtilization: number;
+      floatingCurve: Curve;
+      floatingFullUtilization: number;
     };
   }
 

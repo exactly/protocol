@@ -44,12 +44,7 @@ describe("Market", function () {
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", owner);
     penaltyRate = await marketDAI.penaltyRate();
 
-    await timelockExecute(owner, interestRateModel, "setFixedCurveParameters", [
-      0,
-      0,
-      parseUnits("6"),
-      parseUnits("2"),
-    ]);
+    await timelockExecute(owner, interestRateModel, "setFixedParameters", [[0, 0, parseUnits("6")], parseUnits("2")]);
     await timelockExecute(owner, marketDAI, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketWETH, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketDAI, "setSmartPoolReserveFactor", [0]);
@@ -379,10 +374,8 @@ describe("Market", function () {
 
   describe("GIVEN an interest rate of 2%", () => {
     beforeEach(async () => {
-      await timelockExecute(owner, interestRateModel, "setFixedCurveParameters", [
-        0,
-        parseUnits("0.02"),
-        parseUnits("6"),
+      await timelockExecute(owner, interestRateModel, "setFixedParameters", [
+        [0, parseUnits("0.02"), parseUnits("6")],
         parseUnits("2"),
       ]);
       await marketDAI.deposit(parseUnits("1"), maria.address);
@@ -417,10 +410,8 @@ describe("Market", function () {
       await marketWETH.deposit(parseUnits("10"), maria.address);
       await auditor.enterMarket(marketWETH.address);
 
-      await timelockExecute(owner, interestRateModel, "setFixedCurveParameters", [
-        parseUnits("0"),
-        parseUnits("0"),
-        parseUnits("1.1"),
+      await timelockExecute(owner, interestRateModel, "setFixedParameters", [
+        [parseUnits("0"), parseUnits("0"), parseUnits("1.1")],
         parseUnits("1"),
       ]);
       const tx = await marketDAI.connect(john).deposit(parseUnits("12"), john.address);

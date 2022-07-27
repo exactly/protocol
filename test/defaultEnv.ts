@@ -64,14 +64,10 @@ export class DefaultEnv {
     const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
-      parseUnits("0.0495"), // fixed: A parameter for the curve
-      parseUnits("-0.025"), // fixed: B parameter for the curve
-      parseUnits("1.1"), // fixed: Max utilization rate
-      parseUnits("1"), // fixed: Full utilization rate
-      parseUnits("0.0495"), // flexible: A parameter for the curve
-      parseUnits("-0.025"), // flexible: B parameter for the curve
-      parseUnits("1.1"), // flexible: Max utilization rate
-      parseUnits("1"), // flexible: Full utilization rate
+      [parseUnits("0.0495"), parseUnits("-0.025"), parseUnits("1.1")],
+      parseUnits("1"),
+      [parseUnits("0.0495"), parseUnits("-0.025"), parseUnits("1.1")],
+      parseUnits("1"),
     );
 
     const interestRateModel = useRealInterestRateModel

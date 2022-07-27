@@ -88,6 +88,7 @@ contract Previewer {
     uint256 maxFuturePools = market.maxFuturePools();
     uint256 nextMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     positionAssetsMaturities = new MaturityLiquidity[](maxFuturePools);
+    uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
     for (uint256 i = 0; i < maxFuturePools; i++) {
       uint256 maturity = nextMaturity + FixedLib.INTERVAL * i;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
@@ -97,9 +98,7 @@ contract Previewer {
         maturity: maturity,
         assets: previewDepositAtMaturity(market, maturity, assets),
         utilization: memSmartPoolAssetsAverage > 0
-          ? (pool.borrowed + assets).divWadDown(
-            pool.supplied + memSmartPoolAssetsAverage.divWadDown(market.interestRateModel().fixedFullUtilization())
-          )
+          ? (pool.borrowed + assets).divWadDown(pool.supplied + memSmartPoolAssetsAverage.divWadDown(fullUtilization))
           : 0
       });
     }
@@ -117,12 +116,12 @@ contract Previewer {
   ) external view returns (uint256 positionAssets, uint256 utilizationAfter) {
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
+    uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
     uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage(market);
 
     uint256 fees = assets.mulWadDown(
       market.interestRateModel().getFixedBorrowRate(
         maturity,
-        block.timestamp,
         assets,
         pool.borrowed,
         pool.supplied,
@@ -131,9 +130,7 @@ contract Previewer {
     );
     positionAssets = assets + fees;
     utilizationAfter = memSmartPoolAssetsAverage > 0
-      ? (pool.borrowed + assets).divWadDown(
-        pool.supplied + memSmartPoolAssetsAverage.divWadDown(market.interestRateModel().fixedFullUtilization())
-      )
+      ? (pool.borrowed + assets).divWadDown(pool.supplied + memSmartPoolAssetsAverage.divWadDown(fullUtilization))
       : 0;
   }
 
@@ -156,7 +153,6 @@ contract Previewer {
       1e18 +
         market.interestRateModel().getFixedBorrowRate(
           maturity,
-          block.timestamp,
           positionAssets,
           pool.borrowed,
           pool.supplied,
@@ -224,14 +220,12 @@ contract Previewer {
   function flexibleBorrowRate(Market market) internal view returns (uint256) {
     InterestRateModel interestRateModel = market.interestRateModel();
     uint256 smartPoolAssets = market.smartPoolAssets();
-
+    uint256 fullUtilization = market.interestRateModel().floatingFullUtilization();
     return
       smartPoolAssets > 0
-        ? interestRateModel.getFlexibleBorrowRate(
+        ? interestRateModel.getFloatingBorrowRate(
           market.spPreviousUtilization(),
-          market.smartPoolFlexibleBorrows().divWadDown(
-            smartPoolAssets.divWadDown(interestRateModel.flexibleFullUtilization())
-          )
+          market.smartPoolFlexibleBorrows().divWadDown(smartPoolAssets.divWadDown(fullUtilization))
         )
         : 0;
   }
@@ -241,10 +235,10 @@ contract Previewer {
     view
     returns (MaturityLiquidity[] memory availableLiquidities)
   {
-    uint256 nextMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     availableLiquidities = new MaturityLiquidity[](market.maxFuturePools());
+    uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
-      uint256 maturity = nextMaturity + FixedLib.INTERVAL * i;
+      uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1);
       FixedLib.Pool memory pool;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
@@ -261,9 +255,7 @@ contract Previewer {
           pool.supplied -
           Math.min(pool.supplied, pool.borrowed),
         utilization: memSmartPoolAssetsAverage > 0
-          ? pool.borrowed.divWadDown(
-            pool.supplied + memSmartPoolAssetsAverage.divWadDown(market.interestRateModel().fixedFullUtilization())
-          )
+          ? pool.borrowed.divWadDown(pool.supplied + memSmartPoolAssetsAverage.divWadDown(fullUtilization))
           : 0
       });
     }

@@ -57,10 +57,8 @@ describe("Liquidity computations", function () {
     marketWETH = await getContract<Market>("MarketWETH", laura);
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", multisig);
 
-    await timelockExecute(multisig, interestRateModel, "setFixedCurveParameters", [
-      0,
-      0,
-      parseUnits("6"),
+    await timelockExecute(multisig, interestRateModel, "setFixedParameters", [
+      [0, 0, parseUnits("6")],
       parseUnits("2"),
     ]);
     for (const signer of [bob, laura]) {
@@ -100,10 +98,8 @@ describe("Liquidity computations", function () {
       });
       describe("AND GIVEN a 1% borrow interest rate", () => {
         beforeEach(async () => {
-          await timelockExecute(multisig, interestRateModel, "setFixedCurveParameters", [
-            0,
-            parseUnits("0.01"),
-            parseUnits("6"),
+          await timelockExecute(multisig, interestRateModel, "setFixedParameters", [
+            [0, parseUnits("0.01"), parseUnits("6")],
             parseUnits("2"),
           ]);
           // we add liquidity to the maturity
