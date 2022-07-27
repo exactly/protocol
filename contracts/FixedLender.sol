@@ -1055,7 +1055,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (smartPoolAssets < smartPoolFixedBorrows + smartPoolFlexibleBorrows) revert InsufficientProtocolLiquidity();
 
     totalFlexibleBorrowsShares += shares;
-    flexibleBorrowPositions[receiver] += shares;
+    flexibleBorrowPositions[borrower] += shares;
     checkSmartPoolReserveExceeded();
 
     auditor.validateBorrow(this, borrower);
