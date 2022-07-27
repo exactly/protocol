@@ -7,6 +7,9 @@ import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, ExactlyOracle, InsufficientLiquidity } from "../../contracts/Auditor.sol";
+import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
+import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
+import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
   Market,
   ERC20,
@@ -16,9 +19,6 @@ import {
   SmartPoolReserveExceeded,
   InsufficientProtocolLiquidity
 } from "../../contracts/Market.sol";
-import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
-import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
-import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
 contract MarketTest is Test {
   using FixedPointMathLib for uint256;
@@ -151,24 +151,31 @@ contract MarketTest is Test {
 
   function testDepositAtMaturity() external {
     vm.expectEmit(true, true, true, true, address(market));
-    emit DepositAtMaturity(TSUtils.INTERVAL, address(this), address(this), 1 ether, 0);
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    emit DepositAtMaturity(FixedLib.INTERVAL, address(this), address(this), 1 ether, 0);
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
   }
 
   function testWithdrawAtMaturity() external {
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
 
     vm.expectEmit(true, true, true, true, address(market));
-    emit WithdrawAtMaturity(TSUtils.INTERVAL, address(this), address(this), address(this), 1 ether, 909090909090909090);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    emit WithdrawAtMaturity(
+      FixedLib.INTERVAL,
+      address(this),
+      address(this),
+      address(this),
+      1 ether,
+      909090909090909090
+    );
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
   }
 
   function testBorrowAtMaturity() external {
     market.deposit(12 ether, address(this));
 
     vm.expectEmit(true, true, true, true, address(market));
-    emit BorrowAtMaturity(TSUtils.INTERVAL, address(this), address(this), address(this), 1 ether, 0.1 ether);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    emit BorrowAtMaturity(FixedLib.INTERVAL, address(this), address(this), address(this), 1 ether, 0.1 ether);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
   }
 
   function testSingleFloatingBorrow() external {
@@ -181,11 +188,11 @@ contract MarketTest is Test {
 
   function testRepayAtMaturity() external {
     market.deposit(12 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
 
     vm.expectEmit(true, true, true, true, address(market));
-    emit RepayAtMaturity(TSUtils.INTERVAL, address(this), address(this), 1.01 ether, 1.1 ether);
-    market.repayAtMaturity(TSUtils.INTERVAL, 1.5 ether, 1.5 ether, address(this));
+    emit RepayAtMaturity(FixedLib.INTERVAL, address(this), address(this), 1.01 ether, 1.1 ether);
+    market.repayAtMaturity(FixedLib.INTERVAL, 1.5 ether, 1.5 ether, address(this));
   }
 
   function testSingleFloatingRepay() external {
@@ -199,35 +206,35 @@ contract MarketTest is Test {
 
   function testDepositTooMuchSlippage() external {
     vm.expectRevert(TooMuchSlippage.selector);
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1.1 ether, address(this));
   }
 
   function testBorrowTooMuchSlippage() external {
     market.deposit(12 ether, address(this));
     vm.expectRevert(TooMuchSlippage.selector);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this), address(this));
   }
 
   function testRepayTooMuchSlippage() external {
     market.deposit(12 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
     vm.expectRevert(TooMuchSlippage.selector);
-    market.repayAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this));
+    market.repayAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this));
   }
 
   function testMultipleFixedBorrowsRepays() external {
     uint256 total = 0;
     market.deposit(100 ether, address(this));
     for (uint256 i = 1; i < 3 + 1; i++) {
-      total += market.borrowAtMaturity(i * TSUtils.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
+      total += market.borrowAtMaturity(i * FixedLib.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
     }
 
     assertEq(market.getDebt(address(this)), total);
 
     for (uint256 i = 1; i < 3 + 1; i++) {
       market.repayAtMaturity(
-        i * TSUtils.INTERVAL,
-        uint256(1 ether).mulWadDown(1e18 + (0.1e18 * i * TSUtils.INTERVAL) / 365 days),
+        i * FixedLib.INTERVAL,
+        uint256(1 ether).mulWadDown(1e18 + (0.1e18 * i * FixedLib.INTERVAL) / 365 days),
         1.01 ether,
         address(this)
       );
@@ -248,44 +255,44 @@ contract MarketTest is Test {
     vm.prank(BOB);
     market.deposit(10_000 ether, BOB);
 
-    vm.warp(TSUtils.INTERVAL);
+    vm.warp(FixedLib.INTERVAL);
 
     vm.prank(BOB);
-    market.borrowAtMaturity(TSUtils.INTERVAL * 2, 1_000 ether, 1_100 ether, BOB, BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 1_000 ether, 1_100 ether, BOB, BOB);
 
-    vm.warp(TSUtils.INTERVAL + TSUtils.INTERVAL / 2);
+    vm.warp(FixedLib.INTERVAL + FixedLib.INTERVAL / 2);
     market.deposit(10_000 ether, address(this));
     assertEq(market.balanceOf(BOB), 10_000 ether);
     assertEq(market.maxWithdraw(address(this)), 10_000 ether - 1);
     assertApproxEqRel(market.balanceOf(address(this)), 9950 ether, 2.6e13);
 
-    vm.warp(TSUtils.INTERVAL + (TSUtils.INTERVAL / 3) * 2);
+    vm.warp(FixedLib.INTERVAL + (FixedLib.INTERVAL / 3) * 2);
     market.deposit(1_000 ether, address(this));
     assertApproxEqRel(market.balanceOf(address(this)), 10944 ether, 5e13);
   }
 
   function testSmartPoolSharesDoNotAccountUnassignedEarningsFromMoreThanOneIntervalPastMaturities() external {
-    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 maturity = FixedLib.INTERVAL * 2;
     market.deposit(10_000 ether, address(this));
     market.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     // we move to the last second before an interval goes by after the maturity passed
-    vm.warp(TSUtils.INTERVAL * 2 + TSUtils.INTERVAL - 1 seconds);
+    vm.warp(FixedLib.INTERVAL * 2 + FixedLib.INTERVAL - 1 seconds);
     assertLt(market.previewDeposit(10_000 ether), market.balanceOf(address(this)));
 
     // we move to the instant where an interval went by after the maturity passed
-    vm.warp(TSUtils.INTERVAL * 3);
+    vm.warp(FixedLib.INTERVAL * 3);
     // the unassigned earnings of the maturity that the contract borrowed from are not accounted anymore
     assertEq(market.previewDeposit(10_000 ether), market.balanceOf(address(this)));
   }
 
   function testPreviewOperationsWithSmartPoolCorrectlyAccountingEarnings() external {
     uint256 assets = 10_000 ether;
-    uint256 maturity = TSUtils.INTERVAL * 2;
-    uint256 anotherMaturity = TSUtils.INTERVAL * 3;
+    uint256 maturity = FixedLib.INTERVAL * 2;
+    uint256 anotherMaturity = FixedLib.INTERVAL * 3;
     market.deposit(assets, address(this));
 
-    vm.warp(TSUtils.INTERVAL);
+    vm.warp(FixedLib.INTERVAL);
     market.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     vm.prank(BOB);
@@ -313,10 +320,10 @@ contract MarketTest is Test {
   }
 
   function testFrontRunSmartPoolEarningsDistributionWithBigPenaltyRepayment() external {
-    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 maturity = FixedLib.INTERVAL * 2;
     market.deposit(10_000 ether, address(this));
 
-    vm.warp(TSUtils.INTERVAL);
+    vm.warp(FixedLib.INTERVAL);
     market.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     vm.warp(maturity);
@@ -349,7 +356,7 @@ contract MarketTest is Test {
 
   function testDistributeMultipleAccumulatedEarnings() external {
     vm.warp(0);
-    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 maturity = FixedLib.INTERVAL * 2;
     market.deposit(10_000 ether, address(this));
     market.depositAtMaturity(maturity, 1_000 ether, 1_000 ether, address(this));
 
@@ -405,17 +412,17 @@ contract MarketTest is Test {
 
   function testUpdateAccumulatedEarningsFactorToZero() external {
     vm.warp(0);
-    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 maturity = FixedLib.INTERVAL * 2;
     market.deposit(10_000 ether, address(this));
 
-    vm.warp(TSUtils.INTERVAL / 2);
+    vm.warp(FixedLib.INTERVAL / 2);
     market.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     // accumulator accounts 10% of the fees, backupFeeRate -> 0.1
     market.depositAtMaturity(maturity, 1_000 ether, 1_000 ether, address(this));
     assertEq(market.smartPoolEarningsAccumulator(), 10 ether);
 
-    vm.warp(TSUtils.INTERVAL);
+    vm.warp(FixedLib.INTERVAL);
     market.deposit(1_000 ether, address(this));
     // 25% was distributed
     assertEq(market.convertToAssets(market.balanceOf(address(this))), 11_002.5 ether);
@@ -423,13 +430,13 @@ contract MarketTest is Test {
 
     // we set the factor to 0 and all is distributed in the following tx
     market.setAccumulatedEarningsSmoothFactor(0);
-    vm.warp(TSUtils.INTERVAL + 1 seconds);
+    vm.warp(FixedLib.INTERVAL + 1 seconds);
     market.deposit(1 ether, address(this));
     assertEq(market.convertToAssets(market.balanceOf(address(this))), 11_011 ether);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
     // accumulator has 0 earnings so nothing is distributed
-    vm.warp(TSUtils.INTERVAL * 2);
+    vm.warp(FixedLib.INTERVAL * 2);
     market.deposit(1 ether, address(this));
     assertEq(market.convertToAssets(market.balanceOf(address(this))), 11_012 ether);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
@@ -437,7 +444,7 @@ contract MarketTest is Test {
 
   function testFailAnotherUserRedeemWhenOwnerHasShortfall() external {
     market.deposit(10_000 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_100 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_100 ether, address(this), address(this));
 
     uint256 assets = market.previewWithdraw(10_000 ether);
     market.approve(BOB, assets);
@@ -448,7 +455,7 @@ contract MarketTest is Test {
 
   function testFailAnotherUserWithdrawWhenOwnerHasShortfall() external {
     market.deposit(10_000 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_100 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_100 ether, address(this), address(this));
 
     market.approve(BOB, 10_000 ether);
     market.deposit(1_000 ether, address(this));
@@ -457,15 +464,15 @@ contract MarketTest is Test {
   }
 
   function testFailRoundingUpAllowanceWhenBorrowingAtMaturity() external {
-    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 maturity = FixedLib.INTERVAL * 2;
 
     market.deposit(10_000 ether, address(this));
     market.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
-    vm.warp(TSUtils.INTERVAL);
+    vm.warp(FixedLib.INTERVAL);
     // we accrue earnings with this tx so we break proportion of 1 to 1 assets and shares
     market.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
 
-    vm.warp(TSUtils.INTERVAL + 3 days);
+    vm.warp(FixedLib.INTERVAL + 3 days);
     vm.prank(BOB);
     // we try to borrow 1 unit on behalf of this contract as bob being msg.sender without allowance
     // if it correctly rounds up, it should fail
@@ -473,11 +480,11 @@ contract MarketTest is Test {
   }
 
   function testFailRoundingUpAllowanceWhenWithdrawingAtMaturity() external {
-    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 maturity = FixedLib.INTERVAL * 2;
 
     market.deposit(10_000 ether, address(this));
     market.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
-    vm.warp(TSUtils.INTERVAL);
+    vm.warp(FixedLib.INTERVAL);
     // we accrue earnings with this tx so we break proportion of 1 to 1 assets and shares
     market.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
 
@@ -503,7 +510,7 @@ contract MarketTest is Test {
       0,
       Market.DampSpeed(0.0046e18, 0.42e18)
     );
-    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 maturity = FixedLib.INTERVAL * 2;
     token.mint(address(this), 50_000 ether);
     token.approve(address(marketHarness), 50_000 ether);
     marketHarness.approve(BOB, 50_000 ether);
@@ -537,7 +544,7 @@ contract MarketTest is Test {
       0,
       Market.DampSpeed(0.0046e18, 0.42e18)
     );
-    uint256 maturity = TSUtils.INTERVAL * 2;
+    uint256 maturity = FixedLib.INTERVAL * 2;
     token.mint(address(this), 50_000 ether);
     token.approve(address(marketHarness), 50_000 ether);
     auditor.enableMarket(marketHarness, 0.8e18, 18);
@@ -560,7 +567,7 @@ contract MarketTest is Test {
 
     mockInterestRateModel.setBorrowRate(0);
     // we borrow 100 as debt
-    market.borrowAtMaturity(TSUtils.INTERVAL, 100 ether, 100 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this), address(this));
 
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     (uint256 adjustFactor, , , ) = auditor.markets(market);
@@ -580,11 +587,11 @@ contract MarketTest is Test {
 
     mockOracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
 
     mockOracle.setPrice(marketWETH, 10e18);
-    vm.warp(2 * TSUtils.INTERVAL + 1);
+    vm.warp(2 * FixedLib.INTERVAL + 1);
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(market));
@@ -609,10 +616,10 @@ contract MarketTest is Test {
     mockOracle.setPrice(marketWETH, 5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
-    market.borrowAtMaturity(TSUtils.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
     mockOracle.setPrice(marketWETH, 1_000e18);
 
-    vm.warp(TSUtils.INTERVAL * 2 + 1);
+    vm.warp(FixedLib.INTERVAL * 2 + 1);
     vm.prank(BOB);
     market.liquidate(address(this), 500 ether, marketWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
@@ -649,7 +656,7 @@ contract MarketTest is Test {
     market.setPenaltyRate(2e11);
     mockOracle.setPrice(marketWETH, 5_000e18);
 
-    market.borrowAtMaturity(TSUtils.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
     mockOracle.setPrice(marketWETH, 100e18);
 
     vm.expectRevert(ZeroRepay.selector);
@@ -664,7 +671,7 @@ contract MarketTest is Test {
     market.setPenaltyRate(2e11);
     mockOracle.setPrice(marketWETH, 5_000e18);
 
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
     mockOracle.setPrice(marketWETH, 100e18);
 
     vm.expectRevert(ZeroRepay.selector);
@@ -681,11 +688,11 @@ contract MarketTest is Test {
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     for (uint256 i = 1; i <= 3; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
     }
     mockOracle.setPrice(marketWETH, 99e18);
 
-    vm.warp(TSUtils.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
+    vm.warp(FixedLib.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
 
     vm.prank(BOB);
     market.liquidate(address(this), 103499999999999999800, marketWETH);
@@ -713,11 +720,11 @@ contract MarketTest is Test {
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     for (uint256 i = 1; i <= 3; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether + 100, 1_000 ether + 100, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether + 100, 1_000 ether + 100, address(this), address(this));
     }
     mockOracle.setPrice(marketWETH, 100e18);
 
-    vm.warp(TSUtils.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
+    vm.warp(FixedLib.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
 
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
@@ -737,8 +744,8 @@ contract MarketTest is Test {
     market.setPenaltyRate(2e11);
     mockOracle.setPrice(marketWETH, 5_000e18);
 
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL * 2, 1_000 ether, 1_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 1_000 ether, 1_000 ether, address(this), address(this));
     mockOracle.setPrice(marketWETH, 100e18);
 
     vm.prank(BOB);
@@ -820,7 +827,7 @@ contract MarketTest is Test {
     market.deposit(50_000 ether, ALICE);
 
     for (uint256 i = 1; i <= 2; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
 
     market.borrow(2_000 ether, address(this), address(this));
@@ -830,18 +837,18 @@ contract MarketTest is Test {
     market.liquidate(address(this), 1000 ether, marketWETH);
     uint256 assetsRepaid = uint256(1000 ether).divWadDown(1.01e18);
     // only repaid in the first maturity
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(TSUtils.INTERVAL, address(this));
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal + fee, 1_000 ether - assetsRepaid);
-    (principal, fee) = market.fixedBorrowPositions(TSUtils.INTERVAL * 2, address(this));
+    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
     assertEq(principal + fee, 1_000 ether);
     assertEq(market.flexibleBorrowPositions(address(this)), 2_000 ether);
 
     vm.prank(BOB);
     market.liquidate(address(this), 1500 ether, marketWETH);
     assetsRepaid += uint256(1500 ether).divWadDown(1.01e18);
-    (principal, fee) = market.fixedBorrowPositions(TSUtils.INTERVAL, address(this));
+    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal + fee, 0);
-    (principal, fee) = market.fixedBorrowPositions(TSUtils.INTERVAL * 2, address(this));
+    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
     assertEq(principal + fee, 0);
     assertEq(market.flexibleBorrowPositions(address(this)), 2_000 ether - (assetsRepaid - 2_000 ether));
 
@@ -857,7 +864,7 @@ contract MarketTest is Test {
 
     mockOracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
     mockOracle.setPrice(marketWETH, 3_000e18);
 
@@ -904,7 +911,7 @@ contract MarketTest is Test {
 
     mockOracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
     mockOracle.setPrice(marketWETH, 3_000e18);
 
@@ -925,7 +932,7 @@ contract MarketTest is Test {
     assertEq(smartPoolAssetsBefore - smartPoolAssetsAfter, totalUsdDebt - totalBobRepayment);
     assertEq(market.fixedBorrows(address(this)), 0);
     for (uint256 i = 1; i <= 4; i++) {
-      (uint256 principal, uint256 fee) = market.fixedBorrowPositions(TSUtils.INTERVAL * i, address(this));
+      (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * i, address(this));
       assertEq(principal + fee, 0);
     }
   }
@@ -940,18 +947,18 @@ contract MarketTest is Test {
 
     mockOracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 3; i <= 6; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_100 ether, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_100 ether, address(this), address(this));
     }
     vm.prank(ALICE);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 5_000 ether, 5_500 ether, address(ALICE), address(ALICE));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 5_000 ether, 5_500 ether, address(ALICE), address(ALICE));
     mockOracle.setPrice(marketWETH, 100e18);
 
-    vm.warp(TSUtils.INTERVAL * 2);
+    vm.warp(FixedLib.INTERVAL * 2);
 
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(TSUtils.INTERVAL, ALICE);
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, ALICE);
     (, uint256 debt) = market.getAccountSnapshot(ALICE);
     vm.prank(ALICE);
-    market.repayAtMaturity(TSUtils.INTERVAL, principal + fee, debt, address(ALICE));
+    market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, debt, address(ALICE));
     uint256 smartPoolEarningsAccumulator = market.smartPoolEarningsAccumulator();
     uint256 smartPoolAssets = market.smartPoolAssets();
 
@@ -979,10 +986,10 @@ contract MarketTest is Test {
 
     mockOracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
       // we deposit so smartPoolFixedBorrows is 0
-      market.depositAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this));
+      market.depositAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this));
     }
     mockOracle.setPrice(marketWETH, 3_000e18);
 
@@ -995,10 +1002,10 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     mockOracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
-      market.borrowAtMaturity(TSUtils.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
+      market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
       // we withdraw 500 so smartPoolFixedBorrows is half
-      market.withdrawAtMaturity(TSUtils.INTERVAL * i, 500 ether, 500 ether, address(this), address(this));
+      market.withdrawAtMaturity(FixedLib.INTERVAL * i, 500 ether, 500 ether, address(this), address(this));
     }
     mockOracle.setPrice(marketWETH, 3_000e18);
 
@@ -1015,7 +1022,7 @@ contract MarketTest is Test {
 
     market.deposit(50_000 ether, ALICE);
     marketWETH.deposit(1 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
 
     mockOracle.setPrice(marketWETH, 900e18);
 
@@ -1034,7 +1041,7 @@ contract MarketTest is Test {
 
     market.deposit(50_000 ether, ALICE);
     marketWETH.deposit(1 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
 
     mockOracle.setPrice(marketWETH, 900e18);
 
@@ -1056,21 +1063,21 @@ contract MarketTest is Test {
     market.deposit(100 ether, address(this));
 
     vm.warp(217);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertLt(market.smartPoolAssetsAverage(), market.smartPoolAssets());
 
     vm.warp(435);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertLt(market.smartPoolAssetsAverage(), market.smartPoolAssets());
 
     // with a damp speed up of 0.0046, the smartPoolAssetsAverage is equal to the smartPoolAssets
     // when 9011 seconds went by
     vm.warp(9446);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), market.smartPoolAssets());
 
     vm.warp(300000);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), market.smartPoolAssets());
   }
 
@@ -1082,17 +1089,17 @@ contract MarketTest is Test {
     market.withdraw(50 ether, address(this), address(this));
 
     vm.warp(220);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertLt(market.smartPoolAssets(), market.smartPoolAssetsAverage());
 
     vm.warp(300);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertApproxEqRel(market.smartPoolAssetsAverage(), market.smartPoolAssets(), 1e6);
 
     // with a damp speed down of 0.42, the smartPoolAssetsAverage is equal to the smartPoolAssets
     // when 23 seconds went by
     vm.warp(323);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), market.smartPoolAssets());
   }
 
@@ -1102,11 +1109,11 @@ contract MarketTest is Test {
 
     vm.warp(0);
     market.deposit(initialBalance, address(this));
-    market.depositAtMaturity(TSUtils.INTERVAL, amount, amount, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, amount, amount, address(this));
 
     vm.warp(2000);
     market.deposit(100 ether, address(this));
-    market.withdrawAtMaturity(TSUtils.INTERVAL, amount, 0.9 ether, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, amount, 0.9 ether, address(this), address(this));
     assertApproxEqRel(market.smartPoolAssetsAverage(), initialBalance, 1e15);
     assertEq(market.smartPoolAssets(), 100 ether + initialBalance);
   }
@@ -1118,7 +1125,7 @@ contract MarketTest is Test {
 
     vm.warp(2000);
     market.deposit(100 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertApproxEqRel(market.smartPoolAssetsAverage(), initialBalance, 1e15);
     assertEq(market.smartPoolAssets(), 100 ether + initialBalance);
   }
@@ -1132,7 +1139,7 @@ contract MarketTest is Test {
     uint256 lastSmartPoolAssetsAverage = market.smartPoolAssetsAverage();
 
     vm.warp(250);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     uint256 supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedUp() * (250 - 218))));
     assertEq(
       market.smartPoolAssetsAverage(),
@@ -1142,7 +1149,7 @@ contract MarketTest is Test {
     assertEq(market.smartPoolAssetsAverage(), 20.521498717652997528 ether);
 
     vm.warp(9541);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), market.smartPoolAssets());
   }
 
@@ -1154,44 +1161,44 @@ contract MarketTest is Test {
     market.deposit(100 ether, address(this));
 
     vm.warp(219);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), 6.807271809941046233 ether);
 
     vm.warp(220);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), 7.280868252688897889 ether);
 
     vm.warp(221);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), 7.752291154776303799 ether);
 
     vm.warp(222);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), 8.221550491529461938 ether);
   }
 
   function testUpdateSmartPoolAssetsAverageWhenDepositingAndWithdrawingEarlyContinuously() external {
     vm.warp(0);
     market.deposit(10 ether, address(this));
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
 
     vm.warp(218);
     market.deposit(100 ether, address(this));
 
     vm.warp(219);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), 6.807271809941046233 ether);
 
     vm.warp(220);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), 7.280868252688897889 ether);
 
     vm.warp(221);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), 7.752291154776303799 ether);
 
     vm.warp(222);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), 8.221550491529461938 ether);
   }
 
@@ -1202,7 +1209,7 @@ contract MarketTest is Test {
 
     vm.warp(2000);
     market.withdraw(5 ether, address(this), address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertApproxEqRel(market.smartPoolAssetsAverage(), initialBalance, 1e15);
     assertEq(market.smartPoolAssets(), initialBalance - 5 ether);
   }
@@ -1212,11 +1219,11 @@ contract MarketTest is Test {
     uint256 amount = 1 ether;
     vm.warp(0);
     market.deposit(initialBalance, address(this));
-    market.depositAtMaturity(TSUtils.INTERVAL, amount, amount, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, amount, amount, address(this));
 
     vm.warp(2000);
     market.withdraw(5 ether, address(this), address(this));
-    market.withdrawAtMaturity(TSUtils.INTERVAL, amount, 0.9 ether, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, amount, 0.9 ether, address(this), address(this));
     assertApproxEqRel(market.smartPoolAssetsAverage(), initialBalance, 1e15);
     assertEq(market.smartPoolAssets(), initialBalance - 5 ether);
   }
@@ -1230,7 +1237,7 @@ contract MarketTest is Test {
     uint256 lastSmartPoolAssetsAverage = market.smartPoolAssetsAverage();
 
     vm.warp(219);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
       1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (219 - 218)))
     );
@@ -1242,7 +1249,7 @@ contract MarketTest is Test {
     assertEq(market.smartPoolAssetsAverage(), 5.874852456225897297 ether);
 
     vm.warp(221);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (221 - 219))));
     assertEq(
       market.smartPoolAssetsAverage(),
@@ -1252,13 +1259,13 @@ contract MarketTest is Test {
     assertEq(market.smartPoolAssetsAverage(), 5.377683011800498150 ether);
 
     vm.warp(444);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), market.smartPoolAssets());
   }
 
   function testUpdateSmartPoolAssetsAverageWhenWithdrawingSomeSecondsBeforeEarlyWithdraw() external {
     vm.warp(0);
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
     market.deposit(10 ether, address(this));
 
     vm.warp(218);
@@ -1266,7 +1273,7 @@ contract MarketTest is Test {
     uint256 lastSmartPoolAssetsAverage = market.smartPoolAssetsAverage();
 
     vm.warp(219);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
       1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (219 - 218)))
     );
@@ -1278,7 +1285,7 @@ contract MarketTest is Test {
     assertEq(market.smartPoolAssetsAverage(), 5.874852456225897297 ether);
 
     vm.warp(221);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (221 - 219))));
     assertEq(
       market.smartPoolAssetsAverage(),
@@ -1288,13 +1295,13 @@ contract MarketTest is Test {
     assertEq(market.smartPoolAssetsAverage(), 5.377683011800498150 ether);
 
     vm.warp(226);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     assertApproxEqRel(market.smartPoolAssetsAverage(), market.smartPoolAssets(), 1e17);
   }
 
   function testUpdateSmartPoolAssetsAverageWhenWithdrawingBeforeEarlyWithdrawsAndBorrows() external {
     vm.warp(0);
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
     market.deposit(10 ether, address(this));
 
     vm.warp(218);
@@ -1302,7 +1309,7 @@ contract MarketTest is Test {
     uint256 lastSmartPoolAssetsAverage = market.smartPoolAssetsAverage();
 
     vm.warp(219);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
       1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (219 - 218)))
     );
@@ -1314,7 +1321,7 @@ contract MarketTest is Test {
     assertEq(market.smartPoolAssetsAverage(), 5.874852456225897297 ether);
 
     vm.warp(221);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 1, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (221 - 219))));
     assertEq(
       market.smartPoolAssetsAverage(),
@@ -1324,7 +1331,7 @@ contract MarketTest is Test {
     assertEq(market.smartPoolAssetsAverage(), 5.377683011800498150 ether);
 
     vm.warp(223);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (223 - 221))));
     assertEq(
       market.smartPoolAssetsAverage(),
@@ -1334,11 +1341,11 @@ contract MarketTest is Test {
     assertEq(market.smartPoolAssetsAverage(), 5.163049730714664338 ether);
 
     vm.warp(226);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     assertApproxEqRel(market.smartPoolAssetsAverage(), market.smartPoolAssets(), 1e16);
 
     vm.warp(500);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     assertEq(market.smartPoolAssetsAverage(), market.smartPoolAssets());
   }
 
@@ -1349,7 +1356,7 @@ contract MarketTest is Test {
 
     vm.warp(365 days);
     vm.expectRevert(InsufficientLiquidity.selector);
-    market.borrowAtMaturity(TSUtils.INTERVAL * 14, 10 ether, 15 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 14, 10 ether, 15 ether, address(this), address(this));
 
     vm.expectRevert(InsufficientLiquidity.selector);
     market.transfer(address(BOB), 15 ether);
@@ -1420,29 +1427,29 @@ contract MarketTest is Test {
     assertEq(market.treasuryFee(), 0.1e18);
 
     market.deposit(10 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     // treasury earns 10% of the 10% that is charged to the borrower
     assertEq(market.balanceOf(address(BOB)), 0.01 ether);
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.01 ether);
 
-    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(FixedLib.INTERVAL);
     // rest of it goes to unassignedEarnings of the fixed pool
     assertEq(unassignedEarnings, 0.09 ether);
 
     // when no fees are charged, the treasury logic should not revert
     mockInterestRateModel.setBorrowRate(0);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this), address(this));
 
     assertEq(market.balanceOf(address(BOB)), 0.01 ether);
     assertEq(market.smartPoolAssets(), 10 ether + 0.01 ether);
 
-    vm.warp(TSUtils.INTERVAL / 2);
+    vm.warp(FixedLib.INTERVAL / 2);
 
     vm.prank(ALICE);
     market.deposit(5 ether, address(this));
     mockInterestRateModel.setBorrowRate(0.1e18);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     // treasury even ends up accruing more earnings
     assertLt(market.balanceOf(address(BOB)), 0.02 ether);
     assertGt(market.maxWithdraw(address(BOB)), 0.02 ether);
@@ -1451,20 +1458,20 @@ contract MarketTest is Test {
   function testCollectTreasuryFreeLunchToFixedBorrows() external {
     market.setTreasury(address(BOB), 0.1e18);
     market.deposit(10 ether, address(this));
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     // treasury should earn all inefficient earnings charged to the borrower
     assertEq(market.balanceOf(address(BOB)), 0.1 ether);
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.1 ether);
 
-    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(FixedLib.INTERVAL);
     // unassignedEarnings and accumulator should not receive anything
     assertEq(unassignedEarnings, 0);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 2 ether, 3 ether, address(this), address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 2 ether, 3 ether, address(this), address(this));
 
     // treasury should earn 10% of 0.2 = 0.02
     // and HALF of inefficient earnings charged to the borrower = (0.2 - 0.02) / 2 = 0.09
@@ -1472,15 +1479,15 @@ contract MarketTest is Test {
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.1 ether + 0.02 ether + 0.09 ether);
 
-    (, , unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    (, , unassignedEarnings, ) = market.fixedPools(FixedLib.INTERVAL);
     // unassignedEarnings should receive the other half
     assertEq(unassignedEarnings, 0.09 ether);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
     // now when treasury fee is 0 again, all inefficient fees charged go to accumulator
-    market.depositAtMaturity(TSUtils.INTERVAL, 2 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 2 ether, 1 ether, address(this));
     market.setTreasury(address(BOB), 0);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     assertGt(market.smartPoolEarningsAccumulator(), 0.1 ether);
     assertEq(market.balanceOf(address(BOB)), 0.1 ether + 0.02 ether + 0.09 ether);
   }
@@ -1488,15 +1495,15 @@ contract MarketTest is Test {
   function testCollectTreasuryFreeLunchToFixedBorrowsWithZeroFees() external {
     market.setTreasury(address(BOB), 0.1e18);
     market.deposit(10 ether, address(this));
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
     // when no fees are charged, the treasury logic should not revert
     mockInterestRateModel.setBorrowRate(0);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     // treasury shouldn't earn earnings
     assertEq(market.balanceOf(address(BOB)), 0);
     assertEq(market.smartPoolAssets(), 10 ether);
 
-    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(FixedLib.INTERVAL);
     // unassignedEarnings and accumulator should not receive anything either
     assertEq(unassignedEarnings, 0);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
@@ -1504,30 +1511,30 @@ contract MarketTest is Test {
 
   function testChargeTreasuryToEarlyWithdraws() external {
     market.deposit(10 ether, address(this));
-    market.depositAtMaturity(TSUtils.INTERVAL, 2 ether, 2 ether, address(this));
-    market.borrowAtMaturity(TSUtils.INTERVAL, 2 ether, 3 ether, address(this), address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 2 ether, 2 ether, address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 2 ether, 3 ether, address(this), address(this));
 
     market.setTreasury(address(BOB), 0.1e18);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
     // treasury earns 10% of the 10% that is charged to the borrower
     assertEq(market.balanceOf(address(BOB)), 0.009090909090909091 ether);
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.009090909090909091 ether);
 
-    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(FixedLib.INTERVAL);
     // rest of it goes to unassignedEarnings of the fixed pool
     assertEq(unassignedEarnings, 1 ether - 0.909090909090909090 ether - 0.009090909090909091 ether);
 
     // when no fees are charged, the treasury logic should not revert
     mockInterestRateModel.setBorrowRate(0);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 0.5 ether, 0.4 ether, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.4 ether, address(this), address(this));
 
     assertEq(market.balanceOf(address(BOB)), 0.009090909090909091 ether);
     assertEq(market.smartPoolAssets(), 10 ether + 0.009090909090909091 ether);
 
-    vm.warp(TSUtils.INTERVAL / 2);
+    vm.warp(FixedLib.INTERVAL / 2);
 
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 0.5 ether, 0.4 ether, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.4 ether, address(this), address(this));
     // treasury even ends up accruing more earnings
     assertGt(market.maxWithdraw(address(BOB)), market.balanceOf(address(BOB)));
   }
@@ -1535,38 +1542,38 @@ contract MarketTest is Test {
   function testCollectTreasuryFreeLunchToEarlyWithdraws() external {
     market.setTreasury(address(BOB), 0.1e18);
     market.deposit(10 ether, address(this));
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
     // treasury should earn all inefficient earnings charged to the borrower
     assertEq(market.balanceOf(address(BOB)), 0.090909090909090910 ether);
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.090909090909090910 ether);
 
-    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(FixedLib.INTERVAL);
     // unassignedEarnings and accumulator should not receive anything
     assertEq(unassignedEarnings, 0);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
     mockInterestRateModel.setBorrowRate(0);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 0.5 ether, 1 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 0.5 ether, 1 ether, address(this), address(this));
     mockInterestRateModel.setBorrowRate(0.1e18);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
 
     // treasury and unassignedEarnings should earn earnings
     assertEq(market.balanceOf(address(BOB)), 0.136818181818181819 ether);
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.136818181818181819 ether);
 
-    (, , unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    (, , unassignedEarnings, ) = market.fixedPools(FixedLib.INTERVAL);
     // unassignedEarnings should receive the other part
     assertEq(unassignedEarnings, 0.045000000000000001 ether);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
     // now when treasury fee is 0 again, all inefficient fees charged go to accumulator
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
     market.setTreasury(address(BOB), 0);
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     assertEq(market.smartPoolEarningsAccumulator(), 0.0545 ether);
     assertEq(market.balanceOf(address(BOB)), 0.136818181818181819 ether);
   }
@@ -1574,15 +1581,15 @@ contract MarketTest is Test {
   function testCollectTreasuryFreeLunchToEarlyWithdrawsWithZeroFees() external {
     market.setTreasury(address(BOB), 0.1e18);
     market.deposit(10 ether, address(this));
-    market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
     // when no fees are charged, the treasury logic should not revert
     mockInterestRateModel.setBorrowRate(0);
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
     // treasury shouldn't earn earnings charged to the borrower
     assertEq(market.balanceOf(address(BOB)), 0);
     assertEq(market.smartPoolAssets(), 10 ether);
 
-    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(FixedLib.INTERVAL);
     // unassignedEarnings and accumulator should not receive anything either
     assertEq(unassignedEarnings, 0);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
@@ -1747,7 +1754,7 @@ contract MarketTest is Test {
     market.deposit(10 ether, address(this));
     market.setSmartPoolReserveFactor(0.1e18);
 
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
 
     market.borrow(8 ether, address(this), address(this));
     market.repay(8 ether, address(this));
@@ -1791,15 +1798,15 @@ contract MarketTest is Test {
 
     vm.warp(3000);
     // FIXED BORROW
-    market.borrowAtMaturity(TSUtils.INTERVAL, 1, 2, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 2, address(this), address(this));
     currentSmartPoolAssets = market.smartPoolAssetsAverage();
     assertGt(currentSmartPoolAssets, previousSmartPoolAssets);
     previousSmartPoolAssets = currentSmartPoolAssets;
 
     vm.warp(4000);
     // EARLY WITHDRAW
-    market.depositAtMaturity(TSUtils.INTERVAL, 10, 1, address(this));
-    market.withdrawAtMaturity(TSUtils.INTERVAL, 1, 0, address(this), address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 10, 1, address(this));
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     currentSmartPoolAssets = market.smartPoolAssetsAverage();
     assertGt(currentSmartPoolAssets, previousSmartPoolAssets);
     previousSmartPoolAssets = currentSmartPoolAssets;
@@ -1827,7 +1834,7 @@ contract MarketTest is Test {
     vm.warp(2);
 
     // FIXED BORROWS = 51
-    market.borrowAtMaturity(TSUtils.INTERVAL, 51 ether, 60 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 51 ether, 60 ether, address(this), address(this));
 
     // WITHDRAWING 50 SHOULD REVERT (LIQUIDITY = 49)
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
@@ -1877,16 +1884,16 @@ contract MarketTest is Test {
     // since 224 is the max amount of consecutive maturities where a user can borrow
     // 221 is the last valid cycle (the last maturity where it borrows is 224)
     for (uint256 m = 0; m < 221; m += 3) {
-      vm.warp(TSUtils.INTERVAL * m);
+      vm.warp(FixedLib.INTERVAL * m);
       for (uint256 i = 0; i < markets.length; ++i) {
         for (uint256 j = m + 1; j <= m + 3; ++j) {
-          markets[i].borrowAtMaturity(TSUtils.INTERVAL * j, 1 ether, 1.2 ether, address(this), address(this));
+          markets[i].borrowAtMaturity(FixedLib.INTERVAL * j, 1 ether, 1.2 ether, address(this), address(this));
         }
       }
     }
 
     // repay does not increase in cost
-    markets[0].repayAtMaturity(TSUtils.INTERVAL, 1 ether, 1000 ether, address(this));
+    markets[0].repayAtMaturity(FixedLib.INTERVAL, 1 ether, 1000 ether, address(this));
     // withdraw DOES increase in cost
     markets[0].withdraw(1 ether, address(this), address(this));
 
@@ -1896,8 +1903,8 @@ contract MarketTest is Test {
     vm.prank(BOB);
     markets[0].withdraw(1 ether, address(BOB), address(BOB));
     vm.prank(BOB);
-    vm.warp(TSUtils.INTERVAL * 400);
-    markets[0].borrowAtMaturity(TSUtils.INTERVAL * 401, 1 ether, 1.2 ether, address(BOB), address(BOB));
+    vm.warp(FixedLib.INTERVAL * 400);
+    markets[0].borrowAtMaturity(FixedLib.INTERVAL * 401, 1 ether, 1.2 ether, address(BOB), address(BOB));
 
     // liquidate function to user's borrows DOES increase in cost
     vm.prank(BOB);

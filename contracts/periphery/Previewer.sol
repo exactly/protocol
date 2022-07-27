@@ -8,7 +8,6 @@ import { ExactlyOracle } from "../ExactlyOracle.sol";
 import { Market } from "../Market.sol";
 import { Auditor } from "../Auditor.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
-import { TSUtils } from "../utils/TSUtils.sol";
 
 /// @title Previewer
 /// @notice Contract to be consumed by Exactly's front-end dApp.
@@ -87,10 +86,10 @@ contract Previewer {
   {
     FixedLib.Pool memory pool;
     uint256 maxFuturePools = market.maxFuturePools();
-    uint256 nextMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL) + TSUtils.INTERVAL;
+    uint256 nextMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     positionAssetsMaturities = new MaturityLiquidity[](maxFuturePools);
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      uint256 maturity = nextMaturity + TSUtils.INTERVAL * i;
+      uint256 maturity = nextMaturity + FixedLib.INTERVAL * i;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
       uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage(market);
 
@@ -242,10 +241,10 @@ contract Previewer {
     view
     returns (MaturityLiquidity[] memory availableLiquidities)
   {
-    uint256 nextMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL) + TSUtils.INTERVAL;
+    uint256 nextMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     availableLiquidities = new MaturityLiquidity[](market.maxFuturePools());
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
-      uint256 maturity = nextMaturity + TSUtils.INTERVAL * i;
+      uint256 maturity = nextMaturity + FixedLib.INTERVAL * i;
       FixedLib.Pool memory pool;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
@@ -289,7 +288,7 @@ contract Previewer {
     maturities.packed = maturities.packed >> 32;
     for (uint256 i = 0; i < 224; ++i) {
       if ((maturities.packed & (1 << i)) != 0) {
-        uint256 maturity = maturities.base + (i * TSUtils.INTERVAL);
+        uint256 maturity = maturities.base + (i * FixedLib.INTERVAL);
         (uint256 principal, uint256 fee) = getPositions(maturity, account);
         allMaturityPositions[userMaturityCount].maturity = maturity;
         allMaturityPositions[userMaturityCount].position = FixedLib.Position(principal, fee);

@@ -79,7 +79,7 @@ describe("Validations", function () {
       });
       it("WHEN trying to repay to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.repayMP("DAI", nextPoolId + INTERVAL * 20, "100")).to.be.revertedWith(
-          "UnmatchedPoolStateMultiple(" + PoolState.NOT_READY + ", " + PoolState.VALID + ", " + PoolState.MATURED + ")",
+          "UnmatchedPoolStates(" + PoolState.NOT_READY + ", " + PoolState.VALID + ", " + PoolState.MATURED + ")",
         );
       });
     });
@@ -113,7 +113,7 @@ describe("Validations", function () {
       });
       it("WHEN trying to repay to MP, THEN it reverts with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.repayMP("DAI", nextPoolId + 1, "100")).to.be.revertedWith(
-          "UnmatchedPoolStateMultiple(" + PoolState.INVALID + ", " + PoolState.VALID + ", " + PoolState.MATURED + ")",
+          "UnmatchedPoolStates(" + PoolState.INVALID + ", " + PoolState.VALID + ", " + PoolState.MATURED + ")",
         );
       });
     });

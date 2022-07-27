@@ -5,7 +5,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
-import { TSUtils } from "../../contracts/utils/TSUtils.sol";
+import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
 contract InterestRateModelTest is Test, InterestRateModel(3.75e16, 0.75e16, 3e18, 2e18, 3.75e16, 0.75e16, 3e18, 2e18) {
   using FixedPointMathLib for uint256;
@@ -13,7 +13,7 @@ contract InterestRateModelTest is Test, InterestRateModel(3.75e16, 0.75e16, 3e18
   function testGetFixedBorrowRate() external {
     uint256 assets = 10 ether;
     uint256 smartPoolAssetsAverage = 100 ether;
-    uint256 rate = this.getFixedBorrowRate(TSUtils.INTERVAL, 1, assets, 0, 0, smartPoolAssetsAverage);
+    uint256 rate = this.getFixedBorrowRate(FixedLib.INTERVAL, 1, assets, 0, 0, smartPoolAssetsAverage);
     assertEq(rate, 1567705037744728);
   }
 

@@ -20,7 +20,7 @@ export interface DepositAtMaturityEventInterface {
 
 export function errorUnmatchedPool(state: PoolState, requiredState: PoolState, alternativeState?: PoolState): string {
   if (alternativeState) {
-    return "UnmatchedPoolStateMultiple(" + state + ", " + requiredState + ", " + alternativeState + ")";
+    return "UnmatchedPoolStates(" + state + ", " + requiredState + ", " + alternativeState + ")";
   }
   return "UnmatchedPoolState(" + state + ", " + requiredState + ")";
 }

@@ -10,7 +10,6 @@ import { ERC4626, ERC20, SafeTransferLib } from "@rari-capital/solmate/src/mixin
 import { FixedLib, InsufficientProtocolLiquidity } from "./utils/FixedLib.sol";
 import { Auditor, InvalidParameter } from "./Auditor.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
-import { TSUtils } from "./utils/TSUtils.sol";
 
 contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   using FixedPointMathLib for int256;
@@ -255,14 +254,14 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
       uint256 lastAccrual;
       uint256 unassignedEarnings;
-      uint256 latestMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL);
-      uint256 maxMaturity = latestMaturity + memMaxFuturePools * TSUtils.INTERVAL;
+      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+      uint256 maxMaturity = latestMaturity + memMaxFuturePools * FixedLib.INTERVAL;
 
       assembly {
         mstore(0x20, fixedPools.slot) // hashing scratch space, second word for storage location hashing
       }
 
-      for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += TSUtils.INTERVAL) {
+      for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
         assembly {
           mstore(0x00, maturity) // hashing scratch space, first word for storage location hashing
           let location := keccak256(0x00, 0x40) // struct storage location: keccak256([maturity, fixedPools.slot])
@@ -346,7 +345,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (elapsed == 0) return 0;
     earnings = smartPoolEarningsAccumulator.mulDivDown(
       elapsed,
-      elapsed + accumulatedEarningsSmoothFactor.mulWadDown(maxFuturePools * TSUtils.INTERVAL)
+      elapsed + accumulatedEarningsSmoothFactor.mulWadDown(maxFuturePools * FixedLib.INTERVAL)
     );
   }
 
@@ -487,7 +486,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 i = 0;
     for (; i < 224; ) {
       if ((packedMaturities & (1 << i)) != 0) {
-        uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
+        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
         uint256 actualRepay;
         if (block.timestamp < maturity) {
           actualRepay = noTransferRepayAtMaturity(maturity, maxAssets, maxAssets, borrower, false);
@@ -552,7 +551,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (!moreCollateral) {
       for (--i; i < 224; ) {
         if ((packedMaturities & (1 << i)) != 0) {
-          uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
+          uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
 
           FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
           uint256 badDebt = position.principal + position.fee;
@@ -624,7 +623,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address borrower
   ) public nonReentrant whenNotPaused returns (uint256 assetsOwed) {
     // reverts on failure
-    TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
+    FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
     FixedLib.Pool storage pool = fixedPools[maturity];
 
@@ -705,7 +704,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address receiver
   ) public nonReentrant whenNotPaused returns (uint256 positionAssets) {
     // reverts on failure
-    TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
+    FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
     FixedLib.Pool storage pool = fixedPools[maturity];
 
@@ -763,7 +762,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   ) public nonReentrant returns (uint256 assetsDiscounted) {
     if (positionAssets == 0) revert ZeroWithdraw();
     // reverts on failure
-    TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
+    FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
     FixedLib.Pool storage pool = fixedPools[maturity];
 
@@ -854,7 +853,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address borrower
   ) public nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
     // reverts on failure
-    TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
+    FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
     actualRepayAssets = noTransferRepayAtMaturity(maturity, positionAssets, maxAssets, borrower, true);
     asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
@@ -991,13 +990,13 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // calculate all maturities using the baseMaturity and the following bits representing the following intervals
     for (uint256 i = 0; i < 224; ) {
       if ((packedMaturities & (1 << i)) != 0) {
-        uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
+        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
         FixedLib.Position memory position = fixedBorrowPositions[maturity][account];
         uint256 positionAssets = position.principal + position.fee;
 
         debt += positionAssets;
 
-        uint256 secondsDelayed = TSUtils.secondsPre(maturity, block.timestamp);
+        uint256 secondsDelayed = FixedLib.secondsPre(maturity, block.timestamp);
         if (secondsDelayed > 0) debt += positionAssets.mulWadDown(secondsDelayed * memPenaltyRate);
       }
 

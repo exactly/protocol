@@ -3,10 +3,19 @@ pragma solidity 0.8.13;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import { TSUtils } from "./TSUtils.sol";
 
 library FixedLib {
   using FixedPointMathLib for uint256;
+
+  uint32 public constant INTERVAL = 4 weeks;
+
+  enum State {
+    NONE,
+    INVALID,
+    MATURED,
+    VALID,
+    NOT_READY
+  }
 
   /// @notice contains the accountability of a fixed interest rate pool.
   /// @param borrowed total amount borrowed from the pool.
@@ -133,9 +142,9 @@ library FixedLib {
 
     // seconds from last accrual to the closest:
     // maturity date or the current timestamp
-    uint256 secondsSinceLastAccrue = TSUtils.secondsPre(lastAccrual, Math.min(maturity, block.timestamp));
+    uint256 secondsSinceLastAccrue = secondsPre(lastAccrual, Math.min(maturity, block.timestamp));
     // seconds from last accrual to the maturity date
-    uint256 secondsTotalToMaturity = TSUtils.secondsPre(lastAccrual, maturity);
+    uint256 secondsTotalToMaturity = secondsPre(lastAccrual, maturity);
     pool.lastAccrual = Math.min(maturity, block.timestamp);
 
     // assign some of the earnings to be collected at maturity
@@ -196,12 +205,12 @@ library FixedLib {
     if (maturity < baseMaturity) {
       // if the new maturity is lower than the base, set it as the new base
       // wipe clean the last 32 bits, shift the amount of `INTERVAL` and set the new value with the 33rd bit set
-      uint256 range = (baseMaturity - maturity) / TSUtils.INTERVAL;
+      uint256 range = (baseMaturity - maturity) / INTERVAL;
       if (encoded >> (256 - range) != 0) revert MaturityOverflow();
       encoded = ((encoded >> 32) << (32 + range));
       return maturity | encoded | (1 << 32);
     } else {
-      uint256 range = (maturity - baseMaturity) / TSUtils.INTERVAL;
+      uint256 range = (maturity - baseMaturity) / INTERVAL;
       if (range > 223) revert MaturityOverflow();
       return encoded | (1 << (32 + range));
     }
@@ -227,13 +236,48 @@ library FixedLib {
         packed >>= 1;
       }
       encoded = ((encoded >> (32 + range)) << 32);
-      return (maturity + (range * TSUtils.INTERVAL)) | encoded;
+      return (maturity + (range * INTERVAL)) | encoded;
     } else {
       // otherwise just clear the bit
-      return encoded & ~(1 << (32 + ((maturity - baseMaturity) / TSUtils.INTERVAL)));
+      return encoded & ~(1 << (32 + ((maturity - baseMaturity) / INTERVAL)));
+    }
+  }
+
+  /// @notice calculates how many seconds are left to a certain date.
+  /// @param timestampFrom to calculate the difference in seconds from a date.
+  /// @param timestampTo to calculate the difference in seconds to a date.
+  /// @return seconds left to the date.
+  function secondsPre(uint256 timestampFrom, uint256 timestampTo) internal pure returns (uint256) {
+    return timestampFrom < timestampTo ? timestampTo - timestampFrom : 0;
+  }
+
+  /// @notice verifies that a maturity is `VALID`, `MATURED`, `NOT_READY` or `INVALID`.
+  /// @dev if expected state doesn't match the calculated one, it reverts with a custom error `UnmatchedPoolState`.
+  /// @param maturity timestamp of the maturity date to be verified.
+  /// @param maxPools number of pools available in the time horizon.
+  /// @param requiredState state required by the caller to be verified (see `State` for description).
+  /// @param alternativeState state required by the caller to be verified (see `State` for description).
+  function checkPoolState(
+    uint256 maturity,
+    uint8 maxPools,
+    State requiredState,
+    State alternativeState
+  ) internal view {
+    State state;
+    if (maturity % INTERVAL != 0) state = State.INVALID;
+    else if (maturity <= block.timestamp) state = State.MATURED;
+    else if (maturity > block.timestamp - (block.timestamp % INTERVAL) + (INTERVAL * maxPools)) state = State.NOT_READY;
+    else state = State.VALID;
+
+    if (state != requiredState && state != alternativeState) {
+      if (alternativeState == State.NONE) revert UnmatchedPoolState(uint8(state), uint8(requiredState));
+
+      revert UnmatchedPoolStates(uint8(state), uint8(requiredState), uint8(alternativeState));
     }
   }
 }
 
 error InsufficientProtocolLiquidity();
 error MaturityOverflow();
+error UnmatchedPoolState(uint8 state, uint8 requiredState);
+error UnmatchedPoolStates(uint8 state, uint8 requiredState, uint8 alternativeState);
