@@ -16,7 +16,7 @@ describe("Timelock - AccessControl", function () {
   let timelockController: TimelockController;
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
-  let assetSource: string;
+  let priceFeed: string;
 
   before(async () => {
     owner = await getNamedSigner("multisig");
@@ -26,10 +26,10 @@ describe("Timelock - AccessControl", function () {
   describe("GIVEN a deployed ExactlyOracle contract", () => {
     beforeEach(async () => {
       exactlyOracle = await (await getContractFactory<ExactlyOracle__factory>("ExactlyOracle")).deploy(0);
-      assetSource = (await deployments.get("PriceFeedDAI")).address;
+      priceFeed = (await deployments.get("PriceFeedDAI")).address;
     });
     it("THEN it should not revert when setting a new asset source with owner address", async () => {
-      await expect(exactlyOracle.setAssetSource(AddressZero, assetSource)).to.not.be.reverted;
+      await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.not.be.reverted;
     });
     describe("AND GIVEN a deployed Timelock contract", () => {
       beforeEach(async () => {
@@ -49,12 +49,12 @@ describe("Timelock - AccessControl", function () {
           await exactlyOracle.grantRole(ADMIN_ROLE, timelockController.address);
         });
         it("THEN it should still not revert when setting new asset sources with owner address", async () => {
-          await expect(exactlyOracle.setAssetSource(AddressZero, assetSource)).to.not.be.reverted;
+          await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.not.be.reverted;
         });
         describe("AND WHEN the owner schedules a new asset source with a 3 second delay in the Timelock", () => {
           let calldata: string;
           beforeEach(async () => {
-            calldata = exactlyOracle.interface.encodeFunctionData("setAssetSource", [AddressZero, assetSource]);
+            calldata = exactlyOracle.interface.encodeFunctionData("setPriceFeed", [AddressZero, priceFeed]);
             await timelockController.schedule(exactlyOracle.address, 0, calldata, HashZero, HashZero, 3);
           });
           it("THEN it should revert when executing before delay time", async () => {
@@ -70,7 +70,7 @@ describe("Timelock - AccessControl", function () {
           });
         });
         it("AND WHEN user tries to schedule a set of new asset sources through the Timelock, THEN it should revert", async () => {
-          const data = exactlyOracle.interface.encodeFunctionData("setAssetSource", [AddressZero, AddressZero]);
+          const data = exactlyOracle.interface.encodeFunctionData("setPriceFeed", [AddressZero, AddressZero]);
           await expect(
             timelockController.connect(user).schedule(exactlyOracle.address, 0, data, HashZero, HashZero, 3),
           ).to.be.revertedWith("AccessControl");
@@ -80,7 +80,7 @@ describe("Timelock - AccessControl", function () {
             await exactlyOracle.revokeRole(ADMIN_ROLE, owner.address);
           });
           it("THEN it should revert when trying to set new asset sources with owner address", async () => {
-            await expect(exactlyOracle.setAssetSource(AddressZero, assetSource)).to.be.revertedWith("AccessControl");
+            await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.be.revertedWith("AccessControl");
           });
         });
         describe("AND WHEN the owner address grants another user PROPOSER and EXECUTOR roles for Timelock contract", () => {
@@ -99,7 +99,7 @@ describe("Timelock - AccessControl", function () {
             expect(userHasProposerRole).to.equal(true);
           });
           it("THEN user can schedule and execute transactions through the Timelock", async () => {
-            const data = exactlyOracle.interface.encodeFunctionData("setAssetSource", [AddressZero, assetSource]);
+            const data = exactlyOracle.interface.encodeFunctionData("setPriceFeed", [AddressZero, priceFeed]);
             await expect(
               timelockController.connect(user).schedule(exactlyOracle.address, 0, data, HashZero, HashZero, 1),
             ).to.not.be.reverted;

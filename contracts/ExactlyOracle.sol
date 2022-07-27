@@ -13,13 +13,15 @@ contract ExactlyOracle is AccessControl {
   /// @notice Chainlink's Price Feed precision when using USD as the base currency.
   uint256 public constant ORACLE_DECIMALS = 8;
 
-  mapping(Market => AggregatorV2V3Interface) public assetsSources;
+  /// @notice Chainlink's price feed aggregator addresses by market.
+  mapping(Market => AggregatorV2V3Interface) public priceFeeds;
+  /// @notice How long is a price still valid, in seconds.
   uint256 public immutable priceExpiration;
 
   /// @notice Emitted when a Market and source is changed by admin.
   /// @param market address of the asset used to get the price from this oracle.
   /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
-  event AssetSourceSet(Market indexed market, AggregatorV2V3Interface indexed source);
+  event PriceFeedSet(Market indexed market, AggregatorV2V3Interface indexed source);
 
   /// @notice Constructor.
   /// @param priceExpiration_ The max delay time for Chainlink's prices to be considered as updated.
@@ -32,10 +34,10 @@ contract ExactlyOracle is AccessControl {
   /// @notice Sets the Chainlink Price Feed Aggregator source for an asset.
   /// @param market The Market address of the asset.
   /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
-  function setAssetSource(Market market, AggregatorV2V3Interface source) external onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setPriceFeed(Market market, AggregatorV2V3Interface source) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (source.decimals() != ORACLE_DECIMALS) revert InvalidSource();
-    assetsSources[market] = source;
-    emit AssetSourceSet(market, source);
+    priceFeeds[market] = source;
+    emit PriceFeedSet(market, source);
   }
 
   /// @notice Gets an asset price by Market.
@@ -43,16 +45,12 @@ contract ExactlyOracle is AccessControl {
   /// @param market The Market address of the asset.
   /// @return The price of the asset scaled to 18-digit decimals.
   function getAssetPrice(Market market) public view returns (uint256) {
-    (, int256 price, , uint256 updatedAt, ) = assetsSources[market].latestRoundData();
-    if (price > 0 && block.timestamp - updatedAt <= priceExpiration) return scaleOraclePriceByDigits(uint256(price));
-    else revert InvalidPrice();
-  }
+    (, int256 price, , uint256 updatedAt, ) = priceFeeds[market].latestRoundData();
 
-  /// @notice Scale the price returned by the oracle to an 18-digit decimal to be used by the Auditor.
-  /// @param price The price to be scaled.
-  /// @return The price of the asset scaled to 18-digit decimals.
-  function scaleOraclePriceByDigits(uint256 price) internal pure returns (uint256) {
-    return price * 10**(TARGET_DECIMALS - ORACLE_DECIMALS);
+    if (price <= 0 || block.timestamp - updatedAt > priceExpiration) revert InvalidPrice();
+
+    // scale price to 18 decimals
+    return uint256(price) * 10**(TARGET_DECIMALS - ORACLE_DECIMALS);
   }
 }
 

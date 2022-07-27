@@ -84,15 +84,15 @@ describe("ExactlyOracle", function () {
     await expect(exactlyOracle.getAssetPrice(user.address)).to.be.revertedWith("0x");
   });
 
-  it("SetAssetSource should set the address source of an asset", async () => {
+  it("SetPriceFeed should set the address source of an asset", async () => {
     await timelockExecute(owner, exactlyOracle, "grantRole", [await exactlyOracle.DEFAULT_ADMIN_ROLE(), owner.address]);
     const { address } = await deployments.deploy("NewPriceFeed", {
       contract: "MockPriceFeed",
       args: [1],
       from: owner.address,
     });
-    await expect(await exactlyOracle.connect(owner).setAssetSource(marketDAI.address, address))
-      .to.emit(exactlyOracle, "AssetSourceSet")
+    await expect(await exactlyOracle.connect(owner).setPriceFeed(marketDAI.address, address))
+      .to.emit(exactlyOracle, "PriceFeedSet")
       .withArgs(marketDAI.address, address);
     await priceFeedDAI.setPrice(1);
     await priceFeedDAI.setUpdatedAt(timestamp - 86_400);
@@ -101,8 +101,8 @@ describe("ExactlyOracle", function () {
     expect(await exactlyOracle.getAssetPrice(marketDAI.address)).to.equal(1e10);
   });
 
-  it("SetAssetSource should fail when called from third parties", async () => {
-    await expect(exactlyOracle.setAssetSource(marketDAI.address, await marketDAI.asset())).to.be.revertedWith(
+  it("SetPriceFeed should fail when called from third parties", async () => {
+    await expect(exactlyOracle.setPriceFeed(marketDAI.address, await marketDAI.asset())).to.be.revertedWith(
       "AccessControl",
     );
   });

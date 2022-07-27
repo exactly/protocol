@@ -92,8 +92,8 @@ const func: DeployFunction = async ({
     }
 
     const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
-    if ((await exactlyOracle.assetsSources(market.address)) !== priceFeedAddress) {
-      await executeOrPropose(deployer, timelockController, exactlyOracle, "setAssetSource", [
+    if ((await exactlyOracle.priceFeeds(market.address)) !== priceFeedAddress) {
+      await executeOrPropose(deployer, timelockController, exactlyOracle, "setPriceFeed", [
         market.address,
         priceFeedAddress,
       ]);
