@@ -1,5 +1,5 @@
 {
-  "name": "@exactly-finance/protocol",
+  "name": "@exactly-protocol/protocol",
   "scripts": {
     "lint": "run-s --continue-on-error lint:**",
     "lint:es": "eslint --ext .ts,.js,.cjs,.mjs .",

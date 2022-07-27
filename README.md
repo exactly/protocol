@@ -1,12 +1,12 @@
-# Exactly.finance Protocol v0.1
+# Exactly Protocol
 
-![CI Status](https://github.com/exactly-finance/protocol/actions/workflows/test.yml/badge.svg)
-[![codecov](https://codecov.io/gh/exactly-finance/protocol/branch/main/graph/badge.svg?token=qYngTpvXBT)](https://codecov.io/gh/exactly-finance/protocol)
+![CI Status](https://github.com/exactly-protocol/protocol/actions/workflows/test.yml/badge.svg)
+[![codecov](https://codecov.io/gh/exactly-protocol/protocol/branch/main/graph/badge.svg?token=qYngTpvXBT)](https://codecov.io/gh/exactly-protocol/protocol)
 
 ## Clone
 
 ```bash
-git clone git@github.com:exactly-finance/protocol.git
+git clone git@github.com:exactly-protocol/protocol.git
 ```
 
 ## Install Locally
