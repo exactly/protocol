@@ -10,6 +10,7 @@
 .openzeppelin/unknown-*
 .vscode/
 cache/
+crytic-export/
 node_modules/
 .DS_Store
 .env

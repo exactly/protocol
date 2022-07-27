@@ -8,6 +8,7 @@ authors = []
 python = "^3.7"
 
 [tool.poetry.dev-dependencies]
+etheno = "^0.3a1"
 slither-analyzer = "^0.8.3"
 solc-select = "^0.2.1"
 
