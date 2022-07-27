@@ -287,16 +287,14 @@ describe("InterestRateModel", () => {
           let aliceFirstBorrow: Array<BigNumber>;
           beforeEach(async () => {
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1000");
-            aliceFirstBorrow = await exactlyEnv.getFixedLender("DAI").fixedBorrowPositions(secondPoolID, alice.address);
+            aliceFirstBorrow = await exactlyEnv.getMarket("DAI").fixedBorrowPositions(secondPoolID, alice.address);
           });
           describe("WHEN borrowing 1000 DAI in a following maturity", () => {
             beforeEach(async () => {
               await exactlyEnv.borrowMP("DAI", thirdPoolID, "1000");
             });
             it("THEN the rate charged is the same one as the last borrow, since the sp total supply is the same", async () => {
-              const aliceNewBorrow = await exactlyEnv
-                .getFixedLender("DAI")
-                .fixedBorrowPositions(thirdPoolID, alice.address);
+              const aliceNewBorrow = await exactlyEnv.getMarket("DAI").fixedBorrowPositions(thirdPoolID, alice.address);
               // the fee charged is the double since third pool id has one more week
               // we subtract 500 for rounding division
               expect(aliceFirstBorrow[1]).to.be.equal(aliceNewBorrow[1].div(2).sub(500));
@@ -383,15 +381,13 @@ describe("InterestRateModel", () => {
           });
           it("WHEN trying to borrow 1 unit of a DAI, THEN it doesn't revert, even when U difference rounds down to zero", async () => {
             await expect(
-              exactlyEnv.getFixedLender("DAI").borrowAtMaturity(secondPoolID, 1, 100, owner.address, owner.address),
+              exactlyEnv.getMarket("DAI").borrowAtMaturity(secondPoolID, 1, 100, owner.address, owner.address),
             ).to.not.be.reverted;
           });
           describe("WHEN borrowing 11 wei of a DAI", () => {
             let tx: any;
             beforeEach(async () => {
-              tx = exactlyEnv
-                .getFixedLender("DAI")
-                .borrowAtMaturity(secondPoolID, 11, 100000, owner.address, owner.address);
+              tx = exactlyEnv.getMarket("DAI").borrowAtMaturity(secondPoolID, 11, 100000, owner.address, owner.address);
               await tx;
             });
             it("THEN it doesn't revert because theres a difference in utilization rate", async () => {
@@ -407,7 +403,7 @@ describe("InterestRateModel", () => {
             let tx: any;
             beforeEach(async () => {
               tx = exactlyEnv
-                .getFixedLender("DAI")
+                .getMarket("DAI")
                 .borrowAtMaturity(secondPoolID, 10000, 100000, owner.address, owner.address);
               await tx;
             });

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import { FixedLender, InterestRateModel, ERC20, Auditor } from "../FixedLender.sol";
+import { Market, InterestRateModel, ERC20, Auditor } from "../Market.sol";
 
-contract FixedLenderHarness is FixedLender {
+contract MarketHarness is Market {
   uint256 public returnValue;
 
   constructor(
@@ -17,7 +17,7 @@ contract FixedLenderHarness is FixedLender {
     uint128 smartPoolReserveFactor,
     DampSpeed memory dampSpeed
   )
-    FixedLender(
+    Market(
       asset,
       maxFuturePools,
       accumulatedEarningsSmoothFactor,

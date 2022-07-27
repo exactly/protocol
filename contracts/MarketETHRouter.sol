@@ -2,12 +2,12 @@
 pragma solidity 0.8.13;
 
 import { WETH, SafeTransferLib } from "@rari-capital/solmate/src/tokens/WETH.sol";
-import { FixedLender } from "./FixedLender.sol";
+import { Market } from "./Market.sol";
 
-contract FixedLenderETHRouter {
+contract MarketETHRouter {
   using SafeTransferLib for address;
 
-  FixedLender public immutable fixedLender;
+  Market public immutable market;
   WETH public immutable weth;
 
   modifier wrap() {
@@ -20,10 +20,10 @@ contract FixedLenderETHRouter {
     unwrapAndTransfer(assets, receiver);
   }
 
-  constructor(FixedLender fixedLender_) {
-    fixedLender = fixedLender_;
-    weth = WETH(payable(address(fixedLender_.asset())));
-    weth.approve(address(fixedLender_), type(uint256).max);
+  constructor(Market market_) {
+    market = market_;
+    weth = WETH(payable(address(market_.asset())));
+    weth.approve(address(market_), type(uint256).max);
   }
 
   receive() external payable {
@@ -31,19 +31,19 @@ contract FixedLenderETHRouter {
   }
 
   function deposit() public payable wrap returns (uint256 shares) {
-    shares = fixedLender.deposit(msg.value, msg.sender);
+    shares = market.deposit(msg.value, msg.sender);
   }
 
   function withdraw(uint256 assets) external unwrap(assets, msg.sender) returns (uint256 shares) {
-    shares = fixedLender.withdraw(assets, address(this), msg.sender);
+    shares = market.withdraw(assets, address(this), msg.sender);
   }
 
   function borrow(uint256 assets) external unwrap(assets, msg.sender) returns (uint256 borrowShares) {
-    borrowShares = fixedLender.borrow(assets, address(this), msg.sender);
+    borrowShares = market.borrow(assets, address(this), msg.sender);
   }
 
   function repay(uint256 borrowShares) public payable wrap returns (uint256 repaidAssets) {
-    repaidAssets = fixedLender.repay(borrowShares, msg.sender);
+    repaidAssets = market.repay(borrowShares, msg.sender);
 
     if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets, msg.sender);
   }
@@ -54,7 +54,7 @@ contract FixedLenderETHRouter {
     wrap
     returns (uint256 maturityAssets)
   {
-    return fixedLender.depositAtMaturity(maturity, msg.value, minAssetsRequired, msg.sender);
+    return market.depositAtMaturity(maturity, msg.value, minAssetsRequired, msg.sender);
   }
 
   function withdrawAtMaturity(
@@ -62,7 +62,7 @@ contract FixedLenderETHRouter {
     uint256 assets,
     uint256 minAssetsRequired
   ) external returns (uint256 actualAssets) {
-    actualAssets = fixedLender.withdrawAtMaturity(maturity, assets, minAssetsRequired, address(this), msg.sender);
+    actualAssets = market.withdrawAtMaturity(maturity, assets, minAssetsRequired, address(this), msg.sender);
     unwrapAndTransfer(actualAssets, msg.sender);
   }
 
@@ -71,11 +71,11 @@ contract FixedLenderETHRouter {
     uint256 assets,
     uint256 maxAssetsAllowed
   ) external unwrap(assets, msg.sender) returns (uint256 assetsOwed) {
-    return fixedLender.borrowAtMaturity(maturity, assets, maxAssetsAllowed, address(this), msg.sender);
+    return market.borrowAtMaturity(maturity, assets, maxAssetsAllowed, address(this), msg.sender);
   }
 
   function repayAtMaturity(uint256 maturity, uint256 assets) external payable wrap returns (uint256 repaidAssets) {
-    repaidAssets = fixedLender.repayAtMaturity(maturity, assets, msg.value, msg.sender);
+    repaidAssets = market.repayAtMaturity(maturity, assets, msg.value, msg.sender);
 
     if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets, msg.sender);
   }

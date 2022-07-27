@@ -12,7 +12,7 @@ import { Auditor, InvalidParameter } from "./Auditor.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
 
-contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
+contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
@@ -162,7 +162,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address indexed borrower,
     uint256 assets,
     uint256 lendersAssets,
-    FixedLender indexed collateralMarket,
+    Market indexed collateralMarket,
     uint256 seizedAssets
   );
 
@@ -468,11 +468,11 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// seizing a part of borrower's collateral.
   /// @param borrower wallet that has an outstanding debt across all maturities.
   /// @param maxAssets maximum amount of debt that the liquidator is willing to accept. (it can be less)
-  /// @param collateralMarket fixedLender from which the collateral will be seized to give the liquidator.
+  /// @param collateralMarket market from which the collateral will be seized to give the liquidator.
   function liquidate(
     address borrower,
     uint256 maxAssets,
-    FixedLender collateralMarket
+    Market collateralMarket
   ) external nonReentrant whenNotPaused returns (uint256 repaidAssets) {
     if (msg.sender == borrower) revert SelfLiquidation();
 
@@ -597,7 +597,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   /// @notice Public function to seize a certain amount of tokens.
   /// @dev Public function for liquidator to seize borrowers tokens in the smart pool.
-  /// This function will only be called from another FixedLender, on `liquidation` calls.
+  /// This function will only be called from another Market, on `liquidation` calls.
   /// That's why msg.sender needs to be passed to the private function (to be validated as a market)
   /// @param liquidator address which will receive the seized tokens.
   /// @param borrower address from which the tokens will be seized.
@@ -607,7 +607,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address borrower,
     uint256 assets
   ) external nonReentrant whenNotPaused returns (bool moreCollateral) {
-    moreCollateral = _seize(FixedLender(msg.sender), liquidator, borrower, assets);
+    moreCollateral = _seize(Market(msg.sender), liquidator, borrower, assets);
   }
 
   /// @notice Borrows a certain amount from a maturity.
@@ -957,14 +957,14 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   /// @notice Internal function to seize a certain amount of tokens.
   /// @dev Internal function for liquidator to seize borrowers tokens in the smart pool.
-  /// Will only be called from this FixedLender on `liquidation` or through `seize` calls from another FixedLender.
+  /// Will only be called from this Market on `liquidation` or through `seize` calls from another Market.
   /// That's why msg.sender needs to be passed to the internal function (to be validated as a market).
-  /// @param seizerFixedLender address which is calling the seize function (see `seize` public function).
+  /// @param seizerMarket address which is calling the seize function (see `seize` public function).
   /// @param liquidator address which will receive the seized tokens.
   /// @param borrower address from which the tokens will be seized.
   /// @param assets amount to be removed from borrower's possession.
   function _seize(
-    FixedLender seizerFixedLender,
+    Market seizerMarket,
     address liquidator,
     address borrower,
     uint256 assets
@@ -972,7 +972,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (assets == 0) revert ZeroWithdraw();
 
     // reverts on failure
-    auditor.checkSeize(this, seizerFixedLender);
+    auditor.checkSeize(this, seizerMarket);
 
     uint256 shares = previewWithdraw(assets);
     beforeWithdraw(assets, shares);
@@ -1201,7 +1201,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 }
 
 error AlreadyInitialized();
-error NotFixedLender();
+error NotMarket();
 error SelfLiquidation();
 error SmartPoolReserveExceeded();
 error TooMuchSlippage();

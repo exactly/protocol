@@ -72,7 +72,7 @@ task(
   "pause",
   "pauses/unpauses a market",
   async ({ market, pause, account }: { market: string; pause: boolean; account: string }, hre) =>
-    multisigPropose(hre, account, await hre.ethers.getContract(`FixedLender${market}`), pause ? "pause" : "unpause"),
+    multisigPropose(hre, account, await hre.ethers.getContract(`Market${market}`), pause ? "pause" : "unpause"),
 )
   .addPositionalParam("market", "token symbol of the underlying asset", undefined, string)
   .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)

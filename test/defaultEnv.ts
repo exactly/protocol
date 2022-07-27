@@ -16,13 +16,13 @@ export class DefaultEnv {
   oracle: Contract;
   auditor: Contract;
   interestRateModel: Contract;
-  fixedLenderContracts: Map<string, Contract>;
+  marketContracts: Map<string, Contract>;
   underlyingContracts: Map<string, Contract>;
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
   mockTokens: Map<string, MockTokenSpec>;
-  notAnFixedLenderAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
+  notAnMarketAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
   currentWallet: SignerWithAddress;
   maxOracleDelayTime: number;
 
@@ -30,14 +30,14 @@ export class DefaultEnv {
     _oracle: Contract,
     _auditor: Contract,
     _interestRateModel: Contract,
-    _fixedLenderContracts: Map<string, Contract>,
+    _marketContracts: Map<string, Contract>,
     _underlyingContracts: Map<string, Contract>,
     _mockTokens: Map<string, MockTokenSpec>,
     _currentWallet: SignerWithAddress,
   ) {
     this.oracle = _oracle;
     this.auditor = _auditor;
-    this.fixedLenderContracts = _fixedLenderContracts;
+    this.marketContracts = _marketContracts;
     this.underlyingContracts = _underlyingContracts;
     this.interestRateModel = _interestRateModel;
     this.mockTokens = _mockTokens;
@@ -52,7 +52,7 @@ export class DefaultEnv {
     if (mockTokens === undefined) {
       mockTokens = defaultMockTokens;
     }
-    const fixedLenderContracts = new Map<string, Contract>();
+    const marketContracts = new Map<string, Contract>();
     const underlyingContracts = new Map<string, Contract>();
 
     const MockOracle = await ethers.getContractFactory("MockOracle");
@@ -85,7 +85,7 @@ export class DefaultEnv {
 
     const [owner] = await ethers.getSigners();
 
-    // We have to enable all the FixedLenders in the auditor
+    // We have to enable all the Markets in the auditor
     await Promise.all(
       Array.from(mockTokens.keys()).map(async (tokenName) => {
         const { decimals, adjustFactor, usdPrice } = mockTokens!.get(tokenName)!;
@@ -103,8 +103,8 @@ export class DefaultEnv {
           await underlyingToken.mint(owner.address, totalSupply);
         }
 
-        const FixedLender = await ethers.getContractFactory("FixedLender");
-        const fixedLender = await FixedLender.deploy(
+        const Market = await ethers.getContractFactory("Market");
+        const market = await Market.deploy(
           underlyingToken.address,
           12,
           parseUnits("1"),
@@ -115,32 +115,24 @@ export class DefaultEnv {
           0,
           { up: parseUnits("0.0046"), down: parseUnits("0.42") },
         );
-        await fixedLender.deployed();
+        await market.deployed();
 
         // Mock PriceOracle setting dummy price
-        await oracle.setPrice(fixedLender.address, usdPrice);
-        // Enable Market for FixedLender-TOKEN by setting the collateral rates
-        await auditor.enableMarket(fixedLender.address, adjustFactor, decimals);
+        await oracle.setPrice(market.address, usdPrice);
+        // Enable Market for Market-TOKEN by setting the collateral rates
+        await auditor.enableMarket(market.address, adjustFactor, decimals);
 
-        // Handy maps with all the fixedLenders and underlying tokens
-        fixedLenderContracts.set(tokenName, fixedLender);
+        // Handy maps with all the markets and underlying tokens
+        marketContracts.set(tokenName, market);
         underlyingContracts.set(tokenName, underlyingToken);
       }),
     );
 
-    return new DefaultEnv(
-      oracle,
-      auditor,
-      interestRateModel,
-      fixedLenderContracts,
-      underlyingContracts,
-      mockTokens!,
-      owner,
-    );
+    return new DefaultEnv(oracle, auditor, interestRateModel, marketContracts, underlyingContracts, mockTokens!, owner);
   }
 
-  public getFixedLender(key: string): Contract {
-    return this.fixedLenderContracts.get(key)!;
+  public getMarket(key: string): Contract {
+    return this.marketContracts.get(key)!;
   }
 
   public getUnderlying(key: string): Contract {
@@ -180,34 +172,32 @@ export class DefaultEnv {
 
   public async depositSP(assetString: string, units: string) {
     const asset = this.getUnderlying(assetString);
-    const fixedLender = this.getFixedLender(assetString);
+    const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    await asset.connect(this.currentWallet).approve(fixedLender.address, amount);
-    return fixedLender.connect(this.currentWallet).deposit(amount, this.currentWallet.address);
+    await asset.connect(this.currentWallet).approve(market.address, amount);
+    return market.connect(this.currentWallet).deposit(amount, this.currentWallet.address);
   }
 
   public async depositMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
     const asset = this.getUnderlying(assetString);
-    const fixedLender = this.getFixedLender(assetString);
+    const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     const expectedAmount =
       (expectedAtMaturity && parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) || applyMinFee(amount);
-    await asset.connect(this.currentWallet).approve(fixedLender.address, amount);
-    return fixedLender
+    await asset.connect(this.currentWallet).approve(market.address, amount);
+    return market
       .connect(this.currentWallet)
       .depositAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address);
   }
 
   public async withdrawSP(assetString: string, units: string) {
-    const fixedLender = this.getFixedLender(assetString);
+    const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
-    return fixedLender
-      .connect(this.currentWallet)
-      .withdraw(amount, this.currentWallet.address, this.currentWallet.address);
+    return market.connect(this.currentWallet).withdraw(amount, this.currentWallet.address, this.currentWallet.address);
   }
 
   public async withdrawMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
-    const fixedLender = this.getFixedLender(assetString);
+    const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     let expectedAmount: BigNumber;
     if (expectedAtMaturity) {
@@ -215,13 +205,13 @@ export class DefaultEnv {
     } else {
       expectedAmount = discountMaxFee(amount);
     }
-    return fixedLender
+    return market
       .connect(this.currentWallet)
       .withdrawAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address, this.currentWallet.address);
   }
 
   public async borrowMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
-    const fixedLender = this.getFixedLender(assetString);
+    const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     let expectedAmount: BigNumber;
     if (expectedAtMaturity) {
@@ -229,14 +219,14 @@ export class DefaultEnv {
     } else {
       expectedAmount = applyMaxFee(amount);
     }
-    return fixedLender
+    return market
       .connect(this.currentWallet)
       .borrowAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address, this.currentWallet.address);
   }
 
   public async repayMP(assetString: string, maturityPool: number, units: string, expectedAtMaturity?: string) {
     const asset = this.getUnderlying(assetString);
-    const fixedLender = this.getFixedLender(assetString);
+    const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     let expectedAmount: BigNumber;
     if (expectedAtMaturity) {
@@ -244,14 +234,14 @@ export class DefaultEnv {
     } else {
       expectedAmount = noDiscount(amount);
     }
-    await asset.connect(this.currentWallet).approve(fixedLender.address, amount);
-    return fixedLender
+    await asset.connect(this.currentWallet).approve(market.address, amount);
+    return market
       .connect(this.currentWallet)
       .repayAtMaturity(maturityPool, amount, expectedAmount, this.currentWallet.address);
   }
 
   public async enterMarket(asset: string) {
-    const market = this.getFixedLender(asset).address;
+    const market = this.getMarket(asset).address;
     return this.auditor.connect(this.currentWallet).enterMarket(market);
   }
 
@@ -269,8 +259,8 @@ export class DefaultEnv {
     return this.mockTokens.get(assetString)!.decimals;
   }
 
-  public async enableMarket(fixedLender: string, adjustFactor: BigNumber, decimals: number) {
-    return this.auditor.connect(this.currentWallet).enableMarket(fixedLender, adjustFactor, decimals);
+  public async enableMarket(market: string, adjustFactor: BigNumber, decimals: number) {
+    return this.auditor.connect(this.currentWallet).enableMarket(market, adjustFactor, decimals);
   }
 
   public async setLiquidationIncentive(incentive: string) {
@@ -278,15 +268,15 @@ export class DefaultEnv {
   }
 
   public async smartPoolBorrowed(asset: string) {
-    return this.getFixedLender(asset).smartPoolBorrowed();
+    return this.getMarket(asset).smartPoolBorrowed();
   }
 
   public async maturityPool(assetString: string, maturityPoolID: number) {
-    const fixedLender = this.getFixedLender(assetString);
-    return fixedLender.fixedPools(maturityPoolID);
+    const market = this.getMarket(assetString);
+    return market.fixedPools(maturityPoolID);
   }
 
   public async getDebt(market: string) {
-    return this.getFixedLender(market).getDebt(this.currentWallet.address);
+    return this.getMarket(market).getDebt(this.currentWallet.address);
   }
 }

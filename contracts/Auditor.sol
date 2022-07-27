@@ -4,7 +4,7 @@ pragma solidity 0.8.13;
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import { FixedLender, NotFixedLender } from "./FixedLender.sol";
+import { Market, NotMarket } from "./Market.sol";
 import { ExactlyOracle } from "./ExactlyOracle.sol";
 import { PoolLib } from "./utils/PoolLib.sol";
 
@@ -16,15 +16,13 @@ contract Auditor is AccessControl {
     uint128 lenders;
   }
 
-  // Struct to avoid stack too deep
   struct AccountLiquidity {
     uint256 balance;
     uint256 borrowBalance;
     uint256 oraclePrice;
   }
 
-  // Struct for FixedLender's markets
-  struct Market {
+  struct MarketData {
     uint128 adjustFactor;
     uint8 decimals;
     uint8 index;
@@ -47,29 +45,28 @@ contract Auditor is AccessControl {
 
   uint256 public constant TARGET_HEALTH = 1.25e18;
 
-  // Protocol Management
   mapping(address => uint256) public accountMarkets;
-  mapping(FixedLender => Market) public markets;
+  mapping(Market => MarketData) public markets;
 
   LiquidationIncentive public liquidationIncentive;
-  FixedLender[] public allMarkets;
+  Market[] public allMarkets;
 
   ExactlyOracle public oracle;
 
   /// @notice Event emitted when a new market is listed for borrow/lending.
-  /// @param fixedLender address of the fixedLender market that was listed.
-  event MarketListed(FixedLender fixedLender, uint8 decimals);
+  /// @param market address of the market that was listed.
+  event MarketListed(Market market, uint8 decimals);
 
   /// @notice Event emitted when a user enters a market to use his deposit as collateral for a loan.
-  /// @param fixedLender address of the market that the user entered.
+  /// @param market address of the market that the user entered.
   /// @param account address of the user that just entered a market.
-  event MarketEntered(FixedLender indexed fixedLender, address indexed account);
+  event MarketEntered(Market indexed market, address indexed account);
 
   /// @notice Event emitted when a user leaves a market. Means that they would stop using their deposit as collateral
   /// and won't ask for any loans in this market.
-  /// @param fixedLender address of the market that the user just left.
+  /// @param market address of the market that the user just left.
   /// @param account address of the user that just left a market.
-  event MarketExited(FixedLender indexed fixedLender, address indexed account);
+  event MarketExited(Market indexed market, address indexed account);
 
   /// @notice Event emitted when a new Oracle has been set.
   /// @param newOracle address of the new oracle that is used to calculate liquidity.
@@ -80,9 +77,9 @@ contract Auditor is AccessControl {
   event LiquidationIncentiveSet(LiquidationIncentive newLiquidationIncentive);
 
   /// @notice Event emitted when a adjust factor is changed by admin.
-  /// @param fixedLender address of the market that has a new adjust factor.
+  /// @param market address of the market that has a new adjust factor.
   /// @param newAdjustFactor adjust factor for the underlying asset.
-  event AdjustFactorSet(FixedLender indexed fixedLender, uint256 newAdjustFactor);
+  event AdjustFactorSet(Market indexed market, uint256 newAdjustFactor);
 
   constructor(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -91,42 +88,42 @@ contract Auditor is AccessControl {
     setLiquidationIncentive(liquidationIncentive_);
   }
 
-  /// @notice Allows assets of a certain `fixedLender` market to be used as collateral for borrowing other assets.
-  /// @param fixedLender market to enable as collateral for `msg.sender`.
-  function enterMarket(FixedLender fixedLender) external {
-    validateMarketListed(fixedLender);
-    uint256 marketIndex = markets[fixedLender].index;
+  /// @notice Allows assets of a certain `market` market to be used as collateral for borrowing other assets.
+  /// @param market market to enable as collateral for `msg.sender`.
+  function enterMarket(Market market) external {
+    validateMarketListed(market);
+    uint256 marketIndex = markets[market].index;
 
     uint256 marketMap = accountMarkets[msg.sender];
 
     if ((marketMap & (1 << marketIndex)) != 0) return;
     accountMarkets[msg.sender] = marketMap | (1 << marketIndex);
 
-    emit MarketEntered(fixedLender, msg.sender);
+    emit MarketEntered(market, msg.sender);
   }
 
-  /// @notice Removes fixedLender from sender's account liquidity calculation.
+  /// @notice Removes market from sender's account liquidity calculation.
   /// @dev Sender must not have an outstanding borrow balance in the asset, or be providing necessary collateral
   /// for an outstanding borrow.
-  /// @param fixedLender The address of the asset to be removed.
-  function exitMarket(FixedLender fixedLender) external {
-    validateMarketListed(fixedLender);
-    uint256 marketIndex = markets[fixedLender].index;
+  /// @param market The address of the asset to be removed.
+  function exitMarket(Market market) external {
+    validateMarketListed(market);
+    uint256 marketIndex = markets[market].index;
 
-    (uint256 assets, uint256 debt) = fixedLender.getAccountSnapshot(msg.sender);
+    (uint256 assets, uint256 debt) = market.getAccountSnapshot(msg.sender);
 
     // Fail if the sender has a borrow balance
     if (debt != 0) revert BalanceOwed();
 
     // Fail if the sender is not permitted to redeem all of their tokens
-    validateAccountShortfall(fixedLender, msg.sender, assets);
+    validateAccountShortfall(market, msg.sender, assets);
 
     uint256 marketMap = accountMarkets[msg.sender];
 
     if ((marketMap & (1 << marketIndex)) == 0) return;
     accountMarkets[msg.sender] = marketMap & ~(1 << marketIndex);
 
-    emit MarketExited(fixedLender, msg.sender);
+    emit MarketExited(market, msg.sender);
   }
 
   /// @notice Sets Oracle's to be used.
@@ -154,79 +151,79 @@ contract Auditor is AccessControl {
     emit LiquidationIncentiveSet(liquidationIncentive_);
   }
 
-  /// @notice Enables a certain FixedLender market.
+  /// @notice Enables a certain market.
   /// @dev Enabling more than 256 markets will cause an overflow when casting market index to uint8.
-  /// @param fixedLender address to add to the protocol.
-  /// @param adjustFactor fixedLender's adjust factor for the underlying asset.
+  /// @param market address to add to the protocol.
+  /// @param adjustFactor market's adjust factor for the underlying asset.
   /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
-    FixedLender fixedLender,
+    Market market,
     uint128 adjustFactor,
     uint8 decimals
   ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (fixedLender.auditor() != this) revert AuditorMismatch();
+    if (market.auditor() != this) revert AuditorMismatch();
 
-    if (markets[fixedLender].isListed) revert MarketAlreadyListed();
+    if (markets[market].isListed) revert MarketAlreadyListed();
 
-    markets[fixedLender] = Market({
+    markets[market] = MarketData({
       isListed: true,
       adjustFactor: adjustFactor,
       decimals: decimals,
       index: uint8(allMarkets.length)
     });
 
-    allMarkets.push(fixedLender);
+    allMarkets.push(market);
 
-    emit MarketListed(fixedLender, decimals);
-    setAdjustFactor(fixedLender, adjustFactor);
+    emit MarketListed(market, decimals);
+    setAdjustFactor(market, adjustFactor);
   }
 
-  /// @notice Sets the adjust factor for a certain fixedLender.
-  /// @dev Market should be listed and value can only be set between 90% and 30%.
-  /// @param fixedLender address of the market to change adjust factor for.
+  /// @notice Sets the adjust factor for a certain market.
+  /// @dev MarketData should be listed and value can only be set between 90% and 30%.
+  /// @param market address of the market to change adjust factor for.
   /// @param adjustFactor adjust factor for the underlying asset.
-  function setAdjustFactor(FixedLender fixedLender, uint128 adjustFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    validateMarketListed(fixedLender);
+  function setAdjustFactor(Market market, uint128 adjustFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    validateMarketListed(market);
     if (adjustFactor > 0.9e18 || adjustFactor < 0.3e18) revert InvalidParameter();
-    markets[fixedLender].adjustFactor = adjustFactor;
-    emit AdjustFactorSet(fixedLender, adjustFactor);
+    markets[market].adjustFactor = adjustFactor;
+    emit AdjustFactorSet(market, adjustFactor);
   }
 
   /// @notice Validates that the current state of the position and system are valid (liquidity).
   /// @dev Hook function to be called after adding the borrowed debt to the user position.
-  /// @param fixedLender address of the fixedLender where the borrow is made.
+  /// @param market address of the market where the borrow is made.
   /// @param borrower address of the account that will repay the debt.
-  function validateBorrow(FixedLender fixedLender, address borrower) external {
-    validateMarketListed(fixedLender);
-    uint256 marketIndex = markets[fixedLender].index;
+  function validateBorrow(Market market, address borrower) external {
+    validateMarketListed(market);
+    uint256 marketIndex = markets[market].index;
     uint256 marketMap = accountMarkets[borrower];
 
     // we validate borrow state
     if ((marketMap & (1 << marketIndex)) == 0) {
-      // only fixedLenders may call validateBorrow if borrower not in market
-      if (msg.sender != address(fixedLender)) revert NotFixedLender();
+      // only markets may call validateBorrow if borrower not in market
+      if (msg.sender != address(market)) revert NotMarket();
 
       accountMarkets[borrower] = marketMap | (1 << marketIndex);
-      emit MarketEntered(fixedLender, borrower);
+      emit MarketEntered(market, borrower);
 
       // it should be impossible to break this invariant
       assert((accountMarkets[borrower] & (1 << marketIndex)) != 0);
     }
 
     // We verify that current liquidity is not short
-    (uint256 collateral, uint256 debt) = accountLiquidity(borrower, fixedLender, 0);
+    (uint256 collateral, uint256 debt) = accountLiquidity(borrower, market, 0);
     if (collateral < debt) revert InsufficientLiquidity();
   }
 
   /// @notice Allows/rejects liquidation of assets.
-  /// @dev This function can be called externally, but only will have effect when called from a fixedLender.
+  /// @dev This function can be called externally, but only will have effect when called from a market.
   /// @param repayMarket market from where the debt is pending.
-  /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
+  /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on Market.sol).
   /// @param borrower address which the assets are being liquidated.
   /// @param maxLiquidatorAssets maximum amount the liquidator can pay.
   function checkLiquidation(
-    FixedLender repayMarket,
-    FixedLender seizeMarket,
+    Market repayMarket,
+    Market seizeMarket,
     address borrower,
     uint256 maxLiquidatorAssets
   ) external view returns (uint256 maxRepayAssets, bool moreCollateral) {
@@ -239,8 +236,8 @@ contract Auditor is AccessControl {
     uint256 marketCount = allMarkets.length;
     for (uint256 i = 0; i < marketCount; ) {
       if ((marketMap & (1 << i)) != 0) {
-        FixedLender market = allMarkets[i];
-        Market memory memMarket = markets[market];
+        Market market = allMarkets[i];
+        MarketData memory memMarket = markets[market];
         MarketVars memory m = MarketVars({
           price: oracle.getAssetPrice(market),
           adjustFactor: memMarket.adjustFactor,
@@ -290,21 +287,21 @@ contract Auditor is AccessControl {
   }
 
   /// @notice Allow/rejects seizing of assets.
-  /// @dev This function can be called externally, but only will have effect when called from a fixedLender.
-  /// @param seizeMarket market where the assets will be seized (should be msg.sender on FixedLender.sol).
+  /// @dev This function can be called externally, but only will have effect when called from a market.
+  /// @param seizeMarket market where the assets will be seized (should be msg.sender on Market.sol).
   /// @param repayMarket market from where the debt will be paid.
-  function checkSeize(FixedLender seizeMarket, FixedLender repayMarket) external view {
+  function checkSeize(Market seizeMarket, Market repayMarket) external view {
     // If markets are listed, they have also the same Auditor
     if (!markets[seizeMarket].isListed || !markets[repayMarket].isListed) revert MarketNotListed();
   }
 
   /// @notice Calculates the amount of collateral to be seized when a position is undercollateralized.
   /// @param repayMarket market from where the debt is pending.
-  /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on FixedLender.sol).
+  /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on Market.sol).
   /// @param actualRepayAssets repay amount in the borrowed asset.
   function liquidateCalculateSeizeAmount(
-    FixedLender repayMarket,
-    FixedLender seizeMarket,
+    Market repayMarket,
+    Market seizeMarket,
     address borrower,
     uint256 actualRepayAssets
   ) external view returns (uint256 seizeAssets, uint256 lendersAssets) {
@@ -324,38 +321,38 @@ contract Auditor is AccessControl {
   }
 
   /// @notice Retrieves all markets.
-  function getAllMarkets() external view returns (FixedLender[] memory) {
+  function getAllMarkets() external view returns (Market[] memory) {
     return allMarkets;
   }
 
   /// @notice Checks if the user has an account liquidity shortfall
-  /// @dev This function is called indirectly from fixedLender contracts(withdraw), eToken transfers and directly from
+  /// @dev This function is called indirectly from market contracts(withdraw), eToken transfers and directly from
   /// this contract when the user wants to exit a market.
-  /// @param fixedLender address of the fixedLender where the smart pool belongs.
+  /// @param market address of the market where the smart pool belongs.
   /// @param account address of the user to check for possible shortfall.
   /// @param amount amount that the user wants to withdraw or transfer.
   function validateAccountShortfall(
-    FixedLender fixedLender,
+    Market market,
     address account,
     uint256 amount
   ) public view {
     // If the user is not 'in' the market, then we can bypass the liquidity check
-    if ((accountMarkets[account] & (1 << markets[fixedLender].index)) == 0) return;
+    if ((accountMarkets[account] & (1 << markets[market].index)) == 0) return;
 
     // Otherwise, perform a hypothetical liquidity check to guard against shortfall
-    (uint256 collateral, uint256 debt) = accountLiquidity(account, fixedLender, amount);
+    (uint256 collateral, uint256 debt) = accountLiquidity(account, market, amount);
     if (collateral < debt) revert InsufficientLiquidity();
   }
 
   /// @notice Returns account's liquidity for a certain market.
   /// @param account wallet which the liquidity will be calculated.
-  /// @param fixedLenderToSimulate fixedLender in which we want to simulate withdraw/borrow ops (see next two args).
+  /// @param marketToSimulate market in which we want to simulate withdraw/borrow ops (see next two args).
   /// @param withdrawAmount amount to simulate withdraw.
   /// @return sumCollateral sum of all collateral, already multiplied by each adjust factor. denominated in usd.
   /// @return sumDebtPlusEffects sum of all debt. denominated in usd.
   function accountLiquidity(
     address account,
-    FixedLender fixedLenderToSimulate,
+    Market marketToSimulate,
     uint256 withdrawAmount
   ) public view returns (uint256 sumCollateral, uint256 sumDebtPlusEffects) {
     AccountLiquidity memory vars; // Holds all our calculation results
@@ -365,7 +362,7 @@ contract Auditor is AccessControl {
     uint256 maxValue = allMarkets.length;
     for (uint256 i = 0; i < maxValue; ) {
       if ((marketMap & (1 << i)) != 0) {
-        FixedLender market = allMarkets[i];
+        Market market = allMarkets[i];
         uint256 decimals = markets[market].decimals;
         uint256 adjustFactor = markets[market].adjustFactor;
 
@@ -382,8 +379,8 @@ contract Auditor is AccessControl {
         sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.oraclePrice, 10**decimals).divWadUp(adjustFactor);
 
         // Simulate the effects of withdrawing from a pool
-        if (market == fixedLenderToSimulate) {
-          // Calculate the effects of redeeming fixedLenders
+        if (market == marketToSimulate) {
+          // Calculate the effects of redeeming markets
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
             sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
@@ -398,9 +395,9 @@ contract Auditor is AccessControl {
   }
 
   /// @notice Verifies if market is listed as valid.
-  /// @param fixedLender address of the fixedLender to be validated by the auditor.
-  function validateMarketListed(FixedLender fixedLender) internal view {
-    if (!markets[fixedLender].isListed) revert MarketNotListed();
+  /// @param market address of the market to be validated by the auditor.
+  function validateMarketListed(Market market) internal view {
+    if (!markets[market].isListed) revert MarketNotListed();
   }
 }
 

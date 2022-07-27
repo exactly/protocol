@@ -1,6 +1,6 @@
 import type { BigNumber } from "ethers";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, ExactlyOracle, FixedLender, InterestRateModel, TimelockController } from "../types";
+import type { Auditor, ERC20, ExactlyOracle, Market, InterestRateModel, TimelockController } from "../types";
 import { mockPrices } from "./mocks/Tokens";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
@@ -35,7 +35,7 @@ const func: DeployFunction = async ({
     getNamedAccounts(),
   ]);
 
-  const fixedLenderArgs = [
+  const marketArgs = [
     maxFuturePools,
     parseUnits(String(accumulatedEarningsSmoothFactor)),
     auditor.address,
@@ -48,81 +48,74 @@ const func: DeployFunction = async ({
 
   for (const symbol of config.tokens) {
     const token = await getContract<ERC20>(symbol);
-    const fixedLenderName = `FixedLender${symbol}`;
-    await deploy(fixedLenderName, {
+    const marketName = `Market${symbol}`;
+    await deploy(marketName, {
       skipIfAlreadyDeployed: true,
-      contract: "FixedLender",
-      args: [token.address, ...fixedLenderArgs],
+      contract: "Market",
+      args: [token.address, ...marketArgs],
       from: deployer,
       log: true,
     });
-    const fixedLender = await getContract<FixedLender>(fixedLenderName, await getSigner(deployer));
+    const market = await getContract<Market>(marketName, await getSigner(deployer));
 
     if (symbol === "WETH") {
-      await deploy("FixedLenderETHRouter", {
+      await deploy("MarketETHRouter", {
         skipIfAlreadyDeployed: true,
-        args: [fixedLender.address],
+        args: [market.address],
         from: deployer,
         log: true,
       });
     }
 
-    if (!((await fixedLender.maxFuturePools()) === maxFuturePools)) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setMaxFuturePools", [maxFuturePools]);
+    if (!((await market.maxFuturePools()) === maxFuturePools)) {
+      await executeOrPropose(deployer, timelockController, market, "setMaxFuturePools", [maxFuturePools]);
     }
-    if (!(await fixedLender.accumulatedEarningsSmoothFactor()).eq(fixedLenderArgs[1])) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setAccumulatedEarningsSmoothFactor", [
-        fixedLenderArgs[1],
+    if (!(await market.accumulatedEarningsSmoothFactor()).eq(marketArgs[1])) {
+      await executeOrPropose(deployer, timelockController, market, "setAccumulatedEarningsSmoothFactor", [
+        marketArgs[1],
       ]);
     }
-    if (!(await fixedLender.penaltyRate()).eq(fixedLenderArgs[4])) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setPenaltyRate", [fixedLenderArgs[4]]);
+    if (!(await market.penaltyRate()).eq(marketArgs[4])) {
+      await executeOrPropose(deployer, timelockController, market, "setPenaltyRate", [marketArgs[4]]);
     }
-    if (!(await fixedLender.smartPoolFeeRate()).eq(fixedLenderArgs[5])) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolFeeRate", [fixedLenderArgs[5]]);
+    if (!(await market.smartPoolFeeRate()).eq(marketArgs[5])) {
+      await executeOrPropose(deployer, timelockController, market, "setSmartPoolFeeRate", [marketArgs[5]]);
     }
-    if (!(await fixedLender.smartPoolReserveFactor()).eq(fixedLenderArgs[6])) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setSmartPoolReserveFactor", [
-        fixedLenderArgs[6],
-      ]);
+    if (!(await market.smartPoolReserveFactor()).eq(marketArgs[6])) {
+      await executeOrPropose(deployer, timelockController, market, "setSmartPoolReserveFactor", [marketArgs[6]]);
     }
-    if (!((await fixedLender.interestRateModel()) === interestRateModel.address)) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setInterestRateModel", [
-        interestRateModel.address,
-      ]);
+    if (!((await market.interestRateModel()) === interestRateModel.address)) {
+      await executeOrPropose(deployer, timelockController, market, "setInterestRateModel", [interestRateModel.address]);
     }
-    if (
-      !(await fixedLender.dampSpeedUp()).eq(fixedLenderArgs[7].up) ||
-      !(await fixedLender.dampSpeedDown()).eq(fixedLenderArgs[7].down)
-    ) {
-      await executeOrPropose(deployer, timelockController, fixedLender, "setDampSpeed", [fixedLenderArgs[7]]);
+    if (!(await market.dampSpeedUp()).eq(marketArgs[7].up) || !(await market.dampSpeedDown()).eq(marketArgs[7].down)) {
+      await executeOrPropose(deployer, timelockController, market, "setDampSpeed", [marketArgs[7]]);
     }
 
     const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
-    if ((await exactlyOracle.assetsSources(fixedLender.address)) !== priceFeedAddress) {
+    if ((await exactlyOracle.assetsSources(market.address)) !== priceFeedAddress) {
       await executeOrPropose(deployer, timelockController, exactlyOracle, "setAssetSource", [
-        fixedLender.address,
+        market.address,
         priceFeedAddress,
       ]);
     }
 
     const underlyingAdjustFactor = parseUnits(String(adjustFactor[symbol] ?? adjustFactor.default));
-    if (!(await auditor.getAllMarkets()).includes(fixedLender.address)) {
+    if (!(await auditor.getAllMarkets()).includes(market.address)) {
       await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
-        fixedLender.address,
+        market.address,
         underlyingAdjustFactor,
         await token.decimals(),
       ]);
-    } else if (!(await auditor.markets(fixedLender.address)).adjustFactor.eq(underlyingAdjustFactor)) {
+    } else if (!(await auditor.markets(market.address)).adjustFactor.eq(underlyingAdjustFactor)) {
       await executeOrPropose(deployer, timelockController, auditor, "setAdjustFactor", [
-        fixedLender.address,
+        market.address,
         underlyingAdjustFactor,
       ]);
     }
 
-    await grantRole(fixedLender, await fixedLender.PAUSER_ROLE(), multisig);
+    await grantRole(market, await market.PAUSER_ROLE(), multisig);
 
-    await transferOwnership(fixedLender, deployer, timelockController.address);
+    await transferOwnership(market, deployer, timelockController.address);
   }
 
   for (const contract of [auditor, interestRateModel, exactlyOracle]) {

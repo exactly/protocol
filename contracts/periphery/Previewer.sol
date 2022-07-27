@@ -5,7 +5,7 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
 import { ExactlyOracle } from "../ExactlyOracle.sol";
-import { FixedLender } from "../FixedLender.sol";
+import { Market } from "../Market.sol";
 import { Auditor } from "../Auditor.sol";
 import { PoolLib } from "../utils/PoolLib.sol";
 import { TSUtils } from "../utils/TSUtils.sol";
@@ -32,7 +32,7 @@ contract Previewer {
   }
 
   struct MarketAccount {
-    FixedLender market;
+    Market market;
     string assetSymbol;
     uint256 oraclePrice;
     uint128 penaltyRate;
@@ -66,7 +66,7 @@ contract Previewer {
   /// @param assets amount of assets that will be deposited.
   /// @return positionAssets amount plus yield that the depositor will receive after maturity.
   function previewDepositAtMaturity(
-    FixedLender market,
+    Market market,
     uint256 maturity,
     uint256 assets
   ) public view returns (uint256 positionAssets) {
@@ -84,7 +84,7 @@ contract Previewer {
   /// @param market address of the market.
   /// @param assets amount of assets that will be deposited.
   /// @return positionAssetsMaturities array containing amount plus yield that user will receive after each maturity.
-  function previewDepositAtAllMaturities(FixedLender market, uint256 assets)
+  function previewDepositAtAllMaturities(Market market, uint256 assets)
     external
     view
     returns (MaturityLiquidity[] memory positionAssetsMaturities)
@@ -116,7 +116,7 @@ contract Previewer {
   /// @param assets amount of assets that will be borrowed.
   /// @return positionAssets amount plus fees that the depositor will repay at maturity.
   function previewBorrowAtMaturity(
-    FixedLender market,
+    Market market,
     uint256 maturity,
     uint256 assets
   ) external view returns (uint256 positionAssets, uint256 utilizationAfter) {
@@ -148,7 +148,7 @@ contract Previewer {
   /// @param positionAssets amount of assets that will be tried to withdraw.
   /// @return withdrawAssets amount that will be withdrawn.
   function previewWithdrawAtMaturity(
-    FixedLender market,
+    Market market,
     uint256 maturity,
     uint256 positionAssets
   ) external view returns (uint256 withdrawAssets) {
@@ -177,7 +177,7 @@ contract Previewer {
   /// @param borrower address of the borrower.
   /// @return repayAssets amount of assets that will be repaid.
   function previewRepayAtMaturity(
-    FixedLender market,
+    Market market,
     uint256 maturity,
     uint256 positionAssets,
     address borrower
@@ -209,7 +209,7 @@ contract Previewer {
     uint256 maxValue = auditor.getAllMarkets().length;
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
-      FixedLender market = auditor.getAllMarkets()[i];
+      Market market = auditor.getAllMarkets()[i];
       (uint128 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
       data[i] = MarketAccount({
         market: market,
@@ -233,7 +233,7 @@ contract Previewer {
     }
   }
 
-  function flexibleBorrowRate(FixedLender market) internal view returns (uint256) {
+  function flexibleBorrowRate(Market market) internal view returns (uint256) {
     InterestRateModel interestRateModel = market.interestRateModel();
     uint256 smartPoolAssets = market.smartPoolAssets();
 
@@ -248,7 +248,7 @@ contract Previewer {
         : 0;
   }
 
-  function fixedAvailableLiquidity(FixedLender market)
+  function fixedAvailableLiquidity(Market market)
     internal
     view
     returns (MaturityLiquidity[] memory availableLiquidities)
@@ -281,7 +281,7 @@ contract Previewer {
     }
   }
 
-  function flexibleAvailableLiquidity(FixedLender market) internal view returns (uint256) {
+  function flexibleAvailableLiquidity(Market market) internal view returns (uint256) {
     uint256 borrowableAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
     return
       borrowableAssets - Math.min(borrowableAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows());
@@ -313,7 +313,7 @@ contract Previewer {
     for (uint256 i = 0; i < userMaturityCount; ++i) userMaturityPositions[i] = allMaturityPositions[i];
   }
 
-  function getPoolData(FixedLender market, uint256 maturity)
+  function getPoolData(Market market, uint256 maturity)
     internal
     view
     returns (uint256 smartPoolBorrowed, uint256 unassignedEarnings)
@@ -327,7 +327,7 @@ contract Previewer {
       pool.earningsUnassigned.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
   }
 
-  function smartPoolAssetsAverage(FixedLender market) internal view returns (uint256) {
+  function smartPoolAssetsAverage(Market market) internal view returns (uint256) {
     uint256 dampSpeedFactor = market.smartPoolAssets() < market.smartPoolAssetsAverage()
       ? market.dampSpeedDown()
       : market.dampSpeedUp();

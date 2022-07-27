@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments, network } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, FixedLender, MockERC20 } from "../types";
+import type { Auditor, Market, MockERC20 } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
@@ -17,7 +17,7 @@ const { deploy, fixture, get } = deployments;
 describe("Auditor Admin", function () {
   let dai: MockERC20;
   let auditor: Auditor;
-  let fixedLenderDAI: FixedLender;
+  let marketDAI: Market;
   let laura: SignerWithAddress;
   let owner: SignerWithAddress;
 
@@ -31,14 +31,14 @@ describe("Auditor Admin", function () {
 
     dai = await getContract<MockERC20>("DAI", laura);
     auditor = await getContract<Auditor>("Auditor", laura);
-    fixedLenderDAI = await getContract<FixedLender>("FixedLenderDAI", laura);
+    marketDAI = await getContract<Market>("MarketDAI", laura);
 
     await dai.connect(owner).mint(laura.address, "10000");
   });
 
   describe("GIVEN a regular user", () => {
     it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.enableMarket(fixedLenderDAI.address, 0, await dai.decimals())).to.be.revertedWith(
+      await expect(auditor.enableMarket(marketDAI.address, 0, await dai.decimals())).to.be.revertedWith(
         "AccessControl",
       );
     });
@@ -54,7 +54,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set adjust factor, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setAdjustFactor(fixedLenderDAI.address, 1)).to.be.revertedWith("AccessControl");
+      await expect(auditor.setAdjustFactor(marketDAI.address, 1)).to.be.revertedWith("AccessControl");
     });
   });
 
@@ -62,7 +62,7 @@ describe("Auditor Admin", function () {
     beforeEach(async () => {
       const ADMIN_ROLE = await auditor.DEFAULT_ADMIN_ROLE();
       expect(await auditor.hasRole(ADMIN_ROLE, owner.address)).to.equal(false);
-      expect(await fixedLenderDAI.hasRole(ADMIN_ROLE, owner.address)).to.equal(false);
+      expect(await marketDAI.hasRole(ADMIN_ROLE, owner.address)).to.equal(false);
 
       await timelockExecute(owner, auditor, "grantRole", [ADMIN_ROLE, owner.address]);
 
@@ -70,19 +70,19 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MARKET_ALREADY_LISTED", async () => {
-      await expect(auditor.enableMarket(fixedLenderDAI.address, 0, await dai.decimals())).to.be.revertedWith(
+      await expect(auditor.enableMarket(marketDAI.address, 0, await dai.decimals())).to.be.revertedWith(
         "MarketAlreadyListed()",
       );
     });
 
-    it("WHEN trying to set a new fixedLender with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
+    it("WHEN trying to set a new market with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
       const newAuditor = await deploy("NewAuditor", {
         contract: "Auditor",
         args: [laura.address, { liquidator: parseUnits("0.05"), lenders: parseUnits("0.01") }],
         from: owner.address,
       });
-      const fixedLender = await deploy("NewFixedLender", {
-        contract: "FixedLender",
+      const market = await deploy("NewMarket", {
+        contract: "Market",
         args: [
           dai.address,
           12,
@@ -96,20 +96,20 @@ describe("Auditor Admin", function () {
         ],
         from: owner.address,
       });
-      await expect(
-        auditor.enableMarket(fixedLender.address, parseUnits("0.5"), await dai.decimals()),
-      ).to.be.revertedWith("AuditorMismatch()");
+      await expect(auditor.enableMarket(market.address, parseUnits("0.5"), await dai.decimals())).to.be.revertedWith(
+        "AuditorMismatch()",
+      );
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
       expect(await auditor.getAllMarkets()).to.deep.equal(
-        await Promise.all(network.config.tokens.map(async (token) => (await get(`FixedLender${token}`)).address)),
+        await Promise.all(network.config.tokens.map(async (token) => (await get(`Market${token}`)).address)),
       );
     });
 
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
-      const fixedLender = await deploy("NewFixedLender", {
-        contract: "FixedLender",
+      const market = await deploy("NewMarket", {
+        contract: "Market",
         args: [
           dai.address,
           12,
@@ -123,9 +123,9 @@ describe("Auditor Admin", function () {
         ],
         from: owner.address,
       });
-      await expect(auditor.enableMarket(fixedLender.address, parseUnits("0.5"), 18))
+      await expect(auditor.enableMarket(market.address, parseUnits("0.5"), 18))
         .to.emit(auditor, "MarketListed")
-        .withArgs(fixedLender.address, 18);
+        .withArgs(market.address, 18);
     });
 
     it("WHEN setting new oracle, THEN the auditor should emit OracleSet event", async () => {
@@ -139,10 +139,10 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN setting adjust factor, THEN the auditor should emit AdjustFactorSet event", async () => {
-      await expect(auditor.setAdjustFactor(fixedLenderDAI.address, parseUnits("0.7")))
+      await expect(auditor.setAdjustFactor(marketDAI.address, parseUnits("0.7")))
         .to.emit(auditor, "AdjustFactorSet")
-        .withArgs(fixedLenderDAI.address, parseUnits("0.7"));
-      expect((await auditor.markets(fixedLenderDAI.address)).adjustFactor).to.equal(parseUnits("0.7"));
+        .withArgs(marketDAI.address, parseUnits("0.7"));
+      expect((await auditor.markets(marketDAI.address)).adjustFactor).to.equal(parseUnits("0.7"));
     });
   });
 });

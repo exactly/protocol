@@ -15,7 +15,7 @@ const {
 
 describe("Validations", function () {
   let auditor: Contract;
-  let fixedLender: Contract;
+  let market: Contract;
   let interestRateModel: Contract;
   let exactlyEnv: DefaultEnv;
 
@@ -28,39 +28,39 @@ describe("Validations", function () {
     exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
     auditor = exactlyEnv.auditor;
     interestRateModel = exactlyEnv.interestRateModel;
-    fixedLender = exactlyEnv.getFixedLender("DAI");
+    market = exactlyEnv.getMarket("DAI");
   });
 
   describe("Auditor: GIVEN an unlisted market as parameter", () => {
     it("WHEN trying to enter markets, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.enterMarket(exactlyEnv.notAnFixedLenderAddress)).to.be.revertedWith("MarketNotListed()");
+      await expect(auditor.enterMarket(exactlyEnv.notAnMarketAddress)).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to exit market, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.exitMarket(exactlyEnv.notAnFixedLenderAddress)).to.be.revertedWith("MarketNotListed()");
+      await expect(auditor.exitMarket(exactlyEnv.notAnMarketAddress)).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call validateBorrow, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.validateBorrow(exactlyEnv.notAnFixedLenderAddress, owner.address)).to.be.revertedWith(
+      await expect(auditor.validateBorrow(exactlyEnv.notAnMarketAddress, owner.address)).to.be.revertedWith(
         "MarketNotListed()",
       );
     });
     it("WHEN trying to call checkLiquidation, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
-        auditor.checkLiquidation(exactlyEnv.notAnFixedLenderAddress, fixedLender.address, user.address, MaxUint256),
+        auditor.checkLiquidation(exactlyEnv.notAnMarketAddress, market.address, user.address, MaxUint256),
       ).to.be.revertedWith("MarketNotListed()");
       await expect(
-        auditor.checkLiquidation(fixedLender.address, exactlyEnv.notAnFixedLenderAddress, user.address, MaxUint256),
+        auditor.checkLiquidation(market.address, exactlyEnv.notAnMarketAddress, user.address, MaxUint256),
       ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call checkSeize, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.checkSeize(exactlyEnv.notAnFixedLenderAddress, fixedLender.address)).to.be.revertedWith(
+      await expect(auditor.checkSeize(exactlyEnv.notAnMarketAddress, market.address)).to.be.revertedWith(
         "MarketNotListed()",
       );
-      await expect(auditor.checkSeize(fixedLender.address, exactlyEnv.notAnFixedLenderAddress)).to.be.revertedWith(
+      await expect(auditor.checkSeize(market.address, exactlyEnv.notAnMarketAddress)).to.be.revertedWith(
         "MarketNotListed()",
       );
     });
   });
-  describe("FixedLender:", () => {
+  describe("Market:", () => {
     describe("GIVEN a NOT not-yet-enabled pool", () => {
       it("WHEN trying to deposit to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.depositMP("DAI", nextPoolId + INTERVAL * 20, "100")).to.be.revertedWith(
@@ -120,7 +120,7 @@ describe("Validations", function () {
   });
   describe("Configurable values: GIVEN an invalid configurable value, THEN it should revert with InvalidParameter error", () => {
     it("WHEN trying to set the smartPoolFeeRate with more than 20%", async () => {
-      await expect(fixedLender.setSmartPoolFeeRate(parseUnits("0.21"))).to.be.revertedWith("InvalidParameter()");
+      await expect(market.setSmartPoolFeeRate(parseUnits("0.21"))).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the UFullRate with more than 52", async () => {
       await expect(
@@ -148,34 +148,34 @@ describe("Validations", function () {
       ).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the smartPoolReserveFactor with more than 20%", async () => {
-      await expect(fixedLender.setSmartPoolReserveFactor(parseUnits("0.21"))).to.be.revertedWith("InvalidParameter()");
+      await expect(market.setSmartPoolReserveFactor(parseUnits("0.21"))).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the penaltyRate with more than 5% daily", async () => {
       const penaltyRate = parseUnits("0.051").div(86_400);
-      await expect(fixedLender.setPenaltyRate(penaltyRate)).to.be.revertedWith("InvalidParameter()");
+      await expect(market.setPenaltyRate(penaltyRate)).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the penaltyRate with less than 1% daily", async () => {
       const penaltyRate = parseUnits("0.0099").div(86_400);
-      await expect(fixedLender.setPenaltyRate(penaltyRate)).to.be.revertedWith("InvalidParameter()");
+      await expect(market.setPenaltyRate(penaltyRate)).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the accumulatedEarningsSmoothFactor with more than 4", async () => {
-      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("4.01"))).to.be.revertedWith(
+      await expect(market.setAccumulatedEarningsSmoothFactor(parseUnits("4.01"))).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
     it("WHEN trying to set the maxFuturePools with 0", async () => {
-      await expect(fixedLender.setMaxFuturePools(0)).to.be.revertedWith("InvalidParameter()");
+      await expect(market.setMaxFuturePools(0)).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the maxFuturePools with more than 224", async () => {
-      await expect(fixedLender.setMaxFuturePools(225)).to.be.revertedWith("InvalidParameter()");
+      await expect(market.setMaxFuturePools(225)).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the dampSpeedUp with more than 100%", async () => {
-      await expect(fixedLender.setDampSpeed({ up: parseUnits("1.01"), down: parseUnits("0") })).to.be.revertedWith(
+      await expect(market.setDampSpeed({ up: parseUnits("1.01"), down: parseUnits("0") })).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
     it("WHEN trying to set the dampSpeedDown with more than 100%", async () => {
-      await expect(fixedLender.setDampSpeed({ up: parseUnits("0"), down: parseUnits("1.01") })).to.be.revertedWith(
+      await expect(market.setDampSpeed({ up: parseUnits("0"), down: parseUnits("1.01") })).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
@@ -190,31 +190,31 @@ describe("Validations", function () {
       ).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the adjustFactor with more than 90%", async () => {
-      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.91"))).to.be.revertedWith(
+      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.91"))).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
     it("WHEN trying to set the adjustFactor with less than 30%", async () => {
-      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.29"))).to.be.revertedWith(
+      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.29"))).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
-    it("WHEN trying to set the adjustFactor with an unlisted fixedLender", async () => {
+    it("WHEN trying to set the adjustFactor with an unlisted market", async () => {
       await expect(auditor.setAdjustFactor(user.address, parseUnits("0.3"))).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to set the treasuryFee with more than 10%", async () => {
-      await expect(fixedLender.setTreasury(user.address, parseUnits("0.11"))).to.be.revertedWith("InvalidParameter()");
+      await expect(market.setTreasury(user.address, parseUnits("0.11"))).to.be.revertedWith("InvalidParameter()");
     });
   });
   describe("Configurable values: GIVEN a valid configurable value, THEN it should not revert", () => {
     it("WHEN trying to set the smartPoolFeeRate with 20%", async () => {
-      await expect(fixedLender.setSmartPoolFeeRate(parseUnits("0.2"))).to.not.be.reverted;
+      await expect(market.setSmartPoolFeeRate(parseUnits("0.2"))).to.not.be.reverted;
     });
     it("WHEN trying to set the smartPoolFeeRate with an intermediate value (10%)", async () => {
-      await expect(fixedLender.setSmartPoolFeeRate(parseUnits("0.1"))).to.not.be.reverted;
+      await expect(market.setSmartPoolFeeRate(parseUnits("0.1"))).to.not.be.reverted;
     });
     it("WHEN trying to set the smartPoolFeeRate with 0", async () => {
-      await expect(fixedLender.setSmartPoolFeeRate(0)).to.not.be.reverted;
+      await expect(market.setSmartPoolFeeRate(0)).to.not.be.reverted;
     });
     it("WHEN trying to set the UMax with UFullRate * 3", async () => {
       await expect(interestRateModel.setFixedCurveParameters(0, 0, parseUnits("9"), parseUnits("3"))).to.not.be
@@ -233,46 +233,46 @@ describe("Validations", function () {
         .reverted;
     });
     it("WHEN trying to set the smartPoolReserveFactor with 20%", async () => {
-      await expect(fixedLender.setSmartPoolReserveFactor(parseUnits("0.2"))).to.not.be.reverted;
+      await expect(market.setSmartPoolReserveFactor(parseUnits("0.2"))).to.not.be.reverted;
     });
     it("WHEN trying to set the smartPoolReserveFactor with an intermediate value (10%)", async () => {
-      await expect(fixedLender.setSmartPoolReserveFactor(parseUnits("0.1"))).to.not.be.reverted;
+      await expect(market.setSmartPoolReserveFactor(parseUnits("0.1"))).to.not.be.reverted;
     });
     it("WHEN trying to set the smartPoolReserveFactor with 0", async () => {
-      await expect(fixedLender.setSmartPoolReserveFactor(0)).to.not.be.reverted;
+      await expect(market.setSmartPoolReserveFactor(0)).to.not.be.reverted;
     });
     it("WHEN trying to set the penaltyRate with 1% daily", async () => {
       const penaltyRate = parseUnits("0.01").div(86_400);
-      await expect(fixedLender.setPenaltyRate(penaltyRate)).to.not.be.reverted;
+      await expect(market.setPenaltyRate(penaltyRate)).to.not.be.reverted;
     });
     it("WHEN trying to set the penaltyRate with 5% daily", async () => {
       const penaltyRate = parseUnits("0.05").div(86_400);
-      await expect(fixedLender.setPenaltyRate(penaltyRate)).to.not.be.reverted;
+      await expect(market.setPenaltyRate(penaltyRate)).to.not.be.reverted;
     });
     it("WHEN trying to set the penaltyRate with an intermediate daily value (3%)", async () => {
       const penaltyRate = parseUnits("0.03").div(86_400);
-      await expect(fixedLender.setPenaltyRate(penaltyRate)).to.not.be.reverted;
+      await expect(market.setPenaltyRate(penaltyRate)).to.not.be.reverted;
     });
     it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with 0", async () => {
-      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("0"))).to.not.be.reverted;
+      await expect(market.setAccumulatedEarningsSmoothFactor(parseUnits("0"))).to.not.be.reverted;
     });
     it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with 4", async () => {
-      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("4"))).to.not.be.reverted;
+      await expect(market.setAccumulatedEarningsSmoothFactor(parseUnits("4"))).to.not.be.reverted;
     });
     it("WHEN trying to set the accumulatedEarningsSmoothFactor_ with an intermediate value (2)", async () => {
-      await expect(fixedLender.setAccumulatedEarningsSmoothFactor(parseUnits("2"))).to.not.be.reverted;
+      await expect(market.setAccumulatedEarningsSmoothFactor(parseUnits("2"))).to.not.be.reverted;
     });
     it("WHEN trying to set the maxFuturePools with a whole number", async () => {
-      await expect(fixedLender.setMaxFuturePools(1)).to.not.be.reverted;
-      await expect(fixedLender.setMaxFuturePools(12)).to.not.be.reverted;
-      await expect(fixedLender.setMaxFuturePools(24)).to.not.be.reverted;
-      await expect(fixedLender.setMaxFuturePools(224)).to.not.be.reverted;
+      await expect(market.setMaxFuturePools(1)).to.not.be.reverted;
+      await expect(market.setMaxFuturePools(12)).to.not.be.reverted;
+      await expect(market.setMaxFuturePools(24)).to.not.be.reverted;
+      await expect(market.setMaxFuturePools(224)).to.not.be.reverted;
     });
     it("WHEN trying to set the dampSpeedUp with 0 and dampSpeedDown with 1", async () => {
-      await expect(fixedLender.setDampSpeed({ up: parseUnits("0"), down: parseUnits("1") })).to.not.be.reverted;
+      await expect(market.setDampSpeed({ up: parseUnits("0"), down: parseUnits("1") })).to.not.be.reverted;
     });
     it("WHEN trying to set the dampSpeedDown with 0 and dampSpeedUp with 1", async () => {
-      await expect(fixedLender.setDampSpeed({ up: parseUnits("1"), down: parseUnits("0") })).to.not.be.reverted;
+      await expect(market.setDampSpeed({ up: parseUnits("1"), down: parseUnits("0") })).to.not.be.reverted;
     });
     it("WHEN trying to set the liquidationIncentive with 5%", async () => {
       await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.05"), lenders: 0 })).to.not.be.reverted;
@@ -284,19 +284,19 @@ describe("Validations", function () {
       await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.1"), lenders: 0 })).to.not.be.reverted;
     });
     it("WHEN trying to set the adjustFactor with 30%", async () => {
-      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.3"))).to.not.be.reverted;
+      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.3"))).to.not.be.reverted;
     });
     it("WHEN trying to set the adjustFactor with 90%", async () => {
-      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.9"))).to.not.be.reverted;
+      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.9"))).to.not.be.reverted;
     });
     it("WHEN trying to set the adjustFactor with an intermediate value (60%)", async () => {
-      await expect(auditor.setAdjustFactor(fixedLender.address, parseUnits("0.6"))).to.not.be.reverted;
+      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.6"))).to.not.be.reverted;
     });
     it("WHEN trying to set the treasuryFee with 10%", async () => {
-      await expect(fixedLender.setTreasury(user.address, parseUnits("0.1"))).to.not.be.reverted;
+      await expect(market.setTreasury(user.address, parseUnits("0.1"))).to.not.be.reverted;
     });
     it("WHEN trying to set the treasuryFee with 0", async () => {
-      await expect(fixedLender.setTreasury(user.address, 0)).to.not.be.reverted;
+      await expect(market.setTreasury(user.address, 0)).to.not.be.reverted;
     });
   });
 });

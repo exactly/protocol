@@ -4,20 +4,20 @@ import { FixedPoolState } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-export class FixedLenderEnv {
+export class MarketEnv {
   mockInterestRateModel: Contract;
-  fixedLenderHarness: Contract;
+  marketHarness: Contract;
   asset: Contract;
   currentWallet: SignerWithAddress;
 
   constructor(
     mockInterestRateModel_: Contract,
-    fixedLenderHarness_: Contract,
+    marketHarness_: Contract,
     asset_: Contract,
     currentWallet_: SignerWithAddress,
   ) {
     this.mockInterestRateModel = mockInterestRateModel_;
-    this.fixedLenderHarness = fixedLenderHarness_;
+    this.marketHarness = marketHarness_;
     this.asset = asset_;
     this.currentWallet = currentWallet_;
   }
@@ -38,7 +38,7 @@ export class FixedLenderEnv {
       .add(fixedPoolState.earningsDiscounted);
   }
 
-  static async create(): Promise<FixedLenderEnv> {
+  static async create(): Promise<MarketEnv> {
     const MockInterestRateModelFactory = await ethers.getContractFactory("MockInterestRateModel");
     const mockInterestRateModel = await MockInterestRateModelFactory.deploy(0);
     await mockInterestRateModel.deployed();
@@ -55,8 +55,8 @@ export class FixedLenderEnv {
     const auditor = await Auditor.deploy(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
     await auditor.deployed();
 
-    const FixedLenderHarness = await ethers.getContractFactory("FixedLenderHarness");
-    const fixedLenderHarness = await FixedLenderHarness.deploy(
+    const MarketHarness = await ethers.getContractFactory("MarketHarness");
+    const marketHarness = await MarketHarness.deploy(
       asset.address,
       4,
       parseUnits("1"),
@@ -67,12 +67,12 @@ export class FixedLenderEnv {
       0,
       { up: parseUnits("0.0046"), down: parseUnits("0.42") },
     );
-    await fixedLenderHarness.deployed();
-    await oracle.setPrice(fixedLenderHarness.address, parseUnits("1"));
-    await auditor.enableMarket(fixedLenderHarness.address, parseUnits("0.9"), 18);
+    await marketHarness.deployed();
+    await oracle.setPrice(marketHarness.address, parseUnits("1"));
+    await auditor.enableMarket(marketHarness.address, parseUnits("0.9"), 18);
 
     const [owner] = await ethers.getSigners();
 
-    return new FixedLenderEnv(mockInterestRateModel, fixedLenderHarness, asset, owner);
+    return new MarketEnv(mockInterestRateModel, marketHarness, asset, owner);
   }
 }
