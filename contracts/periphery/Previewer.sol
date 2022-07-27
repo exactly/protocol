@@ -7,7 +7,7 @@ import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
 import { ExactlyOracle } from "../ExactlyOracle.sol";
 import { Market } from "../Market.sol";
 import { Auditor } from "../Auditor.sol";
-import { PoolLib } from "../utils/PoolLib.sol";
+import { FixedLib } from "../utils/FixedLib.sol";
 import { TSUtils } from "../utils/TSUtils.sol";
 
 /// @title Previewer
@@ -15,14 +15,15 @@ import { TSUtils } from "../utils/TSUtils.sol";
 contract Previewer {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
-  using PoolLib for PoolLib.Position;
-  using PoolLib for uint256;
+  using FixedLib for FixedLib.Position;
+  using FixedLib for FixedLib.Pool;
+  using FixedLib for uint256;
 
   Auditor public immutable auditor;
 
   struct MaturityPosition {
     uint256 maturity;
-    PoolLib.Position position;
+    FixedLib.Position position;
   }
 
   struct MaturityLiquidity {
@@ -72,12 +73,7 @@ contract Previewer {
   ) public view returns (uint256 positionAssets) {
     if (block.timestamp > maturity) revert AlreadyMatured();
 
-    PoolLib.FixedPool memory pool;
-    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.fixedPools(maturity);
-    (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(market, maturity);
-
-    (uint256 yield, ) = assets.getDepositYield(unassignedEarnings, smartPoolBorrowed, market.smartPoolFeeRate());
-    positionAssets = assets + yield;
+    return assets + getFixedDepositYield(market, maturity, assets);
   }
 
   /// @notice Gets the assets plus yield offered by all VALID maturities when depositing a certain amount.
@@ -89,7 +85,7 @@ contract Previewer {
     view
     returns (MaturityLiquidity[] memory positionAssetsMaturities)
   {
-    PoolLib.FixedPool memory pool;
+    FixedLib.Pool memory pool;
     uint256 maxFuturePools = market.maxFuturePools();
     uint256 nextMaturity = block.timestamp - (block.timestamp % TSUtils.INTERVAL) + TSUtils.INTERVAL;
     positionAssetsMaturities = new MaturityLiquidity[](maxFuturePools);
@@ -120,7 +116,7 @@ contract Previewer {
     uint256 maturity,
     uint256 assets
   ) external view returns (uint256 positionAssets, uint256 utilizationAfter) {
-    PoolLib.FixedPool memory pool;
+    FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
     uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage(market);
 
@@ -154,7 +150,7 @@ contract Previewer {
   ) external view returns (uint256 withdrawAssets) {
     if (block.timestamp >= maturity) return positionAssets;
 
-    PoolLib.FixedPool memory pool;
+    FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
     withdrawAssets = positionAssets.divWadDown(
@@ -183,21 +179,14 @@ contract Previewer {
     address borrower
   ) external view returns (uint256 repayAssets) {
     if (block.timestamp >= maturity) {
-      return
-        repayAssets = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
+      return positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
     }
 
-    (uint256 smartPoolBorrowed, uint256 unassignedEarnings) = getPoolData(market, maturity);
-    PoolLib.Position memory debt;
-    (debt.principal, debt.fee) = market.fixedBorrowPositions(maturity, borrower);
-    PoolLib.Position memory coveredDebt = debt.scaleProportionally(positionAssets);
+    FixedLib.Position memory position;
+    (position.principal, position.fee) = market.fixedBorrowPositions(maturity, borrower);
 
-    (uint256 discount, ) = coveredDebt.principal.getDepositYield(
-      unassignedEarnings,
-      smartPoolBorrowed,
-      market.smartPoolFeeRate()
-    );
-    repayAssets = positionAssets - discount;
+    return
+      positionAssets - getFixedDepositYield(market, maturity, position.scaleProportionally(positionAssets).principal);
   }
 
   /// @notice Function to get a certain account extended data.
@@ -257,7 +246,7 @@ contract Previewer {
     availableLiquidities = new MaturityLiquidity[](market.maxFuturePools());
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
       uint256 maturity = nextMaturity + TSUtils.INTERVAL * i;
-      PoolLib.FixedPool memory pool;
+      FixedLib.Pool memory pool;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
       uint256 borrowableAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
@@ -303,7 +292,7 @@ contract Previewer {
         uint256 maturity = maturities.base + (i * TSUtils.INTERVAL);
         (uint256 principal, uint256 fee) = getPositions(maturity, account);
         allMaturityPositions[userMaturityCount].maturity = maturity;
-        allMaturityPositions[userMaturityCount].position = PoolLib.Position(principal, fee);
+        allMaturityPositions[userMaturityCount].position = FixedLib.Position(principal, fee);
         ++userMaturityCount;
       }
       if ((1 << i) > maturities.packed) break;
@@ -313,18 +302,18 @@ contract Previewer {
     for (uint256 i = 0; i < userMaturityCount; ++i) userMaturityPositions[i] = allMaturityPositions[i];
   }
 
-  function getPoolData(Market market, uint256 maturity)
-    internal
-    view
-    returns (uint256 smartPoolBorrowed, uint256 unassignedEarnings)
-  {
-    PoolLib.FixedPool memory pool;
-    (pool.borrowed, pool.supplied, pool.earningsUnassigned, pool.lastAccrual) = market.fixedPools(maturity);
-
-    smartPoolBorrowed = pool.borrowed - Math.min(pool.borrowed, pool.supplied);
-    unassignedEarnings =
-      pool.earningsUnassigned -
-      pool.earningsUnassigned.mulDivDown(block.timestamp - pool.lastAccrual, maturity - pool.lastAccrual);
+  function getFixedDepositYield(
+    Market market,
+    uint256 maturity,
+    uint256 assets
+  ) internal view returns (uint256 yield) {
+    FixedLib.Pool memory pool;
+    (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
+    pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
+      block.timestamp - pool.lastAccrual,
+      maturity - pool.lastAccrual
+    );
+    (yield, ) = pool.getDepositYield(assets, market.backupFeeRate());
   }
 
   function smartPoolAssetsAverage(Market market) internal view returns (uint256) {

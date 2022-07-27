@@ -13,7 +13,7 @@ contract MarketHarness is Market {
     Auditor auditor,
     InterestRateModel interestRateModel,
     uint256 penaltyRate,
-    uint256 smartPoolFeeRate,
+    uint256 backupFeeRate,
     uint128 smartPoolReserveFactor,
     DampSpeed memory dampSpeed
   )
@@ -24,11 +24,11 @@ contract MarketHarness is Market {
       auditor,
       interestRateModel,
       penaltyRate,
-      smartPoolFeeRate,
+      backupFeeRate,
       smartPoolReserveFactor,
       dampSpeed
     )
-  {}
+  {} // solhint-disable-line no-empty-blocks
 
   function borrowMaturityWithReturnValue(
     uint256 maturity,

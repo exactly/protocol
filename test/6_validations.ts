@@ -119,8 +119,8 @@ describe("Validations", function () {
     });
   });
   describe("Configurable values: GIVEN an invalid configurable value, THEN it should revert with InvalidParameter error", () => {
-    it("WHEN trying to set the smartPoolFeeRate with more than 20%", async () => {
-      await expect(market.setSmartPoolFeeRate(parseUnits("0.21"))).to.be.revertedWith("InvalidParameter()");
+    it("WHEN trying to set the backupFeeRate with more than 20%", async () => {
+      await expect(market.setBackupFeeRate(parseUnits("0.21"))).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the UFullRate with more than 52", async () => {
       await expect(
@@ -207,14 +207,14 @@ describe("Validations", function () {
     });
   });
   describe("Configurable values: GIVEN a valid configurable value, THEN it should not revert", () => {
-    it("WHEN trying to set the smartPoolFeeRate with 20%", async () => {
-      await expect(market.setSmartPoolFeeRate(parseUnits("0.2"))).to.not.be.reverted;
+    it("WHEN trying to set the backupFeeRate with 20%", async () => {
+      await expect(market.setBackupFeeRate(parseUnits("0.2"))).to.not.be.reverted;
     });
-    it("WHEN trying to set the smartPoolFeeRate with an intermediate value (10%)", async () => {
-      await expect(market.setSmartPoolFeeRate(parseUnits("0.1"))).to.not.be.reverted;
+    it("WHEN trying to set the backupFeeRate with an intermediate value (10%)", async () => {
+      await expect(market.setBackupFeeRate(parseUnits("0.1"))).to.not.be.reverted;
     });
-    it("WHEN trying to set the smartPoolFeeRate with 0", async () => {
-      await expect(market.setSmartPoolFeeRate(0)).to.not.be.reverted;
+    it("WHEN trying to set the backupFeeRate with 0", async () => {
+      await expect(market.setBackupFeeRate(0)).to.not.be.reverted;
     });
     it("WHEN trying to set the UMax with UFullRate * 3", async () => {
       await expect(interestRateModel.setFixedCurveParameters(0, 0, parseUnits("9"), parseUnits("3"))).to.not.be

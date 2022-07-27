@@ -133,7 +133,7 @@ describe("Smart Pool Earnings Distribution", function () {
           expect((await dai.balanceOf(marketDAI.address)).sub(assetsToBeWithdrawn)).to.eq(1);
         });
         it("THEN the maturity used is also empty", async () => {
-          expect((await marketDAI.fixedPools(futurePools(1)[0].add(INTERVAL))).earningsUnassigned).to.be.eq(0);
+          expect((await marketDAI.fixedPools(futurePools(1)[0].add(INTERVAL))).unassignedEarnings).to.be.eq(0);
         });
       });
       describe("AND GIVEN accumulator factor is not set to 0 AND bob & john withdraw all their assets", () => {

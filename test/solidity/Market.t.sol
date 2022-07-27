@@ -10,7 +10,7 @@ import { Auditor, ExactlyOracle, InsufficientLiquidity } from "../../contracts/A
 import {
   Market,
   ERC20,
-  PoolLib,
+  FixedLib,
   TooMuchSlippage,
   ZeroRepay,
   SmartPoolReserveExceeded,
@@ -411,7 +411,7 @@ contract MarketTest is Test {
     vm.warp(TSUtils.INTERVAL / 2);
     market.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
-    // accumulator accounts 10% of the fees, smartPoolFeeRate -> 0.1
+    // accumulator accounts 10% of the fees, backupFeeRate -> 0.1
     market.depositAtMaturity(maturity, 1_000 ether, 1_000 ether, address(this));
     assertEq(market.smartPoolEarningsAccumulator(), 10 ether);
 
@@ -932,7 +932,7 @@ contract MarketTest is Test {
 
   function testLiquidateAndSubtractLossesFromAccumulator() external {
     mockInterestRateModel.setBorrowRate(0.1e18);
-    market.setSmartPoolFeeRate(0);
+    market.setBackupFeeRate(0);
     marketWETH.deposit(1.3 ether, address(this));
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
@@ -1426,9 +1426,9 @@ contract MarketTest is Test {
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.01 ether);
 
-    (, , uint256 earningsUnassigned, ) = market.fixedPools(TSUtils.INTERVAL);
-    // rest of it goes to earningsUnassigned of the fixed pool
-    assertEq(earningsUnassigned, 0.09 ether);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    // rest of it goes to unassignedEarnings of the fixed pool
+    assertEq(unassignedEarnings, 0.09 ether);
 
     // when no fees are charged, the treasury logic should not revert
     mockInterestRateModel.setBorrowRate(0);
@@ -1458,9 +1458,9 @@ contract MarketTest is Test {
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.1 ether);
 
-    (, , uint256 earningsUnassigned, ) = market.fixedPools(TSUtils.INTERVAL);
-    // earningsUnassigned and accumulator should not receive anything
-    assertEq(earningsUnassigned, 0);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    // unassignedEarnings and accumulator should not receive anything
+    assertEq(unassignedEarnings, 0);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
     market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
@@ -1472,9 +1472,9 @@ contract MarketTest is Test {
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.1 ether + 0.02 ether + 0.09 ether);
 
-    (, , earningsUnassigned, ) = market.fixedPools(TSUtils.INTERVAL);
-    // earningsUnassigned should receive the other half
-    assertEq(earningsUnassigned, 0.09 ether);
+    (, , unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    // unassignedEarnings should receive the other half
+    assertEq(unassignedEarnings, 0.09 ether);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
     // now when treasury fee is 0 again, all inefficient fees charged go to accumulator
@@ -1496,9 +1496,9 @@ contract MarketTest is Test {
     assertEq(market.balanceOf(address(BOB)), 0);
     assertEq(market.smartPoolAssets(), 10 ether);
 
-    (, , uint256 earningsUnassigned, ) = market.fixedPools(TSUtils.INTERVAL);
-    // earningsUnassigned and accumulator should not receive anything either
-    assertEq(earningsUnassigned, 0);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    // unassignedEarnings and accumulator should not receive anything either
+    assertEq(unassignedEarnings, 0);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
   }
 
@@ -1514,9 +1514,9 @@ contract MarketTest is Test {
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.009090909090909091 ether);
 
-    (, , uint256 earningsUnassigned, ) = market.fixedPools(TSUtils.INTERVAL);
-    // rest of it goes to earningsUnassigned of the fixed pool
-    assertEq(earningsUnassigned, 1 ether - 0.909090909090909090 ether - 0.009090909090909091 ether);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    // rest of it goes to unassignedEarnings of the fixed pool
+    assertEq(unassignedEarnings, 1 ether - 0.909090909090909090 ether - 0.009090909090909091 ether);
 
     // when no fees are charged, the treasury logic should not revert
     mockInterestRateModel.setBorrowRate(0);
@@ -1542,9 +1542,9 @@ contract MarketTest is Test {
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.090909090909090910 ether);
 
-    (, , uint256 earningsUnassigned, ) = market.fixedPools(TSUtils.INTERVAL);
-    // earningsUnassigned and accumulator should not receive anything
-    assertEq(earningsUnassigned, 0);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    // unassignedEarnings and accumulator should not receive anything
+    assertEq(unassignedEarnings, 0);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
     market.depositAtMaturity(TSUtils.INTERVAL, 1 ether, 1 ether, address(this));
@@ -1553,14 +1553,14 @@ contract MarketTest is Test {
     mockInterestRateModel.setBorrowRate(0.1e18);
     market.withdrawAtMaturity(TSUtils.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
 
-    // treasury and earningsUnassigned should earn earnings
+    // treasury and unassignedEarnings should earn earnings
     assertEq(market.balanceOf(address(BOB)), 0.136818181818181819 ether);
     // the treasury earnings are instantly added to the smart pool assets
     assertEq(market.smartPoolAssets(), 10 ether + 0.136818181818181819 ether);
 
-    (, , earningsUnassigned, ) = market.fixedPools(TSUtils.INTERVAL);
-    // earningsUnassigned should receive the other part
-    assertEq(earningsUnassigned, 0.045000000000000001 ether);
+    (, , unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    // unassignedEarnings should receive the other part
+    assertEq(unassignedEarnings, 0.045000000000000001 ether);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
 
     // now when treasury fee is 0 again, all inefficient fees charged go to accumulator
@@ -1582,9 +1582,9 @@ contract MarketTest is Test {
     assertEq(market.balanceOf(address(BOB)), 0);
     assertEq(market.smartPoolAssets(), 10 ether);
 
-    (, , uint256 earningsUnassigned, ) = market.fixedPools(TSUtils.INTERVAL);
-    // earningsUnassigned and accumulator should not receive anything either
-    assertEq(earningsUnassigned, 0);
+    (, , uint256 unassignedEarnings, ) = market.fixedPools(TSUtils.INTERVAL);
+    // unassignedEarnings and accumulator should not receive anything either
+    assertEq(unassignedEarnings, 0);
     assertEq(market.smartPoolEarningsAccumulator(), 0);
   }
 
@@ -1913,7 +1913,7 @@ contract MarketHarness is Market {
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
-    uint256 smartPoolFeeRate_,
+    uint256 backupFeeRate_,
     uint128 smartPoolReserveFactor_,
     DampSpeed memory dampSpeed_
   )
@@ -1924,11 +1924,11 @@ contract MarketHarness is Market {
       auditor_,
       interestRateModel_,
       penaltyRate_,
-      smartPoolFeeRate_,
+      backupFeeRate_,
       smartPoolReserveFactor_,
       dampSpeed_
     )
-  {}
+  {} // solhint-disable-line no-empty-blocks
 
   function setSupply(uint256 supply) external {
     totalSupply = supply;

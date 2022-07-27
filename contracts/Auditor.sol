@@ -6,7 +6,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { Market, NotMarket } from "./Market.sol";
 import { ExactlyOracle } from "./ExactlyOracle.sol";
-import { PoolLib } from "./utils/PoolLib.sol";
+import { FixedLib } from "./utils/FixedLib.sol";
 
 contract Auditor is AccessControl {
   using FixedPointMathLib for uint256;

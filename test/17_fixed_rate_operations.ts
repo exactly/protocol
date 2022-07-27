@@ -49,17 +49,17 @@ describe("Fixed Rate Operations", () => {
     });
   });
   describe("setSmartPoolRate", () => {
-    it("WHEN calling setSmartPoolFeeRate function, THEN it should update smartPoolFeeRate", async () => {
-      await marketHarness.setSmartPoolFeeRate(parseUnits("0.2"));
-      expect(await marketHarness.smartPoolFeeRate()).to.eq(parseUnits("0.2"));
+    it("WHEN calling setBackupFeeRate function, THEN it should update backupFeeRate", async () => {
+      await marketHarness.setBackupFeeRate(parseUnits("0.2"));
+      expect(await marketHarness.backupFeeRate()).to.eq(parseUnits("0.2"));
     });
-    it("WHEN calling setSmartPoolFeeRate function, THEN it should emit SmartPoolFeeRateSet", async () => {
-      await expect(marketHarness.setSmartPoolFeeRate(parseUnits("0.2")))
-        .to.emit(marketHarness, "SmartPoolFeeRateSet")
+    it("WHEN calling setBackupFeeRate function, THEN it should emit BackupFeeRateSet", async () => {
+      await expect(marketHarness.setBackupFeeRate(parseUnits("0.2")))
+        .to.emit(marketHarness, "BackupFeeRateSet")
         .withArgs(parseUnits("0.2"));
     });
-    it("WHEN calling setSmartPoolFeeRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketHarness.connect(laura).setSmartPoolFeeRate(parseUnits("0.2"))).to.be.revertedWith(
+    it("WHEN calling setBackupFeeRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(marketHarness.connect(laura).setBackupFeeRate(parseUnits("0.2"))).to.be.revertedWith(
         "AccessControl",
       );
     });
@@ -132,7 +132,7 @@ describe("Fixed Rate Operations", () => {
     beforeEach(async () => {
       fixedPoolState = {
         borrowFees: parseUnits("0"),
-        earningsUnassigned: parseUnits("0"),
+        unassignedEarnings: parseUnits("0"),
         earningsSP: parseUnits("0"),
         earningsAccumulator: parseUnits("0"),
         earningsMP: parseUnits("0"),
@@ -162,8 +162,8 @@ describe("Fixed Rate Operations", () => {
     it("THEN supplied equals to depositedAmount", async () => {
       expect(mp.supplied).to.eq(parseUnits(depositAmount));
     });
-    it("THEN earningsUnassigned are 0", async () => {
-      expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+    it("THEN unassignedEarnings are 0", async () => {
+      expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
     });
     it("THEN lastAccrual is 6 days to maturity", async () => {
       expect(mp.lastAccrual).to.eq(sixDaysToMaturity);
@@ -209,8 +209,8 @@ describe("Fixed Rate Operations", () => {
       it("THEN supplied is the just deposited amount", async () => {
         expect(mp.supplied).to.eq(parseUnits(depositAmount));
       });
-      it("THEN earningsUnassigned are 0", async () => {
-        expect(mp.earningsUnassigned).to.eq(0);
+      it("THEN unassignedEarnings are 0", async () => {
+        expect(mp.unassignedEarnings).to.eq(0);
       });
       it("THEN lastAccrual is 4 days to maturity", async () => {
         expect(mp.lastAccrual).to.eq(fourDaysToMaturity);
@@ -255,7 +255,7 @@ describe("Fixed Rate Operations", () => {
           fixedPoolState.borrowFees = fixedPoolState.borrowFees.add(
             returnValue.sub(parseUnits(borrowAmount.toString())),
           );
-          fixedPoolState.earningsUnassigned = parseUnits("0");
+          fixedPoolState.unassignedEarnings = parseUnits("0");
         });
         it("THEN borrowed is 2x the previously borrow amount", async () => {
           expect(mp.borrowed).to.eq(parseUnits((borrowAmount * 2).toString()));
@@ -263,8 +263,8 @@ describe("Fixed Rate Operations", () => {
         it("THEN supplied is the one depositedAmount", async () => {
           expect(mp.supplied).to.eq(parseUnits(depositAmount.toString()));
         });
-        it("THEN earningsUnassigned are 0", async () => {
-          expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+        it("THEN unassignedEarnings are 0", async () => {
+          expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
         });
         it("THEN the lastAccrual is 3 days to maturity", async () => {
           expect(mp.lastAccrual).to.eq(threeDaysToMaturity);
@@ -310,7 +310,7 @@ describe("Fixed Rate Operations", () => {
             fixedPoolState.borrowFees = fixedPoolState.borrowFees.add(
               returnValue.sub(parseUnits(borrowAmount.toString())),
             );
-            fixedPoolState.earningsUnassigned = fixedPoolState.earningsUnassigned.add(mp.earningsUnassigned);
+            fixedPoolState.unassignedEarnings = fixedPoolState.unassignedEarnings.add(mp.unassignedEarnings);
           });
           it("THEN borrowed is 3x the borrowAmount", async () => {
             expect(mp.borrowed).to.eq(parseUnits((borrowAmount * 3).toString()));
@@ -318,8 +318,8 @@ describe("Fixed Rate Operations", () => {
           it("THEN supplied is 1x depositAmount", async () => {
             expect(mp.supplied).to.eq(parseUnits(depositAmount));
           });
-          it("THEN earningsUnassigned are 250", async () => {
-            expect(mp.earningsUnassigned).to.eq(parseUnits(borrowFees.toString()));
+          it("THEN unassignedEarnings are 250", async () => {
+            expect(mp.unassignedEarnings).to.eq(parseUnits(borrowFees.toString()));
           });
           it("THEN lastAccrual is 2 days to maturity", async () => {
             expect(mp.lastAccrual).to.eq(twoDaysToMaturity);
@@ -385,7 +385,7 @@ describe("Fixed Rate Operations", () => {
             });
             it("THEN earningsSP returned 125", async () => {
               const smartPoolAssets = await marketHarness.smartPoolAssets();
-              // earningsUnassigned were 250, then 1 day passed so earningsSP accrued half
+              // unassignedEarnings were 250, then 1 day passed so earningsSP accrued half
               const earnings = parseUnits("125");
               await expect(tx)
                 .to.emit(marketHarness, "SmartPoolEarningsAccrued")
@@ -450,7 +450,7 @@ describe("Fixed Rate Operations", () => {
             it("THEN earningsSP returned 125", async () => {
               const smartPoolAssets = await marketHarness.smartPoolAssets();
               const earnings = parseUnits("125");
-              // earningsUnassigned were 250, then 1 day passed so earningsSP accrued half
+              // unassignedEarnings were 250, then 1 day passed so earningsSP accrued half
               await expect(tx)
                 .to.emit(marketHarness, "SmartPoolEarningsAccrued")
                 .withArgs(smartPoolAssets.sub(earnings), earnings);
@@ -528,7 +528,7 @@ describe("Fixed Rate Operations", () => {
             });
             it("THEN earningsSP receive no % of penalties", async () => {
               const smartPoolAssets = await marketHarness.smartPoolAssets();
-              // 250 (previous earnings unassigned)
+              // 250 (previous unassigned earnings)
               const earnings = parseUnits("250");
               await expect(tx)
                 .to.emit(marketHarness, "SmartPoolEarningsAccrued")
@@ -573,7 +573,7 @@ describe("Fixed Rate Operations", () => {
               fixedPoolState.earningsAccumulator = await marketHarness.smartPoolEarningsAccumulator();
               fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(parseUnits("125"));
               fixedPoolState.earningsMP = returnValue.sub(parseUnits(depositAmount.toString()));
-              fixedPoolState.earningsUnassigned = parseUnits("0");
+              fixedPoolState.unassignedEarnings = parseUnits("0");
               fixedDepositPositions = await marketHarness.fixedDepositPositions(nextPoolID, laura.address);
             });
             it("THEN borrowed is 3x borrowAmount", async () => {
@@ -586,8 +586,8 @@ describe("Fixed Rate Operations", () => {
                 parseUnits((depositAmount + 10000).toString()), // 1 deposits of 5k + 1 deposit of 10k
               );
             });
-            it("THEN earningsUnassigned are 0", async () => {
-              expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+            it("THEN unassignedEarnings are 0", async () => {
+              expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
             });
             it("THEN lastAccrual is 1 day to maturity", async () => {
               expect(mp.lastAccrual).to.eq(oneDayToMaturity);
@@ -615,11 +615,11 @@ describe("Fixed Rate Operations", () => {
             });
           });
 
-          describe("AND GIVEN another depositMP with an amount of 5000 and with a smartPoolFeeRate of 10% (125 - (125 * 0.1) fees earned)", () => {
+          describe("AND GIVEN another depositMP with an amount of 5000 and with a backupFeeRate of 10% (125 - (125 * 0.1) fees earned)", () => {
             beforeEach(async () => {
               depositAmount = 5000;
 
-              await marketHarness.setSmartPoolFeeRate(parseUnits("0.1")); // 10% fees charged from the mp depositor yield to the sp earnings
+              await marketHarness.setBackupFeeRate(parseUnits("0.1")); // 10% fees charged from the mp depositor yield to the sp earnings
               await marketEnv.moveInTime(oneDayToMaturity);
               tx = await marketHarness
                 .connect(laura)
@@ -635,7 +635,7 @@ describe("Fixed Rate Operations", () => {
               fixedPoolState.earningsSP = fixedPoolState.earningsSP.add(parseUnits("125"));
               fixedPoolState.earningsAccumulator = await marketHarness.smartPoolEarningsAccumulator();
               fixedPoolState.earningsMP = returnValue.sub(parseUnits(depositAmount.toString()));
-              fixedPoolState.earningsUnassigned = parseUnits("0");
+              fixedPoolState.unassignedEarnings = parseUnits("0");
             });
 
             it("THEN borrowed is 3x borrowAmount", async () => {
@@ -648,8 +648,8 @@ describe("Fixed Rate Operations", () => {
                 parseUnits((depositAmount + 10000).toString()), // 1 deposits of 5k + 1 deposit of 10k
               );
             });
-            it("THEN earningsUnassigned are 0", async () => {
-              expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+            it("THEN unassignedEarnings are 0", async () => {
+              expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
             });
             it("THEN lastAccrual is 1 day to maturity", async () => {
               expect(mp.lastAccrual).to.eq(oneDayToMaturity);
@@ -703,8 +703,8 @@ describe("Fixed Rate Operations", () => {
                 parseUnits((depositAmount + 10000).toString()), // 10000 = previous deposited amount
               );
             });
-            it("THEN earningsUnassigned are 0", async () => {
-              expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+            it("THEN unassignedEarnings are 0", async () => {
+              expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
             });
             it("THEN lastAccrual is 1 day before maturity", async () => {
               expect(mp.lastAccrual).to.eq(oneDayToMaturity);
@@ -745,8 +745,8 @@ describe("Fixed Rate Operations", () => {
                   parseUnits((borrowFees * 2).toString()),
                 );
               });
-              it("THEN earningsUnassigned are still 0", async () => {
-                expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+              it("THEN unassignedEarnings are still 0", async () => {
+                expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
               });
               it("THEN the earningsSP returned are 0", async () => {
                 const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -786,8 +786,8 @@ describe("Fixed Rate Operations", () => {
 
                 mp = await marketHarness.fixedPools(nextPoolID);
               });
-              it("THEN earningsUnassigned are still 0", async () => {
-                expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+              it("THEN unassignedEarnings are still 0", async () => {
+                expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
               });
               it("THEN the debtCovered was the full amount repaid", async () => {
                 await expect(tx)
@@ -839,8 +839,8 @@ describe("Fixed Rate Operations", () => {
                     parseUnits(repayAmount.toString()),
                   );
               });
-              it("THEN earningsUnassigned are still 0", async () => {
-                expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+              it("THEN unassignedEarnings are still 0", async () => {
+                expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
               });
               it("THEN the earningsSP returned are 0", async () => {
                 const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -868,8 +868,8 @@ describe("Fixed Rate Operations", () => {
                   expect(mp.borrowed).to.eq(parseUnits("0"));
                   expect(mp.supplied).to.be.eq(fixedDepositPositions[0]);
                 });
-                it("THEN earningsUnassigned are still 0", async () => {
-                  expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+                it("THEN unassignedEarnings are still 0", async () => {
+                  expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
                 });
                 it("THEN the earningsSP returned are 0", async () => {
                   const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -918,8 +918,8 @@ describe("Fixed Rate Operations", () => {
                   expect(mp.borrowed).to.eq(parseUnits("0"));
                   expect(mp.supplied).to.eq(parseUnits("50005000"));
                 });
-                it("THEN earningsUnassigned are still 0", async () => {
-                  expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+                it("THEN unassignedEarnings are still 0", async () => {
+                  expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
                 });
                 it("THEN the earningsSP returned are 0", async () => {
                   const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -950,8 +950,8 @@ describe("Fixed Rate Operations", () => {
                   expect(mp.borrowed).to.eq(parseUnits("0"));
                   expect(mp.supplied).to.eq(parseUnits("0"));
                 });
-                it("THEN earningsUnassigned are still 0", async () => {
-                  expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+                it("THEN unassignedEarnings are still 0", async () => {
+                  expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
                 });
                 it("THEN the earningsSP returned are 0", async () => {
                   const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1157,8 +1157,8 @@ describe("Fixed Rate Operations", () => {
           mp = await marketHarness.fixedPools(nextPoolID);
           returnValue = await marketHarness.returnValue();
         });
-        it("THEN earningsUnassigned should be 360", () => {
-          expect(mp.earningsUnassigned).to.eq(parseUnits("450")); // 600 - 100 (earningsSP) - 50 (earnings MP depositor)
+        it("THEN unassignedEarnings should be 360", () => {
+          expect(mp.unassignedEarnings).to.eq(parseUnits("450")); // 600 - 100 (earningsSP) - 50 (earnings MP depositor)
         });
         it("THEN the earningsSP returned are 100", async () => {
           const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1186,8 +1186,8 @@ describe("Fixed Rate Operations", () => {
               );
             mp = await marketHarness.fixedPools(nextPoolID);
           });
-          it("THEN earningsUnassigned should be 410", () => {
-            expect(mp.earningsUnassigned).to.eq(parseUnits("410")); // 450 - 90 + 50
+          it("THEN unassignedEarnings should be 410", () => {
+            expect(mp.unassignedEarnings).to.eq(parseUnits("410")); // 450 - 90 + 50
           });
           it("THEN the earningsSP returned are 90", async () => {
             const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1212,8 +1212,8 @@ describe("Fixed Rate Operations", () => {
               mp = await marketHarness.fixedPools(nextPoolID);
               returnValue = await marketHarness.returnValue();
             });
-            it("THEN earningsUnassigned should be 909", () => {
-              expect(mp.earningsUnassigned).to.eq(parseUnits("909")); // 410 - 102.5 (410 / 4) + 601.5
+            it("THEN unassignedEarnings should be 909", () => {
+              expect(mp.unassignedEarnings).to.eq(parseUnits("909")); // 410 - 102.5 (410 / 4) + 601.5
             });
             it("THEN the earningsSP returned are 102.5", async () => {
               const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1239,8 +1239,8 @@ describe("Fixed Rate Operations", () => {
                 mp = await marketHarness.fixedPools(nextPoolID);
                 returnValue = await marketHarness.returnValue();
               });
-              it("THEN earningsUnassigned should be 303", () => {
-                expect(mp.earningsUnassigned).to.eq(parseUnits("303"));
+              it("THEN unassignedEarnings should be 303", () => {
+                expect(mp.unassignedEarnings).to.eq(parseUnits("303"));
               });
               it("THEN the earningsSP returned are 303", async () => {
                 const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1273,8 +1273,8 @@ describe("Fixed Rate Operations", () => {
                   mp = await marketHarness.fixedPools(nextPoolID);
                   returnValue = await marketHarness.returnValue();
                 });
-                it("THEN earningsUnassigned should be 0", () => {
-                  expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+                it("THEN unassignedEarnings should be 0", () => {
+                  expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
                 });
                 it("THEN the earningsSP returned are 151.5", async () => {
                   const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1312,7 +1312,7 @@ describe("Fixed Rate Operations", () => {
     beforeEach(async () => {
       fixedPoolState = {
         borrowFees: parseUnits("0"),
-        earningsUnassigned: parseUnits("0"),
+        unassignedEarnings: parseUnits("0"),
         earningsAccumulator: parseUnits("0"),
         earningsSP: parseUnits("0"),
         earningsMP: parseUnits("0"),
@@ -1364,8 +1364,8 @@ describe("Fixed Rate Operations", () => {
         fixedPoolState.borrowFees = returnValue.sub(parseUnits(borrowAmount.toString()));
       });
 
-      it("THEN all earningsUnassigned should be 500", () => {
-        expect(mp.earningsUnassigned).to.eq(parseUnits("500"));
+      it("THEN all unassignedEarnings should be 500", () => {
+        expect(mp.unassignedEarnings).to.eq(parseUnits("500"));
       });
 
       describe("WHEN an early repayment of 5250", () => {
@@ -1382,9 +1382,9 @@ describe("Fixed Rate Operations", () => {
         it("THEN borrowed is 5000", async () => {
           expect(mp.borrowed).to.eq(parseUnits("5000"));
         });
-        it("THEN all earningsUnassigned should be 200", async () => {
+        it("THEN all unassignedEarnings should be 200", async () => {
           // 200 = 500 original - 100 accrued - 200 discount
-          expect(mp.earningsUnassigned).to.eq(parseUnits("200"));
+          expect(mp.unassignedEarnings).to.eq(parseUnits("200"));
         });
         it("THEN the debtCovered returned is 5250", async () => {
           await expect(tx)
@@ -1421,8 +1421,8 @@ describe("Fixed Rate Operations", () => {
           it("THEN supplied is 0", async () => {
             expect(mp.supplied).to.eq(0);
           });
-          it("THEN all earningsUnassigned should be 0", async () => {
-            expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+          it("THEN all unassignedEarnings should be 0", async () => {
+            expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
           });
           it("THEN the debtCovered returned is 5250", async () => {
             await expect(tx)
@@ -1443,9 +1443,9 @@ describe("Fixed Rate Operations", () => {
             expect(fixedPoolState.borrowFees).to.eq(marketEnv.getAllEarnings(fixedPoolState));
           });
         });
-        describe("AND WHEN an early repayment of 5250 with a smartPoolFeeRate of 10%", () => {
+        describe("AND WHEN an early repayment of 5250 with a backupFeeRate of 10%", () => {
           beforeEach(async () => {
-            await marketHarness.setSmartPoolFeeRate(parseUnits("0.1"));
+            await marketHarness.setBackupFeeRate(parseUnits("0.1"));
             await marketEnv.moveInTime(threeDaysToMaturity);
             tx = await marketHarness
               .connect(laura)
@@ -1464,8 +1464,8 @@ describe("Fixed Rate Operations", () => {
           it("THEN supplied is 0", async () => {
             expect(mp.supplied).to.eq(0);
           });
-          it("THEN all earningsUnassigned should be 0", async () => {
-            expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+          it("THEN all unassignedEarnings should be 0", async () => {
+            expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
           });
           it("THEN the debtCovered returned is 5250", async () => {
             await expect(tx)
@@ -1479,7 +1479,7 @@ describe("Fixed Rate Operations", () => {
               .to.emit(marketHarness, "SmartPoolEarningsAccrued")
               .withArgs(smartPoolAssets.sub(earnings), earnings);
           });
-          it("THEN the smartPoolEarningsAccumulator are 15 (10% smartPoolFeeRate)", async () => {
+          it("THEN the smartPoolEarningsAccumulator are 15 (10% backupFeeRate)", async () => {
             expect(await marketHarness.smartPoolEarningsAccumulator()).to.eq(parseUnits("15"));
           });
           it("THEN the actualRepayAmount returned is 5115 = 5250 - earningsSP(t-1)(are 50) - earningsSP(t)(are 50) - accumulator(t)(are 15)", async () => {
@@ -1522,8 +1522,8 @@ describe("Fixed Rate Operations", () => {
         fixedPoolState.earningsDiscounted = parseUnits("0");
         fixedPoolState.earningsSP = parseUnits("50");
       });
-      it("THEN all earningsUnassigned should be 0", async () => {
-        expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+      it("THEN all unassignedEarnings should be 0", async () => {
+        expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
       });
       it("THEN the earningsSP returned are 50", async () => {
         const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1547,8 +1547,8 @@ describe("Fixed Rate Operations", () => {
         it("THEN borrowed is 0", async () => {
           expect(mp.borrowed).to.eq(parseUnits("0"));
         });
-        it("THEN all earningsUnassigned should be 0", async () => {
-          expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+        it("THEN all unassignedEarnings should be 0", async () => {
+          expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
         });
         it("THEN the earningsSP returned are 0", async () => {
           const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1606,8 +1606,8 @@ describe("Fixed Rate Operations", () => {
           // the difference between 4772.72 and 5000 is the amount we added to the unassigned earnings due to the high borrow rate when withdrawing
           expect(mp.borrowed).to.eq(parseUnits("5000"));
         });
-        it("THEN earningsUnassigned should be 477 (250 + money left on the table)", async () => {
-          expect(mp.earningsUnassigned).to.eq(parseUnits("472.727272727272727273"));
+        it("THEN unassignedEarnings should be 477 (250 + money left on the table)", async () => {
+          expect(mp.unassignedEarnings).to.eq(parseUnits("472.727272727272727273"));
         });
         it("THEN supplied should be 0", async () => {
           expect(mp.supplied).to.eq(parseUnits("0"));
@@ -1645,10 +1645,10 @@ describe("Fixed Rate Operations", () => {
         it("THEN borrowed is 0", async () => {
           expect(mp.borrowed).to.eq(parseUnits("5000"));
         });
-        it("THEN earningsUnassigned should be 250 again", async () => {
+        it("THEN unassignedEarnings should be 250 again", async () => {
           // 5200 / 1.05 = 4952;
           // 5200 - 4952 = ~248;
-          expect(mp.earningsUnassigned).to.eq(parseUnits("247.619047619047619048"));
+          expect(mp.unassignedEarnings).to.eq(parseUnits("247.619047619047619048"));
         });
         it("THEN the redeemAmountDiscounted returned is 5000", async () => {
           // 5200 / 1.05 (1e18 + 5e16 feeRate) = 4952
@@ -1684,8 +1684,8 @@ describe("Fixed Rate Operations", () => {
               );
             mp = await marketHarness.fixedPools(nextPoolID);
           });
-          it("THEN earningsUnassigned is 0", async () => {
-            expect(mp.earningsUnassigned).to.eq(parseUnits("0"));
+          it("THEN unassignedEarnings is 0", async () => {
+            expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
           });
           it("THEN the earningsSP returned is 0", async () => {
             const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1715,8 +1715,8 @@ describe("Fixed Rate Operations", () => {
               );
             mp = await marketHarness.fixedPools(nextPoolID);
           });
-          it("THEN earningsUnassigned is 125", async () => {
-            expect(mp.earningsUnassigned).to.eq(parseUnits("124.540734824281150160"));
+          it("THEN unassignedEarnings is 125", async () => {
+            expect(mp.unassignedEarnings).to.eq(parseUnits("124.540734824281150160"));
           });
           it("THEN the earningsSP returned is 0", async () => {
             const smartPoolAssets = await marketHarness.smartPoolAssets();
@@ -1747,8 +1747,8 @@ describe("Fixed Rate Operations", () => {
           mp = await marketHarness.fixedPools(nextPoolID);
         });
 
-        it("THEN all earningsUnassigned should be 2000", () => {
-          expect(mp.earningsUnassigned).to.eq(parseUnits("2000"));
+        it("THEN all unassignedEarnings should be 2000", () => {
+          expect(mp.unassignedEarnings).to.eq(parseUnits("2000"));
         });
 
         describe("GIVEN a borrowMP of 10000 (10000 fees owed by user) (4 days to maturity)", () => {
@@ -1768,9 +1768,9 @@ describe("Fixed Rate Operations", () => {
             mp = await marketHarness.fixedPools(nextPoolID);
           });
 
-          it("THEN all earningsUnassigned should be 11600", async () => {
+          it("THEN all unassignedEarnings should be 11600", async () => {
             // 400 out of 2000 accrued because 1 day went by for the original 2000
-            expect(mp.earningsUnassigned).to.eq(parseUnits("11600"));
+            expect(mp.unassignedEarnings).to.eq(parseUnits("11600"));
           });
 
           describe("WHEN an early repayment of 16000 (3 days to maturity)", () => {
@@ -1786,10 +1786,10 @@ describe("Fixed Rate Operations", () => {
             it("THEN borrowed is 10000", async () => {
               expect(mp.borrowed).to.eq(parseUnits("10000"));
             });
-            it("THEN all earningsUnassigned should be 4350", async () => {
+            it("THEN all unassignedEarnings should be 4350", async () => {
               // 11600 * .75 = 8700 => unassigned before operation after accrual (1 out of 4 days went by)
               // 8700 / 2 = 4350 => covering half sp debt gives half of the unassigned
-              expect(mp.earningsUnassigned).to.eq(parseUnits("4350"));
+              expect(mp.unassignedEarnings).to.eq(parseUnits("4350"));
             });
             it("THEN the debtCovered returned is 16000", async () => {
               await expect(tx)

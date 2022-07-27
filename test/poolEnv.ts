@@ -17,10 +17,6 @@ export class PoolEnv {
     await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 
-  public async setNextTimestamp(timestamp: number) {
-    return this.fpHarness.setNextTimestamp(timestamp);
-  }
-
   public async accrueEarnings(timestamp: number) {
     return this.fpHarness.accrueEarnings(timestamp);
   }
@@ -37,12 +33,12 @@ export class PoolEnv {
     return this.fpHarness.addFee(parseUnits(amount));
   }
 
-  public async setMaturity(userBorrows: number, timestamp: number) {
-    this.fpHarness.setMaturity(userBorrows, timestamp);
+  public async setMaturity(encoded: number, timestamp: number) {
+    this.fpHarness.setMaturity(encoded, timestamp);
   }
 
-  public async clearMaturity(userBorrows: number, timestamp: number) {
-    this.fpHarness.clearMaturity(userBorrows, timestamp);
+  public async clearMaturity(encoded: number, timestamp: number) {
+    this.fpHarness.clearMaturity(encoded, timestamp);
   }
 
   public async addFeeMP(amount: string) {
@@ -61,11 +57,14 @@ export class PoolEnv {
     return this.fpHarness.returnFee(parseUnits(amount));
   }
 
-  public async distributeEarningsAccordingly(earnings: string, suppliedSP: string, amountFunded: string) {
-    return this.fpHarness.distributeEarningsAccordingly(
-      parseUnits(earnings),
+  public async distributeEarnings(earnings: string, suppliedSP: string, borrowAmount: string) {
+    return this.fpHarness.distributeEarnings(
       parseUnits(suppliedSP),
-      parseUnits(amountFunded),
+      0,
+      0,
+      0,
+      parseUnits(earnings),
+      parseUnits(borrowAmount),
     );
   }
 
@@ -93,23 +92,20 @@ export class PoolEnv {
     return this.fpHarness.withdraw(parseUnits(amount), parseUnits(maxDebt));
   }
 
-  public async getDepositYield(
-    amount: string,
-    unassignedEarnings: string,
-    spBorrowed: string,
-    smartPoolFeeRate: string,
-  ) {
+  public async getDepositYield(amount: string, unassignedEarnings: string, spBorrowed: string, backupFeeRate: string) {
     return this.fpHarness.getDepositYield(
-      parseUnits(amount),
-      parseUnits(unassignedEarnings),
       parseUnits(spBorrowed),
-      parseUnits(smartPoolFeeRate),
+      0,
+      parseUnits(unassignedEarnings),
+      0,
+      parseUnits(amount),
+      parseUnits(backupFeeRate),
     );
   }
 
   static async create(): Promise<PoolEnv> {
     const FixedPoolHarness = await ethers.getContractFactory("FixedPoolHarness");
-    let fixedPoolHarness = await FixedPoolHarness.deploy();
+    const fixedPoolHarness = await FixedPoolHarness.deploy();
     await fixedPoolHarness.deployed();
 
     return new PoolEnv(fixedPoolHarness);

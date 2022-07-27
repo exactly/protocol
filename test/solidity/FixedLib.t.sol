@@ -3,67 +3,69 @@ pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { Test, stdError } from "forge-std/Test.sol";
-import { PoolLib, InsufficientProtocolLiquidity, MaturityOverflow } from "../../contracts/utils/PoolLib.sol";
+import { FixedLib, InsufficientProtocolLiquidity, MaturityOverflow } from "../../contracts/utils/FixedLib.sol";
 import { TSUtils } from "../../contracts/utils/TSUtils.sol";
 
 contract PoolLibTest is Test {
-  using PoolLib for PoolLib.FixedPool;
-  using PoolLib for uint256;
+  using FixedLib for FixedLib.Pool;
+  using FixedLib for uint256;
 
-  PoolLib.FixedPool private fp;
+  FixedLib.Pool private fp;
 
   function testAtomicDepositBorrowRepayWithdraw() external {
-    uint256 smartPoolDebtReduction = fp.deposit(1 ether);
+    uint256 backupDebtReduction = fp.deposit(1 ether);
     assertEq(fp.borrowed, 0);
     assertEq(fp.supplied, 1 ether);
-    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.unassignedEarnings, 0);
     assertEq(fp.lastAccrual, 0);
-    assertEq(smartPoolDebtReduction, 0);
+    assertEq(backupDebtReduction, 0);
 
-    uint256 smartPoolDebt = fp.borrow(1 ether, 0);
+    uint256 backupDebt = fp.borrow(1 ether, 0);
     assertEq(fp.borrowed, 1 ether);
     assertEq(fp.supplied, 1 ether);
-    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.unassignedEarnings, 0);
     assertEq(fp.lastAccrual, 0);
-    assertEq(smartPoolDebt, 0);
+    assertEq(backupDebt, 0);
 
-    smartPoolDebtReduction = fp.repay(1 ether);
+    backupDebtReduction = fp.repay(1 ether);
     assertEq(fp.borrowed, 0);
     assertEq(fp.supplied, 1 ether);
-    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.unassignedEarnings, 0);
     assertEq(fp.lastAccrual, 0);
-    assertEq(smartPoolDebtReduction, 0);
+    assertEq(backupDebtReduction, 0);
 
-    smartPoolDebt = fp.withdraw(1 ether, 0);
+    backupDebt = fp.withdraw(1 ether, 0);
     assertEq(fp.borrowed, 0);
     assertEq(fp.supplied, 0);
-    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.unassignedEarnings, 0);
     assertEq(fp.lastAccrual, 0);
-    assertEq(smartPoolDebt, 0);
+    assertEq(backupDebt, 0);
   }
 
-  function testSmartPoolBorrow() external {
-    uint256 smartPoolDebt = fp.borrow(1 ether, 1 ether);
+  function testBackupBorrow() external {
+    uint256 backupDebt = fp.borrow(1 ether, 1 ether);
     assertEq(fp.borrowed, 1 ether);
     assertEq(fp.supplied, 0);
-    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.unassignedEarnings, 0);
     assertEq(fp.lastAccrual, 0);
-    assertEq(smartPoolDebt, 1 ether);
+    assertEq(backupDebt, 1 ether);
   }
 
   function testEarningsAccrual() external {
-    fp.earningsUnassigned = 1 ether;
-    uint256 earnings = fp.accrueEarnings(1 days, 1 days);
+    fp.unassignedEarnings = 1 ether;
+    vm.warp(1 days);
+    uint256 earnings = fp.accrueEarnings(1 days);
     assertEq(fp.borrowed, 0);
     assertEq(fp.supplied, 0);
-    assertEq(fp.earningsUnassigned, 0);
+    assertEq(fp.unassignedEarnings, 0);
     assertEq(fp.lastAccrual, 1 days);
     assertEq(earnings, 1 ether);
   }
 
   function testEarningsDistribution() external {
-    (uint256 smartPool, uint256 treasury) = PoolLib.distributeEarningsAccordingly(2 ether, 1 ether, 2 ether);
-    assertEq(smartPool, 1 ether);
+    fp.borrowed = 1 ether;
+    (uint256 backup, uint256 treasury) = fp.distributeEarnings(2 ether, 2 ether);
+    assertEq(backup, 1 ether);
     assertEq(treasury, 1 ether);
   }
 
@@ -76,17 +78,17 @@ contract PoolLibTest is Test {
     uint256 maturities;
     maturities = maturities.setMaturity(TSUtils.INTERVAL);
     maturities = maturities.setMaturity(TSUtils.INTERVAL * 224);
-    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL));
-    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL * 224));
+    assertTrue(hasMaturity(maturities, TSUtils.INTERVAL));
+    assertTrue(hasMaturity(maturities, TSUtils.INTERVAL * 224));
 
     uint256 maturitiesReverse;
     maturitiesReverse = maturitiesReverse.setMaturity(TSUtils.INTERVAL * 224);
     maturitiesReverse = maturitiesReverse.setMaturity(TSUtils.INTERVAL);
-    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL * 224));
-    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL));
+    assertTrue(hasMaturity(maturities, TSUtils.INTERVAL * 224));
+    assertTrue(hasMaturity(maturities, TSUtils.INTERVAL));
 
     maturitiesReverse = maturitiesReverse.clearMaturity(TSUtils.INTERVAL * 224);
-    assertTrue(maturities.hasMaturity(TSUtils.INTERVAL));
+    assertTrue(hasMaturity(maturities, TSUtils.INTERVAL));
   }
 
   function testMaturityRangeTooWide() external {
@@ -109,7 +111,7 @@ contract PoolLibTest is Test {
 
       uint32 maturity = ((uint32(indexes[i]) + 1) * TSUtils.INTERVAL);
       maturities = maturities.setMaturity(maturity);
-      assertTrue(maturities.hasMaturity(maturity));
+      assertTrue(hasMaturity(maturities, maturity));
     }
 
     for (uint256 i = 0; i < indexes.length; i++) {
@@ -123,7 +125,7 @@ contract PoolLibTest is Test {
       if (maturity < base) continue;
 
       maturities = newMaturities;
-      assertTrue(!maturities.hasMaturity(maturity));
+      assertTrue(!hasMaturity(maturities, maturity));
     }
 
     assertEq(maturities, 0);
@@ -139,5 +141,14 @@ contract PoolLibTest is Test {
 
   function clearMaturity(uint256 encoded, uint256 maturity) external pure returns (uint256) {
     return encoded.clearMaturity(maturity);
+  }
+
+  function hasMaturity(uint256 encoded, uint256 maturity) internal pure returns (bool) {
+    uint256 baseMaturity = encoded % (1 << 32);
+    if (maturity < baseMaturity) return false;
+
+    uint256 range = (maturity - baseMaturity) / TSUtils.INTERVAL;
+    if (range > 223) return false;
+    return ((encoded >> 32) & (1 << range)) != 0;
   }
 }

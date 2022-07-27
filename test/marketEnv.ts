@@ -34,7 +34,7 @@ export class MarketEnv {
     return fixedPoolState.earningsSP
       .add(fixedPoolState.earningsAccumulator)
       .add(fixedPoolState.earningsMP)
-      .add(fixedPoolState.earningsUnassigned)
+      .add(fixedPoolState.unassignedEarnings)
       .add(fixedPoolState.earningsDiscounted);
   }
 

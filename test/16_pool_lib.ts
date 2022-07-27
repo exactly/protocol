@@ -1,8 +1,11 @@
 import { expect } from "chai";
-import { BigNumber } from "ethers";
+import { ethers } from "hardhat";
 import { parseUnits } from "ethers/lib/utils";
+import type { BigNumber } from "ethers";
 import { PoolEnv } from "./poolEnv";
 import { INTERVAL } from "./utils/futurePools";
+
+const { provider } = ethers;
 
 describe("Fixed Pool Management Library", () => {
   let poolEnv: PoolEnv;
@@ -28,12 +31,12 @@ describe("Fixed Pool Management Library", () => {
         it("THEN the pool 'supplied' is 100", async () => {
           expect(fp.supplied).to.equal(parseUnits("100"));
         });
-        it("THEN the pool 'earningsUnassigned' are 0", async () => {
-          expect(fp.earningsUnassigned).to.equal(parseUnits("0"));
+        it("THEN the pool 'unassignedEarnings' are 0", async () => {
+          expect(fp.unassignedEarnings).to.equal(parseUnits("0"));
         });
-        it("THEN the smartPoolDebtReduction that is returned is 0", async () => {
-          const smartPoolDebtReductionReturned = await poolEnv.getFpHarness().smartPoolDebtReduction();
-          expect(smartPoolDebtReductionReturned).to.equal(parseUnits("0"));
+        it("THEN the backupDebtReduction that is returned is 0", async () => {
+          const backupDebtReductionReturned = await poolEnv.getFpHarness().backupDebtReduction();
+          expect(backupDebtReductionReturned).to.equal(parseUnits("0"));
         });
         describe("AND WHEN 80 tokens are taken out", () => {
           beforeEach(async () => {
@@ -41,8 +44,8 @@ describe("Fixed Pool Management Library", () => {
             fp = await poolEnv.fpHarness.fixedPool();
           });
 
-          it("THEN the newDebtSP that is returned is 0", async () => {
-            const newDebtSpReturned = await poolEnv.getFpHarness().newDebtSP();
+          it("THEN the backupDebtAddition that is returned is 0", async () => {
+            const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
             expect(newDebtSpReturned).to.equal(parseUnits("0"));
           });
           it("THEN the pool 'borrowed' is 80", async () => {
@@ -57,8 +60,8 @@ describe("Fixed Pool Management Library", () => {
               fp = await poolEnv.fpHarness.fixedPool();
             });
 
-            it("THEN the newDebtSP that is returned is 0", async () => {
-              const newDebtSpReturned = await poolEnv.getFpHarness().newDebtSP();
+            it("THEN the backupDebtAddition that is returned is 0", async () => {
+              const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
               expect(newDebtSpReturned).to.equal(parseUnits("0"));
             });
             it("THEN the pool 'borrowed' is 100", async () => {
@@ -91,8 +94,8 @@ describe("Fixed Pool Management Library", () => {
                 fp = await poolEnv.fpHarness.fixedPool();
               });
 
-              it("THEN the newDebtSP that is returned is 0", async () => {
-                const newDebtSpReturned = await poolEnv.getFpHarness().newDebtSP();
+              it("THEN the backupDebtAddition that is returned is 0", async () => {
+                const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
                 expect(newDebtSpReturned).to.equal(parseUnits("50"));
               });
               it("THEN the pool 'borrowed' is 150", async () => {
@@ -111,8 +114,8 @@ describe("Fixed Pool Management Library", () => {
             fp = await poolEnv.fpHarness.fixedPool();
           });
 
-          it("THEN the newDebtSP that is returned is 80", async () => {
-            const newDebtSpReturned = await poolEnv.getFpHarness().newDebtSP();
+          it("THEN the backupDebtAddition that is returned is 80", async () => {
+            const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
             expect(newDebtSpReturned).to.equal(parseUnits("80"));
           });
           it("THEN the pool 'borrowed' is 180", async () => {
@@ -128,9 +131,9 @@ describe("Fixed Pool Management Library", () => {
               fp = await poolEnv.fpHarness.fixedPool();
             });
 
-            it("THEN the smartPoolDebtReduction that is returned is 80", async () => {
-              const smartPoolDebtReduction = await poolEnv.getFpHarness().smartPoolDebtReduction();
-              expect(smartPoolDebtReduction).to.equal(parseUnits("80"));
+            it("THEN the backupDebtReduction that is returned is 80", async () => {
+              const backupDebtReduction = await poolEnv.getFpHarness().backupDebtReduction();
+              expect(backupDebtReduction).to.equal(parseUnits("80"));
             });
             it("THEN the pool 'borrowed' is 180", async () => {
               expect(fp.borrowed).to.equal(parseUnits("180"));
@@ -144,9 +147,9 @@ describe("Fixed Pool Management Library", () => {
                 fp = await poolEnv.fpHarness.fixedPool();
               });
 
-              it("THEN the smartPoolDebtReduction that is 0", async () => {
-                const smartPoolDebtReduction = await poolEnv.getFpHarness().smartPoolDebtReduction();
-                expect(smartPoolDebtReduction).to.equal(parseUnits("0"));
+              it("THEN the backupDebtReduction that is 0", async () => {
+                const backupDebtReduction = await poolEnv.getFpHarness().backupDebtReduction();
+                expect(backupDebtReduction).to.equal(parseUnits("0"));
               });
               it("THEN the pool 'borrowed' is 180", async () => {
                 expect(fp.borrowed).to.equal(parseUnits("180"));
@@ -160,43 +163,43 @@ describe("Fixed Pool Management Library", () => {
       });
     });
 
-    describe("getDepositYield without a smartPoolFeeRate (0%)", () => {
-      it("WHEN smartPoolBorrowed is 100, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 100 (0 for the SP)", async () => {
+    describe("getDepositYield without a backupFeeRate (0%)", () => {
+      it("WHEN backupSupplied is 100, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 100 (0 for the SP)", async () => {
         const result = await poolEnv.getDepositYield("100", "100", "100", "0");
 
         expect(result[0]).to.equal(parseUnits("100"));
         expect(result[1]).to.equal(parseUnits("0"));
       });
 
-      it("WHEN smartPoolBorrowed is 101, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 99.0099... (0 for the SP)", async () => {
+      it("WHEN backupSupplied is 101, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 99.0099... (0 for the SP)", async () => {
         const result = await poolEnv.getDepositYield("100", "100", "101", "0");
 
         expect(result[0]).to.closeTo(parseUnits("99.00990099"), parseUnits("00.00000001").toNumber());
         expect(result[1]).to.eq(parseUnits("0"));
       });
 
-      it("WHEN smartPoolBorrowed is 200, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 50 (0 for the SP)", async () => {
+      it("WHEN backupSupplied is 200, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 50 (0 for the SP)", async () => {
         const result = await poolEnv.getDepositYield("100", "100", "200", "0");
 
         expect(result[0]).to.equal(parseUnits("50"));
         expect(result[1]).to.equal(parseUnits("0"));
       });
 
-      it("WHEN smartPoolBorrowed is 0, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 0 (0 for the SP)", async () => {
+      it("WHEN backupSupplied is 0, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 0 (0 for the SP)", async () => {
         const result = await poolEnv.getDepositYield("100", "100", "0", "0");
 
         expect(result[0]).to.equal(parseUnits("0"));
         expect(result[1]).to.equal(parseUnits("0"));
       });
 
-      it("WHEN smartPoolBorrowed is 100, unassignedEarnings are 0, and amount deposited is 100, THEN earnings is 0 (0 for the SP)", async () => {
+      it("WHEN backupSupplied is 100, unassignedEarnings are 0, and amount deposited is 100, THEN earnings is 0 (0 for the SP)", async () => {
         const result = await poolEnv.getDepositYield("0", "0", "100", "0");
 
         expect(result[0]).to.equal(parseUnits("0"));
         expect(result[1]).to.equal(parseUnits("0"));
       });
 
-      it("WHEN smartPoolBorrowed is 100, unassignedEarnings are 100, and amount deposited is 0, THEN earnings is 0 (0 for the SP)", async () => {
+      it("WHEN backupSupplied is 100, unassignedEarnings are 100, and amount deposited is 0, THEN earnings is 0 (0 for the SP)", async () => {
         const result = await poolEnv.getDepositYield("0", "100", "100", "0");
 
         expect(result[0]).to.equal(parseUnits("0"));
@@ -204,15 +207,15 @@ describe("Fixed Pool Management Library", () => {
       });
     });
 
-    describe("getYieldForDeposit with a custom spFeeRate, smartPoolBorrowed of 100, unassignedEarnings of 100 and amount deposited of 100", () => {
-      it("WHEN spFeeRate is 20%, THEN earnings is 80 (20 for the SP)", async () => {
+    describe("getYieldForDeposit with a custom backupFeeRate, backupSupplied of 100, unassignedEarnings of 100 and amount deposited of 100", () => {
+      it("WHEN backupFeeRate is 20%, THEN earnings is 80 (20 for the SP)", async () => {
         const result = await poolEnv.getDepositYield("100", "100", "100", "0.2");
 
         expect(result[0]).to.eq(parseUnits("80"));
         expect(result[1]).to.eq(parseUnits("20"));
       });
 
-      it("WHEN spFeeRate is 20% AND smartPoolBorrowed is 101 THEN earnings is 79.2079... (19.8019... for the SP)", async () => {
+      it("WHEN backupFeeRate is 20% AND backupSupplied is 101 THEN earnings is 79.2079... (19.8019... for the SP)", async () => {
         const result = await poolEnv.getDepositYield("100", "100", "101", "0.2");
 
         expect(result[0]).to.closeTo(parseUnits("79.20792079"), parseUnits("00.00000001").toNumber());
@@ -227,24 +230,24 @@ describe("Fixed Pool Management Library", () => {
           fp = await poolEnv.fpHarness.fixedPool();
         });
 
-        it("THEN the pool 'earningsUnassigned' are 100", async () => {
-          expect(fp.earningsUnassigned).to.equal(parseUnits("100"));
+        it("THEN the pool 'unassignedEarnings' are 100", async () => {
+          expect(fp.unassignedEarnings).to.equal(parseUnits("100"));
         });
         describe("AND WHEN 50 fees are removed", () => {
           beforeEach(async () => {
             await poolEnv.removeFee("50");
             fp = await poolEnv.fpHarness.fixedPool();
           });
-          it("THEN the pool 'earningsUnassigned' are 50", async () => {
-            expect(fp.earningsUnassigned).to.equal(parseUnits("50"));
+          it("THEN the pool 'unassignedEarnings' are 50", async () => {
+            expect(fp.unassignedEarnings).to.equal(parseUnits("50"));
           });
           describe("AND WHEN another 50 fees are removed", () => {
             beforeEach(async () => {
               await poolEnv.removeFee("50");
               fp = await poolEnv.fpHarness.fixedPool();
             });
-            it("THEN the pool 'earningsUnassigned' are 0", async () => {
-              expect(fp.earningsUnassigned).to.equal(parseUnits("0"));
+            it("THEN the pool 'unassignedEarnings' are 0", async () => {
+              expect(fp.unassignedEarnings).to.equal(parseUnits("0"));
             });
           });
         });
@@ -256,18 +259,22 @@ describe("Fixed Pool Management Library", () => {
         let now: number;
         let sixDays: number;
         let tenDays: number;
+        let snapshot: any;
         beforeEach(async () => {
-          now = Math.floor(Date.now() / 1000);
+          snapshot = await provider.send("evm_snapshot", []);
+          now = Math.floor(Date.now() / 1000) + 6_666_666;
           tenDays = now + 86_400 * 10;
           sixDays = now + 86_400 * 6;
 
-          await poolEnv.setNextTimestamp(now);
+          await provider.send("evm_setNextBlockTimestamp", [now]);
           await poolEnv.accrueEarnings(tenDays);
           fp = await poolEnv.fpHarness.fixedPool();
         });
 
-        it("THEN the pool 'earningsUnassigned' are 0", async () => {
-          expect(fp.earningsUnassigned).to.equal(0);
+        afterEach(() => provider.send("evm_revert", [snapshot]));
+
+        it("THEN the pool 'unassignedEarnings' are 0", async () => {
+          expect(fp.unassignedEarnings).to.equal(0);
         });
         it("THEN the pool 'lastAccrual' is now", async () => {
           expect(fp.lastAccrual).to.equal(now);
@@ -280,13 +287,13 @@ describe("Fixed Pool Management Library", () => {
         describe("AND GIVEN that we add 100 in fees and 6 days went by", () => {
           beforeEach(async () => {
             await poolEnv.addFee("100");
-            await poolEnv.setNextTimestamp(sixDays);
+            await provider.send("evm_setNextBlockTimestamp", [sixDays]);
             await poolEnv.accrueEarnings(tenDays);
             fp = await poolEnv.fpHarness.fixedPool();
           });
 
-          it("THEN the pool 'earningsUnassigned' are 40", async () => {
-            expect(fp.earningsUnassigned).to.equal(parseUnits("40"));
+          it("THEN the pool 'unassignedEarnings' are 40", async () => {
+            expect(fp.unassignedEarnings).to.equal(parseUnits("40"));
           });
           it("THEN the pool 'lastAccrual' is fiveDays", async () => {
             expect(fp.lastAccrual).to.equal(sixDays);
@@ -298,16 +305,16 @@ describe("Fixed Pool Management Library", () => {
 
           describe("AND GIVEN that another 150 seconds go by", () => {
             beforeEach(async () => {
-              await poolEnv.setNextTimestamp(sixDays + 150);
+              await provider.send("evm_setNextBlockTimestamp", [sixDays + 150]);
               await poolEnv.accrueEarnings(tenDays);
               fp = await poolEnv.fpHarness.fixedPool();
             });
 
-            it("THEN the pool 'earningsUnassigned' are ~= 39.98263", async () => {
+            it("THEN the pool 'unassignedEarnings' are ~= 39.98263", async () => {
               // 10 / 86400           = 0.00011574074 (unassigned earnings per second)
               // 0.00011574074 * 150  = 0.01736111111 (earnings accrued)
               // 40 - 0.01736111111   = 39.9826388889 (unassigned earnings left)
-              expect(fp.earningsUnassigned).to.closeTo(parseUnits("39.9826388"), parseUnits("00.0000001").toNumber());
+              expect(fp.unassignedEarnings).to.closeTo(parseUnits("39.9826388"), parseUnits("00.0000001").toNumber());
             });
             it("THEN the pool 'lastAccrual' is tenDays", async () => {
               expect(fp.lastAccrual).to.equal(sixDays + 150);
@@ -320,13 +327,13 @@ describe("Fixed Pool Management Library", () => {
 
           describe("AND GIVEN that we go over +1 day the maturity date", () => {
             beforeEach(async () => {
-              await poolEnv.setNextTimestamp(tenDays + 86_400);
+              await provider.send("evm_setNextBlockTimestamp", [tenDays + 86_400]);
               await poolEnv.accrueEarnings(tenDays);
               fp = await poolEnv.fpHarness.fixedPool();
             });
 
-            it("THEN the pool 'earningsUnassigned' are 0", async () => {
-              expect(fp.earningsUnassigned).to.equal(0);
+            it("THEN the pool 'unassignedEarnings' are 0", async () => {
+              expect(fp.unassignedEarnings).to.equal(0);
             });
             it("THEN the pool 'lastAccrual' is tenDays", async () => {
               expect(fp.lastAccrual).to.equal(tenDays);
@@ -338,13 +345,13 @@ describe("Fixed Pool Management Library", () => {
 
             describe("AND GIVEN that we go over another +1 day the maturity date", () => {
               beforeEach(async () => {
-                await poolEnv.setNextTimestamp(tenDays + 86_400 * 2);
+                await provider.send("evm_setNextBlockTimestamp", [tenDays + 86_400 * 2]);
                 await poolEnv.accrueEarnings(tenDays);
                 fp = await poolEnv.fpHarness.fixedPool();
               });
 
-              it("THEN the pool 'earningsUnassigned' are 0", async () => {
-                expect(fp.earningsUnassigned).to.equal(0);
+              it("THEN the pool 'unassignedEarnings' are 0", async () => {
+                expect(fp.unassignedEarnings).to.equal(0);
               });
               it("THEN the pool 'lastAccrual' is tenDays", async () => {
                 expect(fp.lastAccrual).to.equal(tenDays);
@@ -359,13 +366,13 @@ describe("Fixed Pool Management Library", () => {
           describe("AND GIVEN that we remove 20 fees and we go over +1 day the maturity date", () => {
             beforeEach(async () => {
               await poolEnv.removeFee("20");
-              await poolEnv.setNextTimestamp(tenDays + 86_400);
+              await provider.send("evm_setNextBlockTimestamp", [tenDays + 86_400]);
               await poolEnv.accrueEarnings(tenDays);
               fp = await poolEnv.fpHarness.fixedPool();
             });
 
-            it("THEN the pool 'earningsUnassigned' are 0", async () => {
-              expect(fp.earningsUnassigned).to.equal(0);
+            it("THEN the pool 'unassignedEarnings' are 0", async () => {
+              expect(fp.unassignedEarnings).to.equal(0);
             });
             it("THEN the pool 'lastAccrual' is tenDays", async () => {
               expect(fp.lastAccrual).to.equal(tenDays);
@@ -389,8 +396,8 @@ describe("Fixed Pool Management Library", () => {
         it("THEN the pool 'borrowed' is 100", async () => {
           expect(fp.borrowed).to.equal(parseUnits("100"));
         });
-        it("THEN the newDebtSP that is returned is 100", async () => {
-          const newDebtSpReturned = await poolEnv.getFpHarness().newDebtSP();
+        it("THEN the backupDebtAddition that is returned is 100", async () => {
+          const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
           expect(newDebtSpReturned).to.equal(parseUnits("100"));
         });
         describe("AND WHEN 50 tokens are repaid", () => {
@@ -405,9 +412,9 @@ describe("Fixed Pool Management Library", () => {
           it("THEN the pool 'supplied' is 0", async () => {
             expect(fp.supplied).to.equal(parseUnits("0"));
           });
-          it("THEN the smartPoolDebtReduction that is returned is 50", async () => {
-            const smartPoolDebtReductionReturned = await poolEnv.getFpHarness().smartPoolDebtReduction();
-            expect(smartPoolDebtReductionReturned).to.equal(parseUnits("50"));
+          it("THEN the backupDebtReduction that is returned is 50", async () => {
+            const backupDebtReductionReturned = await poolEnv.getFpHarness().backupDebtReduction();
+            expect(backupDebtReductionReturned).to.equal(parseUnits("50"));
           });
           describe("AND WHEN another 50 tokens are repaid", () => {
             beforeEach(async () => {
@@ -418,9 +425,9 @@ describe("Fixed Pool Management Library", () => {
             it("THEN the pool 'borrowed' is 0", async () => {
               expect(fp.borrowed).to.equal(parseUnits("0"));
             });
-            it("THEN the smartPoolDebtReduction that is returned is 50", async () => {
-              const smartPoolDebtReductionReturned = await poolEnv.getFpHarness().smartPoolDebtReduction();
-              expect(smartPoolDebtReductionReturned).to.equal(parseUnits("50"));
+            it("THEN the backupDebtReduction that is returned is 50", async () => {
+              const backupDebtReductionReturned = await poolEnv.getFpHarness().backupDebtReduction();
+              expect(backupDebtReductionReturned).to.equal(parseUnits("50"));
             });
           });
         });
@@ -441,8 +448,8 @@ describe("Fixed Pool Management Library", () => {
           it("THEN the pool 'supplied' is 50", async () => {
             expect(fp.supplied).to.equal(parseUnits("50"));
           });
-          it("THEN the newDebtSP that is returned is 0", async () => {
-            const newDebtSpReturned = await poolEnv.getFpHarness().newDebtSP();
+          it("THEN the backupDebtAddition that is returned is 0", async () => {
+            const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
             expect(newDebtSpReturned).to.equal(parseUnits("0"));
           });
           describe("AND GIVEN another 100 tokens are taken out", () => {
@@ -458,8 +465,8 @@ describe("Fixed Pool Management Library", () => {
               it("THEN the pool 'supplied' is 0", async () => {
                 expect(fp.supplied).to.equal(parseUnits("0"));
               });
-              it("THEN the newDebtSP that is returned is 50", async () => {
-                const newDebtSpReturned = await poolEnv.getFpHarness().newDebtSP();
+              it("THEN the backupDebtAddition that is returned is 50", async () => {
+                const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
                 expect(newDebtSpReturned).to.equal(parseUnits("50"));
               });
             });
@@ -491,8 +498,8 @@ describe("Fixed Pool Management Library", () => {
             it("THEN the pool 'supplied' is 0", async () => {
               expect(fp.supplied).to.equal(parseUnits("0"));
             });
-            it("THEN the newDebtSP that is returned is 0", async () => {
-              const newDebtSpReturned = await poolEnv.getFpHarness().newDebtSP();
+            it("THEN the backupDebtAddition that is returned is 0", async () => {
+              const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
               expect(newDebtSpReturned).to.equal(parseUnits("0"));
             });
           });
@@ -638,7 +645,7 @@ describe("Fixed Pool Management Library", () => {
     });
 
     describe("setMaturity", () => {
-      let newUserBorrows: number;
+      let newAccountBorrows: number;
       const userBorrowsWith56DayMaturity = 4_299_805_696;
       const userBorrowsWith56And84DayMaturity = 12_889_740_288;
       const userBorrowsWith28And56And84DayMaturity = 30_067_190_272;
@@ -646,77 +653,77 @@ describe("Fixed Pool Management Library", () => {
       describe("GIVEN a 56 days maturity is added to the userBorrows", () => {
         beforeEach(async () => {
           await poolEnv.setMaturity(0, INTERVAL * 2);
-          newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+          newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
         });
-        it("THEN newUserBorrows is userBorrowsWith56DayMaturity", async () => {
-          expect(newUserBorrows).to.equal(userBorrowsWith56DayMaturity);
+        it("THEN newAccountBorrows is userBorrowsWith56DayMaturity", async () => {
+          expect(newAccountBorrows).to.equal(userBorrowsWith56DayMaturity);
         });
         describe("AND GIVEN another 56 days maturity is added to the userBorrows", () => {
           beforeEach(async () => {
             await poolEnv.setMaturity(userBorrowsWith56DayMaturity, INTERVAL * 2);
-            newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+            newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
           });
-          it("THEN newUserBorrows is equal to the previous value", async () => {
-            expect(newUserBorrows).to.equal(userBorrowsWith56DayMaturity);
+          it("THEN newAccountBorrows is equal to the previous value", async () => {
+            expect(newAccountBorrows).to.equal(userBorrowsWith56DayMaturity);
           });
         });
         describe("AND GIVEN a 84 days maturity is added to the userBorrows", () => {
           beforeEach(async () => {
             await poolEnv.setMaturity(userBorrowsWith56DayMaturity, INTERVAL * 3);
-            newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+            newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
           });
-          it("THEN newUserBorrows has the result of both maturities", async () => {
-            expect(newUserBorrows).to.equal(userBorrowsWith56And84DayMaturity);
+          it("THEN newAccountBorrows has the result of both maturities", async () => {
+            expect(newAccountBorrows).to.equal(userBorrowsWith56And84DayMaturity);
           });
           describe("AND GIVEN a 28 days maturity is added to the userBorrows", () => {
             beforeEach(async () => {
               await poolEnv.setMaturity(userBorrowsWith56And84DayMaturity, INTERVAL);
-              newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+              newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
             });
-            it("THEN newUserBorrows has the result of the three maturities added", async () => {
-              expect(newUserBorrows).to.equal(userBorrowsWith28And56And84DayMaturity);
+            it("THEN newAccountBorrows has the result of the three maturities added", async () => {
+              expect(newAccountBorrows).to.equal(userBorrowsWith28And56And84DayMaturity);
             });
             describe("AND GIVEN the 28 days maturity is removed from the userBorrows", () => {
               beforeEach(async () => {
                 await poolEnv.clearMaturity(userBorrowsWith28And56And84DayMaturity, INTERVAL);
-                newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+                newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
               });
-              it("THEN newUserBorrows has the result of the 56 and 84 days maturity", async () => {
-                expect(newUserBorrows).to.equal(userBorrowsWith56And84DayMaturity);
+              it("THEN newAccountBorrows has the result of the 56 and 84 days maturity", async () => {
+                expect(newAccountBorrows).to.equal(userBorrowsWith56And84DayMaturity);
               });
               describe("AND GIVEN the 28 days maturity is removed again from the userBorrows", () => {
                 beforeEach(async () => {
                   await poolEnv.clearMaturity(userBorrowsWith56And84DayMaturity, INTERVAL);
-                  newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+                  newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
                 });
-                it("THEN newUserBorrows has the result of the 56 and 84 days maturity", async () => {
-                  expect(newUserBorrows).to.equal(userBorrowsWith56And84DayMaturity);
+                it("THEN newAccountBorrows has the result of the 56 and 84 days maturity", async () => {
+                  expect(newAccountBorrows).to.equal(userBorrowsWith56And84DayMaturity);
                 });
               });
               describe("AND GIVEN the 86 days maturity is removed from the userBorrows", () => {
                 beforeEach(async () => {
                   await poolEnv.clearMaturity(userBorrowsWith56And84DayMaturity, INTERVAL * 3);
-                  newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+                  newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
                 });
-                it("THEN newUserBorrows has the result of the 56 days maturity", async () => {
-                  expect(newUserBorrows).to.equal(userBorrowsWith56DayMaturity);
+                it("THEN newAccountBorrows has the result of the 56 days maturity", async () => {
+                  expect(newAccountBorrows).to.equal(userBorrowsWith56DayMaturity);
                 });
                 describe("AND GIVEN the 86 days maturity is removed again from the userBorrows", () => {
                   beforeEach(async () => {
                     await poolEnv.clearMaturity(userBorrowsWith56DayMaturity, INTERVAL * 3);
-                    newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+                    newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
                   });
-                  it("THEN newUserBorrows has the result of the 56 days maturity", async () => {
-                    expect(newUserBorrows).to.equal(userBorrowsWith56DayMaturity);
+                  it("THEN newAccountBorrows has the result of the 56 days maturity", async () => {
+                    expect(newAccountBorrows).to.equal(userBorrowsWith56DayMaturity);
                   });
                 });
                 describe("AND GIVEN the 56 days maturity is removed from the userBorrows", () => {
                   beforeEach(async () => {
                     await poolEnv.clearMaturity(userBorrowsWith56DayMaturity, INTERVAL * 2);
-                    newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+                    newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
                   });
-                  it("THEN newUserBorrows is emptied", async () => {
-                    expect(newUserBorrows).to.equal(0);
+                  it("THEN newAccountBorrows is emptied", async () => {
+                    expect(newAccountBorrows).to.equal(0);
                   });
                 });
               });
@@ -724,10 +731,10 @@ describe("Fixed Pool Management Library", () => {
             describe("AND GIVEN a 28 days maturity is removed from the userBorrows", () => {
               beforeEach(async () => {
                 await poolEnv.clearMaturity(userBorrowsWith28And56And84DayMaturity, INTERVAL);
-                newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+                newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
               });
-              it("THEN newUserBorrows has the result of the 56 and 84 days maturity", async () => {
-                expect(newUserBorrows).to.equal(userBorrowsWith56And84DayMaturity);
+              it("THEN newAccountBorrows has the result of the 56 and 84 days maturity", async () => {
+                expect(newAccountBorrows).to.equal(userBorrowsWith56And84DayMaturity);
               });
             });
           });
@@ -736,20 +743,20 @@ describe("Fixed Pool Management Library", () => {
       describe("GIVEN a 28 days maturity is tried to remove from the userBorrows that it's 0", () => {
         beforeEach(async () => {
           await poolEnv.clearMaturity(0, INTERVAL);
-          newUserBorrows = await poolEnv.fpHarness.newUserBorrows();
+          newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
         });
-        it("THEN newUserBorrows should still be 0", async () => {
-          expect(newUserBorrows).to.equal(0);
+        it("THEN newAccountBorrows should still be 0", async () => {
+          expect(newAccountBorrows).to.equal(0);
         });
       });
     });
 
-    describe("distributeEarningsAccordingly", () => {
+    describe("distributeEarnings", () => {
       let lastEarningsSP: BigNumber;
       let lastEarningsTreasury: BigNumber;
-      describe("GIVEN 100 earnings, 1000 supplySP and 800 amountFunded", () => {
+      describe("GIVEN 100 earnings, 1000 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
-          await poolEnv.distributeEarningsAccordingly("100", "1000", "800");
+          await poolEnv.distributeEarnings("100", "1000", "800");
           lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
           lastEarningsTreasury = await poolEnv.fpHarness.lastEarningsTreasury();
         });
@@ -762,9 +769,9 @@ describe("Fixed Pool Management Library", () => {
         });
       });
 
-      describe("GIVEN 100 earnings, 400 supplySP and 800 amountFunded", () => {
+      describe("GIVEN 100 earnings, 400 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
-          await poolEnv.distributeEarningsAccordingly("100", "400", "800");
+          await poolEnv.distributeEarnings("100", "400", "800");
           lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
           lastEarningsTreasury = await poolEnv.fpHarness.lastEarningsTreasury();
         });
@@ -777,9 +784,9 @@ describe("Fixed Pool Management Library", () => {
         });
       });
 
-      describe("GIVEN 100 earnings, 0 supplySP and 800 amountFunded", () => {
+      describe("GIVEN 100 earnings, 0 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
-          await poolEnv.distributeEarningsAccordingly("100", "0", "800");
+          await poolEnv.distributeEarnings("100", "0", "800");
           lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
           lastEarningsTreasury = await poolEnv.fpHarness.lastEarningsTreasury();
         });
@@ -792,9 +799,9 @@ describe("Fixed Pool Management Library", () => {
         });
       });
 
-      describe("GIVEN 0 earnings, 0 supplySP and 800 amountFunded", () => {
+      describe("GIVEN 0 earnings, 0 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
-          await poolEnv.distributeEarningsAccordingly("0", "0", "800");
+          await poolEnv.distributeEarnings("0", "0", "800");
           lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
           lastEarningsTreasury = await poolEnv.fpHarness.lastEarningsTreasury();
         });

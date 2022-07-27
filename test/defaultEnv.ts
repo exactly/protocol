@@ -267,10 +267,6 @@ export class DefaultEnv {
     return this.auditor.connect(this.currentWallet).setLiquidationIncentive(parseUnits(incentive));
   }
 
-  public async smartPoolBorrowed(asset: string) {
-    return this.getMarket(asset).smartPoolBorrowed();
-  }
-
   public async maturityPool(assetString: string, maturityPoolID: number) {
     const market = this.getMarket(assetString);
     return market.fixedPools(maturityPoolID);

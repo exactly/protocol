@@ -43,12 +43,12 @@ describe("Smart Pool", function () {
       await marketDAI.connect(john).deposit(parseUnits("1000"), john.address);
     });
     it("THEN balance of DAI in contract is 2000", async () => {
-      let balanceOfAssetInContract = await underlyingTokenDAI.balanceOf(marketDAI.address);
+      const balanceOfAssetInContract = await underlyingTokenDAI.balanceOf(marketDAI.address);
 
       expect(balanceOfAssetInContract).to.equal(parseUnits("2000"));
     });
     it("THEN balance of eDAI in BOB's address is 1000", async () => {
-      let balanceOfETokenInUserAddress = await marketDAI.balanceOf(bob.address);
+      const balanceOfETokenInUserAddress = await marketDAI.balanceOf(bob.address);
 
       expect(balanceOfETokenInUserAddress).to.equal(parseUnits("1000"));
     });
@@ -57,16 +57,16 @@ describe("Smart Pool", function () {
     });
     describe("AND bob withdraws 500DAI", () => {
       beforeEach(async () => {
-        let amountToWithdraw = parseUnits("500");
+        const amountToWithdraw = parseUnits("500");
         await marketDAI.connect(bob).withdraw(amountToWithdraw, bob.address, bob.address);
       });
       it("THEN balance of DAI in contract is 1500", async () => {
-        let balanceOfAssetInContract = await underlyingTokenDAI.balanceOf(marketDAI.address);
+        const balanceOfAssetInContract = await underlyingTokenDAI.balanceOf(marketDAI.address);
 
         expect(balanceOfAssetInContract).to.equal(parseUnits("1500"));
       });
       it("THEN balance of eDAI in BOB's address is 500", async () => {
-        let balanceOfETokenInUserAddress = await marketDAI.balanceOf(bob.address);
+        const balanceOfETokenInUserAddress = await marketDAI.balanceOf(bob.address);
 
         expect(balanceOfETokenInUserAddress).to.equal(parseUnits("500"));
       });
@@ -92,18 +92,18 @@ describe("Smart Pool", function () {
 
   describe("GIVEN bob has 1WBTC in balance, AND deposit 1WBTC", () => {
     beforeEach(async () => {
-      let bobBalance = parseUnits("1", 8);
+      const bobBalance = parseUnits("1", 8);
       await underlyingTokenWBTC.connect(bob).approve(marketWBTC.address, bobBalance);
 
       await marketWBTC.connect(bob).deposit(parseUnits("1", 8), bob.address);
     });
     it("THEN balance of WBTC in contract is 1", async () => {
-      let balanceOfAssetInContract = await underlyingTokenWBTC.balanceOf(marketWBTC.address);
+      const balanceOfAssetInContract = await underlyingTokenWBTC.balanceOf(marketWBTC.address);
 
       expect(balanceOfAssetInContract).to.equal(parseUnits("1", 8));
     });
     it("THEN balance of eWBTC in BOB's address is 1", async () => {
-      let balanceOfETokenInUserAddress = await marketWBTC.balanceOf(bob.address);
+      const balanceOfETokenInUserAddress = await marketWBTC.balanceOf(bob.address);
 
       expect(balanceOfETokenInUserAddress).to.equal(parseUnits("1", 8));
     });

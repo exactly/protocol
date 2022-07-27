@@ -7,7 +7,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { ReentrancyGuard } from "@rari-capital/solmate/src/utils/ReentrancyGuard.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "@rari-capital/solmate/src/mixins/ERC4626.sol";
-import { PoolLib, InsufficientProtocolLiquidity } from "./utils/PoolLib.sol";
+import { FixedLib, InsufficientProtocolLiquidity } from "./utils/FixedLib.sol";
 import { Auditor, InvalidParameter } from "./Auditor.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { TSUtils } from "./utils/TSUtils.sol";
@@ -17,9 +17,9 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
   using SafeTransferLib for ERC20;
-  using PoolLib for PoolLib.FixedPool;
-  using PoolLib for PoolLib.Position;
-  using PoolLib for uint256;
+  using FixedLib for FixedLib.Pool;
+  using FixedLib for FixedLib.Position;
+  using FixedLib for uint256;
 
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
   uint256 public constant CLOSE_FACTOR = 5e17;
@@ -29,13 +29,13 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 down;
   }
 
-  mapping(uint256 => mapping(address => PoolLib.Position)) public fixedDepositPositions;
-  mapping(uint256 => mapping(address => PoolLib.Position)) public fixedBorrowPositions;
+  mapping(uint256 => mapping(address => FixedLib.Position)) public fixedDepositPositions;
+  mapping(uint256 => mapping(address => FixedLib.Position)) public fixedBorrowPositions;
   mapping(address => uint256) public flexibleBorrowPositions;
 
   mapping(address => uint256) public fixedBorrows;
   mapping(address => uint256) public fixedDeposits;
-  mapping(uint256 => PoolLib.FixedPool) public fixedPools;
+  mapping(uint256 => FixedLib.Pool) public fixedPools;
 
   /// @notice Total amount of smart pool assets borrowed from maturities (not counting fees).
   uint256 public smartPoolFixedBorrows;
@@ -44,7 +44,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   uint256 public smartPoolEarningsAccumulator;
   uint256 public penaltyRate;
-  uint256 public smartPoolFeeRate;
+  uint256 public backupFeeRate;
   uint256 public dampSpeedUp;
   uint256 public dampSpeedDown;
 
@@ -193,9 +193,9 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param newPenaltyRate penaltyRate percentage per second represented with 1e18 decimals.
   event PenaltyRateSet(uint256 newPenaltyRate);
 
-  /// @notice Emitted when the smartPoolFeeRate parameter is changed by admin.
-  /// @param smartPoolFeeRate rate charged to the mp suppliers to be accrued by the sp suppliers.
-  event SmartPoolFeeRateSet(uint256 smartPoolFeeRate);
+  /// @notice Emitted when the backupFeeRate parameter is changed by admin.
+  /// @param backupFeeRate rate charged to the mp suppliers to be accrued by the sp suppliers.
+  event BackupFeeRateSet(uint256 backupFeeRate);
 
   /// @notice emitted when the smartPoolReserveFactor is changed by admin.
   /// @param newSmartPoolReserveFactor smartPoolReserveFactor percentage.
@@ -227,7 +227,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
-    uint256 smartPoolFeeRate_,
+    uint256 backupFeeRate_,
     uint128 smartPoolReserveFactor_,
     DampSpeed memory dampSpeed_
   )
@@ -240,7 +240,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     setAccumulatedEarningsSmoothFactor(accumulatedEarningsSmoothFactor_);
     setInterestRateModel(interestRateModel_);
     setPenaltyRate(penaltyRate_);
-    setSmartPoolFeeRate(smartPoolFeeRate_);
+    setBackupFeeRate(backupFeeRate_);
     setSmartPoolReserveFactor(smartPoolReserveFactor_);
     setDampSpeed(dampSpeed_);
   }
@@ -427,11 +427,11 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
   /// liquidity.
   /// @dev Value can only be set between 20% and 0%.
-  /// @param smartPoolFeeRate_ percentage amount represented with 1e18 decimals.
-  function setSmartPoolFeeRate(uint256 smartPoolFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (smartPoolFeeRate_ > 0.2e18) revert InvalidParameter();
-    smartPoolFeeRate = smartPoolFeeRate_;
-    emit SmartPoolFeeRateSet(smartPoolFeeRate_);
+  /// @param backupFeeRate_ percentage amount represented with 1e18 decimals.
+  function setBackupFeeRate(uint256 backupFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (backupFeeRate_ > 0.2e18) revert InvalidParameter();
+    backupFeeRate = backupFeeRate_;
+    emit BackupFeeRateSet(backupFeeRate_);
   }
 
   /// @notice Sets the percentage that represents the smart pool liquidity reserves that can't be borrowed.
@@ -495,7 +495,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         } else {
           uint256 position;
           {
-            PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
+            FixedLib.Position memory p = fixedBorrowPositions[maturity][borrower];
             position = p.principal + p.fee;
           }
           uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
@@ -506,7 +506,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
             actualRepay = noTransferRepayAtMaturity(maturity, actualRepay, maxAssets, borrower, false);
             maxAssets -= actualRepay;
             {
-              PoolLib.Position memory p = fixedBorrowPositions[maturity][borrower];
+              FixedLib.Position memory p = fixedBorrowPositions[maturity][borrower];
               position = p.principal + p.fee;
             }
             debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
@@ -554,7 +554,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         if ((packedMaturities & (1 << i)) != 0) {
           uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
 
-          PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
+          FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
           uint256 badDebt = position.principal + position.fee;
           if (badDebt > 0) {
             smartPoolFixedBorrows -= fixedPools[maturity].repay(position.principal);
@@ -569,7 +569,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
               smartPoolAssets,
               smartPoolEarningsAccumulator,
               maturity,
-              fixedPools[maturity].earningsUnassigned
+              fixedPools[maturity].unassignedEarnings
             );
           }
         }
@@ -626,9 +626,9 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    PoolLib.FixedPool storage pool = fixedPools[maturity];
+    FixedLib.Pool storage pool = fixedPools[maturity];
 
-    uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
+    uint256 earningsSP = pool.accrueEarnings(maturity);
 
     updateSmartPoolAssetsAverage();
     uint256 fee = assets.mulWadDown(
@@ -660,21 +660,17 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     // If user doesn't have a current position, we add it to the list of all of them
-    PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
+    FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
     if (position.principal == 0) {
       fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
     }
 
     // We calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
-    (uint256 newUnassignedEarnings, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
-      chargeTreasuryFee(fee),
-      pool.smartPoolBorrowed(),
-      assets
-    );
-    pool.earningsUnassigned += newUnassignedEarnings;
+    (uint256 newUnassignedEarnings, uint256 newEarningsSP) = pool.distributeEarnings(chargeTreasuryFee(fee), assets);
+    pool.unassignedEarnings += newUnassignedEarnings;
     collectFreeLunch(newEarningsSP);
 
-    fixedBorrowPositions[maturity][borrower] = PoolLib.Position(position.principal + assets, position.fee + fee);
+    fixedBorrowPositions[maturity][borrower] = FixedLib.Position(position.principal + assets, position.fee + fee);
 
     {
       uint256 memSPAssets = smartPoolAssets;
@@ -692,7 +688,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       smartPoolAssets,
       smartPoolEarningsAccumulator,
       maturity,
-      pool.earningsUnassigned
+      pool.unassignedEarnings
     );
   }
 
@@ -711,31 +707,27 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.NONE);
 
-    PoolLib.FixedPool storage pool = fixedPools[maturity];
+    FixedLib.Pool storage pool = fixedPools[maturity];
 
-    uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
+    uint256 earningsSP = pool.accrueEarnings(maturity);
 
-    (uint256 fee, uint256 feeSP) = assets.getDepositYield(
-      pool.earningsUnassigned,
-      pool.smartPoolBorrowed(),
-      smartPoolFeeRate
-    );
+    (uint256 fee, uint256 feeSP) = pool.getDepositYield(assets, backupFeeRate);
     positionAssets = assets + fee;
     if (positionAssets < minAssetsRequired) revert TooMuchSlippage();
 
     smartPoolFixedBorrows -= pool.deposit(assets);
-    pool.earningsUnassigned -= fee + feeSP;
+    pool.unassignedEarnings -= fee + feeSP;
     smartPoolEarningsAccumulator += feeSP;
 
     // We update user's position
-    PoolLib.Position memory position = fixedDepositPositions[maturity][receiver];
+    FixedLib.Position memory position = fixedDepositPositions[maturity][receiver];
 
     // If user doesn't have a current position, we add it to the list of all of them
     if (position.principal == 0) {
       fixedDeposits[receiver] = fixedDeposits[receiver].setMaturity(maturity);
     }
 
-    fixedDepositPositions[maturity][receiver] = PoolLib.Position(position.principal + assets, position.fee + fee);
+    fixedDepositPositions[maturity][receiver] = FixedLib.Position(position.principal + assets, position.fee + fee);
 
     uint256 memSPAssets = smartPoolAssets;
     emit SmartPoolEarningsAccrued(memSPAssets, earningsSP);
@@ -748,7 +740,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       smartPoolAssets,
       smartPoolEarningsAccumulator,
       maturity,
-      pool.earningsUnassigned
+      pool.unassignedEarnings
     );
 
     asset.safeTransferFrom(msg.sender, address(this), assets);
@@ -773,11 +765,11 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     // reverts on failure
     TSUtils.validateRequiredPoolState(maxFuturePools, maturity, TSUtils.State.VALID, TSUtils.State.MATURED);
 
-    PoolLib.FixedPool storage pool = fixedPools[maturity];
+    FixedLib.Pool storage pool = fixedPools[maturity];
 
-    uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
+    uint256 earningsSP = pool.accrueEarnings(maturity);
 
-    PoolLib.Position memory position = fixedDepositPositions[maturity][owner];
+    FixedLib.Position memory position = fixedDepositPositions[maturity][owner];
 
     if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
 
@@ -810,17 +802,16 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     // We remove the supply from the fixed rate pool
     smartPoolFixedBorrows += pool.withdraw(
-      PoolLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
+      FixedLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal,
       smartPoolAssets - smartPoolFixedBorrows - smartPoolFlexibleBorrows
     );
 
     // All the fees go to unassigned or to the smart pool
-    (uint256 earningsUnassigned, uint256 newEarningsSP) = PoolLib.distributeEarningsAccordingly(
+    (uint256 unassignedEarnings, uint256 newEarningsSP) = pool.distributeEarnings(
       chargeTreasuryFee(positionAssets - assetsDiscounted),
-      pool.smartPoolBorrowed(),
       assetsDiscounted
     );
-    pool.earningsUnassigned += earningsUnassigned;
+    pool.unassignedEarnings += unassignedEarnings;
     collectFreeLunch(newEarningsSP);
 
     // the user gets discounted the full amount
@@ -846,7 +837,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       smartPoolAssets,
       smartPoolEarningsAccumulator,
       maturity,
-      pool.earningsUnassigned
+      pool.unassignedEarnings
     );
   }
 
@@ -884,15 +875,15 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   ) internal returns (uint256 actualRepayAssets) {
     if (positionAssets == 0) revert ZeroRepay();
 
-    PoolLib.FixedPool storage pool = fixedPools[maturity];
+    FixedLib.Pool storage pool = fixedPools[maturity];
 
-    uint256 earningsSP = pool.accrueEarnings(maturity, block.timestamp);
+    uint256 earningsSP = pool.accrueEarnings(maturity);
 
-    PoolLib.Position memory position = fixedBorrowPositions[maturity][borrower];
+    FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
 
     uint256 debtCovered = Math.min(positionAssets, position.principal + position.fee);
 
-    PoolLib.Position memory scaleDebtCovered = PoolLib.Position(position.principal, position.fee).scaleProportionally(
+    FixedLib.Position memory scaleDebtCovered = FixedLib.Position(position.principal, position.fee).scaleProportionally(
       debtCovered
     );
 
@@ -900,14 +891,10 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     if (block.timestamp < maturity) {
       if (canDiscount) {
         // We calculate the deposit fee considering the amount of debt the user'll pay
-        (uint256 discountFee, uint256 feeSP) = scaleDebtCovered.principal.getDepositYield(
-          pool.earningsUnassigned,
-          pool.smartPoolBorrowed(),
-          smartPoolFeeRate
-        );
+        (uint256 discountFee, uint256 feeSP) = pool.getDepositYield(scaleDebtCovered.principal, backupFeeRate);
 
         // We remove the fee from unassigned earnings
-        pool.earningsUnassigned -= discountFee + feeSP;
+        pool.unassignedEarnings -= discountFee + feeSP;
 
         // The fee charged to the MP supplier go to the smart pool accumulator
         smartPoolEarningsAccumulator += feeSP;
@@ -951,7 +938,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       smartPoolAssets,
       smartPoolEarningsAccumulator,
       maturity,
-      pool.earningsUnassigned
+      pool.unassignedEarnings
     );
   }
 
@@ -1005,7 +992,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     for (uint256 i = 0; i < 224; ) {
       if ((packedMaturities & (1 << i)) != 0) {
         uint256 maturity = baseMaturity + (i * TSUtils.INTERVAL);
-        PoolLib.Position memory position = fixedBorrowPositions[maturity][account];
+        FixedLib.Position memory position = fixedBorrowPositions[maturity][account];
         uint256 positionAssets = position.principal + position.fee;
 
         debt += positionAssets;

@@ -11,7 +11,7 @@ const func: DeployFunction = async ({
     finance: {
       adjustFactor,
       penaltyRatePerDay,
-      smartPoolFeeRate,
+      backupFeeRate,
       smartPoolReserveFactor,
       dampSpeed: { up, down },
       maxFuturePools,
@@ -41,7 +41,7 @@ const func: DeployFunction = async ({
     auditor.address,
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
-    parseUnits(String(smartPoolFeeRate)),
+    parseUnits(String(backupFeeRate)),
     parseUnits(String(smartPoolReserveFactor)),
     { up: parseUnits(String(up)), down: parseUnits(String(down)) },
   ] as [number, BigNumber, string, string, BigNumber, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
@@ -78,8 +78,8 @@ const func: DeployFunction = async ({
     if (!(await market.penaltyRate()).eq(marketArgs[4])) {
       await executeOrPropose(deployer, timelockController, market, "setPenaltyRate", [marketArgs[4]]);
     }
-    if (!(await market.smartPoolFeeRate()).eq(marketArgs[5])) {
-      await executeOrPropose(deployer, timelockController, market, "setSmartPoolFeeRate", [marketArgs[5]]);
+    if (!(await market.backupFeeRate()).eq(marketArgs[5])) {
+      await executeOrPropose(deployer, timelockController, market, "setBackupFeeRate", [marketArgs[5]]);
     }
     if (!(await market.smartPoolReserveFactor()).eq(marketArgs[6])) {
       await executeOrPropose(deployer, timelockController, market, "setSmartPoolReserveFactor", [marketArgs[6]]);

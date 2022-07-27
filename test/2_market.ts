@@ -50,8 +50,8 @@ describe("Market", function () {
       parseUnits("6"),
       parseUnits("2"),
     ]);
-    await timelockExecute(owner, marketDAI, "setSmartPoolFeeRate", [0]);
-    await timelockExecute(owner, marketWETH, "setSmartPoolFeeRate", [0]);
+    await timelockExecute(owner, marketDAI, "setBackupFeeRate", [0]);
+    await timelockExecute(owner, marketWETH, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketDAI, "setSmartPoolReserveFactor", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).mint(signer.address, parseUnits("10000"));
