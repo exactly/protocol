@@ -1119,17 +1119,15 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 spCurrentUtilization = smartPoolAssets > 0
       ? smartPoolFlexibleBorrows.divWadDown(smartPoolAssets.divWadUp(interestRateModel.flexibleFullUtilization()))
       : 0;
-    uint256 newDebt = chargeTreasuryFee(
-      smartPoolFlexibleBorrows.mulWadDown(
-        interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
-          block.timestamp - lastUpdatedSmartPoolRate,
-          365 days
-        )
+    uint256 newDebt = smartPoolFlexibleBorrows.mulWadDown(
+      interestRateModel.getFlexibleBorrowRate(spPreviousUtilization, spCurrentUtilization).mulDivDown(
+        block.timestamp - lastUpdatedSmartPoolRate,
+        365 days
       )
     );
 
     smartPoolFlexibleBorrows += newDebt;
-    smartPoolAssets += newDebt;
+    smartPoolAssets += chargeTreasuryFee(newDebt);
     spPreviousUtilization = spCurrentUtilization;
     lastUpdatedSmartPoolRate = block.timestamp;
 
