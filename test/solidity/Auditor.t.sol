@@ -96,27 +96,27 @@ contract AuditorTest is Test {
   function testBorrowMPValidation() external {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
-    auditor.validateBorrow(Market(address(market)), address(this));
+    auditor.checkBorrow(Market(address(market)), address(this));
   }
 
   function testFailBorrowMPValidation() external {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
-    auditor.validateBorrow(Market(address(market)), address(this));
+    auditor.checkBorrow(Market(address(market)), address(this));
   }
 
   function testAccountShortfall() external {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
-    auditor.validateAccountShortfall(Market(address(market)), address(this), 1);
+    auditor.checkShortfall(Market(address(market)), address(this), 1);
   }
 
   function testFailAccountShortfall() external {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
-    auditor.validateAccountShortfall(Market(address(market)), address(this), 1);
+    auditor.checkShortfall(Market(address(market)), address(this), 1);
   }
 
   function testDynamicCloseFactor() external {

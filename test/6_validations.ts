@@ -38,8 +38,8 @@ describe("Validations", function () {
     it("WHEN trying to exit market, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(auditor.exitMarket(exactlyEnv.notAnMarketAddress)).to.be.revertedWith("MarketNotListed()");
     });
-    it("WHEN trying to call validateBorrow, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.validateBorrow(exactlyEnv.notAnMarketAddress, owner.address)).to.be.revertedWith(
+    it("WHEN trying to call checkBorrow, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
+      await expect(auditor.checkBorrow(exactlyEnv.notAnMarketAddress, owner.address)).to.be.revertedWith(
         "MarketNotListed()",
       );
     });

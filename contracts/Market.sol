@@ -283,7 +283,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address receiver,
     address owner
   ) public override returns (uint256 shares) {
-    auditor.validateAccountShortfall(this, owner, assets);
+    auditor.checkShortfall(this, owner, assets);
     shares = super.withdraw(assets, receiver, owner);
     emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, earningsAccumulator, 0, 0);
   }
@@ -298,7 +298,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address receiver,
     address owner
   ) public override returns (uint256 assets) {
-    auditor.validateAccountShortfall(this, owner, previewMint(shares));
+    auditor.checkShortfall(this, owner, previewMint(shares));
     assets = super.redeem(shares, receiver, owner);
     emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, earningsAccumulator, 0, 0);
   }
@@ -348,7 +348,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param to address to which the tokens will be transferred.
   /// @param shares amount of tokens.
   function transfer(address to, uint256 shares) public override returns (bool) {
-    auditor.validateAccountShortfall(this, msg.sender, previewMint(shares));
+    auditor.checkShortfall(this, msg.sender, previewMint(shares));
     return super.transfer(to, shares);
   }
 
@@ -363,7 +363,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     address to,
     uint256 shares
   ) public override returns (bool) {
-    auditor.validateAccountShortfall(this, from, previewMint(shares));
+    auditor.checkShortfall(this, from, previewMint(shares));
     return super.transferFrom(from, to, shares);
   }
 
@@ -525,7 +525,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     uint256 lendersAssets;
     // reverts on failure
-    (maxAssets, lendersAssets) = auditor.liquidateCalculateSeizeAmount(this, collateralMarket, borrower, repaidAssets);
+    (maxAssets, lendersAssets) = auditor.calculateSeize(this, collateralMarket, borrower, repaidAssets);
 
     moreCollateral =
       (
@@ -658,7 +658,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 newFloatingAssets = floatingAssets + backupEarnings;
     floatingAssets = newFloatingAssets;
 
-    auditor.validateBorrow(this, borrower);
+    auditor.checkBorrow(this, borrower);
     asset.safeTransfer(receiver, assets);
 
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
@@ -1035,7 +1035,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     flexibleBorrowPositions[borrower] += shares;
     checkReserveUnderflow();
 
-    auditor.validateBorrow(this, borrower);
+    auditor.checkBorrow(this, borrower);
     emit Borrow(msg.sender, receiver, borrower, assets, shares);
     asset.safeTransfer(receiver, assets);
   }

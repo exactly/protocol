@@ -69,17 +69,17 @@ contract Auditor is AccessControl {
   event MarketExited(Market indexed market, address indexed account);
 
   /// @notice Event emitted when a new Oracle has been set.
-  /// @param newOracle address of the new oracle that is used to calculate liquidity.
-  event OracleSet(ExactlyOracle newOracle);
+  /// @param oracle address of the new oracle that is used to calculate liquidity.
+  event OracleSet(ExactlyOracle oracle);
 
   /// @notice Event emitted when a new liquidationIncentive has been set.
-  /// @param newLiquidationIncentive represented with 18 decimals.
-  event LiquidationIncentiveSet(LiquidationIncentive newLiquidationIncentive);
+  /// @param liquidationIncentive represented with 18 decimals.
+  event LiquidationIncentiveSet(LiquidationIncentive liquidationIncentive);
 
   /// @notice Event emitted when a adjust factor is changed by admin.
   /// @param market address of the market that has a new adjust factor.
-  /// @param newAdjustFactor adjust factor for the underlying asset.
-  event AdjustFactorSet(Market indexed market, uint256 newAdjustFactor);
+  /// @param adjustFactor adjust factor for the underlying asset.
+  event AdjustFactorSet(Market indexed market, uint256 adjustFactor);
 
   constructor(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -91,7 +91,7 @@ contract Auditor is AccessControl {
   /// @notice Allows assets of a certain `market` market to be used as collateral for borrowing other assets.
   /// @param market market to enable as collateral for `msg.sender`.
   function enterMarket(Market market) external {
-    validateMarketListed(market);
+    checkMarket(market);
     uint256 marketIndex = markets[market].index;
 
     uint256 marketMap = accountMarkets[msg.sender];
@@ -107,7 +107,7 @@ contract Auditor is AccessControl {
   /// for an outstanding borrow.
   /// @param market The address of the asset to be removed.
   function exitMarket(Market market) external {
-    validateMarketListed(market);
+    checkMarket(market);
     uint256 marketIndex = markets[market].index;
 
     (uint256 assets, uint256 debt) = market.getAccountSnapshot(msg.sender);
@@ -116,7 +116,7 @@ contract Auditor is AccessControl {
     if (debt != 0) revert BalanceOwed();
 
     // Fail if the sender is not permitted to redeem all of their tokens
-    validateAccountShortfall(market, msg.sender, assets);
+    checkShortfall(market, msg.sender, assets);
 
     uint256 marketMap = accountMarkets[msg.sender];
 
@@ -183,7 +183,7 @@ contract Auditor is AccessControl {
   /// @param market address of the market to change adjust factor for.
   /// @param adjustFactor adjust factor for the underlying asset.
   function setAdjustFactor(Market market, uint128 adjustFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    validateMarketListed(market);
+    checkMarket(market);
     if (adjustFactor > 0.9e18 || adjustFactor < 0.3e18) revert InvalidParameter();
     markets[market].adjustFactor = adjustFactor;
     emit AdjustFactorSet(market, adjustFactor);
@@ -193,14 +193,14 @@ contract Auditor is AccessControl {
   /// @dev Hook function to be called after adding the borrowed debt to the user position.
   /// @param market address of the market where the borrow is made.
   /// @param borrower address of the account that will repay the debt.
-  function validateBorrow(Market market, address borrower) external {
-    validateMarketListed(market);
+  function checkBorrow(Market market, address borrower) external {
+    checkMarket(market);
     uint256 marketIndex = markets[market].index;
     uint256 marketMap = accountMarkets[borrower];
 
-    // we validate borrow state
+    // validate borrow state
     if ((marketMap & (1 << marketIndex)) == 0) {
-      // only markets may call validateBorrow if borrower not in market
+      // only markets may call checkBorrow if borrower not in market
       if (msg.sender != address(market)) revert NotMarket();
 
       accountMarkets[borrower] = marketMap | (1 << marketIndex);
@@ -298,8 +298,9 @@ contract Auditor is AccessControl {
   /// @notice Calculates the amount of collateral to be seized when a position is undercollateralized.
   /// @param repayMarket market from where the debt is pending.
   /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on Market.sol).
+  /// @param borrower account which assets are being seized.
   /// @param actualRepayAssets repay amount in the borrowed asset.
-  function liquidateCalculateSeizeAmount(
+  function calculateSeize(
     Market repayMarket,
     Market seizeMarket,
     address borrower,
@@ -331,12 +332,12 @@ contract Auditor is AccessControl {
   /// @param market address of the market where the operation will happen.
   /// @param account address of the user to check for possible shortfall.
   /// @param amount amount that the user wants to withdraw or transfer.
-  function validateAccountShortfall(
+  function checkShortfall(
     Market market,
     address account,
     uint256 amount
   ) public view {
-    // If the user is not 'in' the market, then we can bypass the liquidity check
+    // if the user is not 'in' the market, bypass the liquidity check
     if ((accountMarkets[account] & (1 << markets[market].index)) == 0) return;
 
     // Otherwise, perform a hypothetical liquidity check to guard against shortfall
@@ -346,7 +347,7 @@ contract Auditor is AccessControl {
 
   /// @notice Returns account's liquidity for a certain market.
   /// @param account wallet which the liquidity will be calculated.
-  /// @param marketToSimulate market in which we want to simulate withdraw/borrow ops (see next two args).
+  /// @param marketToSimulate market in which to simulate withdraw/borrow ops (see next two args).
   /// @param withdrawAmount amount to simulate withdraw.
   /// @return sumCollateral sum of all collateral, already multiplied by each adjust factor. denominated in usd.
   /// @return sumDebtPlusEffects sum of all debt. denominated in usd.
@@ -396,7 +397,7 @@ contract Auditor is AccessControl {
 
   /// @notice Verifies if market is listed as valid.
   /// @param market address of the market to be validated by the auditor.
-  function validateMarketListed(Market market) internal view {
+  function checkMarket(Market market) internal view {
     if (!markets[market].isListed) revert MarketNotListed();
   }
 }

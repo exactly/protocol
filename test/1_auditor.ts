@@ -66,7 +66,7 @@ describe("Auditor from User Space", function () {
       .withArgs(marketDAI.address, user.address);
   });
 
-  it("validateBorrow should fail for when oracle gets weird", async () => {
+  it("checkBorrow should fail for when oracle gets weird", async () => {
     await dai.approve(marketDAI.address, 666);
     await marketDAI.deposit(666, user.address);
     await auditor.enterMarket(marketDAI.address);
@@ -88,14 +88,14 @@ describe("Auditor from User Space", function () {
     await marketDAI.deposit(100, user.address);
 
     // we make it count as collateral (DAI)
-    await expect(auditor.validateBorrow(marketDAI.address, owner.address)).to.be.revertedWith("NotMarket()");
+    await expect(auditor.checkBorrow(marketDAI.address, owner.address)).to.be.revertedWith("NotMarket()");
   });
 
-  it("LiquidateCalculateSeizeAmount should fail when oracle is acting weird", async () => {
+  it("CalculateSeize should fail when oracle is acting weird", async () => {
     await priceFeedDAI.setPrice(0);
-    await expect(
-      auditor.liquidateCalculateSeizeAmount(marketDAI.address, marketDAI.address, user.address, 100),
-    ).to.be.revertedWith("0x00bfc921");
+    await expect(auditor.calculateSeize(marketDAI.address, marketDAI.address, user.address, 100)).to.be.revertedWith(
+      "0x00bfc921",
+    );
   });
 
   it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
