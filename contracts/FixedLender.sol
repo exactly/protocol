@@ -1152,7 +1152,7 @@ contract FixedLender is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   function chargeTreasuryFee(uint256 earnings) internal returns (uint256) {
     uint256 memTreasuryFee = treasuryFee;
-    if (memTreasuryFee == 0) return earnings;
+    if (memTreasuryFee == 0 || earnings == 0) return earnings;
 
     uint256 assets = earnings.mulWadDown(memTreasuryFee);
     _mint(treasury, previewDeposit(assets));
