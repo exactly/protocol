@@ -536,8 +536,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
       beforeEach(async () => {
         tx = routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("10"), { value: parseUnits("5") });
       });
-      it("THEN the tx should revert with TooMuchSlippage", async () => {
-        await expect(tx).to.be.revertedWith("TooMuchSlippage()");
+      it("THEN the tx should revert with Disagreement", async () => {
+        await expect(tx).to.be.revertedWith("Disagreement()");
       });
     });
     describe("WHEN trying to borrow with a low rate amount expected", () => {
@@ -547,8 +547,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         await auditor.enterMarket(marketWETH.address);
         tx = routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("5"));
       });
-      it("THEN the tx should revert with TooMuchSlippage", async () => {
-        await expect(tx).to.be.revertedWith("TooMuchSlippage()");
+      it("THEN the tx should revert with Disagreement", async () => {
+        await expect(tx).to.be.revertedWith("Disagreement()");
       });
     });
     describe("WHEN trying to withdraw with a high rate amount expected", () => {
@@ -556,8 +556,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         await routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("5") });
         tx = routerETH.withdrawAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
       });
-      it("THEN the tx should revert with TooMuchSlippage", async () => {
-        await expect(tx).to.be.revertedWith("TooMuchSlippage()");
+      it("THEN the tx should revert with Disagreement", async () => {
+        await expect(tx).to.be.revertedWith("Disagreement()");
       });
     });
     describe("WHEN trying to repay with a low rate amount expected", () => {
@@ -568,8 +568,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         await routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
         tx = routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("4") });
       });
-      it("THEN the tx should revert with TooMuchSlippage", async () => {
-        await expect(tx).to.be.revertedWith("TooMuchSlippage()");
+      it("THEN the tx should revert with Disagreement", async () => {
+        await expect(tx).to.be.revertedWith("Disagreement()");
       });
     });
   });

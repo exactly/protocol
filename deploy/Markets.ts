@@ -12,10 +12,10 @@ const func: DeployFunction = async ({
       adjustFactor,
       penaltyRatePerDay,
       backupFeeRate,
-      smartPoolReserveFactor,
+      reserveFactor,
       dampSpeed: { up, down },
       maxFuturePools,
-      accumulatedEarningsSmoothFactor,
+      earningsAccumulatorSmoothFactor,
     },
   },
   ethers: {
@@ -37,12 +37,12 @@ const func: DeployFunction = async ({
 
   const marketArgs = [
     maxFuturePools,
-    parseUnits(String(accumulatedEarningsSmoothFactor)),
+    parseUnits(String(earningsAccumulatorSmoothFactor)),
     auditor.address,
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
     parseUnits(String(backupFeeRate)),
-    parseUnits(String(smartPoolReserveFactor)),
+    parseUnits(String(reserveFactor)),
     { up: parseUnits(String(up)), down: parseUnits(String(down)) },
   ] as [number, BigNumber, string, string, BigNumber, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
 
@@ -70,8 +70,8 @@ const func: DeployFunction = async ({
     if (!((await market.maxFuturePools()) === maxFuturePools)) {
       await executeOrPropose(deployer, timelockController, market, "setMaxFuturePools", [maxFuturePools]);
     }
-    if (!(await market.accumulatedEarningsSmoothFactor()).eq(marketArgs[1])) {
-      await executeOrPropose(deployer, timelockController, market, "setAccumulatedEarningsSmoothFactor", [
+    if (!(await market.earningsAccumulatorSmoothFactor()).eq(marketArgs[1])) {
+      await executeOrPropose(deployer, timelockController, market, "setEarningsAccumulatorSmoothFactor", [
         marketArgs[1],
       ]);
     }
@@ -81,8 +81,8 @@ const func: DeployFunction = async ({
     if (!(await market.backupFeeRate()).eq(marketArgs[5])) {
       await executeOrPropose(deployer, timelockController, market, "setBackupFeeRate", [marketArgs[5]]);
     }
-    if (!(await market.smartPoolReserveFactor()).eq(marketArgs[6])) {
-      await executeOrPropose(deployer, timelockController, market, "setSmartPoolReserveFactor", [marketArgs[6]]);
+    if (!(await market.reserveFactor()).eq(marketArgs[6])) {
+      await executeOrPropose(deployer, timelockController, market, "setReserveFactor", [marketArgs[6]]);
     }
     if (!((await market.interestRateModel()) === interestRateModel.address)) {
       await executeOrPropose(deployer, timelockController, market, "setInterestRateModel", [interestRateModel.address]);

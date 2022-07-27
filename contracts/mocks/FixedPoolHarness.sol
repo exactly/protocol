@@ -14,7 +14,7 @@ contract FixedPoolHarness {
   uint256 public newAccountBorrows;
   uint256 public backupDebtReduction;
   uint256 public nextTimestamp;
-  uint256 public lastEarningsSP;
+  uint256 public lastBackupEarnings;
   uint256 public lastEarningsTreasury;
   FixedLib.Position public scaledDebt;
 
@@ -38,7 +38,7 @@ contract FixedPoolHarness {
   }
 
   function accrueEarnings(uint256 maturity) external {
-    lastEarningsSP = fixedPool.accrueEarnings(maturity);
+    lastBackupEarnings = fixedPool.accrueEarnings(maturity);
   }
 
   function deposit(uint256 amount) external {
@@ -61,7 +61,7 @@ contract FixedPoolHarness {
     uint256 earnings,
     uint256 borrowAmount
   ) external {
-    (lastEarningsSP, lastEarningsTreasury) = FixedLib
+    (lastBackupEarnings, lastEarningsTreasury) = FixedLib
       .Pool({
         borrowed: borrowed,
         supplied: supplied,

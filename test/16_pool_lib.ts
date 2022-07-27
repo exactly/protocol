@@ -280,8 +280,8 @@ describe("Fixed Pool Management Library", () => {
           expect(fp.lastAccrual).to.equal(now);
         });
         it("THEN the last earnings SP is 0", async () => {
-          const lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
-          expect(lastEarningsSP).to.equal(0);
+          const lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
+          expect(lastBackupEarnings).to.equal(0);
         });
 
         describe("AND GIVEN that we add 100 in fees and 6 days went by", () => {
@@ -299,8 +299,8 @@ describe("Fixed Pool Management Library", () => {
             expect(fp.lastAccrual).to.equal(sixDays);
           });
           it("THEN the last earnings SP is 60", async () => {
-            const lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
-            expect(lastEarningsSP).to.equal(parseUnits("60"));
+            const lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
+            expect(lastBackupEarnings).to.equal(parseUnits("60"));
           });
 
           describe("AND GIVEN that another 150 seconds go by", () => {
@@ -320,8 +320,8 @@ describe("Fixed Pool Management Library", () => {
               expect(fp.lastAccrual).to.equal(sixDays + 150);
             });
             it("THEN the last earnings SP is ~= 0.017361", async () => {
-              const lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
-              expect(lastEarningsSP).to.closeTo(parseUnits("0.0173611"), parseUnits("0.0000001").toNumber());
+              const lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
+              expect(lastBackupEarnings).to.closeTo(parseUnits("0.0173611"), parseUnits("0.0000001").toNumber());
             });
           });
 
@@ -339,8 +339,8 @@ describe("Fixed Pool Management Library", () => {
               expect(fp.lastAccrual).to.equal(tenDays);
             });
             it("THEN the last earnings SP is 40 (the remaining)", async () => {
-              const lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
-              expect(lastEarningsSP).to.equal(parseUnits("40"));
+              const lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
+              expect(lastBackupEarnings).to.equal(parseUnits("40"));
             });
 
             describe("AND GIVEN that we go over another +1 day the maturity date", () => {
@@ -357,8 +357,8 @@ describe("Fixed Pool Management Library", () => {
                 expect(fp.lastAccrual).to.equal(tenDays);
               });
               it("THEN the last earnings SP is 0", async () => {
-                const lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
-                expect(lastEarningsSP).to.equal(parseUnits("0"));
+                const lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
+                expect(lastBackupEarnings).to.equal(parseUnits("0"));
               });
             });
           });
@@ -378,8 +378,8 @@ describe("Fixed Pool Management Library", () => {
               expect(fp.lastAccrual).to.equal(tenDays);
             });
             it("THEN the last earnings SP is 20 (40 were remaining - 20 removed)", async () => {
-              const lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
-              expect(lastEarningsSP).to.equal(parseUnits("20"));
+              const lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
+              expect(lastBackupEarnings).to.equal(parseUnits("20"));
             });
           });
         });
@@ -752,17 +752,17 @@ describe("Fixed Pool Management Library", () => {
     });
 
     describe("distributeEarnings", () => {
-      let lastEarningsSP: BigNumber;
+      let lastBackupEarnings: BigNumber;
       let lastEarningsTreasury: BigNumber;
       describe("GIVEN 100 earnings, 1000 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
           await poolEnv.distributeEarnings("100", "1000", "800");
-          lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
+          lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
           lastEarningsTreasury = await poolEnv.fpHarness.lastEarningsTreasury();
         });
 
-        it("THEN lastEarningsSP is 100", async () => {
-          expect(lastEarningsSP).to.equal(parseUnits("100"));
+        it("THEN lastBackupEarnings is 100", async () => {
+          expect(lastBackupEarnings).to.equal(parseUnits("100"));
         });
         it("THEN lastEarningsTreasury is 0", async () => {
           expect(lastEarningsTreasury).to.equal(0);
@@ -772,12 +772,12 @@ describe("Fixed Pool Management Library", () => {
       describe("GIVEN 100 earnings, 400 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
           await poolEnv.distributeEarnings("100", "400", "800");
-          lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
+          lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
           lastEarningsTreasury = await poolEnv.fpHarness.lastEarningsTreasury();
         });
 
-        it("THEN lastEarningsSP is 50", async () => {
-          expect(lastEarningsSP).to.equal(parseUnits("50"));
+        it("THEN lastBackupEarnings is 50", async () => {
+          expect(lastBackupEarnings).to.equal(parseUnits("50"));
         });
         it("THEN lastEarningsTreasury is 50", async () => {
           expect(lastEarningsTreasury).to.equal(parseUnits("50"));
@@ -787,12 +787,12 @@ describe("Fixed Pool Management Library", () => {
       describe("GIVEN 100 earnings, 0 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
           await poolEnv.distributeEarnings("100", "0", "800");
-          lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
+          lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
           lastEarningsTreasury = await poolEnv.fpHarness.lastEarningsTreasury();
         });
 
-        it("THEN lastEarningsSP is 0", async () => {
-          expect(lastEarningsSP).to.equal(0);
+        it("THEN lastBackupEarnings is 0", async () => {
+          expect(lastBackupEarnings).to.equal(0);
         });
         it("THEN lastEarningsTreasury is 100", async () => {
           expect(lastEarningsTreasury).to.equal(parseUnits("100"));
@@ -802,12 +802,12 @@ describe("Fixed Pool Management Library", () => {
       describe("GIVEN 0 earnings, 0 supplySP and 800 borrowAmount", () => {
         beforeEach(async () => {
           await poolEnv.distributeEarnings("0", "0", "800");
-          lastEarningsSP = await poolEnv.fpHarness.lastEarningsSP();
+          lastBackupEarnings = await poolEnv.fpHarness.lastBackupEarnings();
           lastEarningsTreasury = await poolEnv.fpHarness.lastEarningsTreasury();
         });
 
-        it("THEN lastEarningsSP is 0", async () => {
-          expect(lastEarningsSP).to.equal(0);
+        it("THEN lastBackupEarnings is 0", async () => {
+          expect(lastBackupEarnings).to.equal(0);
         });
         it("THEN lastEarningsTreasury is 0", async () => {
           expect(lastEarningsTreasury).to.equal(0);

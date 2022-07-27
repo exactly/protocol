@@ -86,13 +86,13 @@ contract Previewer {
     for (uint256 i = 0; i < maxFuturePools; i++) {
       uint256 maturity = nextMaturity + FixedLib.INTERVAL * i;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
-      uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage(market);
+      uint256 memFloatingAssetsAverage = floatingAssetsAverage(market);
 
       positionAssetsMaturities[i] = FixedLiquidity({
         maturity: maturity,
         assets: previewDepositAtMaturity(market, maturity, assets),
-        utilization: memSmartPoolAssetsAverage > 0
-          ? (pool.borrowed + assets).divWadDown(pool.supplied + memSmartPoolAssetsAverage.divWadDown(fullUtilization))
+        utilization: memFloatingAssetsAverage > 0
+          ? (pool.borrowed + assets).divWadDown(pool.supplied + memFloatingAssetsAverage.divWadDown(fullUtilization))
           : 0
       });
     }
@@ -111,7 +111,7 @@ contract Previewer {
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
     uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
-    uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage(market);
+    uint256 memFloatingAssetsAverage = floatingAssetsAverage(market);
 
     uint256 fees = assets.mulWadDown(
       market.interestRateModel().getFixedBorrowRate(
@@ -119,12 +119,12 @@ contract Previewer {
         assets,
         pool.borrowed,
         pool.supplied,
-        memSmartPoolAssetsAverage
+        memFloatingAssetsAverage
       )
     );
     positionAssets = assets + fees;
-    utilizationAfter = memSmartPoolAssetsAverage > 0
-      ? (pool.borrowed + assets).divWadDown(pool.supplied + memSmartPoolAssetsAverage.divWadDown(fullUtilization))
+    utilizationAfter = memFloatingAssetsAverage > 0
+      ? (pool.borrowed + assets).divWadDown(pool.supplied + memFloatingAssetsAverage.divWadDown(fullUtilization))
       : 0;
   }
 
@@ -150,7 +150,7 @@ contract Previewer {
           positionAssets,
           pool.borrowed,
           pool.supplied,
-          smartPoolAssetsAverage(market)
+          floatingAssetsAverage(market)
         )
     );
   }
@@ -218,27 +218,27 @@ contract Previewer {
       FixedLib.Pool memory pool;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
-      uint256 maxAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
-      uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage(market);
+      uint256 maxAssets = market.floatingAssets().mulWadDown(1e18 - market.reserveFactor());
+      uint256 memFloatingAssetsAverage = floatingAssetsAverage(market);
 
       availableLiquidities[i] = FixedLiquidity({
         maturity: maturity,
         assets: Math.min(
-          maxAssets - Math.min(maxAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows()),
-          smartPoolAssetsAverage(market)
+          maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt()),
+          floatingAssetsAverage(market)
         ) +
           pool.supplied -
           Math.min(pool.supplied, pool.borrowed),
-        utilization: memSmartPoolAssetsAverage > 0
-          ? pool.borrowed.divWadDown(pool.supplied + memSmartPoolAssetsAverage.divWadDown(fullUtilization))
+        utilization: memFloatingAssetsAverage > 0
+          ? pool.borrowed.divWadDown(pool.supplied + memFloatingAssetsAverage.divWadDown(fullUtilization))
           : 0
       });
     }
   }
 
   function floatingAvailableLiquidity(Market market) internal view returns (uint256) {
-    uint256 maxAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
-    return maxAssets - Math.min(maxAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows());
+    uint256 maxAssets = market.floatingAssets().mulWadDown(1e18 - market.reserveFactor());
+    return maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt());
   }
 
   function maturityPositions(
@@ -278,15 +278,15 @@ contract Previewer {
     (yield, ) = pool.getDepositYield(assets, market.backupFeeRate());
   }
 
-  function smartPoolAssetsAverage(Market market) internal view returns (uint256) {
-    uint256 dampSpeedFactor = market.smartPoolAssets() < market.smartPoolAssetsAverage()
+  function floatingAssetsAverage(Market market) internal view returns (uint256) {
+    uint256 dampSpeedFactor = market.floatingAssets() < market.floatingAssetsAverage()
       ? market.dampSpeedDown()
       : market.dampSpeedUp();
     uint256 averageFactor = uint256(
       1e18 - (-int256(dampSpeedFactor * (block.timestamp - market.lastAverageUpdate()))).expWad()
     );
     return
-      market.smartPoolAssetsAverage().mulWadDown(1e18 - averageFactor) +
-      averageFactor.mulWadDown(market.smartPoolAssets());
+      market.floatingAssetsAverage().mulWadDown(1e18 - averageFactor) +
+      averageFactor.mulWadDown(market.floatingAssets());
   }
 }

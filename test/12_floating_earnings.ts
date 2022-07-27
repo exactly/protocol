@@ -95,7 +95,7 @@ describe("Smart Pool Earnings Distribution", function () {
       );
     });
     it("THEN the smart pool earnings accumulator did not account any earnings", async () => {
-      expect(await marketDAI.smartPoolEarningsAccumulator()).to.be.eq(0);
+      expect(await marketDAI.earningsAccumulator()).to.be.eq(0);
     });
     describe("AND GIVEN 7 days go by and bob repays late", () => {
       beforeEach(async () => {
@@ -110,8 +110,8 @@ describe("Smart Pool Earnings Distribution", function () {
         );
       });
       it("THEN the smart pool earnings accumulator has balance", async () => {
-        expect(await marketDAI.smartPoolEarningsAccumulator()).to.be.gt(parseUnits("154"));
-        expect(await marketDAI.smartPoolEarningsAccumulator()).to.be.lt(parseUnits("154.1"));
+        expect(await marketDAI.earningsAccumulator()).to.be.gt(parseUnits("154"));
+        expect(await marketDAI.earningsAccumulator()).to.be.lt(parseUnits("154.1"));
       });
       it("THEN preview deposit returned is less than previous deposits since depositing will first accrue earnings", async () => {
         expect(await marketDAI.previewDeposit(parseUnits("10000"))).to.be.lt(parseUnits("9950.24875621"));
@@ -122,7 +122,7 @@ describe("Smart Pool Earnings Distribution", function () {
         beforeEach(async () => {
           assetsInMarket = await dai.balanceOf(marketDAI.address);
 
-          await timelockExecute(owner, marketDAI, "setAccumulatedEarningsSmoothFactor", [0]);
+          await timelockExecute(owner, marketDAI, "setEarningsAccumulatorSmoothFactor", [0]);
           const assetsBob = await marketDAI.previewRedeem(await marketDAI.balanceOf(bob.address));
           const assetsJohn = await marketDAI.connect(john).previewRedeem(await marketDAI.balanceOf(john.address));
 
@@ -142,12 +142,12 @@ describe("Smart Pool Earnings Distribution", function () {
           await marketDAI.connect(john).redeem(await marketDAI.balanceOf(john.address), john.address, john.address);
         });
         it("THEN the market DAI balance is equal to the accumulator counter", async () => {
-          expect(await dai.balanceOf(marketDAI.address)).to.be.eq(await marketDAI.smartPoolEarningsAccumulator());
+          expect(await dai.balanceOf(marketDAI.address)).to.be.eq(await marketDAI.earningsAccumulator());
         });
         describe("AND GIVEN bob deposits 10k again", () => {
           let accumulatorBefore: BigNumber;
           beforeEach(async () => {
-            accumulatorBefore = await marketDAI.smartPoolEarningsAccumulator();
+            accumulatorBefore = await marketDAI.earningsAccumulator();
             await expect(marketDAI.deposit(parseUnits("10000"), bob.address)).to.not.be.reverted;
           });
           it("THEN he accrues earnings of the accumulator since he is the only deposit", async () => {
@@ -155,7 +155,7 @@ describe("Smart Pool Earnings Distribution", function () {
           });
           it("THEN the accumulator is correctly updated", async () => {
             const bobAssetBalance = await marketDAI.previewRedeem(await marketDAI.balanceOf(bob.address));
-            expect(await marketDAI.smartPoolEarningsAccumulator()).to.be.eq(
+            expect(await marketDAI.earningsAccumulator()).to.be.eq(
               accumulatorBefore.sub(bobAssetBalance).add(parseUnits("10000")),
             );
           });
@@ -199,7 +199,7 @@ describe("Smart Pool Earnings Distribution", function () {
     describe("GIVEN bob deposits 10k and borrows 10k from a mp", () => {
       beforeEach(async () => {
         await marketDAI.deposit(parseUnits("10000"), bob.address);
-        await timelockExecute(owner, marketDAI, "setSmartPoolReserveFactor", [0]);
+        await timelockExecute(owner, marketDAI, "setReserveFactor", [0]);
 
         await priceFeedDAI.setUpdatedAt(futurePools(1)[0].toNumber());
         await priceFeedWBTC.setUpdatedAt(futurePools(1)[0].toNumber());

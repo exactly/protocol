@@ -20,16 +20,16 @@ contract InterestRateModelTest is
 
   function testGetFixedBorrowRate() external {
     uint256 assets = 10 ether;
-    uint256 smartPoolAssetsAverage = 100 ether;
-    uint256 rate = this.getFixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, smartPoolAssetsAverage);
+    uint256 floatingAssetsAverage = 100 ether;
+    uint256 rate = this.getFixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, floatingAssetsAverage);
     assertEq(rate, 1567705037744728);
   }
 
   function testGetFloatingBorrowRate() external {
     uint256 smartPoolFloatingBorrows = 50 ether;
-    uint256 smartPoolAssets = 100 ether;
+    uint256 floatingAssets = 100 ether;
     uint256 spCurrentUtilization = smartPoolFloatingBorrows.divWadDown(
-      smartPoolAssets.divWadDown(floatingFullUtilization)
+      floatingAssets.divWadDown(floatingFullUtilization)
     );
     uint256 rate = this.getFloatingBorrowRate(0, spCurrentUtilization);
     assertEq(rate, 22704941554056164);

@@ -221,7 +221,7 @@ contract PreviewerTest is Test {
     vm.warp(180 seconds);
     (, uint256 utilization) = previewer.previewBorrowAtMaturity(market, maturity, 1 ether);
     uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
-    assertEq(utilization, uint256(1 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization)));
+    assertEq(utilization, uint256(1 ether).divWadDown(getUpdatedFloatingAssetsAverage().divWadDown(fullUtilization)));
 
     market.depositAtMaturity(maturity, 1.47 ether, 1.47 ether, address(this));
     vm.warp(5301 seconds);
@@ -229,7 +229,7 @@ contract PreviewerTest is Test {
 
     assertEq(
       utilization,
-      uint256(2.33 ether).divWadDown(1.47 ether + getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
+      uint256(2.33 ether).divWadDown(1.47 ether + getUpdatedFloatingAssetsAverage().divWadDown(fullUtilization))
     );
   }
 
@@ -407,7 +407,7 @@ contract PreviewerTest is Test {
 
     // we supply 100 to the smart pool
     market.deposit(100 ether, address(this));
-    // we let 9011 seconds go by so smartPoolAssetsAverage is equal to floatingDepositAssets
+    // we let 9011 seconds go by so floatingAssetsAverage is equal to floatingDepositAssets
     vm.warp(9012 seconds);
 
     // we borrow 10 from the first maturity
@@ -466,7 +466,7 @@ contract PreviewerTest is Test {
     uint256 distribuedEarnings = 417180941853420;
     // we set the smart pool reserve in 10%
     // since smart pool supply is 200 then 10% is 20
-    market.setSmartPoolReserveFactor(0.1e18);
+    market.setReserveFactor(0.1e18);
     data = previewer.accounts(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
       if (i == 0) assertEq(data[0].fixedAvailableLiquidity[i].assets, 80 ether + 50 ether + distribuedEarnings);
@@ -505,7 +505,7 @@ contract PreviewerTest is Test {
     // we supply 100 to the smart pool
     market.deposit(100 ether, address(this));
 
-    // we let 9011 seconds go by so smartPoolAssetsAverage is equal to floatingDepositAssets
+    // we let 9011 seconds go by so floatingAssetsAverage is equal to floatingDepositAssets
     vm.warp(9012 seconds);
 
     // we borrow 10 from the first maturity
@@ -541,12 +541,12 @@ contract PreviewerTest is Test {
     uint256 distribuedEarnings = 605616552334;
     // we set the smart pool reserve in 10%
     // since smart pool supply is 200 then 10% is 20
-    market.setSmartPoolReserveFactor(0.1e18);
+    market.setReserveFactor(0.1e18);
     data = previewer.accounts(address(this));
     assertEq(data[0].floatingAvailableLiquidity, 80 ether + distribuedEarnings);
   }
 
-  function testFixedAvailableLiquidityWithSmartPoolAssetsAverage() external {
+  function testFixedAvailableLiquidityWithFloatingAssetsAverage() external {
     uint256 maxFuturePools = market.maxFuturePools();
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = new Market(
@@ -571,50 +571,50 @@ contract PreviewerTest is Test {
     market.deposit(100 ether, address(this));
     // we let only 10 seconds go by
     vm.warp(10 seconds);
-    uint256 smartPoolAssetsAverage = getUpdatedSmartPoolAssetsAverage();
+    uint256 floatingAssetsAverage = getUpdatedFloatingAssetsAverage();
     Previewer.MarketAccount[] memory data = previewer.accounts(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      assertEq(data[0].fixedAvailableLiquidity[i].assets, smartPoolAssetsAverage);
+      assertEq(data[0].fixedAvailableLiquidity[i].assets, floatingAssetsAverage);
     }
     vm.expectRevert(UtilizationExceeded.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL, smartPoolAssetsAverage + 3, 15 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage + 3, 15 ether, address(this), address(this));
 
-    // borrowing exactly smartPoolAssetsAverage doesn't revert
-    market.borrowAtMaturity(FixedLib.INTERVAL, smartPoolAssetsAverage, 15 ether, address(this), address(this));
+    // borrowing exactly floatingAssetsAverage doesn't revert
+    market.borrowAtMaturity(FixedLib.INTERVAL, floatingAssetsAverage, 15 ether, address(this), address(this));
 
     // after 200 seconds pass there's more available liquidity
     vm.warp(200 seconds);
-    smartPoolAssetsAverage = getUpdatedSmartPoolAssetsAverage();
+    floatingAssetsAverage = getUpdatedFloatingAssetsAverage();
     data = previewer.accounts(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      assertEq(data[0].fixedAvailableLiquidity[i].assets, smartPoolAssetsAverage);
+      assertEq(data[0].fixedAvailableLiquidity[i].assets, floatingAssetsAverage);
     }
 
-    // after 1000 seconds the floatingDepositAssets minus the already borrowed is lower than the smartPoolAssetsAverage
+    // after 1000 seconds the floatingDepositAssets minus the already borrowed is lower than the floatingAssetsAverage
     vm.warp(1000 seconds);
-    smartPoolAssetsAverage = getUpdatedSmartPoolAssetsAverage();
+    floatingAssetsAverage = getUpdatedFloatingAssetsAverage();
     data = previewer.accounts(address(this));
     uint256 borrowed = data[0].fixedBorrowPositions[0].position.principal;
     for (uint256 i = 0; i < maxFuturePools; i++) {
       assertEq(
         data[0].fixedAvailableLiquidity[i].assets,
-        Math.min(market.smartPoolAssets() - borrowed, smartPoolAssetsAverage)
+        Math.min(market.floatingAssets() - borrowed, floatingAssetsAverage)
       );
     }
 
-    // once smartPoolAssetsAverage = floatingDepositAssets we withdraw all liquidity available
+    // once floatingAssetsAverage = floatingDepositAssets we withdraw all liquidity available
     borrowed += data[0].fixedBorrowPositions[0].position.fee;
     market.repayAtMaturity(FixedLib.INTERVAL, borrowed, borrowed, address(this));
-    uint256 accumulatorBefore = market.smartPoolEarningsAccumulator();
+    uint256 accumulatorBefore = market.earningsAccumulator();
     vm.warp(9012 seconds);
-    market.withdraw(market.smartPoolAssets(), address(this), address(this));
+    market.withdraw(market.floatingAssets(), address(this), address(this));
 
-    // one second later smartPoolAssetsAverage STILL has big positive value but floatingDepositAssets is 0
+    // one second later floatingAssetsAverage STILL has big positive value but floatingDepositAssets is 0
     // actually the available liquidity is an extra dust distributed by the accumulator
     vm.warp(9013 seconds);
     data = previewer.accounts(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      assertEq(data[0].fixedAvailableLiquidity[i].assets, accumulatorBefore - market.smartPoolEarningsAccumulator());
+      assertEq(data[0].fixedAvailableLiquidity[i].assets, accumulatorBefore - market.earningsAccumulator());
     }
   }
 
@@ -999,7 +999,7 @@ contract PreviewerTest is Test {
 
     assertEq(
       data[0].fixedAvailableLiquidity[0].utilization,
-      uint256(1 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
+      uint256(1 ether).divWadDown(getUpdatedFloatingAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(data[0].fixedAvailableLiquidity[1].utilization, 0);
     assertEq(data[0].fixedAvailableLiquidity[2].utilization, 0);
@@ -1010,11 +1010,11 @@ contract PreviewerTest is Test {
 
     assertEq(
       data[0].fixedAvailableLiquidity[0].utilization,
-      uint256(1 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
+      uint256(1 ether).divWadDown(getUpdatedFloatingAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(
       data[0].fixedAvailableLiquidity[1].utilization,
-      uint256(0.172 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
+      uint256(0.172 ether).divWadDown(getUpdatedFloatingAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(data[0].fixedAvailableLiquidity[2].utilization, 0);
 
@@ -1024,15 +1024,15 @@ contract PreviewerTest is Test {
 
     assertEq(
       data[0].fixedAvailableLiquidity[0].utilization,
-      uint256(1 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
+      uint256(1 ether).divWadDown(getUpdatedFloatingAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(
       data[0].fixedAvailableLiquidity[1].utilization,
-      uint256(0.172 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
+      uint256(0.172 ether).divWadDown(getUpdatedFloatingAssetsAverage().divWadDown(fullUtilization))
     );
     assertEq(
       data[0].fixedAvailableLiquidity[2].utilization,
-      uint256(1.929 ether).divWadDown(getUpdatedSmartPoolAssetsAverage().divWadDown(fullUtilization))
+      uint256(1.929 ether).divWadDown(getUpdatedFloatingAssetsAverage().divWadDown(fullUtilization))
     );
   }
 
@@ -1052,16 +1052,16 @@ contract PreviewerTest is Test {
     assertEq(data[0].isCollateral, false);
   }
 
-  function getUpdatedSmartPoolAssetsAverage() internal view returns (uint256) {
-    uint256 floatingDepositAssets = market.smartPoolAssets();
-    uint256 smartPoolAssetsAverage = market.smartPoolAssetsAverage();
-    uint256 dampSpeedFactor = floatingDepositAssets < smartPoolAssetsAverage
+  function getUpdatedFloatingAssetsAverage() internal view returns (uint256) {
+    uint256 floatingDepositAssets = market.floatingAssets();
+    uint256 floatingAssetsAverage = market.floatingAssetsAverage();
+    uint256 dampSpeedFactor = floatingDepositAssets < floatingAssetsAverage
       ? market.dampSpeedDown()
       : market.dampSpeedUp();
     uint256 averageFactor = uint256(
       1e18 - (-int256(dampSpeedFactor * (block.timestamp - market.lastAverageUpdate()))).expWad()
     );
 
-    return smartPoolAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(floatingDepositAssets);
+    return floatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(floatingDepositAssets);
   }
 }

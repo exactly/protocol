@@ -9,23 +9,23 @@ contract MarketHarness is Market {
   constructor(
     ERC20 asset,
     uint8 maxFuturePools,
-    uint128 accumulatedEarningsSmoothFactor,
+    uint128 earningsAccumulatorSmoothFactor,
     Auditor auditor,
     InterestRateModel interestRateModel,
     uint256 penaltyRate,
     uint256 backupFeeRate,
-    uint128 smartPoolReserveFactor,
+    uint128 reserveFactor,
     DampSpeed memory dampSpeed
   )
     Market(
       asset,
       maxFuturePools,
-      accumulatedEarningsSmoothFactor,
+      earningsAccumulatorSmoothFactor,
       auditor,
       interestRateModel,
       penaltyRate,
       backupFeeRate,
-      smartPoolReserveFactor,
+      reserveFactor,
       dampSpeed
     )
   {} // solhint-disable-line no-empty-blocks

@@ -115,10 +115,10 @@ describe("Liquidations", function () {
             await expect(tx).to.emit(marketWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
           });
 
-          it("THEN the smartPoolEarningsAccumulator collects the penalty fees", async () => {
-            const smartPoolEarningsAccumulator = await exactlyEnv.getMarket("DAI").smartPoolEarningsAccumulator();
-            expect(smartPoolEarningsAccumulator).to.gt(parseUnits("7599"));
-            expect(smartPoolEarningsAccumulator).to.lt(parseUnits("7600"));
+          it("THEN the earningsAccumulator collects the penalty fees", async () => {
+            const earningsAccumulator = await exactlyEnv.getMarket("DAI").earningsAccumulator();
+            expect(earningsAccumulator).to.gt(parseUnits("7599"));
+            expect(earningsAccumulator).to.lt(parseUnits("7600"));
           });
 
           it("THEN liquidator receives WBTC", async () => {

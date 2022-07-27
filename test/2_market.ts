@@ -47,7 +47,7 @@ describe("Market", function () {
     await timelockExecute(owner, interestRateModel, "setFixedParameters", [[0, 0, parseUnits("6")], parseUnits("2")]);
     await timelockExecute(owner, marketDAI, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketWETH, "setBackupFeeRate", [0]);
-    await timelockExecute(owner, marketDAI, "setSmartPoolReserveFactor", [0]);
+    await timelockExecute(owner, marketDAI, "setReserveFactor", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).mint(signer.address, parseUnits("10000"));
       await dai.connect(signer).approve(marketDAI.address, parseUnits("10000"));
@@ -355,12 +355,12 @@ describe("Market", function () {
       await timelockExecute(owner, marketDAI, "setMaxFuturePools", [15]);
       expect(await marketDAI.maxFuturePools()).to.be.equal(15);
     });
-    it("WHEN calling setAccumulatedEarningsSmoothFactor from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketDAI.setAccumulatedEarningsSmoothFactor(parseUnits("2"))).to.be.revertedWith("AccessControl");
+    it("WHEN calling setEarningsAccumulatorSmoothFactor from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+      await expect(marketDAI.setEarningsAccumulatorSmoothFactor(parseUnits("2"))).to.be.revertedWith("AccessControl");
     });
-    it("WHEN calling setAccumulatedEarningsSmoothFactor, THEN the accumulatedEarningsSmoothFactor should be updated", async () => {
-      await timelockExecute(owner, marketDAI, "setAccumulatedEarningsSmoothFactor", [parseUnits("2")]);
-      expect(await marketDAI.accumulatedEarningsSmoothFactor()).to.be.equal(parseUnits("2"));
+    it("WHEN calling setEarningsAccumulatorSmoothFactor, THEN the earningsAccumulatorSmoothFactor should be updated", async () => {
+      await timelockExecute(owner, marketDAI, "setEarningsAccumulatorSmoothFactor", [parseUnits("2")]);
+      expect(await marketDAI.earningsAccumulatorSmoothFactor()).to.be.equal(parseUnits("2"));
     });
     it("WHEN calling setTreasury from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
       await expect(marketDAI.setTreasury(maria.address, 0)).to.be.revertedWith("AccessControl");
@@ -368,7 +368,7 @@ describe("Market", function () {
     it("WHEN calling setTreasury, THEN the treasury address and treasury fee should be updated", async () => {
       await timelockExecute(owner, marketDAI, "setTreasury", [maria.address, parseUnits("0.1")]);
       expect(await marketDAI.treasury()).to.be.equal(maria.address);
-      expect(await marketDAI.treasuryFee()).to.be.equal(parseUnits("0.1"));
+      expect(await marketDAI.treasuryFeeRate()).to.be.equal(parseUnits("0.1"));
     });
   });
 
@@ -392,7 +392,7 @@ describe("Market", function () {
           maria.address,
           maria.address,
         ),
-      ).to.be.revertedWith("TooMuchSlippage()");
+      ).to.be.revertedWith("Disagreement()");
     });
     it("AND contract's state variable fixedDeposits registers the maturity where the user supplied to", async () => {
       const maturities = await marketDAI.fixedDeposits(maria.address);
@@ -401,7 +401,7 @@ describe("Market", function () {
     it("WHEN trying to deposit 100 DAI with a minimum required amount to be received of 103, THEN 102 are received instead AND the transaction reverts with TOO_MUCH_SLIPPAGE", async () => {
       await expect(
         marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("100"), parseUnits("103"), maria.address),
-      ).to.be.revertedWith("TooMuchSlippage()");
+      ).to.be.revertedWith("Disagreement()");
     });
   });
 
@@ -517,8 +517,8 @@ describe("Market", function () {
           await marketDAI.repay("1", maria.address);
         });
         it("WHEN Maria tries to borrow 3 more DAI from the smart pool, THEN it does not revert", async () => {
-          // despite a lot of fees being added to the smartPoolFlexibleBorrows all those same fees are also added
-          // to the smartPoolAssets at the same time
+          // despite a lot of fees being added to the floatingDebt all those same fees are also added
+          // to the floatingAssets at the same time
           await expect(marketDAI.borrow(parseUnits("3"), maria.address, maria.address)).to.not.be.reverted;
         });
         it("WHEN Maria tries to borrow 3.01 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
@@ -654,7 +654,7 @@ describe("Market", function () {
           expect(borrowed).to.gt(supplied);
         });
         it("AND 200 are borrowed from the smart pool", async () => {
-          expect(await marketDAI.smartPoolFixedBorrows()).to.equal(parseUnits("200"));
+          expect(await marketDAI.floatingBackupBorrowed()).to.equal(parseUnits("200"));
         });
         it("AND WHEN trying to withdraw 300 ==(500 available, 200 borrowed to MP) from the smart pool, THEN it succeeds", async () => {
           await expect(marketDAI.withdraw(parseUnits("300"), maria.address, maria.address)).to.not.be.reverted;
@@ -683,7 +683,7 @@ describe("Market", function () {
             expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
           });
           it("THEN the smart pool has lent 300 (100 from the later maturity one, 200 from the first one)", async () => {
-            expect(await marketDAI.smartPoolFixedBorrows()).to.equal(parseUnits("300"));
+            expect(await marketDAI.floatingBackupBorrowed()).to.equal(parseUnits("300"));
           });
           describe("AND WHEN repaying 50 DAI in the later maturity", () => {
             beforeEach(async () => {
@@ -701,7 +701,7 @@ describe("Market", function () {
               expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("50"));
             });
             it("THEN the smart pool was repaid 50 DAI (SPborrowed=250)", async () => {
-              expect(await marketDAI.smartPoolFixedBorrows()).to.equal(parseUnits("250"));
+              expect(await marketDAI.floatingBackupBorrowed()).to.equal(parseUnits("250"));
             });
           });
           describe("AND WHEN john deposits 800 to the later maturity", () => {
@@ -722,7 +722,7 @@ describe("Market", function () {
               expect(mp.supplied).to.gt(mp.borrowed);
             });
             it("THEN the smart pool was repaid, and is still owed 200 from the current one", async () => {
-              expect(await marketDAI.smartPoolFixedBorrows()).to.equal(parseUnits("200"));
+              expect(await marketDAI.floatingBackupBorrowed()).to.equal(parseUnits("200"));
             });
           });
         });
@@ -744,7 +744,7 @@ describe("Market", function () {
             expect(mp.borrowed.sub(mp.supplied)).to.equal(parseUnits("100"));
           });
           it("THEN the smart pool was repaid the other 100 (is owed still 100)", async () => {
-            expect(await marketDAI.smartPoolFixedBorrows()).to.equal(parseUnits("100"));
+            expect(await marketDAI.floatingBackupBorrowed()).to.equal(parseUnits("100"));
           });
         });
         describe("AND WHEN john deposits 300 to the same maturity", () => {
@@ -866,7 +866,7 @@ describe("Market", function () {
       describe("GIVEN a smart pool supply of 100 AND a borrow of 30 in a first maturity pool", () => {
         beforeEach(async () => {
           const tx = await marketDAI.deposit(parseUnits("100"), maria.address);
-          // we make 9011 seconds to go by so the smartPoolAssetsAverage is equal to the smartPoolAssets
+          // we make 9011 seconds to go by so the floatingAssetsAverage is equal to the floatingAssets
           const { blockNumber } = await tx.wait();
           const { timestamp } = await provider.getBlock(blockNumber);
           await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
@@ -1185,12 +1185,12 @@ describe("Market", function () {
         let tx: any;
         beforeEach(async () => {
           const depositTx = await marketDAI.deposit(parseUnits("100"), maria.address);
-          // we make 9011 seconds to go by so the smartPoolAssetsAverage is equal to the smartPoolAssets
+          // we make 9011 seconds to go by so the floatingAssetsAverage is equal to the floatingAssets
           const { blockNumber } = await depositTx.wait();
           const { timestamp } = await provider.getBlock(blockNumber);
           await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
 
-          await timelockExecute(owner, marketDAI, "setSmartPoolReserveFactor", [parseUnits("0.1")]);
+          await timelockExecute(owner, marketDAI, "setReserveFactor", [parseUnits("0.1")]);
           tx = marketDAI.borrowAtMaturity(
             futurePools(1)[0],
             parseUnits("80"),
@@ -1213,7 +1213,7 @@ describe("Market", function () {
             ),
           ).to.not.be.reverted;
         });
-        it("AND WHEN trying to borrow 10.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+        it("AND WHEN trying to borrow 10.01 more, THEN it should revert with ReserveUnderflow", async () => {
           await expect(
             marketDAI.borrowAtMaturity(
               futurePools(1)[0],
@@ -1222,7 +1222,7 @@ describe("Market", function () {
               maria.address,
               maria.address,
             ),
-          ).to.be.revertedWith("SmartPoolReserveExceeded()");
+          ).to.be.revertedWith("ReserveUnderflow()");
         });
         it("AND WHEN depositing 0.1 more to the sp, THEN it should not revert when trying to borrow 10.01 more", async () => {
           await marketDAI.deposit(parseUnits("0.1"), maria.address);
@@ -1271,7 +1271,7 @@ describe("Market", function () {
             it("THEN the withdraw transaction should not revert", async () => {
               await expect(tx).to.not.be.reverted;
             });
-            it("AND WHEN trying to borrow 0.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+            it("AND WHEN trying to borrow 0.01 more, THEN it should revert with ReserveUnderflow", async () => {
               await expect(
                 marketDAI.borrowAtMaturity(
                   futurePools(1)[0],
@@ -1280,7 +1280,7 @@ describe("Market", function () {
                   maria.address,
                   maria.address,
                 ),
-              ).to.be.revertedWith("SmartPoolReserveExceeded()");
+              ).to.be.revertedWith("ReserveUnderflow()");
             });
             describe("AND GIVEN a repay of 5", () => {
               beforeEach(async () => {
@@ -1297,7 +1297,7 @@ describe("Market", function () {
                   ),
                 ).to.not.be.reverted;
               });
-              it("AND WHEN trying to borrow 5.01 more, THEN it should revert with SmartPoolReserveExceeded", async () => {
+              it("AND WHEN trying to borrow 5.01 more, THEN it should revert with ReserveUnderflow", async () => {
                 await expect(
                   marketDAI.borrowAtMaturity(
                     futurePools(1)[0],
@@ -1306,7 +1306,7 @@ describe("Market", function () {
                     maria.address,
                     maria.address,
                   ),
-                ).to.be.revertedWith("SmartPoolReserveExceeded()");
+                ).to.be.revertedWith("ReserveUnderflow()");
               });
             });
           });

@@ -31,7 +31,7 @@ export class MarketEnv {
   }
 
   public getAllEarnings(fixedPoolState: FixedPoolState): BigNumber {
-    return fixedPoolState.earningsSP
+    return fixedPoolState.backupEarnings
       .add(fixedPoolState.earningsAccumulator)
       .add(fixedPoolState.earningsMP)
       .add(fixedPoolState.unassignedEarnings)

@@ -328,7 +328,7 @@ contract Auditor is AccessControl {
   /// @notice Checks if the user has an account liquidity shortfall
   /// @dev This function is called indirectly from market contracts(withdraw), eToken transfers and directly from
   /// this contract when the user wants to exit a market.
-  /// @param market address of the market where the smart pool belongs.
+  /// @param market address of the market where the operation will happen.
   /// @param account address of the user to check for possible shortfall.
   /// @param amount amount that the user wants to withdraw or transfer.
   function validateAccountShortfall(
