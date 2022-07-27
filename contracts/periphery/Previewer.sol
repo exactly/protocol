@@ -5,9 +5,9 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
 import { ExactlyOracle } from "../ExactlyOracle.sol";
-import { Market } from "../Market.sol";
-import { Auditor } from "../Auditor.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
+import { Auditor } from "../Auditor.sol";
+import { Market } from "../Market.sol";
 
 /// @title Previewer
 /// @notice Contract to be consumed by Exactly's front-end dApp.
@@ -20,12 +20,12 @@ contract Previewer {
 
   Auditor public immutable auditor;
 
-  struct MaturityPosition {
+  struct FixedPosition {
     uint256 maturity;
     FixedLib.Position position;
   }
 
-  struct MaturityLiquidity {
+  struct FixedLiquidity {
     uint256 maturity;
     uint256 assets;
     uint256 utilization;
@@ -33,27 +33,21 @@ contract Previewer {
 
   struct MarketAccount {
     Market market;
+    uint8 decimals;
     string assetSymbol;
     uint256 oraclePrice;
     uint128 penaltyRate;
     uint128 adjustFactor;
-    uint8 decimals;
     uint8 maxFuturePools;
     bool isCollateral;
-    uint256 smartPoolShares;
-    uint256 smartPoolAssets;
-    uint256 flexibleBorrowShares;
-    uint256 flexibleBorrowAssets;
-    uint256 flexibleBorrowRate;
-    uint256 flexibleAvailableLiquidity;
-    MaturityLiquidity[] fixedAvailableLiquidity;
-    MaturityPosition[] fixedSupplyPositions;
-    MaturityPosition[] fixedBorrowPositions;
-  }
-
-  struct MaturityBitmap {
-    uint256 base;
-    uint256 packed;
+    uint256 floatingDepositShares;
+    uint256 floatingDepositAssets;
+    uint256 floatingBorrowShares;
+    uint256 floatingBorrowAssets;
+    uint256 floatingAvailableLiquidity;
+    FixedPosition[] fixedDepositPositions;
+    FixedPosition[] fixedBorrowPositions;
+    FixedLiquidity[] fixedAvailableLiquidity;
   }
 
   constructor(Auditor auditor_) {
@@ -82,19 +76,19 @@ contract Previewer {
   function previewDepositAtAllMaturities(Market market, uint256 assets)
     external
     view
-    returns (MaturityLiquidity[] memory positionAssetsMaturities)
+    returns (FixedLiquidity[] memory positionAssetsMaturities)
   {
     FixedLib.Pool memory pool;
     uint256 maxFuturePools = market.maxFuturePools();
     uint256 nextMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-    positionAssetsMaturities = new MaturityLiquidity[](maxFuturePools);
+    positionAssetsMaturities = new FixedLiquidity[](maxFuturePools);
     uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
     for (uint256 i = 0; i < maxFuturePools; i++) {
       uint256 maturity = nextMaturity + FixedLib.INTERVAL * i;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
       uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage(market);
 
-      positionAssetsMaturities[i] = MaturityLiquidity({
+      positionAssetsMaturities[i] = FixedLiquidity({
         maturity: maturity,
         assets: previewDepositAtMaturity(market, maturity, assets),
         utilization: memSmartPoolAssetsAverage > 0
@@ -197,59 +191,40 @@ contract Previewer {
       (uint128 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
       data[i] = MarketAccount({
         market: market,
+        decimals: decimals,
         assetSymbol: market.asset().symbol(),
         oraclePrice: oracle.getAssetPrice(market),
         penaltyRate: uint128(market.penaltyRate()),
         adjustFactor: adjustFactor,
-        decimals: decimals,
         maxFuturePools: market.maxFuturePools(),
         isCollateral: markets & (1 << i) != 0 ? true : false,
-        smartPoolShares: market.balanceOf(account),
-        smartPoolAssets: market.maxWithdraw(account),
-        flexibleBorrowShares: market.flexibleBorrowPositions(account),
-        flexibleBorrowAssets: market.maxRepay(account),
-        flexibleBorrowRate: flexibleBorrowRate(market),
-        flexibleAvailableLiquidity: flexibleAvailableLiquidity(market),
+        floatingDepositShares: market.balanceOf(account),
+        floatingDepositAssets: market.maxWithdraw(account),
+        floatingBorrowShares: market.flexibleBorrowPositions(account),
+        floatingBorrowAssets: market.maxRepay(account),
+        floatingAvailableLiquidity: floatingAvailableLiquidity(market),
         fixedAvailableLiquidity: fixedAvailableLiquidity(market),
-        fixedSupplyPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
+        fixedDepositPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
         fixedBorrowPositions: maturityPositions(account, market.fixedBorrows, market.fixedBorrowPositions)
       });
     }
   }
 
-  function flexibleBorrowRate(Market market) internal view returns (uint256) {
-    InterestRateModel interestRateModel = market.interestRateModel();
-    uint256 smartPoolAssets = market.smartPoolAssets();
-    uint256 fullUtilization = market.interestRateModel().floatingFullUtilization();
-    return
-      smartPoolAssets > 0
-        ? interestRateModel.getFloatingBorrowRate(
-          market.spPreviousUtilization(),
-          market.smartPoolFlexibleBorrows().divWadDown(smartPoolAssets.divWadDown(fullUtilization))
-        )
-        : 0;
-  }
-
-  function fixedAvailableLiquidity(Market market)
-    internal
-    view
-    returns (MaturityLiquidity[] memory availableLiquidities)
-  {
-    availableLiquidities = new MaturityLiquidity[](market.maxFuturePools());
+  function fixedAvailableLiquidity(Market market) internal view returns (FixedLiquidity[] memory availableLiquidities) {
+    availableLiquidities = new FixedLiquidity[](market.maxFuturePools());
     uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
       uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1);
       FixedLib.Pool memory pool;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
-      uint256 borrowableAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
+      uint256 maxAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
       uint256 memSmartPoolAssetsAverage = smartPoolAssetsAverage(market);
 
-      availableLiquidities[i] = MaturityLiquidity({
+      availableLiquidities[i] = FixedLiquidity({
         maturity: maturity,
         assets: Math.min(
-          borrowableAssets -
-            Math.min(borrowableAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows()),
+          maxAssets - Math.min(maxAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows()),
           smartPoolAssetsAverage(market)
         ) +
           pool.supplied -
@@ -261,35 +236,31 @@ contract Previewer {
     }
   }
 
-  function flexibleAvailableLiquidity(Market market) internal view returns (uint256) {
-    uint256 borrowableAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
-    return
-      borrowableAssets - Math.min(borrowableAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows());
+  function floatingAvailableLiquidity(Market market) internal view returns (uint256) {
+    uint256 maxAssets = market.smartPoolAssets().mulWadDown(1e18 - market.smartPoolReserveFactor());
+    return maxAssets - Math.min(maxAssets, market.smartPoolFixedBorrows() + market.smartPoolFlexibleBorrows());
   }
 
   function maturityPositions(
     address account,
     function(address) external view returns (uint256) getMaturities,
     function(uint256, address) external view returns (uint256, uint256) getPositions
-  ) internal view returns (MaturityPosition[] memory userMaturityPositions) {
+  ) internal view returns (FixedPosition[] memory userMaturityPositions) {
     uint256 userMaturityCount = 0;
-    MaturityPosition[] memory allMaturityPositions = new MaturityPosition[](224);
-    MaturityBitmap memory maturities;
-    maturities.packed = getMaturities(account);
-    maturities.base = maturities.packed % (1 << 32);
-    maturities.packed = maturities.packed >> 32;
+    FixedPosition[] memory allMaturityPositions = new FixedPosition[](224);
+    uint256 packedMaturities = getMaturities(account);
     for (uint256 i = 0; i < 224; ++i) {
-      if ((maturities.packed & (1 << i)) != 0) {
-        uint256 maturity = maturities.base + (i * FixedLib.INTERVAL);
+      if (((packedMaturities >> 32) & (1 << i)) != 0) {
+        uint256 maturity = (packedMaturities % (1 << 32)) + (i * FixedLib.INTERVAL);
         (uint256 principal, uint256 fee) = getPositions(maturity, account);
         allMaturityPositions[userMaturityCount].maturity = maturity;
         allMaturityPositions[userMaturityCount].position = FixedLib.Position(principal, fee);
         ++userMaturityCount;
       }
-      if ((1 << i) > maturities.packed) break;
+      if ((1 << i) > packedMaturities) break;
     }
 
-    userMaturityPositions = new MaturityPosition[](userMaturityCount);
+    userMaturityPositions = new FixedPosition[](userMaturityCount);
     for (uint256 i = 0; i < userMaturityCount; ++i) userMaturityPositions[i] = allMaturityPositions[i];
   }
 
