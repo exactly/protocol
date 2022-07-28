@@ -268,7 +268,7 @@ export class DefaultEnv {
     return market.fixedPools(maturityPoolID);
   }
 
-  public async getDebt(market: string) {
-    return this.getMarket(market).getDebt(this.currentWallet.address);
+  public async previewDebt(market: string) {
+    return this.getMarket(market).previewDebt(this.currentWallet.address);
   }
 }

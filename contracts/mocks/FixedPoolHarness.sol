@@ -18,7 +18,7 @@ contract FixedPoolHarness {
   uint256 public lastEarningsTreasury;
   FixedLib.Position public scaledDebt;
 
-  function getDepositYield(
+  function calculateDeposit(
     uint256 borrowed,
     uint256 supplied,
     uint256 unassignedEarnings,
@@ -34,7 +34,7 @@ contract FixedPoolHarness {
           unassignedEarnings: unassignedEarnings,
           lastAccrual: lastAccrual
         })
-        .getDepositYield(amount, backupFeeRate);
+        .calculateDeposit(amount, backupFeeRate);
   }
 
   function accrueEarnings(uint256 maturity) external {
@@ -49,8 +49,8 @@ contract FixedPoolHarness {
     backupDebtReduction = fixedPool.repay(amount);
   }
 
-  function borrow(uint256 amount, uint256 backupAvailableSupply) external {
-    backupDebtAddition = fixedPool.borrow(amount, backupAvailableSupply);
+  function borrow(uint256 amount) external {
+    backupDebtAddition = fixedPool.borrow(amount);
   }
 
   function distributeEarnings(
@@ -71,8 +71,8 @@ contract FixedPoolHarness {
       .distributeEarnings(earnings, borrowAmount);
   }
 
-  function withdraw(uint256 amountToDiscount, uint256 backupAvailableSupply) external {
-    backupDebtAddition = fixedPool.withdraw(amountToDiscount, backupAvailableSupply);
+  function withdraw(uint256 amountToDiscount) external {
+    backupDebtAddition = fixedPool.withdraw(amountToDiscount);
   }
 
   function setMaturity(uint256 encoded, uint256 maturity) external {

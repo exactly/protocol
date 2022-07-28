@@ -28,16 +28,6 @@ contract InterestRateModel is AccessControl {
   /// @notice Floating rate model full utilization.
   uint128 public floatingFullUtilization;
 
-  /// @notice Emitted when the fixed rate curve parameters are changed by admin.
-  /// @param curve new fixed rate curve parameters.
-  /// @param fullUtilization new fixed rate full utilization.
-  event FixedParametersSet(Curve curve, uint128 fullUtilization);
-
-  /// @notice Emitted when the floating curve parameters are changed by admin.
-  /// @param curve new floating rate curve parameters.
-  /// @param fullUtilization new floating rate full utilization.
-  event FloatingParametersSet(Curve curve, uint128 fullUtilization);
-
   constructor(
     Curve memory fixedCurve_,
     uint128 fixedFullUtilization_,
@@ -50,39 +40,6 @@ contract InterestRateModel is AccessControl {
     setFloatingParameters(floatingCurve_, floatingFullUtilization_);
   }
 
-  /// @notice Updates this model's fixed rate curve parameters.
-  /// @param curve new fixed rate curve parameters.
-  /// @param fullUtilization new fixed rate full utilization.
-  function setFixedParameters(Curve memory curve, uint128 fullUtilization) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (
-      fullUtilization > 52e18 ||
-      fullUtilization < 1e18 ||
-      fullUtilization >= curve.maxUtilization ||
-      fullUtilization < curve.maxUtilization / 3
-    ) revert InvalidParameter();
-
-    fixedCurve = curve;
-    fixedFullUtilization = fullUtilization;
-
-    // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    fixedRate(0, 0);
-
-    emit FixedParametersSet(curve, fullUtilization);
-  }
-
-  /// @notice Updates this model's floating rate curve parameters.
-  /// @param curve new floating rate curve parameters.
-  /// @param fullUtilization new floating rate full utilization.
-  function setFloatingParameters(Curve memory curve, uint128 fullUtilization) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    floatingCurve = curve;
-    floatingFullUtilization = fullUtilization;
-
-    // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    floatingRate(0, 0);
-
-    emit FloatingParametersSet(curve, fullUtilization);
-  }
-
   /// @notice Gets the rate to borrow a certain amount at a certain maturity with supply/demand values in the fixed rate
   /// pool and assets from the backup supplier.
   /// @param maturity maturity date for calculating days left to maturity.
@@ -91,7 +48,7 @@ contract InterestRateModel is AccessControl {
   /// @param supplied deposits in the fixed rate pool.
   /// @param backupAssets backup supplier assets.
   /// @return rate of the fee that the borrower will have to pay (represented with 1e18 decimals).
-  function getFixedBorrowRate(
+  function fixedBorrowRate(
     uint256 maturity,
     uint256 amount,
     uint256 borrowed,
@@ -116,7 +73,7 @@ contract InterestRateModel is AccessControl {
   /// @param utilizationBefore ex-ante utilization rate, with 18 decimals precision.
   /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.
   /// @return the interest rate, with 18 decimals precision.
-  function getFloatingBorrowRate(uint256 utilizationBefore, uint256 utilizationAfter) external view returns (uint256) {
+  function floatingBorrowRate(uint256 utilizationBefore, uint256 utilizationAfter) external view returns (uint256) {
     if (utilizationAfter > floatingFullUtilization) revert UtilizationExceeded();
 
     return floatingRate(Math.min(utilizationBefore, utilizationAfter), Math.max(utilizationBefore, utilizationAfter));
@@ -167,6 +124,49 @@ contract InterestRateModel is AccessControl {
     assert(r >= 0);
     return uint256(r);
   }
+
+  /// @notice Updates this model's fixed rate curve parameters.
+  /// @param curve new fixed rate curve parameters.
+  /// @param fullUtilization new fixed rate full utilization.
+  function setFixedParameters(Curve memory curve, uint128 fullUtilization) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (
+      fullUtilization > 52e18 ||
+      fullUtilization < 1e18 ||
+      fullUtilization >= curve.maxUtilization ||
+      fullUtilization < curve.maxUtilization / 3
+    ) revert InvalidParameter();
+
+    fixedCurve = curve;
+    fixedFullUtilization = fullUtilization;
+
+    // reverts if it's an invalid curve (such as one yielding a negative interest rate).
+    fixedRate(0, 0);
+
+    emit FixedParametersSet(curve, fullUtilization);
+  }
+
+  /// @notice Updates this model's floating rate curve parameters.
+  /// @param curve new floating rate curve parameters.
+  /// @param fullUtilization new floating rate full utilization.
+  function setFloatingParameters(Curve memory curve, uint128 fullUtilization) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    floatingCurve = curve;
+    floatingFullUtilization = fullUtilization;
+
+    // reverts if it's an invalid curve (such as one yielding a negative interest rate).
+    floatingRate(0, 0);
+
+    emit FloatingParametersSet(curve, fullUtilization);
+  }
+
+  /// @notice Emitted when the fixed rate curve parameters are changed by admin.
+  /// @param curve new fixed rate curve parameters.
+  /// @param fullUtilization new fixed rate full utilization.
+  event FixedParametersSet(Curve curve, uint128 fullUtilization);
+
+  /// @notice Emitted when the floating curve parameters are changed by admin.
+  /// @param curve new floating rate curve parameters.
+  /// @param fullUtilization new floating rate full utilization.
+  event FloatingParametersSet(Curve curve, uint128 fullUtilization);
 }
 
 error AlreadyMatured();

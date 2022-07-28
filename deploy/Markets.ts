@@ -100,7 +100,7 @@ const func: DeployFunction = async ({
     }
 
     const underlyingAdjustFactor = parseUnits(String(adjustFactor[symbol] ?? adjustFactor.default));
-    if (!(await auditor.getAllMarkets()).includes(market.address)) {
+    if (!(await auditor.allMarkets()).includes(market.address)) {
       await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
         market.address,
         underlyingAdjustFactor,

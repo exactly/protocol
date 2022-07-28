@@ -92,7 +92,7 @@ describe("Liquidity computations", function () {
       });
       // TODO: a test where the supply interest is != 0, see if there's an error like the one described in this commit
       it("AND she has zero debt and is owed 1000DAI", async () => {
-        const [supplied, owed] = await marketDAI.getAccountSnapshot(laura.address);
+        const [supplied, owed] = await marketDAI.accountSnapshot(laura.address);
         expect(supplied).to.equal(parseUnits("1000"));
         expect(owed).to.equal(parseUnits("0"));
       });
@@ -114,7 +114,7 @@ describe("Liquidity computations", function () {
               laura.address,
               laura.address,
             ),
-          ).to.be.revertedWith("InsufficientLiquidity()");
+          ).to.be.revertedWith("InsufficientAccountLiquidity()");
         });
       });
 
@@ -135,13 +135,13 @@ describe("Liquidity computations", function () {
           expect(collateral).to.equal(debt);
         });
         it("AND she has 640 debt and is owed 1000DAI", async () => {
-          const [supplied, borrowed] = await marketDAI.getAccountSnapshot(laura.address);
+          const [supplied, borrowed] = await marketDAI.accountSnapshot(laura.address);
 
           expect(supplied).to.equal(parseUnits("1000"));
           expect(borrowed).to.equal(parseUnits("640"));
         });
         it("AND WHEN laura tries to exit her collateral DAI market it reverts since there's unpaid debt", async () => {
-          await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWith("BalanceOwed()");
+          await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWith("RemainingDebt()");
         });
         it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
           await marketDAI.repayAtMaturity(futurePools(1)[0], parseUnits("640"), parseUnits("640"), laura.address);
@@ -156,7 +156,7 @@ describe("Liquidity computations", function () {
             await expect(auditor.exitMarket(marketWETH.address)).to.not.be.reverted;
           });
           it("THEN it reverts when she tries to exit her collateral DAI market since it's the same that she borrowed from", async () => {
-            await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWith("BalanceOwed()");
+            await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWith("RemainingDebt()");
           });
         });
       });
@@ -254,7 +254,7 @@ describe("Liquidity computations", function () {
           // We expect liquidity to be equal to zero
           await expect(
             marketUSDC.connect(bob).borrowAtMaturity(futurePools(1)[0], "400", "400", bob.address, bob.address),
-          ).to.be.revertedWith("InsufficientLiquidity()");
+          ).to.be.revertedWith("InsufficientAccountLiquidity()");
         });
         describe("AND WHEN he takes a 3*10^14 USDC loan", () => {
           beforeEach(async () => {
@@ -290,7 +290,7 @@ describe("Liquidity computations", function () {
             marketWBTC
               .connect(bob)
               .borrowAtMaturity(futurePools(1)[0], parseUnits("1", 8), parseUnits("1", 8), bob.address, bob.address),
-          ).to.be.revertedWith("InsufficientLiquidity()");
+          ).to.be.revertedWith("InsufficientAccountLiquidity()");
         });
       });
 
@@ -318,7 +318,7 @@ describe("Liquidity computations", function () {
           it("WHEN he tries to withdraw the usdc (6 decimals) collateral, THEN it reverts ()", async () => {
             // We expect liquidity to be equal to zero
             await expect(marketUSDC.withdraw(parseUnits("40000", 6), bob.address, bob.address)).to.be.revertedWith(
-              "InsufficientLiquidity()",
+              "InsufficientAccountLiquidity()",
             );
           });
         });

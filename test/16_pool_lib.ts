@@ -11,7 +11,6 @@ describe("Fixed Pool Management Library", () => {
   let poolEnv: PoolEnv;
   let fp: any;
   let scaledDebt: any;
-  const mockMaxDebt = "5000";
 
   describe("GIVEN a clean fixed rate pool", () => {
     beforeEach(async () => {
@@ -40,7 +39,7 @@ describe("Fixed Pool Management Library", () => {
         });
         describe("AND WHEN 80 tokens are taken out", () => {
           beforeEach(async () => {
-            await poolEnv.borrow("80", mockMaxDebt);
+            await poolEnv.borrow("80");
             fp = await poolEnv.fpHarness.fixedPool();
           });
 
@@ -56,7 +55,7 @@ describe("Fixed Pool Management Library", () => {
           });
           describe("AND WHEN another 20 tokens are taken out", () => {
             beforeEach(async () => {
-              await poolEnv.borrow("20", mockMaxDebt);
+              await poolEnv.borrow("20");
               fp = await poolEnv.fpHarness.fixedPool();
             });
 
@@ -70,27 +69,9 @@ describe("Fixed Pool Management Library", () => {
             it("THEN the pool 'supplied' is 100", async () => {
               expect(fp.supplied).to.equal(parseUnits("100"));
             });
-            describe("AND WHEN more tokens are taken out than the max sp debt", () => {
-              let tx: any;
-              beforeEach(async () => {
-                tx = poolEnv.borrow("5000", "1000");
-              });
-              it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
-                await expect(tx).to.be.revertedWith("InsufficientProtocolLiquidity()");
-              });
-            });
-            describe("AND WHEN the exact amount of max sp debt is taken out", () => {
-              let tx: any;
-              beforeEach(async () => {
-                tx = poolEnv.borrow("1000", "1000");
-              });
-              it("THEN it should not revert", async () => {
-                await expect(tx).to.not.be.reverted;
-              });
-            });
             describe("AND WHEN 50 tokens are taken out", () => {
               beforeEach(async () => {
-                await poolEnv.borrow("50", mockMaxDebt);
+                await poolEnv.borrow("50");
                 fp = await poolEnv.fpHarness.fixedPool();
               });
 
@@ -110,7 +91,7 @@ describe("Fixed Pool Management Library", () => {
 
         describe("AND WHEN 180 tokens are taken out", () => {
           beforeEach(async () => {
-            await poolEnv.borrow("180", mockMaxDebt);
+            await poolEnv.borrow("180");
             fp = await poolEnv.fpHarness.fixedPool();
           });
 
@@ -163,44 +144,44 @@ describe("Fixed Pool Management Library", () => {
       });
     });
 
-    describe("getDepositYield without a backupFeeRate (0%)", () => {
+    describe("calculateDeposit without a backupFeeRate (0%)", () => {
       it("WHEN backupSupplied is 100, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 100 (0 for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("100", "100", "100", "0");
+        const result = await poolEnv.calculateDeposit("100", "100", "100", "0");
 
         expect(result[0]).to.equal(parseUnits("100"));
         expect(result[1]).to.equal(parseUnits("0"));
       });
 
       it("WHEN backupSupplied is 101, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 99.0099... (0 for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("100", "100", "101", "0");
+        const result = await poolEnv.calculateDeposit("100", "100", "101", "0");
 
         expect(result[0]).to.closeTo(parseUnits("99.00990099"), parseUnits("00.00000001").toNumber());
         expect(result[1]).to.eq(parseUnits("0"));
       });
 
       it("WHEN backupSupplied is 200, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 50 (0 for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("100", "100", "200", "0");
+        const result = await poolEnv.calculateDeposit("100", "100", "200", "0");
 
         expect(result[0]).to.equal(parseUnits("50"));
         expect(result[1]).to.equal(parseUnits("0"));
       });
 
       it("WHEN backupSupplied is 0, unassignedEarnings are 100, and amount deposited is 100, THEN earnings is 0 (0 for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("100", "100", "0", "0");
+        const result = await poolEnv.calculateDeposit("100", "100", "0", "0");
 
         expect(result[0]).to.equal(parseUnits("0"));
         expect(result[1]).to.equal(parseUnits("0"));
       });
 
       it("WHEN backupSupplied is 100, unassignedEarnings are 0, and amount deposited is 100, THEN earnings is 0 (0 for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("0", "0", "100", "0");
+        const result = await poolEnv.calculateDeposit("0", "0", "100", "0");
 
         expect(result[0]).to.equal(parseUnits("0"));
         expect(result[1]).to.equal(parseUnits("0"));
       });
 
       it("WHEN backupSupplied is 100, unassignedEarnings are 100, and amount deposited is 0, THEN earnings is 0 (0 for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("0", "100", "100", "0");
+        const result = await poolEnv.calculateDeposit("0", "100", "100", "0");
 
         expect(result[0]).to.equal(parseUnits("0"));
         expect(result[1]).to.equal(parseUnits("0"));
@@ -209,14 +190,14 @@ describe("Fixed Pool Management Library", () => {
 
     describe("getYieldForDeposit with a custom backupFeeRate, backupSupplied of 100, unassignedEarnings of 100 and amount deposited of 100", () => {
       it("WHEN backupFeeRate is 20%, THEN earnings is 80 (20 for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("100", "100", "100", "0.2");
+        const result = await poolEnv.calculateDeposit("100", "100", "100", "0.2");
 
         expect(result[0]).to.eq(parseUnits("80"));
         expect(result[1]).to.eq(parseUnits("20"));
       });
 
       it("WHEN backupFeeRate is 20% AND backupSupplied is 101 THEN earnings is 79.2079... (19.8019... for the SP)", async () => {
-        const result = await poolEnv.getDepositYield("100", "100", "101", "0.2");
+        const result = await poolEnv.calculateDeposit("100", "100", "101", "0.2");
 
         expect(result[0]).to.closeTo(parseUnits("79.20792079"), parseUnits("00.00000001").toNumber());
         expect(result[1]).to.closeTo(parseUnits("19.80198019"), parseUnits("00.00000001").toNumber());
@@ -389,7 +370,7 @@ describe("Fixed Pool Management Library", () => {
     describe("repay", () => {
       describe("WHEN 100 tokens are taken out", () => {
         beforeEach(async () => {
-          await poolEnv.borrow("100", mockMaxDebt);
+          await poolEnv.borrow("100");
           fp = await poolEnv.fpHarness.fixedPool();
         });
 
@@ -441,7 +422,7 @@ describe("Fixed Pool Management Library", () => {
         });
         describe("WHEN 50 tokens are withdrawn", () => {
           beforeEach(async () => {
-            await poolEnv.withdraw("50", mockMaxDebt);
+            await poolEnv.withdraw("50");
             fp = await poolEnv.fpHarness.fixedPool();
           });
 
@@ -454,11 +435,11 @@ describe("Fixed Pool Management Library", () => {
           });
           describe("AND GIVEN another 100 tokens are taken out", () => {
             beforeEach(async () => {
-              await poolEnv.borrow("100", mockMaxDebt);
+              await poolEnv.borrow("100");
             });
             describe("WHEN another 50 tokens are withdrawn", () => {
               beforeEach(async () => {
-                await poolEnv.withdraw("50", mockMaxDebt);
+                await poolEnv.withdraw("50");
                 fp = await poolEnv.fpHarness.fixedPool();
               });
 
@@ -470,28 +451,10 @@ describe("Fixed Pool Management Library", () => {
                 expect(newDebtSpReturned).to.equal(parseUnits("50"));
               });
             });
-            describe("AND WHEN more tokens are taken out than the max sp debt", () => {
-              let tx: any;
-              beforeEach(async () => {
-                tx = poolEnv.withdraw("50", "49");
-              });
-              it("THEN it reverts with error INSUFFICIENT_PROTOCOL_LIQUIDITY", async () => {
-                await expect(tx).to.be.revertedWith("InsufficientProtocolLiquidity()");
-              });
-            });
-            describe("AND WHEN the exact amount of max sp debt is taken out", () => {
-              let tx: any;
-              beforeEach(async () => {
-                tx = poolEnv.withdraw("50", "100");
-              });
-              it("THEN it should not revert", async () => {
-                await expect(tx).to.not.be.reverted;
-              });
-            });
           });
           describe("AND WHEN another 50 tokens are withdrawn", () => {
             beforeEach(async () => {
-              await poolEnv.withdraw("50", mockMaxDebt);
+              await poolEnv.withdraw("50");
               fp = await poolEnv.fpHarness.fixedPool();
             });
 

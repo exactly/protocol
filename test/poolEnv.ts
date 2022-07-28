@@ -84,16 +84,16 @@ export class PoolEnv {
     );
   }
 
-  public async borrow(amount: string, maxDebt: string) {
-    return this.fpHarness.borrow(parseUnits(amount), parseUnits(maxDebt));
+  public async borrow(amount: string) {
+    return this.fpHarness.borrow(parseUnits(amount));
   }
 
-  public async withdraw(amount: string, maxDebt: string) {
-    return this.fpHarness.withdraw(parseUnits(amount), parseUnits(maxDebt));
+  public async withdraw(amount: string) {
+    return this.fpHarness.withdraw(parseUnits(amount));
   }
 
-  public async getDepositYield(amount: string, unassignedEarnings: string, spBorrowed: string, backupFeeRate: string) {
-    return this.fpHarness.getDepositYield(
+  public async calculateDeposit(amount: string, unassignedEarnings: string, spBorrowed: string, backupFeeRate: string) {
+    return this.fpHarness.calculateDeposit(
       parseUnits(spBorrowed),
       0,
       parseUnits(unassignedEarnings),

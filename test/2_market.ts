@@ -63,7 +63,7 @@ describe("Market", function () {
         // we add liquidity to the maturity
         await marketDAI.depositAtMaturity(futurePools(1)[0], 3, 0, maria.address);
       });
-      it("THEN the Market registers a supply of 3 wei DAI for the user (exposed via getAccountSnapshot)", async () => {
+      it("THEN the Market registers a supply of 3 wei DAI for the user (exposed via accountSnapshot)", async () => {
         expect(await marketDAI.maxWithdraw(maria.address)).to.equal(3);
       });
       it("AND the Market Size of the smart pool is 3 wei of a dai", async () => {
@@ -72,7 +72,7 @@ describe("Market", function () {
       it("AND its not possible to borrow 3 wei of a dai", async () => {
         await expect(
           marketDAI.borrowAtMaturity(futurePools(1)[0], 3, 6, maria.address, maria.address),
-        ).to.be.revertedWith("InsufficientLiquidity()");
+        ).to.be.revertedWith("InsufficientAccountLiquidity()");
       });
       describe("AND WHEN borrowing 1 wei of DAI", () => {
         let tx: ContractTransaction;
@@ -113,7 +113,7 @@ describe("Market", function () {
     it("WHEN trying to borrow DAI THEN it reverts with INSUFFICIENT_LIQUIDITY since collateral was not deposited yet", async () => {
       await expect(
         marketDAI.borrowAtMaturity(futurePools(1)[0], 1000, 2000, maria.address, maria.address),
-      ).to.be.revertedWith("InsufficientLiquidity()");
+      ).to.be.revertedWith("InsufficientAccountLiquidity()");
     });
     describe("AND WHEN depositing 50 DAI to the same maturity, as the same user", () => {
       beforeEach(async () => {
@@ -127,7 +127,7 @@ describe("Market", function () {
       it("AND the Market contract has a balance of 150 DAI", async () => {
         expect(await dai.balanceOf(marketDAI.address)).to.equal(parseUnits("150"));
       });
-      it("AND the Market does not register a smart pool balance deposit (exposed via getAccountSnapshot)", async () => {
+      it("AND the Market does not register a smart pool balance deposit (exposed via accountSnapshot)", async () => {
         expect(await marketDAI.maxWithdraw(maria.address)).to.equal(0);
       });
     });
@@ -163,7 +163,7 @@ describe("Market", function () {
           await marketDAI.repayAtMaturity(futurePools(1)[0], parseUnits("100"), parseUnits("100"), maria.address);
         });
         it("THEN all debt is repaid", async () => {
-          expect(await marketDAI.getDebt(maria.address)).to.equal(0);
+          expect(await marketDAI.previewDebt(maria.address)).to.equal(0);
         });
         it("THEN the 40 spare amount is not discounted from the user balance", async () => {
           expect(await dai.balanceOf(maria.address)).to.equal(balanceBefore.sub(parseUnits("60")));
@@ -282,7 +282,7 @@ describe("Market", function () {
             .withArgs(futurePools(1)[0], maria.address, maria.address, parseUnits("40"), parseUnits("40"));
         });
         it("AND Maria still owes 20 DAI", async () => {
-          expect(await marketDAI.getDebt(maria.address)).to.equal(parseUnits("20"));
+          expect(await marketDAI.previewDebt(maria.address)).to.equal(parseUnits("20"));
         });
 
         describe("AND WHEN moving in time to 1 day after maturity", () => {
@@ -292,9 +292,9 @@ describe("Market", function () {
             penalty = parseUnits("20").mul(penaltyRate).div(parseUnits("1")).mul(86_400);
             expect(penalty).to.be.gt(0);
           });
-          it("THEN Maria owes (getAccountSnapshot) 20 DAI of principal + (20*0.02 ~= 0.0400032 ) DAI of late payment penalties", async () => {
+          it("THEN Maria owes (accountSnapshot) 20 DAI of principal + (20*0.02 ~= 0.0400032 ) DAI of late payment penalties", async () => {
             await provider.send("evm_mine", []);
-            expect(await marketDAI.getDebt(maria.address)).to.equal(parseUnits("20").add(penalty));
+            expect(await marketDAI.previewDebt(maria.address)).to.equal(parseUnits("20").add(penalty));
           });
           describe("AND WHEN repaying the rest of the 20.4 owed DAI", () => {
             beforeEach(async () => {
@@ -302,7 +302,7 @@ describe("Market", function () {
               await marketDAI.repayAtMaturity(futurePools(1)[0], amount, amount, maria.address);
             });
             it("THEN all debt is repaid", async () => {
-              expect(await marketDAI.getDebt(maria.address)).to.equal(0);
+              expect(await marketDAI.previewDebt(maria.address)).to.equal(0);
             });
           });
           describe("AND WHEN repaying more than what is owed (30 DAI)", () => {
@@ -310,7 +310,7 @@ describe("Market", function () {
               await marketDAI.repayAtMaturity(futurePools(1)[0], parseUnits("30"), parseUnits("30"), maria.address);
             });
             it("THEN all debt is repaid", async () => {
-              expect(await marketDAI.getDebt(maria.address)).to.equal(0);
+              expect(await marketDAI.previewDebt(maria.address)).to.equal(0);
             });
           });
         });
@@ -824,9 +824,9 @@ describe("Market", function () {
         beforeEach(async () => {
           await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 20]);
         });
-        it("THEN Maria owes (getAccountSnapshot) 5k + approx 2.8k DAI in penalties", async () => {
+        it("THEN Maria owes (accountSnapshot) 5k + approx 2.8k DAI in penalties", async () => {
           await provider.send("evm_mine", []);
-          expect(await marketDAI.getDebt(maria.address)).to.equal(
+          expect(await marketDAI.previewDebt(maria.address)).to.equal(
             parseUnits("5000").add(
               parseUnits("5000")
                 .mul(penaltyRate)
@@ -848,9 +848,9 @@ describe("Market", function () {
             await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * days]);
           }
         });
-        it("THEN Maria owes (getAccountSnapshot) 5k + approx 2.8k DAI in penalties (no debt was compounded)", async () => {
+        it("THEN Maria owes (accountSnapshot) 5k + approx 2.8k DAI in penalties (no debt was compounded)", async () => {
           await provider.send("evm_mine", []);
-          expect(await marketDAI.getDebt(maria.address)).to.be.closeTo(
+          expect(await marketDAI.previewDebt(maria.address)).to.be.closeTo(
             parseUnits("5000").add(
               parseUnits("5000")
                 .mul(penaltyRate)
@@ -1213,7 +1213,7 @@ describe("Market", function () {
             ),
           ).to.not.be.reverted;
         });
-        it("AND WHEN trying to borrow 10.01 more, THEN it should revert with ReserveUnderflow", async () => {
+        it("AND WHEN trying to borrow 10.01 more, THEN it should revert with InsufficientProtocolLiquidity", async () => {
           await expect(
             marketDAI.borrowAtMaturity(
               futurePools(1)[0],
@@ -1222,7 +1222,7 @@ describe("Market", function () {
               maria.address,
               maria.address,
             ),
-          ).to.be.revertedWith("ReserveUnderflow()");
+          ).to.be.revertedWith("InsufficientProtocolLiquidity()");
         });
         it("AND WHEN depositing 0.1 more to the sp, THEN it should not revert when trying to borrow 10.01 more", async () => {
           await marketDAI.deposit(parseUnits("0.1"), maria.address);
@@ -1271,7 +1271,7 @@ describe("Market", function () {
             it("THEN the withdraw transaction should not revert", async () => {
               await expect(tx).to.not.be.reverted;
             });
-            it("AND WHEN trying to borrow 0.01 more, THEN it should revert with ReserveUnderflow", async () => {
+            it("AND WHEN trying to borrow 0.01 more, THEN it should revert with InsufficientProtocolLiquidity", async () => {
               await expect(
                 marketDAI.borrowAtMaturity(
                   futurePools(1)[0],
@@ -1280,7 +1280,7 @@ describe("Market", function () {
                   maria.address,
                   maria.address,
                 ),
-              ).to.be.revertedWith("ReserveUnderflow()");
+              ).to.be.revertedWith("InsufficientProtocolLiquidity()");
             });
             describe("AND GIVEN a repay of 5", () => {
               beforeEach(async () => {
@@ -1297,7 +1297,7 @@ describe("Market", function () {
                   ),
                 ).to.not.be.reverted;
               });
-              it("AND WHEN trying to borrow 5.01 more, THEN it should revert with ReserveUnderflow", async () => {
+              it("AND WHEN trying to borrow 5.01 more, THEN it should revert with InsufficientProtocolLiquidity", async () => {
                 await expect(
                   marketDAI.borrowAtMaturity(
                     futurePools(1)[0],
@@ -1306,7 +1306,7 @@ describe("Market", function () {
                     maria.address,
                     maria.address,
                   ),
-                ).to.be.revertedWith("ReserveUnderflow()");
+                ).to.be.revertedWith("InsufficientProtocolLiquidity()");
               });
             });
           });

@@ -9,50 +9,13 @@ library FixedLib {
 
   uint32 public constant INTERVAL = 4 weeks;
 
-  enum State {
-    NONE,
-    INVALID,
-    MATURED,
-    VALID,
-    NOT_READY
-  }
-
-  /// @notice contains the accountability of a fixed interest rate pool.
-  /// @param borrowed total amount borrowed from the pool.
-  /// @param supplied total amount supplied to the pool.
-  /// @param unassignedEarnings total amount of earnings not yet distributed and accrued.
-  /// @param lastAccrual timestamp for the last time that some earnings have been distributed to the backup supplier.
-  struct Pool {
-    uint256 borrowed;
-    uint256 supplied;
-    uint256 unassignedEarnings;
-    uint256 lastAccrual;
-  }
-
-  /// @notice contains principal and fee of a borrow or a supply position of a account in a fixed rate pool.
-  /// @param principal amount borrowed or supplied to the fixed rate pool.
-  /// @param fee amount of fees to be repaid or earned at the maturity of the fixed rate pool.
-  struct Position {
-    uint256 principal;
-    uint256 fee;
-  }
-
-  /// @notice calculates the amount that a fixed rate pool borrowed from the backup supplier.
-  /// @param pool fixed rate pool.
-  /// @return amount borrowed from the fixed rate pool.
-  function backupSupplied(Pool memory pool) internal pure returns (uint256) {
-    uint256 borrowed = pool.borrowed;
-    uint256 supplied = pool.supplied;
-    return borrowed - Math.min(borrowed, supplied);
-  }
-
   /// @notice Gets the amount of revenue sharing between the backup supplier and the new fixed pool supplier.
   /// @param pool fixed rate pool.
   /// @param amount amount being provided by the fixed pool supplier.
   /// @param backupFeeRate rate charged to the fixed pool supplier to be accrued by the backup supplier.
   /// @return yield amount to be offered to the fixed pool supplier.
   /// @return backupFee yield to be accrued by the backup supplier for initially providing the liquidity.
-  function getDepositYield(
+  function calculateDeposit(
     Pool memory pool,
     uint256 amount,
     uint256 backupFeeRate
@@ -92,42 +55,26 @@ library FixedLib {
   /// and potentially increase backup debt.
   /// @param pool fixed rate pool where an amount will be borrowed.
   /// @param amount amount to be borrowed from the fixed rate pool.
-  /// @param backupAvailableSupply maximum amount that can be supplied by the backup supplier.
   /// @return backupDebtAddition amount of new debt that needs to be borrowed from the backup supplier.
-  function borrow(
-    Pool storage pool,
-    uint256 amount,
-    uint256 backupAvailableSupply
-  ) internal returns (uint256 backupDebtAddition) {
+  function borrow(Pool storage pool, uint256 amount) internal returns (uint256 backupDebtAddition) {
     uint256 borrowed = pool.borrowed;
     uint256 newBorrowed = borrowed + amount;
     uint256 oldSupply = Math.max(borrowed, pool.supplied);
 
     backupDebtAddition = newBorrowed - Math.min(oldSupply, newBorrowed);
-
-    if (backupDebtAddition > backupAvailableSupply) revert InsufficientProtocolLiquidity();
-
     pool.borrowed = newBorrowed;
   }
 
   /// @notice registers an operation to reduce supply from a fixed rate pool and potentially increase backup debt.
   /// @param pool fixed rate pool where amount will be withdrawn.
   /// @param amountToDiscount amount to be withdrawn from the fixed rate pool.
-  /// @param backupAvailableSupply maximum amount that can be supplied by the backup supplier.
   /// @return backupDebtAddition amount of new debt that needs to be borrowed from the backup supplier.
-  function withdraw(
-    Pool storage pool,
-    uint256 amountToDiscount,
-    uint256 backupAvailableSupply
-  ) internal returns (uint256 backupDebtAddition) {
+  function withdraw(Pool storage pool, uint256 amountToDiscount) internal returns (uint256 backupDebtAddition) {
     uint256 borrowed = pool.borrowed;
     uint256 supplied = pool.supplied;
     uint256 newSupply = supplied - amountToDiscount;
 
     backupDebtAddition = Math.min(supplied, borrowed) - Math.min(newSupply, borrowed);
-
-    if (backupDebtAddition > backupAvailableSupply) revert InsufficientProtocolLiquidity();
-
     pool.supplied = newSupply;
   }
 
@@ -151,6 +98,15 @@ library FixedLib {
     uint256 unassignedEarnings = pool.unassignedEarnings;
     backupEarnings = unassignedEarnings.mulDivDown(secondsSinceLastAccrue, secondsTotalToMaturity);
     pool.unassignedEarnings = unassignedEarnings - backupEarnings;
+  }
+
+  /// @notice calculates the amount that a fixed rate pool borrowed from the backup supplier.
+  /// @param pool fixed rate pool.
+  /// @return amount borrowed from the fixed rate pool.
+  function backupSupplied(Pool memory pool) internal pure returns (uint256) {
+    uint256 borrowed = pool.borrowed;
+    uint256 supplied = pool.supplied;
+    return borrowed - Math.min(borrowed, supplied);
   }
 
   /// @notice modify positions based on a certain amount, keeping the original principal/fee ratio.
@@ -275,9 +231,36 @@ library FixedLib {
       revert UnmatchedPoolStates(uint8(state), uint8(requiredState), uint8(alternativeState));
     }
   }
+
+  /// @notice contains the accountability of a fixed interest rate pool.
+  /// @param borrowed total amount borrowed from the pool.
+  /// @param supplied total amount supplied to the pool.
+  /// @param unassignedEarnings total amount of earnings not yet distributed and accrued.
+  /// @param lastAccrual timestamp for the last time that some earnings have been distributed to the backup supplier.
+  struct Pool {
+    uint256 borrowed;
+    uint256 supplied;
+    uint256 unassignedEarnings;
+    uint256 lastAccrual;
+  }
+
+  /// @notice contains principal and fee of a borrow or a supply position of a account in a fixed rate pool.
+  /// @param principal amount borrowed or supplied to the fixed rate pool.
+  /// @param fee amount of fees to be repaid or earned at the maturity of the fixed rate pool.
+  struct Position {
+    uint256 principal;
+    uint256 fee;
+  }
+
+  enum State {
+    NONE,
+    INVALID,
+    MATURED,
+    VALID,
+    NOT_READY
+  }
 }
 
-error InsufficientProtocolLiquidity();
 error MaturityOverflow();
 error UnmatchedPoolState(uint8 state, uint8 requiredState);
 error UnmatchedPoolStates(uint8 state, uint8 requiredState, uint8 alternativeState);

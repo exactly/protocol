@@ -338,7 +338,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
                 .withArgs(futurePools(1)[0], alice.address, alice.address, parseUnits("5"), parseUnits("5"));
             });
             it("AND Alice's debt is cleared", async () => {
-              const amountOwed = await marketWETH.getDebt(alice.address);
+              const amountOwed = await marketWETH.previewDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND WETH is returned to the contract", async () => {
@@ -367,7 +367,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
                 .withArgs(futurePools(1)[0], routerETH.address, alice.address, parseUnits("5"), parseUnits("5"));
             });
             it("AND Alice's debt is cleared", async () => {
-              const amountOwed = await marketWETH.getDebt(alice.address);
+              const amountOwed = await marketWETH.previewDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND ETH is returned to the contract", async () => {
@@ -385,7 +385,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
               await routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("10"), { value: parseUnits("10") });
             });
             it("AND Alice's debt is cleared", async () => {
-              const amountOwed = await marketWETH.getDebt(alice.address);
+              const amountOwed = await marketWETH.previewDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND ETH is returned to the contract", async () => {
@@ -419,7 +419,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
             .withArgs(routerETH.address, routerETH.address, alice.address, parseUnits("5"), parseUnits("5"));
         });
         it("AND a 5 WETH borrow is registered", async () => {
-          expect(await marketWETH.flexibleBorrowPositions(alice.address)).to.equal(parseUnits("5"));
+          expect(await marketWETH.floatingBorrowShares(alice.address)).to.equal(parseUnits("5"));
         });
       });
       describe("WHEN borrowing with WETH (erc20)", () => {
@@ -433,7 +433,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
             .withArgs(alice.address, alice.address, alice.address, parseUnits("5"), parseUnits("5"));
         });
         it("AND a 5 WETH borrow is registered", async () => {
-          expect(await marketWETH.flexibleBorrowPositions(alice.address)).to.equal(parseUnits("5"));
+          expect(await marketWETH.floatingBorrowShares(alice.address)).to.equal(parseUnits("5"));
         });
       });
 
@@ -454,7 +454,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
                 .withArgs(alice.address, alice.address, parseUnits("5"), parseUnits("5"));
             });
             it("AND Alice's debt is cleared", async () => {
-              const amountOwed = await marketWETH.getDebt(alice.address);
+              const amountOwed = await marketWETH.previewDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND WETH is returned to the contract", async () => {
@@ -482,7 +482,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
                 .withArgs(routerETH.address, alice.address, parseUnits("5"), parseUnits("5"));
             });
             it("AND Alice's debt is cleared", async () => {
-              const amountOwed = await marketWETH.getDebt(alice.address);
+              const amountOwed = await marketWETH.previewDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND ETH is returned to the contract", async () => {
@@ -500,7 +500,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
               await routerETH.repay(parseUnits("10"), { value: parseUnits("10") });
             });
             it("AND Alice's debt is cleared", async () => {
-              const amountOwed = await marketWETH.getDebt(alice.address);
+              const amountOwed = await marketWETH.previewDebt(alice.address);
               expect(amountOwed).to.equal(parseUnits("0"));
             });
             it("AND ETH is returned to the contract", async () => {

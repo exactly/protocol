@@ -18,31 +18,31 @@ contract InterestRateModelTest is
 {
   using FixedPointMathLib for uint256;
 
-  function testGetFixedBorrowRate() external {
+  function testFixedBorrowRate() external {
     uint256 assets = 10 ether;
     uint256 floatingAssetsAverage = 100 ether;
-    uint256 rate = this.getFixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, floatingAssetsAverage);
+    uint256 rate = this.fixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, floatingAssetsAverage);
     assertEq(rate, 1567705037744728);
   }
 
-  function testGetFloatingBorrowRate() external {
+  function testFloatingBorrowRate() external {
     uint256 smartPoolFloatingBorrows = 50 ether;
     uint256 floatingAssets = 100 ether;
     uint256 spCurrentUtilization = smartPoolFloatingBorrows.divWadDown(
       floatingAssets.divWadDown(floatingFullUtilization)
     );
-    uint256 rate = this.getFloatingBorrowRate(0, spCurrentUtilization);
+    uint256 rate = this.floatingBorrowRate(0, spCurrentUtilization);
     assertEq(rate, 22704941554056164);
   }
 
-  function testGetFloatingBorrowRateUsingMinMaxUtilizations() external {
+  function testFloatingBorrowRateUsingMinMaxUtilizations() external {
     uint256 utilizationBefore = 0.5e18;
     uint256 utilizationAfter = 1.5e18;
-    uint256 rate = this.getFloatingBorrowRate(utilizationBefore, utilizationAfter);
+    uint256 rate = this.floatingBorrowRate(utilizationBefore, utilizationAfter);
 
     utilizationBefore = 1.5e18;
     utilizationAfter = 0.5e18;
-    uint256 newRate = this.getFloatingBorrowRate(utilizationBefore, utilizationAfter);
+    uint256 newRate = this.floatingBorrowRate(utilizationBefore, utilizationAfter);
 
     assertEq(rate, newRate);
   }

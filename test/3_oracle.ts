@@ -45,43 +45,43 @@ describe("ExactlyOracle", function () {
 
   it("GetAssetPrice returns a positive and valid price value", async () => {
     // The price returned by the oracle is previously scaled to an 18-digit decimal
-    expect(await exactlyOracle.getAssetPrice(marketDAI.address)).to.equal(10n ** 18n);
-    expect(await exactlyOracle.getAssetPrice(marketWETH.address)).to.equal(1_000n * 10n ** 18n);
+    expect(await exactlyOracle.assetPrice(marketDAI.address)).to.equal(10n ** 18n);
+    expect(await exactlyOracle.assetPrice(marketWETH.address)).to.equal(1_000n * 10n ** 18n);
   });
 
   it("GetAssetPrice does not fail when Chainlink price is not older than priceExpiration", async () => {
     await priceFeedDAI.setUpdatedAt(timestamp - priceExpiration + 1);
     await provider.send("evm_setNextBlockTimestamp", [timestamp]);
     await provider.send("evm_mine", []);
-    await expect(exactlyOracle.getAssetPrice(marketDAI.address)).to.not.be.reverted;
+    await expect(exactlyOracle.assetPrice(marketDAI.address)).to.not.be.reverted;
   });
 
   it("GetAssetPrice does not fail when Chainlink price is equal to priceExpiration", async () => {
     await priceFeedDAI.setUpdatedAt(timestamp - priceExpiration);
     await provider.send("evm_setNextBlockTimestamp", [timestamp]);
     await provider.send("evm_mine", []);
-    await expect(exactlyOracle.getAssetPrice(marketDAI.address)).to.not.be.reverted;
+    await expect(exactlyOracle.assetPrice(marketDAI.address)).to.not.be.reverted;
   });
 
   it("GetAssetPrice should fail when Chainlink price is older than priceExpiration", async () => {
     await priceFeedDAI.setUpdatedAt(timestamp - priceExpiration - 1);
     await provider.send("evm_setNextBlockTimestamp", [timestamp]);
     await provider.send("evm_mine", []);
-    await expect(exactlyOracle.getAssetPrice(marketDAI.address)).to.be.revertedWith("InvalidPrice()");
+    await expect(exactlyOracle.assetPrice(marketDAI.address)).to.be.revertedWith("InvalidPrice()");
   });
 
   it("GetAssetPrice should fail when price value is zero", async () => {
     await priceFeedDAI.setPrice(0);
-    await expect(exactlyOracle.getAssetPrice(marketDAI.address)).to.be.revertedWith("InvalidPrice()");
+    await expect(exactlyOracle.assetPrice(marketDAI.address)).to.be.revertedWith("InvalidPrice()");
   });
 
   it("GetAssetPrice should fail when price value is lower than zero", async () => {
     await priceFeedDAI.setPrice(-10);
-    await expect(exactlyOracle.getAssetPrice(marketDAI.address)).to.be.revertedWith("InvalidPrice()");
+    await expect(exactlyOracle.assetPrice(marketDAI.address)).to.be.revertedWith("InvalidPrice()");
   });
 
   it("GetAssetPrice should fail when asset address is invalid", async () => {
-    await expect(exactlyOracle.getAssetPrice(user.address)).to.be.revertedWith("0x");
+    await expect(exactlyOracle.assetPrice(user.address)).to.be.revertedWith("0x");
   });
 
   it("SetPriceFeed should set the address source of an asset", async () => {
@@ -98,7 +98,7 @@ describe("ExactlyOracle", function () {
     await priceFeedDAI.setUpdatedAt(timestamp - 86_400);
     await provider.send("evm_setNextBlockTimestamp", [timestamp]);
     await provider.send("evm_mine", []);
-    expect(await exactlyOracle.getAssetPrice(marketDAI.address)).to.equal(1e10);
+    expect(await exactlyOracle.assetPrice(marketDAI.address)).to.equal(1e10);
   });
 
   it("SetPriceFeed should fail when called from third parties", async () => {

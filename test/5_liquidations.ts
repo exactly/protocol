@@ -96,7 +96,7 @@ describe("Liquidations", function () {
               // 19kusd of btc + 15% incentive for liquidators
               const seizedWBTC = parseUnits("34682541", 0);
 
-              await expect(tx).to.emit(marketWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
+              await expect(tx).to.emit(marketWBTC, "Seize").withArgs(bob.address, alice.address, seizedWBTC);
             });
           });
         });
@@ -112,7 +112,7 @@ describe("Liquidations", function () {
           it("THEN the liquidator seizes 19k+10% of collateral (WBTC)", async () => {
             // 19000 USD of btc + penalties at its current price of 63000 USD + 10% incentive for liquidators
             const seizedWBTC = parseUnits("46444446", 0);
-            await expect(tx).to.emit(marketWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
+            await expect(tx).to.emit(marketWBTC, "Seize").withArgs(bob.address, alice.address, seizedWBTC);
           });
 
           it("THEN the earningsAccumulator collects the penalty fees", async () => {
@@ -129,7 +129,7 @@ describe("Liquidations", function () {
           });
 
           it("AND 19k DAI of debt has been repaid, making debt ~18087 DAI", async () => {
-            const debt = await marketDAI.getDebt(alice.address);
+            const debt = await marketDAI.previewDebt(alice.address);
 
             // Borrowed is 31920
             const totalBorrowAmount = parseUnits("31920");
@@ -150,10 +150,10 @@ describe("Liquidations", function () {
             it("THEN the liquidator seizes 7k+10% of collateral (WBTC)", async () => {
               // 7kusd of btc at its current price of 63kusd + 10% incentive for liquidator
               const seizedWBTC = parseUnits("11565407", 0);
-              await expect(tx).to.emit(marketWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
+              await expect(tx).to.emit(marketWBTC, "Seize").withArgs(bob.address, alice.address, seizedWBTC);
             });
             it("AND 7k DAI of debt has been repaid, making debt ~18k DAI", async () => {
-              const debt = await marketDAI.getDebt(alice.address);
+              const debt = await marketDAI.previewDebt(alice.address);
               expect(debt).to.be.gt(parseUnits("11464"));
               expect(debt).to.be.lt(parseUnits("11465"));
             });
@@ -186,7 +186,7 @@ describe("Liquidations", function () {
             it("AND the liquidator seized 19k + 10% = 13475 of collateral (WBTC)", async () => {
               // 13475usd of btc at its current price of 63kusd + 10% incentive for liquidator
               const seizedWBTC = parseUnits("21388890", 0);
-              await expect(tx).to.emit(marketWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
+              await expect(tx).to.emit(marketWBTC, "Seize").withArgs(bob.address, alice.address, seizedWBTC);
             });
 
             it("AND she has some liquidity", async () => {
@@ -229,7 +229,7 @@ describe("Liquidations", function () {
                 });
                 // now theres no incentive to liquidate those 258 dai
                 it("AND alice still has some DAI debt", async () => {
-                  expect(await marketDAI.getDebt(alice.address)).to.be.lt(parseUnits("258"));
+                  expect(await marketDAI.previewDebt(alice.address)).to.be.lt(parseUnits("258"));
                 });
               });
             });
@@ -301,7 +301,7 @@ describe("Liquidations", function () {
             // this is equivalent to 18999.9 USD, at the provided price of
             // 32500 + 10% liquidation incentive
             const seizedWBTC = parseUnits("64307693", 0);
-            await expect(tx).to.emit(marketWBTC, "AssetSeized").withArgs(bob.address, alice.address, seizedWBTC);
+            await expect(tx).to.emit(marketWBTC, "Seize").withArgs(bob.address, alice.address, seizedWBTC);
             expect(await wbtc.balanceOf(bob.address)).to.eq(seizedWBTC);
           });
           it("AND 19000 DAI of debt is repaid (debt covered)", async () => {

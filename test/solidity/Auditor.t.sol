@@ -33,7 +33,7 @@ contract AuditorTest is Test {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
 
     (uint256 adjustFactor, uint8 decimals, uint8 index, bool isListed) = auditor.markets(Market(address(market)));
-    Market[] memory markets = auditor.getAllMarkets();
+    Market[] memory markets = auditor.allMarkets();
     assertTrue(isListed);
     assertEq(index, 0);
     assertEq(decimals, 18);
@@ -158,7 +158,7 @@ contract MockMarket {
     debt = debt_;
   }
 
-  function getAccountSnapshot(address) external view returns (uint256, uint256) {
+  function accountSnapshot(address) external view returns (uint256, uint256) {
     return (collateral, debt);
   }
 }
@@ -170,7 +170,7 @@ contract MockOracle {
     prices[market] = value;
   }
 
-  function getAssetPrice(Market market) public view returns (uint256) {
+  function assetPrice(Market market) public view returns (uint256) {
     return prices[market] > 0 ? prices[market] : 1e18;
   }
 }

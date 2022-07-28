@@ -52,10 +52,10 @@ describe("Validations", function () {
       ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call checkSeize, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
-      await expect(auditor.checkSeize(exactlyEnv.notAnMarketAddress, market.address)).to.be.revertedWith(
+      await expect(auditor.checkSeize(market.address, exactlyEnv.notAnMarketAddress)).to.be.revertedWith(
         "MarketNotListed()",
       );
-      await expect(auditor.checkSeize(market.address, exactlyEnv.notAnMarketAddress)).to.be.revertedWith(
+      await expect(auditor.checkSeize(exactlyEnv.notAnMarketAddress, market.address)).to.be.revertedWith(
         "MarketNotListed()",
       );
     });

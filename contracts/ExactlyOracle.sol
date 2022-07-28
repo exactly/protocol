@@ -18,17 +18,25 @@ contract ExactlyOracle is AccessControl {
   /// @notice How long is a price still valid, in seconds.
   uint256 public immutable priceExpiration;
 
-  /// @notice Emitted when a Market and source is changed by admin.
-  /// @param market address of the asset used to get the price from this oracle.
-  /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
-  event PriceFeedSet(Market indexed market, AggregatorV2V3Interface indexed source);
-
   /// @notice Constructor.
   /// @param priceExpiration_ The max delay time for Chainlink's prices to be considered as updated.
   constructor(uint256 priceExpiration_) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     priceExpiration = priceExpiration_;
+  }
+
+  /// @notice Gets an asset price by Market.
+  /// @dev If Chainlink's asset price is <= 0 or the updatedAt time is outdated the call is reverted.
+  /// @param market The Market address of the asset.
+  /// @return The price of the asset scaled to 18-digit decimals.
+  function assetPrice(Market market) public view returns (uint256) {
+    (, int256 price, , uint256 updatedAt, ) = priceFeeds[market].latestRoundData();
+
+    if (price <= 0 || block.timestamp - updatedAt > priceExpiration) revert InvalidPrice();
+
+    // scale price to 18 decimals
+    return uint256(price) * 10**(TARGET_DECIMALS - ORACLE_DECIMALS);
   }
 
   /// @notice Sets the Chainlink Price Feed Aggregator source for an asset.
@@ -40,18 +48,10 @@ contract ExactlyOracle is AccessControl {
     emit PriceFeedSet(market, source);
   }
 
-  /// @notice Gets an asset price by Market.
-  /// @dev If Chainlink's asset price is <= 0 or the updatedAt time is outdated the call is reverted.
-  /// @param market The Market address of the asset.
-  /// @return The price of the asset scaled to 18-digit decimals.
-  function getAssetPrice(Market market) public view returns (uint256) {
-    (, int256 price, , uint256 updatedAt, ) = priceFeeds[market].latestRoundData();
-
-    if (price <= 0 || block.timestamp - updatedAt > priceExpiration) revert InvalidPrice();
-
-    // scale price to 18 decimals
-    return uint256(price) * 10**(TARGET_DECIMALS - ORACLE_DECIMALS);
-  }
+  /// @notice Emitted when a Market and source is changed by admin.
+  /// @param market address of the asset used to get the price from this oracle.
+  /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
+  event PriceFeedSet(Market indexed market, AggregatorV2V3Interface indexed source);
 }
 
 error InvalidPrice();

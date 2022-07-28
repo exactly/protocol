@@ -135,15 +135,15 @@ describe("Smart Pool", function () {
         exactlyEnv.switchWallet(bob);
         await exactlyEnv.borrowMP("WBTC", futurePools(3)[2].toNumber(), "0.35");
       });
-      it("WHEN bob tries to transfer his eWBTC THEN it fails with InsufficientLiquidity error", async () => {
+      it("WHEN bob tries to transfer his eWBTC THEN it fails with InsufficientAccountLiquidity error", async () => {
         await expect(
           marketWBTC.connect(bob).transfer(john.address, marketWBTC.balanceOf(bob.address)),
-        ).to.be.revertedWith("InsufficientLiquidity()");
+        ).to.be.revertedWith("InsufficientAccountLiquidity()");
       });
-      it("AND WHEN john calls transferFrom to transfer bob's eWBTC THEN it fails with InsufficientLiquidity error", async () => {
+      it("AND WHEN john calls transferFrom to transfer bob's eWBTC THEN it fails with InsufficientAccountLiquidity error", async () => {
         await expect(
           marketWBTC.connect(john).transferFrom(bob.address, john.address, marketWBTC.balanceOf(bob.address)),
-        ).to.be.revertedWith("InsufficientLiquidity()");
+        ).to.be.revertedWith("InsufficientAccountLiquidity()");
       });
       it("AND WHEN bob tries to transfer a small amount of eWBTC THEN it does not fail", async () => {
         await expect(marketWBTC.connect(bob).transfer(john.address, parseUnits("0.01", 8))).to.not.be.reverted;
@@ -175,13 +175,13 @@ describe("Smart Pool", function () {
       });
       it("WHEN trying to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(marketDAI.connect(bob).transfer(john.address, parseUnits("100"))).to.be.revertedWith(
-          "InsufficientLiquidity()",
+          "InsufficientAccountLiquidity()",
         );
       });
       it("WHEN trying to call transferFrom to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(
           marketDAI.connect(bob).transferFrom(bob.address, john.address, parseUnits("100")),
-        ).to.be.revertedWith("InsufficientLiquidity()");
+        ).to.be.revertedWith("InsufficientAccountLiquidity()");
       });
       it("AND WHEN trying to transfer a small amount that doesnt cause a shortfall (5 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
         await expect(marketDAI.connect(bob).transfer(john.address, parseUnits("5"))).to.not.be.reverted;
@@ -192,7 +192,7 @@ describe("Smart Pool", function () {
           .reverted;
       });
       it("WHEN trying to withdraw the entire position (100 DAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
-        await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith("InsufficientLiquidity()");
+        await expect(exactlyEnv.withdrawSP("DAI", "100")).to.be.revertedWith("InsufficientAccountLiquidity()");
       });
       it("AND WHEN trying to withdraw a small amount that doesnt cause a shortfall (5 DAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
         await expect(exactlyEnv.withdrawSP("DAI", "5")).to.not.be.reverted;

@@ -11,7 +11,7 @@ contract MockOracle {
     prices[market] = value;
   }
 
-  function getAssetPrice(Market market) public view returns (uint256) {
+  function assetPrice(Market market) public view returns (uint256) {
     return prices[market] > 0 ? prices[market] : 1e18;
   }
 }

@@ -3,7 +3,7 @@ pragma solidity 0.8.13;
 
 import { Vm } from "forge-std/Vm.sol";
 import { Test, stdError } from "forge-std/Test.sol";
-import { FixedLib, InsufficientProtocolLiquidity, MaturityOverflow } from "../../contracts/utils/FixedLib.sol";
+import { FixedLib, MaturityOverflow } from "../../contracts/utils/FixedLib.sol";
 
 contract PoolLibTest is Test {
   using FixedLib for FixedLib.Pool;
@@ -19,7 +19,7 @@ contract PoolLibTest is Test {
     assertEq(fp.lastAccrual, 0);
     assertEq(backupDebtReduction, 0);
 
-    uint256 backupDebt = fp.borrow(1 ether, 0);
+    uint256 backupDebt = fp.borrow(1 ether);
     assertEq(fp.borrowed, 1 ether);
     assertEq(fp.supplied, 1 ether);
     assertEq(fp.unassignedEarnings, 0);
@@ -33,7 +33,7 @@ contract PoolLibTest is Test {
     assertEq(fp.lastAccrual, 0);
     assertEq(backupDebtReduction, 0);
 
-    backupDebt = fp.withdraw(1 ether, 0);
+    backupDebt = fp.withdraw(1 ether);
     assertEq(fp.borrowed, 0);
     assertEq(fp.supplied, 0);
     assertEq(fp.unassignedEarnings, 0);
@@ -42,7 +42,7 @@ contract PoolLibTest is Test {
   }
 
   function testBackupBorrow() external {
-    uint256 backupDebt = fp.borrow(1 ether, 1 ether);
+    uint256 backupDebt = fp.borrow(1 ether);
     assertEq(fp.borrowed, 1 ether);
     assertEq(fp.supplied, 0);
     assertEq(fp.unassignedEarnings, 0);
@@ -66,11 +66,6 @@ contract PoolLibTest is Test {
     (uint256 backup, uint256 treasury) = fp.distributeEarnings(2 ether, 2 ether);
     assertEq(backup, 1 ether);
     assertEq(treasury, 1 ether);
-  }
-
-  function testBorrowInsufficientLiquidity() external {
-    vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    this.borrow(1 ether, 1 ether - 1);
   }
 
   function testMaturityRangeLimit() external {
@@ -128,10 +123,6 @@ contract PoolLibTest is Test {
     }
 
     assertEq(maturities, 0);
-  }
-
-  function borrow(uint256 amount, uint256 maxDebt) external returns (uint256) {
-    return fp.borrow(amount, maxDebt);
   }
 
   function setMaturity(uint256 encoded, uint256 maturity) external pure returns (uint256) {

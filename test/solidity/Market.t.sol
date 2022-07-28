@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
-import { Auditor, ExactlyOracle, InsufficientLiquidity } from "../../contracts/Auditor.sol";
+import { Auditor, ExactlyOracle, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
@@ -16,7 +16,6 @@ import {
   FixedLib,
   Disagreement,
   ZeroRepay,
-  ReserveUnderflow,
   InsufficientProtocolLiquidity
 } from "../../contracts/Market.sol";
 
@@ -229,7 +228,7 @@ contract MarketTest is Test {
       total += market.borrowAtMaturity(i * FixedLib.INTERVAL, 1 ether, 1.1 ether, address(this), address(this));
     }
 
-    assertEq(market.getDebt(address(this)), total);
+    assertEq(market.previewDebt(address(this)), total);
 
     for (uint256 i = 1; i < 3 + 1; i++) {
       market.repayAtMaturity(
@@ -768,19 +767,19 @@ contract MarketTest is Test {
     market.borrow(4_000 ether, address(this), address(this));
     mockOracle.setPrice(marketWETH, 4_000e18);
 
-    assertEq(market.flexibleBorrowPositions(address(this)), 4_000 ether);
+    assertEq(market.floatingBorrowShares(address(this)), 4_000 ether);
 
     // partial liquidation
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
     uint256 assetsRepaid = 3685589519650655024000;
 
-    (, uint256 remainingDebt) = market.getAccountSnapshot(address(this));
-    (uint256 remainingCollateral, ) = marketWETH.getAccountSnapshot(address(this));
+    (, uint256 remainingDebt) = market.accountSnapshot(address(this));
+    (uint256 remainingCollateral, ) = marketWETH.accountSnapshot(address(this));
     assertEq(weth.balanceOf(address(BOB)), assetsRepaid.divWadDown(4_000 ether).mulWadUp(1.1e18));
     assertEq(remainingCollateral, 1.15 ether - assetsRepaid.divWadDown(4_000 ether).mulWadUp(1.1e18));
-    assertEq(market.flexibleBorrowPositions(address(this)), 4_000 ether - assetsRepaid);
-    assertEq(market.flexibleBorrowPositions(address(this)), remainingDebt);
+    assertEq(market.floatingBorrowShares(address(this)), 4_000 ether - assetsRepaid);
+    assertEq(market.floatingBorrowShares(address(this)), remainingDebt);
 
     (uint256 usdCollateral, uint256 usdDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertEq(usdCollateral, remainingCollateral.mulWadDown(4_000 ether).mulWadDown(0.9e18));
@@ -791,14 +790,14 @@ contract MarketTest is Test {
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
 
-    (, remainingDebt) = market.getAccountSnapshot(address(this));
-    (remainingCollateral, ) = marketWETH.getAccountSnapshot(address(this));
+    (, remainingDebt) = market.accountSnapshot(address(this));
+    (remainingCollateral, ) = marketWETH.accountSnapshot(address(this));
     (usdCollateral, usdDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertEq(remainingCollateral, 0);
     assertEq(remainingDebt, 0);
     assertEq(usdCollateral, 0);
     assertEq(usdDebt, 0);
-    assertEq(market.flexibleBorrowPositions(address(this)), 0);
+    assertEq(market.floatingBorrowShares(address(this)), 0);
     assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
   }
 
@@ -841,7 +840,7 @@ contract MarketTest is Test {
     assertEq(principal + fee, 1_000 ether - assetsRepaid);
     (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
     assertEq(principal + fee, 1_000 ether);
-    assertEq(market.flexibleBorrowPositions(address(this)), 2_000 ether);
+    assertEq(market.floatingBorrowShares(address(this)), 2_000 ether);
 
     vm.prank(BOB);
     market.liquidate(address(this), 1500 ether, marketWETH);
@@ -850,7 +849,7 @@ contract MarketTest is Test {
     assertEq(principal + fee, 0);
     (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
     assertEq(principal + fee, 0);
-    assertEq(market.flexibleBorrowPositions(address(this)), 2_000 ether - (assetsRepaid - 2_000 ether));
+    assertEq(market.floatingBorrowShares(address(this)), 2_000 ether - (assetsRepaid - 2_000 ether));
 
     vm.prank(BOB);
     market.liquidate(address(this), 1500 ether, marketWETH);
@@ -891,13 +890,13 @@ contract MarketTest is Test {
 
     // 10% yearly interest
     vm.warp(365 days);
-    assertEq(market.getDebt(address(this)), 4_000 ether + 400 ether);
+    assertEq(market.previewDebt(address(this)), 4_000 ether + 400 ether);
 
     // bob is allowed to repay 2970
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
 
-    assertApproxEqRel(market.getDebt(address(this)), 1_430 ether, 1e18);
+    assertApproxEqRel(market.previewDebt(address(this)), 1_430 ether, 1e18);
     assertApproxEqRel(market.floatingDebt(), 1_430 ether, 1e18);
     assertEq(market.floatingAssets(), 50_400 ether);
     assertEq(market.lastFloatingDebtUpdate(), 365 days);
@@ -956,7 +955,7 @@ contract MarketTest is Test {
     vm.warp(FixedLib.INTERVAL * 2);
 
     (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, ALICE);
-    (, uint256 debt) = market.getAccountSnapshot(ALICE);
+    (, uint256 debt) = market.accountSnapshot(ALICE);
     vm.prank(ALICE);
     market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, debt, address(ALICE));
     uint256 earningsAccumulator = market.earningsAccumulator();
@@ -1355,22 +1354,22 @@ contract MarketTest is Test {
     market.borrow(50 ether, address(this), address(this));
 
     vm.warp(365 days);
-    vm.expectRevert(InsufficientLiquidity.selector);
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL * 14, 10 ether, 15 ether, address(this), address(this));
 
-    vm.expectRevert(InsufficientLiquidity.selector);
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     market.transfer(address(BOB), 15 ether);
 
-    vm.expectRevert(InsufficientLiquidity.selector);
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     market.withdraw(15 ether, address(this), address(this));
 
-    vm.expectRevert(InsufficientLiquidity.selector);
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     market.withdraw(15 ether, address(this), address(this));
 
     market.approve(address(BOB), 15 ether);
 
     vm.prank(BOB);
-    vm.expectRevert(InsufficientLiquidity.selector);
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     market.transferFrom(address(this), address(BOB), 15 ether);
   }
 
@@ -1600,7 +1599,7 @@ contract MarketTest is Test {
     uint256 balanceBefore = market.asset().balanceOf(address(this));
     market.borrow(1 ether, address(this), address(this));
     uint256 balanceAfter = market.asset().balanceOf(address(this));
-    uint256 borrowedShares = market.flexibleBorrowPositions(address(this));
+    uint256 borrowedShares = market.floatingBorrowShares(address(this));
 
     assertEq(borrowedShares, 1 ether);
     assertEq(balanceAfter, balanceBefore + 1 ether);
@@ -1615,7 +1614,7 @@ contract MarketTest is Test {
 
     vm.warp(365 days);
     // we can dynamically calculate borrow debt
-    assertEq(market.getDebt(address(this)), 1.1 ether);
+    assertEq(market.previewDebt(address(this)), 1.1 ether);
     // we distribute borrow debt with another borrow
     market.borrow(1, address(this), address(this));
 
@@ -1653,18 +1652,18 @@ contract MarketTest is Test {
     market.deposit(10 ether, address(this));
     market.borrow(1 ether, address(this), address(this));
     assertEq(market.floatingDebt(), 1 ether);
-    assertEq(market.totalFlexibleBorrowShares(), market.flexibleBorrowPositions(address(this)));
+    assertEq(market.totalFloatingBorrowShares(), market.floatingBorrowShares(address(this)));
 
     // after 1 year 10% is the accumulated debt (using a mock interest rate model)
     vm.warp(365 days);
-    assertEq(market.getDebt(address(this)), 1.1 ether);
+    assertEq(market.previewDebt(address(this)), 1.1 ether);
     market.repay(0.5 ether, address(this));
     assertEq(market.floatingDebt(), 0.55 ether);
-    assertEq(market.totalFlexibleBorrowShares(), market.flexibleBorrowPositions(address(this)));
+    assertEq(market.totalFloatingBorrowShares(), market.floatingBorrowShares(address(this)));
 
-    assertEq(market.flexibleBorrowPositions(address(this)), 0.5 ether);
+    assertEq(market.floatingBorrowShares(address(this)), 0.5 ether);
     market.repay(0.5 ether, address(this));
-    assertEq(market.flexibleBorrowPositions(address(this)), 0);
+    assertEq(market.floatingBorrowShares(address(this)), 0);
   }
 
   function testFlexibleBorrowAccountingDebtMultipleAccounts() internal {
@@ -1695,12 +1694,12 @@ contract MarketTest is Test {
     // after 1/2 year 2.5% is the accumulated debt (using a mock interest rate model)
     vm.warp(182.5 days);
     assertEq(market.previewRepay(1 ether), 1.025 ether);
-    assertEq(market.getDebt(address(this)), 1.025 ether);
+    assertEq(market.previewDebt(address(this)), 1.025 ether);
 
     vm.prank(BOB);
     market.borrow(1 ether, address(BOB), address(BOB));
-    assertEq(market.previewRepay(1 ether), market.getDebt(address(BOB)));
-    assertEq(market.previewRepay(1.025 ether), market.flexibleBorrowPositions(address(this)));
+    assertEq(market.previewRepay(1 ether), market.previewDebt(address(BOB)));
+    assertEq(market.previewRepay(1.025 ether), market.floatingBorrowShares(address(this)));
 
     // after 1/4 year 1.25% is the accumulated debt
     // contract now owes 1.025 * 1.0125 = 1.0378125 ether
@@ -1709,9 +1708,9 @@ contract MarketTest is Test {
     vm.prank(ALICE);
     market.borrow(1 ether, address(ALICE), address(ALICE));
     // TODO: check rounding
-    assertEq(market.previewRepay(1 ether), market.flexibleBorrowPositions(address(ALICE)) + 1);
-    assertEq(market.previewRepay(1.0125 ether), market.flexibleBorrowPositions(address(BOB)));
-    assertEq(market.previewRepay(1.0378125 ether), market.flexibleBorrowPositions(address(this)));
+    assertEq(market.previewRepay(1 ether), market.floatingBorrowShares(address(ALICE)) + 1);
+    assertEq(market.previewRepay(1.0125 ether), market.floatingBorrowShares(address(BOB)));
+    assertEq(market.previewRepay(1.0378125 ether), market.floatingBorrowShares(address(this)));
 
     // after another 1/4 year 1.25% is the accumulated debt
     // contract now owes 1.0378125 * 1.0125 = 1.0507851525 ether
@@ -1725,9 +1724,9 @@ contract MarketTest is Test {
     vm.prank(ALICE);
     market.repay(1.0125 ether, address(ALICE));
 
-    assertEq(market.flexibleBorrowPositions(address(this)), 0);
-    assertEq(market.flexibleBorrowPositions(address(BOB)), 0);
-    assertEq(market.flexibleBorrowPositions(address(ALICE)), 0);
+    assertEq(market.floatingBorrowShares(address(this)), 0);
+    assertEq(market.floatingBorrowShares(address(BOB)), 0);
+    assertEq(market.floatingBorrowShares(address(ALICE)), 0);
 
     uint256 flexibleDebtAccrued = 0.05078515625 ether + 0.02515625 ether + 0.0125 ether;
     assertEq(market.floatingAssets(), 10 ether + flexibleDebtAccrued);
@@ -1743,7 +1742,7 @@ contract MarketTest is Test {
     market.borrow(9 ether, address(this), address(this));
     market.repay(9 ether, address(this));
 
-    vm.expectRevert(ReserveUnderflow.selector);
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrow(9.01 ether, address(this), address(this));
   }
 
@@ -1759,7 +1758,7 @@ contract MarketTest is Test {
     market.borrow(8 ether, address(this), address(this));
     market.repay(8 ether, address(this));
 
-    vm.expectRevert(ReserveUnderflow.selector);
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrow(8.01 ether, address(this), address(this));
   }
 
