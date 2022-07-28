@@ -102,21 +102,25 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assets);
     }
 
-    updateFloatingDebt();
+    uint256 newFloatingDebt = updateFloatingDebt();
 
     shares = previewBorrow(assets);
 
-    floatingDebt += assets;
+    newFloatingDebt += assets;
+    floatingDebt = newFloatingDebt;
+    uint256 memFloatingAssets = floatingAssets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed, also considering the reserves
-    if (floatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
+    if (floatingBackupBorrowed + newFloatingDebt > memFloatingAssets.mulWadDown(1e18 - reserveFactor)) {
       revert InsufficientProtocolLiquidity();
     }
 
-    totalFloatingBorrowShares += shares;
+    uint256 newFloatingBorrowShares = totalFloatingBorrowShares + shares;
+    totalFloatingBorrowShares = newFloatingBorrowShares;
     floatingBorrowShares[borrower] += shares;
 
     auditor.checkBorrow(this, borrower);
     emit Borrow(msg.sender, receiver, borrower, assets, shares);
+    emit MarketUpdated(block.timestamp, totalSupply, memFloatingAssets, newFloatingBorrowShares, newFloatingDebt, 0);
     asset.safeTransfer(receiver, assets);
   }
 
@@ -126,6 +130,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   function repay(uint256 borrowShares, address borrower) external nonReentrant whenNotPaused returns (uint256 assets) {
     assets = noTransferRepay(borrowShares, borrower);
     asset.safeTransferFrom(msg.sender, address(this), assets);
+    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
   }
 
   /// @notice Allows to (partially) repay a floating borrow. It does not transfer tokens.
@@ -133,14 +138,16 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param borrower the address of the account that has the debt.
   /// @return assets the actual amount that should be transferred into the protocol.
   function noTransferRepay(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
-    updateFloatingDebt();
+    uint256 newFloatingDebt = updateFloatingDebt();
     uint256 userBorrowShares = floatingBorrowShares[borrower];
     borrowShares = Math.min(borrowShares, userBorrowShares);
     assets = previewRepay(borrowShares);
 
-    floatingDebt -= assets;
+    newFloatingDebt -= assets;
+    uint256 newFloatingBorrowShares = totalFloatingBorrowShares - borrowShares;
+    floatingDebt = newFloatingDebt;
     floatingBorrowShares[borrower] = userBorrowShares - borrowShares;
-    totalFloatingBorrowShares -= borrowShares;
+    totalFloatingBorrowShares = newFloatingBorrowShares;
 
     emit Repay(msg.sender, borrower, assets, borrowShares);
   }
@@ -186,7 +193,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     floatingAssets = newFloatingAssets;
 
     emit DepositAtMaturity(maturity, msg.sender, receiver, assets, fee);
-    emit MarketUpdated(
+    emit MarketUpdatedAtMaturity(
       block.timestamp,
       totalSupply,
       newFloatingAssets,
@@ -267,7 +274,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     asset.safeTransfer(receiver, assets);
 
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
-    emit MarketUpdated(
+    emit MarketUpdatedAtMaturity(
       block.timestamp,
       totalSupply,
       newFloatingAssets,
@@ -359,7 +366,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     asset.safeTransfer(receiver, assetsDiscounted);
 
     emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
-    emit MarketUpdated(
+    emit MarketUpdatedAtMaturity(
       block.timestamp,
       totalSupply,
       newFloatingAssets,
@@ -459,7 +466,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     floatingAssets = newFloatingAssets;
 
     emit RepayAtMaturity(maturity, msg.sender, borrower, actualRepayAssets, debtCovered);
-    emit MarketUpdated(
+    emit MarketUpdatedAtMaturity(
       block.timestamp,
       totalSupply,
       newFloatingAssets,
@@ -533,6 +540,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
         maxAssets.mulDivDown(totalFloatingBorrowShares, totalFloatingBorrowAssets()),
         borrower
       );
+      emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
       repaidAssets += actualRepayAssets;
       maxAssets -= actualRepayAssets;
     }
@@ -567,7 +575,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
             fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
 
             emit RepayAtMaturity(maturity, msg.sender, borrower, badDebt, badDebt);
-            emit MarketUpdated(
+            emit MarketUpdatedAtMaturity(
               block.timestamp,
               totalSupply,
               floatingAssets,
@@ -587,7 +595,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       if (borrowShares > 0) {
         uint256 badDebt = noTransferRepay(borrowShares, borrower);
         spreadBadDebt(badDebt);
-        emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, earningsAccumulator, type(uint256).max, 0);
+        emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
       }
     }
   }
@@ -633,7 +641,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
     asset.safeTransfer(liquidator, assets);
     emit Seize(liquidator, borrower, assets);
-    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, earningsAccumulator, 0, 0);
+    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, 0, floatingDebt, earningsAccumulator);
 
     return balanceOf[borrower] > 0;
   }
@@ -641,28 +649,28 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be withdrawn from the floating pool.
   function beforeWithdraw(uint256 assets, uint256) internal override {
-    updateFloatingDebt();
     updateFloatingAssetsAverage();
+    uint256 newFloatingDebt = updateFloatingDebt();
     uint256 earnings = accumulatedEarnings();
     lastAccumulatorAccrual = uint32(block.timestamp);
     earningsAccumulator -= earnings;
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
     floatingAssets = newFloatingAssets;
     // check if the underlying liquidity that the user wants to withdraw is borrowed
-    if (newFloatingAssets < floatingBackupBorrowed + floatingDebt) revert InsufficientProtocolLiquidity();
+    if (newFloatingAssets < floatingBackupBorrowed + newFloatingDebt) revert InsufficientProtocolLiquidity();
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
   function afterDeposit(uint256 assets, uint256) internal override whenNotPaused {
-    updateFloatingDebt();
     updateFloatingAssetsAverage();
+    uint256 newFloatingDebt = updateFloatingDebt();
     uint256 earnings = accumulatedEarnings();
     lastAccumulatorAccrual = uint32(block.timestamp);
     earningsAccumulator -= earnings;
     uint256 newFloatingAssets = floatingAssets + earnings + assets;
     floatingAssets = newFloatingAssets;
-    emit MarketUpdated(block.timestamp, totalSupply, newFloatingAssets, earningsAccumulator, 0, 0);
+    emit MarketUpdated(block.timestamp, totalSupply, newFloatingAssets, 0, newFloatingDebt, earningsAccumulator);
   }
 
   /// @notice Withdraws the owner's floating pool assets to the receiver address.
@@ -677,7 +685,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   ) public override returns (uint256 shares) {
     auditor.checkShortfall(this, owner, assets);
     shares = super.withdraw(assets, receiver, owner);
-    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, earningsAccumulator, 0, 0);
+    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, 0, floatingDebt, earningsAccumulator);
   }
 
   /// @notice Redeems the owner's floating pool assets to the receiver address.
@@ -692,7 +700,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   ) public override returns (uint256 assets) {
     auditor.checkShortfall(this, owner, previewMint(shares));
     assets = super.redeem(shares, receiver, owner);
-    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, earningsAccumulator, 0, 0);
+    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, 0, floatingDebt, earningsAccumulator);
   }
 
   /// @notice Moves amount of shares from the caller's account to `to`.
@@ -821,10 +829,10 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   }
 
   /// @notice Updates the floating pool borrows' variables.
-  function updateFloatingDebt() internal {
+  function updateFloatingDebt() internal returns (uint256 memFloatingDebt) {
     InterestRateModel memIRM = interestRateModel;
+    memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
-    uint256 memFloatingDebt = floatingDebt;
     uint256 newFloatingUtilization = memFloatingAssets > 0
       ? memFloatingDebt.divWadDown(memFloatingAssets.divWadUp(memIRM.floatingFullUtilization()))
       : 0;
@@ -835,12 +843,11 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       )
     );
 
-    floatingDebt = memFloatingDebt + newDebt;
+    memFloatingDebt += newDebt;
+    floatingDebt = memFloatingDebt;
     floatingAssets += chargeTreasuryFee(newDebt);
     floatingUtilization = newFloatingUtilization;
     lastFloatingDebtUpdate = uint32(block.timestamp);
-
-    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, earningsAccumulator, type(uint256).max, 0);
   }
 
   function totalFloatingBorrowAssets() public view returns (uint256) {
@@ -1137,7 +1144,16 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
 
   event MarketUpdated(
     uint256 timestamp,
-    uint256 floatingShares,
+    uint256 floatingDepositShares,
+    uint256 floatingAssets,
+    uint256 floatingBorrowShares,
+    uint256 floatingDebt,
+    uint256 earningsAccumulator
+  );
+
+  event MarketUpdatedAtMaturity(
+    uint256 timestamp,
+    uint256 floatingDepositShares,
     uint256 floatingAssets,
     uint256 earningsAccumulator,
     uint256 indexed maturity,
