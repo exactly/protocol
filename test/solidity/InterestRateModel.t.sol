@@ -53,7 +53,7 @@ contract InterestRateModelTest is
     uint256 u1 = u0 + (delta % (params.maxUtilization - u0));
 
     string[] memory ffi = new string[](2);
-    ffi[0] = "ffi/irm";
+    ffi[0] = "scripts/irm.sh";
     ffi[1] = encodeHex(abi.encode(u0, u1, params.a, params.b, params.maxUtilization));
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
 
@@ -66,7 +66,7 @@ contract InterestRateModelTest is
     uint256 u1 = u0 + (delta % (params.maxUtilization - u0));
 
     string[] memory ffi = new string[](2);
-    ffi[0] = "ffi/irm";
+    ffi[0] = "scripts/irm.sh";
     ffi[1] = encodeHex(abi.encode(u0, u1, params.a, params.b, params.maxUtilization));
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
 
