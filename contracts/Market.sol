@@ -127,6 +127,8 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @notice Repays a certain amount of assets to the floating pool.
   /// @param assets assets to be subtracted from the borrower's accountability.
   /// @param borrower address of the account that has the debt.
+  /// @return actualRepay the actual amount that should be transferred into the protocol.
+  /// @return borrowShares subtracted shares from the borrower's accountability.
   function repay(uint256 assets, address borrower)
     external
     nonReentrant
@@ -135,14 +137,15 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   {
     borrowShares = previewRepay(assets);
     actualRepay = noTransferRefund(borrowShares, borrower);
-    asset.safeTransferFrom(msg.sender, address(this), assets);
+    asset.safeTransferFrom(msg.sender, address(this), actualRepay);
     emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
   }
 
   /// @notice Repays a certain amount of shares to the floating pool.
   /// @param borrowShares shares to be subtracted from the borrower's accountability.
   /// @param borrower address of the account that has the debt.
-  function refund(uint256 borrowShares, address borrower) public nonReentrant whenNotPaused returns (uint256 assets) {
+  /// @return assets subtracted assets from the borrower's accountability.
+  function refund(uint256 borrowShares, address borrower) external nonReentrant whenNotPaused returns (uint256 assets) {
     assets = noTransferRefund(borrowShares, borrower);
     asset.safeTransferFrom(msg.sender, address(this), assets);
     emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);

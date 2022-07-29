@@ -1605,6 +1605,35 @@ contract MarketTest is Test {
     assertEq(balanceAfter, balanceBefore + 1 ether);
   }
 
+  function testRepayFlexibleBorrow() external {
+    vm.warp(0);
+    market.deposit(10 ether, address(this));
+    vm.prank(BOB);
+    market.deposit(10 ether, address(BOB));
+
+    market.borrow(1 ether, address(this), address(this));
+
+    vm.warp(365 days);
+    vm.prank(BOB);
+    market.borrow(1 ether, address(BOB), address(BOB));
+    uint256 balanceContractBefore = ERC20(market.asset()).balanceOf(address(this));
+
+    assertLt(market.floatingBorrowShares(address(BOB)), 1 ether);
+    market.repay(0.5 ether, address(BOB));
+    assertEq(market.previewRefund(market.floatingBorrowShares(address(BOB))), 0.5 ether + 1);
+    assertLt(market.previewRepay(0.5 ether), market.floatingBorrowShares(address(BOB)));
+    market.repay(0.5 ether, address(BOB));
+    assertEq(market.floatingBorrowShares(address(BOB)), 1);
+    assertEq(balanceContractBefore - ERC20(market.asset()).balanceOf(address(this)), 1 ether);
+
+    balanceContractBefore = ERC20(market.asset()).balanceOf(address(this));
+    // we send more to repay
+    market.repay(5 ether, address(this));
+    // we only repay the max amount of debt that the contract had
+    assertEq(balanceContractBefore - ERC20(market.asset()).balanceOf(address(this)), 1.1 ether - 1);
+    assertEq(market.floatingBorrowShares(address(this)), 0);
+  }
+
   function testFlexibleBorrowChargingDebtToTreasury() external {
     vm.warp(0);
     market.setTreasury(address(BOB), 0.1e18);
