@@ -514,7 +514,7 @@ describe("Market", function () {
 
           // we borrow and repay to have all those flexible fees accrued
           await marketDAI.borrow("1", maria.address, maria.address);
-          await marketDAI.repay("1", maria.address);
+          await marketDAI.refund("1", maria.address);
         });
         it("WHEN Maria tries to borrow 3 more DAI from the smart pool, THEN it does not revert", async () => {
           // despite a lot of fees being added to the floatingDebt all those same fees are also added
@@ -1130,7 +1130,7 @@ describe("Market", function () {
                 ).to.not.be.reverted;
               });
               it("AND WHEN a smart pool repay of 0.01 is done, THEN the withdraw of 15.01 is not reverted", async () => {
-                await marketDAI.repay(parseUnits("0.01"), maria.address);
+                await marketDAI.refund(parseUnits("0.01"), maria.address);
                 await expect(
                   marketDAI.withdrawAtMaturity(
                     futurePools(1)[0],

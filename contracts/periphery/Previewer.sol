@@ -95,7 +95,7 @@ contract Previewer {
         // account
         isCollateral: markets & (1 << i) != 0 ? true : false,
         floatingBorrowShares: market.floatingBorrowShares(account),
-        floatingBorrowAssets: market.maxRepay(account),
+        floatingBorrowAssets: maxRepay(market, account),
         floatingDepositShares: market.balanceOf(account),
         floatingDepositAssets: market.maxWithdraw(account),
         fixedDepositPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
@@ -328,5 +328,9 @@ contract Previewer {
     return
       market.floatingAssetsAverage().mulWadDown(1e18 - averageFactor) +
       averageFactor.mulWadDown(market.floatingAssets());
+  }
+
+  function maxRepay(Market market, address borrower) internal view returns (uint256) {
+    return market.previewRefund(market.floatingBorrowShares(borrower));
   }
 }

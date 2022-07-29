@@ -200,7 +200,7 @@ contract MarketTest is Test {
 
     vm.expectEmit(true, true, true, true, address(market));
     emit Repay(address(this), address(this), 1 ether, 1 ether);
-    market.repay(1 ether, address(this));
+    market.refund(1 ether, address(this));
   }
 
   function testDepositDisagreement() external {
@@ -1657,12 +1657,12 @@ contract MarketTest is Test {
     // after 1 year 10% is the accumulated debt (using a mock interest rate model)
     vm.warp(365 days);
     assertEq(market.previewDebt(address(this)), 1.1 ether);
-    market.repay(0.5 ether, address(this));
+    market.refund(0.5 ether, address(this));
     assertEq(market.floatingDebt(), 0.55 ether);
     assertEq(market.totalFloatingBorrowShares(), market.floatingBorrowShares(address(this)));
 
     assertEq(market.floatingBorrowShares(address(this)), 0.5 ether);
-    market.repay(0.5 ether, address(this));
+    market.refund(0.5 ether, address(this));
     assertEq(market.floatingBorrowShares(address(this)), 0);
   }
 
@@ -1693,13 +1693,13 @@ contract MarketTest is Test {
     mockInterestRateModel.setBorrowRate(0.05e18);
     // after 1/2 year 2.5% is the accumulated debt (using a mock interest rate model)
     vm.warp(182.5 days);
-    assertEq(market.previewRepay(1 ether), 1.025 ether);
+    assertEq(market.previewRefund(1 ether), 1.025 ether);
     assertEq(market.previewDebt(address(this)), 1.025 ether);
 
     vm.prank(BOB);
     market.borrow(1 ether, address(BOB), address(BOB));
-    assertEq(market.previewRepay(1 ether), market.previewDebt(address(BOB)));
-    assertEq(market.previewRepay(1.025 ether), market.floatingBorrowShares(address(this)));
+    assertEq(market.previewRefund(1 ether), market.previewDebt(address(BOB)));
+    assertEq(market.previewRefund(1.025 ether), market.floatingBorrowShares(address(this)));
 
     // after 1/4 year 1.25% is the accumulated debt
     // contract now owes 1.025 * 1.0125 = 1.0378125 ether
@@ -1708,9 +1708,9 @@ contract MarketTest is Test {
     vm.prank(ALICE);
     market.borrow(1 ether, address(ALICE), address(ALICE));
     // TODO: check rounding
-    assertEq(market.previewRepay(1 ether), market.floatingBorrowShares(address(ALICE)) + 1);
-    assertEq(market.previewRepay(1.0125 ether), market.floatingBorrowShares(address(BOB)));
-    assertEq(market.previewRepay(1.0378125 ether), market.floatingBorrowShares(address(this)));
+    assertEq(market.previewRefund(1 ether), market.floatingBorrowShares(address(ALICE)) + 1);
+    assertEq(market.previewRefund(1.0125 ether), market.floatingBorrowShares(address(BOB)));
+    assertEq(market.previewRefund(1.0378125 ether), market.floatingBorrowShares(address(this)));
 
     // after another 1/4 year 1.25% is the accumulated debt
     // contract now owes 1.0378125 * 1.0125 = 1.0507851525 ether
@@ -1718,11 +1718,11 @@ contract MarketTest is Test {
     // alice now owes    1 * 1.0125         = 1.0125 ether
     vm.warp(365 days);
     vm.prank(ALICE);
-    market.repay(1.05078515625 ether, address(this));
+    market.refund(1.05078515625 ether, address(this));
     vm.prank(BOB);
-    market.repay(1.02515625 ether, address(BOB));
+    market.refund(1.02515625 ether, address(BOB));
     vm.prank(ALICE);
-    market.repay(1.0125 ether, address(ALICE));
+    market.refund(1.0125 ether, address(ALICE));
 
     assertEq(market.floatingBorrowShares(address(this)), 0);
     assertEq(market.floatingBorrowShares(address(BOB)), 0);
@@ -1740,7 +1740,7 @@ contract MarketTest is Test {
     market.setReserveFactor(0.1e18);
 
     market.borrow(9 ether, address(this), address(this));
-    market.repay(9 ether, address(this));
+    market.refund(9 ether, address(this));
 
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrow(9.01 ether, address(this), address(this));
@@ -1756,7 +1756,7 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
 
     market.borrow(8 ether, address(this), address(this));
-    market.repay(8 ether, address(this));
+    market.refund(8 ether, address(this));
 
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrow(8.01 ether, address(this), address(this));
@@ -1819,7 +1819,7 @@ contract MarketTest is Test {
 
     vm.warp(6000);
     // FLEXIBLE REPAY DOESN'T UPDATE
-    market.repay(1 ether, address(this));
+    market.refund(1 ether, address(this));
     currentFloatingAssets = market.floatingAssetsAverage();
     assertEq(currentFloatingAssets, previousFloatingAssets);
   }

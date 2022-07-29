@@ -124,11 +124,26 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     asset.safeTransfer(receiver, assets);
   }
 
-  /// @notice Repays a certain amount to the floating pool.
+  /// @notice Repays a certain amount of assets to the floating pool.
+  /// @param assets assets to be subtracted from the borrower's accountability.
+  /// @param borrower address of the account that has the debt.
+  function repay(uint256 assets, address borrower)
+    external
+    nonReentrant
+    whenNotPaused
+    returns (uint256 actualRepay, uint256 borrowShares)
+  {
+    borrowShares = previewRepay(assets);
+    actualRepay = noTransferRefund(borrowShares, borrower);
+    asset.safeTransferFrom(msg.sender, address(this), assets);
+    emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
+  }
+
+  /// @notice Repays a certain amount of shares to the floating pool.
   /// @param borrowShares shares to be subtracted from the borrower's accountability.
   /// @param borrower address of the account that has the debt.
-  function repay(uint256 borrowShares, address borrower) external nonReentrant whenNotPaused returns (uint256 assets) {
-    assets = noTransferRepay(borrowShares, borrower);
+  function refund(uint256 borrowShares, address borrower) public nonReentrant whenNotPaused returns (uint256 assets) {
+    assets = noTransferRefund(borrowShares, borrower);
     asset.safeTransferFrom(msg.sender, address(this), assets);
     emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
   }
@@ -137,11 +152,13 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param borrowShares shares to be subtracted from the borrower's accountability.
   /// @param borrower the address of the account that has the debt.
   /// @return assets the actual amount that should be transferred into the protocol.
-  function noTransferRepay(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
+  function noTransferRefund(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
     uint256 newFloatingDebt = updateFloatingDebt();
     uint256 userBorrowShares = floatingBorrowShares[borrower];
     borrowShares = Math.min(borrowShares, userBorrowShares);
-    assets = previewRepay(borrowShares);
+    assets = previewRefund(borrowShares);
+
+    if (assets == 0) revert ZeroRepay();
 
     newFloatingDebt -= assets;
     uint256 newFloatingBorrowShares = totalFloatingBorrowShares - borrowShares;
@@ -536,13 +553,13 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
 
     if (maxAssets > 0 && floatingBorrowShares[borrower] > 0) {
-      uint256 actualRepayAssets = noTransferRepay(
-        maxAssets.mulDivDown(totalFloatingBorrowShares, totalFloatingBorrowAssets()),
-        borrower
-      );
-      emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
-      repaidAssets += actualRepayAssets;
-      maxAssets -= actualRepayAssets;
+      uint256 borrowShares = previewRepay(maxAssets);
+      if (borrowShares > 0) {
+        uint256 actualRepayAssets = noTransferRefund(borrowShares, borrower);
+        emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
+        repaidAssets += actualRepayAssets;
+        maxAssets -= actualRepayAssets;
+      }
     }
 
     uint256 lendersAssets;
@@ -593,7 +610,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       }
       uint256 borrowShares = floatingBorrowShares[borrower];
       if (borrowShares > 0) {
-        uint256 badDebt = noTransferRepay(borrowShares, borrower);
+        uint256 badDebt = noTransferRefund(borrowShares, borrower);
         spreadBadDebt(badDebt);
         emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
       }
@@ -763,7 +780,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     }
     // calculate floating borrowed debt
     uint256 shares = floatingBorrowShares[account];
-    if (shares > 0) debt += previewRepay(shares);
+    if (shares > 0) debt += previewRefund(shares);
   }
 
   /// @notice Spreads bad debt subtracting the amount from the earningsAccumulator
@@ -906,14 +923,16 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     return supply == 0 ? assets : assets.mulDivUp(supply, totalFloatingBorrowAssets());
   }
 
-  function previewRepay(uint256 shares) public view returns (uint256) {
+  function previewRepay(uint256 assets) public view returns (uint256) {
+    uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
+
+    return supply == 0 ? assets : assets.mulDivDown(supply, totalFloatingBorrowAssets());
+  }
+
+  function previewRefund(uint256 shares) public view returns (uint256) {
     uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
 
     return supply == 0 ? shares : shares.mulDivUp(totalFloatingBorrowAssets(), supply);
-  }
-
-  function maxRepay(address borrower) public view returns (uint256) {
-    return previewRepay(floatingBorrowShares[borrower]);
   }
 
   /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
