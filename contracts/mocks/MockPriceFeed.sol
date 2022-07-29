@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity 0.8.15;
 
-import { MockERC20 } from "@rari-capital/solmate/src/test/utils/mocks/MockERC20.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 
 contract MockPriceFeed {
   event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);

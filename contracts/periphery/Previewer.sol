@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity 0.8.15;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
 import { ExactlyOracle } from "../ExactlyOracle.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
@@ -31,6 +31,7 @@ contract Previewer {
     uint8 maxFuturePools;
     FixedPool[] fixedPools;
     uint256 floatingBackupBorrowed;
+    uint256 floatingAvailableAssets;
     uint256 totalFloatingBorrowAssets;
     uint256 totalFloatingDepositAssets;
     // account
@@ -39,7 +40,6 @@ contract Previewer {
     uint256 floatingBorrowAssets;
     uint256 floatingDepositShares;
     uint256 floatingDepositAssets;
-    uint256 floatingAvailableAssets;
     FixedPosition[] fixedDepositPositions;
     FixedPosition[] fixedBorrowPositions;
   }
@@ -89,9 +89,9 @@ contract Previewer {
         maxFuturePools: market.maxFuturePools(),
         fixedPools: fixedPools(market),
         floatingBackupBorrowed: market.floatingBackupBorrowed(),
+        floatingAvailableAssets: floatingAvailableAssets(market),
         totalFloatingDepositAssets: market.totalAssets(),
         totalFloatingBorrowAssets: market.totalFloatingBorrowAssets(),
-        floatingAvailableAssets: floatingAvailableAssets(market),
         // account
         isCollateral: markets & (1 << i) != 0 ? true : false,
         floatingBorrowShares: market.floatingBorrowShares(account),

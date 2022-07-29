@@ -12,7 +12,7 @@ import type { HardhatUserConfig as Config } from "hardhat/types";
 import multisigPropose from "./deploy/.utils/multisigPropose";
 
 const config: Config = {
-  solidity: { version: "0.8.13", settings: { optimizer: { enabled: true, runs: 200 } } },
+  solidity: { version: "0.8.15", settings: { optimizer: { enabled: true, runs: 200 } } },
   networks: {
     hardhat: {
       tokens: ["DAI", "WETH", "USDC", "WBTC"],

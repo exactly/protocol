@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity 0.8.15;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { ReentrancyGuard } from "@rari-capital/solmate/src/utils/ReentrancyGuard.sol";
-import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
-import { ERC4626, ERC20, SafeTransferLib } from "@rari-capital/solmate/src/mixins/ERC4626.sol";
+import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
 import { Auditor, InvalidParameter } from "./Auditor.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
