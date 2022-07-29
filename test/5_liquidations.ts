@@ -1,11 +1,13 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "@ethersproject/units";
 import { BigNumber, Contract } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
 
+const {
+  utils: { parseUnits },
+} = ethers;
 const nextPoolID = futurePools(3)[2].toNumber();
 
 describe("Liquidations", function () {

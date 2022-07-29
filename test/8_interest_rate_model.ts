@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "@ethersproject/units";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { Contract, BigNumber } from "ethers";
 import { DefaultEnv } from "./defaultEnv";
@@ -9,7 +8,10 @@ import futurePools from "./utils/futurePools";
 
 const [nextPoolID, secondPoolID, thirdPoolID] = futurePools(3).map((bn) => bn.toNumber());
 
-const { provider } = ethers;
+const {
+  utils: { parseUnits },
+  provider,
+} = ethers;
 
 describe("InterestRateModel", () => {
   let exactlyEnv: DefaultEnv;

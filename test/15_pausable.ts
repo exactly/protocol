@@ -14,7 +14,7 @@ describe("Market - Pausable", function () {
   let user: SignerWithAddress;
 
   describe("GIVEN a deployed Market contract", () => {
-    let PAUSER_ROLE: any;
+    let PAUSER_ROLE: string;
     beforeEach(async () => {
       [owner, user] = await ethers.getSigners();
 

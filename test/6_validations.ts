@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { parseUnits } from "@ethersproject/units";
 import { Contract } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { errorUnmatchedPool, PoolState } from "./exactlyUtils";
@@ -11,6 +10,7 @@ const nextPoolId = futurePools(1)[0].toNumber();
 
 const {
   constants: { MaxUint256 },
+  utils: { parseUnits },
 } = ethers;
 
 describe("Validations", function () {
