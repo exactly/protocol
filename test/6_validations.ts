@@ -23,7 +23,8 @@ describe("Validations", function () {
   let user: SignerWithAddress;
 
   before(async () => {
-    [owner, user] = await ethers.getSigners();
+    owner = await ethers.getNamedSigner("deployer");
+    [user] = await ethers.getUnnamedSigners();
 
     exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
     auditor = exactlyEnv.auditor;

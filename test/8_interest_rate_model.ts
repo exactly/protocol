@@ -29,7 +29,8 @@ describe("InterestRateModel", () => {
 
   beforeEach(async () => {
     exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
-    [owner, alice, bob] = await ethers.getSigners();
+    owner = await ethers.getNamedSigner("deployer");
+    [alice, bob] = await ethers.getUnnamedSigners();
 
     interestRateModel = exactlyEnv.interestRateModel;
     snapshot = await provider.send("evm_snapshot", []);

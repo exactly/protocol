@@ -33,7 +33,8 @@ describe("Liquidations", function () {
   });
 
   beforeEach(async () => {
-    [alice, bob, john] = await ethers.getSigners();
+    alice = await ethers.getNamedSigner("deployer");
+    [bob, john] = await ethers.getUnnamedSigners();
 
     exactlyEnv = await DefaultEnv.create({});
     auditor = exactlyEnv.auditor;

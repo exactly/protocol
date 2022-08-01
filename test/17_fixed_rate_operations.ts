@@ -22,7 +22,7 @@ describe("Fixed Rate Operations", () => {
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
-    [, laura, tina] = await ethers.getSigners();
+    [laura, tina] = await ethers.getUnnamedSigners();
     marketEnv = await MarketEnv.create();
     marketHarness = marketEnv.marketHarness;
     mockInterestRateModel = marketEnv.mockInterestRateModel;

@@ -19,7 +19,7 @@ describe("Smart Pool", function () {
   const johnBalancePre = parseUnits("2000");
 
   beforeEach(async () => {
-    [, bob, john] = await ethers.getSigners();
+    [bob, john] = await ethers.getUnnamedSigners();
 
     exactlyEnv = await DefaultEnv.create({});
     underlyingTokenDAI = exactlyEnv.getUnderlying("DAI");

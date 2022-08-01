@@ -16,7 +16,8 @@ describe("Market - Pausable", function () {
   describe("GIVEN a deployed Market contract", () => {
     let PAUSER_ROLE: string;
     beforeEach(async () => {
-      [owner, user] = await ethers.getSigners();
+      owner = await ethers.getNamedSigner("deployer");
+      [user] = await ethers.getUnnamedSigners();
 
       exactlyEnv = await DefaultEnv.create({});
       market = exactlyEnv.getMarket("DAI");
