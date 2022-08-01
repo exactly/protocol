@@ -577,7 +577,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
       ) ||
       moreCollateral;
 
-    emit LiquidateBorrow(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, maxAssets);
+    emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, maxAssets);
 
     asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
 
@@ -1115,7 +1115,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   /// @param lendersAssets incentive paid to lenders.
   /// @param collateralMarket address of the asset that were seized by the liquidator.
   /// @param seizedAssets amount seized of the collateral.
-  event LiquidateBorrow(
+  event Liquidate(
     address indexed receiver,
     address indexed borrower,
     uint256 assets,

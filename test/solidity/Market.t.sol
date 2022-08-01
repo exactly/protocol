@@ -74,7 +74,7 @@ contract MarketTest is Test {
     uint256 debtCovered
   );
   event Repay(address indexed caller, address indexed borrower, uint256 assets, uint256 shares);
-  event LiquidateBorrow(
+  event Liquidate(
     address indexed receiver,
     address indexed borrower,
     uint256 repaidAssets,
@@ -594,7 +594,7 @@ contract MarketTest is Test {
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(market));
-    emit LiquidateBorrow(BOB, address(this), 10454545454545454545, 104545454545454545, marketWETH, 1.15 ether);
+    emit Liquidate(BOB, address(this), 10454545454545454545, 104545454545454545, marketWETH, 1.15 ether);
     market.liquidate(address(this), type(uint256).max, marketWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
@@ -1027,7 +1027,7 @@ contract MarketTest is Test {
 
     vm.prank(BOB);
     // vm.expectEmit(true, true, true, true, address(market));
-    // emit LiquidateBorrow(BOB, address(this), 818181818181818181819, 8181818181818181818, marketWETH, 1 ether);
+    // emit Liquidate(BOB, address(this), 818181818181818181819, 8181818181818181818, marketWETH, 1 ether);
     // we expect the liquidation to cap the max amount of possible assets to repay
     market.liquidate(address(this), type(uint256).max, marketWETH);
     (uint256 remainingCollateral, ) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -1046,7 +1046,7 @@ contract MarketTest is Test {
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(market));
-    emit LiquidateBorrow(BOB, address(this), 818181818181818181819, 8181818181818181818, marketWETH, 1 ether);
+    emit Liquidate(BOB, address(this), 818181818181818181819, 8181818181818181818, marketWETH, 1 ether);
     market.liquidate(address(this), 1_000 ether, marketWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
