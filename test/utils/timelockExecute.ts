@@ -11,5 +11,5 @@ export default async (signer: Signer, contract: Contract, functionName: string, 
   const timelock = await getContract<TimelockController>("TimelockController", signer);
   const calldata = contract.interface.encodeFunctionData(functionName, args);
   await timelock.schedule(contract.address, 0, calldata, HashZero, HashZero, 0);
-  await timelock.execute(contract.address, 0, calldata, HashZero, HashZero);
+  return timelock.execute(contract.address, 0, calldata, HashZero, HashZero);
 };

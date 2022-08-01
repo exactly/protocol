@@ -1,13 +1,14 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { ExactlyOracle, ExactlyOracle__factory, TimelockController, TimelockController__factory } from "../types";
+import type { ExactlyOracle, TimelockController } from "../types";
+import timelockExecute from "./utils/timelockExecute";
 
 const {
   constants: { AddressZero, HashZero },
-  getContractFactory,
   getUnnamedSigners,
   getNamedSigner,
+  getContract,
   provider,
 } = ethers;
 
@@ -23,30 +24,28 @@ describe("Timelock - AccessControl", function () {
     [user] = await getUnnamedSigners();
   });
 
+  beforeEach(async () => {
+    await deployments.fixture();
+
+    exactlyOracle = await getContract<ExactlyOracle>("ExactlyOracle", owner);
+    timelockController = await getContract<TimelockController>("TimelockController", owner);
+    priceFeed = (await deployments.get("PriceFeedDAI")).address;
+
+    await timelockExecute(owner, exactlyOracle, "grantRole", [await exactlyOracle.DEFAULT_ADMIN_ROLE(), owner.address]);
+  });
+
   describe("GIVEN a deployed ExactlyOracle contract", () => {
-    beforeEach(async () => {
-      exactlyOracle = await (await getContractFactory<ExactlyOracle__factory>("ExactlyOracle")).deploy(0);
-      priceFeed = (await deployments.get("PriceFeedDAI")).address;
-    });
     it("THEN it should not revert when setting a new asset source with owner address", async () => {
       await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.not.be.reverted;
     });
     describe("AND GIVEN a deployed Timelock contract", () => {
-      beforeEach(async () => {
-        timelockController = await (
-          await getContractFactory<TimelockController__factory>("TimelockController")
-        ).deploy(1, [owner.address], [owner.address]);
-      });
-      it("THEN owner address has TIMELOCK_ADMIN role for Timelock contract", async () => {
+      it("THEN owner address doesn't have TIMELOCK_ADMIN role for Timelock contract", async () => {
         const TIMELOCK_ADMIN_ROLE = await timelockController.TIMELOCK_ADMIN_ROLE();
-        const ownerHasTimelockAdminRole = await timelockController.hasRole(TIMELOCK_ADMIN_ROLE, owner.address);
-        expect(ownerHasTimelockAdminRole).to.equal(true);
+        expect(await timelockController.hasRole(TIMELOCK_ADMIN_ROLE, owner.address)).to.equal(false);
       });
       describe("AND WHEN the owner grants the ADMIN role to the Timelock contract address", () => {
-        let ADMIN_ROLE: string;
         beforeEach(async () => {
-          ADMIN_ROLE = await exactlyOracle.DEFAULT_ADMIN_ROLE();
-          await exactlyOracle.grantRole(ADMIN_ROLE, timelockController.address);
+          await exactlyOracle.grantRole(await exactlyOracle.DEFAULT_ADMIN_ROLE(), timelockController.address);
         });
         it("THEN it should still not revert when setting new asset sources with owner address", async () => {
           await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.not.be.reverted;
@@ -77,7 +76,7 @@ describe("Timelock - AccessControl", function () {
         });
         describe("AND WHEN the owner revokes his ADMIN role", () => {
           beforeEach(async () => {
-            await exactlyOracle.revokeRole(ADMIN_ROLE, owner.address);
+            await exactlyOracle.revokeRole(await exactlyOracle.DEFAULT_ADMIN_ROLE(), owner.address);
           });
           it("THEN it should revert when trying to set new asset sources with owner address", async () => {
             await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.be.revertedWith("AccessControl");
@@ -89,8 +88,8 @@ describe("Timelock - AccessControl", function () {
           beforeEach(async () => {
             PROPOSER_ROLE = await timelockController.PROPOSER_ROLE();
             EXECUTOR_ROLE = await timelockController.EXECUTOR_ROLE();
-            await timelockController.grantRole(await timelockController.PROPOSER_ROLE(), user.address);
-            await timelockController.grantRole(EXECUTOR_ROLE, user.address);
+            await timelockExecute(owner, timelockController, "grantRole", [PROPOSER_ROLE, user.address]);
+            await timelockExecute(owner, timelockController, "grantRole", [EXECUTOR_ROLE, user.address]);
           });
           it("THEN user has roles", async () => {
             const userHasProposerRole = await timelockController.hasRole(PROPOSER_ROLE, user.address);

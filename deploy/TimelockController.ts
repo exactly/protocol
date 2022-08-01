@@ -1,6 +1,7 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 import { TimelockController } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
+import revokeRole from "./.utils/revokeRole";
 
 const func: DeployFunction = async ({
   network: {
@@ -22,6 +23,8 @@ const func: DeployFunction = async ({
   if (!(await timelock.getMinDelay()).eq(timelockDelay)) {
     await timelockPropose(timelock, timelock, "updateDelay", [timelockDelay]);
   }
+
+  await revokeRole(timelock, await timelock.TIMELOCK_ADMIN_ROLE(), deployer);
 };
 
 func.tags = ["TimelockController"];
