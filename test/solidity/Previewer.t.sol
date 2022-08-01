@@ -5,6 +5,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Market, InsufficientProtocolLiquidity } from "../../contracts/Market.sol";
 import { InterestRateModel, UtilizationExceeded, AlreadyMatured } from "../../contracts/InterestRateModel.sol";
@@ -21,17 +22,17 @@ contract PreviewerTest is Test {
   address internal constant ALICE = address(70);
 
   Market internal market;
-  Previewer internal previewer;
-  MockERC20 internal token;
   Auditor internal auditor;
-  MockOracle internal mockOracle;
-  InterestRateModel internal interestRateModel;
+  MockERC20 internal token;
+  Previewer internal previewer;
+  MockOracle internal oracle;
+  InterestRateModel internal irm;
 
   function setUp() external {
     token = new MockERC20("DAI", "DAI", 18);
-    mockOracle = new MockOracle();
-    auditor = new Auditor(ExactlyOracle(address(mockOracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
-    interestRateModel = new InterestRateModel(
+    oracle = new MockOracle();
+    auditor = new Auditor(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    irm = new InterestRateModel(
       InterestRateModel.Curve({ a: 0.72e18, b: -0.22e18, maxUtilization: 3e18 }),
       2e18,
       InterestRateModel.Curve({ a: 0.72e18, b: -0.22e18, maxUtilization: 3e18 }),
@@ -43,7 +44,7 @@ contract PreviewerTest is Test {
       12,
       1e18,
       auditor,
-      interestRateModel,
+      irm,
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
@@ -62,7 +63,9 @@ contract PreviewerTest is Test {
     vm.prank(ALICE);
     token.approve(address(market), 50_000 ether);
 
-    previewer = new Previewer(auditor);
+    previewer = Previewer(
+      address(new ERC1967Proxy(address(new Previewer(auditor)), abi.encodeCall(Previewer.initialize, ())))
+    );
   }
 
   function testPreviewDepositAtMaturityReturningAccurateAmount() external {
@@ -414,13 +417,13 @@ contract PreviewerTest is Test {
       12,
       1e18,
       auditor,
-      interestRateModel,
+      irm,
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
       Market.DampSpeed(0.0046e18, 0.42e18)
     );
-    mockOracle.setPrice(marketWETH, 2800e18);
+    oracle.setPrice(marketWETH, 2800e18);
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -511,13 +514,13 @@ contract PreviewerTest is Test {
       12,
       1e18,
       auditor,
-      interestRateModel,
+      irm,
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
       Market.DampSpeed(0.0046e18, 0.42e18)
     );
-    mockOracle.setPrice(marketWETH, 2800e18);
+    oracle.setPrice(marketWETH, 2800e18);
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -576,13 +579,13 @@ contract PreviewerTest is Test {
       12,
       1e18,
       auditor,
-      interestRateModel,
+      irm,
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
       Market.DampSpeed(0.0046e18, 0.42e18)
     );
-    mockOracle.setPrice(marketWETH, 2800e18);
+    oracle.setPrice(marketWETH, 2800e18);
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -853,13 +856,13 @@ contract PreviewerTest is Test {
       12,
       1e18,
       auditor,
-      interestRateModel,
+      irm,
       0.02e18 / uint256(1 days),
       0.1e18,
       0,
       Market.DampSpeed(0.0046e18, 0.42e18)
     );
-    mockOracle.setPrice(marketWETH, 2800e18);
+    oracle.setPrice(marketWETH, 2800e18);
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -903,7 +906,7 @@ contract PreviewerTest is Test {
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
     assertEq(data[1].isCollateral, true);
 
-    mockOracle.setPrice(marketWETH, 2800e18);
+    oracle.setPrice(marketWETH, 2800e18);
     vm.warp(200 seconds);
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 33 ether, 40 ether, address(this), address(this));
     data = previewer.exactly(address(this));
@@ -923,7 +926,7 @@ contract PreviewerTest is Test {
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
 
-    mockOracle.setPrice(marketWETH, 1831e18);
+    oracle.setPrice(marketWETH, 1831e18);
     data = previewer.exactly(address(this));
     assertEq(data[1].oraclePrice, 1831e18);
   }
