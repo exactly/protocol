@@ -29,7 +29,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
   });
 
   beforeEach(async () => {
-    await deployments.fixture(["Markets"]);
+    await deployments.fixture("Markets");
 
     weth = await getContract<WETH>("WETH", alice);
     weth = await getContract<WETH>("WETH", alice);

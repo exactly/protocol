@@ -30,7 +30,7 @@ describe("ExactlyOracle", function () {
   });
 
   beforeEach(async () => {
-    await deployments.fixture(["Markets"]);
+    await deployments.fixture("Markets");
 
     dai = await getContract<MockERC20>("DAI", user);
     priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", user);

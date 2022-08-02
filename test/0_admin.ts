@@ -27,7 +27,7 @@ describe("Auditor Admin", function () {
   });
 
   beforeEach(async () => {
-    await fixture(["Markets"]);
+    await fixture("Markets");
 
     dai = await getContract<MockERC20>("DAI", laura);
     auditor = await getContract<Auditor>("Auditor", laura);

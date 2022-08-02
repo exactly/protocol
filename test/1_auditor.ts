@@ -29,7 +29,7 @@ describe("Auditor from User Space", function () {
   });
 
   beforeEach(async () => {
-    await deployments.fixture(["Markets"]);
+    await deployments.fixture("Markets");
 
     dai = await getContract<MockERC20>("DAI", user);
     weth = await getContract<WETH>("WETH", user);

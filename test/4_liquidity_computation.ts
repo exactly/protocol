@@ -40,7 +40,7 @@ describe("Liquidity computations", function () {
   });
 
   beforeEach(async () => {
-    await deployments.fixture(["Markets"]);
+    await deployments.fixture("Markets");
 
     dai = await getContract<MockERC20>("DAI", laura);
     usdc = await getContract<MockERC20>("USDC", laura);

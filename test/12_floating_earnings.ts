@@ -34,7 +34,7 @@ describe("Smart Pool Earnings Distribution", function () {
   });
 
   beforeEach(async () => {
-    await deployments.fixture(["Markets"]);
+    await deployments.fixture("Markets");
 
     dai = await getContract<MockERC20>("DAI", bob);
     wbtc = await getContract<MockERC20>("WBTC", bob);

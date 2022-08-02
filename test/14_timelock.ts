@@ -25,7 +25,7 @@ describe("Timelock - AccessControl", function () {
   });
 
   beforeEach(async () => {
-    await deployments.fixture();
+    await deployments.fixture("Markets");
 
     exactlyOracle = await getContract<ExactlyOracle>("ExactlyOracle", owner);
     timelockController = await getContract<TimelockController>("TimelockController", owner);
