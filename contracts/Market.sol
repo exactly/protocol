@@ -959,7 +959,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the floating pool.
-  /// @dev Value can only be lower than 4. If set at 0, then all remaining accumulated earnings are
+  /// @dev Value cannot be higher than 4. If set at 0, then all remaining accumulated earnings are
   /// distributed in following operation to the floating pool.
   /// @param earningsAccumulatorSmoothFactor_ represented with 18 decimals.
   function setEarningsAccumulatorSmoothFactor(uint128 earningsAccumulatorSmoothFactor_)

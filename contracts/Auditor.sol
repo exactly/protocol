@@ -331,10 +331,10 @@ contract Auditor is AccessControl {
   }
 
   /// @notice Sets Oracle's to be used.
-  /// @param _priceOracle address of the new oracle.
-  function setOracle(ExactlyOracle _priceOracle) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    oracle = _priceOracle;
-    emit OracleSet(_priceOracle);
+  /// @param oracle_ address of the new oracle.
+  function setOracle(ExactlyOracle oracle_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    oracle = oracle_;
+    emit OracleSet(oracle_);
   }
 
   /// @notice Event emitted when a new market is listed for borrow/lending.
