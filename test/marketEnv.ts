@@ -4,6 +4,7 @@ import { FixedPoolState } from "./exactlyUtils";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
+/** @deprecated use deploy fixture */
 export class MarketEnv {
   mockInterestRateModel: Contract;
   marketHarness: Contract;

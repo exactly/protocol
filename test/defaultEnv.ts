@@ -12,6 +12,7 @@ import {
   noDiscount,
 } from "./exactlyUtils";
 
+/** @deprecated use deploy fixture */
 export class DefaultEnv {
   oracle: Contract;
   auditor: Contract;

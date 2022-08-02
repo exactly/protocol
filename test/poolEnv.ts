@@ -2,6 +2,7 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 
+/** @deprecated use deploy fixture */
 export class PoolEnv {
   fpHarness: Contract;
 
