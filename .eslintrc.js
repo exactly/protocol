@@ -3,6 +3,7 @@ module.exports = {
   parser: "@typescript-eslint/parser",
   parserOptions: { project: "./tsconfig.json" },
   settings: { "import/resolver": "typescript" },
+  plugins: ["deprecation"],
   extends: [
     "eslint:recommended",
     "plugin:import/errors",
@@ -15,6 +16,7 @@ module.exports = {
   rules: {
     "no-console": "error",
     "node/no-missing-import": "off",
+    "deprecation/deprecation": "warn",
     "node/no-unpublished-import": "off",
     "@typescript-eslint/no-shadow": "error",
     "eslint-comments/no-unused-disable": "error",
