@@ -979,8 +979,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
   }
 
   /// @notice Sets the protocol's max future pools for borrowing and lending.
-  /// @dev Value can not be 0 or higher than 224.
-  /// Value shouldn't be lower than previous value or VALID maturities will become NOT_READY.
+  /// @dev Value can not be 0 or higher than 224. If value is decreased, VALID maturities will become NOT_READY.
   /// @param futurePools number of pools to be active at the same time.
   function setMaxFuturePools(uint8 futurePools) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (futurePools > 224 || futurePools == 0) revert InvalidParameter();
