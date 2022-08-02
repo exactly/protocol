@@ -2,9 +2,8 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { errorUnmatchedPool, PoolState } from "./exactlyUtils";
-import { DefaultEnv } from "./defaultEnv";
 import futurePools, { INTERVAL } from "./utils/futurePools";
+import { DefaultEnv } from "./defaultEnv";
 
 const nextPoolId = futurePools(1)[0].toNumber();
 
@@ -65,17 +64,17 @@ describe("Validations", function () {
     describe("GIVEN a NOT not-yet-enabled pool", () => {
       it("WHEN trying to deposit to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.depositMP("DAI", nextPoolId + INTERVAL * 20, "100")).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID),
+          `UnmatchedPoolState(${PoolState.NOT_READY}, ${PoolState.VALID})`,
         );
       });
       it("WHEN trying to borrow from MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.borrowMP("DAI", nextPoolId + INTERVAL * 20, "2", "2")).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID),
+          `UnmatchedPoolState(${PoolState.NOT_READY}, ${PoolState.VALID})`,
         );
       });
       it("WHEN trying to withdraw from MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.withdrawMP("DAI", nextPoolId + INTERVAL * 20, "100")).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.NOT_READY, PoolState.VALID, PoolState.MATURED),
+          `UnmatchedPoolStates(${PoolState.NOT_READY}, ${PoolState.VALID}, ${PoolState.MATURED})`,
         );
       });
       it("WHEN trying to repay to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
@@ -87,29 +86,29 @@ describe("Validations", function () {
     describe("GIVEN a matured pool", () => {
       it("WHEN trying to deposit to MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.depositMP("DAI", nextPoolId - INTERVAL * 20, "100")).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.MATURED, PoolState.VALID),
+          `UnmatchedPoolState(${PoolState.MATURED}, ${PoolState.VALID})`,
         );
       });
       it("WHEN trying to borrow from MP, THEN the transaction should revert with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.borrowMP("DAI", nextPoolId - INTERVAL * 20, "3", "3")).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.MATURED, PoolState.VALID),
+          `UnmatchedPoolState(${PoolState.MATURED}, ${PoolState.VALID})`,
         );
       });
     });
     describe("GIVEN an invalid pool id", () => {
       it("WHEN trying to deposit to MP, THEN it reverts with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.depositMP("DAI", nextPoolId + 1, "100")).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID),
+          `UnmatchedPoolState(${PoolState.INVALID}, ${PoolState.VALID})`,
         );
       });
       it("WHEN trying to borrow from MP, THEN it reverts with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.borrowMP("DAI", nextPoolId + 1, "3", "3")).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID),
+          `UnmatchedPoolState(${PoolState.INVALID}, ${PoolState.VALID})`,
         );
       });
       it("WHEN trying to withdraw from MP, THEN it reverts with UnmatchedPoolState error", async () => {
         await expect(exactlyEnv.withdrawMP("DAI", nextPoolId + 1, "100")).to.be.revertedWith(
-          errorUnmatchedPool(PoolState.INVALID, PoolState.VALID, PoolState.MATURED),
+          `UnmatchedPoolStates(${PoolState.INVALID}, ${PoolState.VALID}, ${PoolState.MATURED})`,
         );
       });
       it("WHEN trying to repay to MP, THEN it reverts with UnmatchedPoolState error", async () => {
@@ -297,3 +296,11 @@ describe("Validations", function () {
     });
   });
 });
+
+enum PoolState {
+  NONE,
+  INVALID,
+  MATURED,
+  VALID,
+  NOT_READY,
+}

@@ -1,16 +1,8 @@
 import { ethers } from "hardhat";
-import { Contract, BigNumber } from "ethers";
+import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  applyMaxFee,
-  applyMinFee,
-  defaultMockTokens,
-  discountMaxFee,
-  EnvConfig,
-  MockTokenSpec,
-  noDiscount,
-} from "./exactlyUtils";
+import type { BigNumber, BigNumberish } from "ethers";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 /** @deprecated use deploy fixture */
 export class DefaultEnv {
@@ -50,9 +42,40 @@ export class DefaultEnv {
   }
 
   static async create({ mockTokens, useRealInterestRateModel }: EnvConfig): Promise<DefaultEnv> {
-    if (mockTokens === undefined) {
-      mockTokens = defaultMockTokens;
-    }
+    mockTokens ??= new Map([
+      [
+        "DAI",
+        {
+          decimals: 18,
+          adjustFactor: parseUnits("0.8"),
+          usdPrice: parseUnits("1"),
+        },
+      ],
+      [
+        "WETH",
+        {
+          decimals: 18,
+          adjustFactor: parseUnits("0.7"),
+          usdPrice: parseUnits("3000"),
+        },
+      ],
+      [
+        "WBTC",
+        {
+          decimals: 8,
+          adjustFactor: parseUnits("0.6"),
+          usdPrice: parseUnits("63000"),
+        },
+      ],
+      [
+        "USDC",
+        {
+          decimals: 6,
+          adjustFactor: parseUnits("0.8"),
+          usdPrice: parseUnits("1"),
+        },
+      ],
+    ]);
     const marketContracts = new Map<string, Contract>();
     const underlyingContracts = new Map<string, Contract>();
 
@@ -180,7 +203,7 @@ export class DefaultEnv {
     const market = this.getMarket(assetString);
     const amount = parseUnits(units, this.digitsForAsset(assetString));
     const expectedAmount =
-      (expectedAtMaturity && parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) || applyMinFee(amount);
+      (expectedAtMaturity && parseUnits(expectedAtMaturity, this.digitsForAsset(assetString))) || amount;
     await asset.connect(this.currentWallet).approve(market.address, amount);
     return market
       .connect(this.currentWallet)
@@ -200,7 +223,7 @@ export class DefaultEnv {
     if (expectedAtMaturity) {
       expectedAmount = parseUnits(expectedAtMaturity, this.digitsForAsset(assetString));
     } else {
-      expectedAmount = discountMaxFee(amount);
+      expectedAmount = amount.sub(amount.div(10)); // 10%
     }
     return market
       .connect(this.currentWallet)
@@ -214,7 +237,7 @@ export class DefaultEnv {
     if (expectedAtMaturity) {
       expectedAmount = parseUnits(expectedAtMaturity, this.digitsForAsset(assetString));
     } else {
-      expectedAmount = applyMaxFee(amount);
+      expectedAmount = amount.add(amount.div(10)); // 10%
     }
     return market
       .connect(this.currentWallet)
@@ -229,7 +252,7 @@ export class DefaultEnv {
     if (expectedAtMaturity) {
       expectedAmount = parseUnits(expectedAtMaturity, this.digitsForAsset(assetString));
     } else {
-      expectedAmount = noDiscount(amount);
+      expectedAmount = amount;
     }
     await asset.connect(this.currentWallet).approve(market.address, amount);
     return market
@@ -273,3 +296,14 @@ export class DefaultEnv {
     return this.getMarket(market).previewDebt(this.currentWallet.address);
   }
 }
+
+type EnvConfig = {
+  mockTokens?: Map<string, MockTokenSpec>;
+  useRealInterestRateModel?: boolean;
+};
+
+type MockTokenSpec = {
+  decimals: BigNumberish;
+  adjustFactor: BigNumber;
+  usdPrice: BigNumber;
+};

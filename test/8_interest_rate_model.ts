@@ -1,9 +1,8 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Contract, BigNumber } from "ethers";
+import type { Contract, BigNumber, ContractTransaction } from "ethers";
 import { DefaultEnv } from "./defaultEnv";
-import { expectFee } from "./exactlyUtils";
 import futurePools from "./utils/futurePools";
 
 const [nextPoolID, secondPoolID, thirdPoolID] = futurePools(3).map((bn) => bn.toNumber());
@@ -281,12 +280,16 @@ describe("InterestRateModel", () => {
           );
         });
         describe("WHEN borrowing 11k of SP liquidity", () => {
-          let tx: any;
+          let tx: ContractTransaction;
           beforeEach(async () => {
             tx = await exactlyEnv.borrowMP("DAI", secondPoolID, "11000", "16000");
           });
           it("THEN the fee charged (300%) implies an utilization rate of 11", async () => {
-            await expectFee(tx, parseUnits("2546"));
+            const expectedFee = parseUnits("2546");
+            const borrowEvents = (await tx.wait()).events?.filter(({ event }) => event === "BorrowAtMaturity");
+            expect(borrowEvents?.length).to.equal(1);
+            expect(borrowEvents?.[0].args?.fee).to.be.gte(expectedFee.mul("99").div("100"));
+            expect(borrowEvents?.[0].args?.fee).to.be.lte(expectedFee.mul("101").div("100"));
           });
         });
         describe("GIVEN a borrow of 1000 DAI in the closest maturity", () => {

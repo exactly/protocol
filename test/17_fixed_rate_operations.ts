@@ -3,8 +3,7 @@ import { ethers } from "hardhat";
 import { BigNumber, Contract, ContractTransaction } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { FixedPoolState } from "./exactlyUtils";
-import { MarketEnv } from "./marketEnv";
+import { MarketEnv, FixedPoolState } from "./marketEnv";
 import futurePools from "./utils/futurePools";
 
 const { provider } = ethers;

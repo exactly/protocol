@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
-import { BigNumber, Contract } from "ethers";
-import { FixedPoolState } from "./exactlyUtils";
+import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { BigNumber } from "ethers";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 /** @deprecated use deploy fixture */
 export class MarketEnv {
@@ -77,3 +77,12 @@ export class MarketEnv {
     return new MarketEnv(mockInterestRateModel, marketHarness, asset, owner);
   }
 }
+
+export type FixedPoolState = {
+  borrowFees: BigNumber;
+  unassignedEarnings: BigNumber;
+  backupEarnings: BigNumber;
+  earningsAccumulator: BigNumber;
+  earningsMP: BigNumber;
+  earningsDiscounted: BigNumber;
+};
