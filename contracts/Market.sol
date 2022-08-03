@@ -11,7 +11,7 @@ import { Auditor, InvalidParameter } from "./Auditor.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 
-contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
+contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
