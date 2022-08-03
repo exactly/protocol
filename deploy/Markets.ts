@@ -1,6 +1,6 @@
 import type { BigNumber } from "ethers";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, ExactlyOracle, Market, InterestRateModel, TimelockController } from "../types";
+import type { Auditor, ERC20, ExactlyOracle, Market, InterestRateModel } from "../types";
 import { mockPrices } from "./mocks/Tokens";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
@@ -27,13 +27,14 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [auditor, exactlyOracle, interestRateModel, timelockController, { deployer, multisig }] = await Promise.all([
-    getContract<Auditor>("Auditor"),
-    getContract<ExactlyOracle>("ExactlyOracle"),
-    getContract<InterestRateModel>("InterestRateModel"),
-    getContract<TimelockController>("TimelockController"),
-    getNamedAccounts(),
-  ]);
+  const [auditor, exactlyOracle, interestRateModel, { address: timelockAddress }, { deployer, multisig }] =
+    await Promise.all([
+      getContract<Auditor>("Auditor"),
+      getContract<ExactlyOracle>("ExactlyOracle"),
+      getContract<InterestRateModel>("InterestRateModel"),
+      get("TimelockController"),
+      getNamedAccounts(),
+    ]);
 
   const marketArgs = [
     maxFuturePools,
@@ -68,58 +69,50 @@ const func: DeployFunction = async ({
     }
 
     if (!((await market.maxFuturePools()) === maxFuturePools)) {
-      await executeOrPropose(deployer, timelockController, market, "setMaxFuturePools", [maxFuturePools]);
+      await executeOrPropose(deployer, market, "setMaxFuturePools", [maxFuturePools]);
     }
     if (!(await market.earningsAccumulatorSmoothFactor()).eq(marketArgs[1])) {
-      await executeOrPropose(deployer, timelockController, market, "setEarningsAccumulatorSmoothFactor", [
-        marketArgs[1],
-      ]);
+      await executeOrPropose(deployer, market, "setEarningsAccumulatorSmoothFactor", [marketArgs[1]]);
     }
     if (!(await market.penaltyRate()).eq(marketArgs[4])) {
-      await executeOrPropose(deployer, timelockController, market, "setPenaltyRate", [marketArgs[4]]);
+      await executeOrPropose(deployer, market, "setPenaltyRate", [marketArgs[4]]);
     }
     if (!(await market.backupFeeRate()).eq(marketArgs[5])) {
-      await executeOrPropose(deployer, timelockController, market, "setBackupFeeRate", [marketArgs[5]]);
+      await executeOrPropose(deployer, market, "setBackupFeeRate", [marketArgs[5]]);
     }
     if (!(await market.reserveFactor()).eq(marketArgs[6])) {
-      await executeOrPropose(deployer, timelockController, market, "setReserveFactor", [marketArgs[6]]);
+      await executeOrPropose(deployer, market, "setReserveFactor", [marketArgs[6]]);
     }
     if (!((await market.interestRateModel()) === interestRateModel.address)) {
-      await executeOrPropose(deployer, timelockController, market, "setInterestRateModel", [interestRateModel.address]);
+      await executeOrPropose(deployer, market, "setInterestRateModel", [interestRateModel.address]);
     }
     if (!(await market.dampSpeedUp()).eq(marketArgs[7].up) || !(await market.dampSpeedDown()).eq(marketArgs[7].down)) {
-      await executeOrPropose(deployer, timelockController, market, "setDampSpeed", [marketArgs[7]]);
+      await executeOrPropose(deployer, market, "setDampSpeed", [marketArgs[7]]);
     }
 
     const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
     if ((await exactlyOracle.priceFeeds(market.address)) !== priceFeedAddress) {
-      await executeOrPropose(deployer, timelockController, exactlyOracle, "setPriceFeed", [
-        market.address,
-        priceFeedAddress,
-      ]);
+      await executeOrPropose(deployer, exactlyOracle, "setPriceFeed", [market.address, priceFeedAddress]);
     }
 
     const underlyingAdjustFactor = parseUnits(String(adjustFactor[symbol] ?? adjustFactor.default));
     if (!(await auditor.allMarkets()).includes(market.address)) {
-      await executeOrPropose(deployer, timelockController, auditor, "enableMarket", [
+      await executeOrPropose(deployer, auditor, "enableMarket", [
         market.address,
         underlyingAdjustFactor,
         await token.decimals(),
       ]);
     } else if (!(await auditor.markets(market.address)).adjustFactor.eq(underlyingAdjustFactor)) {
-      await executeOrPropose(deployer, timelockController, auditor, "setAdjustFactor", [
-        market.address,
-        underlyingAdjustFactor,
-      ]);
+      await executeOrPropose(deployer, auditor, "setAdjustFactor", [market.address, underlyingAdjustFactor]);
     }
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
 
-    await transferOwnership(market, deployer, timelockController.address);
+    await transferOwnership(market, deployer, timelockAddress);
   }
 
   for (const contract of [auditor, interestRateModel, exactlyOracle]) {
-    await transferOwnership(contract, deployer, timelockController.address);
+    await transferOwnership(contract, deployer, timelockAddress);
   }
 };
 

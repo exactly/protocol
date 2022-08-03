@@ -1,23 +1,17 @@
-import hre from "hardhat";
+import { ethers, deployments, network } from "hardhat";
 import type { Contract } from "ethers";
 import type { TimelockController } from "../../types";
 import multisigPropose from "./multisigPropose";
 import format from "./format";
 
 const {
-  ethers: {
-    constants: { HashZero },
-  },
-  deployments: { log },
-  network,
-} = hre;
+  constants: { HashZero },
+  getContract,
+} = ethers;
+const { log } = deployments;
 
-export default async (
-  timelock: TimelockController,
-  contract: Contract,
-  functionName: string,
-  args?: readonly unknown[],
-) => {
+export default async (contract: Contract, functionName: string, args?: readonly unknown[]) => {
+  const timelock = await getContract<TimelockController>("TimelockController", contract.signer);
   const calldata = contract.interface.encodeFunctionData(functionName, args);
 
   let predecessor = HashZero;
@@ -35,7 +29,7 @@ export default async (
   }
 
   if (network.config.gnosisSafeTxService) {
-    await multisigPropose(hre, "deployer", timelock, "execute", [contract.address, 0, calldata, predecessor, HashZero]);
+    await multisigPropose("deployer", timelock, "execute", [contract.address, 0, calldata, predecessor, HashZero]);
   } else {
     log("timelock: executing", `${await format(contract.address)}.${functionName}`, await format(args));
     await (await timelock.execute(contract.address, 0, calldata, predecessor, HashZero)).wait();

@@ -1,5 +1,5 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { InterestRateModel, TimelockController } from "../types";
+import type { InterestRateModel } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
 
 const func: DeployFunction = async ({
@@ -46,15 +46,13 @@ const func: DeployFunction = async ({
     !(await irm.fixedFullUtilization()).eq(fixedFullUtilization) ||
     (await irm.fixedCurve()).some((param, i) => !param.eq(fixedCurve[i]))
   ) {
-    const timelock = await getContract<TimelockController>("TimelockController", deployer);
-    await timelockPropose(timelock, irm, "setFixedParameters", [fixedCurve, fixedFullUtilization]);
+    await timelockPropose(irm, "setFixedParameters", [fixedCurve, fixedFullUtilization]);
   }
   if (
     !(await irm.floatingFullUtilization()).eq(floatingFullUtilization) ||
     (await irm.floatingCurve()).some((param, i) => !param.eq(floatingCurve[i]))
   ) {
-    const timelock = await getContract<TimelockController>("TimelockController", deployer);
-    await timelockPropose(timelock, irm, "setFloatingCurveParameters", [floatingCurve, floatingFullUtilization]);
+    await timelockPropose(irm, "setFloatingCurveParameters", [floatingCurve, floatingFullUtilization]);
   }
 };
 

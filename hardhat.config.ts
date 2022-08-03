@@ -74,9 +74,9 @@ const config: Config = {
 task(
   "pause",
   "pauses/unpauses a market",
-  async ({ market, pause, account }: { market: string; pause: boolean; account: string }, hre) => {
+  async ({ market, pause, account }: { market: string; pause: boolean; account: string }, { ethers }) => {
     const { default: multisigPropose } = await import("./deploy/.utils/multisigPropose");
-    await multisigPropose(hre, account, await hre.ethers.getContract(`Market${market}`), pause ? "pause" : "unpause");
+    await multisigPropose(account, await ethers.getContract(`Market${market}`), pause ? "pause" : "unpause");
   },
 )
   .addPositionalParam("market", "token symbol of the underlying asset", undefined, string)

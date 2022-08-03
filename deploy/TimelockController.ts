@@ -21,7 +21,7 @@ const func: DeployFunction = async ({
 
   const timelock = await getContract<TimelockController>("TimelockController", await getSigner(deployer));
   if (!(await timelock.getMinDelay()).eq(timelockDelay)) {
-    await timelockPropose(timelock, timelock, "updateDelay", [timelockDelay]);
+    await timelockPropose(timelock, "updateDelay", [timelockDelay]);
   }
 
   await revokeRole(timelock, await timelock.TIMELOCK_ADMIN_ROLE(), deployer);
