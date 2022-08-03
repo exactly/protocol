@@ -72,9 +72,7 @@ contract Market is ERC4626, AccessControl, ReentrancyGuard, Pausable {
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
     DampSpeed memory dampSpeed_
-  )
-    ERC4626(asset_, string(abi.encodePacked("EToken", asset_.symbol())), string(abi.encodePacked("e", asset_.symbol())))
-  {
+  ) ERC4626(asset_, string.concat("EToken", asset_.symbol()), string.concat("e", asset_.symbol())) {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     auditor = auditor_;
