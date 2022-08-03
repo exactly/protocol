@@ -9,7 +9,6 @@ import { env } from "process";
 import { task } from "hardhat/config";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
 import type { HardhatUserConfig as Config } from "hardhat/types";
-import multisigPropose from "./deploy/.utils/multisigPropose";
 
 const config: Config = {
   solidity: { version: "0.8.15", settings: { optimizer: { enabled: true, runs: 200 } } },
@@ -75,8 +74,10 @@ const config: Config = {
 task(
   "pause",
   "pauses/unpauses a market",
-  async ({ market, pause, account }: { market: string; pause: boolean; account: string }, hre) =>
-    multisigPropose(hre, account, await hre.ethers.getContract(`Market${market}`), pause ? "pause" : "unpause"),
+  async ({ market, pause, account }: { market: string; pause: boolean; account: string }, hre) => {
+    const { default: multisigPropose } = await import("./deploy/.utils/multisigPropose");
+    await multisigPropose(hre, account, await hre.ethers.getContract(`Market${market}`), pause ? "pause" : "unpause");
+  },
 )
   .addPositionalParam("market", "token symbol of the underlying asset", undefined, string)
   .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)

@@ -24,7 +24,7 @@ module.exports = {
     "@typescript-eslint/no-floating-promises": "error",
     "import/no-extraneous-dependencies": ["error", { devDependencies: true }],
     "@typescript-eslint/no-unused-vars": ["error", { ignoreRestSiblings: true }],
-    "node/no-unsupported-features/es-syntax": ["error", { ignores: ["modules"] }],
+    "node/no-unsupported-features/es-syntax": ["error", { ignores: ["modules", "dynamicImport"] }],
   },
   overrides: [
     {
