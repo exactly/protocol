@@ -2,6 +2,7 @@ import { deployments } from "hardhat";
 import type { Contract } from "ethers";
 import type { TimelockController } from "../../types";
 import timelockPropose from "./timelockPropose";
+import format from "./format";
 
 export default async (
   address: string,
@@ -11,7 +12,7 @@ export default async (
   args?: readonly unknown[],
 ) => {
   if (await contract.hasRole(await contract.DEFAULT_ADMIN_ROLE(), address)) {
-    deployments.log("executing", contract.address, functionName, args);
+    deployments.log("executing", `${await format(contract.address)}.${functionName}`, await format(args));
     await (await contract[functionName](...(args ?? []))).wait();
   } else {
     await timelockPropose(timelock, contract.connect(address), functionName, args);
