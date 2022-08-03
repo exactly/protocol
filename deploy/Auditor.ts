@@ -3,6 +3,7 @@ import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor } from "../types";
 import executeOrPropose from "./.utils/executeOrPropose";
 import timelockPropose from "./.utils/timelockPropose";
+import validateUpgrade from "./.utils/validateUpgrade";
 
 const func: DeployFunction = async ({
   config: {
@@ -19,6 +20,8 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
+  await validateUpgrade("Auditor");
+
   const [{ address: timelockAddress }, { address: oracleAddress }, { deployer }] = await Promise.all([
     get("TimelockController"),
     get("ExactlyOracle"),

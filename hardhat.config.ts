@@ -1,10 +1,11 @@
 import "dotenv/config";
+import "hardhat-deploy";
+import "solidity-coverage";
+import "@typechain/hardhat";
+import "hardhat-gas-reporter";
 import "@nomiclabs/hardhat-waffle";
 import "@primitivefi/hardhat-dodoc";
-import "@typechain/hardhat";
-import "solidity-coverage";
-import "hardhat-deploy";
-import "hardhat-gas-reporter";
+import "@openzeppelin/hardhat-upgrades";
 import { env } from "process";
 import { task } from "hardhat/config";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.15;
 
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { Market, NotMarket } from "./Market.sol";
 import { ExactlyOracle } from "./ExactlyOracle.sol";
 import { Upgradeable } from "./utils/Upgradeable.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 
-contract Auditor is AccessControl, Upgradeable {
+contract Auditor is AccessControlUpgradeable, Upgradeable {
   using FixedPointMathLib for uint256;
 
   uint256 public constant TARGET_HEALTH = 1.25e18;

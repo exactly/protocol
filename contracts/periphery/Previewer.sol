@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.15;
 
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
 import { ExactlyOracle } from "../ExactlyOracle.sol";
 import { Upgradeable } from "../utils/Upgradeable.sol";
@@ -20,6 +20,7 @@ contract Previewer is Upgradeable {
   using FixedLib for FixedLib.Pool;
   using FixedLib for uint256;
 
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
 
   struct MarketAccount {
@@ -65,6 +66,7 @@ contract Previewer is Upgradeable {
     uint256 utilization;
   }
 
+  /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_) {
     auditor = auditor_;
   }
