@@ -20,6 +20,7 @@ module.exports = {
     "node/no-unpublished-import": "off",
     "@typescript-eslint/no-shadow": "error",
     "eslint-comments/no-unused-disable": "error",
+    "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-floating-promises": "error",
     "import/no-extraneous-dependencies": ["error", { devDependencies: true }],
     "@typescript-eslint/no-unused-vars": ["error", { ignoreRestSiblings: true }],
@@ -29,25 +30,7 @@ module.exports = {
     {
       files: ["test/**/*"],
       extends: ["plugin:mocha/recommended", "plugin:chai-expect/recommended", "plugin:chai-friendly/recommended"],
-      rules: {
-        "mocha/no-mocha-arrows": "off",
-      },
-    },
-    {
-      // TODO remove after refactor
-      files: ["test/{5,6,8,9,10,11,13,15,16,17}_*", "test/*Env.ts", "test/*Utils.ts"],
-      rules: {
-        "no-var": "warn",
-        "prefer-const": "warn",
-        "mocha/no-sibling-hooks": "warn",
-        "mocha/no-async-describe": "warn",
-        "node/no-extraneous-import": "warn",
-        "mocha/no-setup-in-describe": "warn",
-        "@typescript-eslint/no-shadow": "warn",
-        "import/no-extraneous-dependencies": "warn",
-        "@typescript-eslint/no-explicit-any": "warn",
-        "@typescript-eslint/no-inferrable-types": "warn",
-      },
+      rules: { "mocha/no-mocha-arrows": "off" },
     },
   ],
 };
