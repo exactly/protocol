@@ -9,8 +9,13 @@ const { provider } = ethers;
 
 describe("Fixed Pool Management Library", () => {
   let poolEnv: PoolEnv;
-  let fp: any;
-  let scaledDebt: any;
+  let fp: {
+    borrowed: BigNumber;
+    supplied: BigNumber;
+    unassignedEarnings: BigNumber;
+    lastAccrual: BigNumber;
+  };
+  let scaledDebt: { principal: BigNumber; fee: BigNumber };
 
   describe("GIVEN a clean fixed rate pool", () => {
     beforeEach(async () => {
@@ -240,7 +245,7 @@ describe("Fixed Pool Management Library", () => {
         let now: number;
         let sixDays: number;
         let tenDays: number;
-        let snapshot: any;
+        let snapshot: string;
         beforeEach(async () => {
           snapshot = await provider.send("evm_snapshot", []);
           now = Math.floor(Date.now() / 1000) + 6_666_666;
@@ -608,7 +613,7 @@ describe("Fixed Pool Management Library", () => {
     });
 
     describe("setMaturity", () => {
-      let newAccountBorrows: number;
+      let newAccountBorrows: BigNumber;
       const userBorrowsWith56DayMaturity = 4_299_805_696;
       const userBorrowsWith56And84DayMaturity = 12_889_740_288;
       const userBorrowsWith28And56And84DayMaturity = 30_067_190_272;
@@ -655,12 +660,10 @@ describe("Fixed Pool Management Library", () => {
                 expect(newAccountBorrows).to.equal(userBorrowsWith56And84DayMaturity);
               });
               describe("AND GIVEN the 28 days maturity is removed again from the userBorrows", () => {
-                beforeEach(async () => {
-                  await poolEnv.clearMaturity(userBorrowsWith56And84DayMaturity, INTERVAL);
-                  newAccountBorrows = await poolEnv.fpHarness.newAccountBorrows();
-                });
-                it("THEN newAccountBorrows has the result of the 56 and 84 days maturity", async () => {
-                  expect(newAccountBorrows).to.equal(userBorrowsWith56And84DayMaturity);
+                it("THEN it should revert", async () => {
+                  await expect(poolEnv.clearMaturity(userBorrowsWith56And84DayMaturity, INTERVAL)).to.be.revertedWith(
+                    "0x11",
+                  );
                 });
               });
               describe("AND GIVEN the 86 days maturity is removed from the userBorrows", () => {

@@ -1,8 +1,15 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { BigNumber, Contract, ContractTransaction } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { BigNumber, ContractTransaction } from "ethers";
+import type {
+  InterestRateModel,
+  InterestRateModel__factory,
+  MarketHarness,
+  MockERC20,
+  MockInterestRateModel,
+} from "../types";
 import { MarketEnv, FixedPoolState } from "./marketEnv";
 import futurePools from "./utils/futurePools";
 
@@ -14,10 +21,16 @@ describe("Fixed Rate Operations", () => {
   let laura: SignerWithAddress;
   let tina: SignerWithAddress;
   let marketEnv: MarketEnv;
-  let marketHarness: Contract;
-  let mockInterestRateModel: Contract;
-  let asset: Contract;
-  let snapshot: any;
+  let marketHarness: MarketHarness;
+  let mockInterestRateModel: MockInterestRateModel;
+  let asset: MockERC20;
+  let snapshot: string;
+  let mp: {
+    borrowed: BigNumber;
+    supplied: BigNumber;
+    unassignedEarnings: BigNumber;
+    lastAccrual: BigNumber;
+  };
 
   beforeEach(async () => {
     snapshot = await ethers.provider.send("evm_snapshot", []);
@@ -81,14 +94,16 @@ describe("Fixed Rate Operations", () => {
     });
   });
   describe("setInterestRateModel", () => {
-    let newInterestRateModel: Contract;
+    let newInterestRateModel: InterestRateModel;
     before(async () => {
-      const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
+      const InterestRateModelFactory = (await ethers.getContractFactory(
+        "InterestRateModel",
+      )) as InterestRateModel__factory;
 
       newInterestRateModel = await InterestRateModelFactory.deploy(
-        [parseUnits("0.75"), parseUnits("-0.105"), parseUnits("6")],
+        { a: parseUnits("0.75"), b: parseUnits("-0.105"), maxUtilization: parseUnits("6") },
         parseUnits("4"),
-        [parseUnits("0.75"), parseUnits("-0.105"), parseUnits("6")],
+        { a: parseUnits("0.75"), b: parseUnits("-0.105"), maxUtilization: parseUnits("6") },
         parseUnits("4"),
       );
       await newInterestRateModel.deployed();
@@ -113,15 +128,14 @@ describe("Fixed Rate Operations", () => {
 
   describe("GIVEN a depositMP with an amount of 10000 (0 fees earned)", () => {
     const sixDaysToMaturity = nextPoolID - 86_400 * 5;
-    let depositAmount: any;
-    let withdrawAmount: any;
-    let borrowAmount: any;
-    let borrowFees: any;
-    let returnValue: any;
-    let repayAmount: any;
-    let fixedDepositPositions: any;
-    let fixedBorrowPositions: any;
-    let mp: any;
+    let depositAmount: number;
+    let withdrawAmount: number;
+    let borrowAmount: number;
+    let borrowFees: number;
+    let returnValue: BigNumber;
+    let repayAmount: number;
+    let fixedDepositPositions: { principal: BigNumber; fee: BigNumber };
+    let fixedBorrowPositions: { principal: BigNumber; fee: BigNumber };
     let fixedPoolState: FixedPoolState;
     let tx: ContractTransaction;
     let floatingAssets: BigNumber;
@@ -136,7 +150,7 @@ describe("Fixed Rate Operations", () => {
         earningsDiscounted: parseUnits("0"),
       };
 
-      depositAmount = "10000";
+      depositAmount = 10000;
 
       marketEnv.switchWallet(laura);
       await marketEnv.moveInTime(sixDaysToMaturity);
@@ -145,8 +159,8 @@ describe("Fixed Rate Operations", () => {
         .connect(laura)
         .depositMaturityWithReturnValue(
           nextPoolID,
-          parseUnits(depositAmount),
-          parseUnits(depositAmount),
+          parseUnits(String(depositAmount)),
+          parseUnits(String(depositAmount)),
           laura.address,
         );
 
@@ -158,7 +172,7 @@ describe("Fixed Rate Operations", () => {
       expect(mp.borrowed).to.eq(parseUnits("0"));
     });
     it("THEN supplied equals to depositedAmount", async () => {
-      expect(mp.supplied).to.eq(parseUnits(depositAmount));
+      expect(mp.supplied).to.eq(parseUnits(String(depositAmount)));
     });
     it("THEN unassignedEarnings are 0", async () => {
       expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
@@ -167,8 +181,8 @@ describe("Fixed Rate Operations", () => {
       expect(mp.lastAccrual).to.eq(sixDaysToMaturity);
     });
     it("THEN the fixedDepositPositions is correctly updated", async () => {
-      expect(fixedDepositPositions[0]).to.be.eq(parseUnits(depositAmount.toString()));
-      expect(fixedDepositPositions[1]).to.be.eq(parseUnits("0"));
+      expect(fixedDepositPositions.principal).to.be.eq(parseUnits(depositAmount.toString()));
+      expect(fixedDepositPositions.fee).to.be.eq(parseUnits("0"));
     });
     it("THEN the backupEarnings returned are 0", async () => {
       await expect(tx)
@@ -176,7 +190,7 @@ describe("Fixed Rate Operations", () => {
         .withArgs(anyValue, anyValue, floatingAssets, anyValue, anyValue, anyValue);
     });
     it("THEN the currentTotalDeposit returned is equal to the amount (no fees earned)", async () => {
-      expect(returnValue).to.eq(parseUnits(depositAmount));
+      expect(returnValue).to.eq(parseUnits(String(depositAmount)));
     });
 
     describe("AND GIVEN a borrowMP with an amount of 5000 (250 charged in fees to accumulator) (4 days to go)", () => {
@@ -207,7 +221,7 @@ describe("Fixed Rate Operations", () => {
         expect(mp.borrowed).to.eq(parseUnits(borrowAmount.toString()));
       });
       it("THEN supplied is the just deposited amount", async () => {
-        expect(mp.supplied).to.eq(parseUnits(depositAmount));
+        expect(mp.supplied).to.eq(parseUnits(String(depositAmount)));
       });
       it("THEN unassignedEarnings are 0", async () => {
         expect(mp.unassignedEarnings).to.eq(0);
@@ -216,8 +230,8 @@ describe("Fixed Rate Operations", () => {
         expect(mp.lastAccrual).to.eq(fourDaysToMaturity);
       });
       it("THEN the fixedBorrowPositions is correctly updated", async () => {
-        expect(fixedBorrowPositions[0]).to.be.eq(parseUnits(borrowAmount.toString()));
-        expect(fixedBorrowPositions[1]).to.be.eq(parseUnits(borrowFees.toString()));
+        expect(fixedBorrowPositions.principal).to.be.eq(parseUnits(borrowAmount.toString()));
+        expect(fixedBorrowPositions.fee).to.be.eq(parseUnits(borrowFees.toString()));
       });
       it("THEN the earningsAccumulator are 250", async () => {
         expect(await marketHarness.earningsAccumulator()).to.eq(
@@ -272,8 +286,8 @@ describe("Fixed Rate Operations", () => {
           expect(mp.lastAccrual).to.eq(threeDaysToMaturity);
         });
         it("THEN the borrow + fees are correctly added to the fixedBorrowPositions", async () => {
-          expect(fixedBorrowPositions[0]).to.be.eq(parseUnits((borrowAmount * 2).toString()));
-          expect(fixedBorrowPositions[1]).to.be.eq(parseUnits((borrowFees * 2).toString()));
+          expect(fixedBorrowPositions.principal).to.be.eq(parseUnits((borrowAmount * 2).toString()));
+          expect(fixedBorrowPositions.fee).to.be.eq(parseUnits((borrowFees * 2).toString()));
         });
         it("THEN the earningsAccumulator are 500", async () => {
           // 250 + 250
@@ -320,7 +334,7 @@ describe("Fixed Rate Operations", () => {
             expect(mp.borrowed).to.eq(parseUnits((borrowAmount * 3).toString()));
           });
           it("THEN supplied is 1x depositAmount", async () => {
-            expect(mp.supplied).to.eq(parseUnits(depositAmount));
+            expect(mp.supplied).to.eq(parseUnits(String(depositAmount)));
           });
           it("THEN unassignedEarnings are 250", async () => {
             expect(mp.unassignedEarnings).to.eq(parseUnits(borrowFees.toString()));
@@ -382,8 +396,8 @@ describe("Fixed Rate Operations", () => {
                 .withArgs(nextPoolID, laura.address, laura.address, parseUnits("15625"), parseUnits("15750"));
             });
             it("THEN the fixedBorrowPositions position is 0", async () => {
-              expect(fixedBorrowPositions[0]).to.be.eq(0);
-              expect(fixedBorrowPositions[1]).to.be.eq(0);
+              expect(fixedBorrowPositions.principal).to.be.eq(0);
+              expect(fixedBorrowPositions.fee).to.be.eq(0);
             });
             it("THEN the earningsAccumulator are still 500", async () => {
               expect(await marketHarness.earningsAccumulator()).to.eq(parseUnits((borrowFees * 2).toString()));
@@ -443,10 +457,10 @@ describe("Fixed Rate Operations", () => {
                 .withArgs(nextPoolID, laura.address, laura.address, parseUnits("7875"), parseUnits("8000"));
             });
             it("THEN the fixedBorrowPositions is correctly updated (principal + fees = 7750)", async () => {
-              expect(fixedBorrowPositions[0]).to.be.gt(parseUnits("7380"));
-              expect(fixedBorrowPositions[0]).to.be.lt(parseUnits("7381"));
-              expect(fixedBorrowPositions[1]).to.be.gt(parseUnits("369"));
-              expect(fixedBorrowPositions[1]).to.be.lt(parseUnits("370"));
+              expect(fixedBorrowPositions.principal).to.be.gt(parseUnits("7380"));
+              expect(fixedBorrowPositions.principal).to.be.lt(parseUnits("7381"));
+              expect(fixedBorrowPositions.fee).to.be.gt(parseUnits("369"));
+              expect(fixedBorrowPositions.fee).to.be.lt(parseUnits("370"));
             });
             it("THEN the earningsAccumulator are still 500", async () => {
               expect(await marketHarness.earningsAccumulator()).to.eq(parseUnits((borrowFees * 2).toString()));
@@ -468,21 +482,19 @@ describe("Fixed Rate Operations", () => {
           });
 
           describe("AND GIVEN a repayMP at maturity(-1 DAY) with an amount of 15750 but asking a 126 discount (total EARLY repayment) ", () => {
-            beforeEach(async () => {
+            it("THEN the tx is reverted with Disagreement", async () => {
               await marketEnv.moveInTime(oneDayToMaturity);
               repayAmount = 15750;
-              tx = marketHarness
-                .connect(laura)
-                .repayMaturityWithReturnValue(
-                  nextPoolID,
-                  parseUnits(repayAmount.toString()),
-                  parseUnits((repayAmount - 126).toString()),
-                  laura.address,
-                );
-            });
-
-            it("THEN the tx is reverted with TOO_MUCH_SLIPPAGE", async () => {
-              await expect(tx).to.be.revertedWith("Disagreement()");
+              await expect(
+                marketHarness
+                  .connect(laura)
+                  .repayMaturityWithReturnValue(
+                    nextPoolID,
+                    parseUnits(repayAmount.toString()),
+                    parseUnits((repayAmount - 126).toString()),
+                    laura.address,
+                  ),
+              ).to.be.revertedWith("Disagreement()");
             });
           });
 
@@ -542,8 +554,8 @@ describe("Fixed Rate Operations", () => {
               expect(await marketHarness.earningsAccumulator()).to.lt(parseUnits("2075"));
             });
             it("THEN the fixedBorrowPositions position is 0", async () => {
-              expect(fixedBorrowPositions[0]).to.be.eq(0);
-              expect(fixedBorrowPositions[1]).to.be.eq(0);
+              expect(fixedBorrowPositions.principal).to.be.eq(0);
+              expect(fixedBorrowPositions.fee).to.be.eq(0);
             });
             it("THEN the actualRepayAmount returned is almost 17325", async () => {
               expect(returnValue).to.lt(parseUnits(repayAmount.toString()));
@@ -595,8 +607,8 @@ describe("Fixed Rate Operations", () => {
               expect(mp.lastAccrual).to.eq(oneDayToMaturity);
             });
             it("THEN the fixedDepositPositions is correctly updated", async () => {
-              expect(fixedDepositPositions[0]).to.be.eq(parseUnits((depositAmount + 10000).toString()));
-              expect(fixedDepositPositions[1]).to.be.eq(parseUnits((250 / 2).toString()));
+              expect(fixedDepositPositions.principal).to.be.eq(parseUnits((depositAmount + 10000).toString()));
+              expect(fixedDepositPositions.fee).to.be.eq(parseUnits((250 / 2).toString()));
             });
             it("THEN the backupEarnings returned are 125", async () => {
               // 250 (previous unassigned) / 2 days
@@ -870,7 +882,7 @@ describe("Fixed Rate Operations", () => {
                 });
                 it("THEN the maturity pool state is correctly updated", async () => {
                   expect(mp.borrowed).to.eq(parseUnits("0"));
-                  expect(mp.supplied).to.be.eq(fixedDepositPositions[0]);
+                  expect(mp.supplied).to.be.eq(fixedDepositPositions.principal);
                 });
                 it("THEN unassignedEarnings are still 0", async () => {
                   expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
@@ -883,14 +895,14 @@ describe("Fixed Rate Operations", () => {
                 it("THEN the fixedDepositPositions is correctly updated", async () => {
                   // all supplied + earned of laura is 100010125
                   // if we withdraw 50M, then her position is scaled
-                  const totalFeeEarned = fixedDepositPositions[1].add(
-                    fixedDepositPositions[0].sub(parseUnits("50010000")),
+                  const totalFeeEarned = fixedDepositPositions.fee.add(
+                    fixedDepositPositions.principal.sub(parseUnits("50010000")),
                   );
 
-                  expect(fixedDepositPositions[0]).to.be.lt(parseUnits("50010062.5"));
-                  expect(fixedDepositPositions[0]).to.be.gt(parseUnits("50010062.49"));
-                  expect(fixedDepositPositions[1]).to.be.lt(parseUnits("62.51"));
-                  expect(fixedDepositPositions[1]).to.be.gt(parseUnits("62.5"));
+                  expect(fixedDepositPositions.principal).to.be.lt(parseUnits("50010062.5"));
+                  expect(fixedDepositPositions.principal).to.be.gt(parseUnits("50010062.49"));
+                  expect(fixedDepositPositions.fee).to.be.lt(parseUnits("62.51"));
+                  expect(fixedDepositPositions.fee).to.be.gt(parseUnits("62.5"));
                   expect(totalFeeEarned).to.eq(parseUnits("125"));
                 });
                 it("THEN the redeemAmountDiscounted returned is equal to the amount withdrawn", async () => {
@@ -1137,8 +1149,7 @@ describe("Fixed Rate Operations", () => {
   describe("Assignment of earnings over time", () => {
     describe("GIVEN a borrowMP of 10000 (600 fees owed by user) - 24 days to maturity", () => {
       let tx: ContractTransaction;
-      let returnValue: any;
-      let mp: any;
+      let returnValue: BigNumber;
       const twentyFourDaysToMaturity = nextPoolID - 86_400 * 24;
       const twentyDaysToMaturity = nextPoolID - 86_400 * 20;
       const sixteenDaysToMaturity = nextPoolID - 86_400 * 16;
@@ -1314,8 +1325,7 @@ describe("Fixed Rate Operations", () => {
 
   describe("Early Withdrawal / Early Repayment", () => {
     let tx: ContractTransaction;
-    let returnValue: any;
-    let mp: any;
+    let returnValue: BigNumber;
     let borrowAmount: number;
     let fixedPoolState: FixedPoolState;
     const fiveDaysToMaturity = nextPoolID - 86_400 * 5;
@@ -1585,19 +1595,18 @@ describe("Fixed Rate Operations", () => {
       });
 
       describe("WHEN an early withdrawal of 5250 without enough slippage", () => {
-        beforeEach(async () => {
-          tx = marketHarness
-            .connect(laura)
-            .withdrawMaturityWithReturnValue(
-              nextPoolID,
-              parseUnits("5250"),
-              parseUnits("5250"),
-              laura.address,
-              laura.address,
-            );
-        });
         it("THEN it should revert with error TOO_MUCH_SLIPPAGE", async () => {
-          await expect(tx).to.be.revertedWith("Disagreement()");
+          await expect(
+            marketHarness
+              .connect(laura)
+              .withdrawMaturityWithReturnValue(
+                nextPoolID,
+                parseUnits("5250"),
+                parseUnits("5250"),
+                laura.address,
+                laura.address,
+              ),
+          ).to.be.revertedWith("Disagreement()");
         });
       });
 
@@ -1641,8 +1650,8 @@ describe("Fixed Rate Operations", () => {
         it("THEN the fixedDepositPositions is 0", async () => {
           const fixedDepositPositions = await marketHarness.fixedDepositPositions(nextPoolID, laura.address);
 
-          expect(fixedDepositPositions[0]).to.be.eq(parseUnits("0"));
-          expect(fixedDepositPositions[1]).to.be.eq(parseUnits("0"));
+          expect(fixedDepositPositions.principal).to.be.eq(parseUnits("0"));
+          expect(fixedDepositPositions.fee).to.be.eq(parseUnits("0"));
         });
       });
 
@@ -1681,8 +1690,8 @@ describe("Fixed Rate Operations", () => {
         it("THEN the fixedDepositPositions is 0", async () => {
           const fixedDepositPositions = await marketHarness.fixedDepositPositions(nextPoolID, laura.address);
 
-          expect(fixedDepositPositions[0]).to.be.eq(parseUnits("0"));
-          expect(fixedDepositPositions[1]).to.be.eq(parseUnits("0"));
+          expect(fixedDepositPositions.principal).to.be.eq(parseUnits("0"));
+          expect(fixedDepositPositions.fee).to.be.eq(parseUnits("0"));
         });
       });
       describe("AND GIVEN a deposit of 5250", () => {

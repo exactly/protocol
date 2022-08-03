@@ -1,16 +1,16 @@
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
+import type { FixedPoolHarness, FixedPoolHarness__factory } from "../types";
 
 /** @deprecated use deploy fixture */
 export class PoolEnv {
-  fpHarness: Contract;
+  fpHarness: FixedPoolHarness;
 
-  constructor(_fpHarness: Contract) {
+  constructor(_fpHarness: FixedPoolHarness) {
     this.fpHarness = _fpHarness;
   }
 
-  public getFpHarness(): Contract {
+  public getFpHarness(): FixedPoolHarness {
     return this.fpHarness;
   }
 
@@ -35,27 +35,15 @@ export class PoolEnv {
   }
 
   public async setMaturity(encoded: number, timestamp: number) {
-    this.fpHarness.setMaturity(encoded, timestamp);
+    return this.fpHarness.setMaturity(encoded, timestamp);
   }
 
   public async clearMaturity(encoded: number, timestamp: number) {
-    this.fpHarness.clearMaturity(encoded, timestamp);
-  }
-
-  public async addFeeMP(amount: string) {
-    return this.fpHarness.addFeeMP(parseUnits(amount));
-  }
-
-  public async addFeeSP(amount: string) {
-    return this.fpHarness.addFeeSP(parseUnits(amount));
+    return this.fpHarness.clearMaturity(encoded, timestamp);
   }
 
   public async removeFee(amount: string) {
     return this.fpHarness.removeFee(parseUnits(amount));
-  }
-
-  public async returnFee(amount: string) {
-    return this.fpHarness.returnFee(parseUnits(amount));
   }
 
   public async distributeEarnings(earnings: string, suppliedSP: string, borrowAmount: string) {
@@ -105,7 +93,7 @@ export class PoolEnv {
   }
 
   static async create(): Promise<PoolEnv> {
-    const FixedPoolHarness = await ethers.getContractFactory("FixedPoolHarness");
+    const FixedPoolHarness = (await ethers.getContractFactory("FixedPoolHarness")) as FixedPoolHarness__factory;
     const fixedPoolHarness = await FixedPoolHarness.deploy();
     await fixedPoolHarness.deployed();
 

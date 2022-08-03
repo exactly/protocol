@@ -1,20 +1,29 @@
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import type { BigNumber } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type {
+  Auditor__factory,
+  MarketHarness,
+  MarketHarness__factory,
+  MockERC20,
+  MockERC20__factory,
+  MockInterestRateModel,
+  MockInterestRateModel__factory,
+  MockOracle__factory,
+} from "../types";
 
 /** @deprecated use deploy fixture */
 export class MarketEnv {
-  mockInterestRateModel: Contract;
-  marketHarness: Contract;
-  asset: Contract;
+  mockInterestRateModel: MockInterestRateModel;
+  marketHarness: MarketHarness;
+  asset: MockERC20;
   currentWallet: SignerWithAddress;
 
   constructor(
-    mockInterestRateModel_: Contract,
-    marketHarness_: Contract,
-    asset_: Contract,
+    mockInterestRateModel_: MockInterestRateModel,
+    marketHarness_: MarketHarness,
+    asset_: MockERC20,
     currentWallet_: SignerWithAddress,
   ) {
     this.mockInterestRateModel = mockInterestRateModel_;
@@ -31,7 +40,7 @@ export class MarketEnv {
     this.currentWallet = wallet;
   }
 
-  public getAllEarnings(fixedPoolState: FixedPoolState): BigNumber {
+  public getAllEarnings(fixedPoolState: FixedPoolState) {
     return fixedPoolState.backupEarnings
       .add(fixedPoolState.earningsAccumulator)
       .add(fixedPoolState.earningsMP)
@@ -39,24 +48,26 @@ export class MarketEnv {
       .add(fixedPoolState.earningsDiscounted);
   }
 
-  static async create(): Promise<MarketEnv> {
-    const MockInterestRateModelFactory = await ethers.getContractFactory("MockInterestRateModel");
+  static async create() {
+    const MockInterestRateModelFactory = (await ethers.getContractFactory(
+      "MockInterestRateModel",
+    )) as MockInterestRateModel__factory;
     const mockInterestRateModel = await MockInterestRateModelFactory.deploy(0);
     await mockInterestRateModel.deployed();
 
-    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    const MockERC20 = (await ethers.getContractFactory("MockERC20")) as MockERC20__factory;
     const asset = await MockERC20.deploy("Fake", "F", 18);
     await asset.deployed();
 
-    const MockOracle = await ethers.getContractFactory("MockOracle");
+    const MockOracle = (await ethers.getContractFactory("MockOracle")) as MockOracle__factory;
     const oracle = await MockOracle.deploy();
     await oracle.deployed();
 
-    const Auditor = await ethers.getContractFactory("Auditor");
+    const Auditor = (await ethers.getContractFactory("Auditor")) as Auditor__factory;
     const auditor = await Auditor.deploy(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
     await auditor.deployed();
 
-    const MarketHarness = await ethers.getContractFactory("MarketHarness");
+    const MarketHarness = (await ethers.getContractFactory("MarketHarness")) as MarketHarness__factory;
     const marketHarness = await MarketHarness.deploy(
       asset.address,
       4,

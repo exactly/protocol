@@ -1,31 +1,46 @@
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import type { BigNumber, BigNumberish } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type {
+  Auditor,
+  Auditor__factory,
+  InterestRateModel,
+  InterestRateModel__factory,
+  Market,
+  Market__factory,
+  MockERC20,
+  MockERC20__factory,
+  MockInterestRateModel,
+  MockInterestRateModel__factory,
+  MockOracle,
+  MockOracle__factory,
+  WETH,
+  WETH__factory,
+} from "../types";
 
 /** @deprecated use deploy fixture */
 export class DefaultEnv {
-  oracle: Contract;
-  auditor: Contract;
-  interestRateModel: Contract;
-  marketContracts: Map<string, Contract>;
-  underlyingContracts: Map<string, Contract>;
+  oracle: MockOracle;
+  auditor: Auditor;
+  interestRateModel: InterestRateModel | MockInterestRateModel;
+  marketContracts: Record<string, Market>;
+  underlyingContracts: Record<string, MockERC20 | WETH>;
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
-  mockTokens: Map<string, MockTokenSpec>;
+  mockTokens: Record<string, MockTokenSpec>;
   notAnMarketAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
   currentWallet: SignerWithAddress;
   maxOracleDelayTime: number;
 
   constructor(
-    _oracle: Contract,
-    _auditor: Contract,
-    _interestRateModel: Contract,
-    _marketContracts: Map<string, Contract>,
-    _underlyingContracts: Map<string, Contract>,
-    _mockTokens: Map<string, MockTokenSpec>,
+    _oracle: MockOracle,
+    _auditor: Auditor,
+    _interestRateModel: InterestRateModel | MockInterestRateModel,
+    _marketContracts: Record<string, Market>,
+    _underlyingContracts: Record<string, MockERC20 | WETH>,
+    _mockTokens: Record<string, MockTokenSpec>,
     _currentWallet: SignerWithAddress,
   ) {
     this.oracle = _oracle;
@@ -41,65 +56,57 @@ export class DefaultEnv {
     this.maxOracleDelayTime = 3600; // 1 hour
   }
 
-  static async create({ mockTokens, useRealInterestRateModel }: EnvConfig): Promise<DefaultEnv> {
-    mockTokens ??= new Map([
-      [
-        "DAI",
-        {
-          decimals: 18,
-          adjustFactor: parseUnits("0.8"),
-          usdPrice: parseUnits("1"),
-        },
-      ],
-      [
-        "WETH",
-        {
-          decimals: 18,
-          adjustFactor: parseUnits("0.7"),
-          usdPrice: parseUnits("3000"),
-        },
-      ],
-      [
-        "WBTC",
-        {
-          decimals: 8,
-          adjustFactor: parseUnits("0.6"),
-          usdPrice: parseUnits("63000"),
-        },
-      ],
-      [
-        "USDC",
-        {
-          decimals: 6,
-          adjustFactor: parseUnits("0.8"),
-          usdPrice: parseUnits("1"),
-        },
-      ],
-    ]);
-    const marketContracts = new Map<string, Contract>();
-    const underlyingContracts = new Map<string, Contract>();
+  static async create(config: EnvConfig): Promise<DefaultEnv> {
+    const mockTokens = config.mockTokens ?? {
+      DAI: {
+        decimals: 18,
+        adjustFactor: parseUnits("0.8"),
+        usdPrice: parseUnits("1"),
+      },
+      WETH: {
+        decimals: 18,
+        adjustFactor: parseUnits("0.7"),
+        usdPrice: parseUnits("3000"),
+      },
+      WBTC: {
+        decimals: 8,
+        adjustFactor: parseUnits("0.6"),
+        usdPrice: parseUnits("63000"),
+      },
+      USDC: {
+        decimals: 6,
+        adjustFactor: parseUnits("0.8"),
+        usdPrice: parseUnits("1"),
+      },
+    };
+    const marketContracts: Record<string, Market> = {};
+    const underlyingContracts: Record<string, MockERC20 | WETH> = {};
 
-    const MockOracle = await ethers.getContractFactory("MockOracle");
+    const MockOracle = (await ethers.getContractFactory("MockOracle")) as MockOracle__factory;
     const oracle = await MockOracle.deploy();
     await oracle.deployed();
 
-    const MockInterestRateModelFactory = await ethers.getContractFactory("MockInterestRateModel");
+    const MockInterestRateModelFactory = (await ethers.getContractFactory(
+      "MockInterestRateModel",
+    )) as MockInterestRateModel__factory;
 
-    const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel");
+    const InterestRateModelFactory = (await ethers.getContractFactory(
+      "InterestRateModel",
+    )) as InterestRateModel__factory;
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
-      [parseUnits("0.0495"), parseUnits("-0.025"), parseUnits("1.1")],
+      { a: parseUnits("0.0495"), b: parseUnits("-0.025"), maxUtilization: parseUnits("1.1") },
       parseUnits("1"),
-      [parseUnits("0.0495"), parseUnits("-0.025"), parseUnits("1.1")],
+      { a: parseUnits("0.0495"), b: parseUnits("-0.025"), maxUtilization: parseUnits("1.1") },
       parseUnits("1"),
     );
 
-    const interestRateModel = useRealInterestRateModel
+    const interestRateModel = config.useRealInterestRateModel
       ? realInterestRateModel
       : await MockInterestRateModelFactory.deploy(0);
     await interestRateModel.deployed();
 
-    const Auditor = await ethers.getContractFactory("Auditor");
+    const Auditor = (await ethers.getContractFactory("Auditor")) as Auditor__factory;
     const auditor = await Auditor.deploy(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
     await auditor.deployed();
 
@@ -107,23 +114,22 @@ export class DefaultEnv {
 
     // We have to enable all the Markets in the auditor
     await Promise.all(
-      Array.from(mockTokens.keys()).map(async (tokenName) => {
-        const { decimals, adjustFactor, usdPrice } = mockTokens!.get(tokenName)!;
+      Object.entries(mockTokens).map(async ([tokenName, { decimals, adjustFactor, usdPrice }]) => {
         const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
-        let underlyingToken: Contract;
+        let underlyingToken: MockERC20 | WETH;
         if (tokenName === "WETH") {
-          const Weth = await ethers.getContractFactory("WETH");
+          const Weth = (await ethers.getContractFactory("WETH")) as WETH__factory;
           underlyingToken = await Weth.deploy();
           await underlyingToken.deployed();
           await underlyingToken.deposit({ value: totalSupply });
         } else {
-          const MockERC20 = await ethers.getContractFactory("MockERC20");
+          const MockERC20 = (await ethers.getContractFactory("MockERC20")) as MockERC20__factory;
           underlyingToken = await MockERC20.deploy("Fake " + tokenName, "F" + tokenName, decimals);
           await underlyingToken.deployed();
           await underlyingToken.mint(owner.address, totalSupply);
         }
 
-        const Market = await ethers.getContractFactory("Market");
+        const Market = (await ethers.getContractFactory("Market")) as Market__factory;
         const market = await Market.deploy(
           underlyingToken.address,
           12,
@@ -143,23 +149,23 @@ export class DefaultEnv {
         await auditor.enableMarket(market.address, adjustFactor, decimals);
 
         // Handy maps with all the markets and underlying tokens
-        marketContracts.set(tokenName, market);
-        underlyingContracts.set(tokenName, underlyingToken);
+        marketContracts[tokenName] = market;
+        underlyingContracts[tokenName] = underlyingToken;
       }),
     );
 
-    return new DefaultEnv(oracle, auditor, interestRateModel, marketContracts, underlyingContracts, mockTokens!, owner);
+    return new DefaultEnv(oracle, auditor, interestRateModel, marketContracts, underlyingContracts, mockTokens, owner);
   }
 
-  public getMarket(key: string): Contract {
-    return this.marketContracts.get(key)!;
+  public getMarket(key: string) {
+    return this.marketContracts[key];
   }
 
-  public getUnderlying(key: string): Contract {
-    return this.underlyingContracts.get(key)!;
+  public getUnderlying(key: string) {
+    return this.underlyingContracts[key];
   }
 
-  public getInterestRateModel(): Contract {
+  public getInterestRateModel(): InterestRateModel | MockInterestRateModel {
     return this.interestRateModel;
   }
 
@@ -181,11 +187,10 @@ export class DefaultEnv {
   }
 
   public async takeSnapshot() {
-    const id = await ethers.provider.send("evm_snapshot", []);
-    return id;
+    return (await ethers.provider.send("evm_snapshot", [])) as string;
   }
 
-  public async revertSnapshot(snapshot: any) {
+  public async revertSnapshot(snapshot: string) {
     await ethers.provider.send("evm_revert", [snapshot]);
     await ethers.provider.send("evm_mine", []);
   }
@@ -266,7 +271,7 @@ export class DefaultEnv {
   }
 
   public async setBorrowRate(rate: string) {
-    await this.interestRateModel.connect(this.currentWallet).setBorrowRate(parseUnits(rate));
+    await (this.interestRateModel.connect(this.currentWallet) as MockInterestRateModel).setBorrowRate(parseUnits(rate));
   }
 
   public async transfer(assetString: string, wallet: SignerWithAddress, units: string) {
@@ -276,15 +281,11 @@ export class DefaultEnv {
   }
 
   public digitsForAsset(assetString: string) {
-    return this.mockTokens.get(assetString)!.decimals;
+    return this.mockTokens[assetString]?.decimals;
   }
 
   public async enableMarket(market: string, adjustFactor: BigNumber, decimals: number) {
     return this.auditor.connect(this.currentWallet).enableMarket(market, adjustFactor, decimals);
-  }
-
-  public async setLiquidationIncentive(incentive: string) {
-    return this.auditor.connect(this.currentWallet).setLiquidationIncentive(parseUnits(incentive));
   }
 
   public async maturityPool(assetString: string, maturityPoolID: number) {
@@ -298,7 +299,7 @@ export class DefaultEnv {
 }
 
 type EnvConfig = {
-  mockTokens?: Map<string, MockTokenSpec>;
+  mockTokens?: Record<string, MockTokenSpec>;
   useRealInterestRateModel?: boolean;
 };
 

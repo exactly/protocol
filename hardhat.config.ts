@@ -113,7 +113,6 @@ declare module "hardhat/types/config" {
   export interface NetworksUserConfig {
     hardhat?: HardhatNetworkUserConfig;
     mainnet?: MainnetNetworkUserConfig;
-    [networkName: string]: NetworkUserConfig;
   }
 
   export interface HardhatUserConfig {

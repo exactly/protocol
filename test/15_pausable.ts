@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { Market } from "../types";
 import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
 
@@ -9,7 +9,7 @@ const nextPoolId = futurePools(1)[0].toNumber();
 
 describe("Market - Pausable", function () {
   let exactlyEnv: DefaultEnv;
-  let market: Contract;
+  let market: Market;
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
 
@@ -23,7 +23,7 @@ describe("Market - Pausable", function () {
       market = exactlyEnv.getMarket("DAI");
       PAUSER_ROLE = await market.PAUSER_ROLE();
 
-      market.grantRole(PAUSER_ROLE, owner.address);
+      await market.grantRole(PAUSER_ROLE, owner.address);
     });
     it("AND WHEN a pause is called from third parties, THEN it should revert with AccessControl error", async () => {
       await expect(market.connect(user).pause()).to.be.revertedWith("AccessControl");
@@ -39,7 +39,7 @@ describe("Market - Pausable", function () {
         await expect(market.connect(user).pause()).to.not.be.reverted;
       });
       it("THEN it should NOT revert when user unpauses actions", async () => {
-        market.connect(user).pause();
+        await market.connect(user).pause();
         await expect(market.connect(user).unpause()).to.not.be.reverted;
       });
     });

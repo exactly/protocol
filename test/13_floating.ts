@@ -1,31 +1,37 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
+import type { BigNumber } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import type { Market, MockERC20 } from "../types";
 import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
 
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;
 
-  let underlyingTokenDAI: Contract;
-  let marketDAI: Contract;
-  let underlyingTokenWBTC: Contract;
-  let marketWBTC: Contract;
+  let underlyingTokenDAI: MockERC20;
+  let marketDAI: Market;
+  let underlyingTokenWBTC: MockERC20;
+  let marketWBTC: Market;
   let bob: SignerWithAddress;
   let john: SignerWithAddress;
-  const bobBalancePre = parseUnits("2000");
-  const johnBalancePre = parseUnits("2000");
+  let bobBalancePre: BigNumber;
+  let johnBalancePre: BigNumber;
+
+  before(() => {
+    bobBalancePre = parseUnits("2000");
+    johnBalancePre = parseUnits("2000");
+  });
 
   beforeEach(async () => {
     [bob, john] = await ethers.getUnnamedSigners();
 
     exactlyEnv = await DefaultEnv.create({});
-    underlyingTokenDAI = exactlyEnv.getUnderlying("DAI");
+    underlyingTokenDAI = exactlyEnv.getUnderlying("DAI") as MockERC20;
     marketDAI = exactlyEnv.getMarket("DAI");
 
-    underlyingTokenWBTC = exactlyEnv.getUnderlying("WBTC");
+    underlyingTokenWBTC = exactlyEnv.getUnderlying("WBTC") as MockERC20;
     marketWBTC = exactlyEnv.getMarket("WBTC");
 
     // From Owner to User
@@ -187,7 +193,7 @@ describe("Smart Pool", function () {
         await expect(marketDAI.connect(bob).transfer(john.address, parseUnits("5"))).to.not.be.reverted;
       });
       it("AND WHEN trying to call transferFrom to transfer a small amount that doesnt cause a shortfall (5 eDAI, should move collateralization from 60% to 66%) without repaying first THEN it is allowed", async () => {
-        marketDAI.connect(bob).approve(john.address, parseUnits("5"));
+        await marketDAI.connect(bob).approve(john.address, parseUnits("5"));
         await expect(marketDAI.connect(john).transferFrom(bob.address, john.address, parseUnits("5"))).to.not.be
           .reverted;
       });
