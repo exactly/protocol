@@ -1,10 +1,10 @@
 import { ethers } from "hardhat";
-import { parseUnits } from "ethers/lib/utils";
 import type { BigNumber, BigNumberish } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type {
   Auditor,
   Auditor__factory,
+  ERC1967Proxy__factory,
   InterestRateModel,
   InterestRateModel__factory,
   Market,
@@ -18,6 +18,14 @@ import type {
   WETH,
   WETH__factory,
 } from "../types";
+
+const {
+  utils: { parseUnits },
+  getContractFactory,
+  getNamedSigner,
+  Contract,
+  provider,
+} = ethers;
 
 /** @deprecated use deploy fixture */
 export class DefaultEnv {
@@ -82,17 +90,17 @@ export class DefaultEnv {
     const marketContracts: Record<string, Market> = {};
     const underlyingContracts: Record<string, MockERC20 | WETH> = {};
 
-    const MockOracle = (await ethers.getContractFactory("MockOracle")) as MockOracle__factory;
+    const owner = await getNamedSigner("deployer");
+
+    const MockOracle = (await getContractFactory("MockOracle")) as MockOracle__factory;
     const oracle = await MockOracle.deploy();
     await oracle.deployed();
 
-    const MockInterestRateModelFactory = (await ethers.getContractFactory(
+    const MockInterestRateModelFactory = (await getContractFactory(
       "MockInterestRateModel",
     )) as MockInterestRateModel__factory;
 
-    const InterestRateModelFactory = (await ethers.getContractFactory(
-      "InterestRateModel",
-    )) as InterestRateModel__factory;
+    const InterestRateModelFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
       { a: parseUnits("0.0495"), b: parseUnits("-0.025"), maxUtilization: parseUnits("1.1") },
@@ -106,30 +114,38 @@ export class DefaultEnv {
       : await MockInterestRateModelFactory.deploy(0);
     await interestRateModel.deployed();
 
-    const Auditor = (await ethers.getContractFactory("Auditor")) as Auditor__factory;
-    const auditor = await Auditor.deploy(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
-    await auditor.deployed();
-
-    const [owner] = await ethers.getSigners();
+    const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
+    const auditorImpl = await Auditor.deploy();
+    await auditorImpl.deployed();
+    const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
+      auditorImpl.address,
+      Auditor.interface.encodeFunctionData("initialize", [
+        owner.address,
+        oracle.address,
+        { liquidator: parseUnits("0.1"), lenders: 0 },
+      ]),
+    );
+    await auditorProxy.deployed();
+    const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
 
     // We have to enable all the Markets in the auditor
     await Promise.all(
       Object.entries(mockTokens).map(async ([tokenName, { decimals, adjustFactor, usdPrice }]) => {
-        const totalSupply = ethers.utils.parseUnits("100000000000", decimals);
+        const totalSupply = parseUnits("100000000000", decimals);
         let underlyingToken: MockERC20 | WETH;
         if (tokenName === "WETH") {
-          const Weth = (await ethers.getContractFactory("WETH")) as WETH__factory;
+          const Weth = (await getContractFactory("WETH")) as WETH__factory;
           underlyingToken = await Weth.deploy();
           await underlyingToken.deployed();
           await underlyingToken.deposit({ value: totalSupply });
         } else {
-          const MockERC20 = (await ethers.getContractFactory("MockERC20")) as MockERC20__factory;
+          const MockERC20 = (await getContractFactory("MockERC20")) as MockERC20__factory;
           underlyingToken = await MockERC20.deploy("Fake " + tokenName, "F" + tokenName, decimals);
           await underlyingToken.deployed();
           await underlyingToken.mint(owner.address, totalSupply);
         }
 
-        const Market = (await ethers.getContractFactory("Market")) as Market__factory;
+        const Market = (await getContractFactory("Market")) as Market__factory;
         const market = await Market.deploy(
           underlyingToken.address,
           12,
@@ -178,21 +194,21 @@ export class DefaultEnv {
   }
 
   public async moveInTime(timestamp: number) {
-    await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
+    await provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 
   public async moveInTimeAndMine(timestamp: number) {
     await this.moveInTime(timestamp);
-    await ethers.provider.send("evm_mine", []);
+    await provider.send("evm_mine", []);
   }
 
   public async takeSnapshot() {
-    return (await ethers.provider.send("evm_snapshot", [])) as string;
+    return (await provider.send("evm_snapshot", [])) as string;
   }
 
   public async revertSnapshot(snapshot: string) {
-    await ethers.provider.send("evm_revert", [snapshot]);
-    await ethers.provider.send("evm_mine", []);
+    await provider.send("evm_revert", [snapshot]);
+    await provider.send("evm_mine", []);
   }
 
   public async depositSP(assetString: string, units: string) {

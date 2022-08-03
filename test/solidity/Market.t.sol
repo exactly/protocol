@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, ExactlyOracle, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
@@ -25,76 +26,36 @@ contract MarketTest is Test {
   address internal constant BOB = address(0x69);
   address internal constant ALICE = address(0x420);
 
-  Auditor internal auditor;
-  MockOracle internal mockOracle;
   Market internal market;
   Market internal marketWETH;
+  Auditor internal auditor;
   MockERC20 internal weth;
-  MockInterestRateModel internal mockInterestRateModel;
+  MockOracle internal oracle;
+  MockInterestRateModel internal irm;
   string[] private tokens = ["DAI", "USDC", "WETH", "WBTC"];
-
-  event Transfer(address indexed from, address indexed to, uint256 amount);
-  event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
-  event Withdraw(address indexed caller, address indexed receiver, uint256 assets, uint256 shares);
-  event DepositAtMaturity(
-    uint256 indexed maturity,
-    address indexed caller,
-    address indexed owner,
-    uint256 assets,
-    uint256 fee
-  );
-  event WithdrawAtMaturity(
-    uint256 indexed maturity,
-    address caller,
-    address indexed receiver,
-    address indexed owner,
-    uint256 assets,
-    uint256 assetsDiscounted
-  );
-  event BorrowAtMaturity(
-    uint256 indexed maturity,
-    address caller,
-    address indexed receiver,
-    address indexed borrower,
-    uint256 assets,
-    uint256 fee
-  );
-  event Borrow(
-    address indexed caller,
-    address indexed receiver,
-    address indexed borrower,
-    uint256 assets,
-    uint256 shares
-  );
-  event RepayAtMaturity(
-    uint256 indexed maturity,
-    address indexed caller,
-    address indexed borrower,
-    uint256 assets,
-    uint256 debtCovered
-  );
-  event Repay(address indexed caller, address indexed borrower, uint256 assets, uint256 shares);
-  event Liquidate(
-    address indexed receiver,
-    address indexed borrower,
-    uint256 repaidAssets,
-    uint256 lendersAssets,
-    Market indexed collateralMarket,
-    uint256 seizedAssets
-  );
 
   function setUp() external {
     MockERC20 token = new MockERC20("DAI", "DAI", 18);
-    mockOracle = new MockOracle();
-    auditor = new Auditor(ExactlyOracle(address(mockOracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
-    mockInterestRateModel = new MockInterestRateModel(0.1e18);
+    oracle = new MockOracle();
+    auditor = Auditor(
+      address(
+        new ERC1967Proxy(
+          address(new Auditor()),
+          abi.encodeCall(
+            Auditor.initialize,
+            (BOB, ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18))
+          )
+        )
+      )
+    );
+    irm = new MockInterestRateModel(0.1e18);
 
     market = new Market(
       token,
       3,
       1e18,
       auditor,
-      InterestRateModel(address(mockInterestRateModel)),
+      InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
       1e17,
       0,
@@ -107,7 +68,7 @@ contract MarketTest is Test {
       12,
       1e18,
       auditor,
-      InterestRateModel(address(mockInterestRateModel)),
+      InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
       1e17,
       0,
@@ -503,7 +464,7 @@ contract MarketTest is Test {
       12,
       1e18,
       auditor,
-      InterestRateModel(address(mockInterestRateModel)),
+      InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
       1e17,
       0,
@@ -519,7 +480,7 @@ contract MarketTest is Test {
     marketHarness.setSupply(2000 ether);
 
     marketHarness.deposit(1000 ether, address(this));
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketHarness.borrowAtMaturity(maturity, 800 ether, 800 ether, address(this), address(this));
 
     // we try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
@@ -537,7 +498,7 @@ contract MarketTest is Test {
       12,
       1e18,
       auditor,
-      InterestRateModel(address(mockInterestRateModel)),
+      InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
       1e17,
       0,
@@ -552,7 +513,7 @@ contract MarketTest is Test {
     marketHarness.setSupply(2000 ether);
 
     marketHarness.deposit(1000 ether, address(this));
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketHarness.borrowAtMaturity(maturity, 800 ether, 800 ether, address(this), address(this));
 
     // we try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
@@ -564,7 +525,7 @@ contract MarketTest is Test {
     // we deposit 1000 as collateral
     market.deposit(1_000 ether, address(this));
 
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     // we borrow 100 as debt
     market.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this), address(this));
 
@@ -578,18 +539,18 @@ contract MarketTest is Test {
   }
 
   function testCrossMaturityLiquidation() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
     market.setPenaltyRate(2e11);
 
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
 
-    mockOracle.setPrice(marketWETH, 10e18);
+    oracle.setPrice(marketWETH, 10e18);
     vm.warp(2 * FixedLib.INTERVAL + 1);
 
     vm.prank(BOB);
@@ -608,15 +569,15 @@ contract MarketTest is Test {
   }
 
   function testMultipleLiquidationSameUser() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     market.borrowAtMaturity(FixedLib.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
-    mockOracle.setPrice(marketWETH, 1_000e18);
+    oracle.setPrice(marketWETH, 1_000e18);
 
     vm.warp(FixedLib.INTERVAL * 2 + 1);
     vm.prank(BOB);
@@ -649,14 +610,14 @@ contract MarketTest is Test {
   }
 
   function testLiquidateWithZeroAsMaxAssets() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
 
     market.borrowAtMaturity(FixedLib.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
-    mockOracle.setPrice(marketWETH, 100e18);
+    oracle.setPrice(marketWETH, 100e18);
 
     vm.expectRevert(ZeroRepay.selector);
     vm.prank(BOB);
@@ -664,14 +625,14 @@ contract MarketTest is Test {
   }
 
   function testLiquidateAndSeizeFromEmptyCollateral() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
 
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
-    mockOracle.setPrice(marketWETH, 100e18);
+    oracle.setPrice(marketWETH, 100e18);
 
     vm.expectRevert(ZeroRepay.selector);
     vm.prank(BOB);
@@ -679,17 +640,17 @@ contract MarketTest is Test {
   }
 
   function testLiquidateLeavingDustAsCollateral() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     for (uint256 i = 1; i <= 3; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
     }
-    mockOracle.setPrice(marketWETH, 99e18);
+    oracle.setPrice(marketWETH, 99e18);
 
     vm.warp(FixedLib.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
 
@@ -711,17 +672,17 @@ contract MarketTest is Test {
   }
 
   function testLiquidateAndSeizeExactAmountWithDustAsCollateral() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether + 5, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     for (uint256 i = 1; i <= 3; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether + 100, 1_000 ether + 100, address(this), address(this));
     }
-    mockOracle.setPrice(marketWETH, 100e18);
+    oracle.setPrice(marketWETH, 100e18);
 
     vm.warp(FixedLib.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
 
@@ -737,15 +698,15 @@ contract MarketTest is Test {
   }
 
   function testLiquidateWithTwoUnitsAsMaxAssets() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
 
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 1_000 ether, 1_000 ether, address(this), address(this));
-    mockOracle.setPrice(marketWETH, 100e18);
+    oracle.setPrice(marketWETH, 100e18);
 
     vm.prank(BOB);
     market.liquidate(address(this), 2, marketWETH);
@@ -763,9 +724,9 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
 
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     market.borrow(4_000 ether, address(this), address(this));
-    mockOracle.setPrice(marketWETH, 4_000e18);
+    oracle.setPrice(marketWETH, 4_000e18);
 
     assertEq(market.floatingBorrowShares(address(this)), 4_000 ether);
 
@@ -785,7 +746,7 @@ contract MarketTest is Test {
     assertEq(usdCollateral, remainingCollateral.mulWadDown(4_000 ether).mulWadDown(0.9e18));
     assertEq(usdDebt, remainingDebt.divWadUp(0.8e18));
 
-    mockOracle.setPrice(marketWETH, 1_000e18);
+    oracle.setPrice(marketWETH, 1_000e18);
     // full liquidation
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
@@ -805,9 +766,9 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
 
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     market.borrow(4_000 ether, address(this), address(this));
-    mockOracle.setPrice(marketWETH, 3_000e18);
+    oracle.setPrice(marketWETH, 3_000e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
     vm.prank(BOB);
@@ -820,9 +781,9 @@ contract MarketTest is Test {
   }
 
   function testLiquidateFlexibleAndFixedBorrowPositionsInSingleCall() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     market.deposit(50_000 ether, ALICE);
 
     for (uint256 i = 1; i <= 2; i++) {
@@ -830,7 +791,7 @@ contract MarketTest is Test {
     }
 
     market.borrow(2_000 ether, address(this), address(this));
-    mockOracle.setPrice(marketWETH, 4_000e18);
+    oracle.setPrice(marketWETH, 4_000e18);
 
     vm.prank(BOB);
     market.liquidate(address(this), 1000 ether, marketWETH);
@@ -856,16 +817,16 @@ contract MarketTest is Test {
   }
 
   function testLiquidateAndChargeIncentiveForLenders() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
 
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
-    mockOracle.setPrice(marketWETH, 3_000e18);
+    oracle.setPrice(marketWETH, 3_000e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
     vm.prank(BOB);
@@ -885,7 +846,7 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
 
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     market.borrow(4_000 ether, address(this), address(this));
 
     // 10% yearly interest
@@ -903,16 +864,16 @@ contract MarketTest is Test {
   }
 
   function testLiquidateAndDistributeLosses() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
 
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
-    mockOracle.setPrice(marketWETH, 3_000e18);
+    oracle.setPrice(marketWETH, 3_000e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
     uint256 floatingAssetsBefore = market.floatingAssets();
@@ -937,20 +898,20 @@ contract MarketTest is Test {
   }
 
   function testLiquidateAndSubtractLossesFromAccumulator() external {
-    mockInterestRateModel.setBorrowRate(0.1e18);
+    irm.setBorrowRate(0.1e18);
     market.setBackupFeeRate(0);
     marketWETH.deposit(1.3 ether, address(this));
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
     market.setPenaltyRate(2e11);
 
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 3; i <= 6; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_100 ether, address(this), address(this));
     }
     vm.prank(ALICE);
     market.borrowAtMaturity(FixedLib.INTERVAL, 5_000 ether, 5_500 ether, address(ALICE), address(ALICE));
-    mockOracle.setPrice(marketWETH, 100e18);
+    oracle.setPrice(marketWETH, 100e18);
 
     vm.warp(FixedLib.INTERVAL * 2);
 
@@ -978,19 +939,19 @@ contract MarketTest is Test {
   }
 
   function testDistributionOfLossesShouldReduceFromFloatingBackupBorrowedAccordingly() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
 
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
       // we deposit so floatingBackupBorrowed is 0
       market.depositAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this));
     }
-    mockOracle.setPrice(marketWETH, 3_000e18);
+    oracle.setPrice(marketWETH, 3_000e18);
 
     assertEq(market.floatingBackupBorrowed(), 0);
     vm.prank(BOB);
@@ -999,14 +960,14 @@ contract MarketTest is Test {
     assertEq(market.floatingBackupBorrowed(), 0);
 
     marketWETH.deposit(1.15 ether, address(this));
-    mockOracle.setPrice(marketWETH, 5_000e18);
+    oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
       // we withdraw 500 so floatingBackupBorrowed is half
       market.withdrawAtMaturity(FixedLib.INTERVAL * i, 500 ether, 500 ether, address(this), address(this));
     }
-    mockOracle.setPrice(marketWETH, 3_000e18);
+    oracle.setPrice(marketWETH, 3_000e18);
 
     assertEq(market.floatingBackupBorrowed(), (1_000 ether * 4) / 2);
     vm.prank(BOB);
@@ -1016,14 +977,14 @@ contract MarketTest is Test {
   }
 
   function testCappedLiquidation() external {
-    mockInterestRateModel.setBorrowRate(0);
-    mockOracle.setPrice(marketWETH, 2_000e18);
+    irm.setBorrowRate(0);
+    oracle.setPrice(marketWETH, 2_000e18);
 
     market.deposit(50_000 ether, ALICE);
     marketWETH.deposit(1 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
 
-    mockOracle.setPrice(marketWETH, 900e18);
+    oracle.setPrice(marketWETH, 900e18);
 
     vm.prank(BOB);
     // vm.expectEmit(true, true, true, true, address(market));
@@ -1035,14 +996,14 @@ contract MarketTest is Test {
   }
 
   function testLiquidationResultingInZeroCollateralAndZeroDebt() external {
-    mockInterestRateModel.setBorrowRate(0);
-    mockOracle.setPrice(marketWETH, 2_000e18);
+    irm.setBorrowRate(0);
+    oracle.setPrice(marketWETH, 2_000e18);
 
     market.deposit(50_000 ether, ALICE);
     marketWETH.deposit(1 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
 
-    mockOracle.setPrice(marketWETH, 900e18);
+    oracle.setPrice(marketWETH, 900e18);
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(market));
@@ -1437,7 +1398,7 @@ contract MarketTest is Test {
     assertEq(unassignedEarnings, 0.09 ether);
 
     // when no fees are charged, the treasury logic should not revert
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this), address(this));
 
     assertEq(market.balanceOf(address(BOB)), 0.01 ether);
@@ -1447,7 +1408,7 @@ contract MarketTest is Test {
 
     vm.prank(ALICE);
     market.deposit(5 ether, address(this));
-    mockInterestRateModel.setBorrowRate(0.1e18);
+    irm.setBorrowRate(0.1e18);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     // treasury even ends up accruing more earnings
     assertLt(market.balanceOf(address(BOB)), 0.02 ether);
@@ -1496,7 +1457,7 @@ contract MarketTest is Test {
     market.deposit(10 ether, address(this));
     market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
     // when no fees are charged, the treasury logic should not revert
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
     // treasury shouldn't earn earnings
     assertEq(market.balanceOf(address(BOB)), 0);
@@ -1525,7 +1486,7 @@ contract MarketTest is Test {
     assertEq(unassignedEarnings, 1 ether - 0.909090909090909090 ether - 0.009090909090909091 ether);
 
     // when no fees are charged, the treasury logic should not revert
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     market.withdrawAtMaturity(FixedLib.INTERVAL, 0.5 ether, 0.4 ether, address(this), address(this));
 
     assertEq(market.balanceOf(address(BOB)), 0.009090909090909091 ether);
@@ -1554,9 +1515,9 @@ contract MarketTest is Test {
     assertEq(market.earningsAccumulator(), 0);
 
     market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     market.borrowAtMaturity(FixedLib.INTERVAL, 0.5 ether, 1 ether, address(this), address(this));
-    mockInterestRateModel.setBorrowRate(0.1e18);
+    irm.setBorrowRate(0.1e18);
     market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
 
     // treasury and unassignedEarnings should earn earnings
@@ -1582,7 +1543,7 @@ contract MarketTest is Test {
     market.deposit(10 ether, address(this));
     market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
     // when no fees are charged, the treasury logic should not revert
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0.9 ether, address(this), address(this));
     // treasury shouldn't earn earnings charged to the borrower
     assertEq(market.balanceOf(address(BOB)), 0);
@@ -1699,7 +1660,7 @@ contract MarketTest is Test {
     // TODO refactor
     vm.warp(0);
 
-    mockOracle.setPrice(marketWETH, 1_000e18);
+    oracle.setPrice(marketWETH, 1_000e18);
     weth.mint(BOB, 1 ether);
     vm.prank(BOB);
     weth.approve(address(marketWETH), 1 ether);
@@ -1719,7 +1680,7 @@ contract MarketTest is Test {
     market.deposit(10 ether, address(this));
     market.borrow(1 ether, address(this), address(this));
 
-    mockInterestRateModel.setBorrowRate(0.05e18);
+    irm.setBorrowRate(0.05e18);
     // after 1/2 year 2.5% is the accumulated debt (using a mock interest rate model)
     vm.warp(182.5 days);
     assertEq(market.previewRefund(1 ether), 1.025 ether);
@@ -1763,7 +1724,7 @@ contract MarketTest is Test {
 
   function testFlexibleBorrowExceedingReserve() external {
     marketWETH.deposit(1 ether, address(this));
-    mockOracle.setPrice(marketWETH, 1_000e18);
+    oracle.setPrice(marketWETH, 1_000e18);
 
     market.deposit(10 ether, address(this));
     market.setReserveFactor(0.1e18);
@@ -1777,7 +1738,7 @@ contract MarketTest is Test {
 
   function testFlexibleBorrowExceedingReserveIncludingFixedBorrow() external {
     marketWETH.deposit(1 ether, address(this));
-    mockOracle.setPrice(marketWETH, 1_000e18);
+    oracle.setPrice(marketWETH, 1_000e18);
 
     market.deposit(10 ether, address(this));
     market.setReserveFactor(0.1e18);
@@ -1793,7 +1754,7 @@ contract MarketTest is Test {
 
   function testFlexibleBorrowExceedingReserveWithNewDebt() external {
     marketWETH.deposit(1 ether, address(this));
-    mockOracle.setPrice(marketWETH, 1_000e18);
+    oracle.setPrice(marketWETH, 1_000e18);
 
     market.deposit(10 ether, address(this));
     market.setReserveFactor(0.1e18);
@@ -1854,7 +1815,7 @@ contract MarketTest is Test {
   }
 
   function testInsufficientProtocolLiquidity() external {
-    mockOracle.setPrice(marketWETH, 1_000e18);
+    oracle.setPrice(marketWETH, 1_000e18);
 
     marketWETH.deposit(50 ether, address(this));
     // SMART POOL ASSETS = 100
@@ -1883,7 +1844,7 @@ contract MarketTest is Test {
   }
 
   function testMultipleBorrowsForMultipleAssets() external {
-    mockInterestRateModel.setBorrowRate(0);
+    irm.setBorrowRate(0);
     vm.warp(0);
     Market[4] memory markets;
     for (uint256 i = 0; i < tokens.length; i++) {
@@ -1893,7 +1854,7 @@ contract MarketTest is Test {
         3,
         1e18,
         auditor,
-        InterestRateModel(address(mockInterestRateModel)),
+        InterestRateModel(address(irm)),
         0.02e18 / uint256(1 days),
         1e17,
         0,
@@ -1938,6 +1899,56 @@ contract MarketTest is Test {
     vm.prank(BOB);
     markets[0].liquidate(address(this), 1_000 ether, markets[0]);
   }
+
+  event Transfer(address indexed from, address indexed to, uint256 amount);
+  event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
+  event Withdraw(address indexed caller, address indexed receiver, uint256 assets, uint256 shares);
+  event DepositAtMaturity(
+    uint256 indexed maturity,
+    address indexed caller,
+    address indexed owner,
+    uint256 assets,
+    uint256 fee
+  );
+  event WithdrawAtMaturity(
+    uint256 indexed maturity,
+    address caller,
+    address indexed receiver,
+    address indexed owner,
+    uint256 assets,
+    uint256 assetsDiscounted
+  );
+  event BorrowAtMaturity(
+    uint256 indexed maturity,
+    address caller,
+    address indexed receiver,
+    address indexed borrower,
+    uint256 assets,
+    uint256 fee
+  );
+  event Borrow(
+    address indexed caller,
+    address indexed receiver,
+    address indexed borrower,
+    uint256 assets,
+    uint256 shares
+  );
+  event RepayAtMaturity(
+    uint256 indexed maturity,
+    address indexed caller,
+    address indexed borrower,
+    uint256 assets,
+    uint256 debtCovered
+  );
+  event Repay(address indexed caller, address indexed borrower, uint256 assets, uint256 shares);
+  event Liquidate(
+    address indexed receiver,
+    address indexed borrower,
+    uint256 repaidAssets,
+    uint256 lendersAssets,
+    Market indexed collateralMarket,
+    uint256 seizedAssets
+  );
 }
 
 contract MarketHarness is Market {

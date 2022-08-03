@@ -1,6 +1,11 @@
 import { ethers } from "hardhat";
-import { parseUnits } from "ethers/lib/utils";
 import type { FixedPoolHarness, FixedPoolHarness__factory } from "../types";
+
+const {
+  utils: { parseUnits },
+  getContractFactory,
+  provider,
+} = ethers;
 
 /** @deprecated use deploy fixture */
 export class PoolEnv {
@@ -15,7 +20,7 @@ export class PoolEnv {
   }
 
   public async moveInTime(timestamp: number) {
-    await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
+    await provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 
   public async accrueEarnings(timestamp: number) {
@@ -93,7 +98,7 @@ export class PoolEnv {
   }
 
   static async create(): Promise<PoolEnv> {
-    const FixedPoolHarness = (await ethers.getContractFactory("FixedPoolHarness")) as FixedPoolHarness__factory;
+    const FixedPoolHarness = (await getContractFactory("FixedPoolHarness")) as FixedPoolHarness__factory;
     const fixedPoolHarness = await FixedPoolHarness.deploy();
     await fixedPoolHarness.deployed();
 

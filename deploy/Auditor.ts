@@ -1,6 +1,8 @@
+import { UnknownSignerError } from "hardhat-deploy/dist/src/errors";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, TimelockController } from "../types";
 import executeOrPropose from "./.utils/executeOrPropose";
+import timelockPropose from "./.utils/timelockPropose";
 
 const func: DeployFunction = async ({
   config: {
@@ -10,6 +12,7 @@ const func: DeployFunction = async ({
   },
   ethers: {
     utils: { parseUnits },
+    getContractAt,
     getContract,
     getSigner,
   },
@@ -26,12 +29,27 @@ const func: DeployFunction = async ({
     lenders: parseUnits(String(lendersIncentive)),
   };
 
-  await deploy("Auditor", {
-    skipIfAlreadyDeployed: true,
-    args: [oracleAddress, liquidationIncentive],
-    from: deployer,
-    log: true,
-  });
+  try {
+    await deploy("Auditor", {
+      proxy: {
+        owner: timelockController.address,
+        proxyContract: "ERC1967Proxy",
+        proxyArgs: ["{implementation}", "{data}"],
+        execute: {
+          init: { methodName: "initialize", args: [timelockController.address, oracleAddress, liquidationIncentive] },
+        },
+      },
+      from: deployer,
+      log: true,
+    });
+  } catch (error) {
+    if (error instanceof UnknownSignerError) {
+      const { to, contract } = error.data;
+      if (!to || !contract) throw error;
+
+      await timelockPropose(timelockController, await getContractAt(contract.name, to), contract.method, contract.args);
+    }
+  }
   const auditor = await getContract<Auditor>("Auditor", await getSigner(deployer));
 
   if ((await auditor.oracle()) !== oracleAddress) {

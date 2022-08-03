@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Auditor, Market, ExactlyOracle } from "../../contracts/Auditor.sol";
 
@@ -21,7 +22,17 @@ contract AuditorTest is Test {
 
   function setUp() external {
     oracle = new MockOracle();
-    auditor = new Auditor(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(
+      address(
+        new ERC1967Proxy(
+          address(new Auditor()),
+          abi.encodeCall(
+            Auditor.initialize,
+            (BOB, ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18))
+          )
+        )
+      )
+    );
     market = new MockMarket(auditor);
     vm.label(BOB, "bob");
   }

@@ -6,9 +6,10 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Market, NotMarket } from "./Market.sol";
 import { ExactlyOracle } from "./ExactlyOracle.sol";
+import { Upgradeable } from "./utils/Upgradeable.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 
-contract Auditor is AccessControl {
+contract Auditor is AccessControl, Upgradeable {
   using FixedPointMathLib for uint256;
 
   uint256 public constant TARGET_HEALTH = 1.25e18;
@@ -21,7 +22,13 @@ contract Auditor is AccessControl {
 
   ExactlyOracle public oracle;
 
-  constructor(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) {
+  function initialize(
+    address upgradeAdmin,
+    ExactlyOracle oracle_,
+    LiquidationIncentive memory liquidationIncentive_
+  ) external initializer {
+    Upgradeable.initialize(upgradeAdmin);
+
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setOracle(oracle_);

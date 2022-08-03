@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
-import { parseUnits } from "ethers/lib/utils";
 import type { BigNumber } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type {
+  Auditor,
   Auditor__factory,
   MarketHarness,
   MarketHarness__factory,
@@ -12,6 +12,14 @@ import type {
   MockInterestRateModel__factory,
   MockOracle__factory,
 } from "../types";
+
+const {
+  utils: { parseUnits },
+  getContractFactory,
+  getNamedSigner,
+  Contract,
+  provider,
+} = ethers;
 
 /** @deprecated use deploy fixture */
 export class MarketEnv {
@@ -33,7 +41,7 @@ export class MarketEnv {
   }
 
   public async moveInTime(timestamp: number) {
-    return ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
+    return provider.send("evm_setNextBlockTimestamp", [timestamp]);
   }
 
   public switchWallet(wallet: SignerWithAddress) {
@@ -49,25 +57,39 @@ export class MarketEnv {
   }
 
   static async create() {
-    const MockInterestRateModelFactory = (await ethers.getContractFactory(
+    const owner = await getNamedSigner("deployer");
+
+    const MockInterestRateModelFactory = (await getContractFactory(
       "MockInterestRateModel",
     )) as MockInterestRateModel__factory;
     const mockInterestRateModel = await MockInterestRateModelFactory.deploy(0);
     await mockInterestRateModel.deployed();
 
-    const MockERC20 = (await ethers.getContractFactory("MockERC20")) as MockERC20__factory;
+    const MockERC20 = (await getContractFactory("MockERC20")) as MockERC20__factory;
     const asset = await MockERC20.deploy("Fake", "F", 18);
     await asset.deployed();
 
-    const MockOracle = (await ethers.getContractFactory("MockOracle")) as MockOracle__factory;
+    const MockOracle = (await getContractFactory("MockOracle")) as MockOracle__factory;
     const oracle = await MockOracle.deploy();
     await oracle.deployed();
 
-    const Auditor = (await ethers.getContractFactory("Auditor")) as Auditor__factory;
-    const auditor = await Auditor.deploy(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
-    await auditor.deployed();
+    const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
+    const auditorImpl = await Auditor.deploy();
+    await auditorImpl.deployed();
+    const auditorProxy = await (
+      await getContractFactory("ERC1967Proxy")
+    ).deploy(
+      auditorImpl.address,
+      Auditor.interface.encodeFunctionData("initialize", [
+        owner.address,
+        oracle.address,
+        { liquidator: parseUnits("0.1"), lenders: 0 },
+      ]),
+    );
+    await auditorProxy.deployed();
+    const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
 
-    const MarketHarness = (await ethers.getContractFactory("MarketHarness")) as MarketHarness__factory;
+    const MarketHarness = (await getContractFactory("MarketHarness")) as MarketHarness__factory;
     const marketHarness = await MarketHarness.deploy(
       asset.address,
       4,
@@ -82,8 +104,6 @@ export class MarketEnv {
     await marketHarness.deployed();
     await oracle.setPrice(marketHarness.address, parseUnits("1"));
     await auditor.enableMarket(marketHarness.address, parseUnits("0.9"), 18);
-
-    const [owner] = await ethers.getSigners();
 
     return new MarketEnv(mockInterestRateModel, marketHarness, asset, owner);
   }

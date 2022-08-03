@@ -31,7 +31,17 @@ contract PreviewerTest is Test {
   function setUp() external {
     token = new MockERC20("DAI", "DAI", 18);
     oracle = new MockOracle();
-    auditor = new Auditor(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(
+      address(
+        new ERC1967Proxy(
+          address(new Auditor()),
+          abi.encodeCall(
+            Auditor.initialize,
+            (BOB, ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18))
+          )
+        )
+      )
+    );
     irm = new InterestRateModel(
       InterestRateModel.Curve({ a: 0.72e18, b: -0.22e18, maxUtilization: 3e18 }),
       2e18,
