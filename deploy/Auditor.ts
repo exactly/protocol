@@ -20,8 +20,6 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  await validateUpgrade("Auditor");
-
   const [{ address: timelockAddress }, { address: oracleAddress }, { deployer }] = await Promise.all([
     get("TimelockController"),
     get("ExactlyOracle"),
@@ -32,27 +30,32 @@ const func: DeployFunction = async ({
     lenders: parseUnits(String(lendersIncentive)),
   };
 
-  try {
-    await deploy("Auditor", {
-      proxy: {
-        owner: timelockAddress,
-        proxyContract: "ERC1967Proxy",
-        proxyArgs: ["{implementation}", "{data}"],
-        execute: {
-          init: { methodName: "initialize", args: [timelockAddress, oracleAddress, liquidationIncentive] },
+  await validateUpgrade("Auditor", [], async (name, args) => {
+    try {
+      return await deploy(name, {
+        args,
+        proxy: {
+          owner: timelockAddress,
+          proxyContract: "ERC1967Proxy",
+          proxyArgs: ["{implementation}", "{data}"],
+          execute: {
+            init: { methodName: "initialize", args: [timelockAddress, oracleAddress, liquidationIncentive] },
+          },
         },
-      },
-      from: deployer,
-      log: true,
-    });
-  } catch (error) {
-    if (error instanceof UnknownSignerError) {
-      const { to, contract } = error.data;
-      if (!to || !contract) throw error;
+        from: deployer,
+        log: true,
+      });
+    } catch (error) {
+      if (error instanceof UnknownSignerError) {
+        const { to, contract } = error.data;
+        if (!to || !contract) throw error;
 
-      await timelockPropose(await getContractAt(contract.name, to), contract.method, contract.args);
+        await timelockPropose(await getContractAt(contract.name, to), contract.method, contract.args);
+      }
+
+      return { ...(await get(`${name}_Proxy`)), implementation: (await get(`${name}_Implementation`)).address };
     }
-  }
+  });
   const auditor = await getContract<Auditor>("Auditor", await getSigner(deployer));
 
   if ((await auditor.oracle()) !== oracleAddress) {

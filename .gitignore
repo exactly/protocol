@@ -6,6 +6,7 @@
 /docs/
 /types/
 
+.openzeppelin/unknown-*
 .vscode/
 cache/
 node_modules/
