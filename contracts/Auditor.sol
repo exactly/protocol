@@ -232,9 +232,9 @@ contract Auditor is AccessControl, Upgradeable {
           usd.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
         )
         .mulDivUp(10**repay.decimals, repay.price),
-      maxLiquidatorAssets < type(uint256).max
+      maxLiquidatorAssets < 115792089237316195423570985008687907853269984665640564039457 // type(uint256).max / WAD
         ? maxLiquidatorAssets.divWadDown(1e18 + memIncentive.lenders)
-        : type(uint256).max
+        : maxLiquidatorAssets
     );
     moreCollateral = usd.totalCollateral > usd.seizeAvailable;
   }
