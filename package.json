@@ -4,6 +4,7 @@
   "scripts": {
     "lint": "run-s --continue-on-error lint:**",
     "lint:es": "eslint --ext .ts,.js,.cjs,.mjs .",
+    "lint:ts": "tsc",
     "lint:sol": "solhint '{contracts,test}/**/*.sol'",
     "fix:sol": "prettier -w '{contracts,test}/**/*.sol'",
     "compile": "hardhat compile",

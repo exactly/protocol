@@ -2,8 +2,8 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",
-    "strict": true,
     "esModuleInterop": true,
+    "strict": true,
     "noEmit": true
   },
   "include": ["**/*.ts", "**/.utils/**/*", "**/.eslintrc.js"],
