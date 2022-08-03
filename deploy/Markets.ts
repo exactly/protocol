@@ -1,7 +1,7 @@
 import type { BigNumber } from "ethers";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, ERC20, ExactlyOracle, Market, InterestRateModel } from "../types";
-import { mockPrices } from "./mocks/Tokens";
+import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import grantRole from "./.utils/grantRole";
@@ -9,6 +9,7 @@ import grantRole from "./.utils/grantRole";
 const func: DeployFunction = async ({
   config: {
     finance: {
+      assets,
       adjustFactor,
       penaltyRatePerDay,
       backupFeeRate,
@@ -23,7 +24,6 @@ const func: DeployFunction = async ({
     getContract,
     getSigner,
   },
-  network: { config },
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
@@ -47,13 +47,13 @@ const func: DeployFunction = async ({
     { up: parseUnits(String(up)), down: parseUnits(String(down)) },
   ] as [number, BigNumber, string, string, BigNumber, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
 
-  for (const symbol of config.tokens) {
-    const token = await getContract<ERC20>(symbol);
+  for (const symbol of assets) {
+    const asset = await getContract<ERC20>(symbol);
     const marketName = `Market${symbol}`;
     await deploy(marketName, {
       skipIfAlreadyDeployed: true,
       contract: "Market",
-      args: [token.address, ...marketArgs],
+      args: [asset.address, ...marketArgs],
       from: deployer,
       log: true,
     });
@@ -100,7 +100,7 @@ const func: DeployFunction = async ({
       await executeOrPropose(deployer, auditor, "enableMarket", [
         market.address,
         underlyingAdjustFactor,
-        await token.decimals(),
+        await asset.decimals(),
       ]);
     } else if (!(await auditor.markets(market.address)).adjustFactor.eq(underlyingAdjustFactor)) {
       await executeOrPropose(deployer, auditor, "setAdjustFactor", [market.address, underlyingAdjustFactor]);
@@ -117,6 +117,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "TimelockController", "Tokens"];
+func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "TimelockController", "Assets"];
 
 export default func;

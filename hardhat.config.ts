@@ -15,12 +15,10 @@ const config: Config = {
   solidity: { version: "0.8.15", settings: { optimizer: { enabled: true, runs: 200 } } },
   networks: {
     hardhat: {
-      tokens: ["DAI", "WETH", "USDC", "WBTC"],
       accounts: { accountsBalance: `1${"0".repeat(32)}` },
       allowUnlimitedContractSize: true,
     },
     rinkeby: {
-      tokens: ["DAI", "WETH", "USDC", "WBTC"],
       gnosisSafeTxService: "https://safe-transaction.rinkeby.gnosis.io/",
       url: env.RINKEBY_NODE ?? "https://rinkeby.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
@@ -34,6 +32,7 @@ const config: Config = {
     },
   },
   finance: {
+    assets: ["DAI", "WETH", "USDC", "WBTC"],
     adjustFactor: { default: 0.8, WBTC: 0.6 },
     liquidationIncentive: {
       liquidator: 0.05,
@@ -80,7 +79,7 @@ task(
     await multisigPropose(account, await ethers.getContract(`Market${market}`), pause ? "pause" : "unpause");
   },
 )
-  .addPositionalParam("market", "token symbol of the underlying asset", undefined, string)
+  .addPositionalParam("market", "symbol of the underlying asset", undefined, string)
   .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)
   .addOptionalParam("account", "signer's account name", "deployer", string);
 
@@ -93,7 +92,8 @@ declare module "hardhat/types/config" {
     maxUtilization: number;
   }
   export interface FinanceConfig {
-    adjustFactor: { default: number; [token: string]: number };
+    assets: string[];
+    adjustFactor: { default: number; [asset: string]: number };
     liquidationIncentive: { liquidator: number; lenders: number };
     penaltyRatePerDay: number;
     backupFeeRate: number;
@@ -125,10 +125,6 @@ declare module "hardhat/types/config" {
     finance: FinanceConfig;
   }
 
-  export interface HardhatNetworkUserConfig {
-    tokens: string[];
-  }
-
   export interface MainnetNetworkUserConfig extends HttpNetworkUserConfig {
     timelockDelay: number;
     priceExpiration: number;
@@ -136,21 +132,18 @@ declare module "hardhat/types/config" {
   }
 
   export interface HttpNetworkUserConfig {
-    tokens: string[];
     timelockDelay?: number;
     priceExpiration?: number;
     gnosisSafeTxService?: string;
   }
 
   export interface HardhatNetworkConfig {
-    tokens: string[];
     timelockDelay?: number;
     priceExpiration?: number;
     gnosisSafeTxService: string;
   }
 
   export interface HttpNetworkConfig {
-    tokens: string[];
     timelockDelay?: number;
     priceExpiration?: number;
     gnosisSafeTxService: string;

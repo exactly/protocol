@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers, deployments, network } from "hardhat";
+import { ethers, deployments, config } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { Auditor, Market, MockERC20 } from "../types";
 import timelockExecute from "./utils/timelockExecute";
@@ -104,7 +104,7 @@ describe("Auditor Admin", function () {
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
       expect(await auditor.allMarkets()).to.deep.equal(
-        await Promise.all(network.config.tokens.map(async (token) => (await get(`Market${token}`)).address)),
+        await Promise.all(config.finance.assets.map(async (symbol) => (await get(`Market${symbol}`)).address)),
       );
     });
 
