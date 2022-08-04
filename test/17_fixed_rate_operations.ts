@@ -57,7 +57,7 @@ describe("Fixed Rate Operations", () => {
         .to.emit(marketHarness, "PenaltyRateSet")
         .withArgs(penaltyRate);
     });
-    it("WHEN calling setPenaltyRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+    it("WHEN calling setPenaltyRate from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketHarness.connect(laura).setPenaltyRate(parseUnits("0.04"))).to.be.revertedWith("AccessControl");
     });
   });
@@ -71,7 +71,7 @@ describe("Fixed Rate Operations", () => {
         .to.emit(marketHarness, "BackupFeeRateSet")
         .withArgs(parseUnits("0.2"));
     });
-    it("WHEN calling setBackupFeeRate from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+    it("WHEN calling setBackupFeeRate from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketHarness.connect(laura).setBackupFeeRate(parseUnits("0.2"))).to.be.revertedWith(
         "AccessControl",
       );
@@ -87,7 +87,7 @@ describe("Fixed Rate Operations", () => {
         .to.emit(marketHarness, "ReserveFactorSet")
         .withArgs(parseUnits("0.04"));
     });
-    it("WHEN calling setReserveFactor from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+    it("WHEN calling setReserveFactor from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketHarness.connect(laura).setReserveFactor(parseUnits("0.04"))).to.be.revertedWith(
         "AccessControl",
       );
@@ -119,7 +119,7 @@ describe("Fixed Rate Operations", () => {
         .to.emit(marketHarness, "InterestRateModelSet")
         .withArgs(newInterestRateModel.address);
     });
-    it("WHEN calling setInterestRateModel from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+    it("WHEN calling setInterestRateModel from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketHarness.connect(laura).setInterestRateModel(newInterestRateModel.address)).to.be.revertedWith(
         "AccessControl",
       );
@@ -1147,7 +1147,7 @@ describe("Fixed Rate Operations", () => {
   });
 
   describe("Assignment of earnings over time", () => {
-    describe("GIVEN a borrowMP of 10000 (600 fees owed by user) - 24 days to maturity", () => {
+    describe("GIVEN a borrowMP of 10000 (600 fees owed by account) - 24 days to maturity", () => {
       let tx: ContractTransaction;
       let returnValue: BigNumber;
       const twentyFourDaysToMaturity = nextPoolID - 86_400 * 24;
@@ -1171,7 +1171,7 @@ describe("Fixed Rate Operations", () => {
             laura.address,
           );
       });
-      describe("AND GIVEN a depositMP of 1000 (50 fees earned by user) - 20 days to maturity", () => {
+      describe("AND GIVEN a depositMP of 1000 (50 fees earned by account) - 20 days to maturity", () => {
         let floatingAssets: BigNumber;
         beforeEach(async () => {
           await marketEnv.moveInTime(twentyDaysToMaturity);
@@ -1220,7 +1220,7 @@ describe("Fixed Rate Operations", () => {
               .to.emit(marketHarness, "MarketUpdatedAtMaturity")
               .withArgs(anyValue, anyValue, floatingAssets.add(earnings), anyValue, anyValue, anyValue);
           });
-          describe("AND GIVEN another borrowMP of 10000 (601.5 fees owed by user) - 12 days to maturity", () => {
+          describe("AND GIVEN another borrowMP of 10000 (601.5 fees owed by account) - 12 days to maturity", () => {
             beforeEach(async () => {
               await mockInterestRateModel.setBorrowRate(parseUnits("0.06015"));
               await marketEnv.moveInTime(twelveDaysToMaturity);
@@ -1366,7 +1366,7 @@ describe("Fixed Rate Operations", () => {
       });
     });
 
-    describe("GIVEN a borrowMP of 10000 (500 fees owed by user)", () => {
+    describe("GIVEN a borrowMP of 10000 (500 fees owed by account)", () => {
       beforeEach(async () => {
         borrowAmount = 10000;
         marketEnv.switchWallet(laura);
@@ -1516,7 +1516,7 @@ describe("Fixed Rate Operations", () => {
       });
     });
 
-    describe("GIVEN a borrowMP of 5000 (250 fees owed by user) AND a depositMP of 5000 (earns 250 in fees)", () => {
+    describe("GIVEN a borrowMP of 5000 (250 fees owed by account) AND a depositMP of 5000 (earns 250 in fees)", () => {
       let floatingAssets: BigNumber;
       beforeEach(async () => {
         borrowAmount = 5000;
@@ -1762,8 +1762,8 @@ describe("Fixed Rate Operations", () => {
       });
     });
 
-    describe("User receives more money than deposited for repaying earlier", () => {
-      describe("GIVEN a borrowMP of 10000 (2000 fees owed by user) (5 days to maturity)", () => {
+    describe("Account receives more money than deposited for repaying earlier", () => {
+      describe("GIVEN a borrowMP of 10000 (2000 fees owed by account) (5 days to maturity)", () => {
         beforeEach(async () => {
           marketEnv.switchWallet(laura);
           await mockInterestRateModel.setBorrowRate(parseUnits("0.2"));
@@ -1784,7 +1784,7 @@ describe("Fixed Rate Operations", () => {
           expect(mp.unassignedEarnings).to.eq(parseUnits("2000"));
         });
 
-        describe("GIVEN a borrowMP of 10000 (10000 fees owed by user) (4 days to maturity)", () => {
+        describe("GIVEN a borrowMP of 10000 (10000 fees owed by account) (4 days to maturity)", () => {
           beforeEach(async () => {
             marketEnv.switchWallet(tina);
             await mockInterestRateModel.setBorrowRate(parseUnits("1")); // Crazy FEE

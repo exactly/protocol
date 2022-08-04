@@ -12,7 +12,7 @@ const {
   getContract,
 } = ethers;
 
-describe("Auditor from User Space", function () {
+describe("Auditor from Account Space", function () {
   let dai: MockERC20;
   let weth: WETH;
   let auditor: Auditor;
@@ -21,24 +21,24 @@ describe("Auditor from User Space", function () {
   let marketWETH: Market;
 
   let owner: SignerWithAddress;
-  let user: SignerWithAddress;
+  let account: SignerWithAddress;
 
   before(async () => {
     owner = await getNamedSigner("multisig");
-    [user] = await getUnnamedSigners();
+    [account] = await getUnnamedSigners();
   });
 
   beforeEach(async () => {
     await deployments.fixture("Markets");
 
-    dai = await getContract<MockERC20>("DAI", user);
-    weth = await getContract<WETH>("WETH", user);
-    auditor = await getContract<Auditor>("Auditor", user);
-    priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", user);
-    marketDAI = await getContract<Market>("MarketDAI", user);
-    marketWETH = await getContract<Market>("MarketWETH", user);
+    dai = await getContract<MockERC20>("DAI", account);
+    weth = await getContract<WETH>("WETH", account);
+    auditor = await getContract<Auditor>("Auditor", account);
+    priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", account);
+    marketDAI = await getContract<Market>("MarketDAI", account);
+    marketWETH = await getContract<Market>("MarketWETH", account);
 
-    await dai.connect(owner).mint(user.address, parseUnits("100000"));
+    await dai.connect(owner).mint(account.address, parseUnits("100000"));
     await weth.deposit({ value: parseUnits("10") });
     await weth.approve(marketWETH.address, parseUnits("10"));
   });
@@ -56,36 +56,36 @@ describe("Auditor from User Space", function () {
   it("EnterMarket should emit event", async () => {
     await expect(auditor.enterMarket(marketDAI.address))
       .to.emit(auditor, "MarketEntered")
-      .withArgs(marketDAI.address, user.address);
+      .withArgs(marketDAI.address, account.address);
   });
 
   it("ExitMarket should emit event", async () => {
     await auditor.enterMarket(marketDAI.address);
     await expect(auditor.exitMarket(marketDAI.address))
       .to.emit(auditor, "MarketExited")
-      .withArgs(marketDAI.address, user.address);
+      .withArgs(marketDAI.address, account.address);
   });
 
   it("checkBorrow should fail for when oracle gets weird", async () => {
     await dai.approve(marketDAI.address, 666);
-    await marketDAI.deposit(666, user.address);
+    await marketDAI.deposit(666, account.address);
     await auditor.enterMarket(marketDAI.address);
     await priceFeedDAI.setPrice(0);
-    await expect(marketDAI.borrowAtMaturity(futurePools(1)[0], 1, 1, user.address, user.address)).to.be.revertedWith(
-      "InvalidPrice()",
-    );
+    await expect(
+      marketDAI.borrowAtMaturity(futurePools(1)[0], 1, 1, account.address, account.address),
+    ).to.be.revertedWith("InvalidPrice()");
   });
 
-  it("checkLiquidation should revert with INSUFFICIENT_SHORTFALL if user has no shortfall", async () => {
+  it("checkLiquidation should revert with INSUFFICIENT_SHORTFALL if account has no shortfall", async () => {
     await expect(
-      auditor.checkLiquidation(marketDAI.address, marketDAI.address, user.address, MaxUint256),
+      auditor.checkLiquidation(marketDAI.address, marketDAI.address, account.address, MaxUint256),
     ).to.be.revertedWith("InsufficientShortfall()"); // Any failure except MARKET_NOT_LISTED
   });
 
   it("Auto-adding a market should only be allowed from a market", async () => {
     // supply Dai to the protocol
     await dai.approve(marketDAI.address, 100);
-    await marketDAI.deposit(100, user.address);
+    await marketDAI.deposit(100, account.address);
 
     // make it count as collateral (DAI)
     await expect(auditor.checkBorrow(marketDAI.address, owner.address)).to.be.revertedWith("NotMarket()");
@@ -93,7 +93,7 @@ describe("Auditor from User Space", function () {
 
   it("CalculateSeize should fail when oracle is acting weird", async () => {
     await priceFeedDAI.setPrice(0);
-    await expect(auditor.calculateSeize(marketDAI.address, marketDAI.address, user.address, 100)).to.be.revertedWith(
+    await expect(auditor.calculateSeize(marketDAI.address, marketDAI.address, account.address, 100)).to.be.revertedWith(
       "0x00bfc921",
     );
   });
@@ -102,19 +102,19 @@ describe("Auditor from User Space", function () {
     // supply dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(marketDAI.address, amountDAI);
-    await marketDAI.deposit(amountDAI, user.address);
+    await marketDAI.deposit(amountDAI, account.address);
     expect(await dai.balanceOf(marketDAI.address)).to.equal(amountDAI);
     // make it count as collateral (DAI)
     await auditor.enterMarket(marketDAI.address);
 
     // supply ETH to the protocol
     const amountETH = parseUnits("1");
-    await marketWETH.deposit(amountETH, user.address);
+    await marketWETH.deposit(amountETH, account.address);
     expect(await weth.balanceOf(marketWETH.address)).to.equal(amountETH);
     // make it count as collateral (WETH)
     await auditor.enterMarket(marketWETH.address);
 
-    const [collateral] = await auditor.accountLiquidity(user.address, AddressZero, 0);
+    const [collateral] = await auditor.accountLiquidity(account.address, AddressZero, 0);
     const { adjustFactor: adjustFactorDAI } = await auditor.markets(marketDAI.address);
     const { adjustFactor: adjustFactorWETH } = await auditor.markets(marketWETH.address);
     const collateralDAI = amountDAI.mul(adjustFactorDAI).div(parseUnits("1"));
@@ -122,7 +122,7 @@ describe("Auditor from User Space", function () {
     expect(collateral).to.equal(collateralDAI.add(collateralETH));
   });
 
-  it("Contract's state variable accountMarkets should correctly add and remove the asset which the user entered and exited as collateral", async () => {
+  it("Contract's state variable accountMarkets should correctly add and remove the asset which the account entered and exited as collateral", async () => {
     await auditor.enterMarket(marketDAI.address);
     await auditor.enterMarket(marketWETH.address);
 
@@ -133,11 +133,11 @@ describe("Auditor from User Space", function () {
   it("Auditor reverts if Oracle acts weird", async () => {
     // supply Dai to the protocol
     await dai.approve(marketDAI.address, 100);
-    await marketDAI.depositAtMaturity(futurePools(1)[0], 100, 100, user.address);
+    await marketDAI.depositAtMaturity(futurePools(1)[0], 100, 100, account.address);
     // make it count as collateral (DAI)
     await auditor.enterMarket(marketDAI.address);
     await priceFeedDAI.setPrice(0);
-    await expect(auditor.accountLiquidity(user.address, AddressZero, 0)).to.revertedWith("0x00bfc921");
+    await expect(auditor.accountLiquidity(account.address, AddressZero, 0)).to.revertedWith("0x00bfc921");
   });
 
   it("Get data from correct market", async () => {

@@ -63,7 +63,7 @@ describe("Market", function () {
         // add liquidity to the maturity
         await marketDAI.depositAtMaturity(futurePools(1)[0], 3, 0, maria.address);
       });
-      it("THEN the Market registers a supply of 3 wei DAI for the user (exposed via accountSnapshot)", async () => {
+      it("THEN the Market registers a supply of 3 wei DAI for the account (exposed via accountSnapshot)", async () => {
         expect(await marketDAI.maxWithdraw(maria.address)).to.equal(3);
       });
       it("AND the Market Size of the smart pool is 3 wei of a dai", async () => {
@@ -99,7 +99,7 @@ describe("Market", function () {
     it("AND the Market contract has a balance of 100 DAI", async () => {
       expect(await dai.balanceOf(marketDAI.address)).to.equal(parseUnits("100"));
     });
-    it("AND the Market registers a supply of 100 DAI for the user", async () => {
+    it("AND the Market registers a supply of 100 DAI for the account", async () => {
       expect((await marketDAI.fixedDepositPositions(futurePools(1)[0], maria.address))[0]).to.equal(parseUnits("100"));
     });
     it("WHEN trying to borrow DAI THEN it reverts with INSUFFICIENT_LIQUIDITY since collateral was not deposited yet", async () => {
@@ -107,7 +107,7 @@ describe("Market", function () {
         marketDAI.borrowAtMaturity(futurePools(1)[0], 1000, 2000, maria.address, maria.address),
       ).to.be.revertedWith("InsufficientAccountLiquidity()");
     });
-    describe("AND WHEN depositing 50 DAI to the same maturity, as the same user", () => {
+    describe("AND WHEN depositing 50 DAI to the same maturity, as the same account", () => {
       beforeEach(async () => {
         await expect(marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("50"), parseUnits("50"), maria.address))
           .to.emit(marketDAI, "DepositAtMaturity")
@@ -142,7 +142,7 @@ describe("Market", function () {
       it("AND a 60 DAI borrow is registered", async () => {
         expect((await marketDAI.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("60"));
       });
-      it("AND contract's state variable fixedBorrows registers the maturity where the user borrowed from", async () => {
+      it("AND contract's state variable fixedBorrows registers the maturity where the account borrowed from", async () => {
         const maturities = await marketDAI.fixedBorrows(maria.address);
         expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
       });
@@ -156,7 +156,7 @@ describe("Market", function () {
         it("THEN all debt is repaid", async () => {
           expect(await marketDAI.previewDebt(maria.address)).to.equal(0);
         });
-        it("THEN the 40 spare amount is not discounted from the user balance", async () => {
+        it("THEN the 40 spare amount is not discounted from the account balance", async () => {
           expect(await dai.balanceOf(maria.address)).to.equal(balanceBefore.sub(parseUnits("60")));
         });
       });
@@ -173,7 +173,7 @@ describe("Market", function () {
           );
           await marketDAI.repayAtMaturity(futurePools(1)[0], parseUnits("60"), parseUnits("60"), maria.address);
         });
-        it("THEN contract's state variable fixedBorrows registers the second maturity where the user borrowed from", async () => {
+        it("THEN contract's state variable fixedBorrows registers the second maturity where the account borrowed from", async () => {
           const maturities = await marketDAI.fixedBorrows(maria.address);
           expect(decodeMaturities(maturities)).contains(futurePools(2)[1].toNumber());
         });
@@ -186,7 +186,7 @@ describe("Market", function () {
             .to.emit(marketDAI, "RepayAtMaturity")
             .withArgs(futurePools(1)[0], maria.address, maria.address, parseUnits("60"), parseUnits("60"));
         });
-        it("AND contract's state variable fixedBorrows does not register the maturity where the user borrowed from anymore", async () => {
+        it("AND contract's state variable fixedBorrows does not register the maturity where the account borrowed from anymore", async () => {
           const maturities = await marketDAI.fixedBorrows(maria.address);
           expect(decodeMaturities(maturities).length).eq(0);
         });
@@ -206,7 +206,7 @@ describe("Market", function () {
             expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("10000"));
             expect(await dai.balanceOf(marketDAI.address)).to.equal(0);
           });
-          it("AND contract's state variable fixedDeposits does not register the maturity where the user deposited to anymore", async () => {
+          it("AND contract's state variable fixedDeposits does not register the maturity where the account deposited to anymore", async () => {
             const maturities = await marketDAI.fixedDeposits(maria.address);
             expect(decodeMaturities(maturities).length).eq(0);
           });
@@ -226,7 +226,7 @@ describe("Market", function () {
           it("THEN the total amount withdrawn is 9900 (the max)", async () => {
             expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("9900"));
           });
-          it("AND contract's state variable fixedDeposits does not register the maturity where the user deposited to anymore", async () => {
+          it("AND contract's state variable fixedDeposits does not register the maturity where the account deposited to anymore", async () => {
             const maturities = await marketDAI.fixedDeposits(maria.address);
             expect(decodeMaturities(maturities).length).eq(0);
           });
@@ -332,21 +332,21 @@ describe("Market", function () {
   });
 
   describe("simple validations:", () => {
-    it("WHEN calling setMaxFuturePools from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+    it("WHEN calling setMaxFuturePools from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketDAI.setMaxFuturePools(12)).to.be.revertedWith("AccessControl");
     });
     it("WHEN calling setMaxFuturePools, THEN the maxFuturePools should be updated", async () => {
       await timelockExecute(owner, marketDAI, "setMaxFuturePools", [15]);
       expect(await marketDAI.maxFuturePools()).to.be.equal(15);
     });
-    it("WHEN calling setEarningsAccumulatorSmoothFactor from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+    it("WHEN calling setEarningsAccumulatorSmoothFactor from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketDAI.setEarningsAccumulatorSmoothFactor(parseUnits("2"))).to.be.revertedWith("AccessControl");
     });
     it("WHEN calling setEarningsAccumulatorSmoothFactor, THEN the earningsAccumulatorSmoothFactor should be updated", async () => {
       await timelockExecute(owner, marketDAI, "setEarningsAccumulatorSmoothFactor", [parseUnits("2")]);
       expect(await marketDAI.earningsAccumulatorSmoothFactor()).to.be.equal(parseUnits("2"));
     });
-    it("WHEN calling setTreasury from a regular (non-admin) user, THEN it reverts with an AccessControl error", async () => {
+    it("WHEN calling setTreasury from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketDAI.setTreasury(maria.address, 0)).to.be.revertedWith("AccessControl");
     });
     it("WHEN calling setTreasury, THEN the treasury address and treasury fee should be updated", async () => {
@@ -378,7 +378,7 @@ describe("Market", function () {
         ),
       ).to.be.revertedWith("Disagreement()");
     });
-    it("AND contract's state variable fixedDeposits registers the maturity where the user supplied to", async () => {
+    it("AND contract's state variable fixedDeposits registers the maturity where the account supplied to", async () => {
       const maturities = await marketDAI.fixedDeposits(maria.address);
       expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
     });

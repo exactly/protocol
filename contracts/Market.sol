@@ -197,10 +197,10 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     pool.unassignedEarnings -= fee + backupFee;
     earningsAccumulator += backupFee;
 
-    // update user's position
+    // update account's position
     FixedLib.Position memory position = fixedDepositPositions[maturity][receiver];
 
-    // If user doesn't have a current position, add it to the list of all of them
+    // if account doesn't have a current position, add it to the list
     if (position.principal == 0) {
       fixedDeposits[receiver] = fixedDeposits[receiver].setMaturity(maturity);
     }
@@ -226,7 +226,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @notice Borrows a certain amount from a maturity.
   /// @param maturity maturity date for repayment.
   /// @param assets amount to be sent to receiver and repaid by borrower.
-  /// @param maxAssets maximum amount of debt that the user is willing to accept.
+  /// @param maxAssets maximum amount of debt that the account is willing to accept.
   /// @param receiver address that will receive the borrowed assets.
   /// @param borrower address that will repay the borrowed assets.
   function borrowAtMaturity(
@@ -258,7 +258,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       }
     }
 
-    // validate that the user is not taking arbitrary fees
+    // validate that the account is not taking arbitrary fees
     if (assetsOwed > maxAssets) revert Disagreement();
 
     if (msg.sender != borrower) {
@@ -268,7 +268,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     }
 
     {
-      // if user doesn't have a current position, add it to the list of all of them
+      // if account doesn't have a current position, add it to the list
       FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
       if (position.principal == 0) {
         fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
@@ -303,10 +303,10 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   }
 
   /// @notice Withdraws a certain amount from a maturity.
-  /// @dev It's expected that this function can't be paused to prevent freezing user funds.
+  /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// @param maturity maturity date where the assets will be withdrawn.
   /// @param positionAssets the amount of assets (principal + fee) to be withdrawn.
-  /// @param minAssetsRequired minimum amount required by the user (if discount included for early withdrawal).
+  /// @param minAssetsRequired minimum amount required by the account (if discount included for early withdrawal).
   /// @param receiver address that will receive the withdrawn assets.
   /// @param owner address that previously deposited the assets.
   /// @return assetsDiscounted amount of assets withdrawn (can include a discount for early withdraw).
@@ -368,7 +368,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     pool.unassignedEarnings += unassignedEarnings;
     collectFreeLunch(newBackupEarnings);
 
-    // the user gets discounted the full amount
+    // the account gets discounted the full amount
     position.reduceProportionally(positionAssets);
     if (position.principal + position.fee == 0) {
       delete fixedDepositPositions[maturity][owner];
@@ -397,7 +397,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @notice Repays a certain amount to a maturity.
   /// @param maturity maturity date where the assets will be repaid.
   /// @param positionAssets amount to be paid for the borrower's debt.
-  /// @param maxAssets maximum amount of debt that the user is willing to accept to be repaid.
+  /// @param maxAssets maximum amount of debt that the account is willing to accept to be repaid.
   /// @param borrower address of the account that has the debt.
   /// @return actualRepayAssets the actual amount that was transferred into the protocol.
   function repayAtMaturity(
@@ -416,7 +416,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @notice Allows to (partially) repay a fixed rate position. It does not transfer assets.
   /// @param maturity the maturity to access the pool.
   /// @param positionAssets the amount of debt of the pool that should be paid.
-  /// @param maxAssets maximum amount of debt that the user is willing to accept to be repaid.
+  /// @param maxAssets maximum amount of debt that the account is willing to accept to be repaid.
   /// @param borrower the address of the account that has the debt.
   /// @return actualRepayAssets the actual amount that should be transferred into the protocol.
   function noTransferRepayAtMaturity(
@@ -443,7 +443,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     // early repayment allows a discount from the unassigned earnings
     if (block.timestamp < maturity) {
       if (canDiscount) {
-        // calculate the deposit fee considering the amount of debt the user'll pay
+        // calculate the deposit fee considering the amount of debt the account'll pay
         (uint256 discountFee, uint256 backupFee) = pool.calculateDeposit(scaleDebtCovered.principal, backupFeeRate);
 
         // remove the fee from unassigned earnings
@@ -452,7 +452,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
         // The fee charged to the MP supplier go to the earnings accumulator
         earningsAccumulator += backupFee;
 
-        // The fee gets discounted from the user through `repayAmount`
+        // The fee gets discounted from the account through `repayAmount`
         actualRepayAssets = debtCovered - discountFee;
       } else {
         actualRepayAssets = debtCovered;
@@ -464,13 +464,13 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       earningsAccumulator += actualRepayAssets - debtCovered;
     }
 
-    // verify that the user agrees to this discount or penalty
+    // verify that the account agrees to this discount or penalty
     if (actualRepayAssets > maxAssets) revert Disagreement();
 
     // reduce the borrowed and might decrease the SP debt
     floatingBackupBorrowed -= pool.repay(scaleDebtCovered.principal);
 
-    // update the user position
+    // update the account position
     position.reduceProportionally(debtCovered);
     if (position.principal + position.fee == 0) {
       delete fixedBorrowPositions[maturity][borrower];
@@ -674,7 +674,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     earningsAccumulator -= earnings;
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
     floatingAssets = newFloatingAssets;
-    // check if the underlying liquidity that the user wants to withdraw is borrowed
+    // check if the underlying liquidity that the account wants to withdraw is borrowed
     if (newFloatingAssets < floatingBackupBorrowed + newFloatingDebt) revert InsufficientProtocolLiquidity();
   }
 
@@ -722,7 +722,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   }
 
   /// @notice Moves amount of shares from the caller's account to `to`.
-  /// @dev It's expected that this function can't be paused to prevent freezing user funds.
+  /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// Makes sure that the caller doesn't have shortfall after transferring.
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of assets.
@@ -732,7 +732,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   }
 
   /// @notice Moves amount of shares from `from` to `to` using the allowance mechanism.
-  /// @dev It's expected that this function can't be paused to prevent freezing user funds.
+  /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// Makes sure that `from` address doesn't have shortfall after transferring.
   /// @param from address from which the assets will be transferred.
   /// @param to address to which the assets will be transferred.
@@ -748,7 +748,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
 
   /// @notice Gets current snapshot for an account across all maturities.
   /// @param account account to return status snapshot in the specified maturity date.
-  /// @return the amount the user deposited to the floating pool and the total money he owes from maturities.
+  /// @return the amount the account deposited to the floating pool and the total money he owes from maturities.
   function accountSnapshot(address account) external view returns (uint256, uint256) {
     return (convertToAssets(balanceOf[account]), previewDebt(account));
   }
@@ -786,7 +786,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
 
   /// @notice Spreads bad debt subtracting the amount from the earningsAccumulator
   /// and/or floatingAssets.
-  /// @param badDebt amount that it's assumed a user won't repay due to insufficient collateral.
+  /// @param badDebt amount that it's assumed an account won't repay due to insufficient collateral.
   function spreadBadDebt(uint256 badDebt) internal {
     uint256 memEarningsAccumulator = earningsAccumulator;
     uint256 fromAccumulator = Math.min(memEarningsAccumulator, badDebt);
@@ -1023,12 +1023,12 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     _unpause();
   }
 
-  /// @notice Event emitted when a user borrows amount of assets from a floating pool.
+  /// @notice Event emitted when an account borrows amount of assets from a floating pool.
   /// @param caller address which borrowed the asset.
   /// @param receiver address that received the borrowed assets.
   /// @param borrower address which will be repaying the borrowed assets.
   /// @param assets amount of assets that were borrowed.
-  /// @param shares amount of borrow shares assigned to the user.
+  /// @param shares amount of borrow shares assigned to the account.
   event Borrow(
     address indexed caller,
     address indexed receiver,
@@ -1037,16 +1037,16 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 shares
   );
 
-  /// @notice Event emitted when a user repays amount of assets to a floating pool.
+  /// @notice Event emitted when an account repays amount of assets to a floating pool.
   /// @param caller address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
   /// @param assets amount of assets that was repaid.
-  /// @param shares amount of borrow shares that were subtracted from the user's accountability.
+  /// @param shares amount of borrow shares that were subtracted from the account's accountability.
   event Repay(address indexed caller, address indexed borrower, uint256 assets, uint256 shares);
 
-  /// @notice Event emitted when a user deposits an amount of an asset to a certain fixed rate pool collecting a fee at
-  /// the end of the period.
-  /// @param maturity maturity at which the user will be able to collect his deposit + his fee.
+  /// @notice Event emitted when an account deposits an amount of an asset to a certain fixed rate pool,
+  /// collecting fees at the end of the period.
+  /// @param maturity maturity at which the account will be able to collect his deposit + his fee.
   /// @param caller address which deposited the assets.
   /// @param owner address that will be able to withdraw the deposited assets.
   /// @param assets amount of the asset that were deposited.
@@ -1059,8 +1059,8 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 fee
   );
 
-  /// @notice Event emitted when a user withdraws from a fixed rate pool.
-  /// @param maturity maturity where the user withdraw its deposits.
+  /// @notice Event emitted when an account withdraws from a fixed rate pool.
+  /// @param maturity maturity where the account withdraw its deposits.
   /// @param caller address which withdraw the asset.
   /// @param receiver address which will be collecting the assets.
   /// @param owner address which had the assets withdrawn.
@@ -1075,8 +1075,8 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 assetsDiscounted
   );
 
-  /// @notice Event emitted when a user borrows amount of an asset from a certain maturity date.
-  /// @param maturity maturity in which the user will have to repay the loan.
+  /// @notice Event emitted when an account borrows amount of an asset from a certain maturity date.
+  /// @param maturity maturity in which the account will have to repay the loan.
   /// @param caller address which borrowed the asset.
   /// @param receiver address that received the borrowed assets.
   /// @param borrower address which will be repaying the borrowed assets.
@@ -1091,8 +1091,8 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 fee
   );
 
-  /// @notice Event emitted when a user repays its borrows after maturity.
-  /// @param maturity maturity where the user repaid its borrowed amounts.
+  /// @notice Event emitted when an account repays its borrows after maturity.
+  /// @param maturity maturity where the account repaid its borrowed amounts.
   /// @param caller address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
   /// @param assets amount that was repaid.
@@ -1105,7 +1105,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 positionAssets
   );
 
-  /// @notice Event emitted when a user's position had a liquidation.
+  /// @notice Event emitted when an account's position had a liquidation.
   /// @param receiver address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
   /// @param assets amount of the asset that were repaid.
@@ -1121,7 +1121,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 seizedAssets
   );
 
-  /// @notice Event emitted when a user's collateral has been seized.
+  /// @notice Event emitted when an account's collateral has been seized.
   /// @param liquidator address which seized this collateral.
   /// @param borrower address which had the original debt.
   /// @param assets amount seized of the collateral.

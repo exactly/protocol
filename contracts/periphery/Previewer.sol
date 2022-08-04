@@ -141,7 +141,7 @@ contract Previewer is Upgradeable {
   /// @notice Gets the assets plus yield offered by all VALID maturities when depositing a certain amount.
   /// @param market address of the market.
   /// @param assets amount of assets that will be deposited.
-  /// @return previews array containing amount plus yield that user will receive after each maturity.
+  /// @return previews array containing amount plus yield that account will receive after each maturity.
   function previewDepositAtAllMaturities(Market market, uint256 assets)
     external
     view
@@ -192,7 +192,7 @@ contract Previewer is Upgradeable {
   /// @notice Gets the assets plus fees offered by all VALID maturities when borrowing a certain amount.
   /// @param market address of the market.
   /// @param assets amount of assets that will be borrowed.
-  /// @return previews array containing amount plus yield that user will receive after each maturity.
+  /// @return previews array containing amount plus yield that account will receive after each maturity.
   function previewBorrowAtAllMaturities(Market market, uint256 assets)
     external
     view

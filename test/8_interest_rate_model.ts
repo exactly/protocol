@@ -513,7 +513,7 @@ describe("InterestRateModel", () => {
             expect(borrowed).to.be.lt(parseUnits("1201.935"));
           });
           describe("previous borrows are accounted for when computing the utilization rate", () => {
-            describe("AND WHEN another user borrows 400 more DAI", () => {
+            describe("AND WHEN another account borrows 400 more DAI", () => {
               beforeEach(async () => {
                 exactlyEnv.switchWallet(owner);
                 await exactlyEnv.transfer("WETH", bob, "10");
@@ -767,7 +767,7 @@ describe("InterestRateModel", () => {
       .withArgs([parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2")], parseUnits("1"));
   });
 
-  it("WHEN an unauthorized user calls setFixedParameters function, THEN it should revert", async () => {
+  it("WHEN an unauthorized account calls setFixedParameters function, THEN it should revert", async () => {
     const a = parseUnits("0.092"); // A parameter for the curve
     const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
     const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
@@ -776,7 +776,7 @@ describe("InterestRateModel", () => {
       interestRateModel.connect(alice).setFixedParameters({ a, b, maxUtilization }, fullUtilization),
     ).to.be.revertedWith("AccessControl");
   });
-  it("WHEN an unauthorized user calls setFloatingParameters function, THEN it should revert", async () => {
+  it("WHEN an unauthorized account calls setFloatingParameters function, THEN it should revert", async () => {
     const a = parseUnits("0.092"); // A parameter for the curve
     const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
     const maxUtilization = parseUnits("1.2"); // Maximum utilization rate

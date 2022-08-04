@@ -290,7 +290,7 @@ contract MarketTest is Test {
 
     vm.warp(maturity + 7 days * 2 - 1 seconds);
     vm.prank(BOB);
-    market.deposit(10_100 ether, BOB); // bob deposits more assets to have same shares as previous user
+    market.deposit(10_100 ether, BOB); // bob deposits more assets to have same shares as previous account
     assertEq(market.balanceOf(BOB), 10_000 ether);
     uint256 assetsBobBefore = market.convertToAssets(market.balanceOf(address(this)));
     assertEq(assetsBobBefore, market.convertToAssets(market.balanceOf(address(this))));
@@ -307,7 +307,7 @@ contract MarketTest is Test {
     // then the accumulator will distribute 20% of the accumulated earnings
     // 308e18 * 0.20 = 616e17
     vm.prank(ALICE);
-    market.deposit(10_100 ether, ALICE); // alice deposits same assets amount as previous users
+    market.deposit(10_100 ether, ALICE); // alice deposits same assets amount as previous accounts
     assertApproxEqRel(market.earningsAccumulator(), 308 ether - 616e17, 1e14);
     // bob earns half the earnings distributed
     assertApproxEqRel(market.convertToAssets(market.balanceOf(BOB)), assetsBobBefore + 616e17 / 2, 1e14);
@@ -835,7 +835,7 @@ contract MarketTest is Test {
     // bob will repay 1% of that amount
     uint256 totalBobRepayment = uint256(3136363636363636363637).mulWadDown(1.01e18);
 
-    // BOB STILL SEIZES ALL USER COLLATERAL
+    // BOB STILL SEIZES ALL ACCOUNT COLLATERAL
     assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
     assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment);
   }
@@ -885,7 +885,7 @@ contract MarketTest is Test {
     uint256 totalBobRepayment = 3136363636363636363637;
     uint256 lendersIncentive = uint256(3136363636363636363637).mulWadDown(0.01e18);
 
-    // BOB SEIZES ALL USER COLLATERAL
+    // BOB SEIZES ALL ACCOUNT COLLATERAL
     assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
     assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment + lendersIncentive);
     assertEq(floatingAssetsBefore - floatingAssetsAfter, totalUsdDebt - totalBobRepayment);
@@ -1870,7 +1870,7 @@ contract MarketTest is Test {
       markets[i].deposit(30_000 ether, address(this));
     }
 
-    // since 224 is the max amount of consecutive maturities where a user can borrow
+    // since 224 is the max amount of consecutive maturities where an account can borrow
     // 221 is the last valid cycle (the last maturity where it borrows is 224)
     for (uint256 m = 0; m < 221; m += 3) {
       vm.warp(FixedLib.INTERVAL * m);
@@ -1886,7 +1886,7 @@ contract MarketTest is Test {
     // withdraw DOES increase in cost
     markets[0].withdraw(1 ether, address(this), address(this));
 
-    // normal operations of another user are not impacted
+    // normal operations of another account are not impacted
     vm.prank(BOB);
     markets[0].deposit(100 ether, address(BOB));
     vm.prank(BOB);
@@ -1895,7 +1895,7 @@ contract MarketTest is Test {
     vm.warp(FixedLib.INTERVAL * 400);
     markets[0].borrowAtMaturity(FixedLib.INTERVAL * 401, 1 ether, 1.2 ether, address(BOB), address(BOB));
 
-    // liquidate function to user's borrows DOES increase in cost
+    // liquidate function to account's borrows DOES increase in cost
     vm.prank(BOB);
     markets[0].liquidate(address(this), 1_000 ether, markets[0]);
   }

@@ -34,7 +34,7 @@ describe("Smart Pool", function () {
     wbtc = exactlyEnv.getUnderlying("WBTC") as MockERC20;
     marketWBTC = exactlyEnv.getMarket("WBTC");
 
-    // From Owner to User
+    // From Owner to Account
     await dai.mint(bob.address, bobBalancePre);
     await wbtc.mint(bob.address, parseUnits("1", 8));
     await dai.mint(john.address, johnBalancePre);
@@ -172,19 +172,19 @@ describe("Smart Pool", function () {
       // add liquidity to the maturity
       await exactlyEnv.depositMP("DAI", futurePools(3)[2].toNumber(), "60");
     });
-    it("WHEN trying to transfer to another user the entire position (100 eDAI) THEN it should not revert", async () => {
+    it("WHEN trying to transfer to another account the entire position (100 eDAI) THEN it should not revert", async () => {
       await expect(marketDAI.connect(bob).transfer(john.address, parseUnits("100"))).to.not.be.reverted;
     });
     describe("AND GIVEN bob borrows 60 DAI from a maturity", () => {
       beforeEach(async () => {
         await exactlyEnv.borrowMP("DAI", futurePools(3)[2].toNumber(), "60");
       });
-      it("WHEN trying to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+      it("WHEN trying to transfer to another account the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(marketDAI.connect(bob).transfer(john.address, parseUnits("100"))).to.be.revertedWith(
           "InsufficientAccountLiquidity()",
         );
       });
-      it("WHEN trying to call transferFrom to transfer to another user the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
+      it("WHEN trying to call transferFrom to transfer to another account the entire position (100 eDAI) without repaying first THEN it reverts with INSUFFICIENT_LIQUIDITY", async () => {
         await expect(
           marketDAI.connect(bob).transferFrom(bob.address, john.address, parseUnits("100")),
         ).to.be.revertedWith("InsufficientAccountLiquidity()");

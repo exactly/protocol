@@ -124,7 +124,7 @@ contract Auditor is AccessControlUpgradeable, Upgradeable {
   }
 
   /// @notice Validates that the current state of the position and system are valid (liquidity).
-  /// @dev Hook function to be called after adding the borrowed debt to the user position.
+  /// @dev Hook function to be called after adding the borrowed debt to the account position.
   /// @param market address of the market where the borrow is made.
   /// @param borrower address of the account that will repay the debt.
   function checkBorrow(Market market, address borrower) external {
@@ -149,18 +149,18 @@ contract Auditor is AccessControlUpgradeable, Upgradeable {
     if (collateral < debt) revert InsufficientAccountLiquidity();
   }
 
-  /// @notice Checks if the user has an account liquidity shortfall
+  /// @notice Checks if the account has liquidity shortfall
   /// @dev This function is called indirectly from market contracts(withdraw), eToken transfers and directly from
-  /// this contract when the user wants to exit a market.
+  /// this contract when the account wants to exit a market.
   /// @param market address of the market where the operation will happen.
-  /// @param account address of the user to check for possible shortfall.
-  /// @param amount amount that the user wants to withdraw or transfer.
+  /// @param account address of the account to check for possible shortfall.
+  /// @param amount amount that the account wants to withdraw or transfer.
   function checkShortfall(
     Market market,
     address account,
     uint256 amount
   ) public view {
-    // if the user is not 'in' the market, bypass the liquidity check
+    // if the account is not 'in' the market, bypass the liquidity check
     if ((accountMarkets[account] & (1 << markets[market].index)) == 0) return;
 
     // Otherwise, perform a hypothetical liquidity check to guard against shortfall
@@ -349,15 +349,15 @@ contract Auditor is AccessControlUpgradeable, Upgradeable {
   /// @param decimals decimals of the market's underlying asset.
   event MarketListed(Market market, uint8 decimals);
 
-  /// @notice Event emitted when a user enters a market to use his deposit as collateral for a loan.
-  /// @param market address of the market that the user entered.
-  /// @param account address of the user that just entered a market.
+  /// @notice Event emitted when an account enters a market to use his deposit as collateral for a loan.
+  /// @param market address of the market that the account entered.
+  /// @param account address of the account that just entered a market.
   event MarketEntered(Market indexed market, address indexed account);
 
-  /// @notice Event emitted when a user leaves a market. Means that they would stop using their deposit as collateral
-  /// and won't ask for any loans in this market.
-  /// @param market address of the market that the user just left.
-  /// @param account address of the user that just left a market.
+  /// @notice Event emitted when an account leaves a market.
+  /// Means that they would stop using their deposit as collateral and won't ask for any loans in this market.
+  /// @param market address of the market that the account just left.
+  /// @param account address of the account that just left a market.
   event MarketExited(Market indexed market, address indexed account);
 
   /// @notice Event emitted when a adjust factor is changed by admin.

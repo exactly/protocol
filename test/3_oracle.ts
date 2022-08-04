@@ -19,26 +19,26 @@ describe("ExactlyOracle", function () {
   let marketDAI: Market;
   let marketWETH: Market;
 
-  let user: SignerWithAddress;
+  let account: SignerWithAddress;
   let owner: SignerWithAddress;
   let timestamp: number;
   let priceExpiration: number;
 
   before(async () => {
     owner = await getNamedSigner("multisig");
-    [user] = await getUnnamedSigners();
+    [account] = await getUnnamedSigners();
   });
 
   beforeEach(async () => {
     await deployments.fixture("Markets");
 
-    dai = await getContract<MockERC20>("DAI", user);
-    priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", user);
-    exactlyOracle = await getContract<ExactlyOracle>("ExactlyOracle", user);
-    marketDAI = await getContract<Market>("MarketDAI", user);
-    marketWETH = await getContract<Market>("MarketWETH", user);
+    dai = await getContract<MockERC20>("DAI", account);
+    priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", account);
+    exactlyOracle = await getContract<ExactlyOracle>("ExactlyOracle", account);
+    marketDAI = await getContract<Market>("MarketDAI", account);
+    marketWETH = await getContract<Market>("MarketWETH", account);
 
-    await dai.connect(owner).mint(user.address, parseUnits("100000"));
+    await dai.connect(owner).mint(account.address, parseUnits("100000"));
     timestamp = Math.floor(Date.now() / 1_000) + 1_000;
     priceExpiration = (await exactlyOracle.priceExpiration()).toNumber();
   });
@@ -81,7 +81,7 @@ describe("ExactlyOracle", function () {
   });
 
   it("GetAssetPrice should fail when asset address is invalid", async () => {
-    await expect(exactlyOracle.assetPrice(user.address)).to.be.revertedWith("0x");
+    await expect(exactlyOracle.assetPrice(account.address)).to.be.revertedWith("0x");
   });
 
   it("SetPriceFeed should set the address source of an asset", async () => {

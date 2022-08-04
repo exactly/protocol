@@ -19,11 +19,11 @@ describe("Validations", function () {
   let exactlyEnv: DefaultEnv;
 
   let owner: SignerWithAddress;
-  let user: SignerWithAddress;
+  let account: SignerWithAddress;
 
   before(async () => {
     owner = await ethers.getNamedSigner("deployer");
-    [user] = await ethers.getUnnamedSigners();
+    [account] = await ethers.getUnnamedSigners();
 
     exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
     auditor = exactlyEnv.auditor;
@@ -45,10 +45,10 @@ describe("Validations", function () {
     });
     it("WHEN trying to call checkLiquidation, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
       await expect(
-        auditor.checkLiquidation(exactlyEnv.notAnMarketAddress, market.address, user.address, MaxUint256),
+        auditor.checkLiquidation(exactlyEnv.notAnMarketAddress, market.address, account.address, MaxUint256),
       ).to.be.revertedWith("MarketNotListed()");
       await expect(
-        auditor.checkLiquidation(market.address, exactlyEnv.notAnMarketAddress, user.address, MaxUint256),
+        auditor.checkLiquidation(market.address, exactlyEnv.notAnMarketAddress, account.address, MaxUint256),
       ).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to call checkSeize, THEN the transaction should revert with MARKET_NOT_LISTED", async () => {
@@ -200,10 +200,10 @@ describe("Validations", function () {
       );
     });
     it("WHEN trying to set the adjustFactor with an unlisted market", async () => {
-      await expect(auditor.setAdjustFactor(user.address, parseUnits("0.3"))).to.be.revertedWith("MarketNotListed()");
+      await expect(auditor.setAdjustFactor(account.address, parseUnits("0.3"))).to.be.revertedWith("MarketNotListed()");
     });
     it("WHEN trying to set the treasuryFeeRate with more than 10%", async () => {
-      await expect(market.setTreasury(user.address, parseUnits("0.11"))).to.be.revertedWith("InvalidParameter()");
+      await expect(market.setTreasury(account.address, parseUnits("0.11"))).to.be.revertedWith("InvalidParameter()");
     });
   });
   describe("Configurable values: GIVEN a valid configurable value, THEN it should not revert", () => {
@@ -297,10 +297,10 @@ describe("Validations", function () {
       await expect(auditor.setAdjustFactor(market.address, parseUnits("0.6"))).to.not.be.reverted;
     });
     it("WHEN trying to set the treasuryFeeRate with 10%", async () => {
-      await expect(market.setTreasury(user.address, parseUnits("0.1"))).to.not.be.reverted;
+      await expect(market.setTreasury(account.address, parseUnits("0.1"))).to.not.be.reverted;
     });
     it("WHEN trying to set the treasuryFeeRate with 0", async () => {
-      await expect(market.setTreasury(user.address, 0)).to.not.be.reverted;
+      await expect(market.setTreasury(account.address, 0)).to.not.be.reverted;
     });
   });
 });

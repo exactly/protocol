@@ -35,7 +35,7 @@ describe("Auditor Admin", function () {
     await dai.connect(multisig).mint(deployer.address, "10000");
   });
 
-  describe("GIVEN a regular user", () => {
+  describe("GIVEN a regular account", () => {
     it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
       await expect(auditor.enableMarket(marketDAI.address, 0, await dai.decimals())).to.be.revertedWith(
         "AccessControl",
@@ -63,7 +63,7 @@ describe("Auditor Admin", function () {
     });
   });
 
-  describe("GIVEN the ADMIN/multisig user", () => {
+  describe("GIVEN the ADMIN/multisig account", () => {
     beforeEach(async () => {
       const ADMIN_ROLE = await auditor.DEFAULT_ADMIN_ROLE();
       expect(await auditor.hasRole(ADMIN_ROLE, multisig.address)).to.equal(false);

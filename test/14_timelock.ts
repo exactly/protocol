@@ -16,12 +16,12 @@ describe("Timelock - AccessControl", function () {
   let exactlyOracle: ExactlyOracle;
   let timelockController: TimelockController;
   let owner: SignerWithAddress;
-  let user: SignerWithAddress;
+  let account: SignerWithAddress;
   let priceFeed: string;
 
   before(async () => {
     owner = await getNamedSigner("multisig");
-    [user] = await getUnnamedSigners();
+    [account] = await getUnnamedSigners();
   });
 
   beforeEach(async () => {
@@ -68,10 +68,10 @@ describe("Timelock - AccessControl", function () {
               .reverted;
           });
         });
-        it("AND WHEN user tries to schedule a set of new asset sources through the Timelock, THEN it should revert", async () => {
+        it("AND WHEN account tries to schedule a set of new asset sources through the Timelock, THEN it should revert", async () => {
           const data = exactlyOracle.interface.encodeFunctionData("setPriceFeed", [AddressZero, AddressZero]);
           await expect(
-            timelockController.connect(user).schedule(exactlyOracle.address, 0, data, HashZero, HashZero, 3),
+            timelockController.connect(account).schedule(exactlyOracle.address, 0, data, HashZero, HashZero, 3),
           ).to.be.revertedWith("AccessControl");
         });
         describe("AND WHEN the owner revokes his ADMIN role", () => {
@@ -82,35 +82,36 @@ describe("Timelock - AccessControl", function () {
             await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.be.revertedWith("AccessControl");
           });
         });
-        describe("AND WHEN the owner address grants another user PROPOSER and EXECUTOR roles for Timelock contract", () => {
+        describe("AND WHEN the owner address grants another account PROPOSER and EXECUTOR roles for Timelock contract", () => {
           let PROPOSER_ROLE: string;
           let EXECUTOR_ROLE: string;
           beforeEach(async () => {
             PROPOSER_ROLE = await timelockController.PROPOSER_ROLE();
             EXECUTOR_ROLE = await timelockController.EXECUTOR_ROLE();
-            await timelockExecute(owner, timelockController, "grantRole", [PROPOSER_ROLE, user.address]);
-            await timelockExecute(owner, timelockController, "grantRole", [EXECUTOR_ROLE, user.address]);
+            await timelockExecute(owner, timelockController, "grantRole", [PROPOSER_ROLE, account.address]);
+            await timelockExecute(owner, timelockController, "grantRole", [EXECUTOR_ROLE, account.address]);
           });
-          it("THEN user has roles", async () => {
-            const userHasProposerRole = await timelockController.hasRole(PROPOSER_ROLE, user.address);
-            const userHasExecutorRole = await timelockController.hasRole(EXECUTOR_ROLE, user.address);
+          it("THEN account has roles", async () => {
+            const userHasProposerRole = await timelockController.hasRole(PROPOSER_ROLE, account.address);
+            const userHasExecutorRole = await timelockController.hasRole(EXECUTOR_ROLE, account.address);
             expect(userHasExecutorRole).to.equal(true);
             expect(userHasProposerRole).to.equal(true);
           });
-          it("THEN user can schedule and execute transactions through the Timelock", async () => {
+          it("THEN account can schedule and execute transactions through the Timelock", async () => {
             const data = exactlyOracle.interface.encodeFunctionData("setPriceFeed", [AddressZero, priceFeed]);
             await expect(
-              timelockController.connect(user).schedule(exactlyOracle.address, 0, data, HashZero, HashZero, 1),
+              timelockController.connect(account).schedule(exactlyOracle.address, 0, data, HashZero, HashZero, 1),
             ).to.not.be.reverted;
-            await expect(timelockController.connect(user).execute(exactlyOracle.address, 0, data, HashZero, HashZero))
-              .to.not.be.reverted;
+            await expect(
+              timelockController.connect(account).execute(exactlyOracle.address, 0, data, HashZero, HashZero),
+            ).to.not.be.reverted;
           });
-          it("THEN it should revert when user tries to grant another address PROPOSER and EXECUTOR roles for Timelock contract", async () => {
+          it("THEN it should revert when account tries to grant another address PROPOSER and EXECUTOR roles for Timelock contract", async () => {
             // Only addresses with TIMELOCK_ADMIN_ROLE can grant these roles
-            await expect(timelockController.connect(user).grantRole(PROPOSER_ROLE, AddressZero)).to.be.revertedWith(
+            await expect(timelockController.connect(account).grantRole(PROPOSER_ROLE, AddressZero)).to.be.revertedWith(
               "AccessControl",
             );
-            await expect(timelockController.connect(user).grantRole(EXECUTOR_ROLE, AddressZero)).to.be.revertedWith(
+            await expect(timelockController.connect(account).grantRole(EXECUTOR_ROLE, AddressZero)).to.be.revertedWith(
               "AccessControl",
             );
           });
