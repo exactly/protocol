@@ -62,7 +62,7 @@ contract Auditor is AccessControlUpgradeable, Upgradeable {
     // fail if the sender has a borrow balance
     if (debt != 0) revert RemainingDebt();
 
-    // fail if the sender is not permitted to redeem all of their tokens
+    // fail if the sender is not permitted to redeem all of their assets
     checkShortfall(market, msg.sender, assets);
 
     uint256 marketMap = accountMarkets[msg.sender];

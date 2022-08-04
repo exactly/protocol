@@ -553,7 +553,7 @@ describe("InterestRateModel", () => {
         });
       });
     });
-    describe("GIVEN a token with 6 decimals instead of 18", () => {
+    describe("GIVEN an asset with 6 decimals instead of 18", () => {
       beforeEach(async () => {
         await provider.send("evm_setNextBlockTimestamp", [now]);
         await provider.send("evm_mine", []);

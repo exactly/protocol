@@ -10,9 +10,9 @@ import futurePools from "./utils/futurePools";
 describe("Smart Pool", function () {
   let exactlyEnv: DefaultEnv;
 
-  let underlyingTokenDAI: MockERC20;
+  let dai: MockERC20;
   let marketDAI: Market;
-  let underlyingTokenWBTC: MockERC20;
+  let wbtc: MockERC20;
   let marketWBTC: Market;
   let bob: SignerWithAddress;
   let john: SignerWithAddress;
@@ -28,28 +28,28 @@ describe("Smart Pool", function () {
     [bob, john] = await ethers.getUnnamedSigners();
 
     exactlyEnv = await DefaultEnv.create({});
-    underlyingTokenDAI = exactlyEnv.getUnderlying("DAI") as MockERC20;
+    dai = exactlyEnv.getUnderlying("DAI") as MockERC20;
     marketDAI = exactlyEnv.getMarket("DAI");
 
-    underlyingTokenWBTC = exactlyEnv.getUnderlying("WBTC") as MockERC20;
+    wbtc = exactlyEnv.getUnderlying("WBTC") as MockERC20;
     marketWBTC = exactlyEnv.getMarket("WBTC");
 
     // From Owner to User
-    await underlyingTokenDAI.mint(bob.address, bobBalancePre);
-    await underlyingTokenWBTC.mint(bob.address, parseUnits("1", 8));
-    await underlyingTokenDAI.mint(john.address, johnBalancePre);
+    await dai.mint(bob.address, bobBalancePre);
+    await wbtc.mint(bob.address, parseUnits("1", 8));
+    await dai.mint(john.address, johnBalancePre);
   });
 
   describe("GIVEN bob and john have 2000DAI in balance, AND deposit 1000DAI each", () => {
     beforeEach(async () => {
-      await underlyingTokenDAI.connect(bob).approve(marketDAI.address, bobBalancePre);
-      await underlyingTokenDAI.connect(john).approve(marketDAI.address, johnBalancePre);
+      await dai.connect(bob).approve(marketDAI.address, bobBalancePre);
+      await dai.connect(john).approve(marketDAI.address, johnBalancePre);
 
       await marketDAI.connect(bob).deposit(parseUnits("1000"), bob.address);
       await marketDAI.connect(john).deposit(parseUnits("1000"), john.address);
     });
     it("THEN balance of DAI in contract is 2000", async () => {
-      const balanceOfAssetInContract = await underlyingTokenDAI.balanceOf(marketDAI.address);
+      const balanceOfAssetInContract = await dai.balanceOf(marketDAI.address);
 
       expect(balanceOfAssetInContract).to.equal(parseUnits("2000"));
     });
@@ -67,7 +67,7 @@ describe("Smart Pool", function () {
         await marketDAI.connect(bob).withdraw(amountToWithdraw, bob.address, bob.address);
       });
       it("THEN balance of DAI in contract is 1500", async () => {
-        const balanceOfAssetInContract = await underlyingTokenDAI.balanceOf(marketDAI.address);
+        const balanceOfAssetInContract = await dai.balanceOf(marketDAI.address);
 
         expect(balanceOfAssetInContract).to.equal(parseUnits("1500"));
       });
@@ -90,7 +90,7 @@ describe("Smart Pool", function () {
       it("AND WHEN bob wants to withdraw all the assets, THEN he uses redeem", async () => {
         await expect(marketDAI.connect(bob).redeem(await marketDAI.balanceOf(bob.address), bob.address, bob.address)).to
           .not.be.reverted;
-        const bobBalancePost = await underlyingTokenDAI.balanceOf(bob.address);
+        const bobBalancePost = await dai.balanceOf(bob.address);
         expect(bobBalancePre).to.equal(bobBalancePost);
       });
     });
@@ -99,12 +99,12 @@ describe("Smart Pool", function () {
   describe("GIVEN bob has 1WBTC in balance, AND deposit 1WBTC", () => {
     beforeEach(async () => {
       const bobBalance = parseUnits("1", 8);
-      await underlyingTokenWBTC.connect(bob).approve(marketWBTC.address, bobBalance);
+      await wbtc.connect(bob).approve(marketWBTC.address, bobBalance);
 
       await marketWBTC.connect(bob).deposit(parseUnits("1", 8), bob.address);
     });
     it("THEN balance of WBTC in contract is 1", async () => {
-      const balanceOfAssetInContract = await underlyingTokenWBTC.balanceOf(marketWBTC.address);
+      const balanceOfAssetInContract = await wbtc.balanceOf(marketWBTC.address);
 
       expect(balanceOfAssetInContract).to.equal(parseUnits("1", 8));
     });
@@ -117,7 +117,7 @@ describe("Smart Pool", function () {
 
   describe("GIVEN bob deposits 1WBTC", () => {
     beforeEach(async () => {
-      await underlyingTokenWBTC.connect(bob).approve(marketWBTC.address, parseUnits("1", 8));
+      await wbtc.connect(bob).approve(marketWBTC.address, parseUnits("1", 8));
       await marketWBTC.connect(bob).approve(john.address, parseUnits("1", 8));
       await marketWBTC.connect(bob).deposit(parseUnits("1", 8), bob.address);
     });

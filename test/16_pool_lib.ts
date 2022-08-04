@@ -23,7 +23,7 @@ describe("Fixed Pool Management Library", () => {
     });
 
     describe("deposit & borrow", () => {
-      describe("WHEN 100 tokens are deposited", () => {
+      describe("WHEN 100 assets are deposited", () => {
         beforeEach(async () => {
           await poolEnv.deposit("100");
           fp = await poolEnv.fpHarness.fixedPool();
@@ -42,7 +42,7 @@ describe("Fixed Pool Management Library", () => {
           const backupDebtReductionReturned = await poolEnv.getFpHarness().backupDebtReduction();
           expect(backupDebtReductionReturned).to.equal(parseUnits("0"));
         });
-        describe("AND WHEN 80 tokens are taken out", () => {
+        describe("AND WHEN 80 assets are taken out", () => {
           beforeEach(async () => {
             await poolEnv.borrow("80");
             fp = await poolEnv.fpHarness.fixedPool();
@@ -58,7 +58,7 @@ describe("Fixed Pool Management Library", () => {
           it("THEN the pool 'supplied' is 100", async () => {
             expect(fp.supplied).to.equal(parseUnits("100"));
           });
-          describe("AND WHEN another 20 tokens are taken out", () => {
+          describe("AND WHEN another 20 assets are taken out", () => {
             beforeEach(async () => {
               await poolEnv.borrow("20");
               fp = await poolEnv.fpHarness.fixedPool();
@@ -74,7 +74,7 @@ describe("Fixed Pool Management Library", () => {
             it("THEN the pool 'supplied' is 100", async () => {
               expect(fp.supplied).to.equal(parseUnits("100"));
             });
-            describe("AND WHEN 50 tokens are taken out", () => {
+            describe("AND WHEN 50 assets are taken out", () => {
               beforeEach(async () => {
                 await poolEnv.borrow("50");
                 fp = await poolEnv.fpHarness.fixedPool();
@@ -94,7 +94,7 @@ describe("Fixed Pool Management Library", () => {
           });
         });
 
-        describe("AND WHEN 180 tokens are taken out", () => {
+        describe("AND WHEN 180 assets are taken out", () => {
           beforeEach(async () => {
             await poolEnv.borrow("180");
             fp = await poolEnv.fpHarness.fixedPool();
@@ -111,7 +111,7 @@ describe("Fixed Pool Management Library", () => {
             expect(fp.supplied).to.equal(parseUnits("100"));
           });
 
-          describe("AND WHEN 90 tokens are deposited", () => {
+          describe("AND WHEN 90 assets are deposited", () => {
             beforeEach(async () => {
               await poolEnv.deposit("90");
               fp = await poolEnv.fpHarness.fixedPool();
@@ -127,7 +127,7 @@ describe("Fixed Pool Management Library", () => {
             it("THEN the pool 'supplied' is 190", async () => {
               expect(fp.supplied).to.equal(parseUnits("190"));
             });
-            describe("AND WHEN 100 tokens are deposited", () => {
+            describe("AND WHEN 100 assets are deposited", () => {
               beforeEach(async () => {
                 await poolEnv.deposit("100");
                 fp = await poolEnv.fpHarness.fixedPool();
@@ -373,7 +373,7 @@ describe("Fixed Pool Management Library", () => {
     });
 
     describe("repay", () => {
-      describe("WHEN 100 tokens are taken out", () => {
+      describe("WHEN 100 assets are taken out", () => {
         beforeEach(async () => {
           await poolEnv.borrow("100");
           fp = await poolEnv.fpHarness.fixedPool();
@@ -386,7 +386,7 @@ describe("Fixed Pool Management Library", () => {
           const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
           expect(newDebtSpReturned).to.equal(parseUnits("100"));
         });
-        describe("AND WHEN 50 tokens are repaid", () => {
+        describe("AND WHEN 50 assets are repaid", () => {
           beforeEach(async () => {
             await poolEnv.repay("50");
             fp = await poolEnv.fpHarness.fixedPool();
@@ -402,7 +402,7 @@ describe("Fixed Pool Management Library", () => {
             const backupDebtReductionReturned = await poolEnv.getFpHarness().backupDebtReduction();
             expect(backupDebtReductionReturned).to.equal(parseUnits("50"));
           });
-          describe("AND WHEN another 50 tokens are repaid", () => {
+          describe("AND WHEN another 50 assets are repaid", () => {
             beforeEach(async () => {
               await poolEnv.repay("50");
               fp = await poolEnv.fpHarness.fixedPool();
@@ -421,11 +421,11 @@ describe("Fixed Pool Management Library", () => {
     });
 
     describe("withdraw", () => {
-      describe("GIVEN 100 tokens are deposited", () => {
+      describe("GIVEN 100 assets are deposited", () => {
         beforeEach(async () => {
           await poolEnv.deposit("100");
         });
-        describe("WHEN 50 tokens are withdrawn", () => {
+        describe("WHEN 50 assets are withdrawn", () => {
           beforeEach(async () => {
             await poolEnv.withdraw("50");
             fp = await poolEnv.fpHarness.fixedPool();
@@ -438,11 +438,11 @@ describe("Fixed Pool Management Library", () => {
             const newDebtSpReturned = await poolEnv.getFpHarness().backupDebtAddition();
             expect(newDebtSpReturned).to.equal(parseUnits("0"));
           });
-          describe("AND GIVEN another 100 tokens are taken out", () => {
+          describe("AND GIVEN another 100 assets are taken out", () => {
             beforeEach(async () => {
               await poolEnv.borrow("100");
             });
-            describe("WHEN another 50 tokens are withdrawn", () => {
+            describe("WHEN another 50 assets are withdrawn", () => {
               beforeEach(async () => {
                 await poolEnv.withdraw("50");
                 fp = await poolEnv.fpHarness.fixedPool();
@@ -457,7 +457,7 @@ describe("Fixed Pool Management Library", () => {
               });
             });
           });
-          describe("AND WHEN another 50 tokens are withdrawn", () => {
+          describe("AND WHEN another 50 assets are withdrawn", () => {
             beforeEach(async () => {
               await poolEnv.withdraw("50");
               fp = await poolEnv.fpHarness.fixedPool();

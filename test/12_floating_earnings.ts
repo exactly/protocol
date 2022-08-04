@@ -86,7 +86,7 @@ describe("Smart Pool Earnings Distribution", function () {
         parseUnits("0000.00000001").toNumber(),
       );
     });
-    it("THEN preview deposit returned is the same as john's shares of tokens", async () => {
+    it("THEN preview deposit returned is the same as john's shares of assets", async () => {
       // 10000 * 19950.24875621 / 20050
       // assets.mulDivDown(supply, totalAssets())
       expect(await marketDAI.previewDeposit(parseUnits("10000"))).to.closeTo(
@@ -169,7 +169,7 @@ describe("Smart Pool Earnings Distribution", function () {
       });
       it("THEN john eToken shares is aprox. 10944", async () => {
         // 9950.24875621 + 1000 * 19950.24875621 / 20071.42 (71.42 earnings up to day 5)
-        // previousTokens + assets.mulDivDown(supply, totalAssets())
+        // previousAssets + assets.mulDivDown(supply, totalAssets())
         expect(await marketDAI.balanceOf(john.address)).to.closeTo(
           parseUnits("10944.2113277"),
           parseUnits("00000.0000001").toNumber(),
@@ -182,7 +182,7 @@ describe("Smart Pool Earnings Distribution", function () {
         });
         it("THEN john eToken shares is aprox. 10944", async () => {
           // 10944.2113277 + 1000 * 20944.2113277 / 21100
-          // previousTokens + assets.mulDivDown(supply, totalAssets())
+          // previousAssets + assets.mulDivDown(supply, totalAssets())
           expect(await marketDAI.balanceOf(john.address)).to.closeTo(
             parseUnits("11936.8279783"),
             parseUnits("00000.0000001").toNumber(),

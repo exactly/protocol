@@ -37,7 +37,7 @@ export class DefaultEnv {
   baseRate: BigNumber;
   marginRate: BigNumber;
   slopeRate: BigNumber;
-  mockTokens: Record<string, MockTokenSpec>;
+  mockAssets: Record<string, MockAssetSpec>;
   notAnMarketAddress = "0x6D88564b707518209a4Bea1a57dDcC23b59036a8";
   currentWallet: SignerWithAddress;
   maxOracleDelayTime: number;
@@ -48,7 +48,7 @@ export class DefaultEnv {
     _interestRateModel: InterestRateModel | MockInterestRateModel,
     _marketContracts: Record<string, Market>,
     _underlyingContracts: Record<string, MockERC20 | WETH>,
-    _mockTokens: Record<string, MockTokenSpec>,
+    _mockAssets: Record<string, MockAssetSpec>,
     _currentWallet: SignerWithAddress,
   ) {
     this.oracle = _oracle;
@@ -56,7 +56,7 @@ export class DefaultEnv {
     this.marketContracts = _marketContracts;
     this.underlyingContracts = _underlyingContracts;
     this.interestRateModel = _interestRateModel;
-    this.mockTokens = _mockTokens;
+    this.mockAssets = _mockAssets;
     this.baseRate = parseUnits("0.02");
     this.marginRate = parseUnits("0.01");
     this.slopeRate = parseUnits("0.07");
@@ -65,7 +65,7 @@ export class DefaultEnv {
   }
 
   static async create(config: EnvConfig): Promise<DefaultEnv> {
-    const mockTokens = config.mockTokens ?? {
+    const mockAssets = config.mockAssets ?? {
       DAI: {
         decimals: 18,
         adjustFactor: parseUnits("0.8"),
@@ -130,24 +130,24 @@ export class DefaultEnv {
 
     // We have to enable all the Markets in the auditor
     await Promise.all(
-      Object.entries(mockTokens).map(async ([tokenName, { decimals, adjustFactor, usdPrice }]) => {
+      Object.entries(mockAssets).map(async ([symbol, { decimals, adjustFactor, usdPrice }]) => {
         const totalSupply = parseUnits("100000000000", decimals);
-        let underlyingToken: MockERC20 | WETH;
-        if (tokenName === "WETH") {
+        let asset: MockERC20 | WETH;
+        if (symbol === "WETH") {
           const Weth = (await getContractFactory("WETH")) as WETH__factory;
-          underlyingToken = await Weth.deploy();
-          await underlyingToken.deployed();
-          await underlyingToken.deposit({ value: totalSupply });
+          asset = await Weth.deploy();
+          await asset.deployed();
+          await asset.deposit({ value: totalSupply });
         } else {
           const MockERC20 = (await getContractFactory("MockERC20")) as MockERC20__factory;
-          underlyingToken = await MockERC20.deploy("Fake " + tokenName, "F" + tokenName, decimals);
-          await underlyingToken.deployed();
-          await underlyingToken.mint(owner.address, totalSupply);
+          asset = await MockERC20.deploy("Fake " + symbol, "F" + symbol, decimals);
+          await asset.deployed();
+          await asset.mint(owner.address, totalSupply);
         }
 
         const Market = (await getContractFactory("Market")) as Market__factory;
         const market = await Market.deploy(
-          underlyingToken.address,
+          asset.address,
           12,
           parseUnits("1"),
           auditor.address,
@@ -161,16 +161,16 @@ export class DefaultEnv {
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(market.address, usdPrice);
-        // Enable Market for Market-TOKEN by setting the collateral rates
+        // Enable Market for MarketASSET by setting the collateral rates
         await auditor.enableMarket(market.address, adjustFactor, decimals);
 
-        // Handy maps with all the markets and underlying tokens
-        marketContracts[tokenName] = market;
-        underlyingContracts[tokenName] = underlyingToken;
+        // Handy maps with all the markets and underlying assets
+        marketContracts[symbol] = market;
+        underlyingContracts[symbol] = asset;
       }),
     );
 
-    return new DefaultEnv(oracle, auditor, interestRateModel, marketContracts, underlyingContracts, mockTokens, owner);
+    return new DefaultEnv(oracle, auditor, interestRateModel, marketContracts, underlyingContracts, mockAssets, owner);
   }
 
   public getMarket(key: string) {
@@ -297,7 +297,7 @@ export class DefaultEnv {
   }
 
   public digitsForAsset(assetString: string) {
-    return this.mockTokens[assetString]?.decimals;
+    return this.mockAssets[assetString]?.decimals;
   }
 
   public async enableMarket(market: string, adjustFactor: BigNumber, decimals: number) {
@@ -315,11 +315,11 @@ export class DefaultEnv {
 }
 
 type EnvConfig = {
-  mockTokens?: Record<string, MockTokenSpec>;
+  mockAssets?: Record<string, MockAssetSpec>;
   useRealInterestRateModel?: boolean;
 };
 
-type MockTokenSpec = {
+type MockAssetSpec = {
   decimals: BigNumberish;
   adjustFactor: BigNumber;
   usdPrice: BigNumber;

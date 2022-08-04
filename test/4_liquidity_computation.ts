@@ -236,7 +236,7 @@ describe("Liquidity computations", function () {
     });
   });
 
-  describe("support for tokens with different decimals", () => {
+  describe("support for assets with different decimals", () => {
     describe("GIVEN liquidity on the USDC pool ", () => {
       beforeEach(async () => {
         await timelockExecute(multisig, auditor, "setAdjustFactor", [marketWBTC.address, parseUnits("0.6")]);
@@ -277,13 +277,7 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await marketDAI.connect(bob).deposit(parseUnits("60000"), bob.address);
         });
-        // Here I'm trying to make sure we use the borrowed token's decimals
-        // properly to compute liquidity
-        // if we assume (wrongly) that all tokens have 18 decimals, then computing
-        // the simulated liquidity for a token  with less than 18 decimals will
-        // enable the creation of an undercollateralized loan, since the
-        // simulated liquidity would be orders of magnitude lower than the real
-        // one
+        // make sure the borrowed asset's decimals is used properly to compute liquidity
         it("WHEN he tries to take a 1btc (8 decimals) loan (100% collateralization), THEN it reverts", async () => {
           // We expect liquidity to be equal to zero
           await expect(

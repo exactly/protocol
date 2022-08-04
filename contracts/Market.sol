@@ -149,7 +149,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     emit MarketUpdated(block.timestamp, totalSupply, floatingAssets, totalFloatingBorrowShares, floatingDebt, 0);
   }
 
-  /// @notice Allows to (partially) repay a floating borrow. It does not transfer tokens.
+  /// @notice Allows to (partially) repay a floating borrow. It does not transfer assets.
   /// @param borrowShares shares to be subtracted from the borrower's accountability.
   /// @param borrower the address of the account that has the debt.
   /// @return assets the actual amount that should be transferred into the protocol.
@@ -413,7 +413,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
   }
 
-  /// @notice Allows to (partially) repay a fixed rate position. It does not transfer tokens.
+  /// @notice Allows to (partially) repay a fixed rate position. It does not transfer assets.
   /// @param maturity the maturity to access the pool.
   /// @param positionAssets the amount of debt of the pool that should be paid.
   /// @param maxAssets maximum amount of debt that the user is willing to accept to be repaid.
@@ -618,12 +618,12 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     }
   }
 
-  /// @notice Public function to seize a certain amount of tokens.
-  /// @dev Public function for liquidator to seize borrowers tokens in the floating pool.
+  /// @notice Public function to seize a certain amount of assets.
+  /// @dev Public function for liquidator to seize borrowers assets in the floating pool.
   /// This function will only be called from another Market, on `liquidation` calls.
   /// That's why msg.sender needs to be passed to the private function (to be validated as a market)
-  /// @param liquidator address which will receive the seized tokens.
-  /// @param borrower address from which the tokens will be seized.
+  /// @param liquidator address which will receive the seized assets.
+  /// @param borrower address from which the assets will be seized.
   /// @param assets amount to be removed from borrower's possession.
   function seize(
     address liquidator,
@@ -633,13 +633,13 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     moreCollateral = internalSeize(Market(msg.sender), liquidator, borrower, assets);
   }
 
-  /// @notice Internal function to seize a certain amount of tokens.
-  /// @dev Internal function for liquidator to seize borrowers tokens in the floating pool.
+  /// @notice Internal function to seize a certain amount of assets.
+  /// @dev Internal function for liquidator to seize borrowers assets in the floating pool.
   /// Will only be called from this Market on `liquidation` or through `seize` calls from another Market.
   /// That's why msg.sender needs to be passed to the internal function (to be validated as a market).
   /// @param seizeMarket address which is calling the seize function (see `seize` public function).
-  /// @param liquidator address which will receive the seized tokens.
-  /// @param borrower address from which the tokens will be seized.
+  /// @param liquidator address which will receive the seized assets.
+  /// @param borrower address from which the assets will be seized.
   /// @param assets amount to be removed from borrower's possession.
   function internalSeize(
     Market seizeMarket,
@@ -724,8 +724,8 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @notice Moves amount of shares from the caller's account to `to`.
   /// @dev It's expected that this function can't be paused to prevent freezing user funds.
   /// Makes sure that the caller doesn't have shortfall after transferring.
-  /// @param to address to which the tokens will be transferred.
-  /// @param shares amount of tokens.
+  /// @param to address to which the assets will be transferred.
+  /// @param shares amount of assets.
   function transfer(address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, msg.sender, previewMint(shares));
     return super.transfer(to, shares);
@@ -734,9 +734,9 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @notice Moves amount of shares from `from` to `to` using the allowance mechanism.
   /// @dev It's expected that this function can't be paused to prevent freezing user funds.
   /// Makes sure that `from` address doesn't have shortfall after transferring.
-  /// @param from address from which the tokens will be transferred.
-  /// @param to address to which the tokens will be transferred.
-  /// @param shares amount of tokens.
+  /// @param from address from which the assets will be transferred.
+  /// @param to address to which the assets will be transferred.
+  /// @param shares amount of assets.
   function transferFrom(
     address from,
     address to,
@@ -755,7 +755,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
 
   /// @notice Gets all borrows and penalties for an account.
   /// @param account account to return status snapshot for fixed and floating borrows.
-  /// @return debt the total debt, denominated in number of tokens.
+  /// @return debt the total debt, denominated in number of assets.
   function previewDebt(address account) public view returns (uint256 debt) {
     uint256 memPenaltyRate = penaltyRate;
     uint256 packedMaturities = fixedBorrows[account];

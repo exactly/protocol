@@ -23,13 +23,13 @@ contract PreviewerTest is Test {
 
   Market internal market;
   Auditor internal auditor;
-  MockERC20 internal token;
+  MockERC20 internal asset;
   Previewer internal previewer;
   MockOracle internal oracle;
   InterestRateModel internal irm;
 
   function setUp() external {
-    token = new MockERC20("DAI", "DAI", 18);
+    asset = new MockERC20("DAI", "DAI", 18);
     oracle = new MockOracle();
     auditor = Auditor(
       address(
@@ -50,7 +50,7 @@ contract PreviewerTest is Test {
     );
 
     market = new Market(
-      token,
+      asset,
       12,
       1e18,
       auditor,
@@ -64,14 +64,14 @@ contract PreviewerTest is Test {
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
-    token.mint(BOB, 50_000 ether);
-    token.mint(ALICE, 50_000 ether);
-    token.mint(address(this), 50_000 ether);
-    token.approve(address(market), 50_000 ether);
+    asset.mint(BOB, 50_000 ether);
+    asset.mint(ALICE, 50_000 ether);
+    asset.mint(address(this), 50_000 ether);
+    asset.approve(address(market), 50_000 ether);
     vm.prank(BOB);
-    token.approve(address(market), 50_000 ether);
+    asset.approve(address(market), 50_000 ether);
     vm.prank(ALICE);
-    token.approve(address(market), 50_000 ether);
+    asset.approve(address(market), 50_000 ether);
 
     previewer = Previewer(
       address(new ERC1967Proxy(address(new Previewer(auditor)), abi.encodeCall(Previewer.initialize, ())))
@@ -352,9 +352,9 @@ contract PreviewerTest is Test {
 
     vm.warp(3 days);
     uint256 repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, 1 ether, address(this));
-    uint256 balanceBeforeRepay = token.balanceOf(address(this));
+    uint256 balanceBeforeRepay = asset.balanceOf(address(this));
     market.repayAtMaturity(maturity, 1 ether, 1 ether, address(this));
-    uint256 discountAfterRepay = 1 ether - (balanceBeforeRepay - token.balanceOf(address(this)));
+    uint256 discountAfterRepay = 1 ether - (balanceBeforeRepay - asset.balanceOf(address(this)));
 
     assertEq(repayAssetsPreviewed, 1 ether - discountAfterRepay);
   }
@@ -394,26 +394,26 @@ contract PreviewerTest is Test {
 
     vm.warp(3 days);
     uint256 repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, 0.47 ether, address(this));
-    uint256 balanceBeforeRepay = token.balanceOf(address(this));
+    uint256 balanceBeforeRepay = asset.balanceOf(address(this));
     market.repayAtMaturity(maturity, 0.47 ether, 0.47 ether, address(this));
-    uint256 discountAfterRepay = 0.47 ether - (balanceBeforeRepay - token.balanceOf(address(this)));
+    uint256 discountAfterRepay = 0.47 ether - (balanceBeforeRepay - asset.balanceOf(address(this)));
     assertEq(repayAssetsPreviewed, 0.47 ether - discountAfterRepay);
 
     vm.warp(5 days);
     repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, 1.1 ether, address(this));
-    balanceBeforeRepay = token.balanceOf(address(this));
+    balanceBeforeRepay = asset.balanceOf(address(this));
     market.repayAtMaturity(maturity, 1.1 ether, 1.1 ether, address(this));
-    discountAfterRepay = 1.1 ether - (balanceBeforeRepay - token.balanceOf(address(this)));
+    discountAfterRepay = 1.1 ether - (balanceBeforeRepay - asset.balanceOf(address(this)));
     assertEq(repayAssetsPreviewed, 1.1 ether - discountAfterRepay);
 
     vm.warp(6 days);
     (uint256 bobOwedPrincipal, uint256 bobOwedFee) = market.fixedBorrowPositions(maturity, BOB);
     uint256 totalOwedBob = bobOwedPrincipal + bobOwedFee;
     repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, totalOwedBob, BOB);
-    balanceBeforeRepay = token.balanceOf(BOB);
+    balanceBeforeRepay = asset.balanceOf(BOB);
     vm.prank(BOB);
     market.repayAtMaturity(maturity, totalOwedBob, totalOwedBob, BOB);
-    discountAfterRepay = totalOwedBob - (balanceBeforeRepay - token.balanceOf(BOB));
+    discountAfterRepay = totalOwedBob - (balanceBeforeRepay - asset.balanceOf(BOB));
     (bobOwedPrincipal, ) = market.fixedBorrowPositions(maturity, BOB);
     assertEq(repayAssetsPreviewed, totalOwedBob - discountAfterRepay);
     assertEq(bobOwedPrincipal, 0);
@@ -734,9 +734,9 @@ contract PreviewerTest is Test {
 
     vm.warp(3 days);
     uint256 withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, 10 ether);
-    uint256 balanceBeforeWithdraw = token.balanceOf(address(this));
+    uint256 balanceBeforeWithdraw = asset.balanceOf(address(this));
     market.withdrawAtMaturity(maturity, 10 ether, 0.9 ether, address(this), address(this));
-    uint256 feeAfterWithdraw = 10 ether - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
+    uint256 feeAfterWithdraw = 10 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
 
     assertEq(withdrawAssetsPreviewed, 10 ether - feeAfterWithdraw);
   }
@@ -781,16 +781,16 @@ contract PreviewerTest is Test {
 
     vm.warp(3 days);
     uint256 withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, 0.47 ether);
-    uint256 balanceBeforeWithdraw = token.balanceOf(address(this));
+    uint256 balanceBeforeWithdraw = asset.balanceOf(address(this));
     market.withdrawAtMaturity(maturity, 0.47 ether, 0.4 ether, address(this), address(this));
-    uint256 feeAfterWithdraw = 0.47 ether - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
+    uint256 feeAfterWithdraw = 0.47 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
     assertEq(withdrawAssetsPreviewed, 0.47 ether - feeAfterWithdraw);
 
     vm.warp(5 days);
     withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, 1.1 ether);
-    balanceBeforeWithdraw = token.balanceOf(address(this));
+    balanceBeforeWithdraw = asset.balanceOf(address(this));
     market.withdrawAtMaturity(maturity, 1.1 ether, 1 ether, address(this), address(this));
-    feeAfterWithdraw = 1.1 ether - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
+    feeAfterWithdraw = 1.1 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
     assertEq(withdrawAssetsPreviewed, 1.1 ether - feeAfterWithdraw);
 
     vm.warp(6 days);
@@ -800,9 +800,9 @@ contract PreviewerTest is Test {
     );
     uint256 contractPosition = contractPositionPrincipal + contractPositionEarnings;
     withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, contractPosition);
-    balanceBeforeWithdraw = token.balanceOf(address(this));
+    balanceBeforeWithdraw = asset.balanceOf(address(this));
     market.withdrawAtMaturity(maturity, contractPosition, contractPosition - 1 ether, address(this), address(this));
-    feeAfterWithdraw = contractPosition - (token.balanceOf(address(this)) - balanceBeforeWithdraw);
+    feeAfterWithdraw = contractPosition - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
     (contractPositionPrincipal, ) = market.fixedDepositPositions(maturity, address(this));
 
     assertEq(withdrawAssetsPreviewed, contractPosition - feeAfterWithdraw);
@@ -859,7 +859,7 @@ contract PreviewerTest is Test {
   }
 
   function testAccountsWithIntermediateOperationsReturningAccurateAmounts() external {
-    // we deploy a new token for more liquidity combinations
+    // we deploy a new asset for more liquidity combinations
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = new Market(
       weth,

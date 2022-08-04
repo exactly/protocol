@@ -32,10 +32,9 @@ contract MarketTest is Test {
   MockERC20 internal weth;
   MockOracle internal oracle;
   MockInterestRateModel internal irm;
-  string[] private tokens = ["DAI", "USDC", "WETH", "WBTC"];
 
   function setUp() external {
-    MockERC20 token = new MockERC20("DAI", "DAI", 18);
+    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
     oracle = new MockOracle();
     auditor = Auditor(
       address(
@@ -51,7 +50,7 @@ contract MarketTest is Test {
     irm = new MockInterestRateModel(0.1e18);
 
     market = new Market(
-      token,
+      asset,
       3,
       1e18,
       auditor,
@@ -81,17 +80,17 @@ contract MarketTest is Test {
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
-    token.mint(BOB, 50_000 ether);
-    token.mint(ALICE, 50_000 ether);
-    token.mint(address(this), 50_000 ether);
+    asset.mint(BOB, 50_000 ether);
+    asset.mint(ALICE, 50_000 ether);
+    asset.mint(address(this), 50_000 ether);
     weth.mint(address(this), 50_000 ether);
 
     weth.approve(address(marketWETH), 50_000 ether);
-    token.approve(address(market), type(uint256).max);
+    asset.approve(address(market), type(uint256).max);
     vm.prank(BOB);
-    token.approve(address(market), type(uint256).max);
+    asset.approve(address(market), type(uint256).max);
     vm.prank(ALICE);
-    token.approve(address(market), type(uint256).max);
+    asset.approve(address(market), type(uint256).max);
   }
 
   function testDepositToSmartPool() external {
@@ -456,11 +455,11 @@ contract MarketTest is Test {
   }
 
   function testFailRoundingUpAssetsToValidateShortfallWhenTransferringFrom() external {
-    MockERC20 token = new MockERC20("DAI", "DAI", 18);
+    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
 
     // we deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
-      token,
+      asset,
       12,
       1e18,
       auditor,
@@ -471,8 +470,8 @@ contract MarketTest is Test {
       Market.DampSpeed(0.0046e18, 0.42e18)
     );
     uint256 maturity = FixedLib.INTERVAL * 2;
-    token.mint(address(this), 50_000 ether);
-    token.approve(address(marketHarness), 50_000 ether);
+    asset.mint(address(this), 50_000 ether);
+    asset.approve(address(marketHarness), 50_000 ether);
     marketHarness.approve(BOB, 50_000 ether);
     auditor.enableMarket(marketHarness, 0.8e18, 18);
 
@@ -490,11 +489,11 @@ contract MarketTest is Test {
   }
 
   function testFailRoundingUpAssetsToValidateShortfallWhenTransferring() external {
-    MockERC20 token = new MockERC20("DAI", "DAI", 18);
+    MockERC20 asset = new MockERC20("DAI", "DAI", 18);
 
     // we deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
-      token,
+      asset,
       12,
       1e18,
       auditor,
@@ -505,8 +504,8 @@ contract MarketTest is Test {
       Market.DampSpeed(0.0046e18, 0.42e18)
     );
     uint256 maturity = FixedLib.INTERVAL * 2;
-    token.mint(address(this), 50_000 ether);
-    token.approve(address(marketHarness), 50_000 ether);
+    asset.mint(address(this), 50_000 ether);
+    asset.approve(address(marketHarness), 50_000 ether);
     auditor.enableMarket(marketHarness, 0.8e18, 18);
 
     marketHarness.setFloatingAssets(500 ether);
@@ -1847,10 +1846,11 @@ contract MarketTest is Test {
     irm.setBorrowRate(0);
     vm.warp(0);
     Market[4] memory markets;
-    for (uint256 i = 0; i < tokens.length; i++) {
-      MockERC20 token = new MockERC20(tokens[i], tokens[i], 18);
+    string[4] memory symbols = ["DAI", "USDC", "WETH", "WBTC"];
+    for (uint256 i = 0; i < symbols.length; i++) {
+      MockERC20 asset = new MockERC20(symbols[i], symbols[i], 18);
       markets[i] = new Market(
-        token,
+        asset,
         3,
         1e18,
         auditor,
@@ -1862,11 +1862,11 @@ contract MarketTest is Test {
       );
 
       auditor.enableMarket(markets[i], 0.8e18, 18);
-      token.mint(BOB, 50_000 ether);
-      token.mint(address(this), 50_000 ether);
+      asset.mint(BOB, 50_000 ether);
+      asset.mint(address(this), 50_000 ether);
       vm.prank(BOB);
-      token.approve(address(markets[i]), type(uint256).max);
-      token.approve(address(markets[i]), type(uint256).max);
+      asset.approve(address(markets[i]), type(uint256).max);
+      asset.approve(address(markets[i]), type(uint256).max);
       markets[i].deposit(30_000 ether, address(this));
     }
 

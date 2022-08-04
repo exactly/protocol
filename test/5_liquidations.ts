@@ -385,11 +385,11 @@ describe("Liquidations", function () {
           johnDAIBalanceBefore = await dai.balanceOf(john.address);
           await dai.connect(john).approve(marketDAI.address, parseUnits("6400"));
           // for maturity pool 1 alice's debt (borrowed + penalties) is aprox 1400
-          // in the liquidation we try repaying 6000 (aprox 2100 should be returned and not accounted to seize tokens)
+          // in the liquidation we try repaying 6000 (aprox 2100 should be returned and not accounted to seize assets)
           // total alice borrows are 7000 (+ 400 penalties), so for dynamic close factor max to repay is 6800
           await marketDAI.connect(john).liquidate(alice.address, parseUnits("6400"), marketETH.address);
         });
-        it("THEN the liquidator does not seize more ETH tokens than it should", async () => {
+        it("THEN the liquidator does not seize more ETH assets than it should", async () => {
           // if john liquidates and repays 6000 + 400 in penalties, then he should seize 4.26 ETH (1500 each) + liquidation incentive (10%)
           // 4.26 + 0.426 = 4.686 ETH
           const johnETHBalanceAfter = await eth.balanceOf(john.address);
