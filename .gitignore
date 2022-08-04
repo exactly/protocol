@@ -12,6 +12,7 @@ cache/
 node_modules/
 .DS_Store
 .env
+lcov.info
 *.log
 *.code-workspace
 .*-version*
