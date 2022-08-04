@@ -235,11 +235,11 @@ contract MarketTest is Test {
     market.deposit(10_000 ether, address(this));
     market.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
-    // we move to the last second before an interval goes by after the maturity passed
+    // move to the last second before an interval goes by after the maturity passed
     vm.warp(FixedLib.INTERVAL * 2 + FixedLib.INTERVAL - 1 seconds);
     assertLt(market.previewDeposit(10_000 ether), market.balanceOf(address(this)));
 
-    // we move to the instant where an interval went by after the maturity passed
+    // move to the instant where an interval went by after the maturity passed
     vm.warp(FixedLib.INTERVAL * 3);
     // the unassigned earnings of the maturity that the contract borrowed from are not accounted anymore
     assertEq(market.previewDeposit(10_000 ether), market.balanceOf(address(this)));
@@ -256,10 +256,10 @@ contract MarketTest is Test {
 
     vm.prank(BOB);
     market.deposit(10_000 ether, BOB);
-    vm.prank(BOB); // we have unassigned earnings
+    vm.prank(BOB); // unassigned earnings
     market.borrowAtMaturity(anotherMaturity, 1_000 ether, 1_100 ether, BOB, BOB);
 
-    vm.warp(maturity + 1 days); // and we have penalties -> delayed a day
+    vm.warp(maturity + 1 days); // and penalties -> delayed a day
     market.repayAtMaturity(maturity, 1_100 ether, 1_200 ether, address(this));
 
     assertEq(
@@ -286,7 +286,7 @@ contract MarketTest is Test {
     market.borrowAtMaturity(maturity, 1_000 ether, 1_100 ether, address(this), address(this));
 
     vm.warp(maturity);
-    market.repayAtMaturity(maturity, 1, 1, address(this)); // we send tx to accrue earnings
+    market.repayAtMaturity(maturity, 1, 1, address(this)); // send tx to accrue earnings
 
     vm.warp(maturity + 7 days * 2 - 1 seconds);
     vm.prank(BOB);
@@ -387,7 +387,7 @@ contract MarketTest is Test {
     assertEq(market.convertToAssets(market.balanceOf(address(this))), 11_002.5 ether);
     assertEq(market.earningsAccumulator(), 7.5 ether);
 
-    // we set the factor to 0 and all is distributed in the following tx
+    // set the factor to 0 and all is distributed in the following tx
     market.setEarningsAccumulatorSmoothFactor(0);
     vm.warp(FixedLib.INTERVAL + 1 seconds);
     market.deposit(1 ether, address(this));
@@ -428,12 +428,12 @@ contract MarketTest is Test {
     market.deposit(10_000 ether, address(this));
     market.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
     vm.warp(FixedLib.INTERVAL);
-    // we accrue earnings with this tx so we break proportion of 1 to 1 assets and shares
+    // accrue earnings with this tx so it breaks proportion of 1 to 1 assets and shares
     market.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
 
     vm.warp(FixedLib.INTERVAL + 3 days);
     vm.prank(BOB);
-    // we try to borrow 1 unit on behalf of this contract as bob being msg.sender without allowance
+    // try to borrow 1 unit on behalf of this contract as bob being msg.sender without allowance
     // if it correctly rounds up, it should fail
     market.borrowAtMaturity(maturity, 1, 2, BOB, address(this));
   }
@@ -444,12 +444,12 @@ contract MarketTest is Test {
     market.deposit(10_000 ether, address(this));
     market.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
     vm.warp(FixedLib.INTERVAL);
-    // we accrue earnings with this tx so we break proportion of 1 to 1 assets and shares
+    // accrue earnings with this tx so it breaks proportion of 1 to 1 assets and shares
     market.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
 
     vm.warp(maturity);
     vm.prank(BOB);
-    // we try to withdraw 1 unit on behalf of this contract as bob being msg.sender without allowance
+    // try to withdraw 1 unit on behalf of this contract as bob being msg.sender without allowance
     // if it correctly rounds up, it should fail
     market.withdrawAtMaturity(maturity, 1, 0, BOB, address(this));
   }
@@ -457,7 +457,7 @@ contract MarketTest is Test {
   function testFailRoundingUpAssetsToValidateShortfallWhenTransferringFrom() external {
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
 
-    // we deploy a harness market to be able to set different supply and floatingAssets
+    // deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
       asset,
       12,
@@ -482,7 +482,7 @@ contract MarketTest is Test {
     irm.setBorrowRate(0);
     marketHarness.borrowAtMaturity(maturity, 800 ether, 800 ether, address(this), address(this));
 
-    // we try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
+    // try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
     // if it rounds down to 1, it will pass
     vm.prank(BOB);
     marketHarness.transferFrom(address(this), BOB, 5);
@@ -491,7 +491,7 @@ contract MarketTest is Test {
   function testFailRoundingUpAssetsToValidateShortfallWhenTransferring() external {
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
 
-    // we deploy a harness market to be able to set different supply and floatingAssets
+    // deploy a harness market to be able to set different supply and floatingAssets
     MarketHarness marketHarness = new MarketHarness(
       asset,
       12,
@@ -515,17 +515,17 @@ contract MarketTest is Test {
     irm.setBorrowRate(0);
     marketHarness.borrowAtMaturity(maturity, 800 ether, 800 ether, address(this), address(this));
 
-    // we try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
+    // try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
     // if it rounds down to 1, it will pass
     marketHarness.transfer(BOB, 5);
   }
 
   function testAccountLiquidityAdjustedDebt() external {
-    // we deposit 1000 as collateral
+    // deposit 1000 as collateral
     market.deposit(1_000 ether, address(this));
 
     irm.setBorrowRate(0);
-    // we borrow 100 as debt
+    // borrow 100 as debt
     market.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this), address(this));
 
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -947,7 +947,7 @@ contract MarketTest is Test {
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
-      // we deposit so floatingBackupBorrowed is 0
+      // deposit so floatingBackupBorrowed is 0
       market.depositAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this));
     }
     oracle.setPrice(marketWETH, 3_000e18);
@@ -963,7 +963,7 @@ contract MarketTest is Test {
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
-      // we withdraw 500 so floatingBackupBorrowed is half
+      // withdraw 500 so floatingBackupBorrowed is half
       market.withdrawAtMaturity(FixedLib.INTERVAL * i, 500 ether, 500 ether, address(this), address(this));
     }
     oracle.setPrice(marketWETH, 3_000e18);
@@ -988,7 +988,7 @@ contract MarketTest is Test {
     vm.prank(BOB);
     // vm.expectEmit(true, true, true, true, address(market));
     // emit Liquidate(BOB, address(this), 818181818181818181819, 8181818181818181818, marketWETH, 1 ether);
-    // we expect the liquidation to cap the max amount of possible assets to repay
+    // expect the liquidation to cap the max amount of possible assets to repay
     market.liquidate(address(this), type(uint256).max, marketWETH);
     (uint256 remainingCollateral, ) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertEq(remainingCollateral, 0);
@@ -1587,9 +1587,9 @@ contract MarketTest is Test {
     assertEq(balanceContractBefore - ERC20(market.asset()).balanceOf(address(this)), 1 ether);
 
     balanceContractBefore = ERC20(market.asset()).balanceOf(address(this));
-    // we send more to repay
+    // send more to repay
     market.repay(5 ether, address(this));
-    // we only repay the max amount of debt that the contract had
+    // only repay the max amount of debt that the contract had
     assertEq(balanceContractBefore - ERC20(market.asset()).balanceOf(address(this)), 1.1 ether - 1);
     assertEq(market.floatingBorrowShares(address(this)), 0);
   }
@@ -1602,9 +1602,9 @@ contract MarketTest is Test {
     market.borrow(1 ether, address(this), address(this));
 
     vm.warp(365 days);
-    // we can dynamically calculate borrow debt
+    // can dynamically calculate borrow debt
     assertEq(market.previewDebt(address(this)), 1.1 ether);
-    // we distribute borrow debt with another borrow
+    // distribute borrow debt with another borrow
     market.borrow(1, address(this), address(this));
 
     // treasury earns 10% of the 10% that is charged to the borrower

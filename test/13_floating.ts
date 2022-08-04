@@ -169,7 +169,7 @@ describe("Smart Pool", function () {
     beforeEach(async () => {
       exactlyEnv.switchWallet(bob);
       await exactlyEnv.depositSP("DAI", "100");
-      // we add liquidity to the maturity
+      // add liquidity to the maturity
       await exactlyEnv.depositMP("DAI", futurePools(3)[2].toNumber(), "60");
     });
     it("WHEN trying to transfer to another user the entire position (100 eDAI) THEN it should not revert", async () => {

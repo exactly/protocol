@@ -60,7 +60,7 @@ describe("Market", function () {
     describe("WHEN depositing 3wei of a dai", () => {
       beforeEach(async () => {
         await marketDAI.deposit(3, maria.address);
-        // we add liquidity to the maturity
+        // add liquidity to the maturity
         await marketDAI.depositAtMaturity(futurePools(1)[0], 3, 0, maria.address);
       });
       it("THEN the Market registers a supply of 3 wei DAI for the user (exposed via accountSnapshot)", async () => {
@@ -364,7 +364,7 @@ describe("Market", function () {
       ]);
       await marketDAI.deposit(parseUnits("1"), maria.address);
       await auditor.enterMarket(marketDAI.address);
-      // we add liquidity to the maturity
+      // add liquidity to the maturity
       await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), maria.address);
     });
     it("WHEN trying to borrow 0.8 DAI with a max amount of debt of 0.8 DAI, THEN it reverts with TOO_MUCH_SLIPPAGE", async () => {
@@ -494,7 +494,7 @@ describe("Market", function () {
           await (await getContract<MockPriceFeed>("PriceFeedDAI")).setUpdatedAt(timestamp + 86_400 * 365 * 5);
           await (await getContract<MockPriceFeed>("PriceFeedWETH")).setUpdatedAt(timestamp + 86_400 * 365 * 5);
 
-          // we borrow and repay to have all those flexible fees accrued
+          // borrow and repay to have all those flexible fees accrued
           await marketDAI.borrow("1", maria.address, maria.address);
           await marketDAI.refund("1", maria.address);
         });
@@ -791,7 +791,7 @@ describe("Market", function () {
     });
     describe("AND GIVEN she borrows 5k DAI", () => {
       beforeEach(async () => {
-        // we first fund the maturity pool so it has liquidity to borrow
+        // first fund the maturity pool so it has liquidity to borrow
         await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("5000"), parseUnits("5000"), maria.address);
         await marketDAI.borrowAtMaturity(
           futurePools(1)[0],
@@ -846,7 +846,7 @@ describe("Market", function () {
     describe("Operations in more than one pool", () => {
       describe("GIVEN a smart pool supply of 100 AND a borrow of 30 in a first maturity pool", () => {
         beforeEach(async () => {
-          // we make 9011 seconds to go by so the floatingAssetsAverage is equal to the floatingAssets
+          // make 9011 seconds to go by so the floatingAssetsAverage is equal to the floatingAssets
           const { blockNumber } = await (await marketDAI.deposit(parseUnits("100"), maria.address)).wait();
           const { timestamp } = await provider.getBlock(blockNumber);
           await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
@@ -1164,7 +1164,7 @@ describe("Market", function () {
       describe("GIVEN a sp total supply of 100, a 10% smart pool reserve and a borrow for 80", () => {
         beforeEach(async () => {
           const depositTx = await marketDAI.deposit(parseUnits("100"), maria.address);
-          // we make 9011 seconds to go by so the floatingAssetsAverage is equal to the floatingAssets
+          // make 9011 seconds to go by so the floatingAssetsAverage is equal to the floatingAssets
           const { blockNumber } = await depositTx.wait();
           const { timestamp } = await provider.getBlock(blockNumber);
           await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);

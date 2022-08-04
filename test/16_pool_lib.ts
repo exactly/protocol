@@ -270,7 +270,7 @@ describe("Fixed Pool Management Library", () => {
           expect(lastBackupEarnings).to.equal(0);
         });
 
-        describe("AND GIVEN that we add 100 in fees and 6 days went by", () => {
+        describe("AND GIVEN 100 are added in fees and 6 days went by", () => {
           beforeEach(async () => {
             await poolEnv.addFee("100");
             await provider.send("evm_setNextBlockTimestamp", [sixDays]);
@@ -311,7 +311,7 @@ describe("Fixed Pool Management Library", () => {
             });
           });
 
-          describe("AND GIVEN that we go over +1 day the maturity date", () => {
+          describe("AND GIVEN that +1 day goes over the maturity date", () => {
             beforeEach(async () => {
               await provider.send("evm_setNextBlockTimestamp", [tenDays + 86_400]);
               await poolEnv.accrueEarnings(tenDays);
@@ -329,7 +329,7 @@ describe("Fixed Pool Management Library", () => {
               expect(lastBackupEarnings).to.equal(parseUnits("40"));
             });
 
-            describe("AND GIVEN that we go over another +1 day the maturity date", () => {
+            describe("AND GIVEN that another +1 day goes over the maturity date", () => {
               beforeEach(async () => {
                 await provider.send("evm_setNextBlockTimestamp", [tenDays + 86_400 * 2]);
                 await poolEnv.accrueEarnings(tenDays);
@@ -349,7 +349,7 @@ describe("Fixed Pool Management Library", () => {
             });
           });
 
-          describe("AND GIVEN that we remove 20 fees and we go over +1 day the maturity date", () => {
+          describe("AND GIVEN that 20 fees are removed and +1 day goes over the maturity date", () => {
             beforeEach(async () => {
               await poolEnv.removeFee("20");
               await provider.send("evm_setNextBlockTimestamp", [tenDays + 86_400]);

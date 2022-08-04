@@ -313,7 +313,7 @@ describe("InterestRateModel", () => {
             it("THEN the rate charged is the same one as the last borrow, since the sp total supply is the same", async () => {
               const aliceNewBorrow = await exactlyEnv.getMarket("DAI").fixedBorrowPositions(thirdPoolID, alice.address);
               // the fee charged is the double since third pool id has one more week
-              // we subtract 500 for rounding division
+              // subtract 500 for rounding division
               expect(aliceFirstBorrow[1]).to.be.equal(aliceNewBorrow[1].div(2).sub(500));
             });
           });

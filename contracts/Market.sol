@@ -440,7 +440,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       debtCovered
     );
 
-    // Early repayment allows you to get a discount from the unassigned earnings
+    // early repayment allows a discount from the unassigned earnings
     if (block.timestamp < maturity) {
       if (canDiscount) {
         // calculate the deposit fee considering the amount of debt the user'll pay

@@ -440,12 +440,12 @@ contract PreviewerTest is Test {
     marketWETH.deposit(50_000 ether, address(this));
     auditor.enterMarket(marketWETH);
 
-    // we supply 100 to the smart pool
+    // supply 100 to the smart pool
     market.deposit(100 ether, address(this));
-    // we let 9011 seconds go by so floatingAssetsAverage is equal to floatingDepositAssets
+    // let 9011 seconds go by so floatingAssetsAverage is equal to floatingDepositAssets
     vm.warp(9012 seconds);
 
-    // we borrow 10 from the first maturity
+    // borrow 10 from the first maturity
     market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 15 ether, address(this), address(this));
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
@@ -457,7 +457,7 @@ contract PreviewerTest is Test {
       assertEq(data[1].fixedPools[i].available, 50_000 ether);
     }
 
-    // we deposit 50 ether in the first maturity
+    // deposit 50 ether in the first maturity
     market.depositAtMaturity(FixedLib.INTERVAL, 50 ether, 50 ether, address(this));
     data = previewer.exactly(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
@@ -465,7 +465,7 @@ contract PreviewerTest is Test {
       else assertEq(data[0].fixedPools[i].available, 100 ether);
     }
 
-    // we deposit 100 ether in the second maturity
+    // deposit 100 ether in the second maturity
     market.depositAtMaturity(FixedLib.INTERVAL * 2, 100 ether, 100 ether, address(this));
     data = previewer.exactly(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
@@ -473,20 +473,20 @@ contract PreviewerTest is Test {
       else if (i == 1) assertEq(data[0].fixedPools[i].available, 200 ether);
       else assertEq(data[0].fixedPools[i].available, 100 ether);
     }
-    // we try to borrow 140 ether + 1 (ONE UNIT) from first maturity and it should fail
+    // try to borrow 140 ether + 1 (ONE UNIT) from first maturity and it should fail
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL, 140 ether + 1, 150 ether, address(this), address(this));
-    // we try to borrow 200 ether + 1 (ONE UNIT) from second maturity and it should fail
+    // try to borrow 200 ether + 1 (ONE UNIT) from second maturity and it should fail
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether + 1, 250 ether, address(this), address(this));
-    // we try to borrow 100 ether + 1 (ONE UNIT) from any other maturity and it should fail
+    // try to borrow 100 ether + 1 (ONE UNIT) from any other maturity and it should fail
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrowAtMaturity(FixedLib.INTERVAL * 7, 100 ether + 1, 150 ether, address(this), address(this));
 
-    // we finally borrow 200 ether from second maturity and it doesn't fail
+    // finally borrow 200 ether from second maturity and it doesn't fail
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 250 ether, address(this), address(this));
 
-    // we repay back the 10 borrowed from the first maturity
+    // repay back the 10 borrowed from the first maturity
     uint256 totalBorrowed = data[0].fixedBorrowPositions[0].position.principal +
       data[0].fixedBorrowPositions[0].position.fee;
     market.repayAtMaturity(FixedLib.INTERVAL, totalBorrowed, totalBorrowed, address(this));
@@ -496,10 +496,10 @@ contract PreviewerTest is Test {
       else assertEq(data[0].fixedPools[i].available, 0 ether);
     }
 
-    // we supply 100 more to the smart pool
+    // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
     uint256 distribuedEarnings = 417180941853420;
-    // we set the smart pool reserve in 10%
+    // set the smart pool reserve in 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
     data = previewer.exactly(address(this));
@@ -508,7 +508,7 @@ contract PreviewerTest is Test {
       else assertEq(data[0].fixedPools[i].available, 80 ether + distribuedEarnings);
     }
 
-    // we borrow 20 from the flexible borrow pool
+    // borrow 20 from the flexible borrow pool
     market.borrow(20 ether, address(this), address(this));
     data = previewer.exactly(address(this));
     for (uint256 i = 0; i < maxFuturePools; i++) {
@@ -537,44 +537,44 @@ contract PreviewerTest is Test {
     marketWETH.deposit(50_000 ether, address(this));
     auditor.enterMarket(marketWETH);
 
-    // we supply 100 to the smart pool
+    // supply 100 to the smart pool
     market.deposit(100 ether, address(this));
 
-    // we let 9011 seconds go by so floatingAssetsAverage is equal to floatingDepositAssets
+    // let 9011 seconds go by so floatingAssetsAverage is equal to floatingDepositAssets
     vm.warp(9012 seconds);
 
-    // we borrow 10 from the first maturity
+    // borrow 10 from the first maturity
     market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 15 ether, address(this), address(this));
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].floatingAvailableAssets, 90 ether);
 
-    // we deposit 50 ether in the first maturity
+    // deposit 50 ether in the first maturity
     market.depositAtMaturity(FixedLib.INTERVAL, 50 ether, 50 ether, address(this));
     data = previewer.exactly(address(this));
     assertEq(data[0].floatingAvailableAssets, 100 ether);
 
-    // we deposit 100 ether in the second maturity
+    // deposit 100 ether in the second maturity
     market.depositAtMaturity(FixedLib.INTERVAL * 2, 100 ether, 100 ether, address(this));
     data = previewer.exactly(address(this));
     assertEq(data[0].floatingAvailableAssets, 100 ether);
-    // we try to borrow 100 ether + 1 (ONE UNIT) from flexible borrow pool and it should fail
+    // try to borrow 100 ether + 1 (ONE UNIT) from flexible borrow pool and it should fail
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.borrow(100 ether + 1, address(this), address(this));
 
-    // we borrow 100 ether from flexible borrow pool and it doesn't fail
+    // borrow 100 ether from flexible borrow pool and it doesn't fail
     market.borrow(100 ether, address(this), address(this));
 
-    // we repay back the 10 borrowed from the first maturity but liquidity is still 0
+    // repay back the 10 borrowed from the first maturity but liquidity is still 0
     uint256 totalBorrowed = data[0].fixedBorrowPositions[0].position.principal +
       data[0].fixedBorrowPositions[0].position.fee;
     market.repayAtMaturity(FixedLib.INTERVAL, totalBorrowed, totalBorrowed, address(this));
     data = previewer.exactly(address(this));
     assertEq(data[0].floatingAvailableAssets, 0 ether);
 
-    // we supply 100 more to the smart pool
+    // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
     uint256 distribuedEarnings = 605616552334;
-    // we set the smart pool reserve in 10%
+    // set the smart pool reserve to 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
     data = previewer.exactly(address(this));
@@ -602,9 +602,9 @@ contract PreviewerTest is Test {
     marketWETH.deposit(50_000 ether, address(this));
     auditor.enterMarket(marketWETH);
 
-    // we supply 100 to the smart pool
+    // supply 100 to the smart pool
     market.deposit(100 ether, address(this));
-    // we let only 10 seconds go by
+    // let only 10 seconds go by
     vm.warp(10 seconds);
     uint256 floatingAssetsAverage = previewFloatingAssetsAverage();
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
@@ -634,7 +634,7 @@ contract PreviewerTest is Test {
       assertEq(data[0].fixedPools[i].available, Math.min(market.floatingAssets() - borrowed, floatingAssetsAverage));
     }
 
-    // once floatingAssetsAverage = floatingDepositAssets we withdraw all liquidity available
+    // once floatingAssetsAverage = floatingDepositAssets, withdraw all liquidity available
     borrowed += data[0].fixedBorrowPositions[0].position.fee;
     market.repayAtMaturity(FixedLib.INTERVAL, borrowed, borrowed, address(this));
     uint256 accumulatorBefore = market.earningsAccumulator();
@@ -840,13 +840,13 @@ contract PreviewerTest is Test {
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
-    // We sum all the collateral prices
+    // sum all the collateral prices
     uint256 sumCollateral = data[0]
       .floatingDepositAssets
       .mulDivDown(data[0].oraclePrice, 10**data[0].decimals)
       .mulWadDown(data[0].adjustFactor);
 
-    // We sum all the debt
+    // sum all the debt
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
       data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals).divWadUp(
         data[0].adjustFactor
@@ -859,7 +859,7 @@ contract PreviewerTest is Test {
   }
 
   function testAccountsWithIntermediateOperationsReturningAccurateAmounts() external {
-    // we deploy a new asset for more liquidity combinations
+    // deploy a new asset for more liquidity combinations
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = new Market(
       weth,
@@ -885,13 +885,13 @@ contract PreviewerTest is Test {
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
-    // We sum all the collateral prices
+    // sum all the collateral prices
     uint256 sumCollateral = data[0]
       .floatingDepositAssets
       .mulDivDown(data[0].oraclePrice, 10**data[0].decimals)
       .mulWadDown(data[0].adjustFactor);
 
-    // We sum all the debt
+    // sum all the debt
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
       data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals).divWadDown(
         data[0].adjustFactor

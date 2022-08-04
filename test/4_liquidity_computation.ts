@@ -102,7 +102,7 @@ describe("Liquidity computations", function () {
             [0, parseUnits("0.01"), parseUnits("6")],
             parseUnits("2"),
           ]);
-          // we add liquidity to the maturity
+          // add liquidity to the maturity
           await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("800"), parseUnits("800"), laura.address);
         });
         it("AND WHEN laura asks for a 800 DAI loan, THEN it reverts because the interests make the owed amount larger than liquidity", async () => {
@@ -120,7 +120,7 @@ describe("Liquidity computations", function () {
 
       describe("AND WHEN laura asks for a 640 DAI loan (640 / 0.8 = 800)", () => {
         beforeEach(async () => {
-          // we add liquidity to the maturity
+          // add liquidity to the maturity
           await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("640"), parseUnits("640"), laura.address);
           await marketDAI.borrowAtMaturity(
             futurePools(1)[0],
@@ -191,9 +191,8 @@ describe("Liquidity computations", function () {
           it("THEN 5 days of *daily* base rate interest is charged, adding 0.02*5 =10% interest to the debt", async () => {
             await provider.send("evm_mine", []);
             const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
-            // Based on the events emitted, we calculate the liquidity
-            // This is because we need to take into account the fixed rates
-            // that the borrow and the lent got at the time of the transaction
+            // based on the events emitted, calculate the liquidity
+            // need to take into account the fixed rates that the borrow and the lent got at the time of the transaction
             const totalSupplyAmount = parseUnits("10000");
             const totalBorrowAmount = parseUnits("5400");
             const calculatedLiquidity = totalSupplyAmount.sub(
@@ -214,9 +213,8 @@ describe("Liquidity computations", function () {
             it("THEN 15 days of *daily* base rate interest is charged, adding 0.02*15 =35% interest to the debt, causing a shortfall", async () => {
               await provider.send("evm_mine", []);
               const [collateral, debt] = await auditor.accountLiquidity(bob.address, AddressZero, 0);
-              // Based on the events emitted, we calculate the liquidity
-              // This is because we need to take into account the fixed rates
-              // that the borrow and the lent got at the time of the transaction
+              // Based on the events emitted, calculate the liquidity
+              // need to take into account the fixed rates that the borrow and the lent got at the time of the transaction
               const totalSupplyAmount = parseUnits("10000");
               const totalBorrowAmount = parseUnits("7000");
               const calculatedShortfall = totalSupplyAmount.sub(
@@ -251,7 +249,7 @@ describe("Liquidity computations", function () {
           expect(collateral.sub(debt)).to.equal(parseUnits("3.78", 14));
         });
         it("AND WHEN he tries to take a 4*10^14 usd USDC loan, THEN it reverts", async () => {
-          // We expect liquidity to be equal to zero
+          // expect liquidity to equal zero
           await expect(
             marketUSDC.connect(bob).borrowAtMaturity(futurePools(1)[0], "400", "400", bob.address, bob.address),
           ).to.be.revertedWith("InsufficientAccountLiquidity()");
@@ -279,7 +277,7 @@ describe("Liquidity computations", function () {
         });
         // make sure the borrowed asset's decimals is used properly to compute liquidity
         it("WHEN he tries to take a 1btc (8 decimals) loan (100% collateralization), THEN it reverts", async () => {
-          // We expect liquidity to be equal to zero
+          // expect liquidity to equal zero
           await expect(
             marketWBTC
               .connect(bob)
@@ -310,7 +308,7 @@ describe("Liquidity computations", function () {
           // the to-be-loaned amount as the borrowAmount, the amount of
           // collateral to withdraw is passed as the supplyAmount
           it("WHEN he tries to withdraw the usdc (6 decimals) collateral, THEN it reverts ()", async () => {
-            // We expect liquidity to be equal to zero
+            // expect liquidity to equal zero
             await expect(marketUSDC.withdraw(parseUnits("40000", 6), bob.address, bob.address)).to.be.revertedWith(
               "InsufficientAccountLiquidity()",
             );

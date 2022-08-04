@@ -43,12 +43,12 @@ describe("Auditor from User Space", function () {
     await weth.approve(marketWETH.address, parseUnits("10"));
   });
 
-  it("We enter market twice without failing", async () => {
+  it("enters market twice without failing", async () => {
     await auditor.enterMarket(marketDAI.address);
     await expect(auditor.enterMarket(marketDAI.address)).to.not.be.reverted.and.to.not.emit(auditor, "MarketEntered");
   });
 
-  it("We enter WETH market (market index 1) twice without failing", async () => {
+  it("enters WETH market (market index 1) twice without failing", async () => {
     await auditor.enterMarket(marketWETH.address);
     await expect(auditor.enterMarket(marketWETH.address)).to.not.be.reverted.and.to.not.emit(auditor, "MarketEntered");
   });
@@ -83,11 +83,11 @@ describe("Auditor from User Space", function () {
   });
 
   it("Auto-adding a market should only be allowed from a market", async () => {
-    // we supply Dai to the protocol
+    // supply Dai to the protocol
     await dai.approve(marketDAI.address, 100);
     await marketDAI.deposit(100, user.address);
 
-    // we make it count as collateral (DAI)
+    // make it count as collateral (DAI)
     await expect(auditor.checkBorrow(marketDAI.address, owner.address)).to.be.revertedWith("NotMarket()");
   });
 
@@ -98,20 +98,20 @@ describe("Auditor from User Space", function () {
     );
   });
 
-  it("we deposit dai & eth to the protocol and we use them both for collateral to take a loan", async () => {
-    // we supply Dai to the protocol
+  it("deposits dai & eth to the protocol and uses them both for collateral to take a loan", async () => {
+    // supply dai to the protocol
     const amountDAI = parseUnits("100");
     await dai.approve(marketDAI.address, amountDAI);
     await marketDAI.deposit(amountDAI, user.address);
     expect(await dai.balanceOf(marketDAI.address)).to.equal(amountDAI);
-    // we make it count as collateral (DAI)
+    // make it count as collateral (DAI)
     await auditor.enterMarket(marketDAI.address);
 
-    // we supply ETH to the protocol
+    // supply ETH to the protocol
     const amountETH = parseUnits("1");
     await marketWETH.deposit(amountETH, user.address);
     expect(await weth.balanceOf(marketWETH.address)).to.equal(amountETH);
-    // we make it count as collateral (WETH)
+    // make it count as collateral (WETH)
     await auditor.enterMarket(marketWETH.address);
 
     const [collateral] = await auditor.accountLiquidity(user.address, AddressZero, 0);
@@ -131,10 +131,10 @@ describe("Auditor from User Space", function () {
   });
 
   it("Auditor reverts if Oracle acts weird", async () => {
-    // we supply Dai to the protocol
+    // supply Dai to the protocol
     await dai.approve(marketDAI.address, 100);
     await marketDAI.depositAtMaturity(futurePools(1)[0], 100, 100, user.address);
-    // we make it count as collateral (DAI)
+    // make it count as collateral (DAI)
     await auditor.enterMarket(marketDAI.address);
     await priceFeedDAI.setPrice(0);
     await expect(auditor.accountLiquidity(user.address, AddressZero, 0)).to.revertedWith("0x00bfc921");

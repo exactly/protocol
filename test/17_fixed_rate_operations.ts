@@ -499,7 +499,7 @@ describe("Fixed Rate Operations", () => {
           });
 
           describe("AND GIVEN a repayMP at maturity(+1 DAY) with an amount of 15750*1.1=17325 (total late repayment supported by SP) ", () => {
-            // (to check earnings distribution) => we have the same test down below, but the differences here
+            // (to check earnings distribution) => similar to the test down below, but the differences here
             // are the pre-conditions: in this case, the borrow was supported by the SP and MP, while the one at the bottom
             // was supported by the MP
             beforeEach(async () => {
@@ -894,7 +894,7 @@ describe("Fixed Rate Operations", () => {
                 });
                 it("THEN the fixedDepositPositions is correctly updated", async () => {
                   // all supplied + earned of laura is 100010125
-                  // if we withdraw 50M, then her position is scaled
+                  // withdraw 50M, then her position is scaled
                   const totalFeeEarned = fixedDepositPositions.fee.add(
                     fixedDepositPositions.principal.sub(parseUnits("50010000")),
                   );
@@ -1629,7 +1629,7 @@ describe("Fixed Rate Operations", () => {
         it("THEN borrowed is 5000", async () => {
           // 4772.72 is the real value that the smart pool needed to cover
           // but for simplicity it will cover the full 5000
-          // the difference between 4772.72 and 5000 is the amount we added to the unassigned earnings due to the high borrow rate when withdrawing
+          // the difference between 4772.72 and 5000 is the amount added to the unassigned earnings due to the high borrow rate when withdrawing
           expect(mp.borrowed).to.eq(parseUnits("5000"));
         });
         it("THEN unassignedEarnings should be 477 (250 + money left on the table)", async () => {
@@ -1797,7 +1797,7 @@ describe("Fixed Rate Operations", () => {
                 parseUnits("20000"),
                 laura.address,
                 laura.address,
-              ); // ... and we accept it
+              ); // accept it
             mp = await marketHarness.fixedPools(nextPoolID);
           });
 

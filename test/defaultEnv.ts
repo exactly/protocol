@@ -128,7 +128,7 @@ export class DefaultEnv {
     await auditorProxy.deployed();
     const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
 
-    // We have to enable all the Markets in the auditor
+    // enable all the Markets in the auditor
     await Promise.all(
       Object.entries(mockAssets).map(async ([symbol, { decimals, adjustFactor, usdPrice }]) => {
         const totalSupply = parseUnits("100000000000", decimals);

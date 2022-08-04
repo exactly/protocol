@@ -53,10 +53,10 @@ describe("Liquidations", function () {
 
   describe("GIVEN alice deposits USD63k worth of WBTC, USD3k worth of WETH (66k total), 63k*0.6+3k*0.7=39k liquidity AND bob deposits 65kDAI", () => {
     beforeEach(async () => {
-      // we deposit ETH to the protocol
+      // deposit ETH to the protocol
       await exactlyEnv.depositSP("WETH", "1");
 
-      // we deposit WBTC to the protocol
+      // deposit WBTC to the protocol
       await exactlyEnv.depositSP("WBTC", "1");
 
       // bob deposits DAI to the protocol to have money in the pool
@@ -68,7 +68,7 @@ describe("Liquidations", function () {
 
     describe("AND GIVEN Alice takes the biggest loan she can (31920 DAI), 31920/0.8=39900", () => {
       beforeEach(async () => {
-        // we make WETH & WBTC count as collateral
+        // make WETH & WBTC count as collateral
         await auditor.enterMarket(marketETH.address);
         await auditor.enterMarket(marketWBTC.address);
 
@@ -228,7 +228,7 @@ describe("Liquidations", function () {
         });
 
         it("THEN alices liquidity is zero", async () => {
-          // We expect liquidity to be equal to zero
+          // expect liquidity to be equal to zero
           const [collateral, debt] = await auditor.accountLiquidity(alice.address, ethers.constants.AddressZero, 0);
           expect(collateral.sub(debt)).to.be.lt("1");
         });
@@ -238,15 +238,15 @@ describe("Liquidations", function () {
         });
 
         it("AND trying to repay an amount of zero fails", async () => {
-          // We try to get all the WETH we can
-          // We expect trying to repay zero to fail
+          // try to get all the WETH available
+          // expect trying to repay zero to fail
           await expect(marketDAI.connect(bob).liquidate(alice.address, 0, marketETH.address)).to.be.revertedWith(
             "ZeroRepay()",
           );
         });
 
         it("AND the position cant be liquidated by the borrower", async () => {
-          // We expect self liquidation to fail
+          // expect self liquidation to fail
           await expect(marketDAI.liquidate(alice.address, parseUnits("15000"), marketETH.address)).to.be.revertedWith(
             "SelfLiquidation()",
           );
@@ -257,7 +257,7 @@ describe("Liquidations", function () {
             await dai.connect(bob).approve(marketDAI.address, parseUnits("1000"));
           });
           it("WHEN trying to liquidate, THEN it reverts with a ERC20 transfer error", async () => {
-            // We expect liquidation to fail because trying to liquidate
+            // expect liquidation to fail because trying to liquidate
             // and repay with an amount that the contract doesn't have enough allowance for bob
             await expect(
               marketDAI.connect(bob).liquidate(alice.address, parseUnits("15000"), marketETH.address),
@@ -309,7 +309,7 @@ describe("Liquidations", function () {
     beforeEach(async () => {
       exactlyEnv.switchWallet(john);
       await eth.transfer(john.address, parseUnits("20"));
-      // we add WETH liquidity to the maturity
+      // add WETH liquidity to the maturity
       await exactlyEnv.depositMP("WETH", futurePools(1)[0].toNumber(), "1.25");
       await exactlyEnv.depositMP("WETH", futurePools(2)[1].toNumber(), "1.25");
 
@@ -362,7 +362,7 @@ describe("Liquidations", function () {
     beforeEach(async () => {
       exactlyEnv.switchWallet(john);
       await dai.mint(john.address, parseUnits("10000"));
-      // we add DAI liquidity to the maturities
+      // add DAI liquidity to the maturities
       await exactlyEnv.depositMP("DAI", futurePools(1)[0].toNumber(), "1000");
       await exactlyEnv.depositMP("DAI", futurePools(2)[1].toNumber(), "6000");
     });
@@ -385,7 +385,7 @@ describe("Liquidations", function () {
           johnDAIBalanceBefore = await dai.balanceOf(john.address);
           await dai.connect(john).approve(marketDAI.address, parseUnits("6400"));
           // for maturity pool 1 alice's debt (borrowed + penalties) is aprox 1400
-          // in the liquidation we try repaying 6000 (aprox 2100 should be returned and not accounted to seize assets)
+          // in the liquidation, try repaying 6000 (aprox 2100 should be returned and not accounted to seize assets)
           // total alice borrows are 7000 (+ 400 penalties), so for dynamic close factor max to repay is 6800
           await marketDAI.connect(john).liquidate(alice.address, parseUnits("6400"), marketETH.address);
         });
