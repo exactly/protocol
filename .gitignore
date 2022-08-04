@@ -4,6 +4,7 @@
 /deployments/localhost/
 /deployments/*/solcInputs/
 /docs/
+/lcov.info
 /types/
 
 .openzeppelin/unknown-*
