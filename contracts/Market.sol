@@ -124,9 +124,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       memFloatingAssets,
       newFloatingBorrowShares,
       newFloatingDebt,
-      earningsAccumulator,
-      type(uint32).max,
-      0
+      earningsAccumulator
     );
     asset.safeTransfer(receiver, assets);
   }
@@ -151,9 +149,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       floatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      type(uint32).max,
-      0
+      earningsAccumulator
     );
   }
 
@@ -170,9 +166,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       floatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      type(uint32).max,
-      0
+      earningsAccumulator
     );
   }
 
@@ -244,10 +238,9 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       newFloatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      uint32(maturity),
-      pool.unassignedEarnings
+      earningsAccumulator
     );
+    emit FixedEarningsUpdated(block.timestamp, uint32(maturity), pool.unassignedEarnings);
 
     asset.safeTransferFrom(msg.sender, address(this), assets);
   }
@@ -327,10 +320,9 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       newFloatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      uint32(maturity),
-      pool.unassignedEarnings
+      earningsAccumulator
     );
+    emit FixedEarningsUpdated(block.timestamp, uint32(maturity), pool.unassignedEarnings);
   }
 
   /// @notice Withdraws a certain amount from a maturity.
@@ -421,10 +413,9 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       newFloatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      uint32(maturity),
-      pool.unassignedEarnings
+      earningsAccumulator
     );
+    emit FixedEarningsUpdated(block.timestamp, uint32(maturity), pool.unassignedEarnings);
   }
 
   /// @notice Repays a certain amount to a maturity.
@@ -523,10 +514,9 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       newFloatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      uint32(maturity),
-      pool.unassignedEarnings
+      earningsAccumulator
     );
+    emit FixedEarningsUpdated(block.timestamp, uint32(maturity), pool.unassignedEarnings);
   }
 
   /// @notice Liquidates undercollateralized position(s).
@@ -598,9 +588,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
           floatingAssets,
           totalFloatingBorrowShares,
           floatingDebt,
-          earningsAccumulator,
-          type(uint32).max,
-          0
+          earningsAccumulator
         );
         repaidAssets += actualRepayAssets;
         maxAssets -= actualRepayAssets;
@@ -643,9 +631,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
               floatingAssets,
               totalFloatingBorrowShares,
               floatingDebt,
-              earningsAccumulator,
-              uint32(maturity),
-              fixedPools[maturity].unassignedEarnings
+              earningsAccumulator
             );
           }
         }
@@ -665,9 +651,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
           floatingAssets,
           totalFloatingBorrowShares,
           floatingDebt,
-          earningsAccumulator,
-          type(uint32).max,
-          0
+          earningsAccumulator
         );
       }
     }
@@ -720,9 +704,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       floatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      0,
-      0
+      earningsAccumulator
     );
 
     return balanceOf[borrower] > 0;
@@ -734,8 +716,11 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     updateFloatingAssetsAverage();
     uint256 newFloatingDebt = updateFloatingDebt();
     uint256 earnings = accumulatedEarnings();
-    lastAccumulatorAccrual = uint32(block.timestamp);
+
     earningsAccumulator -= earnings;
+    lastAccumulatorAccrual = uint32(block.timestamp);
+    emit AccumulatorAccrued(block.timestamp);
+
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
     floatingAssets = newFloatingAssets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed
@@ -748,8 +733,11 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     updateFloatingAssetsAverage();
     uint256 newFloatingDebt = updateFloatingDebt();
     uint256 earnings = accumulatedEarnings();
-    lastAccumulatorAccrual = uint32(block.timestamp);
+
     earningsAccumulator -= earnings;
+    lastAccumulatorAccrual = uint32(block.timestamp);
+    emit AccumulatorAccrued(block.timestamp);
+
     uint256 newFloatingAssets = floatingAssets + earnings + assets;
     floatingAssets = newFloatingAssets;
     emit MarketUpdated(
@@ -758,9 +746,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       newFloatingAssets,
       totalFloatingBorrowShares,
       newFloatingDebt,
-      earningsAccumulator,
-      0,
-      0
+      earningsAccumulator
     );
   }
 
@@ -782,9 +768,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       floatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      0,
-      0
+      earningsAccumulator
     );
   }
 
@@ -806,9 +790,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       floatingAssets,
       totalFloatingBorrowShares,
       floatingDebt,
-      earningsAccumulator,
-      0,
-      0
+      earningsAccumulator
     );
   }
 
@@ -957,6 +939,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     floatingAssets += chargeTreasuryFee(newDebt);
     floatingUtilization = newFloatingUtilization;
     lastFloatingDebtUpdate = uint32(block.timestamp);
+    emit FloatingDebtUpdated(block.timestamp, newFloatingUtilization);
   }
 
   function totalFloatingBorrowAssets() public view returns (uint256) {
@@ -1258,10 +1241,14 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 floatingAssets,
     uint256 floatingBorrowShares,
     uint256 floatingDebt,
-    uint256 earningsAccumulator,
-    uint32 indexed maturity,
-    uint256 maturityUnassignedEarnings
+    uint256 earningsAccumulator
   );
+
+  event FixedEarningsUpdated(uint256 timestamp, uint32 indexed maturity, uint256 unassignedEarnings);
+
+  event AccumulatorAccrued(uint256 timestamp);
+
+  event FloatingDebtUpdated(uint256 timestamp, uint256 utilization);
 
   struct DampSpeed {
     uint256 up;
