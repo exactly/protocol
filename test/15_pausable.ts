@@ -49,34 +49,34 @@ describe("Market - Pausable", function () {
         await market.pause();
       });
       it("THEN it should revert when trying to deposit to a smart pool", async () => {
-        await expect(market.deposit(10n ** 18n, account.address)).to.be.revertedWith("Pausable: paused");
+        await expect(market.deposit(10n ** 18n, account.address)).to.be.revertedWith("ContractPaused()");
       });
       it("THEN it should revert when trying to deposit to a maturity pool", async () => {
         await expect(market.depositAtMaturity(nextPoolId, "0", "0", account.address)).to.be.revertedWith(
-          "Pausable: paused",
+          "ContractPaused()",
         );
       });
       it("THEN it should revert when trying to borrow from a maturity pool", async () => {
         await expect(
           market.borrowAtMaturity(nextPoolId, "0", "0", account.address, account.address),
-        ).to.be.revertedWith("Pausable: paused");
+        ).to.be.revertedWith("ContractPaused()");
       });
       it("THEN it should revert when trying to repay to a maturity pool", async () => {
         await expect(market.repayAtMaturity(nextPoolId, "0", "0", owner.address)).to.be.revertedWith(
-          "Pausable: paused",
+          "ContractPaused()",
         );
       });
       it("THEN it should revert when trying to liquidate a maturity pool position", async () => {
-        await expect(market.liquidate(owner.address, "0", market.address)).to.be.revertedWith("Pausable: paused");
+        await expect(market.liquidate(owner.address, "0", market.address)).to.be.revertedWith("ContractPaused()");
       });
       it("THEN it should revert when trying to seize a maturity pool position", async () => {
-        await expect(market.seize(owner.address, owner.address, "0")).to.be.revertedWith("Pausable: paused");
+        await expect(market.seize(owner.address, owner.address, "0")).to.be.revertedWith("ContractPaused()");
       });
       it("THEN it should NOT revert when calling a function that doesn't have whenNotPaused modifier", async () => {
         await expect(market.setMaxFuturePools(24)).to.not.be.reverted;
       });
       it("AND WHEN a pause is called again, THEN it should revert with Pausable error", async () => {
-        await expect(market.pause()).to.be.revertedWith("Pausable: paused");
+        await expect(market.pause()).to.be.revertedWith("ContractPaused()");
       });
       describe("AND GIVEN an unpause for all actions that have whenNotPaused modifier", () => {
         beforeEach(async () => {
@@ -86,7 +86,7 @@ describe("Market - Pausable", function () {
           await expect(exactlyEnv.depositSP("DAI", "100")).to.not.be.reverted;
         });
         it("AND WHEN an unpause is called again, THEN it should revert with Pausable error", async () => {
-          await expect(market.unpause()).to.be.revertedWith("Pausable: not paused");
+          await expect(market.unpause()).to.be.revertedWith("NotPaused()");
         });
       });
     });

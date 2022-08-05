@@ -2,13 +2,13 @@
 pragma solidity 0.8.15;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
 import { Auditor, InvalidParameter } from "./Auditor.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
+import { Pausable } from "./utils/Pausable.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 
 contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
@@ -19,9 +19,6 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   using FixedLib for FixedLib.Pool;
   using FixedLib for FixedLib.Position;
   using FixedLib for uint256;
-
-  bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-  uint256 public constant CLOSE_FACTOR = 5e17;
 
   mapping(uint256 => mapping(address => FixedLib.Position)) public fixedDepositPositions;
   mapping(uint256 => mapping(address => FixedLib.Position)) public fixedBorrowPositions;
@@ -108,9 +105,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     floatingDebt = newFloatingDebt;
     uint256 memFloatingAssets = floatingAssets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed, also considering the reserves
-    if (floatingBackupBorrowed + newFloatingDebt > memFloatingAssets.mulWadDown(1e18 - reserveFactor)) {
-      revert InsufficientProtocolLiquidity();
-    }
+    checkInsufficient(floatingBackupBorrowed + newFloatingDebt > memFloatingAssets.mulWadDown(1e18 - reserveFactor));
 
     uint256 newFloatingBorrowShares = totalFloatingBorrowShares + shares;
     totalFloatingBorrowShares = newFloatingBorrowShares;
@@ -180,7 +175,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     borrowShares = Math.min(borrowShares, userBorrowShares);
     assets = previewRefund(borrowShares);
 
-    if (assets == 0) revert ZeroRepay();
+    checkRepay(assets);
 
     newFloatingDebt -= assets;
     uint256 newFloatingBorrowShares = totalFloatingBorrowShares - borrowShares;
@@ -212,7 +207,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
 
     (uint256 fee, uint256 backupFee) = pool.calculateDeposit(assets, backupFeeRate);
     positionAssets = assets + fee;
-    if (positionAssets < minAssetsRequired) revert Disagreement();
+    checkDisagreement(positionAssets < minAssetsRequired);
 
     floatingBackupBorrowed -= pool.deposit(assets);
     pool.unassignedEarnings -= fee + backupFee;
@@ -275,13 +270,11 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       uint256 memFloatingBackupBorrowed = floatingBackupBorrowed;
       memFloatingBackupBorrowed += pool.borrow(assets);
       floatingBackupBorrowed = memFloatingBackupBorrowed;
-      if (memFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
-        revert InsufficientProtocolLiquidity();
-      }
+      checkInsufficient(memFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor));
     }
 
     // validate that the account is not taking arbitrary fees
-    if (assetsOwed > maxAssets) revert Disagreement();
+    checkDisagreement(assetsOwed > maxAssets);
 
     if (msg.sender != borrower) {
       uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
@@ -340,7 +333,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     address receiver,
     address owner
   ) public nonReentrant returns (uint256 assetsDiscounted) {
-    if (positionAssets == 0) revert ZeroWithdraw();
+    checkWithdraw(positionAssets);
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
@@ -369,7 +362,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
       assetsDiscounted = positionAssets;
     }
 
-    if (assetsDiscounted < minAssetsRequired) revert Disagreement();
+    checkDisagreement(assetsDiscounted < minAssetsRequired);
 
     if (msg.sender != owner) {
       uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
@@ -381,7 +374,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     floatingBackupBorrowed += pool.withdraw(
       FixedLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal
     );
-    if (floatingBackupBorrowed + floatingDebt > floatingAssets) revert InsufficientProtocolLiquidity();
+    checkInsufficient(floatingBackupBorrowed + floatingDebt > floatingAssets);
 
     // All the fees go to unassigned or to the floating pool
     (uint256 unassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
@@ -450,7 +443,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     address borrower,
     bool canDiscount
   ) internal returns (uint256 actualRepayAssets) {
-    if (positionAssets == 0) revert ZeroRepay();
+    checkRepay(positionAssets);
 
     FixedLib.Pool storage pool = fixedPools[maturity];
 
@@ -489,7 +482,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     }
 
     // verify that the account agrees to this discount or penalty
-    if (actualRepayAssets > maxAssets) revert Disagreement();
+    checkDisagreement(actualRepayAssets > maxAssets);
 
     // reduce the borrowed and might decrease the SP debt
     floatingBackupBorrowed -= pool.repay(scaleDebtCovered.principal);
@@ -534,7 +527,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
 
     bool moreCollateral;
     (maxAssets, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
-    if (maxAssets == 0) revert ZeroRepay();
+    checkRepay(maxAssets);
 
     uint256 packedMaturities = fixedBorrows[borrower];
     uint256 baseMaturity = packedMaturities % (1 << 32);
@@ -686,7 +679,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     address borrower,
     uint256 assets
   ) internal returns (bool moreCollateral) {
-    if (assets == 0) revert ZeroWithdraw();
+    checkWithdraw(assets);
 
     // reverts on failure
     auditor.checkSeize(seizeMarket, this);
@@ -724,7 +717,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
     floatingAssets = newFloatingAssets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed
-    if (newFloatingAssets < floatingBackupBorrowed + newFloatingDebt) revert InsufficientProtocolLiquidity();
+    checkInsufficient(floatingBackupBorrowed + newFloatingDebt > newFloatingAssets);
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
@@ -1010,12 +1003,32 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     return supply == 0 ? shares : shares.mulDivUp(totalFloatingBorrowAssets(), supply);
   }
 
+  function checkRepay(uint256 assets) internal pure {
+    if (assets == 0) revert ZeroRepay();
+  }
+
+  function checkWithdraw(uint256 assets) internal pure {
+    if (assets == 0) revert ZeroWithdraw();
+  }
+
+  function checkInvalid(bool invalid) internal pure {
+    if (invalid) revert InvalidParameter();
+  }
+
+  function checkDisagreement(bool disagreement) internal pure {
+    if (disagreement) revert Disagreement();
+  }
+
+  function checkInsufficient(bool insufficient) internal pure {
+    if (insufficient) revert InsufficientProtocolLiquidity();
+  }
+
   /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
   /// liquidity.
   /// @dev Value can only be set between 20% and 0%.
   /// @param backupFeeRate_ percentage amount represented with 1e18 decimals.
   function setBackupFeeRate(uint256 backupFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (backupFeeRate_ > 0.2e18) revert InvalidParameter();
+    checkInvalid(backupFeeRate_ > 0.2e18);
     backupFeeRate = backupFeeRate_;
     emit BackupFeeRateSet(backupFeeRate_);
   }
@@ -1024,7 +1037,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @dev Values can only be set between 0 and 100%.
   /// @param dampSpeed represented with 18 decimals.
   function setDampSpeed(DampSpeed memory dampSpeed) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (dampSpeed.up > 1e18 || dampSpeed.down > 1e18) revert InvalidParameter();
+    checkInvalid(dampSpeed.up > 1e18 || dampSpeed.down > 1e18);
     dampSpeedUp = dampSpeed.up;
     dampSpeedDown = dampSpeed.down;
     emit DampSpeedSet(dampSpeed.up, dampSpeed.down);
@@ -1038,7 +1051,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     public
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
-    if (earningsAccumulatorSmoothFactor_ > 4e18) revert InvalidParameter();
+    checkInvalid(earningsAccumulatorSmoothFactor_ > 4e18);
     earningsAccumulatorSmoothFactor = earningsAccumulatorSmoothFactor_;
     emit EarningsAccumulatorSmoothFactorSet(earningsAccumulatorSmoothFactor_);
   }
@@ -1054,7 +1067,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @dev Value can not be 0 or higher than 224. If value is decreased, VALID maturities will become NOT_READY.
   /// @param futurePools number of pools to be active at the same time.
   function setMaxFuturePools(uint8 futurePools) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (futurePools > 224 || futurePools == 0) revert InvalidParameter();
+    checkInvalid(futurePools > 224 || futurePools == 0);
     maxFuturePools = futurePools;
     emit MaxFuturePoolsSet(futurePools);
   }
@@ -1063,7 +1076,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @dev Value can only be set approximately between 5% and 1% daily.
   /// @param penaltyRate_ percentage represented with 18 decimals.
   function setPenaltyRate(uint256 penaltyRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (penaltyRate_ > 5.79e11 || penaltyRate_ < 1.15e11) revert InvalidParameter();
+    checkInvalid(penaltyRate_ > 5.79e11 || penaltyRate_ < 1.15e11);
     penaltyRate = penaltyRate_;
     emit PenaltyRateSet(penaltyRate_);
   }
@@ -1072,7 +1085,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @dev Value can only be set between 20% and 0%.
   /// @param reserveFactor_ parameter represented with 18 decimals.
   function setReserveFactor(uint128 reserveFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (reserveFactor_ > 0.2e18) revert InvalidParameter();
+    checkInvalid(reserveFactor_ > 0.2e18);
     reserveFactor = reserveFactor_;
     emit ReserveFactorSet(reserveFactor_);
   }
@@ -1081,7 +1094,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   /// @param treasury_ address of the treasury that will receive the minted eTokens.
   /// @param treasuryFeeRate_ represented with 1e18 decimals.
   function setTreasury(address treasury_, uint128 treasuryFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (treasuryFeeRate_ > 1e17) revert InvalidParameter();
+    checkInvalid(treasuryFeeRate_ > 1e17);
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
     emit TreasurySet(treasury_, treasuryFeeRate_);
