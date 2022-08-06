@@ -3,6 +3,7 @@ import "hardhat-deploy";
 import "solidity-coverage";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
+import "hardhat-contract-sizer";
 import "@nomiclabs/hardhat-waffle";
 import "@primitivefi/hardhat-dodoc";
 import "@openzeppelin/hardhat-upgrades";
@@ -64,6 +65,7 @@ const config: Config = {
   },
   dodoc: { exclude: ["mocks", "k", "elin", "ital"] },
   typechain: { outDir: "types", target: "ethers-v5" },
+  contractSizer: { runOnCompile: true },
   gasReporter: {
     currency: "USD",
     gasPrice: 100,
