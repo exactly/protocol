@@ -91,11 +91,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     address receiver,
     address borrower
   ) external nonReentrant whenNotPaused returns (uint256 shares) {
-    if (msg.sender != borrower) {
-      uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
-
-      if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assets);
-    }
+    checkAllowance(borrower, assets);
 
     uint256 newFloatingDebt = updateFloatingDebt();
 
@@ -276,11 +272,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     // validate that the account is not taking arbitrary fees
     checkDisagreement(assetsOwed > maxAssets);
 
-    if (msg.sender != borrower) {
-      uint256 allowed = allowance[borrower][msg.sender]; // saves gas for limited approvals.
-
-      if (allowed != type(uint256).max) allowance[borrower][msg.sender] = allowed - previewWithdraw(assetsOwed);
-    }
+    checkAllowance(borrower, assetsOwed);
 
     {
       // if account doesn't have a current position, add it to the list
@@ -364,11 +356,7 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
 
     checkDisagreement(assetsDiscounted < minAssetsRequired);
 
-    if (msg.sender != owner) {
-      uint256 allowed = allowance[owner][msg.sender]; // saves gas for limited approvals.
-
-      if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - previewWithdraw(assetsDiscounted);
-    }
+    checkAllowance(owner, assetsDiscounted);
 
     // remove the supply from the fixed rate pool
     floatingBackupBorrowed += pool.withdraw(
@@ -1001,6 +989,14 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
     uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
 
     return supply == 0 ? shares : shares.mulDivUp(totalFloatingBorrowAssets(), supply);
+  }
+
+  function checkAllowance(address account, uint256 assets) internal {
+    if (msg.sender != account) {
+      uint256 allowed = allowance[account][msg.sender]; // saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) allowance[account][msg.sender] = allowed - previewWithdraw(assets);
+    }
   }
 
   function checkRepay(uint256 assets) internal pure {
