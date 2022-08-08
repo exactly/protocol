@@ -1,11 +1,7 @@
 import hre from "hardhat";
+import { Manifest } from "@openzeppelin/upgrades-core";
+import { validateImpl } from "@openzeppelin/hardhat-upgrades/dist/utils/validate-impl";
 import { getDeployData } from "@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl";
-import {
-  assertStorageUpgradeSafe,
-  assertUpgradeSafe,
-  getStorageLayoutForAddress,
-  Manifest,
-} from "@openzeppelin/upgrades-core";
 import type { DeployResult } from "hardhat-deploy/types";
 
 const {
@@ -22,21 +18,12 @@ export default async (
     args?: unknown[],
   ) => Promise<Pick<DeployResult, "address" | "transactionHash" | "implementation">>,
 ) => {
-  const { validations, version, fullOpts, layout } = await getDeployData(hre, await getContractFactory(contractName), {
-    constructorArgs,
-  });
-
-  assertUpgradeSafe(validations, version, fullOpts);
-
-  const currentImpl = await getOrNull(`${contractName}_Implementation`);
-  if (currentImpl) {
-    const manifest = await Manifest.forNetwork(provider);
-    const currentLayout = await getStorageLayoutForAddress(manifest, validations, currentImpl.address);
-    assertStorageUpgradeSafe(currentLayout, layout, fullOpts);
-  }
+  const deployData = await getDeployData(hre, await getContractFactory(contractName), { constructorArgs });
+  await validateImpl(deployData, {}, (await getOrNull(`${contractName}_Implementation`))?.address);
 
   if (deploy) {
     const { address, transactionHash: txHash, implementation } = await deploy(contractName, constructorArgs);
+    const { layout } = deployData;
     const manifest = await Manifest.forNetwork(provider);
     await manifest.lockedRun(async () => {
       const d = await manifest.read();
