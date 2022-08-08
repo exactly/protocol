@@ -2,10 +2,10 @@ import type { DeployFunction } from "hardhat-deploy/types";
 import validateUpgrade from "./.utils/validateUpgrade";
 
 const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAccounts }) => {
-  await validateUpgrade("Previewer", [(await get("Auditor")).address], async (name, args) => {
-    const { deployer } = await getNamedAccounts();
-    return deploy(name, {
-      args,
+  const { deployer } = await getNamedAccounts();
+  await validateUpgrade("Previewer", { args: [(await get("Auditor")).address] }, async (name, opts) =>
+    deploy(name, {
+      ...opts,
       proxy: {
         proxyContract: "ERC1967Proxy",
         proxyArgs: ["{implementation}", "{data}"],
@@ -15,8 +15,8 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
       },
       from: deployer,
       log: true,
-    });
-  });
+    }),
+  );
 };
 
 func.tags = ["Previewer"];

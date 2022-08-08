@@ -28,7 +28,7 @@ const config: Config = {
   namedAccounts: {
     deployer: { default: 0 },
     multisig: {
-      default: 1,
+      default: 0,
       rinkeby: "0x755DF607BA55ff6430FEE0126A52Bf82D1e57F5f",
     },
   },
