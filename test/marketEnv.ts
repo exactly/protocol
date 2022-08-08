@@ -4,6 +4,7 @@ import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type {
   Auditor,
   Auditor__factory,
+  ERC1967Proxy__factory,
   MarketHarness,
   MarketHarness__factory,
   MockERC20,
@@ -76,18 +77,13 @@ export class MarketEnv {
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
     const auditorImpl = await Auditor.deploy();
     await auditorImpl.deployed();
-    const auditorProxy = await (
-      await getContractFactory("ERC1967Proxy")
-    ).deploy(
+    const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
       auditorImpl.address,
-      Auditor.interface.encodeFunctionData("initialize", [
-        owner.address,
-        oracle.address,
-        { liquidator: parseUnits("0.1"), lenders: 0 },
-      ]),
+      [],
     );
     await auditorProxy.deployed();
     const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
+    await auditor.initialize(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
 
     const MarketHarness = (await getContractFactory("MarketHarness")) as MarketHarness__factory;
     const marketHarness = await MarketHarness.deploy(

@@ -1,33 +1,32 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.15;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { Market, NotMarket } from "./Market.sol";
 import { ExactlyOracle } from "./ExactlyOracle.sol";
-import { Upgradeable } from "./utils/Upgradeable.sol";
 
-contract Auditor is AccessControlUpgradeable, Upgradeable {
+contract Auditor is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
 
   uint256 public constant TARGET_HEALTH = 1.25e18;
 
   mapping(address => uint256) public accountMarkets;
   mapping(Market => MarketData) public markets;
+  Market[] public marketList;
 
   LiquidationIncentive public liquidationIncentive;
-  Market[] public marketList;
 
   ExactlyOracle public oracle;
 
-  function initialize(
-    address upgradeAdmin,
-    ExactlyOracle oracle_,
-    LiquidationIncentive memory liquidationIncentive_
-  ) external initializer {
-    Upgradeable.initialize(upgradeAdmin);
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  constructor() {
+    _disableInitializers();
+  }
 
+  function initialize(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) external initializer {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setOracle(oracle_);

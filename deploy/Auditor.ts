@@ -32,10 +32,10 @@ const func: DeployFunction = async ({
       ...opts,
       proxy: {
         owner: timelockAddress,
-        proxyContract: "ERC1967Proxy",
-        proxyArgs: ["{implementation}", "{data}"],
+        viaAdminContract: "ProxyAdmin",
+        proxyContract: "TransparentUpgradeableProxy",
         execute: {
-          init: { methodName: "initialize", args: [timelockAddress, oracleAddress, liquidationIncentive] },
+          init: { methodName: "initialize", args: [oracleAddress, liquidationIncentive] },
         },
       },
       from: deployer,
@@ -58,6 +58,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Auditor"];
-func.dependencies = ["ExactlyOracle", "TimelockController"];
+func.dependencies = ["ProxyAdmin", "ExactlyOracle", "TimelockController"];
 
 export default func;

@@ -31,7 +31,7 @@ contract AuditorTest is Test {
   function setUp() external {
     oracle = new MockOracle();
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
-    auditor.initialize(BOB, ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor.initialize(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     market = new MockMarket(auditor);
     vm.label(BOB, "bob");
   }

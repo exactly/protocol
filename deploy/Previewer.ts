@@ -6,13 +6,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
   await validateUpgrade("Previewer", { args: [(await get("Auditor")).address] }, async (name, opts) =>
     deploy(name, {
       ...opts,
-      proxy: {
-        proxyContract: "ERC1967Proxy",
-        proxyArgs: ["{implementation}", "{data}"],
-        execute: {
-          init: { methodName: "initialize", args: [] },
-        },
-      },
+      proxy: { proxyContract: "TransparentUpgradeableProxy" },
       from: deployer,
       log: true,
     }),

@@ -5,15 +5,13 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
 import { ExactlyOracle } from "../ExactlyOracle.sol";
-import { Upgradeable } from "../utils/Upgradeable.sol";
-
 import { FixedLib } from "../utils/FixedLib.sol";
 import { Auditor } from "../Auditor.sol";
 import { Market } from "../Market.sol";
 
 /// @title Previewer
 /// @notice Contract to be consumed by Exactly's front-end dApp.
-contract Previewer is Upgradeable {
+contract Previewer {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
   using FixedLib for FixedLib.Position;
@@ -69,10 +67,6 @@ contract Previewer is Upgradeable {
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_) {
     auditor = auditor_;
-  }
-
-  function initialize() external initializer {
-    Upgradeable.initialize(msg.sender);
   }
 
   /// @notice Function to get a certain account extended data.

@@ -26,7 +26,7 @@ export default async (name: string, opts?: DeployOptions, deploy?: DeployCallbac
   await manifest.lockedRun(async () => {
     const d = await manifest.read();
 
-    if (!d.proxies.find((p) => p.address === address)) d.proxies.push({ kind: "uups", address, txHash });
+    if (!d.proxies.find((p) => p.address === address)) d.proxies.push({ kind: "transparent", address, txHash });
 
     if (implementation && !d.impls[implementation]) d.impls[implementation] = { address: implementation, layout };
 

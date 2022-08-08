@@ -64,8 +64,8 @@ export class DefaultEnv {
     this.maxOracleDelayTime = 3600; // 1 hour
   }
 
-  static async create(config: EnvConfig): Promise<DefaultEnv> {
-    const mockAssets = config.mockAssets ?? {
+  static async create(config?: EnvConfig): Promise<DefaultEnv> {
+    const mockAssets = config?.mockAssets ?? {
       DAI: {
         decimals: 18,
         adjustFactor: parseUnits("0.8"),
@@ -109,7 +109,7 @@ export class DefaultEnv {
       parseUnits("1"),
     );
 
-    const interestRateModel = config.useRealInterestRateModel
+    const interestRateModel = config?.useRealInterestRateModel
       ? realInterestRateModel
       : await MockInterestRateModelFactory.deploy(0);
     await interestRateModel.deployed();
@@ -119,14 +119,11 @@ export class DefaultEnv {
     await auditorImpl.deployed();
     const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
       auditorImpl.address,
-      Auditor.interface.encodeFunctionData("initialize", [
-        owner.address,
-        oracle.address,
-        { liquidator: parseUnits("0.1"), lenders: 0 },
-      ]),
+      [],
     );
     await auditorProxy.deployed();
     const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
+    await auditor.initialize(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
 
     // enable all the Markets in the auditor
     await Promise.all(

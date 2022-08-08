@@ -36,7 +36,7 @@ describe("Liquidations", function () {
     alice = await ethers.getNamedSigner("deployer");
     [bob, john] = await ethers.getUnnamedSigners();
 
-    exactlyEnv = await DefaultEnv.create({});
+    exactlyEnv = await DefaultEnv.create();
     auditor = exactlyEnv.auditor;
 
     marketETH = exactlyEnv.getMarket("WETH");

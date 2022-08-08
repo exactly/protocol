@@ -27,7 +27,7 @@ describe("Smart Pool", function () {
   beforeEach(async () => {
     [bob, john] = await ethers.getUnnamedSigners();
 
-    exactlyEnv = await DefaultEnv.create({});
+    exactlyEnv = await DefaultEnv.create();
     dai = exactlyEnv.getUnderlying("DAI") as MockERC20;
     marketDAI = exactlyEnv.getMarket("DAI");
 

@@ -1,17 +1,27 @@
 import { expect } from "chai";
 import { ethers, deployments, config } from "hardhat";
+import type { Contract } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, Market, MockERC20 } from "../types";
+import type {
+  Auditor,
+  Auditor__factory,
+  Market,
+  Market__factory,
+  MockERC20,
+  ProxyAdmin,
+  TransparentUpgradeableProxy,
+} from "../types";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
   constants: { AddressZero },
   utils: { parseUnits },
+  getContractFactory,
   getNamedSigner,
   getContract,
 } = ethers;
 
-const { deploy, fixture, get } = deployments;
+const { fixture, get } = deployments;
 
 describe("Auditor Admin", function () {
   let dai: MockERC20;
@@ -55,12 +65,6 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set adjust factor, THEN the transaction should revert with Access Control", async () => {
       await expect(auditor.setAdjustFactor(marketDAI.address, 1)).to.be.revertedWith("AccessControl");
     });
-
-    it("WHEN trying to upgrade implementation, THEN the transaction should revert with NotAdmin", async () => {
-      await expect(
-        auditor.upgradeTo((await deploy("NewAuditor", { contract: "Auditor", from: deployer.address })).address),
-      ).to.be.revertedWith("NotAdmin");
-    });
   });
 
   describe("GIVEN the ADMIN/multisig account", () => {
@@ -74,29 +78,25 @@ describe("Auditor Admin", function () {
       auditor = auditor.connect(multisig);
     });
 
-    it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MARKET_ALREADY_LISTED", async () => {
+    it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MarketAlreadyListed", async () => {
       await expect(auditor.enableMarket(marketDAI.address, 0, await dai.decimals())).to.be.revertedWith(
         "MarketAlreadyListed()",
       );
     });
 
-    it("WHEN trying to set a new market with a different auditor, THEN the transaction should revert with AUDITOR_MISMATCH", async () => {
-      const newAuditor = await deploy("NewAuditor", { contract: "Auditor", from: deployer.address });
-      const market = await deploy("NewMarket", {
-        contract: "Market",
-        args: [
-          dai.address,
-          12,
-          2,
-          newAuditor.address,
-          AddressZero,
-          parseUnits("4", 11),
-          parseUnits("0.2"),
-          parseUnits("0.1"),
-          { up: parseUnits("1"), down: parseUnits("1") },
-        ],
-        from: deployer.address,
-      });
+    it("WHEN trying to set a new market with a different auditor, THEN the transaction should revert with AuditorMismatch", async () => {
+      const newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy();
+      const market = await ((await getContractFactory("Market")) as Market__factory).deploy(
+        dai.address,
+        12,
+        2,
+        newAuditor.address,
+        AddressZero,
+        parseUnits("4", 11),
+        parseUnits("0.2"),
+        parseUnits("0.1"),
+        { up: parseUnits("1"), down: parseUnits("1") },
+      );
       await expect(auditor.enableMarket(market.address, parseUnits("0.5"), await dai.decimals())).to.be.revertedWith(
         "AuditorMismatch()",
       );
@@ -109,21 +109,17 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
-      const market = await deploy("NewMarket", {
-        contract: "Market",
-        args: [
-          dai.address,
-          12,
-          2,
-          auditor.address,
-          AddressZero,
-          parseUnits("4", 11),
-          parseUnits("0.2"),
-          parseUnits("0.1"),
-          { up: parseUnits("1"), down: parseUnits("1") },
-        ],
-        from: deployer.address,
-      });
+      const market = await ((await getContractFactory("Market")) as Market__factory).deploy(
+        dai.address,
+        12,
+        2,
+        auditor.address,
+        AddressZero,
+        parseUnits("4", 11),
+        parseUnits("0.2"),
+        parseUnits("0.1"),
+        { up: parseUnits("1"), down: parseUnits("1") },
+      );
       await expect(auditor.enableMarket(market.address, parseUnits("0.5"), 18))
         .to.emit(auditor, "MarketListed")
         .withArgs(market.address, 18);
@@ -145,31 +141,50 @@ describe("Auditor Admin", function () {
         .withArgs(marketDAI.address, parseUnits("0.7"));
       expect((await auditor.markets(marketDAI.address)).adjustFactor).to.equal(parseUnits("0.7"));
     });
-
-    it("WHEN trying to upgrade implementation, THEN the transaction should revert with Access Control", async () => {
-      await expect(
-        auditor.upgradeTo((await deploy("NewAuditor", { contract: "Auditor", from: deployer.address })).address),
-      ).to.be.revertedWith("NotAdmin");
-    });
   });
 
   describe("Upgradeable", () => {
+    let proxy: TransparentUpgradeableProxy;
+    let proxyAdmin: ProxyAdmin;
     let newAuditor: Auditor;
 
     beforeEach(async () => {
-      await deploy("NewAuditor", { contract: "Auditor", from: deployer.address });
-      newAuditor = await getContract<Auditor>("NewAuditor", deployer);
+      proxy = auditor as Contract as TransparentUpgradeableProxy;
+      proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", deployer);
+      newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy();
     });
 
-    it("WHEN trying to initialize implementation, THEN the transaction should revert with NotAdmin", async () => {
-      await expect(
-        newAuditor.initialize(multisig.address, AddressZero, { liquidator: 0, lenders: 0 }),
-      ).to.be.revertedWith("Initializable: contract is already initialized");
+    it("WHEN trying to initialize implementation, THEN the transaction should revert with Initializable", async () => {
+      await expect(newAuditor.initialize(AddressZero, { liquidator: 0, lenders: 0 })).to.be.revertedWith(
+        "Initializable: contract is already initialized",
+      );
     });
 
-    it("WHEN trying to upgrade implementation, THEN the auditor should emit Upgraded event", async () => {
-      await expect(timelockExecute(multisig, auditor, "upgradeTo", [newAuditor.address]))
-        .to.emit(auditor, "Upgraded")
+    it("WHEN regular user tries to upgrade, THEN the transaction should revert with not found", async () => {
+      await expect(proxy.upgradeTo(newAuditor.address)).to.be.revertedWith(
+        "function selector was not recognized and there's no fallback function",
+      );
+      await expect(proxy.connect(multisig).upgradeTo(newAuditor.address)).to.be.revertedWith(
+        "function selector was not recognized and there's no fallback function",
+      );
+    });
+
+    it("WHEN regular user tries to upgrade through proxy admin, THEN the transaction should revert with Ownable", async () => {
+      await expect(proxyAdmin.upgrade(proxy.address, newAuditor.address)).to.be.revertedWith(
+        "Ownable: caller is not the owner",
+      );
+      await expect(proxyAdmin.connect(multisig).upgrade(proxy.address, newAuditor.address)).to.be.revertedWith(
+        "Ownable: caller is not the owner",
+      );
+    });
+
+    it("WHEN timelock tries to upgrade directly, THEN the transaction should revert with not found", async () => {
+      await expect(timelockExecute(multisig, auditor, "upgradeTo", [newAuditor.address])).to.be.reverted;
+    });
+
+    it("WHEN timelock tries to upgrade through proxy admin, THEN the proxy should emit Upgraded event", async () => {
+      await expect(timelockExecute(multisig, proxyAdmin, "upgrade", [proxy.address, newAuditor.address]))
+        .to.emit(proxy, "Upgraded")
         .withArgs(newAuditor.address);
     });
   });

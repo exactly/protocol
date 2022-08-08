@@ -19,7 +19,7 @@ describe("Market - Pausable", function () {
       owner = await ethers.getNamedSigner("deployer");
       [account] = await ethers.getUnnamedSigners();
 
-      exactlyEnv = await DefaultEnv.create({});
+      exactlyEnv = await DefaultEnv.create();
       market = exactlyEnv.getMarket("DAI");
       PAUSER_ROLE = await market.PAUSER_ROLE();
 

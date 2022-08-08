@@ -33,7 +33,7 @@ contract PreviewerTest is Test {
     oracle = new MockOracle();
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
-    auditor.initialize(BOB, ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor.initialize(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
 
     irm = new InterestRateModel(
       InterestRateModel.Curve({ a: 0.72e18, b: -0.22e18, maxUtilization: 3e18 }),
@@ -66,9 +66,7 @@ contract PreviewerTest is Test {
     vm.prank(ALICE);
     asset.approve(address(market), 50_000 ether);
 
-    previewer = Previewer(
-      address(new ERC1967Proxy(address(new Previewer(auditor)), abi.encodeCall(Previewer.initialize, ())))
-    );
+    previewer = new Previewer(auditor);
   }
 
   function testPreviewDepositAtMaturityReturningAccurateAmount() external {
