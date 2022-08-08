@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.15;
 
-import { Market, InterestRateModel, ERC20, Auditor } from "../Market.sol";
+import { Auditor, ERC20, InterestRateModel, Market } from "../Market.sol";
 
 contract MarketHarness is Market {
   uint256 public returnValue;

@@ -63,7 +63,7 @@ const config: Config = {
       floatingFullUtilization: 7.5,
     },
   },
-  dodoc: { exclude: ["mocks", "k", "elin", "ital"] },
+  dodoc: { exclude: ["mocks", "k", "elin", "rc"] },
   typechain: { outDir: "types", target: "ethers-v5" },
   contractSizer: { runOnCompile: true },
   gasReporter: {

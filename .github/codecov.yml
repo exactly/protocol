@@ -1,3 +1,4 @@
 ignore:
-  - "test/**"
-  - "**/mocks/**"
+  - test/**
+  - contracts/mocks/**
+  - contracts/utils/import.sol
