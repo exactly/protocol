@@ -170,14 +170,10 @@ describe("Validations", function () {
       await expect(market.setMaxFuturePools(225)).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the dampSpeedUp with more than 100%", async () => {
-      await expect(market.setDampSpeed({ up: parseUnits("1.01"), down: parseUnits("0") })).to.be.revertedWith(
-        "InvalidParameter()",
-      );
+      await expect(market.setDampSpeed(parseUnits("1.01"), parseUnits("0"))).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the dampSpeedDown with more than 100%", async () => {
-      await expect(market.setDampSpeed({ up: parseUnits("0"), down: parseUnits("1.01") })).to.be.revertedWith(
-        "InvalidParameter()",
-      );
+      await expect(market.setDampSpeed(parseUnits("0"), parseUnits("1.01"))).to.be.revertedWith("InvalidParameter()");
     });
     it("WHEN trying to set the liquidationIncentive with more than 20%", async () => {
       await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.21"), lenders: 0 })).to.be.revertedWith(
@@ -273,10 +269,10 @@ describe("Validations", function () {
       await expect(market.setMaxFuturePools(224)).to.not.be.reverted;
     });
     it("WHEN trying to set the dampSpeedUp with 0 and dampSpeedDown with 1", async () => {
-      await expect(market.setDampSpeed({ up: parseUnits("0"), down: parseUnits("1") })).to.not.be.reverted;
+      await expect(market.setDampSpeed(parseUnits("0"), parseUnits("1"))).to.not.be.reverted;
     });
     it("WHEN trying to set the dampSpeedDown with 0 and dampSpeedUp with 1", async () => {
-      await expect(market.setDampSpeed({ up: parseUnits("1"), down: parseUnits("0") })).to.not.be.reverted;
+      await expect(market.setDampSpeed(parseUnits("1"), parseUnits("0"))).to.not.be.reverted;
     });
     it("WHEN trying to set the liquidationIncentive with 5%", async () => {
       await expect(auditor.setLiquidationIncentive({ liquidator: parseUnits("0.05"), lenders: 0 })).to.not.be.reverted;

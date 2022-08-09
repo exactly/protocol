@@ -15,7 +15,8 @@ contract MarketHarness is Market {
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
-    DampSpeed memory dampSpeed_
+    uint256 dampSpeedUp_,
+    uint256 dampSpeedDown_
   ) Market(asset_, auditor_) {
     assembly {
       sstore(0, 0xffff)
@@ -28,7 +29,7 @@ contract MarketHarness is Market {
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeed_);
+    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
   function borrowMaturityWithReturnValue(

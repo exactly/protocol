@@ -9,16 +9,7 @@ import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
   config: {
-    finance: {
-      assets,
-      adjustFactor,
-      penaltyRatePerDay,
-      backupFeeRate,
-      reserveFactor,
-      dampSpeed: { up, down },
-      maxFuturePools,
-      earningsAccumulatorSmoothFactor,
-    },
+    finance: { maxFuturePools, ...finance },
   },
   ethers: {
     utils: { parseUnits },
@@ -37,17 +28,14 @@ const func: DeployFunction = async ({
       getNamedAccounts(),
     ]);
 
-  const marketArgs = [
-    maxFuturePools,
-    parseUnits(String(earningsAccumulatorSmoothFactor)),
-    interestRateModel.address,
-    parseUnits(String(penaltyRatePerDay)).div(86_400),
-    parseUnits(String(backupFeeRate)),
-    parseUnits(String(reserveFactor)),
-    { up: parseUnits(String(up)), down: parseUnits(String(down)) },
-  ] as [number, BigNumber, string, BigNumber, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
+  const earningsAccumulatorSmoothFactor = parseUnits(String(finance.earningsAccumulatorSmoothFactor));
+  const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)).div(86_400);
+  const backupFeeRate = parseUnits(String(finance.backupFeeRate));
+  const reserveFactor = parseUnits(String(finance.reserveFactor));
+  const dampSpeedUp = parseUnits(String(finance.dampSpeed.up));
+  const dampSpeedDown = parseUnits(String(finance.dampSpeed.down));
 
-  for (const symbol of assets) {
+  for (const symbol of finance.assets) {
     const asset = await getContract<ERC20>(symbol);
     const marketName = `Market${symbol}`;
     await validateUpgrade(
@@ -61,7 +49,19 @@ const func: DeployFunction = async ({
             viaAdminContract: "ProxyAdmin",
             proxyContract: "TransparentUpgradeableProxy",
             execute: {
-              init: { methodName: "initialize", args: marketArgs },
+              init: {
+                methodName: "initialize",
+                args: [
+                  maxFuturePools,
+                  earningsAccumulatorSmoothFactor,
+                  interestRateModel.address,
+                  penaltyRate,
+                  backupFeeRate,
+                  reserveFactor,
+                  dampSpeedUp,
+                  dampSpeedDown,
+                ],
+              },
             },
           },
           from: deployer,
@@ -83,23 +83,23 @@ const func: DeployFunction = async ({
     if (!((await market.maxFuturePools()) === maxFuturePools)) {
       await executeOrPropose(market, "setMaxFuturePools", [maxFuturePools]);
     }
-    if (!(await market.earningsAccumulatorSmoothFactor()).eq(marketArgs[1])) {
-      await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [marketArgs[1]]);
+    if (!(await market.earningsAccumulatorSmoothFactor()).eq(earningsAccumulatorSmoothFactor)) {
+      await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [earningsAccumulatorSmoothFactor]);
     }
-    if (!(await market.penaltyRate()).eq(marketArgs[3])) {
-      await executeOrPropose(market, "setPenaltyRate", [marketArgs[4]]);
+    if (!(await market.penaltyRate()).eq(penaltyRate)) {
+      await executeOrPropose(market, "setPenaltyRate", [penaltyRate]);
     }
-    if (!(await market.backupFeeRate()).eq(marketArgs[4])) {
-      await executeOrPropose(market, "setBackupFeeRate", [marketArgs[5]]);
+    if (!(await market.backupFeeRate()).eq(backupFeeRate)) {
+      await executeOrPropose(market, "setBackupFeeRate", [backupFeeRate]);
     }
-    if (!(await market.reserveFactor()).eq(marketArgs[5])) {
-      await executeOrPropose(market, "setReserveFactor", [marketArgs[6]]);
+    if (!(await market.reserveFactor()).eq(reserveFactor)) {
+      await executeOrPropose(market, "setReserveFactor", [reserveFactor]);
     }
     if (!((await market.interestRateModel()) === interestRateModel.address)) {
       await executeOrPropose(market, "setInterestRateModel", [interestRateModel.address]);
     }
-    if (!(await market.dampSpeedUp()).eq(marketArgs[6].up) || !(await market.dampSpeedDown()).eq(marketArgs[6].down)) {
-      await executeOrPropose(market, "setDampSpeed", [marketArgs[6]]);
+    if (!(await market.dampSpeedUp()).eq(dampSpeedUp) || !(await market.dampSpeedDown()).eq(dampSpeedDown)) {
+      await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown]);
     }
 
     const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
@@ -107,11 +107,11 @@ const func: DeployFunction = async ({
       await executeOrPropose(exactlyOracle, "setPriceFeed", [market.address, priceFeedAddress]);
     }
 
-    const underlyingAdjustFactor = parseUnits(String(adjustFactor[symbol] ?? adjustFactor.default));
+    const adjustFactor = parseUnits(String(finance.adjustFactor[symbol] ?? finance.adjustFactor.default));
     if (!(await auditor.allMarkets()).includes(market.address)) {
-      await executeOrPropose(auditor, "enableMarket", [market.address, underlyingAdjustFactor, await asset.decimals()]);
-    } else if (!(await auditor.markets(market.address)).adjustFactor.eq(underlyingAdjustFactor)) {
-      await executeOrPropose(auditor, "setAdjustFactor", [market.address, underlyingAdjustFactor]);
+      await executeOrPropose(auditor, "enableMarket", [market.address, adjustFactor, await asset.decimals()]);
+    } else if (!(await auditor.markets(market.address)).adjustFactor.eq(adjustFactor)) {
+      await executeOrPropose(auditor, "setAdjustFactor", [market.address, adjustFactor]);
     }
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);

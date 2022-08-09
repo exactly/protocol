@@ -79,7 +79,8 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
-    DampSpeed memory dampSpeed_
+    uint256 dampSpeedUp_,
+    uint256 dampSpeedDown_
   ) external initializer {
     __AccessControl_init();
     __ReentrancyGuard_init();
@@ -96,7 +97,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeed_);
+    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
   /// @notice Borrows a certain amount from the floating pool.
@@ -110,30 +111,21 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   ) external nonReentrant whenNotPaused returns (uint256 shares) {
     checkAllowance(borrower, assets);
 
-    uint256 newFloatingDebt = updateFloatingDebt();
+    updateFloatingDebt();
 
     shares = previewBorrow(assets);
 
-    newFloatingDebt += assets;
+    uint256 newFloatingDebt = floatingDebt + assets;
     floatingDebt = newFloatingDebt;
-    uint256 memFloatingAssets = floatingAssets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed, also considering the reserves
-    checkInsufficient(floatingBackupBorrowed + newFloatingDebt > memFloatingAssets.mulWadDown(1e18 - reserveFactor));
+    checkInsufficient(floatingBackupBorrowed + newFloatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor));
 
-    uint256 newFloatingBorrowShares = totalFloatingBorrowShares + shares;
-    totalFloatingBorrowShares = newFloatingBorrowShares;
+    totalFloatingBorrowShares += shares;
     floatingBorrowShares[borrower] += shares;
 
     auditor.checkBorrow(this, borrower);
     emit Borrow(msg.sender, receiver, borrower, assets, shares);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      memFloatingAssets,
-      newFloatingBorrowShares,
-      newFloatingDebt,
-      earningsAccumulator
-    );
+    emitMarketUpdate();
     asset.safeTransfer(receiver, assets);
   }
 
@@ -151,14 +143,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     borrowShares = previewRepay(assets);
     actualRepay = noTransferRefund(borrowShares, borrower);
     asset.safeTransferFrom(msg.sender, address(this), actualRepay);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      floatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
+    emitMarketUpdate();
   }
 
   /// @notice Repays a certain amount of shares to the floating pool.
@@ -168,14 +153,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   function refund(uint256 borrowShares, address borrower) external nonReentrant whenNotPaused returns (uint256 assets) {
     assets = noTransferRefund(borrowShares, borrower);
     asset.safeTransferFrom(msg.sender, address(this), assets);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      floatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
+    emitMarketUpdate();
   }
 
   /// @notice Allows to (partially) repay a floating borrow. It does not transfer assets.
@@ -183,18 +161,16 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @param borrower the address of the account that has the debt.
   /// @return assets the actual amount that should be transferred into the protocol.
   function noTransferRefund(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
-    uint256 newFloatingDebt = updateFloatingDebt();
+    updateFloatingDebt();
     uint256 userBorrowShares = floatingBorrowShares[borrower];
     borrowShares = Math.min(borrowShares, userBorrowShares);
     assets = previewRefund(borrowShares);
 
     checkRepay(assets);
 
-    newFloatingDebt -= assets;
-    uint256 newFloatingBorrowShares = totalFloatingBorrowShares - borrowShares;
-    floatingDebt = newFloatingDebt;
+    floatingDebt -= assets;
     floatingBorrowShares[borrower] = userBorrowShares - borrowShares;
-    totalFloatingBorrowShares = newFloatingBorrowShares;
+    totalFloatingBorrowShares -= borrowShares;
 
     emit Repay(msg.sender, borrower, assets, borrowShares);
   }
@@ -227,28 +203,18 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     earningsAccumulator += backupFee;
 
     // update account's position
-    FixedLib.Position memory position = fixedDepositPositions[maturity][receiver];
+    FixedLib.Position storage position = fixedDepositPositions[maturity][receiver];
 
     // if account doesn't have a current position, add it to the list
-    if (position.principal == 0) {
-      fixedDeposits[receiver] = fixedDeposits[receiver].setMaturity(maturity);
-    }
+    if (position.principal == 0) fixedDeposits[receiver] = fixedDeposits[receiver].setMaturity(maturity);
 
     fixedDepositPositions[maturity][receiver] = FixedLib.Position(position.principal + assets, position.fee + fee);
 
-    uint256 newFloatingAssets = floatingAssets + backupEarnings;
-    floatingAssets = newFloatingAssets;
+    floatingAssets += backupEarnings;
 
     emit DepositAtMaturity(uint32(maturity), msg.sender, receiver, assets, fee);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      newFloatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
-    emit FixedEarningsUpdated(block.timestamp, uint32(maturity), pool.unassignedEarnings);
+    emitMarketUpdate();
+    emitFixedEarningsUpdate(maturity);
 
     asset.safeTransferFrom(msg.sender, address(this), assets);
   }
@@ -293,10 +259,8 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     {
       // if account doesn't have a current position, add it to the list
-      FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
-      if (position.principal == 0) {
-        fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
-      }
+      FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
+      if (position.principal == 0) fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
 
       // calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
       (uint256 newUnassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
@@ -309,22 +273,14 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
       fixedBorrowPositions[maturity][borrower] = FixedLib.Position(position.principal + assets, position.fee + fee);
     }
 
-    uint256 newFloatingAssets = floatingAssets + backupEarnings;
-    floatingAssets = newFloatingAssets;
+    floatingAssets += backupEarnings;
 
     auditor.checkBorrow(this, borrower);
     asset.safeTransfer(receiver, assets);
 
     emit BorrowAtMaturity(uint32(maturity), msg.sender, receiver, borrower, assets, fee);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      newFloatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
-    emit FixedEarningsUpdated(block.timestamp, uint32(maturity), pool.unassignedEarnings);
+    emitMarketUpdate();
+    emitFixedEarningsUpdate(maturity);
   }
 
   /// @notice Withdraws a certain amount from a maturity.
@@ -399,21 +355,13 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
       fixedDepositPositions[maturity][owner] = position;
     }
 
-    uint256 newFloatingAssets = floatingAssets + backupEarnings;
-    floatingAssets = newFloatingAssets;
+    floatingAssets += backupEarnings;
 
     asset.safeTransfer(receiver, assetsDiscounted);
 
     emit WithdrawAtMaturity(uint32(maturity), msg.sender, receiver, owner, positionAssets, assetsDiscounted);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      newFloatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
-    emit FixedEarningsUpdated(block.timestamp, uint32(maturity), pool.unassignedEarnings);
+    emitMarketUpdate();
+    emitFixedEarningsUpdate(maturity);
   }
 
   /// @notice Repays a certain amount to a maturity.
@@ -458,15 +406,16 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     uint256 debtCovered = Math.min(positionAssets, position.principal + position.fee);
 
-    FixedLib.Position memory scaleDebtCovered = FixedLib.Position(position.principal, position.fee).scaleProportionally(
-      debtCovered
-    );
+    uint256 principalCovered = FixedLib
+      .Position(position.principal, position.fee)
+      .scaleProportionally(debtCovered)
+      .principal;
 
     // early repayment allows a discount from the unassigned earnings
     if (block.timestamp < maturity) {
       if (canDiscount) {
         // calculate the deposit fee considering the amount of debt the account'll pay
-        (uint256 discountFee, uint256 backupFee) = pool.calculateDeposit(scaleDebtCovered.principal, backupFeeRate);
+        (uint256 discountFee, uint256 backupFee) = pool.calculateDeposit(principalCovered, backupFeeRate);
 
         // remove the fee from unassigned earnings
         pool.unassignedEarnings -= discountFee + backupFee;
@@ -490,7 +439,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     checkDisagreement(actualRepayAssets > maxAssets);
 
     // reduce the borrowed and might decrease the SP debt
-    floatingBackupBorrowed -= pool.repay(scaleDebtCovered.principal);
+    floatingBackupBorrowed -= pool.repay(principalCovered);
 
     // update the account position
     position.reduceProportionally(debtCovered);
@@ -502,19 +451,11 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
       fixedBorrowPositions[maturity][borrower] = position;
     }
 
-    uint256 newFloatingAssets = floatingAssets + backupEarnings;
-    floatingAssets = newFloatingAssets;
+    floatingAssets += backupEarnings;
 
     emit RepayAtMaturity(uint32(maturity), msg.sender, borrower, actualRepayAssets, debtCovered);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      newFloatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
-    emit FixedEarningsUpdated(block.timestamp, uint32(maturity), pool.unassignedEarnings);
+    emitMarketUpdate();
+    emitFixedEarningsUpdate(maturity);
   }
 
   /// @notice Liquidates undercollateralized position(s).
@@ -549,7 +490,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         } else {
           uint256 position;
           {
-            FixedLib.Position memory p = fixedBorrowPositions[maturity][borrower];
+            FixedLib.Position storage p = fixedBorrowPositions[maturity][borrower];
             position = p.principal + p.fee;
           }
           uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
@@ -560,7 +501,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
             actualRepay = noTransferRepayAtMaturity(maturity, actualRepay, maxAssets, borrower, false);
             maxAssets -= actualRepay;
             {
-              FixedLib.Position memory p = fixedBorrowPositions[maturity][borrower];
+              FixedLib.Position storage p = fixedBorrowPositions[maturity][borrower];
               position = p.principal + p.fee;
             }
             debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
@@ -580,14 +521,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
       uint256 borrowShares = previewRepay(maxAssets);
       if (borrowShares > 0) {
         uint256 actualRepayAssets = noTransferRefund(borrowShares, borrower);
-        emit MarketUpdated(
-          block.timestamp,
-          totalSupply,
-          floatingAssets,
-          totalFloatingBorrowShares,
-          floatingDebt,
-          earningsAccumulator
-        );
+        emitMarketUpdate();
         repaidAssets += actualRepayAssets;
         maxAssets -= actualRepayAssets;
       }
@@ -614,23 +548,15 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         if ((packedMaturities & (1 << i)) != 0) {
           uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
 
-          FixedLib.Position memory position = fixedBorrowPositions[maturity][borrower];
+          FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
           uint256 badDebt = position.principal + position.fee;
           if (badDebt > 0) {
             floatingBackupBorrowed -= fixedPools[maturity].repay(position.principal);
-            spreadBadDebt(badDebt);
             delete fixedBorrowPositions[maturity][borrower];
             fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
 
             emit RepayAtMaturity(uint32(maturity), msg.sender, borrower, badDebt, badDebt);
-            emit MarketUpdated(
-              block.timestamp,
-              totalSupply,
-              floatingAssets,
-              totalFloatingBorrowShares,
-              floatingDebt,
-              earningsAccumulator
-            );
+            spreadBadDebt(badDebt);
           }
         }
 
@@ -643,14 +569,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
       if (borrowShares > 0) {
         uint256 badDebt = noTransferRefund(borrowShares, borrower);
         spreadBadDebt(badDebt);
-        emit MarketUpdated(
-          block.timestamp,
-          totalSupply,
-          floatingAssets,
-          totalFloatingBorrowShares,
-          floatingDebt,
-          earningsAccumulator
-        );
       }
     }
   }
@@ -696,56 +614,32 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     asset.safeTransfer(liquidator, assets);
     emit Seize(liquidator, borrower, assets);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      floatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
+    emitMarketUpdate();
 
     return balanceOf[borrower] > 0;
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
+  /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// @param assets amount of assets to be withdrawn from the floating pool.
   function beforeWithdraw(uint256 assets, uint256) internal override {
     updateFloatingAssetsAverage();
-    uint256 newFloatingDebt = updateFloatingDebt();
-    uint256 earnings = accumulatedEarnings();
-
-    earningsAccumulator -= earnings;
-    lastAccumulatorAccrual = uint32(block.timestamp);
-    emit AccumulatorAccrued(block.timestamp);
-
+    updateFloatingDebt();
+    uint256 earnings = accrueAccumulatedEarnings();
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
     floatingAssets = newFloatingAssets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed
-    checkInsufficient(floatingBackupBorrowed + newFloatingDebt > newFloatingAssets);
+    checkInsufficient(floatingBackupBorrowed + floatingDebt > newFloatingAssets);
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
   function afterDeposit(uint256 assets, uint256) internal override whenNotPaused {
     updateFloatingAssetsAverage();
-    uint256 newFloatingDebt = updateFloatingDebt();
-    uint256 earnings = accumulatedEarnings();
-
-    earningsAccumulator -= earnings;
-    lastAccumulatorAccrual = uint32(block.timestamp);
-    emit AccumulatorAccrued(block.timestamp);
-
-    uint256 newFloatingAssets = floatingAssets + earnings + assets;
-    floatingAssets = newFloatingAssets;
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      newFloatingAssets,
-      totalFloatingBorrowShares,
-      newFloatingDebt,
-      earningsAccumulator
-    );
+    updateFloatingDebt();
+    uint256 earnings = accrueAccumulatedEarnings();
+    floatingAssets += earnings + assets;
+    emitMarketUpdate();
   }
 
   /// @notice Withdraws the owner's floating pool assets to the receiver address.
@@ -760,14 +654,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   ) public override returns (uint256 shares) {
     auditor.checkShortfall(this, owner, assets);
     shares = super.withdraw(assets, receiver, owner);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      floatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
+    emitMarketUpdate();
   }
 
   /// @notice Redeems the owner's floating pool assets to the receiver address.
@@ -782,14 +669,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   ) public override returns (uint256 assets) {
     auditor.checkShortfall(this, owner, previewMint(shares));
     assets = super.redeem(shares, receiver, owner);
-    emit MarketUpdated(
-      block.timestamp,
-      totalSupply,
-      floatingAssets,
-      totalFloatingBorrowShares,
-      floatingDebt,
-      earningsAccumulator
-    );
+    emitMarketUpdate();
   }
 
   /// @notice Moves amount of shares from the caller's account to `to`.
@@ -836,7 +716,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     for (uint256 i = 0; i < 224; ) {
       if ((packedMaturities & (1 << i)) != 0) {
         uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
-        FixedLib.Position memory position = fixedBorrowPositions[maturity][account];
+        FixedLib.Position storage position = fixedBorrowPositions[maturity][account];
         uint256 positionAssets = position.principal + position.fee;
 
         debt += positionAssets;
@@ -863,6 +743,8 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 fromAccumulator = Math.min(memEarningsAccumulator, badDebt);
     earningsAccumulator = memEarningsAccumulator - fromAccumulator;
     if (fromAccumulator < badDebt) floatingAssets -= badDebt - fromAccumulator;
+
+    emitMarketUpdate();
   }
 
   /// @notice Charges treasury fee to certain amount of earnings.
@@ -905,6 +787,14 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
       );
   }
 
+  function accrueAccumulatedEarnings() internal returns (uint256 earnings) {
+    earnings = accumulatedEarnings();
+
+    earningsAccumulator -= earnings;
+    lastAccumulatorAccrual = uint32(block.timestamp);
+    emit AccumulatorAccrual(block.timestamp);
+  }
+
   /// @notice Updates the `floatingAssetsAverage`.
   function updateFloatingAssetsAverage() internal {
     uint256 memFloatingAssets = floatingAssets;
@@ -918,9 +808,9 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   }
 
   /// @notice Updates the floating pool borrows' variables.
-  function updateFloatingDebt() internal returns (uint256 memFloatingDebt) {
+  function updateFloatingDebt() internal {
     InterestRateModel memIRM = interestRateModel;
-    memFloatingDebt = floatingDebt;
+    uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
     uint256 newFloatingUtilization = memFloatingAssets > 0
       ? memFloatingDebt.divWadDown(memFloatingAssets.divWadUp(memIRM.floatingFullUtilization()))
@@ -937,7 +827,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     floatingAssets += chargeTreasuryFee(newDebt);
     floatingUtilization = newFloatingUtilization;
     lastFloatingDebtUpdate = uint32(block.timestamp);
-    emit FloatingDebtUpdated(block.timestamp, newFloatingUtilization);
+    emit FloatingDebtUpdate(block.timestamp, newFloatingUtilization);
   }
 
   function totalFloatingBorrowAssets() public view returns (uint256) {
@@ -1036,6 +926,21 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     if (insufficient) revert InsufficientProtocolLiquidity();
   }
 
+  function emitMarketUpdate() internal {
+    emit MarketUpdate(
+      block.timestamp,
+      totalSupply,
+      floatingAssets,
+      totalFloatingBorrowShares,
+      floatingDebt,
+      earningsAccumulator
+    );
+  }
+
+  function emitFixedEarningsUpdate(uint256 maturity) internal {
+    emit FixedEarningsUpdate(block.timestamp, uint32(maturity), fixedPools[maturity].unassignedEarnings);
+  }
+
   /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
   /// liquidity.
   /// @dev Value can only be set between 20% and 0%.
@@ -1048,12 +953,13 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
   /// @notice Sets the damp speed used to update the floatingAssetsAverage.
   /// @dev Values can only be set between 0 and 100%.
-  /// @param dampSpeed represented with 18 decimals.
-  function setDampSpeed(DampSpeed memory dampSpeed) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    checkInvalid(dampSpeed.up > 1e18 || dampSpeed.down > 1e18);
-    dampSpeedUp = dampSpeed.up;
-    dampSpeedDown = dampSpeed.down;
-    emit DampSpeedSet(dampSpeed.up, dampSpeed.down);
+  /// @param up damp speed up, represented with 18 decimals.
+  /// @param down damp speed down, represented with 18 decimals.
+  function setDampSpeed(uint256 up, uint256 down) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    checkInvalid(up > 1e18 || down > 1e18);
+    dampSpeedUp = up;
+    dampSpeedDown = down;
+    emit DampSpeedSet(up, down);
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the floating pool.
@@ -1111,16 +1017,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
     emit TreasurySet(treasury_, treasuryFeeRate_);
-  }
-
-  /// @notice Sets the _pause state to true in case of emergency, triggered by an authorized account.
-  function pause() external onlyRole(PAUSER_ROLE) {
-    _pause();
-  }
-
-  /// @notice Sets the _pause state to false when threat is gone, triggered by an authorized account.
-  function unpause() external onlyRole(PAUSER_ROLE) {
-    _unpause();
   }
 
   /// @notice Event emitted when an account borrows amount of assets from a floating pool.
@@ -1261,7 +1157,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @param treasuryFeeRate represented with 1e18 decimals.
   event TreasurySet(address treasury, uint128 treasuryFeeRate);
 
-  event MarketUpdated(
+  event MarketUpdate(
     uint256 timestamp,
     uint256 floatingDepositShares,
     uint256 floatingAssets,
@@ -1270,16 +1166,11 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 earningsAccumulator
   );
 
-  event FixedEarningsUpdated(uint256 timestamp, uint32 indexed maturity, uint256 unassignedEarnings);
+  event FixedEarningsUpdate(uint256 timestamp, uint32 indexed maturity, uint256 unassignedEarnings);
 
-  event AccumulatorAccrued(uint256 timestamp);
+  event AccumulatorAccrual(uint256 timestamp);
 
-  event FloatingDebtUpdated(uint256 timestamp, uint256 utilization);
-
-  struct DampSpeed {
-    uint256 up;
-    uint256 down;
-  }
+  event FloatingDebtUpdate(uint256 timestamp, uint256 utilization);
 }
 
 error AlreadyInitialized();

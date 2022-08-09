@@ -95,7 +95,8 @@ export class MarketEnv {
       parseUnits("0.02").div(86_400),
       0, // SP rate if 0 then no fees charged for the mp depositors' yield
       0,
-      { up: parseUnits("0.0046"), down: parseUnits("0.42") },
+      parseUnits("0.0046"),
+      parseUnits("0.42"),
     );
     await marketHarness.deployed();
     await oracle.setPrice(marketHarness.address, parseUnits("1"));

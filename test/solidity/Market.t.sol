@@ -43,15 +43,7 @@ contract MarketTest is Test {
     irm = new MockInterestRateModel(0.1e18);
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
-    market.initialize(
-      3,
-      1e18,
-      InterestRateModel(address(irm)),
-      0.02e18 / uint256(1 days),
-      1e17,
-      0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
-    );
+    market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
 
     weth = new MockERC20("WETH", "WETH", 18);
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
@@ -62,7 +54,8 @@ contract MarketTest is Test {
       0.02e18 / uint256(1 days),
       1e17,
       0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
+      0.0046e18,
+      0.42e18
     );
 
     auditor.enableMarket(market, 0.8e18, 18);
@@ -464,7 +457,8 @@ contract MarketTest is Test {
       0.02e18 / uint256(1 days),
       1e17,
       0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
+      0.0046e18,
+      0.42e18
     );
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
@@ -499,7 +493,8 @@ contract MarketTest is Test {
       0.02e18 / uint256(1 days),
       1e17,
       0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
+      0.0046e18,
+      0.42e18
     );
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
@@ -1857,7 +1852,8 @@ contract MarketTest is Test {
         0.02e18 / uint256(1 days),
         1e17,
         0,
-        Market.DampSpeed(0.0046e18, 0.42e18)
+        0.0046e18,
+        0.42e18
       );
 
       auditor.enableMarket(markets[i], 0.8e18, 18);
@@ -1960,7 +1956,8 @@ contract MarketHarness is Market {
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
-    DampSpeed memory dampSpeed_
+    uint256 dampSpeedUp_,
+    uint256 dampSpeedDown_
   ) Market(asset_, auditor_) {
     assembly {
       sstore(0, 0xffff)
@@ -1973,7 +1970,7 @@ contract MarketHarness is Market {
     setPenaltyRate(penaltyRate_);
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeed_);
+    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
   function setSupply(uint256 supply) external {
