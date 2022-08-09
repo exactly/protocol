@@ -7,7 +7,6 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 import { Market, NotMarket } from "./Market.sol";
 import { ExactlyOracle } from "./ExactlyOracle.sol";
 import { Upgradeable } from "./utils/Upgradeable.sol";
-import { FixedLib } from "./utils/FixedLib.sol";
 
 contract Auditor is AccessControlUpgradeable, Upgradeable {
   using FixedPointMathLib for uint256;
