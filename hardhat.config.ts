@@ -98,6 +98,7 @@ declare module "hardhat/types/config" {
     adjustFactor: { default: number; [asset: string]: number };
     liquidationIncentive: { liquidator: number; lenders: number };
     penaltyRatePerDay: number;
+    treasuryFeeRate?: number;
     backupFeeRate: number;
     reserveFactor: number;
     dampSpeed: {

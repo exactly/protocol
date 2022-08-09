@@ -1,4 +1,3 @@
-import type { BigNumber } from "ethers";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, ERC20, ExactlyOracle, Market, InterestRateModel } from "../types";
 import { mockPrices } from "./mocks/Assets";
@@ -12,6 +11,7 @@ const func: DeployFunction = async ({
     finance: { maxFuturePools, ...finance },
   },
   ethers: {
+    constants: { AddressZero },
     utils: { parseUnits },
     getContract,
     getSigner,
@@ -19,14 +19,19 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [auditor, exactlyOracle, interestRateModel, { address: timelockAddress }, { deployer, multisig }] =
-    await Promise.all([
-      getContract<Auditor>("Auditor"),
-      getContract<ExactlyOracle>("ExactlyOracle"),
-      getContract<InterestRateModel>("InterestRateModel"),
-      get("TimelockController"),
-      getNamedAccounts(),
-    ]);
+  const [
+    auditor,
+    exactlyOracle,
+    interestRateModel,
+    { address: timelockAddress },
+    { deployer, multisig, treasury = AddressZero },
+  ] = await Promise.all([
+    getContract<Auditor>("Auditor"),
+    getContract<ExactlyOracle>("ExactlyOracle"),
+    getContract<InterestRateModel>("InterestRateModel"),
+    get("TimelockController"),
+    getNamedAccounts(),
+  ]);
 
   const earningsAccumulatorSmoothFactor = parseUnits(String(finance.earningsAccumulatorSmoothFactor));
   const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)).div(86_400);
@@ -34,6 +39,7 @@ const func: DeployFunction = async ({
   const reserveFactor = parseUnits(String(finance.reserveFactor));
   const dampSpeedUp = parseUnits(String(finance.dampSpeed.up));
   const dampSpeedDown = parseUnits(String(finance.dampSpeed.down));
+  const treasuryFeeRate = parseUnits(String(finance.treasuryFeeRate ?? 0));
 
   for (const symbol of finance.assets) {
     const asset = await getContract<ERC20>(symbol);
@@ -80,7 +86,7 @@ const func: DeployFunction = async ({
       });
     }
 
-    if (!((await market.maxFuturePools()) === maxFuturePools)) {
+    if ((await market.maxFuturePools()) !== maxFuturePools) {
       await executeOrPropose(market, "setMaxFuturePools", [maxFuturePools]);
     }
     if (!(await market.earningsAccumulatorSmoothFactor()).eq(earningsAccumulatorSmoothFactor)) {
@@ -95,11 +101,18 @@ const func: DeployFunction = async ({
     if (!(await market.reserveFactor()).eq(reserveFactor)) {
       await executeOrPropose(market, "setReserveFactor", [reserveFactor]);
     }
-    if (!((await market.interestRateModel()) === interestRateModel.address)) {
+    if ((await market.interestRateModel()).toLowerCase() !== interestRateModel.address.toLowerCase()) {
       await executeOrPropose(market, "setInterestRateModel", [interestRateModel.address]);
     }
     if (!(await market.dampSpeedUp()).eq(dampSpeedUp) || !(await market.dampSpeedDown()).eq(dampSpeedDown)) {
       await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown]);
+    }
+    if (
+      (await market.treasury()).toLowerCase() !== treasury.toLowerCase() ||
+      !(await market.treasuryFeeRate()).eq(treasuryFeeRate)
+    ) {
+      if (treasury === AddressZero && !treasuryFeeRate.isZero()) throw new Error("missing treasury");
+      await executeOrPropose(market, "setTreasury", [treasury, treasuryFeeRate]);
     }
 
     const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
