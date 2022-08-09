@@ -5,7 +5,15 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { Auditor, Market, ExactlyOracle } from "../../contracts/Auditor.sol";
+import {
+  Auditor,
+  Market,
+  ExactlyOracle,
+  AuditorMismatch,
+  InsufficientAccountLiquidity,
+  MarketAlreadyListed,
+  RemainingDebt
+} from "../../contracts/Auditor.sol";
 
 contract AuditorTest is Test {
   using FixedPointMathLib for uint256;
@@ -78,20 +86,23 @@ contract AuditorTest is Test {
     }
   }
 
-  function testFailExitMarketOwning() external {
+  function testExitMarketOwning() external {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
+    vm.expectRevert(RemainingDebt.selector);
     auditor.exitMarket(Market(address(market)));
   }
 
-  function testFailEnableMarketAlreadyListed() external {
+  function testEnableMarketAlreadyListed() external {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    vm.expectRevert(MarketAlreadyListed.selector);
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
   }
 
-  function testFailEnableMarketAuditorMismatch() external {
+  function testEnableMarketAuditorMismatch() external {
     market.setAuditor(address(0));
+    vm.expectRevert(AuditorMismatch.selector);
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
   }
 
@@ -101,10 +112,11 @@ contract AuditorTest is Test {
     auditor.checkBorrow(Market(address(market)), address(this));
   }
 
-  function testFailBorrowMPValidation() external {
+  function testBorrowMPValidationRevert() external {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     auditor.checkBorrow(Market(address(market)), address(this));
   }
 
@@ -114,10 +126,11 @@ contract AuditorTest is Test {
     auditor.checkShortfall(Market(address(market)), address(this), 1);
   }
 
-  function testFailAccountShortfall() external {
+  function testAccountShortfallRevert() external {
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     auditor.checkShortfall(Market(address(market)), address(this), 1);
   }
 

@@ -2,9 +2,9 @@
 pragma solidity 0.8.15;
 
 import { Vm } from "forge-std/Vm.sol";
-import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, ExactlyOracle, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
@@ -394,28 +394,32 @@ contract MarketTest is Test {
     assertEq(market.earningsAccumulator(), 0);
   }
 
-  function testFailAnotherUserRedeemWhenOwnerHasShortfall() external {
+  function testAnotherUserRedeemWhenOwnerHasShortfall() external {
     market.deposit(10_000 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_100 ether, address(this), address(this));
 
     uint256 assets = market.previewWithdraw(10_000 ether);
     market.approve(BOB, assets);
     market.deposit(1_000 ether, address(this));
+
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     vm.prank(BOB);
     market.redeem(assets, address(this), address(this));
   }
 
-  function testFailAnotherUserWithdrawWhenOwnerHasShortfall() external {
+  function testAnotherUserWithdrawWhenOwnerHasShortfall() external {
     market.deposit(10_000 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_100 ether, address(this), address(this));
 
     market.approve(BOB, 10_000 ether);
     market.deposit(1_000 ether, address(this));
+
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     vm.prank(BOB);
     market.withdraw(10_000 ether, address(this), address(this));
   }
 
-  function testFailRoundingUpAllowanceWhenBorrowingAtMaturity() external {
+  function testRoundingUpAllowanceWhenBorrowingAtMaturity() external {
     uint256 maturity = FixedLib.INTERVAL * 2;
 
     market.deposit(10_000 ether, address(this));
@@ -424,6 +428,7 @@ contract MarketTest is Test {
     // accrue earnings with this tx so it breaks proportion of 1 to 1 assets and shares
     market.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
 
+    vm.expectRevert(stdError.arithmeticError);
     vm.warp(FixedLib.INTERVAL + 3 days);
     vm.prank(BOB);
     // try to borrow 1 unit on behalf of this contract as bob being msg.sender without allowance
@@ -431,7 +436,7 @@ contract MarketTest is Test {
     market.borrowAtMaturity(maturity, 1, 2, BOB, address(this));
   }
 
-  function testFailRoundingUpAllowanceWhenWithdrawingAtMaturity() external {
+  function testRoundingUpAllowanceWhenWithdrawingAtMaturity() external {
     uint256 maturity = FixedLib.INTERVAL * 2;
 
     market.deposit(10_000 ether, address(this));
@@ -440,6 +445,7 @@ contract MarketTest is Test {
     // accrue earnings with this tx so it breaks proportion of 1 to 1 assets and shares
     market.borrowAtMaturity(maturity, 1 ether, 1.1 ether, address(this), address(this));
 
+    vm.expectRevert(stdError.arithmeticError);
     vm.warp(maturity);
     vm.prank(BOB);
     // try to withdraw 1 unit on behalf of this contract as bob being msg.sender without allowance
@@ -447,7 +453,7 @@ contract MarketTest is Test {
     market.withdrawAtMaturity(maturity, 1, 0, BOB, address(this));
   }
 
-  function testFailRoundingUpAssetsToValidateShortfallWhenTransferringFrom() external {
+  function testRoundingUpAssetsToValidateShortfallWhenTransferringFrom() external {
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
 
     // deploy a harness market to be able to set different supply and floatingAssets
@@ -473,15 +479,16 @@ contract MarketTest is Test {
 
     marketHarness.deposit(1000 ether, address(this));
     irm.setBorrowRate(0);
-    marketHarness.borrowAtMaturity(maturity, 800 ether, 800 ether, address(this), address(this));
+    marketHarness.borrowAtMaturity(maturity, 640 ether, 640 ether, address(this), address(this));
 
     // try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
     // if it rounds down to 1, it will pass
     vm.prank(BOB);
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     marketHarness.transferFrom(address(this), BOB, 5);
   }
 
-  function testFailRoundingUpAssetsToValidateShortfallWhenTransferring() external {
+  function testRoundingUpAssetsToValidateShortfallWhenTransferring() external {
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
 
     // deploy a harness market to be able to set different supply and floatingAssets
@@ -506,10 +513,11 @@ contract MarketTest is Test {
 
     marketHarness.deposit(1000 ether, address(this));
     irm.setBorrowRate(0);
-    marketHarness.borrowAtMaturity(maturity, 800 ether, 800 ether, address(this), address(this));
+    marketHarness.borrowAtMaturity(maturity, 640 ether, 640 ether, address(this), address(this));
 
     // try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
     // if it rounds down to 1, it will pass
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
     marketHarness.transfer(BOB, 5);
   }
 
@@ -1624,8 +1632,9 @@ contract MarketTest is Test {
     assertEq(market.allowance(address(BOB), address(this)), 2 ether - 1 ether);
   }
 
-  function testFailFlexibleBorrowFromAnotherUserWithoutAllowance() external {
+  function testFlexibleBorrowFromAnotherUserWithoutAllowance() external {
     market.deposit(10 ether, address(this));
+    vm.expectRevert(stdError.arithmeticError);
     market.borrow(1 ether, address(this), address(BOB));
   }
 

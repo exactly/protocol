@@ -694,15 +694,18 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingBorrowShares, market.floatingBorrowShares(address(BOB)));
   }
 
-  function testFailPreviewRepayAtMaturityWithEmptyMaturity() external view {
+  function testPreviewRepayAtMaturityWithEmptyMaturity() external {
+    vm.expectRevert();
     previewer.previewRepayAtMaturity(market, FixedLib.INTERVAL, 1 ether, address(this));
   }
 
-  function testFailPreviewRepayAtMaturityWithEmptyMaturityAndZeroAmount() external view {
+  function testPreviewRepayAtMaturityWithEmptyMaturityAndZeroAmount() external {
+    vm.expectRevert();
     previewer.previewRepayAtMaturity(market, FixedLib.INTERVAL, 0, address(this));
   }
 
-  function testFailPreviewRepayAtMaturityWithInvalidMaturity() external view {
+  function testPreviewRepayAtMaturityWithInvalidMaturity() external {
+    vm.expectRevert();
     previewer.previewRepayAtMaturity(market, 376 seconds, 1 ether, address(this));
   }
 
@@ -801,15 +804,18 @@ contract PreviewerTest is Test {
     assertEq(withdrawAssetsPreviewed, contractPosition - feeAfterWithdraw);
   }
 
-  function testFailPreviewWithdrawAtMaturityWithEmptyMaturity() external view {
+  function testPreviewWithdrawAtMaturityWithEmptyMaturity() external {
+    vm.expectRevert();
     previewer.previewWithdrawAtMaturity(market, FixedLib.INTERVAL, 1 ether);
   }
 
-  function testFailPreviewWithdrawAtMaturityWithEmptyMaturityAndZeroAmount() external view {
+  function testPreviewWithdrawAtMaturityWithEmptyMaturityAndZeroAmount() external {
+    vm.expectRevert();
     previewer.previewWithdrawAtMaturity(market, FixedLib.INTERVAL, 0);
   }
 
-  function testFailPreviewWithdrawAtMaturityWithInvalidMaturity() external view {
+  function testPreviewWithdrawAtMaturityWithInvalidMaturity() external {
+    vm.expectRevert();
     previewer.previewWithdrawAtMaturity(market, 376 seconds, 1 ether);
   }
 
