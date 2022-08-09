@@ -65,7 +65,7 @@ const config: Config = {
   },
   dodoc: { exclude: ["mocks", "k", "elin", "rc"] },
   typechain: { outDir: "types", target: "ethers-v5" },
-  contractSizer: { runOnCompile: true },
+  contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
   gasReporter: {
     currency: "USD",
     gasPrice: 100,
