@@ -42,11 +42,10 @@ contract MarketTest is Test {
 
     irm = new MockInterestRateModel(0.1e18);
 
-    market = new Market(
-      asset,
+    market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    market.initialize(
       3,
       1e18,
-      auditor,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
       1e17,
@@ -55,11 +54,10 @@ contract MarketTest is Test {
     );
 
     weth = new MockERC20("WETH", "WETH", 18);
-    marketWETH = new Market(
-      weth,
+    marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(
       12,
       1e18,
-      auditor,
       InterestRateModel(address(irm)),
       0.02e18 / uint256(1 days),
       1e17,
@@ -1851,11 +1849,10 @@ contract MarketTest is Test {
     string[4] memory symbols = ["DAI", "USDC", "WETH", "WBTC"];
     for (uint256 i = 0; i < symbols.length; i++) {
       MockERC20 asset = new MockERC20(symbols[i], symbols[i], 18);
-      markets[i] = new Market(
-        asset,
+      markets[i] = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+      markets[i].initialize(
         3,
         1e18,
-        auditor,
         InterestRateModel(address(irm)),
         0.02e18 / uint256(1 days),
         1e17,
@@ -1964,19 +1961,20 @@ contract MarketHarness is Market {
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
     DampSpeed memory dampSpeed_
-  )
-    Market(
-      asset_,
-      maxFuturePools_,
-      earningsAccumulatorSmoothFactor_,
-      auditor_,
-      interestRateModel_,
-      penaltyRate_,
-      backupFeeRate_,
-      reserveFactor_,
-      dampSpeed_
-    )
-  {} // solhint-disable-line no-empty-blocks
+  ) Market(asset_, auditor_) {
+    assembly {
+      sstore(0, 0xffff)
+    }
+    __ReentrancyGuard_init();
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    setMaxFuturePools(maxFuturePools_);
+    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
+    setInterestRateModel(interestRateModel_);
+    setPenaltyRate(penaltyRate_);
+    setBackupFeeRate(backupFeeRate_);
+    setReserveFactor(reserveFactor_);
+    setDampSpeed(dampSpeed_);
+  }
 
   function setSupply(uint256 supply) external {
     totalSupply = supply;

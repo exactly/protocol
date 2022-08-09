@@ -4,6 +4,7 @@ import type { Auditor, ERC20, ExactlyOracle, Market, InterestRateModel } from ".
 import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
+import validateUpgrade from "./.utils/validateUpgrade";
 import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
@@ -39,24 +40,35 @@ const func: DeployFunction = async ({
   const marketArgs = [
     maxFuturePools,
     parseUnits(String(earningsAccumulatorSmoothFactor)),
-    auditor.address,
     interestRateModel.address,
     parseUnits(String(penaltyRatePerDay)).div(86_400),
     parseUnits(String(backupFeeRate)),
     parseUnits(String(reserveFactor)),
     { up: parseUnits(String(up)), down: parseUnits(String(down)) },
-  ] as [number, BigNumber, string, string, BigNumber, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
+  ] as [number, BigNumber, string, BigNumber, BigNumber, BigNumber, { up: BigNumber; down: BigNumber }];
 
   for (const symbol of assets) {
     const asset = await getContract<ERC20>(symbol);
     const marketName = `Market${symbol}`;
-    await deploy(marketName, {
-      skipIfAlreadyDeployed: true,
-      contract: "Market",
-      args: [asset.address, ...marketArgs],
-      from: deployer,
-      log: true,
-    });
+    await validateUpgrade(
+      marketName,
+      { contract: "Market", args: [asset.address, auditor.address] },
+      async (name, opts) =>
+        deploy(name, {
+          ...opts,
+          proxy: {
+            owner: timelockAddress,
+            viaAdminContract: "ProxyAdmin",
+            proxyContract: "TransparentUpgradeableProxy",
+            execute: {
+              init: { methodName: "initialize", args: marketArgs },
+            },
+          },
+          from: deployer,
+          log: true,
+        }),
+    );
+
     const market = await getContract<Market>(marketName, await getSigner(deployer));
 
     if (symbol === "WETH") {
@@ -74,20 +86,20 @@ const func: DeployFunction = async ({
     if (!(await market.earningsAccumulatorSmoothFactor()).eq(marketArgs[1])) {
       await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [marketArgs[1]]);
     }
-    if (!(await market.penaltyRate()).eq(marketArgs[4])) {
+    if (!(await market.penaltyRate()).eq(marketArgs[3])) {
       await executeOrPropose(market, "setPenaltyRate", [marketArgs[4]]);
     }
-    if (!(await market.backupFeeRate()).eq(marketArgs[5])) {
+    if (!(await market.backupFeeRate()).eq(marketArgs[4])) {
       await executeOrPropose(market, "setBackupFeeRate", [marketArgs[5]]);
     }
-    if (!(await market.reserveFactor()).eq(marketArgs[6])) {
+    if (!(await market.reserveFactor()).eq(marketArgs[5])) {
       await executeOrPropose(market, "setReserveFactor", [marketArgs[6]]);
     }
     if (!((await market.interestRateModel()) === interestRateModel.address)) {
       await executeOrPropose(market, "setInterestRateModel", [interestRateModel.address]);
     }
-    if (!(await market.dampSpeedUp()).eq(marketArgs[7].up) || !(await market.dampSpeedDown()).eq(marketArgs[7].down)) {
-      await executeOrPropose(market, "setDampSpeed", [marketArgs[7]]);
+    if (!(await market.dampSpeedUp()).eq(marketArgs[6].up) || !(await market.dampSpeedDown()).eq(marketArgs[6].down)) {
+      await executeOrPropose(market, "setDampSpeed", [marketArgs[6]]);
     }
 
     const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);

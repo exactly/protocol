@@ -27,6 +27,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   }
 
   function initialize(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) external initializer {
+    __AccessControl_init();
+
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setOracle(oracle_);

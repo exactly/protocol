@@ -88,14 +88,7 @@ describe("Auditor Admin", function () {
       const newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy();
       const market = await ((await getContractFactory("Market")) as Market__factory).deploy(
         dai.address,
-        12,
-        2,
         newAuditor.address,
-        AddressZero,
-        parseUnits("4", 11),
-        parseUnits("0.2"),
-        parseUnits("0.1"),
-        { up: parseUnits("1"), down: parseUnits("1") },
       );
       await expect(auditor.enableMarket(market.address, parseUnits("0.5"), await dai.decimals())).to.be.revertedWith(
         "AuditorMismatch()",
@@ -111,14 +104,7 @@ describe("Auditor Admin", function () {
     it("WHEN trying to set a new market, THEN the auditor should emit MarketListed event", async () => {
       const market = await ((await getContractFactory("Market")) as Market__factory).deploy(
         dai.address,
-        12,
-        2,
         auditor.address,
-        AddressZero,
-        parseUnits("4", 11),
-        parseUnits("0.2"),
-        parseUnits("0.1"),
-        { up: parseUnits("1"), down: parseUnits("1") },
       );
       await expect(auditor.enableMarket(market.address, parseUnits("0.5"), 18))
         .to.emit(auditor, "MarketListed")

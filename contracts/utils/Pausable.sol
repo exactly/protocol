@@ -4,7 +4,7 @@ pragma solidity 0.8.15;
 abstract contract Pausable {
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-  bool public paused = false;
+  bool public paused;
 
   /// @dev Modifier to make a function callable only when the contract is not paused.
   modifier whenNotPaused() {

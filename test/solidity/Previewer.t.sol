@@ -42,17 +42,8 @@ contract PreviewerTest is Test {
       2e18
     );
 
-    market = new Market(
-      asset,
-      12,
-      1e18,
-      auditor,
-      irm,
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
-    );
+    market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    market.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, Market.DampSpeed(0.0046e18, 0.42e18));
     auditor.enableMarket(market, 0.8e18, 18);
 
     vm.label(BOB, "Bob");
@@ -413,17 +404,8 @@ contract PreviewerTest is Test {
   function testfixedPools() external {
     uint256 maxFuturePools = market.maxFuturePools();
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
-    Market marketWETH = new Market(
-      weth,
-      12,
-      1e18,
-      auditor,
-      irm,
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
-    );
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, Market.DampSpeed(0.0046e18, 0.42e18));
     oracle.setPrice(marketWETH, 2800e18);
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
@@ -510,17 +492,8 @@ contract PreviewerTest is Test {
 
   function testFlexibleAvailableLiquidity() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
-    Market marketWETH = new Market(
-      weth,
-      12,
-      1e18,
-      auditor,
-      irm,
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
-    );
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, Market.DampSpeed(0.0046e18, 0.42e18));
     oracle.setPrice(marketWETH, 2800e18);
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
@@ -575,17 +548,8 @@ contract PreviewerTest is Test {
   function testfixedPoolsWithFloatingAssetsAverage() external {
     uint256 maxFuturePools = market.maxFuturePools();
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
-    Market marketWETH = new Market(
-      weth,
-      12,
-      1e18,
-      auditor,
-      irm,
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
-    );
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, Market.DampSpeed(0.0046e18, 0.42e18));
     oracle.setPrice(marketWETH, 2800e18);
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
@@ -858,17 +822,8 @@ contract PreviewerTest is Test {
   function testAccountsWithIntermediateOperationsReturningAccurateAmounts() external {
     // deploy a new asset for more liquidity combinations
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
-    Market marketWETH = new Market(
-      weth,
-      12,
-      1e18,
-      auditor,
-      irm,
-      0.02e18 / uint256(1 days),
-      0.1e18,
-      0,
-      Market.DampSpeed(0.0046e18, 0.42e18)
-    );
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, Market.DampSpeed(0.0046e18, 0.42e18));
     oracle.setPrice(marketWETH, 2800e18);
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);

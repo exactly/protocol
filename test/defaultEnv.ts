@@ -143,18 +143,23 @@ export class DefaultEnv {
         }
 
         const Market = (await getContractFactory("Market")) as Market__factory;
-        const market = await Market.deploy(
-          asset.address,
+        const marketImpl = await Market.deploy(asset.address, auditor.address);
+        await marketImpl.deployed();
+        const marketProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
+          marketImpl.address,
+          [],
+        );
+        await marketProxy.deployed();
+        const market = new Contract(marketProxy.address, Market.interface, owner) as Market;
+        await market.initialize(
           12,
           parseUnits("1"),
-          auditor.address,
           interestRateModel.address,
           parseUnits("0.02").div(86_400),
           0, // SP rate if 0 then no fees charged for the mp depositors' yield
           0,
           { up: parseUnits("0.0046"), down: parseUnits("0.42") },
         );
-        await market.deployed();
 
         // Mock PriceOracle setting dummy price
         await oracle.setPrice(market.address, usdPrice);

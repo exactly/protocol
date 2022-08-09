@@ -15,8 +15,9 @@ const {
 export default async (name: string, opts?: DeployOptions, deploy?: DeployCallback) => {
   const deployData = await getDeployData(hre, await getContractFactory(opts?.contract ?? name), {
     constructorArgs: opts?.args,
+    unsafeAllow: ["constructor", "state-variable-immutable"],
   });
-  await validateImpl(deployData, {}, (await getOrNull(`${name}_Implementation`))?.address);
+  await validateImpl(deployData, deployData.fullOpts, (await getOrNull(`${name}_Implementation`))?.address);
 
   if (!deploy) return;
 

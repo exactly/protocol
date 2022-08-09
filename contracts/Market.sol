@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.15;
 
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { ReentrancyGuard } from "solmate/src/utils/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
+import {
+  ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+
 import { Auditor, InvalidParameter } from "./Auditor.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { Pausable } from "./utils/Pausable.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 
-contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
+contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, Pausable, ERC4626 {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
@@ -19,6 +23,9 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   using FixedLib for FixedLib.Pool;
   using FixedLib for FixedLib.Position;
   using FixedLib for uint256;
+
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  Auditor public immutable auditor;
 
   mapping(uint256 => mapping(address => FixedLib.Position)) public fixedDepositPositions;
   mapping(uint256 => mapping(address => FixedLib.Position)) public fixedBorrowPositions;
@@ -45,7 +52,6 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   uint32 public lastAverageUpdate;
 
   InterestRateModel public interestRateModel;
-  Auditor public immutable auditor;
 
   uint128 public earningsAccumulatorSmoothFactor;
   uint128 public reserveFactor;
@@ -59,20 +65,31 @@ contract Market is AccessControl, ReentrancyGuard, Pausable, ERC4626 {
   address public treasury;
   uint128 public treasuryFeeRate;
 
-  constructor(
-    ERC20 asset_,
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
+    auditor = auditor_;
+
+    _disableInitializers();
+  }
+
+  function initialize(
     uint8 maxFuturePools_,
     uint128 earningsAccumulatorSmoothFactor_,
-    Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
     DampSpeed memory dampSpeed_
-  ) ERC4626(asset_, string.concat("EToken", asset_.symbol()), string.concat("e", asset_.symbol())) {
+  ) external initializer {
+    __AccessControl_init();
+    __ReentrancyGuard_init();
+
+    string memory assetSymbol = asset.symbol();
+    name = string.concat("EToken", assetSymbol);
+    symbol = string.concat("e", assetSymbol);
+
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    auditor = auditor_;
     setMaxFuturePools(maxFuturePools_);
     setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
     setInterestRateModel(interestRateModel_);
