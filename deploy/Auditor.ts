@@ -45,7 +45,7 @@ const func: DeployFunction = async ({
   const auditor = await getContract<Auditor>("Auditor", await getSigner(deployer));
 
   if ((await auditor.oracle()) !== oracleAddress) {
-    await executeOrPropose(deployer, auditor, "setOracle", [oracleAddress]);
+    await executeOrPropose(auditor, "setOracle", [oracleAddress]);
   }
 
   const currentLiquidationIncentive = await auditor.liquidationIncentive();
@@ -53,7 +53,7 @@ const func: DeployFunction = async ({
     !currentLiquidationIncentive.liquidator.eq(liquidationIncentive.liquidator) ||
     !currentLiquidationIncentive.lenders.eq(liquidationIncentive.lenders)
   ) {
-    await executeOrPropose(deployer, auditor, "setLiquidationIncentive", [liquidationIncentive]);
+    await executeOrPropose(auditor, "setLiquidationIncentive", [liquidationIncentive]);
   }
 };
 

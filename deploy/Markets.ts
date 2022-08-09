@@ -69,41 +69,37 @@ const func: DeployFunction = async ({
     }
 
     if (!((await market.maxFuturePools()) === maxFuturePools)) {
-      await executeOrPropose(deployer, market, "setMaxFuturePools", [maxFuturePools]);
+      await executeOrPropose(market, "setMaxFuturePools", [maxFuturePools]);
     }
     if (!(await market.earningsAccumulatorSmoothFactor()).eq(marketArgs[1])) {
-      await executeOrPropose(deployer, market, "setEarningsAccumulatorSmoothFactor", [marketArgs[1]]);
+      await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [marketArgs[1]]);
     }
     if (!(await market.penaltyRate()).eq(marketArgs[4])) {
-      await executeOrPropose(deployer, market, "setPenaltyRate", [marketArgs[4]]);
+      await executeOrPropose(market, "setPenaltyRate", [marketArgs[4]]);
     }
     if (!(await market.backupFeeRate()).eq(marketArgs[5])) {
-      await executeOrPropose(deployer, market, "setBackupFeeRate", [marketArgs[5]]);
+      await executeOrPropose(market, "setBackupFeeRate", [marketArgs[5]]);
     }
     if (!(await market.reserveFactor()).eq(marketArgs[6])) {
-      await executeOrPropose(deployer, market, "setReserveFactor", [marketArgs[6]]);
+      await executeOrPropose(market, "setReserveFactor", [marketArgs[6]]);
     }
     if (!((await market.interestRateModel()) === interestRateModel.address)) {
-      await executeOrPropose(deployer, market, "setInterestRateModel", [interestRateModel.address]);
+      await executeOrPropose(market, "setInterestRateModel", [interestRateModel.address]);
     }
     if (!(await market.dampSpeedUp()).eq(marketArgs[7].up) || !(await market.dampSpeedDown()).eq(marketArgs[7].down)) {
-      await executeOrPropose(deployer, market, "setDampSpeed", [marketArgs[7]]);
+      await executeOrPropose(market, "setDampSpeed", [marketArgs[7]]);
     }
 
     const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
     if ((await exactlyOracle.priceFeeds(market.address)) !== priceFeedAddress) {
-      await executeOrPropose(deployer, exactlyOracle, "setPriceFeed", [market.address, priceFeedAddress]);
+      await executeOrPropose(exactlyOracle, "setPriceFeed", [market.address, priceFeedAddress]);
     }
 
     const underlyingAdjustFactor = parseUnits(String(adjustFactor[symbol] ?? adjustFactor.default));
     if (!(await auditor.allMarkets()).includes(market.address)) {
-      await executeOrPropose(deployer, auditor, "enableMarket", [
-        market.address,
-        underlyingAdjustFactor,
-        await asset.decimals(),
-      ]);
+      await executeOrPropose(auditor, "enableMarket", [market.address, underlyingAdjustFactor, await asset.decimals()]);
     } else if (!(await auditor.markets(market.address)).adjustFactor.eq(underlyingAdjustFactor)) {
-      await executeOrPropose(deployer, auditor, "setAdjustFactor", [market.address, underlyingAdjustFactor]);
+      await executeOrPropose(auditor, "setAdjustFactor", [market.address, underlyingAdjustFactor]);
     }
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
