@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.15;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { WETH, SafeTransferLib } from "solmate/src/tokens/WETH.sol";
 import { Market } from "./Market.sol";
 
-contract MarketETHRouter {
+contract MarketETHRouter is Initializable {
   using SafeTransferLib for address;
 
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Market public immutable market;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   WETH public immutable weth;
 
   modifier wrap() {
@@ -20,10 +23,16 @@ contract MarketETHRouter {
     unwrapAndTransfer(assets, receiver);
   }
 
+  /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Market market_) {
     market = market_;
     weth = WETH(payable(address(market_.asset())));
-    weth.approve(address(market_), type(uint256).max);
+
+    _disableInitializers();
+  }
+
+  function initialize() external initializer {
+    weth.approve(address(market), type(uint256).max);
   }
 
   receive() external payable {

@@ -78,12 +78,21 @@ const func: DeployFunction = async ({
     const market = await getContract<Market>(marketName, await getSigner(deployer));
 
     if (symbol === "WETH") {
-      await deploy("MarketETHRouter", {
-        skipIfAlreadyDeployed: true,
-        args: [market.address],
-        from: deployer,
-        log: true,
-      });
+      await validateUpgrade("MarketETHRouter", { args: [market.address] }, async (name, opts) =>
+        deploy(name, {
+          ...opts,
+          proxy: {
+            owner: timelockAddress,
+            viaAdminContract: "ProxyAdmin",
+            proxyContract: "TransparentUpgradeableProxy",
+            execute: {
+              init: { methodName: "initialize", args: [] },
+            },
+          },
+          from: deployer,
+          log: true,
+        }),
+      );
     }
 
     if ((await market.maxFuturePools()) !== maxFuturePools) {
@@ -138,6 +147,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "TimelockController", "Assets"];
+func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "ProxyAdmin", "TimelockController", "Assets"];
 
 export default func;
