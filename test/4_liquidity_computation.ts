@@ -76,6 +76,11 @@ describe("Liquidity computations", function () {
       await auditor.connect(signer).enterMarket(marketUSDC.address);
       await auditor.connect(signer).enterMarket(marketWBTC.address);
     }
+
+    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketDAI.address, parseUnits("0.8")]);
+    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketUSDC.address, parseUnits("0.8")]);
+    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketWETH.address, parseUnits("0.8")]);
+    await timelockExecute(multisig, auditor, "setAdjustFactor", [marketWBTC.address, parseUnits("0.6")]);
   });
 
   describe("positions aren't immediately liquidatable", () => {
@@ -237,7 +242,6 @@ describe("Liquidity computations", function () {
   describe("support for assets with different decimals", () => {
     describe("GIVEN liquidity on the USDC pool ", () => {
       beforeEach(async () => {
-        await timelockExecute(multisig, auditor, "setAdjustFactor", [marketWBTC.address, parseUnits("0.6")]);
         await marketUSDC.depositAtMaturity(futurePools(1)[0], parseUnits("3", 6), parseUnits("3", 6), laura.address);
       });
       describe("WHEN bob does a 1 sat deposit", () => {

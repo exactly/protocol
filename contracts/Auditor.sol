@@ -313,7 +313,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   function setAdjustFactor(Market market, uint128 adjustFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (!markets[market].isListed) revert MarketNotListed();
 
-    if (adjustFactor > 0.9e18 || adjustFactor < 0.3e18) revert InvalidParameter();
+    if (adjustFactor > 0.99e18 || adjustFactor < 0.25e18) revert InvalidParameter();
 
     markets[market].adjustFactor = adjustFactor;
     emit AdjustFactorSet(market, adjustFactor);

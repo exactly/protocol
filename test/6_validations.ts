@@ -185,13 +185,13 @@ describe("Validations", function () {
         auditor.setLiquidationIncentive({ liquidator: parseUnits("0.0499"), lenders: 0 }),
       ).to.be.revertedWith("InvalidParameter()");
     });
-    it("WHEN trying to set the adjustFactor with more than 90%", async () => {
-      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.91"))).to.be.revertedWith(
+    it("WHEN trying to set the adjustFactor with more than 99%", async () => {
+      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.991"))).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
-    it("WHEN trying to set the adjustFactor with less than 30%", async () => {
-      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.29"))).to.be.revertedWith(
+    it("WHEN trying to set the adjustFactor with less than 25%", async () => {
+      await expect(auditor.setAdjustFactor(market.address, parseUnits("0.249"))).to.be.revertedWith(
         "InvalidParameter()",
       );
     });
