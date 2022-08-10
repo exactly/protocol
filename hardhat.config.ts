@@ -34,13 +34,13 @@ const config: Config = {
   },
   finance: {
     assets: ["DAI", "WETH", "USDC", "WBTC"],
-    adjustFactor: { default: 0.8, WBTC: 0.6 },
+    adjustFactor: { DAI: 0.95, WETH: 0.82, USDC: 0.98, WBTC: 0.85 },
     liquidationIncentive: {
       liquidator: 0.05,
       lenders: 0.01,
     },
     penaltyRatePerDay: 0.02,
-    backupFeeRate: 0.1,
+    backupFeeRate: 0.05,
     reserveFactor: 0.1,
     dampSpeed: {
       up: 0.0046,
@@ -95,7 +95,7 @@ declare module "hardhat/types/config" {
   }
   export interface FinanceConfig {
     assets: string[];
-    adjustFactor: { default: number; [asset: string]: number };
+    adjustFactor: { [asset: string]: number };
     liquidationIncentive: { liquidator: number; lenders: number };
     penaltyRatePerDay: number;
     treasuryFeeRate?: number;
