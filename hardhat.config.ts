@@ -13,7 +13,7 @@ import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
 import type { HardhatUserConfig as Config } from "hardhat/types";
 
 const config: Config = {
-  solidity: { version: "0.8.15", settings: { optimizer: { enabled: true, runs: 200 } } },
+  solidity: { version: "0.8.16", settings: { optimizer: { enabled: true, runs: 200 } } },
   networks: {
     hardhat: {
       accounts: { accountsBalance: `1${"0".repeat(32)}` },

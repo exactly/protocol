@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.15;
+pragma solidity 0.8.16;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
