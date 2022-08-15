@@ -3,13 +3,16 @@ import validateUpgrade from "./.utils/validateUpgrade";
 
 const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
-  await validateUpgrade("Previewer", { args: [(await get("Auditor")).address] }, async (name, opts) =>
-    deploy(name, {
-      ...opts,
-      proxy: { proxyContract: "TransparentUpgradeableProxy" },
-      from: deployer,
-      log: true,
-    }),
+  await validateUpgrade(
+    "Previewer",
+    { args: [(await get("Auditor")).address], envKey: "PREVIEWER" },
+    async (name, opts) =>
+      deploy(name, {
+        ...opts,
+        proxy: { proxyContract: "TransparentUpgradeableProxy" },
+        from: deployer,
+        log: true,
+      }),
   );
 };
 

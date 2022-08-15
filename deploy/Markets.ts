@@ -46,7 +46,12 @@ const func: DeployFunction = async ({
     const marketName = `Market${symbol}`;
     await validateUpgrade(
       marketName,
-      { contract: "Market", args: [asset.address, auditor.address] },
+      {
+        contract: "Market",
+        args: [asset.address, auditor.address],
+        envKey: "MARKETS",
+        unsafeAllow: ["constructor", "state-variable-immutable"],
+      },
       async (name, opts) =>
         deploy(name, {
           ...opts,
@@ -78,7 +83,7 @@ const func: DeployFunction = async ({
     const market = await getContract<Market>(marketName, await getSigner(deployer));
 
     if (symbol === "WETH") {
-      await validateUpgrade("MarketETHRouter", { args: [market.address] }, async (name, opts) =>
+      await validateUpgrade("MarketETHRouter", { args: [market.address], envKey: "ROUTER" }, async (name, opts) =>
         deploy(name, {
           ...opts,
           proxy: {

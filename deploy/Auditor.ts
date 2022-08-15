@@ -27,7 +27,7 @@ const func: DeployFunction = async ({
     lenders: parseUnits(String(lendersIncentive)),
   };
 
-  await validateUpgrade("Auditor", {}, async (name, opts) =>
+  await validateUpgrade("Auditor", { envKey: "AUDITOR" }, async (name, opts) =>
     deploy(name, {
       ...opts,
       proxy: {
