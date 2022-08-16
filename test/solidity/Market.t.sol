@@ -1812,29 +1812,71 @@ contract MarketTest is Test {
     oracle.setPrice(marketWETH, 1_000e18);
 
     marketWETH.deposit(50 ether, address(this));
-    // SMART POOL ASSETS = 100
+    // smart pool assets = 100
     market.deposit(100 ether, address(this));
-    vm.warp(2);
 
-    // FIXED BORROWS = 51
+    // fixed borrows = 51
     market.borrowAtMaturity(FixedLib.INTERVAL, 51 ether, 60 ether, address(this), address(this));
 
-    // WITHDRAWING 50 SHOULD REVERT (LIQUIDITY = 49)
+    // withdrawing 50 should revert (liquidity = 49)
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.withdraw(50 ether, address(this), address(this));
 
-    // SMART POOL ASSETS = 151 & FIXED BORROWS = 51 (LIQUIDITY = 100)
+    // smart pool assets = 151 & fixed borrows = 51 (liquidity = 100)
     market.deposit(51 ether, address(this));
 
-    // FLEXIBLE BORROWS = 51 ETHER
+    // flexible borrows = 51 eth
     market.borrow(51 ether, address(this), address(this));
 
-    // WITHDRAWING 50 SHOULD REVERT (LIQUIDITY = 49)
+    // withdrawing 50 should revert (liquidity = 49)
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
     market.withdraw(50 ether, address(this), address(this));
 
-    // WITHDRAWING 49 SHOULD NOT REVERT
+    // withdrawing 49 should not revert
     market.withdraw(49 ether, address(this), address(this));
+  }
+
+  function testMaturityInsufficientProtocolLiquidity() external {
+    oracle.setPrice(marketWETH, 1_000e18);
+    market.setReserveFactor(0.1e18);
+
+    marketWETH.deposit(50 ether, address(this));
+    // smart pool assets = 100
+    market.deposit(100 ether, address(this));
+    // assets in maturity number 1 = 50
+    market.depositAtMaturity(FixedLib.INTERVAL, 50 ether, 50 ether, address(this));
+
+    // borrowing more from maturity number 2 should revert
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 100 ether + 1, 101 ether, address(this), address(this));
+
+    // assets in maturity number 2 = 50
+    market.depositAtMaturity(FixedLib.INTERVAL * 2, 50 ether, 50 ether, address(this));
+    // assets in maturity number 1 = 25
+    market.borrowAtMaturity(FixedLib.INTERVAL, 125 ether, 150 ether, address(this), address(this));
+
+    // withdrawing 50 from maturity number 1 should revert
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 50 ether, 40 ether, address(this), address(this));
+
+    // borrowing 25 eth should revert due to reserve factor
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    market.borrow(25 ether, address(this), address(this));
+    // borrowing 25 eth from maturity should revert due to reserve factor
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 25 ether, 25 ether, address(this), address(this));
+  }
+
+  function testEarlyRepaymentWithExcessiveAmountOfFees() external {
+    market.deposit(100 ether, address(this));
+    market.deposit(1_000 ether, BOB);
+
+    market.borrowAtMaturity(FixedLib.INTERVAL, 100, 110, address(this), address(this));
+    irm.setBorrowRate(1.23e18);
+    vm.prank(BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 400 ether, address(BOB), address(BOB));
+
+    market.depositAtMaturity(FixedLib.INTERVAL, 100, 100, address(this));
   }
 
   function testMultipleBorrowsForMultipleAssets() external {
