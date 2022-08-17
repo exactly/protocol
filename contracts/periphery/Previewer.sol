@@ -45,6 +45,14 @@ contract Previewer {
     FixedPosition[] fixedBorrowPositions;
   }
 
+  struct FixedMarket {
+    Market market;
+    uint8 decimals;
+    uint256 assets;
+    FixedPreview[] deposits;
+    FixedPreview[] borrows;
+  }
+
   struct FixedPosition {
     uint256 maturity;
     FixedLib.Position position;
@@ -106,6 +114,27 @@ contract Previewer {
     }
   }
 
+  /// @notice Function to preview deposits and borrows at fixed rates in all markets.
+  /// @param usdAmount amount in usd expressed with 18 decimals.
+  /// @return data with fixed rate simulations for every market.
+  function previewFixed(uint256 usdAmount) external view returns (FixedMarket[] memory data) {
+    ExactlyOracle oracle = auditor.oracle();
+    uint256 maxValue = auditor.allMarkets().length;
+    data = new FixedMarket[](maxValue);
+    for (uint256 i = 0; i < maxValue; ++i) {
+      Market market = auditor.marketList(i);
+      (, uint8 decimals, , ) = auditor.markets(market);
+      uint256 assets = usdAmount.mulDivDown(10**decimals, oracle.assetPrice(market));
+      data[i] = FixedMarket({
+        market: market,
+        decimals: decimals,
+        assets: assets,
+        deposits: previewDepositAtAllMaturities(market, assets),
+        borrows: previewBorrowAtAllMaturities(market, assets)
+      });
+    }
+  }
+
   /// @notice Gets the assets plus yield offered by a maturity when depositing a certain amount.
   /// @param market address of the market.
   /// @param maturity maturity date/pool where the assets will be deposited.
@@ -137,7 +166,7 @@ contract Previewer {
   /// @param assets amount of assets that will be deposited.
   /// @return previews array containing amount plus yield that account will receive after each maturity.
   function previewDepositAtAllMaturities(Market market, uint256 assets)
-    external
+    public
     view
     returns (FixedPreview[] memory previews)
   {
@@ -188,7 +217,7 @@ contract Previewer {
   /// @param assets amount of assets that will be borrowed.
   /// @return previews array containing amount plus yield that account will receive after each maturity.
   function previewBorrowAtAllMaturities(Market market, uint256 assets)
-    external
+    public
     view
     returns (FixedPreview[] memory previews)
   {

@@ -401,7 +401,7 @@ contract PreviewerTest is Test {
     assertEq(bobOwedPrincipal, 0);
   }
 
-  function testfixedPools() external {
+  function testFixedPools() external {
     uint256 maxFuturePools = market.maxFuturePools();
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
@@ -545,7 +545,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingAvailableAssets, 80 ether + distribuedEarnings);
   }
 
-  function testfixedPoolsWithFloatingAssetsAverage() external {
+  function testFixedPoolsWithFloatingAssetsAverage() external {
     uint256 maxFuturePools = market.maxFuturePools();
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
@@ -605,7 +605,7 @@ contract PreviewerTest is Test {
     }
   }
 
-  function testfixedPoolsChangingMaturityInTime() external {
+  function testFixedPoolsChangingMaturityInTime() external {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].fixedPools[0].maturity, FixedLib.INTERVAL);
 
@@ -618,6 +618,39 @@ contract PreviewerTest is Test {
     vm.warp(FixedLib.INTERVAL * 2 + 3000);
     data = previewer.exactly(address(this));
     assertEq(data[0].fixedPools[0].maturity, FixedLib.INTERVAL * 3);
+  }
+
+  function testPreviewFixedWithUsdAmount() external {
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    oracle.setPrice(marketWETH, 1000e18);
+    auditor.enableMarket(marketWETH, 0.7e18, 18);
+    weth.mint(address(this), 1_000 ether);
+    weth.approve(address(marketWETH), 1_000 ether);
+    marketWETH.deposit(1_000 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    market.deposit(1_000 ether, address(this));
+    vm.warp(200);
+
+    Previewer.FixedMarket[] memory data = previewer.previewFixed(100e18);
+    assertEq(address(data[0].market), address(market));
+    assertEq(data[0].decimals, asset.decimals());
+    assertEq(data[0].assets, 100e18);
+    assertEq(data[0].deposits[0].maturity, FixedLib.INTERVAL);
+    assertEq(data[0].deposits[0].assets, 100e18);
+    assertEq(data[0].borrows[0].maturity, FixedLib.INTERVAL);
+    assertGt(data[0].borrows[0].assets, 100e18);
+    assertEq(data[0].borrows[1].maturity, FixedLib.INTERVAL * 2);
+    assertGt(data[0].borrows[1].assets, 100.5e18);
+    assertEq(data[1].decimals, weth.decimals());
+    assertEq(data[1].assets, 0.1e18);
+    assertEq(data[1].deposits[0].maturity, FixedLib.INTERVAL);
+    assertEq(data[1].deposits[0].assets, 0.1e18);
+    assertEq(data[1].borrows[0].maturity, FixedLib.INTERVAL);
+    assertGt(data[1].borrows[0].assets, 0.1e18);
+    assertEq(data[1].borrows[1].maturity, FixedLib.INTERVAL * 2);
+    assertGt(data[1].borrows[1].assets, 0.1003e18);
   }
 
   function testFlexibleBorrowSharesAndAssets() external {
