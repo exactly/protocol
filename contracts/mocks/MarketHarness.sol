@@ -8,29 +8,29 @@ contract MarketHarness is Market {
 
   constructor(
     ERC20 asset_,
+    Auditor auditor_,
     uint8 maxFuturePools_,
     uint128 earningsAccumulatorSmoothFactor_,
-    Auditor auditor_,
     InterestRateModel interestRateModel_,
     uint256 penaltyRate_,
     uint256 backupFeeRate_,
     uint128 reserveFactor_,
     uint256 dampSpeedUp_,
     uint256 dampSpeedDown_
-  ) Market(asset_, auditor_) {
-    assembly {
-      sstore(0, 0xffff)
-    }
-    __ReentrancyGuard_init();
-    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    setMaxFuturePools(maxFuturePools_);
-    setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);
-    setInterestRateModel(interestRateModel_);
-    setPenaltyRate(penaltyRate_);
-    setBackupFeeRate(backupFeeRate_);
-    setReserveFactor(reserveFactor_);
-    setDampSpeed(dampSpeedUp_, dampSpeedDown_);
-  }
+  )
+    Market(
+      asset_,
+      auditor_,
+      maxFuturePools_,
+      earningsAccumulatorSmoothFactor_,
+      interestRateModel_,
+      penaltyRate_,
+      backupFeeRate_,
+      reserveFactor_,
+      dampSpeedUp_,
+      dampSpeedDown_
+    )
+  {}
 
   function borrowMaturityWithReturnValue(
     uint256 maturity,

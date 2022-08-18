@@ -17,7 +17,7 @@
     "coverage:foundry:snapshot": "FOUNDRY_PROFILE=snapshot forge snapshot --check",
     "coverage:hardhat": "hardhat coverage",
     "deploy:rinkeby": "hardhat --network rinkeby deploy",
-    "etheno:node": "etheno -gx echidna.init.json --ganache-args=\"-t 1\"",
+    "etheno:node": "etheno -gx echidna.init.json --ganache-args=\"-t=1 -b=0 --miner.timestampIncrement=1\"",
     "etheno:init": "hardhat --network localhost run scripts/etheno.ts",
     "postinstall": "run-s --continue-on-error postinstall:** || cd .",
     "postinstall:foundry": "forge install",

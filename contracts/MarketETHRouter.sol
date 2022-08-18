@@ -28,10 +28,6 @@ contract MarketETHRouter is Initializable {
     market = market_;
     weth = WETH(payable(address(market_.asset())));
 
-    _disableInitializers();
-  }
-
-  function initialize() external initializer {
     weth.approve(address(market), type(uint256).max);
   }
 

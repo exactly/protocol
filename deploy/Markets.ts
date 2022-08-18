@@ -1,9 +1,8 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, ExactlyOracle, Market, InterestRateModel } from "../types";
+import type { Auditor, ERC20, ExactlyOracle, InterestRateModel, Market } from "../types";
 import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
-import validateUpgrade from "./.utils/validateUpgrade";
 import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
@@ -44,60 +43,27 @@ const func: DeployFunction = async ({
   for (const symbol of finance.assets) {
     const asset = await getContract<ERC20>(symbol);
     const marketName = `Market${symbol}`;
-    await validateUpgrade(
-      marketName,
-      {
-        contract: "Market",
-        args: [asset.address, auditor.address],
-        envKey: "MARKETS",
-        unsafeAllow: ["constructor", "state-variable-immutable"],
-      },
-      async (name, opts) =>
-        deploy(name, {
-          ...opts,
-          proxy: {
-            owner: timelockAddress,
-            viaAdminContract: "ProxyAdmin",
-            proxyContract: "TransparentUpgradeableProxy",
-            execute: {
-              init: {
-                methodName: "initialize",
-                args: [
-                  maxFuturePools,
-                  earningsAccumulatorSmoothFactor,
-                  interestRateModel.address,
-                  penaltyRate,
-                  backupFeeRate,
-                  reserveFactor,
-                  dampSpeedUp,
-                  dampSpeedDown,
-                ],
-              },
-            },
-          },
-          from: deployer,
-          log: true,
-        }),
-    );
-
+    await deploy(marketName, {
+      contract: "Market",
+      args: [
+        asset.address,
+        auditor.address,
+        maxFuturePools,
+        earningsAccumulatorSmoothFactor,
+        interestRateModel.address,
+        penaltyRate,
+        backupFeeRate,
+        reserveFactor,
+        dampSpeedUp,
+        dampSpeedDown,
+      ],
+      from: deployer,
+      log: true,
+    });
     const market = await getContract<Market>(marketName, await getSigner(deployer));
 
     if (symbol === "WETH") {
-      await validateUpgrade("MarketETHRouter", { args: [market.address], envKey: "ROUTER" }, async (name, opts) =>
-        deploy(name, {
-          ...opts,
-          proxy: {
-            owner: timelockAddress,
-            viaAdminContract: "ProxyAdmin",
-            proxyContract: "TransparentUpgradeableProxy",
-            execute: {
-              init: { methodName: "initialize", args: [] },
-            },
-          },
-          from: deployer,
-          log: true,
-        }),
-      );
+      await deploy("MarketETHRouter", { args: [market.address], from: deployer, log: true });
     }
 
     if ((await market.maxFuturePools()) !== maxFuturePools) {
@@ -152,6 +118,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "ProxyAdmin", "TimelockController", "Assets"];
+func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "TimelockController", "Assets"];
 
 export default func;

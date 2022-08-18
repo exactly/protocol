@@ -66,13 +66,9 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   uint128 public treasuryFeeRate;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
-    auditor = auditor_;
-
-    _disableInitializers();
-  }
-
-  function initialize(
+  constructor(
+    ERC20 asset_,
+    Auditor auditor_,
     uint8 maxFuturePools_,
     uint128 earningsAccumulatorSmoothFactor_,
     InterestRateModel interestRateModel_,
@@ -81,7 +77,13 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint128 reserveFactor_,
     uint256 dampSpeedUp_,
     uint256 dampSpeedDown_
-  ) external initializer {
+  ) ERC4626(asset_, "", "") {
+    auditor = auditor_;
+
+    assembly {
+      sstore(0, 0xffff)
+    }
+
     __AccessControl_init();
     __ReentrancyGuard_init();
 
@@ -98,6 +100,10 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
     setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+
+    assembly {
+      sstore(0, 0x00ff)
+    }
   }
 
   /// @notice Borrows a certain amount from the floating pool.

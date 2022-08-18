@@ -22,17 +22,21 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   ExactlyOracle public oracle;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor() {
-    _disableInitializers();
-  }
+  constructor(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) {
+    assembly {
+      sstore(0, 0xffff)
+    }
 
-  function initialize(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) external initializer {
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     setOracle(oracle_);
     setLiquidationIncentive(liquidationIncentive_);
+
+    assembly {
+      sstore(0, 0x00ff)
+    }
   }
 
   /// @notice Allows assets of a certain `market` market to be used as collateral for borrowing other assets.

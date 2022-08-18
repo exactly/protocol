@@ -5,8 +5,7 @@ const func: DeployFunction = async ({
     constants: { MaxUint256 },
   },
   network: {
-    live,
-    config: { priceExpiration = live ? MaxUint256 : 86_400 },
+    config: { priceExpiration = MaxUint256 },
   },
   deployments: { deploy },
   getNamedAccounts,

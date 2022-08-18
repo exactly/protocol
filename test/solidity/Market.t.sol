@@ -64,12 +64,12 @@ contract MarketTest is Test {
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
-    asset.mint(BOB, 50_000 ether);
+    asset.mint(BOB, type(uint128).max);
     asset.mint(ALICE, 50_000 ether);
-    asset.mint(address(this), 50_000 ether);
-    weth.mint(address(this), 50_000 ether);
+    asset.mint(address(this), type(uint128).max);
+    weth.mint(address(this), type(uint128).max);
 
-    weth.approve(address(marketWETH), 50_000 ether);
+    weth.approve(address(marketWETH), type(uint256).max);
     asset.approve(address(market), type(uint256).max);
     vm.prank(BOB);
     asset.approve(address(market), type(uint256).max);
@@ -1935,6 +1935,45 @@ contract MarketTest is Test {
     // liquidate function to account's borrows DOES increase in cost
     vm.prank(BOB);
     markets[0].liquidate(address(this), 1_000 ether, markets[0]);
+  }
+
+  function testFuzzLiquidation(uint64[4] calldata borrowAssets) external {
+    vm.assume(uint256(borrowAssets[0]) + borrowAssets[1] + borrowAssets[2] + borrowAssets[3] > 1_000);
+
+    oracle.setPrice(marketWETH, 1_000e18);
+
+    for (uint256 i = 0; i < 3; ++i) {
+      if (borrowAssets[i] == 0) continue;
+
+      marketWETH.deposit(borrowAssets[i], address(this));
+      market.deposit(uint256(borrowAssets[i]).mulWadDown(1.5e18), ALICE);
+      market.borrowAtMaturity(
+        (i + 1) * FixedLib.INTERVAL,
+        borrowAssets[i],
+        type(uint256).max,
+        address(this),
+        address(this)
+      );
+    }
+
+    if (borrowAssets[3] > 0) {
+      marketWETH.deposit(borrowAssets[3], address(this));
+      market.deposit(uint256(borrowAssets[3]).mulWadDown(1.5e18), ALICE);
+      market.borrow(borrowAssets[3], address(this), address(this));
+    }
+
+    oracle.setPrice(marketWETH, 1e18);
+
+    vm.prank(BOB);
+    market.liquidate(address(this), type(uint256).max, marketWETH);
+
+    auditor.accountLiquidity(address(this), market, 0);
+    marketWETH.maxWithdraw(address(this));
+    auditor.checkShortfall(market, address(this), 0);
+    // if (true) {
+    //   assertEq(marketWETH.maxWithdraw(address(this)), 0);
+    //   assertEq(market.getDebt(address(this)), 0);
+    // }
   }
 
   event Transfer(address indexed from, address indexed to, uint256 amount);

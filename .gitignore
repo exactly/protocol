@@ -1,6 +1,7 @@
 /artifacts/
 /coverage/
 /coverage.json
+/deployments/hardhat/
 /deployments/localhost/
 /deployments/*/solcInputs/
 /docs/

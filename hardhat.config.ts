@@ -33,7 +33,7 @@ const config: Config = {
     },
   },
   finance: {
-    assets: ["DAI", "WETH", "USDC", "WBTC"],
+    assets: ["DAI", "WBTC"],
     adjustFactor: { DAI: 0.95, WETH: 0.82, USDC: 0.98, WBTC: 0.85 },
     liquidationIncentive: {
       liquidator: 0.05,
@@ -63,9 +63,9 @@ const config: Config = {
       floatingFullUtilization: 7.5,
     },
   },
-  dodoc: { exclude: ["mocks", "k", "elin", "rc"] },
+  dodoc: { exclude: ["mocks", "echidna", "k", "elin", "rc"] },
   typechain: { outDir: "types", target: "ethers-v5" },
-  contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
+  contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks", "echidna"] },
   gasReporter: {
     currency: "USD",
     gasPrice: 100,
