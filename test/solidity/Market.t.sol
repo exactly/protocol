@@ -2001,6 +2001,7 @@ contract MarketHarness is Market {
     uint256 dampSpeedUp_,
     uint256 dampSpeedDown_
   ) Market(asset_, auditor_) {
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       sstore(0, 0xffff)
     }

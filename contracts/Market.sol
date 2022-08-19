@@ -854,25 +854,15 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
       uint256 memMaxFuturePools = maxFuturePools;
       uint256 backupEarnings = 0;
 
-      uint256 lastAccrual;
-      uint256 unassignedEarnings;
       uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
       uint256 maxMaturity = latestMaturity + memMaxFuturePools * FixedLib.INTERVAL;
 
-      assembly {
-        mstore(0x20, fixedPools.slot) // hashing scratch space, second word for storage location hashing
-      }
-
       for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
-        assembly {
-          mstore(0x00, maturity) // hashing scratch space, first word for storage location hashing
-          let location := keccak256(0x00, 0x40) // struct storage location: keccak256([maturity, fixedPools.slot])
-          unassignedEarnings := sload(add(location, 2)) // third word
-          lastAccrual := sload(add(location, 3)) // fourth word
-        }
+        FixedLib.Pool storage pool = fixedPools[maturity];
+        uint256 lastAccrual = pool.lastAccrual;
 
         if (maturity > lastAccrual) {
-          backupEarnings += unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
+          backupEarnings += pool.unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
         }
       }
 

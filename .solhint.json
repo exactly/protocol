@@ -8,7 +8,7 @@
     "func-param-name-mixedcase": "error",
     "modifier-name-mixedcase": "error",
     "constructor-syntax": "error",
-    "no-inline-assembly": "off",
+    "no-inline-assembly": "error",
     "not-rely-on-time": "off",
     "max-states-count": "off",
     "prettier/prettier": "error"
