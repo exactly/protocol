@@ -1303,6 +1303,7 @@ contract MarketTest is Test {
   }
 
   function testFixedBorrowFailingWhenFlexibleBorrowAccruesDebt() external {
+    market.deposit(1_000 ether, ALICE);
     market.deposit(100 ether, address(this));
 
     market.borrow(50 ether, address(this), address(this));
@@ -1334,10 +1335,10 @@ contract MarketTest is Test {
     uint256 floatingUtilization = market.floatingUtilization();
 
     vm.warp(365 days);
-    market.deposit(1, address(this));
+    market.deposit(2, address(this));
 
     assertEq(market.floatingDebt(), 11 ether);
-    assertEq(market.floatingAssets(), 101 ether + 1);
+    assertEq(market.floatingAssets(), 101 ether + 2);
     assertEq(market.lastFloatingDebtUpdate(), 365 days);
     assertGt(market.floatingUtilization(), floatingUtilization);
     floatingUtilization = market.floatingUtilization();
@@ -1345,7 +1346,7 @@ contract MarketTest is Test {
     vm.warp(730 days);
     market.mint(1, address(this));
     assertEq(market.floatingDebt(), 12.1 ether);
-    assertEq(market.floatingAssets(), 102.1 ether + 3);
+    assertEq(market.floatingAssets(), 102.1 ether + 4);
     assertEq(market.lastFloatingDebtUpdate(), 730 days);
     assertGt(market.floatingUtilization(), floatingUtilization);
   }
@@ -1601,8 +1602,8 @@ contract MarketTest is Test {
     // distribute borrow debt with another borrow
     market.borrow(1, address(this), address(this));
 
-    // treasury earns 10% of the 10% that is charged to the borrower
-    assertEq(market.balanceOf(address(BOB)), 0.01 ether);
+    // treasury earns 10% of the 10% that is charged to the borrower (rounded down)
+    assertEq(market.maxWithdraw(address(BOB)), 0.01 ether - 1);
     // the treasury earnings + debt accrued are instantly added to the smart pool assets
     assertEq(market.floatingAssets(), 10 ether + 0.1 ether);
   }

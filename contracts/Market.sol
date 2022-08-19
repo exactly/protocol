@@ -823,8 +823,8 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     );
 
     memFloatingDebt += newDebt;
-    floatingDebt = memFloatingDebt;
     floatingAssets += chargeTreasuryFee(newDebt);
+    floatingDebt = memFloatingDebt;
     floatingUtilization = newFloatingUtilization;
     lastFloatingDebtUpdate = uint32(block.timestamp);
     emit FloatingDebtUpdate(block.timestamp, newFloatingUtilization);
@@ -866,7 +866,11 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         }
       }
 
-      return floatingAssets + backupEarnings + accumulatedEarnings();
+      return
+        floatingAssets +
+        backupEarnings +
+        accumulatedEarnings() +
+        (totalFloatingBorrowAssets() - floatingDebt).mulWadDown(1e18 - treasuryFeeRate);
     }
   }
 
