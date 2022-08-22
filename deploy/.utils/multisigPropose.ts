@@ -18,7 +18,12 @@ export default async (account: string, contract: Contract, functionName: string,
     // eslint-disable-next-line no-console
     console.log("multisig: proposing", `${await format(contract.address)}.${functionName}`, await format(args));
     const safeSdk = await Safe.create({ ethAdapter, safeAddress });
-    const safeTransaction = await safeSdk.createTransaction({ to: contract.address, value: "0", data: calldata });
+    const safeTransaction = await safeSdk.createTransaction({
+      to: contract.address,
+      data: calldata,
+      value: "0",
+      nonce: await safeService.getNextNonce(safeAddress),
+    });
     const safeTxHash = await safeSdk.getTransactionHash(safeTransaction);
     const senderSignature = await safeSdk.signTransactionHash(safeTxHash);
     await safeService.proposeTransaction({
