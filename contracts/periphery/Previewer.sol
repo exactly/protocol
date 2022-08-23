@@ -37,6 +37,7 @@ contract Previewer {
     uint256 totalFloatingDepositAssets;
     // account
     bool isCollateral;
+    uint256 maxBorrowAssets;
     uint256 floatingBorrowShares;
     uint256 floatingBorrowAssets;
     uint256 floatingDepositShares;
@@ -84,16 +85,18 @@ contract Previewer {
     ExactlyOracle oracle = auditor.oracle();
     uint256 markets = auditor.accountMarkets(account);
     uint256 maxValue = auditor.allMarkets().length;
+    (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, Market(address(0)), 0);
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
       Market market = auditor.marketList(i);
+      uint256 oraclePrice = oracle.assetPrice(market);
       (uint128 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
       data[i] = MarketAccount({
         // market
         market: market,
         decimals: decimals,
         assetSymbol: market.asset().symbol(),
-        oraclePrice: oracle.assetPrice(market),
+        oraclePrice: oraclePrice,
         penaltyRate: uint128(market.penaltyRate()),
         adjustFactor: adjustFactor,
         maxFuturePools: market.maxFuturePools(),
@@ -104,6 +107,9 @@ contract Previewer {
         totalFloatingBorrowAssets: market.totalFloatingBorrowAssets(),
         // account
         isCollateral: markets & (1 << i) != 0 ? true : false,
+        maxBorrowAssets: adjustedCollateral >= adjustedDebt
+          ? (adjustedCollateral - adjustedDebt).mulDivUp(10**decimals, oraclePrice).mulWadUp(adjustFactor)
+          : 0,
         floatingBorrowShares: market.floatingBorrowShares(account),
         floatingBorrowAssets: maxRepay(market, account),
         floatingDepositShares: market.balanceOf(account),
@@ -152,7 +158,7 @@ contract Previewer {
     return
       FixedPreview({
         maturity: maturity,
-        assets: assets + getFixedDepositYield(market, maturity, assets),
+        assets: assets + fixedDepositYield(market, maturity, assets),
         utilization: memFloatingAssetsAverage > 0
           ? (borrowed + assets).divWadDown(
             supplied + memFloatingAssetsAverage.divWadDown(market.interestRateModel().fixedFullUtilization())
@@ -275,8 +281,7 @@ contract Previewer {
     FixedLib.Position memory position;
     (position.principal, position.fee) = market.fixedBorrowPositions(maturity, borrower);
 
-    return
-      positionAssets - getFixedDepositYield(market, maturity, position.scaleProportionally(positionAssets).principal);
+    return positionAssets - fixedDepositYield(market, maturity, position.scaleProportionally(positionAssets).principal);
   }
 
   function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
@@ -335,7 +340,7 @@ contract Previewer {
     for (uint256 i = 0; i < userMaturityCount; ++i) userMaturityPositions[i] = allMaturityPositions[i];
   }
 
-  function getFixedDepositYield(
+  function fixedDepositYield(
     Market market,
     uint256 maturity,
     uint256 assets

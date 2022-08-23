@@ -9,7 +9,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Market, InsufficientProtocolLiquidity } from "../../contracts/Market.sol";
 import { InterestRateModel, UtilizationExceeded, AlreadyMatured } from "../../contracts/InterestRateModel.sol";
-import { Auditor, ExactlyOracle } from "../../contracts/Auditor.sol";
+import { Auditor, ExactlyOracle, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { Previewer } from "../../contracts/periphery/Previewer.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
@@ -603,6 +603,91 @@ contract PreviewerTest is Test {
     for (uint256 i = 0; i < maxFuturePools; i++) {
       assertEq(data[0].fixedPools[i].available, accumulatorBefore - market.earningsAccumulator());
     }
+  }
+
+  function testMaxBorrowAssetsCapacity() external {
+    market.deposit(100 ether, address(this));
+    auditor.enterMarket(market);
+
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].maxBorrowAssets, 64 ether);
+    // try to borrow max assets + 1 unit should revert
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    market.borrow(64 ether + 1, address(this), address(this));
+
+    // once borrowing max assets, capacity should be 0
+    market.borrow(64 ether, address(this), address(this));
+    data = previewer.exactly(address(this));
+    assertEq(data[0].maxBorrowAssets, 0);
+
+    // max borrow assets for BOB should be 0
+    data = previewer.exactly(BOB);
+    assertEq(data[0].maxBorrowAssets, 0);
+  }
+
+  function testMaxBorrowAssetsCapacityForAccountWithShortfall() external {
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    oracle.setPrice(marketWETH, 1000e18);
+    auditor.enableMarket(marketWETH, 0.7e18, 18);
+    weth.mint(address(this), 1 ether);
+    weth.approve(address(marketWETH), 1 ether);
+    marketWETH.deposit(1 ether, address(this));
+    market.deposit(1000 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    auditor.enterMarket(market);
+
+    market.borrow(1000 ether, address(this), address(this));
+    oracle.setPrice(marketWETH, 100e18);
+
+    // if account has shortfall then max borrow assets should be 0
+    (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].maxBorrowAssets, 0);
+    assertGt(debt, collateral);
+  }
+
+  function testMaxBorrowAssetsCapacityPerMarket() external {
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    oracle.setPrice(marketWETH, 1000e18);
+    auditor.enableMarket(marketWETH, 0.7e18, 18);
+    weth.mint(address(this), 1 ether);
+    weth.approve(address(marketWETH), 1 ether);
+    marketWETH.deposit(1 ether, address(this));
+    market.deposit(1000 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    auditor.enterMarket(market);
+
+    // add liquidity as bob
+    weth.mint(BOB, 10 ether);
+    vm.prank(BOB);
+    weth.approve(address(marketWETH), 1_000 ether);
+    vm.prank(BOB);
+    marketWETH.deposit(10 ether, address(BOB));
+    vm.prank(BOB);
+    market.deposit(5000 ether, address(BOB));
+
+    // dai collateral (1000) * 0.8 = 800
+    // eth collateral (1000) * 0.7 = 700
+    // 1500 * 0.8 = 1200 (dai)
+    // 1500 * 0.7 = 1050 / 1000 = 1.05 (eth)
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].maxBorrowAssets, 1200 ether);
+    assertEq(data[1].maxBorrowAssets, 1.05 ether);
+    // try to borrow dai max assets + 1 unit should revert
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    market.borrow(1200 ether + 1, address(this), address(this));
+    // try to borrow weth max assets + 1 unit should revert
+    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    marketWETH.borrow(1.05 ether + 1, address(this), address(this));
+
+    // once borrowing max assets, capacity should be 0
+    marketWETH.borrow(1.05 ether, address(this), address(this));
+    data = previewer.exactly(address(this));
+    assertEq(data[0].maxBorrowAssets, 0);
   }
 
   function testFixedPoolsChangingMaturityInTime() external {
