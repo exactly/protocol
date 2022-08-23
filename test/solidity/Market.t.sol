@@ -969,6 +969,27 @@ contract MarketTest is Test {
     assertEq(market.floatingBackupBorrowed(), 0);
   }
 
+  function testLiquidationClearingDebtOfAllAccountMarkets() external {
+    oracle.setPrice(marketWETH, 3_000e18);
+    marketWETH.deposit(10 ether, BOB);
+    market.deposit(1000 ether, BOB);
+
+    marketWETH.deposit(1 ether, address(this));
+    market.borrow(500 ether, address(this), address(this));
+    marketWETH.borrow(0.25 ether, address(this), address(this));
+
+    oracle.setPrice(marketWETH, 100e18);
+    vm.prank(BOB);
+    market.liquidate(address(this), type(uint256).max, marketWETH);
+
+    (uint256 daiBalance, uint256 daiDebt) = market.accountSnapshot(address(this));
+    (uint256 wethBalance, uint256 wethDebt) = marketWETH.accountSnapshot(address(this));
+    assertEq(daiBalance, 0);
+    assertEq(daiDebt, 0);
+    assertEq(wethBalance, 0);
+    assertEq(wethDebt, 0);
+  }
+
   function testCappedLiquidation() external {
     irm.setBorrowRate(0);
     oracle.setPrice(marketWETH, 2_000e18);

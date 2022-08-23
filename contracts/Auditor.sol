@@ -5,8 +5,8 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import { Market, NotMarket } from "./Market.sol";
 import { ExactlyOracle } from "./ExactlyOracle.sol";
+import { Market } from "./Market.sol";
 
 contract Auditor is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
@@ -179,7 +179,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     Market seizeMarket,
     address borrower,
     uint256 maxLiquidatorAssets
-  ) external view returns (uint256 maxRepayAssets, bool moreCollateral) {
+  ) external view returns (uint256 maxRepayAssets) {
     // if markets are listed, they have the same auditor
     if (!markets[repayMarket].isListed || !markets[seizeMarket].isListed) revert MarketNotListed();
 
@@ -236,7 +236,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         ? maxLiquidatorAssets.divWadDown(1e18 + memIncentive.lenders)
         : maxLiquidatorAssets
     );
-    moreCollateral = usd.totalCollateral > usd.seizeAvailable;
   }
 
   /// @notice Allow/rejects seizing of assets.
@@ -272,6 +271,27 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       seizeMarket.maxWithdraw(borrower)
     );
     lendersAssets = actualRepayAssets.mulWadDown(liquidationIncentive.lenders);
+  }
+
+  function handleBadDebt(address account) external {
+    if (!markets[Market(msg.sender)].isListed) revert NotMarket();
+
+    uint256 marketCount = marketList.length;
+    uint256 marketMap = accountMarkets[account];
+    for (uint256 i = 0; i < marketCount; ) {
+      if ((marketMap & (1 << i)) != 0 && marketList[i].balanceOf(account) > 0) return;
+
+      unchecked {
+        ++i;
+      }
+    }
+
+    for (uint256 i = 0; i < marketCount; ) {
+      marketList[i].clearBadDebt(account);
+      unchecked {
+        ++i;
+      }
+    }
   }
 
   /// @notice Retrieves all markets.
@@ -388,6 +408,7 @@ error InsufficientAccountLiquidity();
 error InsufficientShortfall();
 error MarketAlreadyListed();
 error MarketNotListed();
+error NotMarket();
 error RemainingDebt();
 
 struct MarketVars {

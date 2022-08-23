@@ -471,8 +471,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   ) external nonReentrant whenNotPaused returns (uint256 repaidAssets) {
     if (msg.sender == borrower) revert SelfLiquidation();
 
-    bool moreCollateral;
-    (maxAssets, moreCollateral) = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
+    maxAssets = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
     checkRepay(maxAssets);
 
     uint256 packedMaturities = fixedBorrows[borrower];
@@ -531,45 +530,47 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     // reverts on failure
     (maxAssets, lendersAssets) = auditor.calculateSeize(this, collateralMarket, borrower, repaidAssets);
 
-    moreCollateral =
-      (
-        address(collateralMarket) == address(this)
-          ? internalSeize(this, msg.sender, borrower, maxAssets)
-          : collateralMarket.seize(msg.sender, borrower, maxAssets)
-      ) ||
-      moreCollateral;
+    if (address(collateralMarket) == address(this)) internalSeize(this, msg.sender, borrower, maxAssets);
+    else collateralMarket.seize(msg.sender, borrower, maxAssets);
 
     emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, maxAssets);
 
     asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
 
-    if (!moreCollateral) {
-      for (--i; i < 224; ) {
-        if ((packedMaturities & (1 << i)) != 0) {
-          uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
+    auditor.handleBadDebt(borrower);
+  }
 
-          FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
-          uint256 badDebt = position.principal + position.fee;
-          if (badDebt > 0) {
-            floatingBackupBorrowed -= fixedPools[maturity].repay(position.principal);
-            delete fixedBorrowPositions[maturity][borrower];
-            fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
+  function clearBadDebt(address account) external {
+    if (msg.sender != address(auditor)) revert NotAuditor();
 
-            emit RepayAtMaturity(uint32(maturity), msg.sender, borrower, badDebt, badDebt);
-            spreadBadDebt(badDebt);
-          }
+    uint256 packedMaturities = fixedBorrows[account];
+    uint256 baseMaturity = packedMaturities % (1 << 32);
+    packedMaturities = packedMaturities >> 32;
+    for (uint256 i = 0; i < 224; ) {
+      if ((packedMaturities & (1 << i)) != 0) {
+        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
+
+        FixedLib.Position storage position = fixedBorrowPositions[maturity][account];
+        uint256 badDebt = position.principal + position.fee;
+        if (badDebt > 0) {
+          floatingBackupBorrowed -= fixedPools[maturity].repay(position.principal);
+          delete fixedBorrowPositions[maturity][account];
+          fixedBorrows[account] = fixedBorrows[account].clearMaturity(maturity);
+
+          emit RepayAtMaturity(uint32(maturity), msg.sender, account, badDebt, badDebt);
+          spreadBadDebt(badDebt);
         }
+      }
 
-        unchecked {
-          ++i;
-        }
-        if ((1 << i) > packedMaturities) break;
+      unchecked {
+        ++i;
       }
-      uint256 borrowShares = floatingBorrowShares[borrower];
-      if (borrowShares > 0) {
-        uint256 badDebt = noTransferRefund(borrowShares, borrower);
-        spreadBadDebt(badDebt);
-      }
+      if ((1 << i) > packedMaturities) break;
+    }
+    uint256 borrowShares = floatingBorrowShares[account];
+    if (borrowShares > 0) {
+      uint256 badDebt = noTransferRefund(borrowShares, account);
+      spreadBadDebt(badDebt);
     }
   }
 
@@ -584,8 +585,8 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     address liquidator,
     address borrower,
     uint256 assets
-  ) external nonReentrant whenNotPaused returns (bool moreCollateral) {
-    moreCollateral = internalSeize(Market(msg.sender), liquidator, borrower, assets);
+  ) external nonReentrant whenNotPaused {
+    internalSeize(Market(msg.sender), liquidator, borrower, assets);
   }
 
   /// @notice Internal function to seize a certain amount of assets.
@@ -601,7 +602,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     address liquidator,
     address borrower,
     uint256 assets
-  ) internal returns (bool moreCollateral) {
+  ) internal {
     checkWithdraw(assets);
 
     // reverts on failure
@@ -615,8 +616,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     asset.safeTransfer(liquidator, assets);
     emit Seize(liquidator, borrower, assets);
     emitMarketUpdate();
-
-    return balanceOf[borrower] > 0;
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
@@ -1155,7 +1154,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 error AlreadyInitialized();
 error Disagreement();
 error InsufficientProtocolLiquidity();
-error NotMarket();
+error NotAuditor();
 error SelfLiquidation();
 error ZeroWithdraw();
 error ZeroRepay();
