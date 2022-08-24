@@ -12,29 +12,29 @@ git clone git@github.com:exactly-protocol/protocol.git
 ## Install Locally
 
 ```bash
-npm install --legacy-peer-deps
+yarn
 ```
 
 ## Run Tests
 
 ```bash
-npm test
+yarn test
 ```
 
 ## Run Coverage
 
 ```bash
-npm run coverage
+yarn coverage
 ```
 
 ## Gas Reports
 
 ```bash
-export REPORT_GAS=1 && npm test
+REPORT_GAS=1 yarn test
 ```
 
 ## Deploy
 
 ```bash
-npm run deploy:rinkeby
+yarn deploy:rinkeby
 ```

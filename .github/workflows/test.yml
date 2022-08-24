@@ -14,11 +14,11 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
-          cache: npm
+          cache: yarn
       - run: export FOUNDRY_DIR=$HOME/.local && curl -L https://foundry.paradigm.xyz | bash && foundryup
-      - run: npm install --legacy-peer-deps
-      - run: npm run lint
-      - run: npm run coverage
+      - run: yarn
+      - run: yarn lint
+      - run: yarn coverage
       - uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
