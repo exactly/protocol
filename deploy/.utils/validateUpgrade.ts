@@ -7,6 +7,7 @@ import { UnknownSignerError } from "hardhat-deploy/dist/src/errors";
 import type { DeployResult } from "hardhat-deploy/types";
 import type { ValidationError } from "@openzeppelin/upgrades-core/dist/validate/run";
 import timelockPropose from "./timelockPropose";
+import tenderlify from "./tenderlify";
 
 const {
   ethers: { getContractAt, getContractFactory },
@@ -15,7 +16,8 @@ const {
 } = hre;
 
 export default async (name: string, opts?: DeployOptions, deploy?: DeployCallback) => {
-  const deployData = await getDeployData(hre, await getContractFactory(opts?.contract ?? name), {
+  const contractName = opts?.contract ?? name;
+  const deployData = await getDeployData(hre, await getContractFactory(contractName), {
     constructorArgs: opts?.args,
     unsafeAllow: opts?.unsafeAllow,
   });
@@ -35,6 +37,11 @@ export default async (name: string, opts?: DeployOptions, deploy?: DeployCallbac
 
     await manifest.write(d);
   });
+
+  await Promise.all([
+    tenderlify("TransparentUpgradeableProxy", await get(`${name}_Proxy`)),
+    ...(implementation ? [tenderlify(contractName, await get(`${name}_Implementation`))] : []),
+  ]);
 };
 
 async function tryDeploy(deploy: DeployCallback, name: string, opts?: DeployOptions) {
@@ -60,10 +67,7 @@ async function tryDeploy(deploy: DeployCallback, name: string, opts?: DeployOpti
   }
 }
 
-type DeployCallback = (
-  name: string,
-  opts?: DeployOptions,
-) => Promise<Pick<DeployResult, "address" | "transactionHash" | "implementation">>;
+type DeployCallback = (name: string, opts?: DeployOptions) => Promise<DeployResult>;
 
 interface DeployOptions {
   contract?: string;

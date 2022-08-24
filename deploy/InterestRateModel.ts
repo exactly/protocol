@@ -1,6 +1,7 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { InterestRateModel } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
+import tenderlify from "./.utils/tenderlify";
 
 const func: DeployFunction = async ({
   config: {
@@ -34,12 +35,15 @@ const func: DeployFunction = async ({
   ];
   const floatingFullUtilization = parseUnits(String(floatingFullUtilizationNumber));
 
-  await deploy("InterestRateModel", {
-    skipIfAlreadyDeployed: true,
-    args: [fixedCurve, fixedFullUtilization, floatingCurve, floatingFullUtilization],
-    from: deployer,
-    log: true,
-  });
+  await tenderlify(
+    "InterestRateModel",
+    await deploy("InterestRateModel", {
+      skipIfAlreadyDeployed: true,
+      args: [fixedCurve, fixedFullUtilization, floatingCurve, floatingFullUtilization],
+      from: deployer,
+      log: true,
+    }),
+  );
 
   const irm = await getContract<InterestRateModel>("InterestRateModel", deployer);
   if (

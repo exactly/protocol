@@ -4,13 +4,17 @@ import "solidity-coverage";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
+import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-waffle";
 import "@primitivefi/hardhat-dodoc";
 import "@openzeppelin/hardhat-upgrades";
 import { env } from "process";
 import { task } from "hardhat/config";
+import { setup } from "@tenderly/hardhat-tenderly";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
 import type { HardhatUserConfig as Config } from "hardhat/types";
+
+setup({ automaticVerifications: false });
 
 const config: Config = {
   solidity: { version: "0.8.16", settings: { optimizer: { enabled: true, runs: 200 } } },
@@ -64,6 +68,7 @@ const config: Config = {
     },
   },
   dodoc: { exclude: ["mocks", "k", "elin", "rc"] },
+  tenderly: { project: "exactly", username: "exactly", privateVerification: true },
   typechain: { outDir: "types", target: "ethers-v5" },
   contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
   gasReporter: {

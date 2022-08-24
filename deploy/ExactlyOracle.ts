@@ -1,4 +1,5 @@
 import type { DeployFunction } from "hardhat-deploy/types";
+import tenderlify from "./.utils/tenderlify";
 
 const func: DeployFunction = async ({
   ethers: {
@@ -12,7 +13,10 @@ const func: DeployFunction = async ({
   getNamedAccounts,
 }) => {
   const { deployer } = await getNamedAccounts();
-  await deploy("ExactlyOracle", { skipIfAlreadyDeployed: true, args: [priceExpiration], from: deployer, log: true });
+  await tenderlify(
+    "ExactlyOracle",
+    await deploy("ExactlyOracle", { skipIfAlreadyDeployed: true, args: [priceExpiration], from: deployer, log: true }),
+  );
 };
 
 func.tags = ["ExactlyOracle"];
