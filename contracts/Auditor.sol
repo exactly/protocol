@@ -274,13 +274,19 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     );
   }
 
+  /// @notice Checks if account has debt with no collateral, if so then call `clearBadDebt` from each `market`.
+  /// @dev Collateral is multiplied by price and `adjustFactor` to be accurately evaluated as positive collateral asset.
+  /// @param account account which debt is being checked.
   function handleBadDebt(address account) external {
-    if (!markets[Market(msg.sender)].isListed) revert NotMarket();
-
     uint256 marketCount = marketList.length;
     uint256 marketMap = accountMarkets[account];
     for (uint256 i = 0; i < marketCount; ) {
-      if ((marketMap & (1 << i)) != 0 && marketList[i].balanceOf(account) > 0) return;
+      if ((marketMap & (1 << i)) != 0) {
+        Market market = marketList[i];
+        MarketData storage m = markets[market];
+        uint256 assets = market.maxWithdraw(account);
+        if (assets.mulDivDown(oracle.assetPrice(market), 10**m.decimals).mulWadDown(m.adjustFactor) > 0) return;
+      }
 
       unchecked {
         ++i;

@@ -12,11 +12,13 @@ import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
-  Market,
   ERC20,
+  Market,
   FixedLib,
-  Disagreement,
   ZeroRepay,
+  NotAuditor,
+  ZeroWithdraw,
+  Disagreement,
   InsufficientProtocolLiquidity
 } from "../../contracts/Market.sol";
 
@@ -651,17 +653,30 @@ contract MarketTest is Test {
     market.liquidate(address(this), 103499999999999999800, marketWETH);
     assertEq(marketWETH.maxWithdraw(address(this)), 1);
 
+    oracle.setPrice(marketWETH, 5e18);
+    vm.expectRevert(ZeroWithdraw.selector);
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
+
+    oracle.setPrice(marketWETH, 0.1e18);
+    vm.expectRevert();
+    vm.prank(BOB);
+    market.liquidate(address(this), type(uint256).max, marketWETH);
+
+    auditor.handleBadDebt(address(this));
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
       Market(address(0)),
       0
     );
 
-    assertEq(marketWETH.maxWithdraw(address(this)), 0);
     assertEq(remainingCollateral, 0);
     assertEq(remainingDebt, 0);
+  }
+
+  function testClearBadDebtCalledByAccount() external {
+    vm.expectRevert(NotAuditor.selector);
+    market.clearBadDebt(address(this));
   }
 
   function testLiquidateAndSeizeExactAmountWithDustAsCollateral() external {

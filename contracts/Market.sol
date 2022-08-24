@@ -544,6 +544,9 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     auditor.handleBadDebt(borrower);
   }
 
+  /// @notice Clears floating and fixed debt for an account spreading the losses between the floating assets.
+  /// @dev Can only be called from the auditor.
+  /// @param account account with insufficient collateral to be cleared the debt.
   function clearBadDebt(address account) external {
     if (msg.sender != address(auditor)) revert NotAuditor();
 
@@ -576,6 +579,17 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
       uint256 badDebt = noTransferRefund(borrowShares, account);
       spreadBadDebt(badDebt);
     }
+  }
+
+  /// @notice Spreads bad debt subtracting the amount from the `earningsAccumulator` and/or `floatingAssets`.
+  /// @param badDebt amount that it's assumed an account won't repay due to insufficient collateral.
+  function spreadBadDebt(uint256 badDebt) internal {
+    uint256 memEarningsAccumulator = earningsAccumulator;
+    uint256 fromAccumulator = Math.min(memEarningsAccumulator, badDebt);
+    earningsAccumulator = memEarningsAccumulator - fromAccumulator;
+    if (fromAccumulator < badDebt) floatingAssets -= badDebt - fromAccumulator;
+
+    emitMarketUpdate();
   }
 
   /// @notice Public function to seize a certain amount of assets.
@@ -736,18 +750,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     // calculate floating borrowed debt
     uint256 shares = floatingBorrowShares[account];
     if (shares > 0) debt += previewRefund(shares);
-  }
-
-  /// @notice Spreads bad debt subtracting the amount from the earningsAccumulator
-  /// and/or floatingAssets.
-  /// @param badDebt amount that it's assumed an account won't repay due to insufficient collateral.
-  function spreadBadDebt(uint256 badDebt) internal {
-    uint256 memEarningsAccumulator = earningsAccumulator;
-    uint256 fromAccumulator = Math.min(memEarningsAccumulator, badDebt);
-    earningsAccumulator = memEarningsAccumulator - fromAccumulator;
-    if (fromAccumulator < badDebt) floatingAssets -= badDebt - fromAccumulator;
-
-    emitMarketUpdate();
   }
 
   /// @notice Charges treasury fee to certain amount of earnings.
