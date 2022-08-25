@@ -24,6 +24,7 @@ import {
 
 contract ProtocolTest is Test {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for uint128;
   using FixedPointMathLib for uint64;
   using LibString for uint256;
 
@@ -103,6 +104,24 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     address account = accounts[i % accounts.length];
     underlyingAssets[(i / 2) % underlyingAssets.length].mint(account, assets);
+    if (market.totalSupply() > 0 && market.totalAssets() == 0) {
+      Market otherMarket = markets[(i / 2 + 1) % markets.length];
+      MockERC20 asset = MockERC20(address(market.asset()));
+      MockERC20 otherAsset = MockERC20(address(otherMarket.asset()));
+      address rando = address(bytes20(blockhash(block.number - 1)));
+      uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+      vm.startPrank(rando);
+      asset.mint(rando, type(uint96).max);
+      asset.approve(address(market), type(uint256).max);
+      otherAsset.mint(rando, type(uint96).max);
+      otherAsset.approve(address(otherMarket), type(uint256).max);
+      otherMarket.deposit(type(uint96).max, rando);
+      auditor.enterMarket(otherMarket);
+      market.depositAtMaturity(maturity, 1_000_000, 0, rando);
+      market.borrowAtMaturity(maturity, 1_000_000, type(uint256).max, rando, rando);
+      vm.warp(block.timestamp + 1 days);
+      vm.stopPrank();
+    }
     uint256 expectedShares = market.convertToShares(assets);
 
     if (expectedShares == 0) vm.expectRevert("ZERO_SHARES");
@@ -156,17 +175,21 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     address account = accounts[i % accounts.length];
     (, , uint256 index, ) = auditor.markets(market);
-    uint256 expectedShares = market.previewWithdraw(assets);
+    uint256 expectedShares = market.totalAssets() != 0 ? market.previewWithdraw(assets) : 0;
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, assets, 0);
 
     if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
-    } else if (assets > market.floatingAssets()) {
+    } else if (assets > market.floatingAssets() + previewAccumulatedEarnings(market)) {
       vm.expectRevert(stdError.arithmeticError);
     } else if (market.floatingBackupBorrowed() + market.floatingDebt() > market.floatingAssets() - assets) {
       vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    } else if (market.totalSupply() > 0 && market.totalAssets() == 0) {
+      vm.expectRevert();
     } else if (expectedShares > market.balanceOf(account)) {
       vm.expectRevert(stdError.arithmeticError);
+    } else if (assets > market.asset().balanceOf(address(market))) {
+      vm.expectRevert("TRANSFER_FAILED");
     } else {
       vm.expectEmit(true, true, true, true, address(market));
       emit Withdraw(account, account, account, assets, expectedShares);
@@ -278,6 +301,16 @@ contract ProtocolTest is Test {
       }
       if ((1 << i) > marketMap) break;
     }
+  }
+
+  function previewAccumulatedEarnings(Market market) internal view returns (uint256) {
+    uint256 elapsed = block.timestamp - market.lastAccumulatorAccrual();
+    if (elapsed == 0) return 0;
+    return
+      market.earningsAccumulator().mulDivDown(
+        elapsed,
+        elapsed + market.earningsAccumulatorSmoothFactor().mulWadDown(market.maxFuturePools() * FixedLib.INTERVAL)
+      );
   }
 
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
