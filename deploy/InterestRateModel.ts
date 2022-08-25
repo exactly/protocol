@@ -6,12 +6,7 @@ import tenderlify from "./.utils/tenderlify";
 const func: DeployFunction = async ({
   config: {
     finance: {
-      interestRateModel: {
-        fixedCurve: fixedCurveNumber,
-        fixedFullUtilization: fixedFullUtilizationNumber,
-        floatingCurve: floatingCurveNumber,
-        floatingFullUtilization: floatingFullUtilizationNumber,
-      },
+      interestRateModel: { fixedCurve: fixedCurveNumber, floatingCurve: floatingCurveNumber },
     },
   },
   ethers: {
@@ -27,36 +22,28 @@ const func: DeployFunction = async ({
     parseUnits(String(fixedCurveNumber.b)),
     parseUnits(String(fixedCurveNumber.maxUtilization)),
   ];
-  const fixedFullUtilization = parseUnits(String(fixedFullUtilizationNumber));
   const floatingCurve = [
     parseUnits(String(floatingCurveNumber.a)),
     parseUnits(String(floatingCurveNumber.b)),
     parseUnits(String(floatingCurveNumber.maxUtilization)),
   ];
-  const floatingFullUtilization = parseUnits(String(floatingFullUtilizationNumber));
 
   await tenderlify(
     "InterestRateModel",
     await deploy("InterestRateModel", {
       skipIfAlreadyDeployed: true,
-      args: [fixedCurve, fixedFullUtilization, floatingCurve, floatingFullUtilization],
+      args: [fixedCurve, floatingCurve],
       from: deployer,
       log: true,
     }),
   );
 
   const irm = await getContract<InterestRateModel>("InterestRateModel", deployer);
-  if (
-    !(await irm.fixedFullUtilization()).eq(fixedFullUtilization) ||
-    (await irm.fixedCurve()).some((param, i) => !param.eq(fixedCurve[i]))
-  ) {
-    await timelockPropose(irm, "setFixedParameters", [fixedCurve, fixedFullUtilization]);
+  if ((await irm.fixedCurve()).some((param, i) => !param.eq(fixedCurve[i]))) {
+    await timelockPropose(irm, "setFixedParameters", [fixedCurve]);
   }
-  if (
-    !(await irm.floatingFullUtilization()).eq(floatingFullUtilization) ||
-    (await irm.floatingCurve()).some((param, i) => !param.eq(floatingCurve[i]))
-  ) {
-    await timelockPropose(irm, "setFloatingCurveParameters", [floatingCurve, floatingFullUtilization]);
+  if ((await irm.floatingCurve()).some((param, i) => !param.eq(floatingCurve[i]))) {
+    await timelockPropose(irm, "setFloatingCurveParameters", [floatingCurve]);
   }
 };
 

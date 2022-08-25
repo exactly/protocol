@@ -160,9 +160,7 @@ contract Previewer {
         maturity: maturity,
         assets: assets + fixedDepositYield(market, maturity, assets),
         utilization: memFloatingAssetsAverage > 0
-          ? (borrowed + assets).divWadDown(
-            supplied + memFloatingAssetsAverage.divWadDown(market.interestRateModel().fixedFullUtilization())
-          )
+          ? (borrowed + assets).divWadUp(supplied + memFloatingAssetsAverage)
           : 0
       });
   }
@@ -196,7 +194,6 @@ contract Previewer {
   ) public view returns (FixedPreview memory) {
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
-    uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
     uint256 memFloatingAssetsAverage = floatingAssetsAverage(market);
 
     uint256 fees = assets.mulWadDown(
@@ -213,7 +210,7 @@ contract Previewer {
         maturity: maturity,
         assets: assets + fees,
         utilization: memFloatingAssetsAverage > 0
-          ? (pool.borrowed + assets).divWadDown(pool.supplied + memFloatingAssetsAverage.divWadDown(fullUtilization))
+          ? (pool.borrowed + assets).divWadUp(pool.supplied + memFloatingAssetsAverage)
           : 0
       });
   }
@@ -286,7 +283,6 @@ contract Previewer {
 
   function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
     pools = new FixedPool[](market.maxFuturePools());
-    uint256 fullUtilization = market.interestRateModel().fixedFullUtilization();
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
       uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1);
       FixedLib.Pool memory pool;
@@ -305,9 +301,7 @@ contract Previewer {
         ) +
           pool.supplied -
           Math.min(pool.supplied, pool.borrowed),
-        utilization: memFloatingAssetsAverage > 0
-          ? pool.borrowed.divWadDown(pool.supplied + memFloatingAssetsAverage.divWadDown(fullUtilization))
-          : 0
+        utilization: memFloatingAssetsAverage > 0 ? pool.borrowed.divWadUp(pool.supplied + memFloatingAssetsAverage) : 0
       });
     }
   }

@@ -57,10 +57,7 @@ describe("Liquidity computations", function () {
     marketWETH = await getContract<Market>("MarketWETH", laura);
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", multisig);
 
-    await timelockExecute(multisig, interestRateModel, "setFixedParameters", [
-      [0, 0, parseUnits("6")],
-      parseUnits("2"),
-    ]);
+    await timelockExecute(multisig, interestRateModel, "setFixedParameters", [[0, 0, parseUnits("6")]]);
     for (const signer of [bob, laura]) {
       for (const [underlying, market, decimals = 18] of [
         [dai, marketDAI],
@@ -105,7 +102,6 @@ describe("Liquidity computations", function () {
         beforeEach(async () => {
           await timelockExecute(multisig, interestRateModel, "setFixedParameters", [
             [0, parseUnits("0.01"), parseUnits("6")],
-            parseUnits("2"),
           ]);
           // add liquidity to the maturity
           await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("800"), parseUnits("800"), laura.address);

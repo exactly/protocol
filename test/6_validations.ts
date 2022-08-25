@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, InterestRateModel, Market } from "../types";
+import type { Auditor, Market } from "../types";
 import futurePools, { INTERVAL } from "./utils/futurePools";
 import { DefaultEnv } from "./defaultEnv";
 
@@ -15,7 +15,6 @@ const {
 describe("Validations", function () {
   let auditor: Auditor;
   let market: Market;
-  let interestRateModel: InterestRateModel;
   let exactlyEnv: DefaultEnv;
 
   let owner: SignerWithAddress;
@@ -27,7 +26,6 @@ describe("Validations", function () {
 
     exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
     auditor = exactlyEnv.auditor;
-    interestRateModel = exactlyEnv.interestRateModel as InterestRateModel;
     market = exactlyEnv.getMarket("DAI");
   });
 
@@ -122,31 +120,6 @@ describe("Validations", function () {
     it("WHEN trying to set the backupFeeRate with more than 20%", async () => {
       await expect(market.setBackupFeeRate(parseUnits("0.21"))).to.be.revertedWith("InvalidParameter()");
     });
-    it("WHEN trying to set the UFullRate with more than 52", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("53") }, parseUnits("52.1")),
-      ).to.be.revertedWith("InvalidParameter()");
-    });
-    it("WHEN trying to set the UFullRate with UMax same value", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("5") }, parseUnits("5")),
-      ).to.be.revertedWith("InvalidParameter()");
-    });
-    it("WHEN trying to set the UFullRate with more than UMax", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("3") }, parseUnits("3.1")),
-      ).to.be.revertedWith("InvalidParameter()");
-    });
-    it("WHEN trying to set the UMax with more than UFullRate * 3", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("9.1") }, parseUnits("3")),
-      ).to.be.revertedWith("InvalidParameter()");
-    });
-    it("WHEN trying to set the UFullRate with less than 1", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("2") }, parseUnits("0.99")),
-      ).to.be.revertedWith("InvalidParameter()");
-    });
     it("WHEN trying to set the reserveFactor with more than 20%", async () => {
       await expect(market.setReserveFactor(parseUnits("0.21"))).to.be.revertedWith("InvalidParameter()");
     });
@@ -211,26 +184,6 @@ describe("Validations", function () {
     });
     it("WHEN trying to set the backupFeeRate with 0", async () => {
       await expect(market.setBackupFeeRate(0)).to.not.be.reverted;
-    });
-    it("WHEN trying to set the UMax with UFullRate * 3", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("9") }, parseUnits("3")),
-      ).to.not.be.reverted;
-    });
-    it("WHEN trying to set the UFullRate with 1", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("2") }, parseUnits("1")),
-      ).to.not.be.reverted;
-    });
-    it("WHEN trying to set the UFullRate with 52", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("53") }, parseUnits("52")),
-      ).to.not.be.reverted;
-    });
-    it("WHEN trying to set the UFullRate with an intermediate value (4)", async () => {
-      await expect(
-        interestRateModel.setFixedParameters({ a: 0, b: 0, maxUtilization: parseUnits("10") }, parseUnits("4")),
-      ).to.not.be.reverted;
     });
     it("WHEN trying to set the reserveFactor with 20%", async () => {
       await expect(market.setReserveFactor(parseUnits("0.2"))).to.not.be.reverted;

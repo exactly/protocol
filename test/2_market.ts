@@ -44,7 +44,7 @@ describe("Market", function () {
     interestRateModel = await getContract<InterestRateModel>("InterestRateModel", owner);
     penaltyRate = await marketDAI.penaltyRate();
 
-    await timelockExecute(owner, interestRateModel, "setFixedParameters", [[0, 0, parseUnits("6")], parseUnits("2")]);
+    await timelockExecute(owner, interestRateModel, "setFixedParameters", [[0, 0, parseUnits("6")]]);
     await timelockExecute(owner, marketDAI, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketWETH, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketDAI, "setReserveFactor", [0]);
@@ -358,10 +358,7 @@ describe("Market", function () {
 
   describe("GIVEN an interest rate of 2%", () => {
     beforeEach(async () => {
-      await timelockExecute(owner, interestRateModel, "setFixedParameters", [
-        [0, parseUnits("0.02"), parseUnits("6")],
-        parseUnits("2"),
-      ]);
+      await timelockExecute(owner, interestRateModel, "setFixedParameters", [[0, parseUnits("0.02"), parseUnits("6")]]);
       await marketDAI.deposit(parseUnits("1"), maria.address);
       await auditor.enterMarket(marketDAI.address);
       // add liquidity to the maturity
@@ -396,11 +393,9 @@ describe("Market", function () {
 
       await timelockExecute(owner, interestRateModel, "setFixedParameters", [
         [parseUnits("0"), parseUnits("0"), parseUnits("1.1")],
-        parseUnits("1"),
       ]);
-      const { blockNumber } = await (await marketDAI.connect(john).deposit(parseUnits("12"), john.address)).wait();
-      const { timestamp } = await provider.getBlock(blockNumber);
-      await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
+      await marketDAI.connect(john).deposit(parseUnits("12"), john.address);
+      await provider.send("evm_increaseTime", [9011]);
 
       await marketDAI.borrowAtMaturity(
         futurePools(1)[0],
@@ -512,9 +507,8 @@ describe("Market", function () {
     });
     describe("AND John deposited 2388 DAI to the smart pool", () => {
       beforeEach(async () => {
-        const { blockNumber } = await (await marketDAI.connect(john).deposit(parseUnits("2388"), maria.address)).wait();
-        const { timestamp } = await provider.getBlock(blockNumber);
-        await provider.send("evm_setNextBlockTimestamp", [timestamp + 218]);
+        await marketDAI.connect(john).deposit(parseUnits("2388"), maria.address);
+        await provider.send("evm_increaseTime", [9011]);
       });
       it("WHEN Maria tries to borrow 2500 DAI from a maturity, THEN it fails with UtilizationExceeded", async () => {
         await expect(
@@ -619,6 +613,7 @@ describe("Market", function () {
           await marketDAI.depositAtMaturity(pool, parseUnits("1000"), parseUnits("1000"), maria.address);
         }
         await marketDAI.deposit(parseUnits("6000"), maria.address);
+        await provider.send("evm_increaseTime", [9011]);
       });
       describe("WHEN borrowing 1200 in the current maturity", () => {
         beforeEach(async () => {
@@ -846,10 +841,9 @@ describe("Market", function () {
     describe("Operations in more than one pool", () => {
       describe("GIVEN a smart pool supply of 100 AND a borrow of 30 in a first maturity pool", () => {
         beforeEach(async () => {
+          await marketDAI.deposit(parseUnits("100"), maria.address);
           // make 9011 seconds to go by so the floatingAssetsAverage is equal to the floatingAssets
-          const { blockNumber } = await (await marketDAI.deposit(parseUnits("100"), maria.address)).wait();
-          const { timestamp } = await provider.getBlock(blockNumber);
-          await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
+          await provider.send("evm_increaseTime", [9011]);
 
           await marketDAI.borrowAtMaturity(
             futurePools(1)[0],
@@ -1163,11 +1157,9 @@ describe("Market", function () {
     describe("Smart Pool Reserve", () => {
       describe("GIVEN a sp total supply of 100, a 10% smart pool reserve and a borrow for 80", () => {
         beforeEach(async () => {
-          const depositTx = await marketDAI.deposit(parseUnits("100"), maria.address);
+          await marketDAI.deposit(parseUnits("100"), maria.address);
           // make 9011 seconds to go by so the floatingAssetsAverage is equal to the floatingAssets
-          const { blockNumber } = await depositTx.wait();
-          const { timestamp } = await provider.getBlock(blockNumber);
-          await provider.send("evm_setNextBlockTimestamp", [timestamp + 9011]);
+          await provider.send("evm_increaseTime", [9011]);
 
           await timelockExecute(owner, marketDAI, "setReserveFactor", [parseUnits("0.1")]);
           await marketDAI.borrowAtMaturity(

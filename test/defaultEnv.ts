@@ -104,9 +104,7 @@ export class DefaultEnv {
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
       { a: parseUnits("0.0495"), b: parseUnits("-0.025"), maxUtilization: parseUnits("1.1") },
-      parseUnits("1"),
       { a: parseUnits("0.0495"), b: parseUnits("-0.025"), maxUtilization: parseUnits("1.1") },
-      parseUnits("1"),
     );
 
     const interestRateModel = config?.useRealInterestRateModel

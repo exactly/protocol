@@ -58,13 +58,11 @@ const config: Config = {
         b: -0.1695,
         maxUtilization: 7.65,
       },
-      fixedFullUtilization: 7.5,
       floatingCurve: {
         a: 1.526175,
         b: -0.1695,
         maxUtilization: 7.65,
       },
-      floatingFullUtilization: 7.5,
     },
   },
   dodoc: { exclude: ["mocks", "k", "elin", "rc"] },
@@ -114,9 +112,7 @@ declare module "hardhat/types/config" {
     earningsAccumulatorSmoothFactor: number;
     interestRateModel: {
       fixedCurve: Curve;
-      fixedFullUtilization: number;
       floatingCurve: Curve;
-      floatingFullUtilization: number;
     };
   }
 

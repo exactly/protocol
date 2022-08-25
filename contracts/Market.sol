@@ -812,9 +812,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     InterestRateModel memIRM = interestRateModel;
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
-    uint256 newFloatingUtilization = memFloatingAssets > 0
-      ? memFloatingDebt.divWadDown(memFloatingAssets.divWadUp(memIRM.floatingFullUtilization()))
-      : 0;
+    uint256 newFloatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
       memIRM.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
         block.timestamp - lastFloatingDebtUpdate,
@@ -834,9 +832,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     InterestRateModel memIRM = interestRateModel;
     uint256 memFloatingAssets = floatingAssets;
     uint256 memFloatingDebt = floatingDebt;
-    uint256 newFloatingUtilization = memFloatingAssets > 0
-      ? memFloatingDebt.divWadDown(memFloatingAssets.divWadUp(memIRM.floatingFullUtilization()))
-      : 0;
+    uint256 newFloatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
       memIRM.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
         block.timestamp - lastFloatingDebtUpdate,

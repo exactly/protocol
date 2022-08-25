@@ -11,9 +11,7 @@ contract InterestRateModelTest is
   Test,
   InterestRateModel(
     InterestRateModel.Curve({ a: 3.75e16, b: 0.75e16, maxUtilization: 3e18 }),
-    2e18,
-    InterestRateModel.Curve({ a: 3.75e16, b: 0.75e16, maxUtilization: 3e18 }),
-    2e18
+    InterestRateModel.Curve({ a: 3.75e16, b: 0.75e16, maxUtilization: 3e18 })
   )
 {
   using FixedPointMathLib for uint256;
@@ -22,25 +20,23 @@ contract InterestRateModelTest is
     uint256 assets = 10 ether;
     uint256 floatingAssetsAverage = 100 ether;
     uint256 rate = this.fixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, floatingAssetsAverage);
-    assertEq(rate, 1567705037744728);
+    assertEq(rate, 1550591941498485);
   }
 
   function testFloatingBorrowRate() external {
     uint256 smartPoolFloatingBorrows = 50 ether;
     uint256 floatingAssets = 100 ether;
-    uint256 spCurrentUtilization = smartPoolFloatingBorrows.divWadDown(
-      floatingAssets.divWadDown(floatingFullUtilization)
-    );
+    uint256 spCurrentUtilization = smartPoolFloatingBorrows.divWadDown(floatingAssets);
     uint256 rate = this.floatingBorrowRate(0, spCurrentUtilization);
-    assertEq(rate, 22704941554056164);
+    assertEq(rate, 21174116759546596);
   }
 
   function testFloatingBorrowRateUsingMinMaxUtilizations() external {
     uint256 utilizationBefore = 0.5e18;
-    uint256 utilizationAfter = 1.5e18;
+    uint256 utilizationAfter = 0.9e18;
     uint256 rate = this.floatingBorrowRate(utilizationBefore, utilizationAfter);
 
-    utilizationBefore = 1.5e18;
+    utilizationBefore = 0.9e18;
     utilizationAfter = 0.5e18;
     uint256 newRate = this.floatingBorrowRate(utilizationBefore, utilizationAfter);
 
@@ -49,7 +45,7 @@ contract InterestRateModelTest is
 
   function testReferenceFloatingRate(uint256 v0, uint64 delta) external {
     Curve memory params = floatingCurve;
-    uint256 u0 = v0 % floatingFullUtilization;
+    uint256 u0 = v0 % 1e18;
     uint256 u1 = u0 + (delta % (params.maxUtilization - u0));
 
     string[] memory ffi = new string[](2);
@@ -62,7 +58,7 @@ contract InterestRateModelTest is
 
   function testReferenceFixedRate(uint256 v0, uint64 delta) external {
     Curve memory params = fixedCurve;
-    uint256 u0 = v0 % fixedFullUtilization;
+    uint256 u0 = v0 % 1e18;
     uint256 u1 = u0 + (delta % (params.maxUtilization - u0));
 
     string[] memory ffi = new string[](2);
