@@ -764,6 +764,7 @@ contract MarketTest is Test {
     oracle.setPrice(marketWETH, 3_000e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
+    uint256 floatingAssetsBefore = market.floatingAssets();
     vm.prank(BOB);
     market.liquidate(address(this), 100 ether, marketWETH);
     uint256 assetsRepaid = uint256(100 ether).divWadDown(1.01e18);
@@ -771,6 +772,7 @@ contract MarketTest is Test {
     uint256 assetsSeized = assetsRepaid.mulDivUp(10**18, 3_000 ether).mulWadUp(1.1e18);
     assertEq(ERC20(market.asset()).balanceOf(BOB), bobDAIBalanceBefore - assetsRepaid - lendersIncentiveRepaid);
     assertEq(weth.balanceOf(address(BOB)), assetsSeized);
+    assertEq(market.floatingAssets(), floatingAssetsBefore + lendersIncentiveRepaid);
   }
 
   function testLiquidateFlexibleAndFixedBorrowPositionsInSingleCall() external {
@@ -849,10 +851,11 @@ contract MarketTest is Test {
     // bob is allowed to repay 2970
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
+    uint256 lendersIncentive = 29694323144104803448;
 
     assertApproxEqRel(market.previewDebt(address(this)), 1_430 ether, 1e18);
     assertApproxEqRel(market.floatingDebt(), 1_430 ether, 1e18);
-    assertEq(market.floatingAssets(), 50_400 ether);
+    assertEq(market.floatingAssets(), 50_400 ether + lendersIncentive);
     assertEq(market.lastFloatingDebtUpdate(), 365 days);
   }
 
@@ -882,7 +885,7 @@ contract MarketTest is Test {
     // BOB SEIZES ALL ACCOUNT COLLATERAL
     assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
     assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment + lendersIncentive);
-    assertEq(floatingAssetsBefore - floatingAssetsAfter, totalUsdDebt - totalBobRepayment);
+    assertEq(floatingAssetsBefore - floatingAssetsAfter + lendersIncentive, totalUsdDebt - totalBobRepayment);
     assertEq(market.fixedBorrows(address(this)), 0);
     for (uint256 i = 1; i <= 4; i++) {
       (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * i, address(this));
@@ -922,11 +925,16 @@ contract MarketTest is Test {
 
     uint256 badDebt = 981818181818181818181 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
     uint256 backupEarningsDistributedInRepayment = 66666662073779496497;
+    uint256 lendersIncentive = 1181818181818181818;
 
     assertEq(market.earningsAccumulator(), 0);
     assertEq(
       badDebt,
-      earningsAccumulator + floatingAssets - market.floatingAssets() + backupEarningsDistributedInRepayment
+      earningsAccumulator +
+        floatingAssets -
+        market.floatingAssets() +
+        backupEarningsDistributedInRepayment +
+        lendersIncentive
     );
     assertEq(market.fixedBorrows(address(this)), 0);
   }

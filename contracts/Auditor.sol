@@ -257,12 +257,14 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     Market seizeMarket,
     address borrower,
     uint256 actualRepayAssets
-  ) external view returns (uint256 seizeAssets, uint256 lendersAssets) {
-    // Read oracle prices for borrowed and collateral markets
+  ) external view returns (uint256 lendersAssets, uint256 seizeAssets) {
+    lendersAssets = actualRepayAssets.mulWadDown(liquidationIncentive.lenders);
+
+    // read oracle prices for borrowed and collateral markets
     uint256 priceBorrowed = oracle.assetPrice(repayMarket);
     uint256 priceCollateral = oracle.assetPrice(seizeMarket);
-
     uint256 amountInUSD = actualRepayAssets.mulDivUp(priceBorrowed, 10**markets[repayMarket].decimals);
+
     // 10**18: usd amount decimals
     seizeAssets = Math.min(
       amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadUp(
@@ -270,7 +272,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       ),
       seizeMarket.maxWithdraw(borrower)
     );
-    lendersAssets = actualRepayAssets.mulWadDown(liquidationIncentive.lenders);
   }
 
   function handleBadDebt(address account) external {

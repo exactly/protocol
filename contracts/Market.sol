@@ -522,18 +522,22 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         uint256 actualRepayAssets = noTransferRefund(borrowShares, borrower);
         emitMarketUpdate();
         repaidAssets += actualRepayAssets;
-        maxAssets -= actualRepayAssets;
       }
     }
 
-    uint256 lendersAssets;
     // reverts on failure
-    (maxAssets, lendersAssets) = auditor.calculateSeize(this, collateralMarket, borrower, repaidAssets);
+    (uint256 lendersAssets, uint256 seizeAssets) = auditor.calculateSeize(
+      this,
+      collateralMarket,
+      borrower,
+      repaidAssets
+    );
+    floatingAssets += lendersAssets;
 
-    if (address(collateralMarket) == address(this)) internalSeize(this, msg.sender, borrower, maxAssets);
-    else collateralMarket.seize(msg.sender, borrower, maxAssets);
+    if (address(collateralMarket) == address(this)) internalSeize(this, msg.sender, borrower, seizeAssets);
+    else collateralMarket.seize(msg.sender, borrower, seizeAssets);
 
-    emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, maxAssets);
+    emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, seizeAssets);
 
     asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
 
