@@ -313,8 +313,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   function setAdjustFactor(Market market, uint128 adjustFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (!markets[market].isListed) revert MarketNotListed();
 
-    if (adjustFactor > 0.99e18 || adjustFactor < 0.25e18) revert InvalidParameter();
-
     markets[market].adjustFactor = adjustFactor;
     emit AdjustFactorSet(market, adjustFactor);
   }
@@ -326,13 +324,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     public
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
-    if (
-      liquidationIncentive_.liquidator > 0.2e18 ||
-      liquidationIncentive_.liquidator < 0.05e18 ||
-      liquidationIncentive_.lenders > 0.1e18
-    ) {
-      revert InvalidParameter();
-    }
     liquidationIncentive = liquidationIncentive_;
     emit LiquidationIncentiveSet(liquidationIncentive_);
   }
@@ -395,7 +386,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 error AuditorMismatch();
 error InsufficientAccountLiquidity();
 error InsufficientShortfall();
-error InvalidParameter();
 error MarketAlreadyListed();
 error MarketNotListed();
 error RemainingDebt();

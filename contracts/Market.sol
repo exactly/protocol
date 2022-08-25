@@ -10,10 +10,10 @@ import {
   ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import { Auditor, InvalidParameter } from "./Auditor.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { Pausable } from "./utils/Pausable.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
+import { Auditor } from "./Auditor.sol";
 
 contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, Pausable, ERC4626 {
   using FixedPointMathLib for int256;
@@ -904,10 +904,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     if (assets == 0) revert ZeroWithdraw();
   }
 
-  function checkInvalid(bool invalid) internal pure {
-    if (invalid) revert InvalidParameter();
-  }
-
   function checkDisagreement(bool disagreement) internal pure {
     if (disagreement) revert Disagreement();
   }
@@ -936,7 +932,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @dev Value can only be set between 20% and 0%.
   /// @param backupFeeRate_ percentage amount represented with 1e18 decimals.
   function setBackupFeeRate(uint256 backupFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    checkInvalid(backupFeeRate_ > 0.2e18);
     backupFeeRate = backupFeeRate_;
     emit BackupFeeRateSet(backupFeeRate_);
   }
@@ -946,7 +941,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @param up damp speed up, represented with 18 decimals.
   /// @param down damp speed down, represented with 18 decimals.
   function setDampSpeed(uint256 up, uint256 down) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    checkInvalid(up > 1e18 || down > 1e18);
     dampSpeedUp = up;
     dampSpeedDown = down;
     emit DampSpeedSet(up, down);
@@ -960,7 +954,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     public
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
-    checkInvalid(earningsAccumulatorSmoothFactor_ > 4e18);
     earningsAccumulatorSmoothFactor = earningsAccumulatorSmoothFactor_;
     emit EarningsAccumulatorSmoothFactorSet(earningsAccumulatorSmoothFactor_);
   }
@@ -976,7 +969,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @dev Value can not be 0 or higher than 224. If value is decreased, VALID maturities will become NOT_READY.
   /// @param futurePools number of pools to be active at the same time.
   function setMaxFuturePools(uint8 futurePools) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    checkInvalid(futurePools > 224 || futurePools == 0);
     maxFuturePools = futurePools;
     emit MaxFuturePoolsSet(futurePools);
   }
@@ -985,7 +977,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @dev Value can only be set approximately between 5% and 1% daily.
   /// @param penaltyRate_ percentage represented with 18 decimals.
   function setPenaltyRate(uint256 penaltyRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    checkInvalid(penaltyRate_ > 5.79e11 || penaltyRate_ < 1.15e11);
     penaltyRate = penaltyRate_;
     emit PenaltyRateSet(penaltyRate_);
   }
@@ -994,7 +985,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @dev Value can only be set between 20% and 0%.
   /// @param reserveFactor_ parameter represented with 18 decimals.
   function setReserveFactor(uint128 reserveFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    checkInvalid(reserveFactor_ > 0.2e18);
     reserveFactor = reserveFactor_;
     emit ReserveFactorSet(reserveFactor_);
   }
@@ -1003,7 +993,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @param treasury_ address of the treasury that will receive the minted eTokens.
   /// @param treasuryFeeRate_ represented with 1e18 decimals.
   function setTreasury(address treasury_, uint128 treasuryFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    checkInvalid(treasuryFeeRate_ > 1e17);
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
     emit TreasurySet(treasury_, treasuryFeeRate_);
