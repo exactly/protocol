@@ -1118,7 +1118,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
   /// @notice Event emitted when the earningsAccumulatorSmoothFactor is changed by admin.
   /// @param earningsAccumulatorSmoothFactor factor represented with 1e18 decimals.
-  event EarningsAccumulatorSmoothFactorSet(uint128 earningsAccumulatorSmoothFactor);
+  event EarningsAccumulatorSmoothFactorSet(uint256 earningsAccumulatorSmoothFactor);
 
   /// @notice emitted when the interestRateModel is changed by admin.
   /// @param interestRateModel new interest rate model to be used to calculate rates.
@@ -1134,12 +1134,12 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
   /// @notice emitted when the reserveFactor is changed by admin.
   /// @param reserveFactor reserveFactor percentage.
-  event ReserveFactorSet(uint128 reserveFactor);
+  event ReserveFactorSet(uint256 reserveFactor);
 
   /// @notice emitted when the treasury variables are changed by admin.
   /// @param treasury address of the treasury that will receive the minted eTokens.
   /// @param treasuryFeeRate represented with 1e18 decimals.
-  event TreasurySet(address treasury, uint128 treasuryFeeRate);
+  event TreasurySet(address indexed treasury, uint256 treasuryFeeRate);
 
   event MarketUpdate(
     uint256 timestamp,
