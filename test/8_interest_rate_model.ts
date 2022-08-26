@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { BigNumber } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { InterestRateModel, InterestRateModel__factory } from "../types";
+import type { InterestRateModel__factory } from "../types";
 import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
 
@@ -10,29 +10,31 @@ const [nextPoolID, secondPoolID, thirdPoolID] = futurePools(3).map((bn) => bn.to
 
 const {
   utils: { parseUnits },
+  getContractFactory,
+  getUnnamedSigners,
+  getNamedSigner,
   provider,
 } = ethers;
 
 describe("InterestRateModel", () => {
   let exactlyEnv: DefaultEnv;
 
-  let owner: SignerWithAddress;
-  let alice: SignerWithAddress;
   let bob: SignerWithAddress;
-  let interestRateModel: InterestRateModel;
+  let alice: SignerWithAddress;
+  let owner: SignerWithAddress;
   let snapshot: string;
+  let irmFactory: InterestRateModel__factory;
   let now: number;
 
-  before(() => {
+  before(async () => {
+    owner = await getNamedSigner("deployer");
+    [alice, bob] = await getUnnamedSigners();
     now = Math.floor(Date.now() / 1000) + 6_666_666;
+    irmFactory = await getContractFactory("InterestRateModel");
   });
 
   beforeEach(async () => {
     exactlyEnv = await DefaultEnv.create({ useRealInterestRateModel: true });
-    owner = await ethers.getNamedSigner("deployer");
-    [alice, bob] = await ethers.getUnnamedSigners();
-
-    interestRateModel = exactlyEnv.interestRateModel as InterestRateModel;
     snapshot = await provider.send("evm_snapshot", []);
   });
 
@@ -53,155 +55,15 @@ describe("InterestRateModel", () => {
       const a = parseUnits("0.092"); // A parameter for the curve
       const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
-      const InterestRateModelFactory = (await ethers.getContractFactory(
-        "InterestRateModel",
-      )) as InterestRateModel__factory;
-      const tx = InterestRateModelFactory.deploy(
-        { a, b, maxUtilization },
-        { a: parseUnits("0.72"), b: parseUnits("-0.22"), maxUtilization: parseUnits("3") },
-      );
-      await expect(tx).to.be.reverted;
-    });
-    it("WHEN setting A and B parameters yielding an invalid FIXED curve THEN it reverts", async () => {
-      // same as case above
-      const a = parseUnits("0.092"); // A parameter for the curve
-      const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
-      const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
-      await expect(interestRateModel.setFixedParameters({ a, b, maxUtilization })).to.be.reverted;
+      await expect(irmFactory.deploy(a, b, maxUtilization, parseUnits("0.72"), parseUnits("-0.22"), parseUnits("3"))).to
+        .be.reverted;
     });
     it("WHEN deploying a contract with A and B parameters yielding an invalid floating curve THEN it reverts", async () => {
       const a = parseUnits("0.092"); // A parameter for the curve
       const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
-      const InterestRateModelFactory = await ethers.getContractFactory("InterestRateModel", {});
-      const tx = InterestRateModelFactory.deploy(
-        [parseUnits("0.72"), parseUnits("-0.22"), parseUnits("3")],
-        { a, b, maxUtilization },
-        0,
-      );
-      await expect(tx).to.be.reverted;
-    });
-    it("WHEN setting A and B parameters yielding an invalid floating curve THEN it reverts", async () => {
-      // same as case above
-      const a = parseUnits("0.092"); // A parameter for the curve
-      const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
-      const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
-      const tx = interestRateModel.setFloatingParameters({ a, b, maxUtilization });
-
-      await expect(tx).to.be.reverted;
-    });
-    // - U_{b}: 0.9
-    // - U_{max}: 1.2
-    // - R_{0}: 0.02
-    // - R_{b}: 0.22
-
-    //     A = ((Umax*(Umax-Ub))/Ub)*(Rb-R0)
-    //     A = .08000000000000000000
-
-    //     B = ((Umax/Ub)*R0) + (1-(Umax/Ub))*Rb
-    //     B = -.046666666666666666
-    describe("WHEN changing the curve parameters to another valid curve with a different Ub, Umax and Rb", () => {
-      let a: BigNumber; // A parameter for the curve
-      let b: BigNumber; // B parameter for the curve
-      let maxUtilization: BigNumber; // Maximum utilization rate
-
-      before(() => {
-        a = parseUnits("0.08");
-        b = parseUnits("-0.046666666666666666");
-        maxUtilization = parseUnits("1.2");
-      });
-
-      beforeEach(async () => {
-        await interestRateModel.setFixedParameters({ a, b, maxUtilization });
-        await provider.send("evm_setNextBlockTimestamp", [now]);
-        await provider.send("evm_mine", []);
-      });
-
-      it("THEN the new fixed parameters are readable", async () => {
-        const curve = await interestRateModel.fixedCurve();
-        expect(curve.a).to.equal(a);
-        expect(curve.b).to.equal(b);
-        expect(curve.maxUtilization).to.equal(maxUtilization);
-      });
-      it("AND the curves R0 stayed the same", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
-          now + 365 * 86_400,
-          parseUnits("0.00000000000001"),
-          parseUnits("0"),
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-        expect(rate).to.gt(parseUnits("0.019"));
-        expect(rate).to.lt(parseUnits("0.021"));
-      });
-      it("AND the curves Rb and Ub changed accordingly", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
-          now + 365 * 86_400,
-          parseUnits("0.00000000000001"),
-          parseUnits("90"),
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-        expect(rate).to.gt(parseUnits("0.21"));
-        expect(rate).to.lt(parseUnits("0.23"));
-      });
-      it("AND the curves Umax changed", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
-          now + 365 * 86_400,
-          parseUnits("0.00000000000001"),
-          parseUnits("99.99999999999999"), // if borrowed more than supply then UR after is invalid (more than fullUR)
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-        expect(rate).to.gt(parseUnits("0.353"));
-        expect(rate).to.lt(parseUnits("0.354"));
-      });
-    });
-
-    describe("WHEN changing the curve parameters to another valid curve with a higher R0 of 0.05", () => {
-      let a: BigNumber; // A parameter for the curve
-      let b: BigNumber; // B parameter for the curve
-      let maxUtilization: BigNumber; // Maximum utilization rate
-
-      before(() => {
-        a = parseUnits("0.037125"); // A parameter for the curve
-        b = parseUnits("0.01625"); // B parameter for the curve
-        maxUtilization = parseUnits("1.1"); // Maximum utilization rate
-      });
-
-      beforeEach(async () => {
-        await interestRateModel.setFixedParameters({ a, b, maxUtilization });
-        await provider.send("evm_setNextBlockTimestamp", [now]);
-        await provider.send("evm_mine", []);
-      });
-      it("THEN the new parameters are readable", async () => {
-        const curve = await interestRateModel.fixedCurve();
-        expect(curve.a).to.equal(a);
-        expect(curve.b).to.equal(b);
-        expect(curve.maxUtilization).to.equal(maxUtilization);
-      });
-      it("AND the curves R0 changed accordingly", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
-          now + 365 * 86_400,
-          parseUnits("0.000000000001"),
-          parseUnits("0"),
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-        expect(rate).to.gt(parseUnits("0.049"));
-        expect(rate).to.lt(parseUnits("0.051"));
-      });
-      it("AND the curves Rb stays the same", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
-          now + 365 * 86_400,
-          parseUnits("0.0000000001"),
-          parseUnits("80"),
-          parseUnits("50"),
-          parseUnits("50"),
-        );
-        expect(rate).to.gt(parseUnits("0.139"));
-        expect(rate).to.lt(parseUnits("0.141"));
-      });
+      await expect(irmFactory.deploy(parseUnits("0.72"), parseUnits("-0.22"), parseUnits("3"), a, b, maxUtilization)).to
+        .be.reverted;
     });
   });
 
@@ -229,7 +91,7 @@ describe("InterestRateModel", () => {
           const a = parseUnits("0.72"); // A parameter for the curve
           const b = parseUnits("-0.22"); // B parameter for the curve
           const maxUtilization = parseUnits("3"); // Maximum utilization rate
-          await interestRateModel.setFixedParameters({ a, b, maxUtilization });
+          await exactlyEnv.setFixedParameters(a, b, maxUtilization);
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to 3.2, THEN it reverts because the utilization rate is too high", async () => {
@@ -263,7 +125,7 @@ describe("InterestRateModel", () => {
           const a = parseUnits("21.12"); // A parameter for the curve
           const b = parseUnits("-1.74"); // B parameter for the curve
           const maxUtilization = parseUnits("12"); // Maximum utilization rate
-          await interestRateModel.setFixedParameters({ a, b, maxUtilization });
+          await exactlyEnv.setFixedParameters(a, b, maxUtilization);
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to the full UR, THEN it does not revert", async () => {
@@ -288,18 +150,19 @@ describe("InterestRateModel", () => {
         describe("GIVEN a borrow of 1000 DAI in the closest maturity", () => {
           let aliceFirstBorrow: Array<BigNumber>;
           beforeEach(async () => {
+            await provider.send("evm_setNextBlockTimestamp", [secondPoolID - 50_000]);
             await exactlyEnv.borrowMP("DAI", secondPoolID, "1000");
             aliceFirstBorrow = await exactlyEnv.getMarket("DAI").fixedBorrowPositions(secondPoolID, alice.address);
           });
           describe("WHEN borrowing 1000 DAI in a following maturity", () => {
             beforeEach(async () => {
+              await provider.send("evm_setNextBlockTimestamp", [thirdPoolID - 100_000]);
               await exactlyEnv.borrowMP("DAI", thirdPoolID, "1000");
             });
             it("THEN the rate charged is the same one as the last borrow, since the sp total supply is the same", async () => {
               const aliceNewBorrow = await exactlyEnv.getMarket("DAI").fixedBorrowPositions(thirdPoolID, alice.address);
               // the fee charged is the double since third pool id has one more week
-              // subtract 500 for rounding division
-              expect(aliceFirstBorrow[1]).to.be.equal(aliceNewBorrow[1].div(2).sub(500));
+              expect(aliceFirstBorrow[1]).to.be.equal(aliceNewBorrow[1].div(2));
             });
           });
         });
@@ -324,7 +187,7 @@ describe("InterestRateModel", () => {
       const a = parseUnits("8360");
       const b = parseUnits("-418");
       const maxUtilization = parseUnits("20");
-      await interestRateModel.setFixedParameters({ a, b, maxUtilization });
+      await exactlyEnv.setFixedParameters(a, b, maxUtilization);
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarket("WETH");
       await exactlyEnv.depositSP("DAI", "1200");
@@ -348,7 +211,7 @@ describe("InterestRateModel", () => {
       const a = parseUnits("0.0495"); // A parameter for the curve
       const b = parseUnits("-0.025"); // B parameter for the curve
       const maxUtilization = parseUnits("1.1"); // Maximum utilization rate
-      await interestRateModel.setFixedParameters({ a, b, maxUtilization });
+      await exactlyEnv.setFixedParameters(a, b, maxUtilization);
     });
     describe("GIVEN enough collateral", () => {
       beforeEach(async () => {
@@ -542,7 +405,7 @@ describe("InterestRateModel", () => {
         await provider.send("evm_mine", []);
       });
       it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
+        const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
           now + 365 * 86_400,
           parseUnits("0.00001", 6),
           parseUnits("0", 6), // 0 previous borrows
@@ -553,7 +416,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.lt(parseUnits("0.020001"));
       });
       it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
+        const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
           now + 365 * 86_400,
           parseUnits("0.00001", 6),
           parseUnits("80", 6), // 80 borrowed, this is what makes U=0.8
@@ -572,7 +435,7 @@ describe("InterestRateModel", () => {
       });
 
       it("WHEN asking for the interest at 0% utilization rate THEN it returns R0=0.02", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
+        const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
           now + 365 * 86_400,
           parseUnits("0.0000000000001"),
           parseUnits("0"),
@@ -582,7 +445,7 @@ describe("InterestRateModel", () => {
         expect(rate).to.equal(parseUnits("0.02"));
       });
       it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
-        const rate = await interestRateModel.fixedBorrowRate(
+        const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
           now + 365 * 86_400,
           parseUnits("0.0000001"),
           parseUnits("80"), // 80 borrowed, this is what makes U=0.8
@@ -594,7 +457,7 @@ describe("InterestRateModel", () => {
 
       describe("high utilization rates", () => {
         it("AND WHEN asking for the interest at 90% (>Ub)utilization rate THEN it returns R=0.22 (price hike)", async () => {
-          const rate = await interestRateModel.fixedBorrowRate(
+          const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
             now + 365 * 86_400,
             parseUnits("0.0000001"),
             parseUnits("90"), // 90 borrowed, this is what makes U=0.9
@@ -604,7 +467,7 @@ describe("InterestRateModel", () => {
           expect(rate).to.equal(parseUnits("0.2225"));
         });
         it("AND WHEN asking for the interest at 100% (>Ub)utilization rate THEN it returns R=0.47 (price hike)", async () => {
-          const rate = await interestRateModel.fixedBorrowRate(
+          const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
             now + 365 * 86_400,
             parseUnits("0.000000001"),
             parseUnits("99.999999999"),
@@ -616,7 +479,7 @@ describe("InterestRateModel", () => {
         });
         it("AND WHEN asking for the interest at 105% ur (higher than Ufull) THEN it reverts", async () => {
           await expect(
-            interestRateModel.fixedBorrowRate(
+            exactlyEnv.interestRateModel.fixedBorrowRate(
               now + 365 * 86_400,
               parseUnits("0.0000001"),
               parseUnits("105"),
@@ -626,7 +489,7 @@ describe("InterestRateModel", () => {
           ).to.be.revertedWith("UtilizationExceeded()");
         });
         it("AND WHEN asking for the interest at Umax, THEN it reverts", async () => {
-          const tx = interestRateModel.fixedBorrowRate(
+          const tx = exactlyEnv.interestRateModel.fixedBorrowRate(
             now + 365 * 86_400,
             parseUnits("0.000001"),
             parseUnits("110"),
@@ -637,7 +500,7 @@ describe("InterestRateModel", () => {
           await expect(tx).to.be.revertedWith("UtilizationExceeded()");
         });
         it("AND WHEN asking for the interest at U>Umax, THEN it reverts", async () => {
-          const tx = interestRateModel.fixedBorrowRate(
+          const tx = exactlyEnv.interestRateModel.fixedBorrowRate(
             now + 365 * 86_400,
             parseUnits("0.0000001"),
             parseUnits("115"),
@@ -650,7 +513,7 @@ describe("InterestRateModel", () => {
       });
       describe("interest for durations other than a full year", () => {
         it("WHEN asking for the interest for negative time difference, THEN it reverts", async () => {
-          const tx = interestRateModel.fixedBorrowRate(
+          const tx = exactlyEnv.interestRateModel.fixedBorrowRate(
             now - 86_400,
             parseUnits("0.00000001"),
             parseUnits("80"), // 80 borrowed, this is what makes U=0.8
@@ -661,7 +524,7 @@ describe("InterestRateModel", () => {
           await expect(tx).to.be.revertedWith("AlreadyMatured()");
         });
         it("WHEN asking for the interest for a time difference of zero, THEN it reverts", async () => {
-          const tx = interestRateModel.fixedBorrowRate(
+          const tx = exactlyEnv.interestRateModel.fixedBorrowRate(
             now,
             parseUnits("0.00000001"),
             parseUnits("80"), // 80 borrowed, this is what makes U=0.8
@@ -672,7 +535,7 @@ describe("InterestRateModel", () => {
           await expect(tx).to.be.revertedWith("AlreadyMatured()");
         });
         it("WHEN asking for the interest for a 5-day period at Ub, THEN it returns Rb*(5/365)", async () => {
-          const rate = await interestRateModel.fixedBorrowRate(
+          const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
             now + 5 * 86_400,
             parseUnits("0.00000001"),
             parseUnits("80"), // 80 borrowed, this is what makes U=0.8
@@ -685,7 +548,7 @@ describe("InterestRateModel", () => {
           expect(rate).to.lt(parseUnits(".0019179"));
         });
         it("WHEN asking for the interest for a two-week period at Ub, THEN it returns Rb*(14/365)", async () => {
-          const rate = await interestRateModel.fixedBorrowRate(
+          const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
             now + 14 * 86_400,
             parseUnits("0.00000001"),
             parseUnits("80"), // 80 borrowed, this is what makes U=0.8
@@ -698,7 +561,7 @@ describe("InterestRateModel", () => {
           expect(rate).to.be.lt(parseUnits(".00536987"));
         });
         it("WHEN asking for the interest for a one-day period at U0, THEN it returns R0*(1/365)", async () => {
-          const rate = await interestRateModel.fixedBorrowRate(
+          const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
             now + 86_400,
             parseUnits("0.00000001"),
             parseUnits("0.0000000000001"), // 0 borrowed, this is what makes U=0
@@ -713,7 +576,7 @@ describe("InterestRateModel", () => {
         });
 
         it("WHEN asking for the interest for a five-second period at U0, THEN it returns R0*(5/(365*24*60*60))", async () => {
-          const rate = await interestRateModel.fixedBorrowRate(
+          const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
             now + 5,
             parseUnits("0.0000000000001"),
             parseUnits("0"),
@@ -727,45 +590,5 @@ describe("InterestRateModel", () => {
         });
       });
     });
-  });
-
-  it("WHEN calling setFixedParameters function, THEN it should emit FixedParametersSet", async () => {
-    await expect(
-      interestRateModel.setFixedParameters({
-        a: parseUnits("0.08"),
-        b: parseUnits("-0.046"),
-        maxUtilization: parseUnits("1.2"),
-      }),
-    )
-      .to.emit(interestRateModel, "FixedParametersSet")
-      .withArgs([parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2")]);
-  });
-  it("WHEN calling setFloatingParameters function, THEN it should emit FloatingParametersSet", async () => {
-    await expect(
-      interestRateModel.setFloatingParameters({
-        a: parseUnits("0.08"),
-        b: parseUnits("-0.046"),
-        maxUtilization: parseUnits("1.2"),
-      }),
-    )
-      .to.emit(interestRateModel, "FloatingParametersSet")
-      .withArgs([parseUnits("0.08"), parseUnits("-0.046"), parseUnits("1.2")]);
-  });
-
-  it("WHEN an unauthorized account calls setFixedParameters function, THEN it should revert", async () => {
-    const a = parseUnits("0.092"); // A parameter for the curve
-    const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
-    const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
-    await expect(interestRateModel.connect(alice).setFixedParameters({ a, b, maxUtilization })).to.be.revertedWith(
-      "AccessControl",
-    );
-  });
-  it("WHEN an unauthorized account calls setFloatingParameters function, THEN it should revert", async () => {
-    const a = parseUnits("0.092"); // A parameter for the curve
-    const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
-    const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
-    await expect(interestRateModel.connect(alice).setFloatingParameters({ a, b, maxUtilization })).to.be.revertedWith(
-      "AccessControl",
-    );
   });
 });

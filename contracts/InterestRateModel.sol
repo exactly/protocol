@@ -2,31 +2,39 @@
 pragma solidity 0.8.16;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 
-contract InterestRateModel is AccessControl {
+contract InterestRateModel {
   using FixedPointMathLib for uint256;
-  using FixedPointMathLib for uint128;
   using FixedPointMathLib for int256;
 
-  /// @notice Expressed with 1e18 decimals.
-  struct Curve {
-    uint128 a;
-    int128 b;
-    uint128 maxUtilization;
-  }
+  uint256 public immutable fixedCurveA;
+  int256 public immutable fixedCurveB;
+  uint256 public immutable fixedMaxUtilization;
 
-  /// @notice Fixed rate model curve parameters.
-  Curve public fixedCurve;
-  /// @notice Floating rate model curve parameters.
-  Curve public floatingCurve;
+  uint256 public immutable floatingCurveA;
+  int256 public immutable floatingCurveB;
+  uint256 public immutable floatingMaxUtilization;
 
-  constructor(Curve memory fixedCurve_, Curve memory floatingCurve_) {
-    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+  constructor(
+    uint256 fixedCurveA_,
+    int256 fixedCurveB_,
+    uint256 fixedMaxUtilization_,
+    uint256 floatingCurveA_,
+    int256 floatingCurveB_,
+    uint256 floatingMaxUtilization_
+  ) {
+    fixedCurveA = fixedCurveA_;
+    fixedCurveB = fixedCurveB_;
+    fixedMaxUtilization = fixedMaxUtilization_;
 
-    setFixedParameters(fixedCurve_);
-    setFloatingParameters(floatingCurve_);
+    floatingCurveA = floatingCurveA_;
+    floatingCurveB = floatingCurveB_;
+    floatingMaxUtilization = floatingMaxUtilization_;
+
+    // reverts if it's an invalid curve (such as one yielding a negative interest rate).
+    fixedRate(0, 0);
+    floatingRate(0, 0);
   }
 
   /// @notice Gets the rate to borrow a certain amount at a certain maturity with supply/demand values in the fixed rate
@@ -73,18 +81,16 @@ contract InterestRateModel is AccessControl {
   /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.
   /// @return the interest rate, with 18 decimals precision.
   function fixedRate(uint256 utilizationBefore, uint256 utilizationAfter) internal view returns (uint256) {
-    Curve memory curve = fixedCurve;
     int256 r = int256(
       utilizationAfter - utilizationBefore < 2.5e9
-        ? curve.a.divWadDown(curve.maxUtilization - utilizationBefore)
-        : curve.a.mulDivDown(
+        ? fixedCurveA.divWadDown(fixedMaxUtilization - utilizationBefore)
+        : fixedCurveA.mulDivDown(
           uint256(
-            int256((curve.maxUtilization - utilizationBefore).divWadDown(curve.maxUtilization - utilizationAfter))
-              .lnWad()
+            int256((fixedMaxUtilization - utilizationBefore).divWadDown(fixedMaxUtilization - utilizationAfter)).lnWad()
           ),
           utilizationAfter - utilizationBefore
         )
-    ) + curve.b;
+    ) + fixedCurveB;
     assert(r >= 0);
     return uint256(r);
   }
@@ -96,51 +102,20 @@ contract InterestRateModel is AccessControl {
   /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.
   /// @return the interest rate, with 18 decimals precision.
   function floatingRate(uint256 utilizationBefore, uint256 utilizationAfter) internal view returns (uint256) {
-    Curve memory curve = floatingCurve;
     int256 r = int256(
       utilizationAfter - utilizationBefore < 2.5e9
-        ? curve.a.divWadDown(curve.maxUtilization - utilizationBefore)
-        : curve.a.mulDivDown(
+        ? floatingCurveA.divWadDown(floatingMaxUtilization - utilizationBefore)
+        : floatingCurveA.mulDivDown(
           uint256(
-            int256((curve.maxUtilization - utilizationBefore).divWadDown(curve.maxUtilization - utilizationAfter))
+            int256((floatingMaxUtilization - utilizationBefore).divWadDown(floatingMaxUtilization - utilizationAfter))
               .lnWad()
           ),
           utilizationAfter - utilizationBefore
         )
-    ) + curve.b;
+    ) + floatingCurveB;
     assert(r >= 0);
     return uint256(r);
   }
-
-  /// @notice Updates this model's fixed rate curve parameters.
-  /// @param curve new fixed rate curve parameters.
-  function setFixedParameters(Curve memory curve) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    fixedCurve = curve;
-
-    // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    fixedRate(0, 0);
-
-    emit FixedParametersSet(curve);
-  }
-
-  /// @notice Updates this model's floating rate curve parameters.
-  /// @param curve new floating rate curve parameters.
-  function setFloatingParameters(Curve memory curve) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    floatingCurve = curve;
-
-    // reverts if it's an invalid curve (such as one yielding a negative interest rate).
-    floatingRate(0, 0);
-
-    emit FloatingParametersSet(curve);
-  }
-
-  /// @notice Emitted when the fixed rate curve parameters are changed by admin.
-  /// @param curve new fixed rate curve parameters.
-  event FixedParametersSet(Curve curve);
-
-  /// @notice Emitted when the floating curve parameters are changed by admin.
-  /// @param curve new floating rate curve parameters.
-  event FloatingParametersSet(Curve curve);
 }
 
 error AlreadyMatured();

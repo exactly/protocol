@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, Market, InterestRateModel, MockERC20, MockPriceFeed, WETH } from "../types";
+import type { Auditor, Market, MockERC20, MockPriceFeed, WETH } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
@@ -13,6 +13,7 @@ const {
   getContract,
   provider,
 } = ethers;
+const { deploy, fixture } = deployments;
 
 describe("Liquidity computations", function () {
   let dai: MockERC20;
@@ -28,7 +29,6 @@ describe("Liquidity computations", function () {
   let marketUSDC: Market;
   let marketWBTC: Market;
   let marketWETH: Market;
-  let interestRateModel: InterestRateModel;
 
   let bob: SignerWithAddress;
   let laura: SignerWithAddress;
@@ -40,7 +40,7 @@ describe("Liquidity computations", function () {
   });
 
   beforeEach(async () => {
-    await deployments.fixture("Markets");
+    await fixture("Markets");
 
     dai = await getContract<MockERC20>("DAI", laura);
     usdc = await getContract<MockERC20>("USDC", laura);
@@ -55,9 +55,7 @@ describe("Liquidity computations", function () {
     marketUSDC = await getContract<Market>("MarketUSDC", laura);
     marketWBTC = await getContract<Market>("MarketWBTC", laura);
     marketWETH = await getContract<Market>("MarketWETH", laura);
-    interestRateModel = await getContract<InterestRateModel>("InterestRateModel", multisig);
 
-    await timelockExecute(multisig, interestRateModel, "setFixedParameters", [[0, 0, parseUnits("6")]]);
     for (const signer of [bob, laura]) {
       for (const [underlying, market, decimals = 18] of [
         [dai, marketDAI],
@@ -73,6 +71,15 @@ describe("Liquidity computations", function () {
       await auditor.connect(signer).enterMarket(marketUSDC.address);
       await auditor.connect(signer).enterMarket(marketWBTC.address);
     }
+
+    const { address: irm } = await deploy("InterestRateModel", {
+      args: [0, 0, parseUnits("6"), 0, 0, parseUnits("6")],
+      from: bob.address,
+    });
+    await timelockExecute(multisig, marketDAI, "setInterestRateModel", [irm]);
+    await timelockExecute(multisig, marketUSDC, "setInterestRateModel", [irm]);
+    await timelockExecute(multisig, marketWBTC, "setInterestRateModel", [irm]);
+    await timelockExecute(multisig, marketWETH, "setInterestRateModel", [irm]);
 
     await timelockExecute(multisig, auditor, "setAdjustFactor", [marketDAI.address, parseUnits("0.8")]);
     await timelockExecute(multisig, auditor, "setAdjustFactor", [marketUSDC.address, parseUnits("0.8")]);
@@ -100,9 +107,14 @@ describe("Liquidity computations", function () {
       });
       describe("AND GIVEN a 1% borrow interest rate", () => {
         beforeEach(async () => {
-          await timelockExecute(multisig, interestRateModel, "setFixedParameters", [
-            [0, parseUnits("0.01"), parseUnits("6")],
-          ]);
+          const { address: irm } = await deploy("InterestRateModel", {
+            args: [0, parseUnits("0.01"), parseUnits("6"), 0, parseUnits("0.01"), parseUnits("6")],
+            from: bob.address,
+          });
+          await timelockExecute(multisig, marketDAI, "setInterestRateModel", [irm]);
+          await timelockExecute(multisig, marketUSDC, "setInterestRateModel", [irm]);
+          await timelockExecute(multisig, marketWBTC, "setInterestRateModel", [irm]);
+          await timelockExecute(multisig, marketWETH, "setInterestRateModel", [irm]);
           // add liquidity to the maturity
           await marketDAI.depositAtMaturity(futurePools(1)[0], parseUnits("800"), parseUnits("800"), laura.address);
         });

@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import { InterestRateModel, AlreadyMatured } from "../InterestRateModel.sol";
+import { AlreadyMatured } from "../InterestRateModel.sol";
 import { ExactlyOracle } from "../ExactlyOracle.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
 import { Auditor } from "../Auditor.sol";

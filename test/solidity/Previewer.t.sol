@@ -35,10 +35,7 @@ contract PreviewerTest is Test {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
     auditor.initialize(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
 
-    irm = new InterestRateModel(
-      InterestRateModel.Curve({ a: 0.72e18, b: -0.22e18, maxUtilization: 1.1e18 }),
-      InterestRateModel.Curve({ a: 0.72e18, b: -0.22e18, maxUtilization: 1.1e18 })
-    );
+    irm = new InterestRateModel(0.72e18, -0.22e18, 1.1e18, 0.72e18, -0.22e18, 1.1e18);
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);

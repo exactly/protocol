@@ -101,8 +101,12 @@ describe("Fixed Rate Operations", () => {
       )) as InterestRateModel__factory;
 
       newInterestRateModel = await InterestRateModelFactory.deploy(
-        { a: parseUnits("0.75"), b: parseUnits("-0.105"), maxUtilization: parseUnits("6") },
-        { a: parseUnits("0.75"), b: parseUnits("-0.105"), maxUtilization: parseUnits("6") },
+        parseUnits("0.75"),
+        parseUnits("-0.105"),
+        parseUnits("6"),
+        parseUnits("0.75"),
+        parseUnits("-0.105"),
+        parseUnits("6"),
       );
       await newInterestRateModel.deployed();
     });

@@ -7,13 +7,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
-contract InterestRateModelTest is
-  Test,
-  InterestRateModel(
-    InterestRateModel.Curve({ a: 3.75e16, b: 0.75e16, maxUtilization: 3e18 }),
-    InterestRateModel.Curve({ a: 3.75e16, b: 0.75e16, maxUtilization: 3e18 })
-  )
-{
+contract InterestRateModelTest is Test, InterestRateModel(3.75e16, 0.75e16, 3e18, 3.75e16, 0.75e16, 3e18) {
   using FixedPointMathLib for uint256;
 
   function testFixedBorrowRate() external {
@@ -44,26 +38,24 @@ contract InterestRateModelTest is
   }
 
   function testReferenceFloatingRate(uint256 v0, uint64 delta) external {
-    Curve memory params = floatingCurve;
     uint256 u0 = v0 % 1e18;
-    uint256 u1 = u0 + (delta % (params.maxUtilization - u0));
+    uint256 u1 = u0 + (delta % (floatingMaxUtilization - u0));
 
     string[] memory ffi = new string[](2);
     ffi[0] = "scripts/irm.sh";
-    ffi[1] = encodeHex(abi.encode(u0, u1, params.a, params.b, params.maxUtilization));
+    ffi[1] = encodeHex(abi.encode(u0, u1, floatingCurveA, floatingCurveB, floatingMaxUtilization));
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
 
     assertApproxEqRel(floatingRate(u0, u1), refRate, 1.5e9);
   }
 
   function testReferenceFixedRate(uint256 v0, uint64 delta) external {
-    Curve memory params = fixedCurve;
     uint256 u0 = v0 % 1e18;
-    uint256 u1 = u0 + (delta % (params.maxUtilization - u0));
+    uint256 u1 = u0 + (delta % (fixedMaxUtilization - u0));
 
     string[] memory ffi = new string[](2);
     ffi[0] = "scripts/irm.sh";
-    ffi[1] = encodeHex(abi.encode(u0, u1, params.a, params.b, params.maxUtilization));
+    ffi[1] = encodeHex(abi.encode(u0, u1, fixedCurveA, fixedCurveB, fixedMaxUtilization));
     uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
 
     assertApproxEqRel(fixedRate(u0, u1), refRate, 1.5e9);

@@ -103,8 +103,12 @@ export class DefaultEnv {
     const InterestRateModelFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
 
     const realInterestRateModel = await InterestRateModelFactory.deploy(
-      { a: parseUnits("0.0495"), b: parseUnits("-0.025"), maxUtilization: parseUnits("1.1") },
-      { a: parseUnits("0.0495"), b: parseUnits("-0.025"), maxUtilization: parseUnits("1.1") },
+      parseUnits("0.0495"),
+      parseUnits("-0.025"),
+      parseUnits("1.1"),
+      parseUnits("0.0495"),
+      parseUnits("-0.025"),
+      parseUnits("1.1"),
     );
 
     const interestRateModel = config?.useRealInterestRateModel
@@ -180,10 +184,6 @@ export class DefaultEnv {
 
   public getUnderlying(key: string) {
     return this.underlyingContracts[key];
-  }
-
-  public getInterestRateModel(): InterestRateModel | MockInterestRateModel {
-    return this.interestRateModel;
   }
 
   public async setOracle(oracleAddress: string) {
@@ -289,6 +289,20 @@ export class DefaultEnv {
 
   public async setBorrowRate(rate: string) {
     await (this.interestRateModel.connect(this.currentWallet) as MockInterestRateModel).setBorrowRate(parseUnits(rate));
+  }
+
+  public async setFixedParameters(a: BigNumber, b: BigNumber, maxU: BigNumber) {
+    const irmFactory = (await getContractFactory("InterestRateModel")) as InterestRateModel__factory;
+    const irm = this.interestRateModel as InterestRateModel;
+    const newIRM = await irmFactory.deploy(
+      a,
+      b,
+      maxU,
+      ...(await Promise.all([irm.floatingCurveA(), irm.floatingCurveB(), irm.floatingMaxUtilization()])),
+    );
+
+    this.interestRateModel = newIRM;
+    for (const market of Object.values(this.marketContracts)) await market.setInterestRateModel(newIRM.address);
   }
 
   public async transfer(assetString: string, wallet: SignerWithAddress, units: string) {

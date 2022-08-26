@@ -146,7 +146,7 @@ const func: DeployFunction = async ({
     await transferOwnership(market, deployer, timelockAddress);
   }
 
-  for (const contract of [auditor, interestRateModel, exactlyOracle]) {
+  for (const contract of [auditor, exactlyOracle]) {
     await transferOwnership(contract, deployer, timelockAddress);
   }
 };

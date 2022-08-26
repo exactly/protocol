@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { BigNumber } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, Market, InterestRateModel, MockERC20, MockPriceFeed, WETH } from "../types";
+import type { Auditor, Market, MockERC20, MockPriceFeed, WETH } from "../types";
 import decodeMaturities from "./utils/decodeMaturities";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
@@ -14,6 +14,7 @@ const {
   getContract,
   provider,
 } = ethers;
+const { deploy, fixture } = deployments;
 
 describe("Market", function () {
   let dai: MockERC20;
@@ -21,7 +22,6 @@ describe("Market", function () {
   let auditor: Auditor;
   let marketDAI: Market;
   let marketWETH: Market;
-  let interestRateModel: InterestRateModel;
 
   let maria: SignerWithAddress;
   let john: SignerWithAddress;
@@ -34,19 +34,23 @@ describe("Market", function () {
   });
 
   beforeEach(async () => {
-    await deployments.fixture("Markets");
+    await fixture("Markets");
 
     dai = await getContract<MockERC20>("DAI", maria);
     weth = await getContract<WETH>("WETH", maria);
     auditor = await getContract<Auditor>("Auditor", maria);
     marketDAI = await getContract<Market>("MarketDAI", maria);
     marketWETH = await getContract<Market>("MarketWETH", maria);
-    interestRateModel = await getContract<InterestRateModel>("InterestRateModel", owner);
     penaltyRate = await marketDAI.penaltyRate();
 
-    await timelockExecute(owner, interestRateModel, "setFixedParameters", [[0, 0, parseUnits("6")]]);
+    const { address: irm } = await deploy("InterestRateModel", {
+      args: [0, 0, parseUnits("6"), 0, 0, parseUnits("6")],
+      from: owner.address,
+    });
+
     await timelockExecute(owner, marketDAI, "setBackupFeeRate", [0]);
     await timelockExecute(owner, marketWETH, "setBackupFeeRate", [0]);
+    await timelockExecute(owner, marketDAI, "setInterestRateModel", [irm]);
     await timelockExecute(owner, marketDAI, "setReserveFactor", [0]);
     for (const signer of [maria, john]) {
       await dai.connect(owner).mint(signer.address, parseUnits("10000"));
@@ -358,7 +362,11 @@ describe("Market", function () {
 
   describe("GIVEN an interest rate of 2%", () => {
     beforeEach(async () => {
-      await timelockExecute(owner, interestRateModel, "setFixedParameters", [[0, parseUnits("0.02"), parseUnits("6")]]);
+      const { address } = await deploy("InterestRateModel", {
+        args: [0, parseUnits("0.02"), parseUnits("6"), 0, parseUnits("0.02"), parseUnits("6")],
+        from: owner.address,
+      });
+      await timelockExecute(owner, marketDAI, "setInterestRateModel", [address]);
       await marketDAI.deposit(parseUnits("1"), maria.address);
       await auditor.enterMarket(marketDAI.address);
       // add liquidity to the maturity
@@ -391,9 +399,11 @@ describe("Market", function () {
       await marketWETH.deposit(parseUnits("10"), maria.address);
       await auditor.enterMarket(marketWETH.address);
 
-      await timelockExecute(owner, interestRateModel, "setFixedParameters", [
-        [parseUnits("0"), parseUnits("0"), parseUnits("1.1")],
-      ]);
+      const { address } = await deploy("InterestRateModel", {
+        args: [0, 0, parseUnits("1.1"), 0, 0, parseUnits("1.1")],
+        from: owner.address,
+      });
+      await timelockExecute(owner, marketDAI, "setInterestRateModel", [address]);
       await marketDAI.connect(john).deposit(parseUnits("12"), john.address);
       await provider.send("evm_increaseTime", [9011]);
 
