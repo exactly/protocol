@@ -258,7 +258,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     address borrower,
     uint256 actualRepayAssets
   ) external view returns (uint256 lendersAssets, uint256 seizeAssets) {
-    lendersAssets = actualRepayAssets.mulWadDown(liquidationIncentive.lenders);
+    LiquidationIncentive memory memIncentive = liquidationIncentive;
+    lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
 
     // read oracle prices for borrowed and collateral markets
     uint256 priceBorrowed = oracle.assetPrice(repayMarket);
@@ -268,7 +269,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     // 10**18: usd amount decimals
     seizeAssets = Math.min(
       amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadUp(
-        1e18 + liquidationIncentive.liquidator + liquidationIncentive.lenders
+        1e18 + memIncentive.liquidator + memIncentive.lenders
       ),
       seizeMarket.maxWithdraw(borrower)
     );
