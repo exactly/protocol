@@ -212,7 +212,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     floatingAssets += backupEarnings;
 
-    emit DepositAtMaturity(uint32(maturity), msg.sender, receiver, assets, fee);
+    emit DepositAtMaturity(maturity, msg.sender, receiver, assets, fee);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
 
@@ -278,7 +278,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     auditor.checkBorrow(this, borrower);
     asset.safeTransfer(receiver, assets);
 
-    emit BorrowAtMaturity(uint32(maturity), msg.sender, receiver, borrower, assets, fee);
+    emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
   }
@@ -359,7 +359,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     asset.safeTransfer(receiver, assetsDiscounted);
 
-    emit WithdrawAtMaturity(uint32(maturity), msg.sender, receiver, owner, positionAssets, assetsDiscounted);
+    emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
   }
@@ -453,7 +453,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     floatingAssets += backupEarnings;
 
-    emit RepayAtMaturity(uint32(maturity), msg.sender, borrower, actualRepayAssets, debtCovered);
+    emit RepayAtMaturity(maturity, msg.sender, borrower, actualRepayAssets, debtCovered);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
   }
@@ -564,7 +564,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
           delete fixedBorrowPositions[maturity][account];
           fixedBorrows[account] = fixedBorrows[account].clearMaturity(maturity);
 
-          emit RepayAtMaturity(uint32(maturity), msg.sender, account, badDebt, badDebt);
+          emit RepayAtMaturity(maturity, msg.sender, account, badDebt, badDebt);
           spreadBadDebt(badDebt);
         }
       }
@@ -929,7 +929,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   }
 
   function emitFixedEarningsUpdate(uint256 maturity) internal {
-    emit FixedEarningsUpdate(block.timestamp, uint32(maturity), fixedPools[maturity].unassignedEarnings);
+    emit FixedEarningsUpdate(block.timestamp, maturity, fixedPools[maturity].unassignedEarnings);
   }
 
   /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
@@ -1032,7 +1032,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @param assets amount of the asset that were deposited.
   /// @param fee is the extra amount that it will be collected at maturity.
   event DepositAtMaturity(
-    uint32 indexed maturity,
+    uint256 indexed maturity,
     address indexed caller,
     address indexed owner,
     uint256 assets,
@@ -1047,7 +1047,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @param assets amount of the asset that were withdrawn.
   /// @param assetsDiscounted amount of the asset that were deposited (in case of early withdrawal).
   event WithdrawAtMaturity(
-    uint32 indexed maturity,
+    uint256 indexed maturity,
     address caller,
     address indexed receiver,
     address indexed owner,
@@ -1063,7 +1063,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @param assets amount of the asset that were borrowed.
   /// @param fee extra amount that will need to be paid at maturity.
   event BorrowAtMaturity(
-    uint32 indexed maturity,
+    uint256 indexed maturity,
     address caller,
     address indexed receiver,
     address indexed borrower,
@@ -1078,7 +1078,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @param assets amount that was repaid.
   /// @param positionAssets amount of the debt that was covered in this repayment (penalties could have been repaid).
   event RepayAtMaturity(
-    uint32 indexed maturity,
+    uint256 indexed maturity,
     address indexed caller,
     address indexed borrower,
     uint256 assets,
@@ -1150,7 +1150,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 earningsAccumulator
   );
 
-  event FixedEarningsUpdate(uint256 timestamp, uint32 indexed maturity, uint256 unassignedEarnings);
+  event FixedEarningsUpdate(uint256 timestamp, uint256 indexed maturity, uint256 unassignedEarnings);
 
   event AccumulatorAccrual(uint256 timestamp);
 

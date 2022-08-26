@@ -103,7 +103,7 @@ contract PoolLibTest is Test {
     for (uint256 i = 0; i < indexes.length; i++) {
       if (indexes[i] > 223) continue;
 
-      uint32 maturity = ((uint32(indexes[i]) + 1) * FixedLib.INTERVAL);
+      uint256 maturity = (indexes[i] + 1) * FixedLib.INTERVAL;
       maturities = maturities.setMaturity(maturity);
       assertTrue(hasMaturity(maturities, maturity));
     }

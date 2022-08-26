@@ -1986,14 +1986,14 @@ contract MarketTest is Test {
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
   event Withdraw(address indexed caller, address indexed receiver, uint256 assets, uint256 shares);
   event DepositAtMaturity(
-    uint32 indexed maturity,
+    uint256 indexed maturity,
     address indexed caller,
     address indexed owner,
     uint256 assets,
     uint256 fee
   );
   event WithdrawAtMaturity(
-    uint32 indexed maturity,
+    uint256 indexed maturity,
     address caller,
     address indexed receiver,
     address indexed owner,
@@ -2001,7 +2001,7 @@ contract MarketTest is Test {
     uint256 assetsDiscounted
   );
   event BorrowAtMaturity(
-    uint32 indexed maturity,
+    uint256 indexed maturity,
     address caller,
     address indexed receiver,
     address indexed borrower,
@@ -2009,7 +2009,7 @@ contract MarketTest is Test {
     uint256 fee
   );
   event RepayAtMaturity(
-    uint32 indexed maturity,
+    uint256 indexed maturity,
     address indexed caller,
     address indexed borrower,
     uint256 assets,

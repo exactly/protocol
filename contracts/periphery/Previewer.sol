@@ -27,8 +27,8 @@ contract Previewer {
     uint8 decimals;
     string assetSymbol;
     uint256 oraclePrice;
-    uint128 penaltyRate;
-    uint128 adjustFactor;
+    uint256 penaltyRate;
+    uint256 adjustFactor;
     uint8 maxFuturePools;
     FixedPool[] fixedPools;
     uint256 floatingBackupBorrowed;
@@ -97,7 +97,7 @@ contract Previewer {
         decimals: decimals,
         assetSymbol: market.asset().symbol(),
         oraclePrice: oraclePrice,
-        penaltyRate: uint128(market.penaltyRate()),
+        penaltyRate: market.penaltyRate(),
         adjustFactor: adjustFactor,
         maxFuturePools: market.maxFuturePools(),
         fixedPools: fixedPools(market),
