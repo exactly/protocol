@@ -186,7 +186,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 assets,
     uint256 minAssetsRequired,
     address receiver
-  ) public nonReentrant whenNotPaused returns (uint256 positionAssets) {
+  ) external nonReentrant whenNotPaused returns (uint256 positionAssets) {
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
@@ -231,7 +231,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 maxAssets,
     address receiver,
     address borrower
-  ) public nonReentrant whenNotPaused returns (uint256 assetsOwed) {
+  ) external nonReentrant whenNotPaused returns (uint256 assetsOwed) {
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
@@ -297,7 +297,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 minAssetsRequired,
     address receiver,
     address owner
-  ) public nonReentrant returns (uint256 assetsDiscounted) {
+  ) external nonReentrant returns (uint256 assetsDiscounted) {
     checkWithdraw(positionAssets);
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
@@ -375,7 +375,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 positionAssets,
     uint256 maxAssets,
     address borrower
-  ) public nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
+  ) external nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 

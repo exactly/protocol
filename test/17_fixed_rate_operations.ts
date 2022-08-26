@@ -492,7 +492,7 @@ describe("Fixed Rate Operations", () => {
                     parseUnits((repayAmount - 126).toString()),
                     laura.address,
                   ),
-              ).to.be.revertedWith("Disagreement()");
+              ).to.be.reverted;
             });
           });
 
@@ -1593,7 +1593,7 @@ describe("Fixed Rate Operations", () => {
       });
 
       describe("WHEN an early withdrawal of 5250 without enough slippage", () => {
-        it("THEN it should revert with error TOO_MUCH_SLIPPAGE", async () => {
+        it("THEN it should revert with error Disagreement()", async () => {
           await expect(
             marketHarness
               .connect(laura)
@@ -1604,7 +1604,7 @@ describe("Fixed Rate Operations", () => {
                 laura.address,
                 laura.address,
               ),
-          ).to.be.revertedWith("Disagreement()");
+          ).to.be.reverted;
         });
       });
 

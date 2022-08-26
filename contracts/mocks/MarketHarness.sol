@@ -40,7 +40,11 @@ contract MarketHarness is Market {
     address receiver,
     address borrower
   ) external {
-    returnValue = borrowAtMaturity(maturity, assets, maxAssetsAllowed, receiver, borrower);
+    // solhint-disable-next-line avoid-low-level-calls
+    (, bytes memory data) = address(this).delegatecall(
+      abi.encodeCall(this.borrowAtMaturity, (maturity, assets, maxAssetsAllowed, receiver, borrower))
+    );
+    returnValue = abi.decode(data, (uint256));
   }
 
   function depositMaturityWithReturnValue(
@@ -49,7 +53,11 @@ contract MarketHarness is Market {
     uint256 minAssetsRequired,
     address receiver
   ) external {
-    returnValue = depositAtMaturity(maturity, assets, minAssetsRequired, receiver);
+    // solhint-disable-next-line avoid-low-level-calls
+    (, bytes memory data) = address(this).delegatecall(
+      abi.encodeCall(this.depositAtMaturity, (maturity, assets, minAssetsRequired, receiver))
+    );
+    returnValue = abi.decode(data, (uint256));
   }
 
   function withdrawMaturityWithReturnValue(
@@ -59,7 +67,11 @@ contract MarketHarness is Market {
     address receiver,
     address owner
   ) external {
-    returnValue = withdrawAtMaturity(maturity, positionAssets, minAssetsRequired, receiver, owner);
+    // solhint-disable-next-line avoid-low-level-calls
+    (, bytes memory data) = address(this).delegatecall(
+      abi.encodeCall(this.withdrawAtMaturity, (maturity, positionAssets, minAssetsRequired, receiver, owner))
+    );
+    returnValue = abi.decode(data, (uint256));
   }
 
   function repayMaturityWithReturnValue(
@@ -68,7 +80,11 @@ contract MarketHarness is Market {
     uint256 maxAssetsAllowed,
     address borrower
   ) external {
-    returnValue = repayAtMaturity(maturity, positionAssets, maxAssetsAllowed, borrower);
+    // solhint-disable-next-line avoid-low-level-calls
+    (, bytes memory data) = address(this).delegatecall(
+      abi.encodeCall(this.repayAtMaturity, (maturity, positionAssets, maxAssetsAllowed, borrower))
+    );
+    returnValue = abi.decode(data, (uint256));
   }
 
   // function to avoid range value validation
