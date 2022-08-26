@@ -35,8 +35,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     setLiquidationIncentive(liquidationIncentive_);
   }
 
-  /// @notice Allows assets of a certain `market` market to be used as collateral for borrowing other assets.
-  /// @param market market to enable as collateral for `msg.sender`.
+  /// @notice Allows assets of a certain market to be used as collateral for borrowing other assets.
+  /// @param market market to enabled as collateral.
   function enterMarket(Market market) external {
     MarketData memory m = markets[market];
     if (!m.isListed) revert MarketNotListed();
@@ -52,7 +52,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Removes market from sender's account liquidity calculation.
   /// @dev Sender must not have an outstanding borrow balance in the asset, or be providing necessary collateral
   /// for an outstanding borrow.
-  /// @param market The address of the asset to be removed.
+  /// @param market market to be disabled as collateral.
   function exitMarket(Market market) external {
     MarketData memory m = markets[market];
     if (!m.isListed) revert MarketNotListed();
@@ -73,20 +73,20 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit MarketExited(market, msg.sender);
   }
 
-  /// @notice Returns account's liquidity for a certain market.
-  /// @param account wallet which the liquidity will be calculated.
-  /// @param marketToSimulate market in which to simulate withdraw/borrow ops (see next two args).
-  /// @param withdrawAmount amount to simulate withdraw.
-  /// @return sumCollateral sum of all collateral, already multiplied by each adjust factor. denominated in usd.
-  /// @return sumDebtPlusEffects sum of all debt. denominated in usd.
+  /// @notice Returns account's liquidity calculation.
+  /// @param account account in which the liquidity will be calculated.
+  /// @param marketToSimulate market in which to simulate withdraw operation.
+  /// @param withdrawAmount amount to simulate as withdraw.
+  /// @return sumCollateral sum of all collateral, already multiplied by each adjust factor (denominated in usd).
+  /// @return sumDebtPlusEffects sum of all debt divided by adjust factor considering withdrawal (denominated in usd).
   function accountLiquidity(
     address account,
     Market marketToSimulate,
     uint256 withdrawAmount
   ) public view returns (uint256 sumCollateral, uint256 sumDebtPlusEffects) {
-    AccountLiquidity memory vars; // Holds all our calculation results
+    AccountLiquidity memory vars; // holds all our calculation results
 
-    // For each asset the account is in
+    // for each asset the account is in
     uint256 marketMap = accountMarkets[account];
     uint256 maxValue = marketList.length;
     for (uint256 i = 0; i < maxValue; ) {
@@ -95,10 +95,10 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         uint256 decimals = markets[market].decimals;
         uint256 adjustFactor = markets[market].adjustFactor;
 
-        // Read the balances
+        // read the balances
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
 
-        // Get the normalized price of the asset (18 decimals)
+        // get the normalized price of the asset (18 decimals)
         vars.oraclePrice = oracle.assetPrice(market);
 
         // sum all the collateral prices
@@ -107,9 +107,9 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         // sum all the debt
         sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.oraclePrice, 10**decimals).divWadUp(adjustFactor);
 
-        // Simulate the effects of withdrawing from a pool
+        // simulate the effects of withdrawing from a pool
         if (market == marketToSimulate) {
-          // Calculate the effects of redeeming markets
+          // calculate the effects of redeeming markets
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
             sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
@@ -123,8 +123,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     }
   }
 
-  /// @notice Validates that the current state of the position and system are valid (liquidity).
-  /// @dev Hook function to be called after adding the borrowed debt to the account position.
+  /// @notice Validates that the current state of the position and system are valid.
+  /// @dev To be called after adding the borrowed debt to the account position.
   /// @param market address of the market where the borrow is made.
   /// @param borrower address of the account that will repay the debt.
   function checkBorrow(Market market, address borrower) external {
@@ -149,9 +149,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     if (collateral < debt) revert InsufficientAccountLiquidity();
   }
 
-  /// @notice Checks if the account has liquidity shortfall
-  /// @dev This function is called indirectly from market contracts(withdraw), eToken transfers and directly from
-  /// this contract when the account wants to exit a market.
+  /// @notice Checks if the account has liquidity shortfall.
   /// @param market address of the market where the operation will happen.
   /// @param account address of the account to check for possible shortfall.
   /// @param amount amount that the account wants to withdraw or transfer.
@@ -163,17 +161,18 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     // if the account is not 'in' the market, bypass the liquidity check
     if ((accountMarkets[account] & (1 << markets[market].index)) == 0) return;
 
-    // Otherwise, perform a hypothetical liquidity check to guard against shortfall
+    // otherwise, perform a hypothetical liquidity check to guard against shortfall
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, amount);
     if (collateral < debt) revert InsufficientAccountLiquidity();
   }
 
   /// @notice Allows/rejects liquidation of assets.
   /// @dev This function can be called externally, but only will have effect when called from a market.
-  /// @param repayMarket market from where the debt is pending.
-  /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on Market.sol).
-  /// @param borrower address which the assets are being liquidated.
-  /// @param maxLiquidatorAssets maximum amount the liquidator can pay.
+  /// @param repayMarket market from where the debt is being repaid.
+  /// @param seizeMarket market from where the liquidator will seize assets.
+  /// @param borrower address in which the assets are being liquidated.
+  /// @param maxLiquidatorAssets maximum amount of debt the liquidator is willing to accept.
+  /// @return maxRepayAssets capped amount of debt the liquidator is allowed to repay.
   function checkLiquidation(
     Market repayMarket,
     Market seizeMarket,
@@ -240,18 +239,20 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
   /// @notice Allow/rejects seizing of assets.
   /// @dev This function can be called externally, but only will have effect when called from a market.
-  /// @param repayMarket market from where the debt will be paid.
-  /// @param seizeMarket market where the assets will be seized (should be msg.sender on Market.sol).
+  /// @param repayMarket market from where the debt will be repaid.
+  /// @param seizeMarket market where the assets will be seized.
   function checkSeize(Market repayMarket, Market seizeMarket) external view {
     // If markets are listed, they have also the same Auditor
     if (!markets[seizeMarket].isListed || !markets[repayMarket].isListed) revert MarketNotListed();
   }
 
   /// @notice Calculates the amount of collateral to be seized when a position is undercollateralized.
-  /// @param repayMarket market from where the debt is pending.
-  /// @param seizeMarket market where the assets will be liquidated (should be msg.sender on Market.sol).
-  /// @param borrower account which assets are being seized.
-  /// @param actualRepayAssets repay amount in the borrowed asset.
+  /// @param repayMarket market from where the debt will be repaid.
+  /// @param seizeMarket market from where the assets will be seized by the liquidator.
+  /// @param borrower account in which assets are being seized.
+  /// @param actualRepayAssets amount being repaid.
+  /// @return lendersAssets amount to be added for other lenders as a compensation of bad debt clearing.
+  /// @return seizeAssets amount that can be seized by the liquidator.
   function calculateSeize(
     Market repayMarket,
     Market seizeMarket,
@@ -275,9 +276,9 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     );
   }
 
-  /// @notice Checks if account has debt with no collateral, if so then call `clearBadDebt` from each `market`.
-  /// @dev Collateral is multiplied by price and `adjustFactor` to be accurately evaluated as positive collateral asset.
-  /// @param account account which debt is being checked.
+  /// @notice Checks if account has debt with no collateral, if so then call `clearBadDebt` from each market.
+  /// @dev Collateral is multiplied by price and adjust factor to be accurately evaluated as positive collateral asset.
+  /// @param account account in which debt is being checked.
   function handleBadDebt(address account) external {
     uint256 marketCount = marketList.length;
     uint256 marketMap = accountMarkets[account];
@@ -309,7 +310,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
   /// @notice Enables a certain market.
   /// @dev Enabling more than 256 markets will cause an overflow when casting market index to uint8.
-  /// @param market address to add to the protocol.
+  /// @param market market to add to the protocol.
   /// @param adjustFactor market's adjust factor for the underlying asset.
   /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
@@ -335,7 +336,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   }
 
   /// @notice Sets the adjust factor for a certain market.
-  /// @dev MarketData should be listed and value can only be set between 90% and 30%.
   /// @param market address of the market to change adjust factor for.
   /// @param adjustFactor adjust factor for the underlying asset.
   function setAdjustFactor(Market market, uint128 adjustFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -345,8 +345,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit AdjustFactorSet(market, adjustFactor);
   }
 
-  /// @notice Sets liquidation incentive for the whole ecosystem.
-  /// @dev Value can only be set between 20% and 5%.
+  /// @notice Sets liquidation incentive (liquidator and lenders) for the whole ecosystem.
   /// @param liquidationIncentive_ new liquidation incentive.
   function setLiquidationIncentive(LiquidationIncentive memory liquidationIncentive_)
     public
@@ -363,32 +362,32 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit OracleSet(oracle_);
   }
 
-  /// @notice Event emitted when a new market is listed for borrow/lending.
+  /// @notice Emitted when a new market is listed for borrow/lending.
   /// @param market address of the market that was listed.
   /// @param decimals decimals of the market's underlying asset.
   event MarketListed(Market market, uint8 decimals);
 
-  /// @notice Event emitted when an account enters a market to use his deposit as collateral for a loan.
+  /// @notice Emitted when an account enters a market to use his deposit as collateral for a loan.
   /// @param market address of the market that the account entered.
   /// @param account address of the account that just entered a market.
   event MarketEntered(Market indexed market, address indexed account);
 
-  /// @notice Event emitted when an account leaves a market.
+  /// @notice Emitted when an account leaves a market.
   /// Means that they would stop using their deposit as collateral and won't ask for any loans in this market.
   /// @param market address of the market that the account just left.
   /// @param account address of the account that just left a market.
   event MarketExited(Market indexed market, address indexed account);
 
-  /// @notice Event emitted when a adjust factor is changed by admin.
+  /// @notice Emitted when a adjust factor is changed by admin.
   /// @param market address of the market that has a new adjust factor.
   /// @param adjustFactor adjust factor for the underlying asset.
   event AdjustFactorSet(Market indexed market, uint256 adjustFactor);
 
-  /// @notice Event emitted when a new liquidationIncentive has been set.
+  /// @notice Emitted when a new liquidationIncentive has been set.
   /// @param liquidationIncentive represented with 18 decimals.
   event LiquidationIncentiveSet(LiquidationIncentive liquidationIncentive);
 
-  /// @notice Event emitted when a new Oracle has been set.
+  /// @notice Emitted when a new Oracle has been set.
   /// @param oracle address of the new oracle that is used to calculate liquidity.
   event OracleSet(ExactlyOracle oracle);
 

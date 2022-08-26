@@ -28,7 +28,7 @@ library FixedLib {
     }
   }
 
-  /// @notice registers an operation to add supply to a fixed rate pool and potentially reduce backup debt.
+  /// @notice Registers an operation to add supply to a fixed rate pool and potentially reduce backup debt.
   /// @param pool fixed rate pool where an amount will be added to the supply.
   /// @param amount amount to be added to the supply.
   /// @return backupDebtReduction amount that will be reduced from the backup debt.
@@ -39,7 +39,7 @@ library FixedLib {
     backupDebtReduction = Math.min(borrowed - Math.min(borrowed, supplied), amount);
   }
 
-  /// @notice registers an operation to reduce borrowed amount from a fixed rate pool
+  /// @notice Registers an operation to reduce borrowed amount from a fixed rate pool
   /// and potentially reduce backup debt.
   /// @param pool fixed rate pool where an amount will be repaid.
   /// @param amount amount to be added to the fixed rate pool.
@@ -51,7 +51,7 @@ library FixedLib {
     backupDebtReduction = Math.min(borrowed - Math.min(borrowed, supplied), amount);
   }
 
-  /// @notice registers an operation to increase borrowed amount of a fixed rate pool
+  /// @notice Registers an operation to increase borrowed amount of a fixed rate pool
   /// and potentially increase backup debt.
   /// @param pool fixed rate pool where an amount will be borrowed.
   /// @param amount amount to be borrowed from the fixed rate pool.
@@ -65,7 +65,7 @@ library FixedLib {
     pool.borrowed = newBorrowed;
   }
 
-  /// @notice registers an operation to reduce supply from a fixed rate pool and potentially increase backup debt.
+  /// @notice Registers an operation to reduce supply from a fixed rate pool and potentially increase backup debt.
   /// @param pool fixed rate pool where amount will be withdrawn.
   /// @param amountToDiscount amount to be withdrawn from the fixed rate pool.
   /// @return backupDebtAddition amount of new debt that needs to be borrowed from the backup supplier.
@@ -78,7 +78,7 @@ library FixedLib {
     pool.supplied = newSupply;
   }
 
-  /// @notice accrues backup earnings from `unassignedEarnings` based on the `lastAccrual` time.
+  /// @notice Accrues backup earnings from `unassignedEarnings` based on the `lastAccrual` time.
   /// @param pool fixed rate pool where earnings will be accrued.
   /// @param maturity maturity date of the pool.
   /// @return backupEarnings amount of earnings to be distributed to the backup supplier.
@@ -100,7 +100,7 @@ library FixedLib {
     pool.unassignedEarnings = unassignedEarnings - backupEarnings;
   }
 
-  /// @notice calculates the amount that a fixed rate pool borrowed from the backup supplier.
+  /// @notice Calculates the amount that a fixed rate pool borrowed from the backup supplier.
   /// @param pool fixed rate pool.
   /// @return amount borrowed from the fixed rate pool.
   function backupSupplied(Pool memory pool) internal pure returns (uint256) {
@@ -109,11 +109,11 @@ library FixedLib {
     return borrowed - Math.min(borrowed, supplied);
   }
 
-  /// @notice modify positions based on a certain amount, keeping the original principal/fee ratio.
+  /// @notice Modify positions based on a certain amount, keeping the original principal/fee ratio.
   /// @dev modifies the original struct and returns it. Needs for the amount to be less than the principal and the fee
   /// @param position original position to be scaled.
   /// @param amount to be used as a full value (principal + interest).
-  /// @return Position scaled position.
+  /// @return scaled position.
   function scaleProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
     uint256 principal = amount.mulDivDown(position.principal, position.principal + position.fee);
     position.principal = principal;
@@ -121,11 +121,11 @@ library FixedLib {
     return position;
   }
 
-  /// @notice reduce positions based on a certain amount, keeping the original principal/fee ratio.
+  /// @notice Reduce positions based on a certain amount, keeping the original principal/fee ratio.
   /// @dev modifies the original struct and returns it.
   /// @param position original position to be reduced.
   /// @param amount to be used as a full value (principal + interest).
-  /// @return Position reduced position.
+  /// @return reduced position.
   function reduceProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
     uint256 principal = amount.mulDivDown(position.principal, position.principal + position.fee);
     position.principal -= principal;
@@ -133,7 +133,7 @@ library FixedLib {
     return position;
   }
 
-  /// @notice calculates what proportion of earnings would `borrowAmount` represent considering `backupSupplied`.
+  /// @notice Calculates what proportion of earnings would `borrowAmount` represent considering `backupSupplied`.
   /// @param earnings amount to be distributed.
   /// @param borrowAmount amount that will be checked if came from the backup supplier or fixed rate pool.
   /// @return unassignedEarnings earnings to be added to `unassignedEarnings`.
@@ -149,7 +149,7 @@ library FixedLib {
     unassignedEarnings = earnings - backupEarnings;
   }
 
-  /// @notice adds a maturity date to the borrow or supply positions of the account.
+  /// @notice Adds a maturity date to the borrow or supply positions of the account.
   /// @param encoded encoded maturity dates where the account borrowed or supplied to.
   /// @param maturity the new maturity where the account will borrow or supply to.
   /// @return updated encoded maturity dates.
@@ -172,7 +172,7 @@ library FixedLib {
     }
   }
 
-  /// @notice remove maturity from account's borrow or supplied positions.
+  /// @notice Remove maturity from account's borrow or supplied positions.
   /// @param encoded encoded maturity dates where the account borrowed or supplied to.
   /// @param maturity maturity date to be removed.
   /// @return updated encoded maturity dates.
@@ -199,7 +199,7 @@ library FixedLib {
     }
   }
 
-  /// @notice calculates how many seconds are left to a certain date.
+  /// @notice Calculates how many seconds are left to a certain date.
   /// @param timestampFrom to calculate the difference in seconds from a date.
   /// @param timestampTo to calculate the difference in seconds to a date.
   /// @return seconds left to the date.
@@ -207,7 +207,7 @@ library FixedLib {
     return timestampFrom < timestampTo ? timestampTo - timestampFrom : 0;
   }
 
-  /// @notice verifies that a maturity is `VALID`, `MATURED`, `NOT_READY` or `INVALID`.
+  /// @notice Verifies that a maturity is `VALID`, `MATURED`, `NOT_READY` or `INVALID`.
   /// @dev if expected state doesn't match the calculated one, it reverts with a custom error `UnmatchedPoolState`.
   /// @param maturity timestamp of the maturity date to be verified.
   /// @param maxPools number of pools available in the time horizon.
@@ -232,7 +232,7 @@ library FixedLib {
     }
   }
 
-  /// @notice contains the accountability of a fixed interest rate pool.
+  /// @notice Contains the accountability of a fixed interest rate pool.
   /// @param borrowed total amount borrowed from the pool.
   /// @param supplied total amount supplied to the pool.
   /// @param unassignedEarnings total amount of earnings not yet distributed and accrued.
@@ -244,7 +244,7 @@ library FixedLib {
     uint256 lastAccrual;
   }
 
-  /// @notice contains principal and fee of a borrow or a supply position of a account in a fixed rate pool.
+  /// @notice Contains principal and fee of a borrow or a supply position of a account in a fixed rate pool.
   /// @param principal amount borrowed or supplied to the fixed rate pool.
   /// @param fee amount of fees to be repaid or earned at the maturity of the fixed rate pool.
   struct Position {

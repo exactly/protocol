@@ -14,7 +14,7 @@ abstract contract Pausable is AccessControlUpgradeable {
     _;
   }
 
-  /// @dev Throws if the contract is paused.
+  /// @dev Reverts if the contract is paused.
   function requireNotPaused() internal view {
     if (paused) revert ContractPaused();
   }

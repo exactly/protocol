@@ -28,7 +28,7 @@ contract ExactlyOracle is AccessControl {
 
   /// @notice Gets an asset price by Market.
   /// @dev If Chainlink's asset price is <= 0 or the updatedAt time is outdated the call is reverted.
-  /// @param market The Market address of the asset.
+  /// @param market address of the asset.
   /// @return The price of the asset scaled to 18-digit decimals.
   function assetPrice(Market market) public view returns (uint256) {
     (, int256 price, , uint256 updatedAt, ) = priceFeeds[market].latestRoundData();
@@ -40,7 +40,7 @@ contract ExactlyOracle is AccessControl {
   }
 
   /// @notice Sets the Chainlink Price Feed Aggregator source for an asset.
-  /// @param market The Market address of the asset.
+  /// @param market market address of the asset.
   /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
   function setPriceFeed(Market market, AggregatorV2V3Interface source) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (source.decimals() != ORACLE_DECIMALS) revert InvalidSource();
@@ -48,7 +48,7 @@ contract ExactlyOracle is AccessControl {
     emit PriceFeedSet(market, source);
   }
 
-  /// @notice Emitted when a Market and source is changed by admin.
+  /// @notice Emitted when a market and source is changed by admin.
   /// @param market address of the asset used to get the price from this oracle.
   /// @param source address of Chainlink's Price Feed aggregator used to query the asset price in USD.
   event PriceFeedSet(Market indexed market, AggregatorV2V3Interface indexed source);

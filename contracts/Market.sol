@@ -172,7 +172,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   }
 
   /// @notice Deposits a certain amount to a maturity.
-  /// @param maturity maturity date / pool ID.
+  /// @param maturity maturity date where the assets will be deposited.
   /// @param assets amount to receive from the msg.sender.
   /// @param minAssetsRequired minimum amount of assets required by the depositor for the transaction to be accepted.
   /// @param receiver address that will be able to withdraw the deposited assets.
@@ -875,24 +875,36 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     }
   }
 
+  /// @notice Simulates the effects of a borrow at the current time, given current contract conditions.
+  /// @param assets amount of assets to borrow.
+  /// @return amount of shares that will be asigned to the user after the borrow.
   function previewBorrow(uint256 assets) public view returns (uint256) {
     uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
 
     return supply == 0 ? assets : assets.mulDivUp(supply, totalFloatingBorrowAssets());
   }
 
+  /// @notice Simulates the effects of a repay at the current time, given current contract conditions.
+  /// @param assets amount of assets to repay.
+  /// @return amount of shares that will be subtracted from the user after the repay.
   function previewRepay(uint256 assets) public view returns (uint256) {
     uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
 
     return supply == 0 ? assets : assets.mulDivDown(supply, totalFloatingBorrowAssets());
   }
 
+  /// @notice Simulates the effects of a refund at the current time, given current contract conditions.
+  /// @param shares amount of shares to subtract from user's accountability.
+  /// @return amount of assets that will be repaid.
   function previewRefund(uint256 shares) public view returns (uint256) {
     uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
 
     return supply == 0 ? shares : shares.mulDivUp(totalFloatingBorrowAssets(), supply);
   }
 
+  /// @notice Checks msg.sender's allowance over account's assets.
+  /// @param account account in which the allowance will be checked.
+  /// @param assets assets from account that msg.sender wants to operate on.
   function checkAllowance(address account, uint256 assets) internal {
     if (msg.sender != account) {
       uint256 allowed = allowance[account][msg.sender]; // saves gas for limited approvals.
@@ -901,6 +913,8 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     }
   }
 
+  /// @notice Emits MarketUpdate event.
+  /// @dev Internal function to avoid code duplication.
   function emitMarketUpdate() internal {
     emit MarketUpdate(
       block.timestamp,
@@ -912,6 +926,8 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     );
   }
 
+  /// @notice Emits FixedEarningsUpdate event.
+  /// @dev Internal function to avoid code duplication.
   function emitFixedEarningsUpdate(uint256 maturity) internal {
     emit FixedEarningsUpdate(block.timestamp, maturity, fixedPools[maturity].unassignedEarnings);
   }
@@ -1125,6 +1141,13 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @param treasuryFeeRate represented with 1e18 decimals.
   event TreasurySet(address indexed treasury, uint256 treasuryFeeRate);
 
+  /// @notice Emitted when market state is updated.
+  /// @param timestamp current timestamp.
+  /// @param floatingDepositShares total floating supply shares.
+  /// @param floatingAssets total floating supply assets.
+  /// @param floatingBorrowShares total floating borrow shares.
+  /// @param floatingDebt total floating borrow assets.
+  /// @param earningsAccumulator earnings accumulator.
   event MarketUpdate(
     uint256 timestamp,
     uint256 floatingDepositShares,
@@ -1134,10 +1157,19 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 earningsAccumulator
   );
 
+  /// @notice Emitted when the earnings of a maturity are updated.
+  /// @param timestamp current timestamp.
+  /// @param maturity maturity date where the earnings were updated.
+  /// @param unassignedEarnings pending unassigned earnings.
   event FixedEarningsUpdate(uint256 timestamp, uint256 indexed maturity, uint256 unassignedEarnings);
 
+  /// @notice Emitted when accumulator distributes earnings.
+  /// @param timestamp current timestamp.
   event AccumulatorAccrual(uint256 timestamp);
 
+  /// @notice Emitted when the floating debt is updated.
+  /// @param timestamp current timestamp.
+  /// @param utilization new floating utilization.
   event FloatingDebtUpdate(uint256 timestamp, uint256 utilization);
 }
 
