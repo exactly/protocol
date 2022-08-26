@@ -113,7 +113,9 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 newFloatingDebt = floatingDebt + assets;
     floatingDebt = newFloatingDebt;
     // check if the underlying liquidity that the account wants to withdraw is borrowed, also considering the reserves
-    checkInsufficient(floatingBackupBorrowed + newFloatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor));
+    if (floatingBackupBorrowed + newFloatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
+      revert InsufficientProtocolLiquidity();
+    }
 
     totalFloatingBorrowShares += shares;
     floatingBorrowShares[borrower] += shares;
@@ -161,7 +163,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     borrowShares = Math.min(borrowShares, userBorrowShares);
     assets = previewRefund(borrowShares);
 
-    checkRepay(assets);
+    if (assets == 0) revert ZeroRepay();
 
     floatingDebt -= assets;
     floatingBorrowShares[borrower] = userBorrowShares - borrowShares;
@@ -191,7 +193,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
 
     (uint256 fee, uint256 backupFee) = pool.calculateDeposit(assets, backupFeeRate);
     positionAssets = assets + fee;
-    checkDisagreement(positionAssets < minAssetsRequired);
+    if (positionAssets < minAssetsRequired) revert Disagreement();
 
     floatingBackupBorrowed -= pool.deposit(assets);
     pool.unassignedEarnings -= fee + backupFee;
@@ -244,11 +246,13 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
       uint256 memFloatingBackupBorrowed = floatingBackupBorrowed;
       memFloatingBackupBorrowed += pool.borrow(assets);
       floatingBackupBorrowed = memFloatingBackupBorrowed;
-      checkInsufficient(memFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor));
+      if (memFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
+        revert InsufficientProtocolLiquidity();
+      }
     }
 
     // validate that the account is not taking arbitrary fees
-    checkDisagreement(assetsOwed > maxAssets);
+    if (assetsOwed > maxAssets) revert Disagreement();
 
     checkAllowance(borrower, assetsOwed);
 
@@ -293,7 +297,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     address receiver,
     address owner
   ) external returns (uint256 assetsDiscounted) {
-    checkWithdraw(positionAssets);
+    if (positionAssets == 0) revert ZeroWithdraw();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
@@ -322,7 +326,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
       assetsDiscounted = positionAssets;
     }
 
-    checkDisagreement(assetsDiscounted < minAssetsRequired);
+    if (assetsDiscounted < minAssetsRequired) revert Disagreement();
 
     checkAllowance(owner, assetsDiscounted);
 
@@ -330,7 +334,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     floatingBackupBorrowed += pool.withdraw(
       FixedLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal
     );
-    checkInsufficient(floatingBackupBorrowed + floatingDebt > floatingAssets);
+    if (floatingBackupBorrowed + floatingDebt > floatingAssets) revert InsufficientProtocolLiquidity();
 
     // All the fees go to unassigned or to the floating pool
     (uint256 unassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
@@ -391,7 +395,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     address borrower,
     bool canDiscount
   ) internal returns (uint256 actualRepayAssets) {
-    checkRepay(positionAssets);
+    if (positionAssets == 0) revert ZeroRepay();
 
     FixedLib.Pool storage pool = fixedPools[maturity];
 
@@ -431,7 +435,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     }
 
     // verify that the account agrees to this discount or penalty
-    checkDisagreement(actualRepayAssets > maxAssets);
+    if (actualRepayAssets > maxAssets) revert Disagreement();
 
     // reduce the borrowed and might decrease the SP debt
     floatingBackupBorrowed -= pool.repay(principalCovered);
@@ -467,7 +471,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     if (msg.sender == borrower) revert SelfLiquidation();
 
     maxAssets = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
-    checkRepay(maxAssets);
+    if (maxAssets == 0) revert ZeroRepay();
 
     uint256 packedMaturities = fixedBorrows[borrower];
     uint256 baseMaturity = packedMaturities % (1 << 32);
@@ -614,7 +618,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     address borrower,
     uint256 assets
   ) internal {
-    checkWithdraw(assets);
+    if (assets == 0) revert ZeroWithdraw();
 
     // reverts on failure
     auditor.checkSeize(seizeMarket, this);
@@ -639,7 +643,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
     floatingAssets = newFloatingAssets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed
-    checkInsufficient(floatingBackupBorrowed + floatingDebt > newFloatingAssets);
+    if (floatingBackupBorrowed + floatingDebt > newFloatingAssets) revert InsufficientProtocolLiquidity();
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
@@ -892,22 +896,6 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
 
       if (allowed != type(uint256).max) allowance[account][msg.sender] = allowed - previewWithdraw(assets);
     }
-  }
-
-  function checkRepay(uint256 assets) internal pure {
-    if (assets == 0) revert ZeroRepay();
-  }
-
-  function checkWithdraw(uint256 assets) internal pure {
-    if (assets == 0) revert ZeroWithdraw();
-  }
-
-  function checkDisagreement(bool disagreement) internal pure {
-    if (disagreement) revert Disagreement();
-  }
-
-  function checkInsufficient(bool insufficient) internal pure {
-    if (insufficient) revert InsufficientProtocolLiquidity();
   }
 
   function emitMarketUpdate() internal {
