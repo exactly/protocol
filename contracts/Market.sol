@@ -59,7 +59,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   uint256 public floatingUtilization;
 
   address public treasury;
-  uint128 public treasuryFeeRate;
+  uint256 public treasuryFeeRate;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 asset_, Auditor auditor_) ERC4626(asset_, "", "") {
@@ -990,7 +990,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @notice Sets the treasury variables.
   /// @param treasury_ address of the treasury that will receive the minted eTokens.
   /// @param treasuryFeeRate_ represented with 1e18 decimals.
-  function setTreasury(address treasury_, uint128 treasuryFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setTreasury(address treasury_, uint256 treasuryFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
     emit TreasurySet(treasury_, treasuryFeeRate_);
