@@ -31,9 +31,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   mapping(address => uint256) public fixedDeposits;
   mapping(uint256 => FixedLib.Pool) public fixedPools;
 
-  /// @notice Total amount of floating pool assets borrowed from maturities (not counting fees).
   uint256 public floatingBackupBorrowed;
-  /// @notice Total amount of assets owed directly from the market.
   uint256 public floatingDebt;
 
   uint256 public earningsAccumulator;
@@ -99,16 +97,17 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @param assets amount to be sent to receiver and repaid by borrower.
   /// @param receiver address that will receive the borrowed assets.
   /// @param borrower address that will repay the borrowed assets.
+  /// @return borrowShares shares corresponding to the borrowed assets.
   function borrow(
     uint256 assets,
     address receiver,
     address borrower
-  ) external whenNotPaused returns (uint256 shares) {
+  ) external whenNotPaused returns (uint256 borrowShares) {
     checkAllowance(borrower, assets);
 
     updateFloatingDebt();
 
-    shares = previewBorrow(assets);
+    borrowShares = previewBorrow(assets);
 
     uint256 newFloatingDebt = floatingDebt + assets;
     floatingDebt = newFloatingDebt;
@@ -117,10 +116,10 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
       revert InsufficientProtocolLiquidity();
     }
 
-    totalFloatingBorrowShares += shares;
-    floatingBorrowShares[borrower] += shares;
+    totalFloatingBorrowShares += borrowShares;
+    floatingBorrowShares[borrower] += borrowShares;
 
-    emit Borrow(msg.sender, receiver, borrower, assets, shares);
+    emit Borrow(msg.sender, receiver, borrower, assets, borrowShares);
     emitMarketUpdate();
 
     auditor.checkBorrow(this, borrower);
@@ -222,6 +221,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @param maxAssets maximum amount of debt that the account is willing to accept.
   /// @param receiver address that will receive the borrowed assets.
   /// @param borrower address that will repay the borrowed assets.
+  /// @return assetsOwed total amount of assets (principal + fee) to be repaid at maturity.
   function borrowAtMaturity(
     uint256 maturity,
     uint256 assets,
@@ -387,6 +387,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @param positionAssets the amount of debt of the pool that should be paid.
   /// @param maxAssets maximum amount of debt that the account is willing to accept to be repaid.
   /// @param borrower the address of the account that has the debt.
+  /// @param canDiscount should early repay discounts be applied.
   /// @return actualRepayAssets the actual amount that should be transferred into the protocol.
   function noTransferRepayAtMaturity(
     uint256 maturity,
@@ -462,15 +463,16 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// seizing a part of borrower's collateral.
   /// @param borrower wallet that has an outstanding debt across all maturities.
   /// @param maxAssets maximum amount of debt that the liquidator is willing to accept. (it can be less)
-  /// @param collateralMarket market from which the collateral will be seized to give the liquidator.
+  /// @param seizeMarket market from which the collateral will be seized to give the liquidator.
+  /// @return repaidAssets actual amount repaid.
   function liquidate(
     address borrower,
     uint256 maxAssets,
-    Market collateralMarket
+    Market seizeMarket
   ) external whenNotPaused returns (uint256 repaidAssets) {
     if (msg.sender == borrower) revert SelfLiquidation();
 
-    maxAssets = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
+    maxAssets = auditor.checkLiquidation(this, seizeMarket, borrower, maxAssets);
     if (maxAssets == 0) revert ZeroRepay();
 
     uint256 packedMaturities = fixedBorrows[borrower];
@@ -523,18 +525,13 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     }
 
     // reverts on failure
-    (uint256 lendersAssets, uint256 seizeAssets) = auditor.calculateSeize(
-      this,
-      collateralMarket,
-      borrower,
-      repaidAssets
-    );
+    (uint256 lendersAssets, uint256 seizeAssets) = auditor.calculateSeize(this, seizeMarket, borrower, repaidAssets);
     floatingAssets += lendersAssets;
 
-    if (address(collateralMarket) == address(this)) internalSeize(this, msg.sender, borrower, seizeAssets);
-    else collateralMarket.seize(msg.sender, borrower, seizeAssets);
+    if (address(seizeMarket) == address(this)) internalSeize(this, msg.sender, borrower, seizeAssets);
+    else seizeMarket.seize(msg.sender, borrower, seizeAssets);
 
-    emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, seizeAssets);
+    emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, seizeMarket, seizeAssets);
 
     auditor.handleBadDebt(borrower);
 
@@ -661,6 +658,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @param assets amount of underlying to be withdrawn.
   /// @param receiver address to which the assets will be transferred.
   /// @param owner address which owns the floating pool assets.
+  /// @return shares amount of shares redeemed for underlying asset.
   function withdraw(
     uint256 assets,
     address receiver,
@@ -676,6 +674,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @param shares amount of shares to be redeemed for underlying asset.
   /// @param receiver address to which the assets will be transferred.
   /// @param owner address which owns the floating pool assets.
+  /// @return assets amount of underlying asset that was withdrawn.
   function redeem(
     uint256 shares,
     address receiver,
@@ -690,7 +689,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// Makes sure that the caller doesn't have shortfall after transferring.
   /// @param to address to which the assets will be transferred.
-  /// @param shares amount of assets.
+  /// @param shares amount of shares to be transferred.
   function transfer(address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, msg.sender, previewMint(shares));
     return super.transfer(to, shares);
@@ -701,7 +700,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// Makes sure that `from` address doesn't have shortfall after transferring.
   /// @param from address from which the assets will be transferred.
   /// @param to address to which the assets will be transferred.
-  /// @param shares amount of assets.
+  /// @param shares amount of shares to be transferred.
   function transferFrom(
     address from,
     address to,
@@ -713,7 +712,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
 
   /// @notice Gets current snapshot for an account across all maturities.
   /// @param account account to return status snapshot in the specified maturity date.
-  /// @return the amount the account deposited to the floating pool and the total money he owes from maturities.
+  /// @return the amount the account deposited to the floating pool and the total money it owes from maturities.
   function accountSnapshot(address account) external view returns (uint256, uint256) {
     return (convertToAssets(balanceOf[account]), previewDebt(account));
   }
@@ -789,6 +788,8 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
       );
   }
 
+  /// @notice Accrues the earnings to be distributed from the accumulator given the current timestamp.
+  /// @return earnings distributed from the accumulator.
   function accrueAccumulatedEarnings() internal returns (uint256 earnings) {
     earnings = accumulatedEarnings();
 
@@ -830,6 +831,8 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     emit FloatingDebtUpdate(block.timestamp, newFloatingUtilization);
   }
 
+  /// @notice Calculates the total floating debt, considering elapsed time since last update and current interest rate.
+  /// @return actual floating debt plus projected interest.
   function totalFloatingBorrowAssets() public view returns (uint256) {
     InterestRateModel memIRM = interestRateModel;
     uint256 memFloatingAssets = floatingAssets;
@@ -998,14 +1001,14 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 shares
   );
 
-  /// @notice Event emitted when an account repays amount of assets to a floating pool.
+  /// @notice Emitted when an account repays amount of assets to a floating pool.
   /// @param caller address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
   /// @param assets amount of assets that was repaid.
   /// @param shares amount of borrow shares that were subtracted from the account's accountability.
   event Repay(address indexed caller, address indexed borrower, uint256 assets, uint256 shares);
 
-  /// @notice Event emitted when an account deposits an amount of an asset to a certain fixed rate pool,
+  /// @notice Emitted when an account deposits an amount of an asset to a certain fixed rate pool,
   /// collecting fees at the end of the period.
   /// @param maturity maturity at which the account will be able to collect his deposit + his fee.
   /// @param caller address which deposited the assets.
@@ -1020,7 +1023,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 fee
   );
 
-  /// @notice Event emitted when an account withdraws from a fixed rate pool.
+  /// @notice Emitted when an account withdraws from a fixed rate pool.
   /// @param maturity maturity where the account withdraw its deposits.
   /// @param caller address which withdraw the asset.
   /// @param receiver address which will be collecting the assets.
@@ -1036,7 +1039,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 assetsDiscounted
   );
 
-  /// @notice Event emitted when an account borrows amount of an asset from a certain maturity date.
+  /// @notice Emitted when an account borrows amount of an asset from a certain maturity date.
   /// @param maturity maturity in which the account will have to repay the loan.
   /// @param caller address which borrowed the asset.
   /// @param receiver address that received the borrowed assets.
@@ -1052,7 +1055,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 fee
   );
 
-  /// @notice Event emitted when an account repays its borrows after maturity.
+  /// @notice Emitted when an account repays its borrows after maturity.
   /// @param maturity maturity where the account repaid its borrowed amounts.
   /// @param caller address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
@@ -1066,23 +1069,23 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 positionAssets
   );
 
-  /// @notice Event emitted when an account's position had a liquidation.
+  /// @notice Emitted when an account's position had a liquidation.
   /// @param receiver address which repaid the previously borrowed amount.
   /// @param borrower address which had the original debt.
   /// @param assets amount of the asset that were repaid.
   /// @param lendersAssets incentive paid to lenders.
-  /// @param collateralMarket address of the asset that were seized by the liquidator.
+  /// @param seizeMarket address of the asset that were seized by the liquidator.
   /// @param seizedAssets amount seized of the collateral.
   event Liquidate(
     address indexed receiver,
     address indexed borrower,
     uint256 assets,
     uint256 lendersAssets,
-    Market indexed collateralMarket,
+    Market indexed seizeMarket,
     uint256 seizedAssets
   );
 
-  /// @notice Event emitted when an account's collateral has been seized.
+  /// @notice Emitted when an account's collateral has been seized.
   /// @param liquidator address which seized this collateral.
   /// @param borrower address which had the original debt.
   /// @param assets amount seized of the collateral.
@@ -1092,32 +1095,32 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   /// @param backupFeeRate rate charged to the fixed pools to be accrued by the floating depositors.
   event BackupFeeRateSet(uint256 backupFeeRate);
 
-  /// @notice emitted when the damp speeds are changed by admin.
+  /// @notice Emitted when the damp speeds are changed by admin.
   /// @param dampSpeedUp represented with 1e18 decimals.
   /// @param dampSpeedDown represented with 1e18 decimals.
   event DampSpeedSet(uint256 dampSpeedUp, uint256 dampSpeedDown);
 
-  /// @notice Event emitted when the earningsAccumulatorSmoothFactor is changed by admin.
+  /// @notice Emitted when the earningsAccumulatorSmoothFactor is changed by admin.
   /// @param earningsAccumulatorSmoothFactor factor represented with 1e18 decimals.
   event EarningsAccumulatorSmoothFactorSet(uint256 earningsAccumulatorSmoothFactor);
 
-  /// @notice emitted when the interestRateModel is changed by admin.
+  /// @notice Emitted when the interestRateModel is changed by admin.
   /// @param interestRateModel new interest rate model to be used to calculate rates.
   event InterestRateModelSet(InterestRateModel indexed interestRateModel);
 
-  /// @notice Event emitted when the maxFuturePools is changed by admin.
+  /// @notice Emitted when the maxFuturePools is changed by admin.
   /// @param maxFuturePools represented with 0 decimals.
   event MaxFuturePoolsSet(uint256 maxFuturePools);
 
-  /// @notice emitted when the penaltyRate is changed by admin.
+  /// @notice Emitted when the penaltyRate is changed by admin.
   /// @param penaltyRate penaltyRate percentage per second represented with 1e18 decimals.
   event PenaltyRateSet(uint256 penaltyRate);
 
-  /// @notice emitted when the reserveFactor is changed by admin.
+  /// @notice Emitted when the reserveFactor is changed by admin.
   /// @param reserveFactor reserveFactor percentage.
   event ReserveFactorSet(uint256 reserveFactor);
 
-  /// @notice emitted when the treasury variables are changed by admin.
+  /// @notice Emitted when the treasury variables are changed by admin.
   /// @param treasury address of the treasury that will receive the minted eTokens.
   /// @param treasuryFeeRate represented with 1e18 decimals.
   event TreasurySet(address indexed treasury, uint256 treasuryFeeRate);

@@ -2028,7 +2028,7 @@ contract MarketTest is Test {
     address indexed borrower,
     uint256 repaidAssets,
     uint256 lendersAssets,
-    Market indexed collateralMarket,
+    Market indexed seizeMarket,
     uint256 seizedAssets
   );
 }
