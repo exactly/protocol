@@ -2050,7 +2050,6 @@ contract MarketHarness is Market {
     assembly {
       sstore(0, 0xffff)
     }
-    __ReentrancyGuard_init();
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     setMaxFuturePools(maxFuturePools_);
     setEarningsAccumulatorSmoothFactor(earningsAccumulatorSmoothFactor_);

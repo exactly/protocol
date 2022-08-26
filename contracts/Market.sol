@@ -6,16 +6,12 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
-import {
-  ReentrancyGuardUpgradeable
-} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-
 import { InterestRateModel } from "./InterestRateModel.sol";
 import { Pausable } from "./utils/Pausable.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
 
-contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, Pausable, ERC4626 {
+contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
@@ -83,7 +79,6 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 dampSpeedDown_
   ) external initializer {
     __AccessControl_init();
-    __ReentrancyGuard_init();
 
     string memory assetSymbol = asset.symbol();
     name = string.concat("EToken", assetSymbol);
@@ -108,7 +103,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 assets,
     address receiver,
     address borrower
-  ) external nonReentrant whenNotPaused returns (uint256 shares) {
+  ) external whenNotPaused returns (uint256 shares) {
     checkAllowance(borrower, assets);
 
     updateFloatingDebt();
@@ -123,9 +118,10 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     totalFloatingBorrowShares += shares;
     floatingBorrowShares[borrower] += shares;
 
-    auditor.checkBorrow(this, borrower);
     emit Borrow(msg.sender, receiver, borrower, assets, shares);
     emitMarketUpdate();
+
+    auditor.checkBorrow(this, borrower);
     asset.safeTransfer(receiver, assets);
   }
 
@@ -136,24 +132,23 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
   /// @return borrowShares subtracted shares from the borrower's accountability.
   function repay(uint256 assets, address borrower)
     external
-    nonReentrant
     whenNotPaused
     returns (uint256 actualRepay, uint256 borrowShares)
   {
     borrowShares = previewRepay(assets);
     actualRepay = noTransferRefund(borrowShares, borrower);
-    asset.safeTransferFrom(msg.sender, address(this), actualRepay);
     emitMarketUpdate();
+    asset.safeTransferFrom(msg.sender, address(this), actualRepay);
   }
 
   /// @notice Repays a certain amount of shares to the floating pool.
   /// @param borrowShares shares to be subtracted from the borrower's accountability.
   /// @param borrower address of the account that has the debt.
   /// @return assets subtracted assets from the borrower's accountability.
-  function refund(uint256 borrowShares, address borrower) external nonReentrant whenNotPaused returns (uint256 assets) {
+  function refund(uint256 borrowShares, address borrower) external whenNotPaused returns (uint256 assets) {
     assets = noTransferRefund(borrowShares, borrower);
-    asset.safeTransferFrom(msg.sender, address(this), assets);
     emitMarketUpdate();
+    asset.safeTransferFrom(msg.sender, address(this), assets);
   }
 
   /// @notice Allows to (partially) repay a floating borrow. It does not transfer assets.
@@ -186,7 +181,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 assets,
     uint256 minAssetsRequired,
     address receiver
-  ) external nonReentrant whenNotPaused returns (uint256 positionAssets) {
+  ) external whenNotPaused returns (uint256 positionAssets) {
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
@@ -231,7 +226,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 maxAssets,
     address receiver,
     address borrower
-  ) external nonReentrant whenNotPaused returns (uint256 assetsOwed) {
+  ) external whenNotPaused returns (uint256 assetsOwed) {
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
@@ -275,12 +270,12 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     floatingAssets += backupEarnings;
 
-    auditor.checkBorrow(this, borrower);
-    asset.safeTransfer(receiver, assets);
-
     emit BorrowAtMaturity(maturity, msg.sender, receiver, borrower, assets, fee);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
+
+    auditor.checkBorrow(this, borrower);
+    asset.safeTransfer(receiver, assets);
   }
 
   /// @notice Withdraws a certain amount from a maturity.
@@ -297,7 +292,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 minAssetsRequired,
     address receiver,
     address owner
-  ) external nonReentrant returns (uint256 assetsDiscounted) {
+  ) external returns (uint256 assetsDiscounted) {
     checkWithdraw(positionAssets);
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
@@ -357,11 +352,11 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     floatingAssets += backupEarnings;
 
-    asset.safeTransfer(receiver, assetsDiscounted);
-
     emit WithdrawAtMaturity(maturity, msg.sender, receiver, owner, positionAssets, assetsDiscounted);
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
+
+    asset.safeTransfer(receiver, assetsDiscounted);
   }
 
   /// @notice Repays a certain amount to a maturity.
@@ -375,7 +370,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 positionAssets,
     uint256 maxAssets,
     address borrower
-  ) external nonReentrant whenNotPaused returns (uint256 actualRepayAssets) {
+  ) external whenNotPaused returns (uint256 actualRepayAssets) {
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
@@ -468,7 +463,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     address borrower,
     uint256 maxAssets,
     Market collateralMarket
-  ) external nonReentrant whenNotPaused returns (uint256 repaidAssets) {
+  ) external whenNotPaused returns (uint256 repaidAssets) {
     if (msg.sender == borrower) revert SelfLiquidation();
 
     maxAssets = auditor.checkLiquidation(this, collateralMarket, borrower, maxAssets);
@@ -477,9 +472,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     uint256 packedMaturities = fixedBorrows[borrower];
     uint256 baseMaturity = packedMaturities % (1 << 32);
     packedMaturities = packedMaturities >> 32;
-
-    uint256 i = 0;
-    for (; i < 224; ) {
+    for (uint256 i = 0; i < 224; ) {
       if ((packedMaturities & (1 << i)) != 0) {
         uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
         uint256 actualRepay;
@@ -539,9 +532,9 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, collateralMarket, seizeAssets);
 
-    asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
-
     auditor.handleBadDebt(borrower);
+
+    asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
   }
 
   /// @notice Clears floating and fixed debt for an account spreading the losses between the floating assets.
@@ -603,7 +596,7 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     address liquidator,
     address borrower,
     uint256 assets
-  ) external nonReentrant whenNotPaused {
+  ) external whenNotPaused {
     internalSeize(Market(msg.sender), liquidator, borrower, assets);
   }
 
@@ -630,10 +623,10 @@ contract Market is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     beforeWithdraw(assets, shares);
     _burn(borrower, shares);
     emit Withdraw(msg.sender, liquidator, borrower, assets, shares);
-
-    asset.safeTransfer(liquidator, assets);
     emit Seize(liquidator, borrower, assets);
     emitMarketUpdate();
+
+    asset.safeTransfer(liquidator, assets);
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
