@@ -7,6 +7,7 @@ import { DefaultEnv } from "./defaultEnv";
 import futurePools from "./utils/futurePools";
 
 const {
+  constants: { MaxUint256 },
   utils: { parseUnits },
 } = ethers;
 const nextPoolID = futurePools(3)[2].toNumber();
@@ -361,7 +362,7 @@ describe("Liquidations", function () {
   describe("GIVEN john funds the DAI maturity pool", () => {
     beforeEach(async () => {
       exactlyEnv.switchWallet(john);
-      await dai.mint(john.address, parseUnits("10000"));
+      await dai.mint(john.address, parseUnits("20000"));
       // add DAI liquidity to the maturities
       await exactlyEnv.depositMP("DAI", futurePools(1)[0].toNumber(), "1000");
       await exactlyEnv.depositMP("DAI", futurePools(2)[1].toNumber(), "6000");
@@ -401,6 +402,22 @@ describe("Liquidations", function () {
           const johnDAIBalanceAfter = await dai.balanceOf(john.address);
           expect(johnDAIBalanceBefore).to.not.equal(johnDAIBalanceAfter);
           expect(johnDAIBalanceBefore.sub(johnDAIBalanceAfter)).to.be.eq(parseUnits("6400"));
+        });
+      });
+      describe("WHEN WETH price suddenly decreases (now alice has bad debt) AND she gets liquidated", () => {
+        beforeEach(async () => {
+          await dai.connect(john).approve(marketDAI.address, MaxUint256);
+          await marketDAI.connect(john).deposit(parseUnits("10000"), john.address);
+
+          await exactlyEnv.oracle.setPrice(marketETH.address, parseUnits("100"));
+          await marketDAI.connect(john).liquidate(alice.address, MaxUint256, marketETH.address);
+        });
+        it("THEN alice's debt is cleared", async () => {
+          expect(await marketDAI.previewDebt(alice.address)).to.be.eq(0);
+        });
+        it("THEN alice's collateral is zero", async () => {
+          const accountSnapshot = await marketETH.accountSnapshot(alice.address);
+          expect(accountSnapshot[0]).to.be.eq(0);
         });
       });
     });
