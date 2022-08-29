@@ -3,15 +3,15 @@ pragma solidity 0.8.16;
 
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ERC4626, ERC20, SafeTransferLib } from "solmate/src/mixins/ERC4626.sol";
 import { InterestRateModel } from "./InterestRateModel.sol";
-import { Pausable } from "./utils/Pausable.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
 
-contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
+contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable, ERC4626 {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
@@ -19,6 +19,8 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
   using FixedLib for FixedLib.Pool;
   using FixedLib for FixedLib.Position;
   using FixedLib for uint256;
+
+  bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
@@ -77,6 +79,7 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     uint256 dampSpeedDown_
   ) external initializer {
     __AccessControl_init();
+    __Pausable_init();
 
     string memory assetSymbol = asset.symbol();
     name = string.concat("EToken", assetSymbol);
@@ -1001,6 +1004,16 @@ contract Market is Initializable, AccessControlUpgradeable, Pausable, ERC4626 {
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
     emit TreasurySet(treasury_, treasuryFeeRate_);
+  }
+
+  /// @notice Sets the pause state to true in case of emergency, triggered by an authorized account.
+  function pause() external onlyRole(PAUSER_ROLE) {
+    _pause();
+  }
+
+  /// @notice Sets the pause state to false when threat is gone, triggered by an authorized account.
+  function unpause() external onlyRole(PAUSER_ROLE) {
+    _unpause();
   }
 
   /// @notice Event emitted when an account borrows amount of assets from a floating pool.
