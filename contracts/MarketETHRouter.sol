@@ -39,7 +39,7 @@ contract MarketETHRouter is Initializable {
     if (msg.sender != address(weth)) revert NotFromWETH();
   }
 
-  function deposit() public payable wrap returns (uint256 shares) {
+  function deposit() external payable wrap returns (uint256 shares) {
     shares = market.deposit(msg.value, msg.sender);
   }
 
@@ -51,13 +51,13 @@ contract MarketETHRouter is Initializable {
     borrowShares = market.borrow(assets, address(this), msg.sender);
   }
 
-  function repay(uint256 assets) public payable wrap returns (uint256 repaidAssets, uint256 borrowShares) {
+  function repay(uint256 assets) external payable wrap returns (uint256 repaidAssets, uint256 borrowShares) {
     (repaidAssets, borrowShares) = market.repay(assets, msg.sender);
 
     if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets, msg.sender);
   }
 
-  function refund(uint256 borrowShares) public payable wrap returns (uint256 repaidAssets) {
+  function refund(uint256 borrowShares) external payable wrap returns (uint256 repaidAssets) {
     repaidAssets = market.refund(borrowShares, msg.sender);
 
     if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets, msg.sender);

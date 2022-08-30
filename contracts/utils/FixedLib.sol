@@ -220,10 +220,15 @@ library FixedLib {
     State alternativeState
   ) internal view {
     State state;
-    if (maturity % INTERVAL != 0) state = State.INVALID;
-    else if (maturity <= block.timestamp) state = State.MATURED;
-    else if (maturity > block.timestamp - (block.timestamp % INTERVAL) + (INTERVAL * maxPools)) state = State.NOT_READY;
-    else state = State.VALID;
+    if (maturity % INTERVAL != 0) {
+      state = State.INVALID;
+    } else if (maturity <= block.timestamp) {
+      state = State.MATURED;
+    } else if (maturity > block.timestamp - (block.timestamp % INTERVAL) + (INTERVAL * maxPools)) {
+      state = State.NOT_READY;
+    } else {
+      state = State.VALID;
+    }
 
     if (state != requiredState && state != alternativeState) {
       if (alternativeState == State.NONE) revert UnmatchedPoolState(uint8(state), uint8(requiredState));

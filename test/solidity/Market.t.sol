@@ -68,7 +68,7 @@ contract MarketTest is Test {
     vm.label(ALICE, "Alice");
     asset.mint(BOB, 50_000 ether);
     asset.mint(ALICE, 50_000 ether);
-    asset.mint(address(this), 50_000 ether);
+    asset.mint(address(this), 1_000_000 ether);
     weth.mint(address(this), 50_000 ether);
 
     weth.approve(address(marketWETH), 50_000 ether);
@@ -1913,15 +1913,45 @@ contract MarketTest is Test {
   }
 
   function testEarlyRepaymentWithExcessiveAmountOfFees() external {
-    market.deposit(100 ether, address(this));
-    market.deposit(1_000 ether, BOB);
+    market.setInterestRateModel(new InterestRateModel(0.023e18, -0.0025e18, 1e18 + 1, 0.023e18, -0.0025e18, 1e18 + 1));
 
-    market.borrowAtMaturity(FixedLib.INTERVAL, 100, 110, address(this), address(this));
-    irm.setBorrowRate(1.23e18);
+    market.deposit(1_000_000 ether, address(this));
+    marketWETH.deposit(10_000 ether, BOB);
+    oracle.setPrice(marketWETH, 5_000e18);
     vm.prank(BOB);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 400 ether, address(BOB), address(BOB));
+    auditor.enterMarket(marketWETH);
 
-    market.depositAtMaturity(FixedLib.INTERVAL, 100, 100, address(this));
+    vm.warp(66_666);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 100, type(uint256).max, address(this), address(this));
+    vm.prank(BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1_000_000 ether - 100, type(uint256).max, BOB, BOB);
+
+    // contract can cover all debt by repaying less than initial amount borrowed (93 < 100)
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, 93, address(this));
+  }
+
+  function testClearMaturity() external {
+    market.setMaxFuturePools(5);
+    market.deposit(100 ether, address(this));
+
+    // we borrow in the first, third and fifth maturity
+    market.borrowAtMaturity(FixedLib.INTERVAL * 1, 1 ether, 1.1 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 3, 1 ether, 1.1 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 5, 1 ether, 1.1 ether, address(this), address(this));
+
+    // we repay all first maturity debt and clear the base maturity
+    market.repayAtMaturity(FixedLib.INTERVAL * 1, 1.1 ether, 1.1 ether, address(this));
+    assertEq(market.previewDebt(address(this)), 2.2 ether);
+
+    // we repay all third maturity debt and clear the base maturity
+    market.repayAtMaturity(FixedLib.INTERVAL * 3, 1.1 ether, 1.1 ether, address(this));
+    assertEq(market.previewDebt(address(this)), 1.1 ether);
+
+    // we repay all fifth maturity debt and clear the whole map
+    market.repayAtMaturity(FixedLib.INTERVAL * 5, 1.1 ether, 1.1 ether, address(this));
+    assertEq(market.previewDebt(address(this)), 0);
+    assertEq(market.fixedBorrows(address(this)), 0);
   }
 
   function testMultipleBorrowsForMultipleAssets() external {

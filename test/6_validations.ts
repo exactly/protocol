@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, Market } from "../types";
+import type { Auditor, Market, Previewer__factory } from "../types";
 import futurePools, { INTERVAL } from "./utils/futurePools";
 import { DefaultEnv } from "./defaultEnv";
 
@@ -10,6 +10,7 @@ const nextPoolId = futurePools(1)[0].toNumber();
 const {
   constants: { MaxUint256 },
   utils: { parseUnits },
+  getContractFactory,
 } = ethers;
 
 describe("Validations", function () {
@@ -118,6 +119,10 @@ describe("Validations", function () {
         );
       });
     });
+  });
+  it("Previewer is deployed", async () => {
+    const factory = (await getContractFactory("Previewer")) as Previewer__factory;
+    await factory.deploy(auditor.address);
   });
 });
 

@@ -335,6 +335,56 @@ describe("Market", function () {
     });
   });
 
+  describe("maturity clearing:", () => {
+    describe("GIVEN maria borrows from the first, third and fifth maturity", () => {
+      beforeEach(async () => {
+        await timelockExecute(owner, marketDAI, "setMaxFuturePools", [5]);
+        await marketDAI.connect(maria).deposit(parseUnits("100"), maria.address);
+        await provider.send("evm_increaseTime", [9011]);
+
+        await marketDAI
+          .connect(maria)
+          .borrowAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), maria.address, maria.address);
+        await marketDAI
+          .connect(maria)
+          .borrowAtMaturity(futurePools(3)[2], parseUnits("1"), parseUnits("1"), maria.address, maria.address);
+        await marketDAI
+          .connect(maria)
+          .borrowAtMaturity(futurePools(5)[4], parseUnits("1"), parseUnits("1"), maria.address, maria.address);
+      });
+      describe("WHEN she repays the first maturity borrow", () => {
+        beforeEach(async () => {
+          await marketDAI
+            .connect(maria)
+            .repayAtMaturity(futurePools(1)[0], parseUnits("1"), parseUnits("1"), maria.address);
+        });
+        it("THEN her debt is equal to both borrows left", async () => {
+          expect(await marketDAI.previewDebt(maria.address)).to.be.eq(parseUnits("2"));
+        });
+        describe("AND WHEN she repays the third maturity borrow", () => {
+          beforeEach(async () => {
+            await marketDAI
+              .connect(maria)
+              .repayAtMaturity(futurePools(3)[2], parseUnits("1"), parseUnits("1"), maria.address);
+          });
+          it("THEN her debt is equal to one borrow left", async () => {
+            expect(await marketDAI.previewDebt(maria.address)).to.be.eq(parseUnits("1"));
+          });
+          describe("AND WHEN she repays the fifth maturity borrow", () => {
+            beforeEach(async () => {
+              await marketDAI
+                .connect(maria)
+                .repayAtMaturity(futurePools(5)[4], parseUnits("1"), parseUnits("1"), maria.address);
+            });
+            it("THEN her debt is equal to one borrow left", async () => {
+              expect(await marketDAI.previewDebt(maria.address)).to.be.eq(0);
+            });
+          });
+        });
+      });
+    });
+  });
+
   describe("simple validations:", () => {
     it("WHEN calling setMaxFuturePools from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
       await expect(marketDAI.setMaxFuturePools(12)).to.be.revertedWith("AccessControl");

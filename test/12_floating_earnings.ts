@@ -7,6 +7,7 @@ import futurePools, { INTERVAL } from "./utils/futurePools";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
+  constants: { AddressZero },
   utils: { parseUnits },
   getUnnamedSigners,
   getNamedSigner,
@@ -47,6 +48,7 @@ describe("Smart Pool Earnings Distribution", function () {
     await deployments.deploy("MockInterestRateModel", { args: [0], from: owner.address });
     irm = await getContract<MockInterestRateModel>("MockInterestRateModel", bob);
     await timelockExecute(owner, marketDAI, "setInterestRateModel", [irm.address]);
+    await timelockExecute(owner, marketDAI, "setTreasury", [AddressZero, 0]);
     await irm.setBorrowRate(parseUnits("0.1"));
 
     for (const signer of [bob, john]) {
