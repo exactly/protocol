@@ -386,6 +386,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.MATURED);
 
     actualRepayAssets = noTransferRepayAtMaturity(maturity, positionAssets, maxAssets, borrower, true);
+    emitMarketUpdate();
+
     asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
   }
 
@@ -461,7 +463,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     floatingAssets += backupEarnings;
 
     emit RepayAtMaturity(maturity, msg.sender, borrower, actualRepayAssets, debtCovered);
-    emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
   }
 
@@ -520,7 +521,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       uint256 borrowShares = previewRepay(maxAssets);
       if (borrowShares > 0) {
         uint256 actualRepayAssets = noTransferRefund(borrowShares, borrower);
-        emitMarketUpdate();
         repaidAssets += actualRepayAssets;
       }
     }
@@ -529,8 +529,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     (uint256 lendersAssets, uint256 seizeAssets) = auditor.calculateSeize(this, seizeMarket, borrower, repaidAssets);
     floatingAssets += lendersAssets;
 
-    if (address(seizeMarket) == address(this)) internalSeize(this, msg.sender, borrower, seizeAssets);
-    else seizeMarket.seize(msg.sender, borrower, seizeAssets);
+    if (address(seizeMarket) == address(this)) {
+      internalSeize(this, msg.sender, borrower, seizeAssets);
+    } else {
+      seizeMarket.seize(msg.sender, borrower, seizeAssets);
+
+      emitMarketUpdate();
+    }
 
     emit Liquidate(msg.sender, borrower, repaidAssets, lendersAssets, seizeMarket, seizeAssets);
 
