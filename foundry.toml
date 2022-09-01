@@ -7,12 +7,10 @@ ffi = true
 src = 'test/solidity'
 out = 'artifacts/.foundry'
 cache_path = 'cache/.foundry'
-fuzz_runs = 6_666
 verbosity = 3
 
-[profile.production]
-fuzz_runs = 66_666
+[profile.production.fuzz]
+runs = 66_666
 
-[profile.development]
-fuzz_runs = 666
-verbosity = 5
+[profile.overkill.fuzz]
+runs = 6_666_666
