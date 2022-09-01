@@ -14,6 +14,7 @@ import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
   Auditor,
+  RemainingDebt,
   ExactlyOracle,
   AuditorMismatch,
   InsufficientAccountLiquidity,
@@ -81,6 +82,9 @@ contract ProtocolTest is Test {
     uint80[N * 2 * MARKET_COUNT] calldata prices
   ) external {
     for (uint256 i = 0; i < N * 2; i++) {
+      if (values[i * 4 + 0] % 2 == 0) enterMarket(i);
+      if (values[i * 4 + 0] % 2 == 1) exitMarket(i);
+
       if (timing[i * 4 + 0] > 0) vm.warp(block.timestamp + timing[i * 4 + 0]);
       if (values[i * 4 + 0] > 0) deposit(i, values[i * 4 + 0]);
 
@@ -98,6 +102,7 @@ contract ProtocolTest is Test {
         liquidate(j);
       }
     }
+    checkInvariants();
   }
 
   function deposit(uint256 i, uint256 assets) internal {
@@ -131,8 +136,42 @@ contract ProtocolTest is Test {
     }
     vm.prank(account);
     market.deposit(assets, account);
+  }
+
+  function enterMarket(uint256 i) internal {
+    Market market = markets[(i / 2) % markets.length];
+    address account = accounts[i % accounts.length];
+    (, , uint256 index, ) = auditor.markets(market);
+
+    if ((auditor.accountMarkets(account) & (1 << index)) == 0) {
+      vm.expectEmit(true, true, true, true, address(auditor));
+      emit MarketEntered(market, account);
+    }
     vm.prank(account);
     auditor.enterMarket(market);
+  }
+
+  function exitMarket(uint256 i) internal {
+    Market market = markets[(i / 2) % markets.length];
+    address account = accounts[i % accounts.length];
+    (, , uint256 index, ) = auditor.markets(market);
+    (uint256 balance, uint256 debt) = market.accountSnapshot(account);
+    (uint256 adjustedCollateral, uint256 adjustedDebt) = accountLiquidity(account, market, balance, 0);
+    uint256 marketMap = auditor.accountMarkets(account);
+
+    if ((marketMap & (1 << index)) != 0) {
+      if (debt > 0) {
+        vm.expectRevert(RemainingDebt.selector);
+      } else if (adjustedCollateral < adjustedDebt) {
+        vm.expectRevert(InsufficientAccountLiquidity.selector);
+      } else {
+        vm.expectEmit(true, true, true, true, address(auditor));
+        emit MarketExited(market, account);
+      }
+    }
+    vm.prank(account);
+    auditor.exitMarket(market);
+    if ((marketMap & (1 << index)) == 0) assertEq(marketMap, auditor.accountMarkets(account));
   }
 
   function borrow(uint256 i, uint256 assets) internal {
@@ -236,6 +275,17 @@ contract ProtocolTest is Test {
     }
   }
 
+  function checkInvariants() internal {
+    for (uint256 i = 0; i < accounts.length; i++) {
+      address account = accounts[i];
+      if (auditor.accountMarkets(account) == 0) {
+        for (uint256 j = 0; j < MARKET_COUNT; j++) {
+          assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
+        }
+      }
+    }
+  }
+
   function seizeAssets(
     Market market,
     Market collateralMarket,
@@ -313,6 +363,8 @@ contract ProtocolTest is Test {
       );
   }
 
+  event MarketExited(Market indexed market, address indexed account);
+  event MarketEntered(Market indexed market, address indexed account);
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
   event Borrow(
     address indexed caller,
