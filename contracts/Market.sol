@@ -681,7 +681,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address receiver,
     address owner
   ) public override returns (uint256 assets) {
-    auditor.checkShortfall(this, owner, previewMint(shares));
+    auditor.checkShortfall(this, owner, previewRedeem(shares));
     assets = super.redeem(shares, receiver, owner);
     emitMarketUpdate();
   }
