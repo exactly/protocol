@@ -505,12 +505,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
           else {
             actualRepay = noTransferRepayAtMaturity(maturity, actualRepay, maxAssets, borrower, false);
             maxAssets -= actualRepay;
-            {
-              FixedLib.Position storage p = fixedBorrowPositions[maturity][borrower];
-              position = p.principal + p.fee;
-            }
-            debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
-            if ((debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets) == 0) maxAssets = 0;
           }
         }
         repaidAssets += actualRepay;
