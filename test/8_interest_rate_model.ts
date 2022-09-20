@@ -442,7 +442,7 @@ describe("InterestRateModel", () => {
           parseUnits("50"),
           parseUnits("50"),
         );
-        expect(rate).to.equal(parseUnits("0.02"));
+        expect(rate).to.be.closeTo(parseUnits("0.02"), parseUnits("3", 3));
       });
       it("AND WHEN asking for the interest at 80% (Ub)utilization rate THEN it returns Rb=0.14", async () => {
         const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
@@ -452,7 +452,7 @@ describe("InterestRateModel", () => {
           parseUnits("50"),
           parseUnits("50"),
         );
-        expect(rate).to.equal(parseUnits("0.14"));
+        expect(rate).to.be.closeTo(parseUnits("0.14"), parseUnits("1", 9));
       });
 
       describe("high utilization rates", () => {
@@ -464,7 +464,7 @@ describe("InterestRateModel", () => {
             parseUnits("50"),
             parseUnits("50"),
           );
-          expect(rate).to.equal(parseUnits("0.2225"));
+          expect(rate).to.be.closeTo(parseUnits("0.2225"), parseUnits("1", 9));
         });
         it("AND WHEN asking for the interest at 100% (>Ub)utilization rate THEN it returns R=0.47 (price hike)", async () => {
           const rate = await exactlyEnv.interestRateModel.fixedBorrowRate(
@@ -474,8 +474,7 @@ describe("InterestRateModel", () => {
             parseUnits("50"),
             parseUnits("50"),
           );
-          expect(rate).to.gt(parseUnits("0.469"));
-          expect(rate).to.lt(parseUnits("0.47"));
+          expect(rate).to.be.closeTo(parseUnits("0.47"), parseUnits("1", 9));
         });
         it("AND WHEN asking for the interest at 105% ur (higher than Ufull) THEN it reverts", async () => {
           await expect(

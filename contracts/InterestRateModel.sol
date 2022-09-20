@@ -8,6 +8,9 @@ contract InterestRateModel {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
 
+  /// @dev When `eta` (`delta / alpha`) is lower than this value, use simpson's rule for approximation.
+  uint256 internal constant PRECISION_THRESHOLD = 7.5e14;
+
   uint256 public immutable fixedCurveA;
   int256 public immutable fixedCurveB;
   uint256 public immutable fixedMaxUtilization;
@@ -77,19 +80,21 @@ contract InterestRateModel {
 
   /// @notice Returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).
   /// @dev Uses the fixed rate curve parameters.
-  /// Handles special case where delta utilization tends to zero, using l'hôpital's rule.
+  /// Handles special case where delta utilization tends to zero, using simpson's rule.
   /// @param utilizationBefore ex-ante utilization rate, with 18 decimals precision.
   /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.
   /// @return the interest rate, with 18 decimals precision.
   function fixedRate(uint256 utilizationBefore, uint256 utilizationAfter) internal view returns (uint256) {
+    uint256 alpha = fixedMaxUtilization - utilizationBefore;
+    uint256 delta = utilizationAfter - utilizationBefore;
     int256 r = int256(
-      utilizationAfter - utilizationBefore < 2.5e9
-        ? fixedCurveA.divWadDown(fixedMaxUtilization - utilizationBefore)
+      delta.divWadDown(alpha) < PRECISION_THRESHOLD
+        ? (fixedCurveA.divWadDown(alpha) +
+          fixedCurveA.mulDivDown(4e18, fixedMaxUtilization - ((utilizationAfter + utilizationBefore) / 2)) +
+          fixedCurveA.divWadDown(fixedMaxUtilization - utilizationAfter)) / 6
         : fixedCurveA.mulDivDown(
-          uint256(
-            int256((fixedMaxUtilization - utilizationBefore).divWadDown(fixedMaxUtilization - utilizationAfter)).lnWad()
-          ),
-          utilizationAfter - utilizationBefore
+          uint256(int256(alpha.divWadDown(fixedMaxUtilization - utilizationAfter)).lnWad()),
+          delta
         )
     ) + fixedCurveB;
     assert(r >= 0);
@@ -98,20 +103,21 @@ contract InterestRateModel {
 
   /// @notice Returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).
   /// @dev Uses the floating rate curve parameters.
-  /// Handles special case where delta utilization tends to zero, using l'hôpital's rule.
+  /// Handles special case where delta utilization tends to zero, using simpson's rule.
   /// @param utilizationBefore ex-ante utilization rate, with 18 decimals precision.
   /// @param utilizationAfter ex-post utilization rate, with 18 decimals precision.
   /// @return the interest rate, with 18 decimals precision.
   function floatingRate(uint256 utilizationBefore, uint256 utilizationAfter) internal view returns (uint256) {
+    uint256 alpha = floatingMaxUtilization - utilizationBefore;
+    uint256 delta = utilizationAfter - utilizationBefore;
     int256 r = int256(
-      utilizationAfter - utilizationBefore < 2.5e9
-        ? floatingCurveA.divWadDown(floatingMaxUtilization - utilizationBefore)
+      delta.divWadDown(alpha) < PRECISION_THRESHOLD
+        ? (floatingCurveA.divWadDown(alpha) +
+          floatingCurveA.mulDivDown(4e18, floatingMaxUtilization - ((utilizationAfter + utilizationBefore) / 2)) +
+          floatingCurveA.divWadDown(floatingMaxUtilization - utilizationAfter)) / 6
         : floatingCurveA.mulDivDown(
-          uint256(
-            int256((floatingMaxUtilization - utilizationBefore).divWadDown(floatingMaxUtilization - utilizationAfter))
-              .lnWad()
-          ),
-          utilizationAfter - utilizationBefore
+          uint256(int256(alpha.divWadDown(floatingMaxUtilization - utilizationAfter)).lnWad()),
+          delta
         )
     ) + floatingCurveB;
     assert(r >= 0);
