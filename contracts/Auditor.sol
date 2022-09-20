@@ -12,6 +12,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
 
   uint256 public constant TARGET_HEALTH = 1.25e18;
+  uint256 public constant ASSETS_THRESHOLD = type(uint256).max / 1e18;
 
   mapping(address => uint256) public accountMarkets;
   mapping(Market => MarketData) public markets;
@@ -231,7 +232,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
           usd.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
         )
         .mulDivUp(10**repay.decimals, repay.price),
-      maxLiquidatorAssets < 115792089237316195423570985008687907853269984665640564039457 // type(uint256).max / WAD
+      maxLiquidatorAssets < ASSETS_THRESHOLD
         ? maxLiquidatorAssets.divWadDown(1e18 + memIncentive.lenders)
         : maxLiquidatorAssets
     );
