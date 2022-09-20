@@ -333,11 +333,15 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     checkAllowance(owner, assetsDiscounted);
 
-    // remove the supply from the fixed rate pool
-    floatingBackupBorrowed += pool.withdraw(
-      FixedLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal
-    );
-    if (floatingBackupBorrowed + floatingDebt > floatingAssets) revert InsufficientProtocolLiquidity();
+    {
+      // remove the supply from the fixed rate pool
+      uint256 newFloatingBackupBorrowed = floatingBackupBorrowed +
+        pool.withdraw(
+          FixedLib.Position(position.principal, position.fee).scaleProportionally(positionAssets).principal
+        );
+      if (newFloatingBackupBorrowed + floatingDebt > floatingAssets) revert InsufficientProtocolLiquidity();
+      floatingBackupBorrowed = newFloatingBackupBorrowed;
+    }
 
     // All the fees go to unassigned or to the floating pool
     (uint256 unassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
