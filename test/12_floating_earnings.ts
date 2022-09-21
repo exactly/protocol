@@ -118,7 +118,7 @@ describe("Smart Pool Earnings Distribution", function () {
       it("THEN preview deposit returned is less than previous deposits since depositing will first accrue earnings", async () => {
         expect(await marketDAI.previewDeposit(parseUnits("10000"))).to.be.lt(parseUnits("9950.24875621"));
       });
-      describe("AND GIVEN accumulator factor is set to 0 AND bob & john preview withdraw all their assets", () => {
+      describe("AND GIVEN accumulator factor is updated AND bob & john preview withdraw all their assets", () => {
         let assetsInMarket: BigNumber;
         let assetsToBeWithdrawn: BigNumber;
         beforeEach(async () => {
@@ -130,15 +130,19 @@ describe("Smart Pool Earnings Distribution", function () {
 
           assetsToBeWithdrawn = assetsBob.add(assetsJohn);
         });
-        it("THEN the previous market DAI balance is equal to the total assets to be withdrawn", async () => {
-          expect(assetsInMarket).to.be.closeTo(assetsToBeWithdrawn, 1);
-          expect((await dai.balanceOf(marketDAI.address)).sub(assetsToBeWithdrawn)).to.eq(1);
+        it("THEN the previous market DAI balance is equal to the total assets to be withdrawn + remaining earnings in accumulator", async () => {
+          expect(assetsInMarket).to.be.closeTo(assetsToBeWithdrawn.add(await marketDAI.earningsAccumulator()), 1);
+          expect(
+            (await dai.balanceOf(marketDAI.address)).sub(
+              assetsToBeWithdrawn.add(await marketDAI.earningsAccumulator()),
+            ),
+          ).to.eq(1);
         });
         it("THEN the maturity used is also empty", async () => {
           expect((await marketDAI.fixedPools(futurePools(1)[0].add(INTERVAL))).unassignedEarnings).to.be.eq(0);
         });
       });
-      describe("AND GIVEN accumulator factor is not set to 0 AND bob & john withdraw all their assets", () => {
+      describe("AND GIVEN accumulator factor is not updated AND bob & john withdraw all their assets", () => {
         beforeEach(async () => {
           await marketDAI.redeem(await marketDAI.balanceOf(bob.address), bob.address, bob.address);
           await marketDAI.connect(john).redeem(await marketDAI.balanceOf(john.address), john.address, john.address);

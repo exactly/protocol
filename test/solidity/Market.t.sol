@@ -36,6 +36,8 @@ contract MarketTest is Test {
   MockInterestRateModel internal irm;
 
   function setUp() external {
+    vm.warp(0);
+
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
     oracle = new MockOracle();
 
@@ -674,6 +676,42 @@ contract MarketTest is Test {
     assertEq(remainingDebt, 0);
   }
 
+  function testSetEarningsAccumulatorSmoothFactorShouldDistributeEarnings() external {
+    market.deposit(100 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 15 ether, address(this), address(this));
+    vm.warp(1 days);
+    uint256 totalAssetsBefore = market.totalAssets();
+
+    vm.expectEmit(true, true, true, false, address(market));
+    emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
+    market.setEarningsAccumulatorSmoothFactor(2e18);
+    assertEq(totalAssetsBefore, market.totalAssets());
+  }
+
+  function testSetDampSpeedFactorShouldUpdateFloatingAssetsAverage() external {
+    market.deposit(100 ether, address(this));
+    vm.warp(30 seconds);
+    market.deposit(5, address(this));
+    vm.warp(100 seconds);
+    uint256 floatingAssetsAverageBefore = market.floatingAssetsAverage();
+
+    market.setDampSpeed(0.0083e18, 0.35e18);
+    assertGt(market.floatingAssetsAverage(), floatingAssetsAverageBefore);
+  }
+
+  function testSetInterestRateModelShouldUpdateFloatingDebt() external {
+    market.deposit(100 ether, address(this));
+    market.borrow(30 ether, address(this), address(this));
+    vm.warp(1 days);
+    uint256 floatingDebtBefore = market.floatingDebt();
+
+    vm.expectEmit(true, true, true, false, address(market));
+    emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
+    market.setInterestRateModel(new InterestRateModel(0.023e18, -0.0025e18, 1e18 + 1, 0.023e18, -0.0025e18, 1e18 + 1));
+    assertGt(market.floatingDebt(), floatingDebtBefore);
+  }
+
   function testClearBadDebtCalledByAccount() external {
     vm.expectRevert(NotAuditor.selector);
     market.clearBadDebt(address(this));
@@ -909,6 +947,7 @@ contract MarketTest is Test {
   }
 
   function testLiquidateAndSubtractLossesFromAccumulator() external {
+    vm.warp(1);
     irm.setBorrowRate(0.1e18);
     market.setBackupFeeRate(0);
     marketWETH.deposit(1.3 ether, address(this));
@@ -1886,6 +1925,14 @@ contract MarketTest is Test {
     markets[0].liquidate(address(this), 1_000 ether, markets[0]);
   }
 
+  event MarketUpdate(
+    uint256 timestamp,
+    uint256 floatingDepositShares,
+    uint256 floatingAssets,
+    uint256 floatingBorrowShares,
+    uint256 floatingDebt,
+    uint256 earningsAccumulator
+  );
   event Transfer(address indexed from, address indexed to, uint256 amount);
   event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
   event Withdraw(address indexed caller, address indexed receiver, uint256 assets, uint256 shares);

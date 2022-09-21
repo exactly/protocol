@@ -84,6 +84,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     string memory assetSymbol = asset.symbol();
     name = string.concat("EToken", assetSymbol);
     symbol = string.concat("e", assetSymbol);
+    lastAccumulatorAccrual = uint32(block.timestamp);
+    lastFloatingDebtUpdate = uint32(block.timestamp);
+    lastAverageUpdate = uint32(block.timestamp);
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
@@ -949,6 +952,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param up damp speed up, represented with 18 decimals.
   /// @param down damp speed down, represented with 18 decimals.
   function setDampSpeed(uint256 up, uint256 down) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    updateFloatingAssetsAverage();
     dampSpeedUp = up;
     dampSpeedDown = down;
     emit DampSpeedSet(up, down);
@@ -962,6 +966,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     public
     onlyRole(DEFAULT_ADMIN_ROLE)
   {
+    floatingAssets += accrueAccumulatedEarnings();
+    emitMarketUpdate();
     earningsAccumulatorSmoothFactor = earningsAccumulatorSmoothFactor_;
     emit EarningsAccumulatorSmoothFactorSet(earningsAccumulatorSmoothFactor_);
   }
@@ -970,6 +976,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param interestRateModel_ new interest rate model.
   function setInterestRateModel(InterestRateModel interestRateModel_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     interestRateModel = interestRateModel_;
+    updateFloatingDebt();
+    emitMarketUpdate();
     emit InterestRateModelSet(interestRateModel_);
   }
 

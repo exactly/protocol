@@ -727,7 +727,6 @@ contract PreviewerTest is Test {
   }
 
   function testFlexibleBorrowSharesAndAssets() external {
-    vm.warp(0);
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].floatingBorrowAssets, 0);
     assertEq(data[0].floatingBorrowShares, 0);
