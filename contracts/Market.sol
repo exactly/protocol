@@ -269,7 +269,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         chargeTreasuryFee(fee),
         assets
       );
-      pool.unassignedEarnings += newUnassignedEarnings;
+      if (newUnassignedEarnings > 0) pool.unassignedEarnings += newUnassignedEarnings;
       collectFreeLunch(newBackupEarnings);
 
       fixedBorrowPositions[maturity][borrower] = FixedLib.Position(position.principal + assets, position.fee + fee);
