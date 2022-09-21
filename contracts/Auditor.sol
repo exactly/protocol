@@ -333,7 +333,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     marketList.push(market);
 
     emit MarketListed(market, decimals);
-    setAdjustFactor(market, adjustFactor);
+    emit AdjustFactorSet(market, adjustFactor);
   }
 
   /// @notice Sets the adjust factor for a certain market.
