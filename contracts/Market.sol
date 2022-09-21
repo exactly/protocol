@@ -550,6 +550,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function clearBadDebt(address account) external {
     if (msg.sender != address(auditor)) revert NotAuditor();
 
+    uint256 totalBadDebt = 0;
     uint256 packedMaturities = fixedBorrows[account];
     uint256 baseMaturity = packedMaturities % (1 << 32);
     packedMaturities = packedMaturities >> 32;
@@ -560,12 +561,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         FixedLib.Position storage position = fixedBorrowPositions[maturity][account];
         uint256 badDebt = position.principal + position.fee;
         if (badDebt > 0) {
+          totalBadDebt += badDebt;
           floatingBackupBorrowed -= fixedPools[maturity].repay(position.principal);
           delete fixedBorrowPositions[maturity][account];
           fixedBorrows[account] = fixedBorrows[account].clearMaturity(maturity);
 
           emit RepayAtMaturity(maturity, msg.sender, account, badDebt, badDebt);
-          spreadBadDebt(badDebt);
         }
       }
 
@@ -575,10 +576,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       if ((1 << i) > packedMaturities) break;
     }
     uint256 borrowShares = floatingBorrowShares[account];
-    if (borrowShares > 0) {
-      uint256 badDebt = noTransferRefund(borrowShares, account);
-      spreadBadDebt(badDebt);
-    }
+    if (borrowShares > 0) totalBadDebt += noTransferRefund(borrowShares, account);
+    if (totalBadDebt > 0) spreadBadDebt(totalBadDebt);
   }
 
   /// @notice Spreads bad debt subtracting the amount from the `earningsAccumulator` and/or `floatingAssets`.
