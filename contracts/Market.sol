@@ -1186,7 +1186,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   event FloatingDebtUpdate(uint256 timestamp, uint256 utilization);
 }
 
-error AlreadyInitialized();
 error Disagreement();
 error InsufficientProtocolLiquidity();
 error NotAuditor();
