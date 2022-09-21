@@ -818,12 +818,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Updates the floating pool borrows' variables.
   function updateFloatingDebt() internal {
-    InterestRateModel memIRM = interestRateModel;
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
     uint256 newFloatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
-      memIRM.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
+      interestRateModel.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
         block.timestamp - lastFloatingDebtUpdate,
         365 days
       )
@@ -840,12 +839,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Calculates the total floating debt, considering elapsed time since last update and current interest rate.
   /// @return actual floating debt plus projected interest.
   function totalFloatingBorrowAssets() public view returns (uint256) {
-    InterestRateModel memIRM = interestRateModel;
     uint256 memFloatingAssets = floatingAssets;
     uint256 memFloatingDebt = floatingDebt;
     uint256 newFloatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
-      memIRM.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
+      interestRateModel.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
         block.timestamp - lastFloatingDebtUpdate,
         365 days
       )
