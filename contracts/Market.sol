@@ -239,9 +239,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     uint256 backupEarnings = pool.accrueEarnings(maturity);
 
-    updateFloatingAssetsAverage();
     uint256 fee = assets.mulWadDown(
-      interestRateModel.fixedBorrowRate(maturity, assets, pool.borrowed, pool.supplied, floatingAssetsAverage)
+      interestRateModel.fixedBorrowRate(maturity, assets, pool.borrowed, pool.supplied, previewFloatingAssetsAverage())
     );
     assetsOwed = assets + fee;
 
@@ -314,7 +313,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     // verify if there are any penalties/fee for him because of early withdrawal - if so: discount
     if (block.timestamp < maturity) {
-      updateFloatingAssetsAverage();
       assetsDiscounted = positionAssets.divWadDown(
         1e18 +
           interestRateModel.fixedBorrowRate(
@@ -322,7 +320,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
             positionAssets,
             pool.borrowed,
             pool.supplied,
-            floatingAssetsAverage
+            previewFloatingAssetsAverage()
           )
       );
     } else {
@@ -805,14 +803,16 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Updates the `floatingAssetsAverage`.
   function updateFloatingAssetsAverage() internal {
+    floatingAssetsAverage = previewFloatingAssetsAverage();
+    lastAverageUpdate = uint32(block.timestamp);
+  }
+
+  function previewFloatingAssetsAverage() public view returns (uint256) {
     uint256 memFloatingAssets = floatingAssets;
     uint256 memFloatingAssetsAverage = floatingAssetsAverage;
     uint256 dampSpeedFactor = memFloatingAssets < memFloatingAssetsAverage ? dampSpeedDown : dampSpeedUp;
     uint256 averageFactor = uint256(1e18 - (-int256(dampSpeedFactor * (block.timestamp - lastAverageUpdate))).expWad());
-    floatingAssetsAverage =
-      memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) +
-      averageFactor.mulWadDown(memFloatingAssets);
-    lastAverageUpdate = uint32(block.timestamp);
+    return memFloatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(memFloatingAssets);
   }
 
   /// @notice Updates the floating pool borrows' variables.

@@ -1060,22 +1060,18 @@ contract MarketTest is Test {
     market.deposit(100 ether, address(this));
 
     vm.warp(217);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertLt(market.floatingAssetsAverage(), market.floatingAssets());
+    assertLt(market.previewFloatingAssetsAverage(), market.floatingAssets());
 
     vm.warp(435);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertLt(market.floatingAssetsAverage(), market.floatingAssets());
+    assertLt(market.previewFloatingAssetsAverage(), market.floatingAssets());
 
     // with a damp speed up of 0.0046, the floatingAssetsAverage is equal to the floatingAssets
     // when 9011 seconds went by
     vm.warp(9446);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), market.floatingAssets());
+    assertEq(market.previewFloatingAssetsAverage(), market.floatingAssets());
 
     vm.warp(300000);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), market.floatingAssets());
+    assertEq(market.previewFloatingAssetsAverage(), market.floatingAssets());
   }
 
   function testUpdateFloatingAssetsAverageWithDampSpeedDown() external {
@@ -1086,18 +1082,15 @@ contract MarketTest is Test {
     market.withdraw(50 ether, address(this), address(this));
 
     vm.warp(220);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertLt(market.floatingAssets(), market.floatingAssetsAverage());
+    assertLt(market.previewFloatingAssetsAverage(), market.floatingAssetsAverage());
 
     vm.warp(300);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertApproxEqRel(market.floatingAssetsAverage(), market.floatingAssets(), 1e6);
+    assertApproxEqRel(market.previewFloatingAssetsAverage(), market.floatingAssets(), 1e6);
 
     // with a damp speed down of 0.42, the floatingAssetsAverage is equal to the floatingAssets
     // when 23 seconds went by
     vm.warp(323);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), market.floatingAssets());
+    assertEq(market.previewFloatingAssetsAverage(), market.floatingAssets());
   }
 
   function testUpdateFloatingAssetsAverageWhenDepositingRightBeforeEarlyWithdraw() external {
@@ -1139,15 +1132,15 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     uint256 supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedUp() * (250 - 218))));
     assertEq(
-      market.floatingAssetsAverage(),
+      market.previewFloatingAssetsAverage(),
       lastFloatingAssetsAverage.mulWadDown(1e18 - supplyAverageFactor) +
         supplyAverageFactor.mulWadDown(market.floatingAssets())
     );
-    assertEq(market.floatingAssetsAverage(), 20.521498717652997528 ether);
+    assertEq(market.previewFloatingAssetsAverage(), 20.521498717652997528 ether);
 
     vm.warp(9541);
     market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), market.floatingAssets());
+    assertEq(market.previewFloatingAssetsAverage(), market.floatingAssets());
   }
 
   function testUpdateFloatingAssetsAverageWhenDepositingAndBorrowingContinuously() external {
@@ -1158,45 +1151,16 @@ contract MarketTest is Test {
     market.deposit(100 ether, address(this));
 
     vm.warp(219);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), 6.807271809941046233 ether);
+    assertEq(market.previewFloatingAssetsAverage(), 6.807271809941046233 ether);
 
     vm.warp(220);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), 7.280868252688897889 ether);
+    assertEq(market.previewFloatingAssetsAverage(), 7.280868252688897854 ether);
 
     vm.warp(221);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), 7.752291154776303799 ether);
+    assertEq(market.previewFloatingAssetsAverage(), 7.752291154776303685 ether);
 
     vm.warp(222);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), 8.221550491529461938 ether);
-  }
-
-  function testUpdateFloatingAssetsAverageWhenDepositingAndWithdrawingEarlyContinuously() external {
-    vm.warp(0);
-    market.deposit(10 ether, address(this));
-    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
-
-    vm.warp(218);
-    market.deposit(100 ether, address(this));
-
-    vm.warp(219);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), 6.807271809941046233 ether);
-
-    vm.warp(220);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), 7.280868252688897889 ether);
-
-    vm.warp(221);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), 7.752291154776303799 ether);
-
-    vm.warp(222);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), 8.221550491529461938 ether);
+    assertEq(market.previewFloatingAssetsAverage(), 8.221550491529461768 ether);
   }
 
   function testUpdateFloatingAssetsAverageWhenWithdrawingRightBeforeBorrow() external {
@@ -1207,7 +1171,7 @@ contract MarketTest is Test {
     vm.warp(2000);
     market.withdraw(5 ether, address(this), address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertApproxEqRel(market.floatingAssetsAverage(), initialBalance, 1e15);
+    assertApproxEqRel(market.previewFloatingAssetsAverage(), initialBalance, 1e15);
     assertEq(market.floatingAssets(), initialBalance - 5 ether);
   }
 
@@ -1221,7 +1185,7 @@ contract MarketTest is Test {
     vm.warp(2000);
     market.withdraw(5 ether, address(this), address(this));
     market.withdrawAtMaturity(FixedLib.INTERVAL, amount, 0.9 ether, address(this), address(this));
-    assertApproxEqRel(market.floatingAssetsAverage(), initialBalance, 1e15);
+    assertApproxEqRel(market.previewFloatingAssetsAverage(), initialBalance, 1e15);
     assertEq(market.floatingAssets(), initialBalance - 5 ether);
   }
 
@@ -1231,119 +1195,32 @@ contract MarketTest is Test {
 
     vm.warp(218);
     market.withdraw(5 ether, address(this), address(this));
-    uint256 lastFloatingAssetsAverage = market.floatingAssetsAverage();
+    uint256 lastFloatingAssetsAverage = market.previewFloatingAssetsAverage();
 
     vm.warp(219);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
     uint256 supplyAverageFactor = uint256(
-      1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (219 - 218)))
+      1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (block.timestamp - 218)))
     );
     assertEq(
-      market.floatingAssetsAverage(),
-      uint256(lastFloatingAssetsAverage).mulWadDown(1e18 - supplyAverageFactor) +
-        supplyAverageFactor.mulWadDown(market.floatingAssets())
-    );
-    assertEq(market.floatingAssetsAverage(), 5.874852456225897297 ether);
-
-    vm.warp(221);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (221 - 219))));
-    assertEq(
-      market.floatingAssetsAverage(),
-      uint256(5.874852456225897297 ether).mulWadDown(1e18 - supplyAverageFactor) +
-        supplyAverageFactor.mulWadDown(market.floatingAssets())
-    );
-    assertEq(market.floatingAssetsAverage(), 5.377683011800498150 ether);
-
-    vm.warp(444);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), market.floatingAssets());
-  }
-
-  function testUpdateFloatingAssetsAverageWhenWithdrawingSomeSecondsBeforeEarlyWithdraw() external {
-    vm.warp(0);
-    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
-    market.deposit(10 ether, address(this));
-
-    vm.warp(218);
-    market.withdraw(5 ether, address(this), address(this));
-    uint256 lastFloatingAssetsAverage = market.floatingAssetsAverage();
-
-    vm.warp(219);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    uint256 supplyAverageFactor = uint256(
-      1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (219 - 218)))
-    );
-    assertEq(
-      market.floatingAssetsAverage(),
+      market.previewFloatingAssetsAverage(),
       lastFloatingAssetsAverage.mulWadDown(1e18 - supplyAverageFactor) +
         supplyAverageFactor.mulWadDown(market.floatingAssets())
     );
-    assertEq(market.floatingAssetsAverage(), 5.874852456225897297 ether);
+    assertEq(market.previewFloatingAssetsAverage(), 5.874852456225897297 ether);
 
     vm.warp(221);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (221 - 219))));
-    assertEq(
-      market.floatingAssetsAverage(),
-      uint256(5.874852456225897297 ether).mulWadDown(1e18 - supplyAverageFactor) +
-        supplyAverageFactor.mulWadDown(market.floatingAssets())
-    );
-    assertEq(market.floatingAssetsAverage(), 5.377683011800498150 ether);
-
-    vm.warp(226);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    assertApproxEqRel(market.floatingAssetsAverage(), market.floatingAssets(), 1e17);
-  }
-
-  function testUpdateFloatingAssetsAverageWhenWithdrawingBeforeEarlyWithdrawsAndBorrows() external {
-    vm.warp(0);
-    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
-    market.deposit(10 ether, address(this));
-
-    vm.warp(218);
-    market.withdraw(5 ether, address(this), address(this));
-    uint256 lastFloatingAssetsAverage = market.floatingAssetsAverage();
-
-    vm.warp(219);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    uint256 supplyAverageFactor = uint256(
-      1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (219 - 218)))
+    supplyAverageFactor = uint256(
+      1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (block.timestamp - 218)))
     );
     assertEq(
-      market.floatingAssetsAverage(),
-      uint256(lastFloatingAssetsAverage).mulWadDown(1e18 - supplyAverageFactor) +
+      market.previewFloatingAssetsAverage(),
+      lastFloatingAssetsAverage.mulWadDown(1e18 - supplyAverageFactor) +
         supplyAverageFactor.mulWadDown(market.floatingAssets())
     );
-    assertEq(market.floatingAssetsAverage(), 5.874852456225897297 ether);
+    assertEq(market.previewFloatingAssetsAverage(), 5.377683011800498152 ether);
 
-    vm.warp(221);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 1, 1, address(this), address(this));
-    supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (221 - 219))));
-    assertEq(
-      market.floatingAssetsAverage(),
-      uint256(5.874852456225897297 ether).mulWadDown(1e18 - supplyAverageFactor) +
-        supplyAverageFactor.mulWadDown(market.floatingAssets())
-    );
-    assertEq(market.floatingAssetsAverage(), 5.377683011800498150 ether);
-
-    vm.warp(223);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    supplyAverageFactor = uint256(1e18 - FixedPointMathLib.expWad(-int256(market.dampSpeedDown() * (223 - 221))));
-    assertEq(
-      market.floatingAssetsAverage(),
-      uint256(5.377683011800498150 ether).mulWadDown(1e18 - supplyAverageFactor) +
-        supplyAverageFactor.mulWadDown(market.floatingAssets())
-    );
-    assertEq(market.floatingAssetsAverage(), 5.163049730714664338 ether);
-
-    vm.warp(226);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    assertApproxEqRel(market.floatingAssetsAverage(), market.floatingAssets(), 1e16);
-
-    vm.warp(500);
-    market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
-    assertEq(market.floatingAssetsAverage(), market.floatingAssets());
+    vm.warp(444);
+    assertEq(market.previewFloatingAssetsAverage(), market.floatingAssets());
   }
 
   function testFixedBorrowFailingWhenFlexibleBorrowAccruesDebt() external {
@@ -1825,26 +1702,23 @@ contract MarketTest is Test {
     previousFloatingAssets = currentFloatingAssets;
 
     vm.warp(3000);
-    // FIXED BORROW
+    // FIXED BORROW DOESN'T UPDATE
     market.borrowAtMaturity(FixedLib.INTERVAL, 1, 2, address(this), address(this));
     currentFloatingAssets = market.floatingAssetsAverage();
-    assertGt(currentFloatingAssets, previousFloatingAssets);
-    previousFloatingAssets = currentFloatingAssets;
+    assertEq(currentFloatingAssets, previousFloatingAssets);
 
     vm.warp(4000);
-    // EARLY WITHDRAW
+    // EARLY WITHDRAW DOESN'T UPDATE
     market.depositAtMaturity(FixedLib.INTERVAL, 10, 1, address(this));
     market.withdrawAtMaturity(FixedLib.INTERVAL, 1, 0, address(this), address(this));
     currentFloatingAssets = market.floatingAssetsAverage();
-    assertGt(currentFloatingAssets, previousFloatingAssets);
-    previousFloatingAssets = currentFloatingAssets;
+    assertEq(currentFloatingAssets, previousFloatingAssets);
 
     vm.warp(5000);
     // FLEXIBLE BORROW DOESN'T UPDATE
     market.borrow(1 ether, address(this), address(this));
     currentFloatingAssets = market.floatingAssetsAverage();
     assertEq(currentFloatingAssets, previousFloatingAssets);
-    previousFloatingAssets = currentFloatingAssets;
 
     vm.warp(6000);
     // FLEXIBLE REPAY DOESN'T UPDATE

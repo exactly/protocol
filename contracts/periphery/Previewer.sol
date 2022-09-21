@@ -153,7 +153,7 @@ contract Previewer {
   ) public view returns (FixedPreview memory) {
     if (block.timestamp > maturity) revert AlreadyMatured();
     (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(maturity);
-    uint256 memFloatingAssetsAverage = floatingAssetsAverage(market);
+    uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
 
     return
       FixedPreview({
@@ -194,7 +194,7 @@ contract Previewer {
   ) public view returns (FixedPreview memory) {
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
-    uint256 memFloatingAssetsAverage = floatingAssetsAverage(market);
+    uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
 
     uint256 fees = assets.mulWadDown(
       market.interestRateModel().fixedBorrowRate(
@@ -254,7 +254,7 @@ contract Previewer {
           positionAssets,
           pool.borrowed,
           pool.supplied,
-          floatingAssetsAverage(market)
+          market.previewFloatingAssetsAverage()
         )
     );
   }
@@ -289,7 +289,7 @@ contract Previewer {
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
 
       uint256 maxAssets = market.floatingAssets().mulWadDown(1e18 - market.reserveFactor());
-      uint256 memFloatingAssetsAverage = floatingAssetsAverage(market);
+      uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
 
       pools[i] = FixedPool({
         maturity: maturity,
@@ -297,7 +297,7 @@ contract Previewer {
         supplied: pool.supplied,
         available: Math.min(
           maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt()),
-          floatingAssetsAverage(market)
+          memFloatingAssetsAverage
         ) +
           pool.supplied -
           Math.min(pool.supplied, pool.borrowed),
@@ -346,18 +346,6 @@ contract Previewer {
       maturity - pool.lastAccrual
     );
     (yield, ) = pool.calculateDeposit(assets, market.backupFeeRate());
-  }
-
-  function floatingAssetsAverage(Market market) internal view returns (uint256) {
-    uint256 dampSpeedFactor = market.floatingAssets() < market.floatingAssetsAverage()
-      ? market.dampSpeedDown()
-      : market.dampSpeedUp();
-    uint256 averageFactor = uint256(
-      1e18 - (-int256(dampSpeedFactor * (block.timestamp - market.lastAverageUpdate()))).expWad()
-    );
-    return
-      market.floatingAssetsAverage().mulWadDown(1e18 - averageFactor) +
-      averageFactor.mulWadDown(market.floatingAssets());
   }
 
   function maxRepay(Market market, address borrower) internal view returns (uint256) {
