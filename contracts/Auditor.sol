@@ -146,7 +146,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     }
 
     // verify that current liquidity is not short
-    (uint256 collateral, uint256 debt) = accountLiquidity(borrower, market, 0);
+    (uint256 collateral, uint256 debt) = accountLiquidity(borrower, Market(address(0)), 0);
     if (collateral < debt) revert InsufficientAccountLiquidity();
   }
 
