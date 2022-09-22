@@ -676,6 +676,36 @@ contract MarketTest is Test {
     assertEq(remainingDebt, 0);
   }
 
+  function testBorrowFromFreeLunchShouldNotRevertWithFloatingFullUtilization() external {
+    marketWETH.deposit(1.15 ether, address(this));
+    oracle.setPrice(marketWETH, 5_000e18);
+    auditor.enterMarket(marketWETH);
+
+    market.deposit(10 ether, address(this));
+    market.borrow(10 ether, address(this), address(this));
+
+    market.setReserveFactor(0.1e18);
+
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+    // borrow only using fixed pool money should not revert
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, type(uint256).max, address(this), address(this));
+  }
+
+  function testEarlyWithdrawFromFreeLunchShouldNotRevertWithFloatingFullUtilization() external {
+    marketWETH.deposit(1.15 ether, address(this));
+    oracle.setPrice(marketWETH, 5_000e18);
+    auditor.enterMarket(marketWETH);
+
+    market.deposit(10 ether, address(this));
+    market.borrow(10 ether, address(this), address(this));
+
+    market.setReserveFactor(0.1e18);
+
+    market.depositAtMaturity(FixedLib.INTERVAL, 1 ether, 1 ether, address(this));
+    // borrow only using fixed pool money should not revert
+    market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0, address(this), address(this));
+  }
+
   function testSetEarningsAccumulatorSmoothFactorShouldDistributeEarnings() external {
     market.deposit(100 ether, address(this));
     market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));

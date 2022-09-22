@@ -248,11 +248,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     assetsOwed = assets + fee;
 
     {
-      uint256 memFloatingBackupBorrowed = floatingBackupBorrowed;
-      memFloatingBackupBorrowed += pool.borrow(assets);
-      floatingBackupBorrowed = memFloatingBackupBorrowed;
-      if (memFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
-        revert InsufficientProtocolLiquidity();
+      uint256 backupDebtAddition = pool.borrow(assets);
+      if (backupDebtAddition > 0) {
+        uint256 newFloatingBackupBorrowed = floatingBackupBorrowed + backupDebtAddition;
+        floatingBackupBorrowed = newFloatingBackupBorrowed;
+        if (newFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
+          revert InsufficientProtocolLiquidity();
+        }
       }
     }
 
