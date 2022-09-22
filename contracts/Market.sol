@@ -433,7 +433,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         // The fee charged to the MP supplier go to the earnings accumulator
         earningsAccumulator += backupFee;
 
-        // The fee gets discounted from the account through `repayAmount`
+        // The fee gets discounted from the account through `actualRepayAssets`
         actualRepayAssets = debtCovered - discountFee;
       } else {
         actualRepayAssets = debtCovered;
@@ -448,7 +448,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     // verify that the account agrees to this discount or penalty
     if (actualRepayAssets > maxAssets) revert Disagreement();
 
-    // reduce the borrowed and might decrease the SP debt
+    // reduce the borrowed from the pool and might decrease the floating backup borrowed
     floatingBackupBorrowed -= pool.repay(principalCovered);
 
     // update the account position
