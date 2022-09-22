@@ -290,7 +290,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Withdraws a certain amount from a maturity.
   /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// @param maturity maturity date where the assets will be withdrawn.
-  /// @param positionAssets the amount of assets (principal + fee) to be withdrawn.
+  /// @param positionAssets position size to be reduced.
   /// @param minAssetsRequired minimum amount required by the account (if discount included for early withdrawal).
   /// @param receiver address that will receive the withdrawn assets.
   /// @param owner address that previously deposited the assets.
@@ -1065,14 +1065,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param caller address which withdraw the asset.
   /// @param receiver address which will be collecting the assets.
   /// @param owner address which had the assets withdrawn.
-  /// @param assets amount of the asset that were withdrawn.
-  /// @param assetsDiscounted amount of the asset that were deposited (in case of early withdrawal).
+  /// @param positionAssets position size reduced.
+  /// @param assetsDiscounted amount of assets withdrawn (can include a discount for early withdraw).
   event WithdrawAtMaturity(
     uint256 indexed maturity,
     address caller,
     address indexed receiver,
     address indexed owner,
-    uint256 assets,
+    uint256 positionAssets,
     uint256 assetsDiscounted
   );
 
