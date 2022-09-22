@@ -872,7 +872,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         uint256 lastAccrual = pool.lastAccrual;
 
         if (maturity > lastAccrual) {
-          backupEarnings += pool.unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
+          backupEarnings += block.timestamp < maturity
+            ? pool.unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual)
+            : pool.unassignedEarnings;
         }
       }
 

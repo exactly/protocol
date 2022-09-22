@@ -719,6 +719,13 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 0.0999 ether, 1_000 ether, address(this), address(this));
   }
 
+  function testTotalAssetsProjectingBackupEarningsCorrectly() external {
+    market.deposit(10 ether, address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
+    vm.warp(FixedLib.INTERVAL + 10 days);
+    assertEq(market.totalAssets(), 10.1 ether);
+  }
+
   function testSetEarningsAccumulatorSmoothFactorShouldDistributeEarnings() external {
     market.deposit(100 ether, address(this));
     market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
