@@ -34,6 +34,7 @@ contract ProtocolTest is Test {
   uint256 internal constant N = 6;
   address internal constant BOB = address(0x420);
   address internal constant ALICE = address(0x69);
+  address internal constant MARIA = address(0x42069);
   uint256 internal constant MARKET_COUNT = 2;
   uint256 internal constant PENALTY_RATE = 0.02e18 / uint256(1 days);
   uint128 internal constant RESERVE_FACTOR = 1e17;
@@ -162,6 +163,17 @@ contract ProtocolTest is Test {
       market.floatingAssets() + previewNewFloatingDebt(market)
     ) {
       vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    } else if (
+      (
+        block.timestamp < maturity
+          ? positionAssets.divWadDown(
+            1e18 +
+              market.interestRateModel().fixedBorrowRate(maturity, positionAssets, borrowed, supplied, backupAssets)
+          )
+          : positionAssets
+      ) > market.asset().balanceOf(address(market))
+    ) {
+      vm.expectRevert("TRANSFER_FAILED");
     } else {
       vm.expectEmit(true, true, true, false, address(market));
       emit WithdrawAtMaturity(maturity, account, account, account, assets, 0);
@@ -223,9 +235,11 @@ contract ProtocolTest is Test {
       uint256 fees = assets.mulWadDown(
         market.interestRateModel().fixedBorrowRate(maturity, assets, borrowed, supplied, backupAssets)
       );
-      (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, assets + fees);
+      (uint256 collateral, uint256 debt) = accountLiquidity(account, market, assets + fees, 0);
       if (collateral < debt) {
         vm.expectRevert(InsufficientAccountLiquidity.selector);
+      } else if (assets > market.asset().balanceOf(address(market))) {
+        vm.expectRevert("TRANSFER_FAILED");
       } else {
         vm.expectEmit(true, true, true, true, address(market));
         emit BorrowAtMaturity(maturity, account, account, account, assets, fees);
@@ -243,19 +257,18 @@ contract ProtocolTest is Test {
       Market otherMarket = markets[(i / 2 + 1) % markets.length];
       MockERC20 asset = MockERC20(address(market.asset()));
       MockERC20 otherAsset = MockERC20(address(otherMarket.asset()));
-      address rando = address(bytes20(blockhash(block.number - 1)));
       uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-      vm.startPrank(rando);
-      asset.mint(rando, type(uint96).max);
+      vm.startPrank(MARIA);
+      asset.mint(MARIA, type(uint96).max);
       asset.approve(address(market), type(uint256).max);
-      otherAsset.mint(rando, type(uint96).max);
+      otherAsset.mint(MARIA, type(uint96).max);
       otherAsset.approve(address(otherMarket), type(uint256).max);
-      otherMarket.deposit(type(uint96).max, rando);
+      otherMarket.deposit(type(uint96).max, MARIA);
       auditor.enterMarket(otherMarket);
       FixedLib.Pool memory pool;
       (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
-      market.depositAtMaturity(maturity, pool.borrowed - Math.min(pool.borrowed, pool.supplied) + 1_000_000, 0, rando);
-      market.borrowAtMaturity(maturity, 1_000_000, type(uint256).max, rando, rando);
+      market.depositAtMaturity(maturity, pool.borrowed - Math.min(pool.borrowed, pool.supplied) + 1_000_000, 0, MARIA);
+      market.borrowAtMaturity(maturity, 1_000_000, type(uint256).max, MARIA, MARIA);
       vm.warp(block.timestamp + 1 days);
       vm.stopPrank();
     }
@@ -288,7 +301,7 @@ contract ProtocolTest is Test {
     address account = accounts[i % accounts.length];
     (, , uint256 index, ) = auditor.markets(market);
     (uint256 balance, uint256 debt) = market.accountSnapshot(account);
-    (uint256 adjustedCollateral, uint256 adjustedDebt) = accountLiquidity(account, market, balance, 0);
+    (uint256 adjustedCollateral, uint256 adjustedDebt) = accountLiquidity(account, market, 0, balance);
     uint256 marketMap = auditor.accountMarkets(account);
 
     if ((marketMap & (1 << index)) != 0) {
@@ -310,7 +323,7 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     address account = accounts[i % accounts.length];
     uint256 expectedShares = market.previewBorrow(assets);
-    (uint256 collateral, uint256 debt) = simulateAccountLiquidity(account, market, assets, expectedShares);
+    (uint256 collateral, uint256 debt) = previewAccountLiquidity(account, market, assets, expectedShares);
 
     if (
       market.floatingBackupBorrowed() + market.totalFloatingBorrowAssets() + assets >
@@ -348,7 +361,7 @@ contract ProtocolTest is Test {
     address account = accounts[i % accounts.length];
     (, , uint256 index, ) = auditor.markets(market);
     uint256 expectedShares = market.totalAssets() != 0 ? market.previewWithdraw(assets) : 0;
-    (uint256 collateral, uint256 debt) = accountLiquidity(account, market, assets, 0);
+    (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, assets);
     uint256 earnings = previewAccumulatedEarnings(market);
 
     if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
@@ -379,8 +392,8 @@ contract ProtocolTest is Test {
     address account = accounts[i % accounts.length];
     address otherAccount = accounts[(i + 1) % accounts.length];
     (, , uint256 index, ) = auditor.markets(market);
-    uint256 withdrawAmount = market.previewMint(shares);
-    (uint256 collateral, uint256 debt) = accountLiquidity(account, market, withdrawAmount, 0);
+    uint256 withdrawAssets = market.previewMint(shares);
+    (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, withdrawAssets);
 
     if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
@@ -442,6 +455,80 @@ contract ProtocolTest is Test {
     }
   }
 
+  function checkInvariants() internal {
+    for (uint256 i = 0; i < accounts.length; ++i) {
+      address account = accounts[i];
+      if (auditor.accountMarkets(account) == 0) {
+        for (uint256 j = 0; j < MARKET_COUNT; ++j) {
+          assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
+        }
+      }
+    }
+    for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
+      Market market = auditor.marketList(i);
+      uint256 fixedBorrows = 0;
+      uint256 fixedDeposits = 0;
+      for (uint256 j = 0; j < accounts.length; ++j) {
+        address account = accounts[j];
+        uint256 packedMaturities = market.fixedBorrows(account);
+        uint256 baseMaturity = packedMaturities % (1 << 32);
+        packedMaturities = packedMaturities >> 32;
+        for (uint256 k = 0; k < 224; ++k) {
+          if ((packedMaturities & (1 << k)) != 0) {
+            uint256 maturity = baseMaturity + (k * FixedLib.INTERVAL);
+            (uint256 principal, uint256 fee) = market.fixedBorrowPositions(maturity, account);
+            fixedBorrows += principal + fee;
+          }
+          if ((1 << k) > packedMaturities) break;
+        }
+        packedMaturities = market.fixedDeposits(account);
+        baseMaturity = packedMaturities % (1 << 32);
+        packedMaturities = packedMaturities >> 32;
+        for (uint256 k = 0; k < 224; ++k) {
+          if ((packedMaturities & (1 << k)) != 0) {
+            uint256 maturity = baseMaturity + (k * FixedLib.INTERVAL);
+            (uint256 principal, uint256 fee) = market.fixedDepositPositions(maturity, account);
+            fixedDeposits += principal + fee;
+          }
+          if ((1 << k) > packedMaturities) break;
+        }
+      }
+      uint256 fixedUnassignedEarnings = 0;
+      uint256 floatingBackupBorrowed = 0;
+      uint256 backupEarnings = 0;
+      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+      uint256 maxMaturity = latestMaturity + market.maxFuturePools() * FixedLib.INTERVAL;
+      for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+        (uint256 borrowed, uint256 supplied, uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(
+          maturity
+        );
+        floatingBackupBorrowed += borrowed - Math.min(supplied, borrowed);
+        // check the totalAssets against the real totalAssets()
+        if (maturity > lastAccrual) {
+          backupEarnings += block.timestamp < maturity
+            ? unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual)
+            : unassignedEarnings;
+        }
+        fixedUnassignedEarnings += unassignedEarnings;
+      }
+      uint256 totalAssets = market.floatingAssets() +
+        backupEarnings +
+        previewAccumulatedEarnings(market) +
+        market.totalFloatingBorrowAssets() -
+        market.floatingDebt();
+      uint256 assets = market.floatingAssets() -
+        market.floatingDebt() +
+        market.earningsAccumulator() +
+        fixedUnassignedEarnings +
+        fixedDeposits -
+        fixedBorrows;
+
+      assertEq(floatingBackupBorrowed, market.floatingBackupBorrowed());
+      assertEq(totalAssets, market.totalAssets());
+      assertEq(assets, market.asset().balanceOf(address(market)));
+    }
+  }
+
   function floatingAssetsUnderflow(
     Market repaidMarket,
     Market collateralMarket,
@@ -498,31 +585,6 @@ contract ProtocolTest is Test {
     return false;
   }
 
-  function checkInvariants() internal {
-    for (uint256 i = 0; i < accounts.length; ++i) {
-      address account = accounts[i];
-      if (auditor.accountMarkets(account) == 0) {
-        for (uint256 j = 0; j < MARKET_COUNT; ++j) {
-          assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
-        }
-      }
-    }
-    for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
-      Market market = auditor.marketList(i);
-
-      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
-      uint256 maxMaturity = latestMaturity + market.maxFuturePools() * FixedLib.INTERVAL;
-      uint256 floatingBackupBorrowed;
-      for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
-        (uint256 borrowed, uint256 supplied, , ) = market.fixedPools(maturity);
-        floatingBackupBorrowed += borrowed - Math.min(supplied, borrowed);
-        // check the totalAssets against the real totalAssets()
-      }
-      assertEq(floatingBackupBorrowed, market.floatingBackupBorrowed());
-    }
-    // underlying asset balance in market contracts VS floatingAssets - floatingDebt ...
-  }
-
   function moreCollateral(
     Market collateralMarket,
     uint256 seizeAssets,
@@ -539,64 +601,6 @@ contract ProtocolTest is Test {
       }
     }
     return false;
-  }
-
-  function previewDebt(
-    Market market,
-    address account,
-    uint256 borrowAssets,
-    uint256 borrowShares
-  ) internal view returns (uint256 debt) {
-    uint256 memPenaltyRate = market.penaltyRate();
-    uint256 packedMaturities = market.fixedBorrows(account);
-    uint256 baseMaturity = packedMaturities % (1 << 32);
-    packedMaturities = packedMaturities >> 32;
-    // calculate all maturities using the baseMaturity and the following bits representing the following intervals
-    for (uint256 i = 0; i < 224; ) {
-      if ((packedMaturities & (1 << i)) != 0) {
-        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
-        (uint256 principal, uint256 fee) = market.fixedBorrowPositions(maturity, account);
-        uint256 positionAssets = principal + fee;
-
-        debt += positionAssets;
-
-        uint256 secondsDelayed = FixedLib.secondsPre(maturity, block.timestamp);
-        if (secondsDelayed > 0) debt += positionAssets.mulWadDown(secondsDelayed * memPenaltyRate);
-      }
-
-      unchecked {
-        ++i;
-      }
-      if ((1 << i) > packedMaturities) break;
-    }
-    uint256 shares = market.floatingBorrowShares(account);
-    if (shares + borrowShares > 0) debt += previewRefund(market, shares, borrowAssets, borrowShares);
-  }
-
-  function previewRefund(
-    Market market,
-    uint256 shares,
-    uint256 borrowAssets,
-    uint256 borrowShares
-  ) public view returns (uint256) {
-    uint256 supply = market.totalFloatingBorrowShares() + borrowShares;
-    shares += borrowShares;
-    return supply == 0 ? shares : shares.mulDivUp(totalFloatingBorrowAssets(market, borrowAssets), supply);
-  }
-
-  function totalFloatingBorrowAssets(Market market, uint256 borrowAssets) public view returns (uint256) {
-    uint256 memFloatingAssets = market.floatingAssets();
-    uint256 memFloatingDebt = market.floatingDebt() + borrowAssets;
-    uint256 newFloatingUtilization = memFloatingAssets > 0
-      ? Math.min(memFloatingDebt.divWadUp(memFloatingAssets), 1e18)
-      : 0;
-    uint256 newDebt = memFloatingDebt.mulWadDown(
-      market.interestRateModel().floatingBorrowRate(market.floatingUtilization(), newFloatingUtilization).mulDivDown(
-        block.timestamp - market.lastFloatingDebtUpdate(),
-        365 days
-      )
-    );
-    return memFloatingDebt + newDebt;
   }
 
   function previewLiquidateAssets(
@@ -676,14 +680,14 @@ contract ProtocolTest is Test {
   function accountLiquidity(
     address account,
     Market marketToSimulate,
-    uint256 withdrawAmount,
-    uint256 borrowAmount
+    uint256 borrowAssets,
+    uint256 withdrawAssets
   ) internal view returns (uint256 sumCollateral, uint256 sumDebtPlusEffects) {
     Auditor.AccountLiquidity memory vars; // holds all our calculation results
 
     uint256 marketMap = auditor.accountMarkets(account);
     // if simulating a borrow, add the market to the account's map
-    if (borrowAmount > 0) {
+    if (borrowAssets > 0) {
       (, , uint256 index, ) = auditor.markets(marketToSimulate);
       if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
     }
@@ -694,18 +698,18 @@ contract ProtocolTest is Test {
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
         vars.oraclePrice = oracle.assetPrice(market);
         sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
-        sumDebtPlusEffects += (vars.borrowBalance + (market == marketToSimulate ? borrowAmount : 0))
+        sumDebtPlusEffects += (vars.borrowBalance + (market == marketToSimulate ? borrowAssets : 0))
           .mulDivUp(vars.oraclePrice, 10**decimals)
           .divWadUp(adjustFactor);
-        if (market == marketToSimulate && withdrawAmount != 0) {
-          sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
+        if (market == marketToSimulate && withdrawAssets != 0) {
+          sumDebtPlusEffects += withdrawAssets.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
         }
       }
       if ((1 << i) > marketMap) break;
     }
   }
 
-  function simulateAccountLiquidity(
+  function previewAccountLiquidity(
     address account,
     Market marketToSimulate,
     uint256 borrowAssets,
@@ -724,7 +728,7 @@ contract ProtocolTest is Test {
       if ((marketMap & (1 << i)) != 0) {
         (uint128 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
         if (market == marketToSimulate) {
-          (vars.balance, vars.borrowBalance) = accountSnapshot(market, account, borrowAssets, borrowShares);
+          (vars.balance, vars.borrowBalance) = previewAccountSnapshot(market, account, borrowAssets, borrowShares);
         } else (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
         vars.oraclePrice = oracle.assetPrice(market);
         sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
@@ -734,72 +738,94 @@ contract ProtocolTest is Test {
     }
   }
 
-  function accountSnapshot(
+  function previewAccountSnapshot(
     Market market,
     address account,
     uint256 borrowAssets,
     uint256 borrowShares
   ) internal view returns (uint256, uint256) {
-    return (convertToAssets(market, account, borrowAssets), previewDebt(market, account, borrowAssets, borrowShares));
+    return (previewConvertToAssets(market, account), previewDebt(market, account, borrowAssets, borrowShares));
   }
 
-  function convertToAssets(
+  function previewConvertToAssets(Market market, address account) internal view returns (uint256) {
+    uint256 supply = market.totalSupply();
+    uint256 shares = market.balanceOf(account);
+    return supply == 0 ? shares : shares.mulDivDown(previewTotalAssets(market), supply);
+  }
+
+  function previewTotalAssets(Market market) internal view returns (uint256) {
+    uint256 memMaxFuturePools = market.maxFuturePools();
+    uint256 backupEarnings = 0;
+    uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+    uint256 maxMaturity = latestMaturity + memMaxFuturePools * FixedLib.INTERVAL;
+    for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+      (, , uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
+
+      if (maturity > lastAccrual) {
+        backupEarnings += block.timestamp < maturity
+          ? unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual)
+          : unassignedEarnings;
+      }
+    }
+    return
+      market.floatingAssets() +
+      backupEarnings +
+      previewAccumulatedEarnings(market) +
+      previewTotalFloatingBorrowAssets(market) -
+      market.floatingDebt();
+  }
+
+  function previewDebt(
     Market market,
     address account,
-    uint256 borrowAssets
-  ) internal view returns (uint256) {
-    uint256 supply = market.totalSupply();
+    uint256 borrowAssets,
+    uint256 borrowShares
+  ) internal view returns (uint256 debt) {
+    uint256 memPenaltyRate = market.penaltyRate();
+    uint256 packedMaturities = market.fixedBorrows(account);
+    uint256 baseMaturity = packedMaturities % (1 << 32);
+    packedMaturities = packedMaturities >> 32;
+    for (uint256 i = 0; i < 224; ++i) {
+      if ((packedMaturities & (1 << i)) != 0) {
+        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
+        (uint256 principal, uint256 fee) = market.fixedBorrowPositions(maturity, account);
+        uint256 positionAssets = principal + fee;
 
-    return
-      supply == 0
-        ? market.balanceOf(account)
-        : market.balanceOf(account).mulDivDown(totalAssets(market, borrowAssets), supply);
-  }
+        debt += positionAssets;
 
-  function totalAssets(Market market, uint256 borrowAssets) internal view returns (uint256) {
-    unchecked {
-      uint256 memMaxFuturePools = market.maxFuturePools();
-      uint256 backupEarnings = 0;
-
-      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
-      uint256 maxMaturity = latestMaturity + memMaxFuturePools * FixedLib.INTERVAL;
-
-      for (uint256 maturity = latestMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
-        (, , uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
-
-        if (maturity > lastAccrual) {
-          backupEarnings += unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
-        }
+        uint256 secondsDelayed = FixedLib.secondsPre(maturity, block.timestamp);
+        if (secondsDelayed > 0) debt += positionAssets.mulWadDown(secondsDelayed * memPenaltyRate);
       }
-
-      return
-        market.floatingAssets() +
-        backupEarnings +
-        accumulatedEarnings(market) +
-        totalFloatingBorrowAssets(market, borrowAssets) -
-        market.floatingDebt() -
-        borrowAssets;
+      if ((1 << i) > packedMaturities) break;
     }
-  }
-
-  function accumulatedEarnings(Market market) internal view returns (uint256 earnings) {
-    uint256 elapsed = block.timestamp - market.lastAccumulatorAccrual();
-    if (elapsed == 0) return 0;
-    return
-      market.earningsAccumulator().mulDivDown(
-        elapsed,
-        elapsed + market.earningsAccumulatorSmoothFactor().mulWadDown(market.maxFuturePools() * FixedLib.INTERVAL)
-      );
+    uint256 shares = market.floatingBorrowShares(account);
+    if (shares + borrowShares > 0) debt += previewRefund(market, shares, borrowAssets, borrowShares);
   }
 
   function previewRefund(
     Market market,
-    uint256 newShares,
-    uint256 shares
-  ) public view returns (uint256) {
-    uint256 supply = market.totalFloatingBorrowShares() + newShares;
+    uint256 shares,
+    uint256 borrowAssets,
+    uint256 borrowShares
+  ) internal view returns (uint256) {
+    uint256 supply = market.totalFloatingBorrowShares() + borrowShares;
+    shares += borrowShares;
+    return supply == 0 ? shares : shares.mulDivUp(previewTotalFloatingBorrowAssets(market) + borrowAssets, supply);
+  }
 
-    return supply == 0 ? shares : shares.mulDivUp(market.totalFloatingBorrowAssets(), supply);
+  function previewTotalFloatingBorrowAssets(Market market) internal view returns (uint256) {
+    uint256 memFloatingAssets = market.floatingAssets();
+    uint256 memFloatingDebt = market.floatingDebt();
+    uint256 newFloatingUtilization = memFloatingAssets > 0
+      ? Math.min(memFloatingDebt.divWadUp(memFloatingAssets), 1e18)
+      : 0;
+    uint256 newDebt = memFloatingDebt.mulWadDown(
+      market.interestRateModel().floatingBorrowRate(market.floatingUtilization(), newFloatingUtilization).mulDivDown(
+        block.timestamp - market.lastFloatingDebtUpdate(),
+        365 days
+      )
+    );
+    return memFloatingDebt + newDebt;
   }
 
   function previewDepositYield(
