@@ -533,6 +533,71 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingAvailableAssets, 80 ether + distributedEarnings);
   }
 
+  function testFloatingAvailableLiquidityProjectingNewFloatingDebt() external {
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    oracle.setPrice(marketWETH, 2800e18);
+    auditor.enableMarket(marketWETH, 0.7e18, 18);
+    weth.mint(address(this), 50_000 ether);
+    weth.approve(address(marketWETH), 50_000 ether);
+    marketWETH.deposit(50_000 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    market.setReserveFactor(0.1e18);
+
+    // supply 100 to the floating pool
+    market.deposit(100 ether, address(this));
+
+    // borrow 50 from the floating pool
+    market.borrow(50 ether, address(this), address(this));
+
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].floatingAvailableAssets, 40 ether);
+
+    vm.warp(5 days);
+    data = previewer.exactly(address(this));
+    // borrowing the available from the floating pool shouldn't fail
+    market.borrow(data[0].floatingAvailableAssets, address(this), address(this));
+  }
+
+  function testFixedAvailableLiquidityProjectingNewFloatingDebt() external {
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    oracle.setPrice(marketWETH, 2800e18);
+    auditor.enableMarket(marketWETH, 0.7e18, 18);
+    weth.mint(address(this), 50_000 ether);
+    weth.approve(address(marketWETH), 50_000 ether);
+    marketWETH.deposit(50_000 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    market.setReserveFactor(0.1e18);
+
+    // supply 100 to the floating pool
+    market.deposit(100 ether, address(this));
+
+    // let 9012 seconds go by so floatingAssetsAverage is equal to floatingDepositAssets
+    vm.warp(9012 seconds);
+
+    // borrow 50 from the floating pool
+    market.borrow(50 ether, address(this), address(this));
+
+    // borrow 10 from the first maturity
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, 15 ether, address(this), address(this));
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].floatingAvailableAssets, 30 ether);
+
+    vm.warp(5 days);
+    data = previewer.exactly(address(this));
+    // borrowing the available from a fixed pool shouldn't fail
+    market.borrowAtMaturity(
+      FixedLib.INTERVAL,
+      data[0].fixedPools[0].available,
+      type(uint256).max,
+      address(this),
+      address(this)
+    );
+  }
+
   function testFixedPoolsWithFloatingAssetsAverage() external {
     uint256 maxFuturePools = market.maxFuturePools();
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);

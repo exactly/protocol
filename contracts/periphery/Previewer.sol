@@ -282,21 +282,23 @@ contract Previewer {
   }
 
   function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
+    uint256 freshFloatingDebt = newFloatingDebt(market);
     pools = new FixedPool[](market.maxFuturePools());
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
-      uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1);
       FixedLib.Pool memory pool;
-      (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
+      (pool.borrowed, pool.supplied, , ) = market.fixedPools(
+        block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1)
+      );
 
-      uint256 maxAssets = market.floatingAssets().mulWadDown(1e18 - market.reserveFactor());
+      uint256 maxAssets = (market.floatingAssets() + freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
       uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
 
       pools[i] = FixedPool({
-        maturity: maturity,
+        maturity: block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1),
         borrowed: pool.borrowed,
         supplied: pool.supplied,
         available: Math.min(
-          maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt()),
+          maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt() + freshFloatingDebt),
           memFloatingAssetsAverage
         ) +
           pool.supplied -
@@ -307,8 +309,9 @@ contract Previewer {
   }
 
   function floatingAvailableAssets(Market market) internal view returns (uint256) {
-    uint256 maxAssets = market.floatingAssets().mulWadDown(1e18 - market.reserveFactor());
-    return maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt());
+    uint256 freshFloatingDebt = newFloatingDebt(market);
+    uint256 maxAssets = (market.floatingAssets() + freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
+    return maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt() + freshFloatingDebt);
   }
 
   function maturityPositions(
@@ -350,5 +353,20 @@ contract Previewer {
 
   function maxRepay(Market market, address borrower) internal view returns (uint256) {
     return market.previewRefund(market.floatingBorrowShares(borrower));
+  }
+
+  function newFloatingDebt(Market market) internal view returns (uint256) {
+    uint256 memFloatingDebt = market.floatingDebt();
+    uint256 memFloatingAssets = market.floatingAssets();
+    uint256 newFloatingUtilization = memFloatingAssets > 0
+      ? Math.min(memFloatingDebt.divWadUp(memFloatingAssets), 1e18)
+      : 0;
+    return
+      memFloatingDebt.mulWadDown(
+        market.interestRateModel().floatingBorrowRate(market.floatingUtilization(), newFloatingUtilization).mulDivDown(
+          block.timestamp - market.lastFloatingDebtUpdate(),
+          365 days
+        )
+      );
   }
 }

@@ -706,6 +706,19 @@ contract MarketTest is Test {
     market.withdrawAtMaturity(FixedLib.INTERVAL, 1 ether, 0, address(this), address(this));
   }
 
+  function testBorrowAtMaturityUpdatesFloatingDebtAndFloatingAssets() external {
+    marketWETH.deposit(1.15 ether, address(this));
+    oracle.setPrice(marketWETH, 5_000e18);
+    auditor.enterMarket(marketWETH);
+
+    market.setReserveFactor(0.09e18);
+    market.deposit(10 ether, address(this));
+    market.borrow(9 ether, address(this), address(this));
+    vm.warp(3 days);
+    vm.expectRevert(InsufficientProtocolLiquidity.selector);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 0.0999 ether, 1_000 ether, address(this), address(this));
+  }
+
   function testSetEarningsAccumulatorSmoothFactorShouldDistributeEarnings() external {
     market.deposit(100 ether, address(this));
     market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));

@@ -252,6 +252,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       if (backupDebtAddition > 0) {
         uint256 newFloatingBackupBorrowed = floatingBackupBorrowed + backupDebtAddition;
         floatingBackupBorrowed = newFloatingBackupBorrowed;
+        updateFloatingDebt();
         if (newFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
           revert InsufficientProtocolLiquidity();
         }
