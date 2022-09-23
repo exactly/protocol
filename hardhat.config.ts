@@ -37,8 +37,6 @@ const config: Config = {
     },
   },
   finance: {
-    assets: ["DAI", "WETH", "USDC", "WBTC"],
-    adjustFactor: { DAI: 0.95, WETH: 0.82, USDC: 0.98, WBTC: 0.85 },
     liquidationIncentive: {
       liquidator: 0.05,
       lenders: 0.01,
@@ -62,6 +60,60 @@ const config: Config = {
         a: 1.526175,
         b: -0.1695,
         maxUtilization: 7.65,
+      },
+    },
+    markets: {
+      WETH: {
+        adjustFactor: 0.82,
+        fixedCurve: {
+          a: 1.1568,
+          b: -1.0794,
+          maxUtilization: 1.0475,
+        },
+        floatingCurve: {
+          a: 0.0174,
+          b: 0.0027,
+          maxUtilization: 1.007,
+        },
+      },
+      DAI: {
+        adjustFactor: 0.95,
+        fixedCurve: {
+          a: 0.6391,
+          b: -0.6175,
+          maxUtilization: 1.0105,
+        },
+        floatingCurve: {
+          a: 0.022,
+          b: -0.0066,
+          maxUtilization: 1.0182,
+        },
+      },
+      USDC: {
+        adjustFactor: 0.98,
+        fixedCurve: {
+          a: 0.6777,
+          b: -0.6542,
+          maxUtilization: 1.0203,
+        },
+        floatingCurve: {
+          a: 0.0186,
+          b: -0.0084,
+          maxUtilization: 1.0154,
+        },
+      },
+      WBTC: {
+        adjustFactor: 0.85,
+        fixedCurve: {
+          a: 1.5372,
+          b: -1.3898,
+          maxUtilization: 1.0865,
+        },
+        floatingCurve: {
+          a: 0.0547,
+          b: -0.0335,
+          maxUtilization: 1.0216,
+        },
       },
     },
   },
@@ -91,14 +143,8 @@ task(
 export default config;
 
 declare module "hardhat/types/config" {
-  export interface Curve {
-    a: number;
-    b: number;
-    maxUtilization: number;
-  }
   export interface FinanceConfig {
-    assets: string[];
-    adjustFactor: { [asset: string]: number };
+    markets: { [asset: string]: MarketConfig };
     liquidationIncentive: { liquidator: number; lenders: number };
     penaltyRatePerDay: number;
     treasuryFeeRate?: number;
@@ -114,6 +160,18 @@ declare module "hardhat/types/config" {
       fixedCurve: Curve;
       floatingCurve: Curve;
     };
+  }
+
+  export interface MarketConfig {
+    adjustFactor: number;
+    fixedCurve: Curve;
+    floatingCurve: Curve;
+  }
+
+  export interface Curve {
+    a: number;
+    b: number;
+    maxUtilization: number;
   }
 
   export interface NetworksUserConfig {

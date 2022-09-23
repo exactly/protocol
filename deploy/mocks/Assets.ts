@@ -10,7 +10,7 @@ const {
 } = ethers;
 
 export const mockPrices = Object.fromEntries(
-  config.finance.assets
+  Object.keys(config.finance.markets)
     .filter((symbol) => network.live && env[`${symbol}_PRICE`])
     .map((symbol) => [symbol, parseUnits(env[`${symbol}_PRICE`] as string, 8)]),
 );
@@ -18,7 +18,7 @@ export const mockPrices = Object.fromEntries(
 const func: DeployFunction = async ({ config: { finance }, deployments: { deploy, log }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
   const signer = await getSigner(deployer);
-  for (const symbol of finance.assets) {
+  for (const symbol in finance.markets) {
     const decimals = { USDC: 6, WBTC: 8 }[symbol] ?? 18;
     await deploy(symbol, {
       skipIfAlreadyDeployed: true,

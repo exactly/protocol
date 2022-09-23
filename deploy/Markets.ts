@@ -1,9 +1,10 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, ExactlyOracle, Market, InterestRateModel } from "../types";
+import type { Auditor, ERC20, ExactlyOracle, Market } from "../types";
 import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
+import tenderlify from "./.utils/tenderlify";
 import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
@@ -19,19 +20,13 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [
-    auditor,
-    exactlyOracle,
-    interestRateModel,
-    { address: timelockAddress },
-    { deployer, multisig, treasury = AddressZero },
-  ] = await Promise.all([
-    getContract<Auditor>("Auditor"),
-    getContract<ExactlyOracle>("ExactlyOracle"),
-    getContract<InterestRateModel>("InterestRateModel"),
-    get("TimelockController"),
-    getNamedAccounts(),
-  ]);
+  const [auditor, exactlyOracle, { address: timelock }, { deployer, multisig, treasury = AddressZero }] =
+    await Promise.all([
+      getContract<Auditor>("Auditor"),
+      getContract<ExactlyOracle>("ExactlyOracle"),
+      get("TimelockController"),
+      getNamedAccounts(),
+    ]);
 
   const earningsAccumulatorSmoothFactor = parseUnits(String(finance.earningsAccumulatorSmoothFactor));
   const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)).div(86_400);
@@ -41,7 +36,24 @@ const func: DeployFunction = async ({
   const dampSpeedDown = parseUnits(String(finance.dampSpeed.down));
   const treasuryFeeRate = parseUnits(String(finance.treasuryFeeRate ?? 0));
 
-  for (const symbol of finance.assets) {
+  for (const [symbol, config] of Object.entries(finance.markets)) {
+    const { address: interestRateModel } = await tenderlify(
+      "InterestRateModel",
+      await deploy(`InterestRateModel${symbol}`, {
+        contract: "InterestRateModel",
+        args: [
+          parseUnits(String(config.fixedCurve.a)),
+          parseUnits(String(config.fixedCurve.b)),
+          parseUnits(String(config.fixedCurve.maxUtilization)),
+          parseUnits(String(config.floatingCurve.a)),
+          parseUnits(String(config.floatingCurve.b)),
+          parseUnits(String(config.floatingCurve.maxUtilization)),
+        ],
+        from: deployer,
+        log: true,
+      }),
+    );
+
     const asset = await getContract<ERC20>(symbol);
     const marketName = `Market${symbol}`;
     await validateUpgrade(
@@ -56,7 +68,7 @@ const func: DeployFunction = async ({
         deploy(name, {
           ...opts,
           proxy: {
-            owner: timelockAddress,
+            owner: timelock,
             viaAdminContract: "ProxyAdmin",
             proxyContract: "TransparentUpgradeableProxy",
             execute: {
@@ -65,7 +77,7 @@ const func: DeployFunction = async ({
                 args: [
                   maxFuturePools,
                   earningsAccumulatorSmoothFactor,
-                  interestRateModel.address,
+                  interestRateModel,
                   penaltyRate,
                   backupFeeRate,
                   reserveFactor,
@@ -87,7 +99,7 @@ const func: DeployFunction = async ({
         deploy(name, {
           ...opts,
           proxy: {
-            owner: timelockAddress,
+            owner: timelock,
             viaAdminContract: "ProxyAdmin",
             proxyContract: "TransparentUpgradeableProxy",
             execute: {
@@ -115,8 +127,8 @@ const func: DeployFunction = async ({
     if (!(await market.reserveFactor()).eq(reserveFactor)) {
       await executeOrPropose(market, "setReserveFactor", [reserveFactor]);
     }
-    if ((await market.interestRateModel()).toLowerCase() !== interestRateModel.address.toLowerCase()) {
-      await executeOrPropose(market, "setInterestRateModel", [interestRateModel.address]);
+    if ((await market.interestRateModel()).toLowerCase() !== interestRateModel.toLowerCase()) {
+      await executeOrPropose(market, "setInterestRateModel", [interestRateModel]);
     }
     if (!(await market.dampSpeedUp()).eq(dampSpeedUp) || !(await market.dampSpeedDown()).eq(dampSpeedDown)) {
       await executeOrPropose(market, "setDampSpeed", [dampSpeedUp, dampSpeedDown]);
@@ -129,12 +141,12 @@ const func: DeployFunction = async ({
       await executeOrPropose(market, "setTreasury", [treasury, treasuryFeeRate]);
     }
 
-    const { address: priceFeedAddress } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
-    if ((await exactlyOracle.priceFeeds(market.address)) !== priceFeedAddress) {
-      await executeOrPropose(exactlyOracle, "setPriceFeed", [market.address, priceFeedAddress]);
+    const { address: priceFeed } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
+    if ((await exactlyOracle.priceFeeds(market.address)) !== priceFeed) {
+      await executeOrPropose(exactlyOracle, "setPriceFeed", [market.address, priceFeed]);
     }
 
-    const adjustFactor = parseUnits(String(finance.adjustFactor[symbol] ?? finance.adjustFactor.default));
+    const adjustFactor = parseUnits(String(config.adjustFactor));
     if (!(await auditor.allMarkets()).includes(market.address)) {
       await executeOrPropose(auditor, "enableMarket", [market.address, adjustFactor, await asset.decimals()]);
     } else if (!(await auditor.markets(market.address)).adjustFactor.eq(adjustFactor)) {
@@ -143,15 +155,15 @@ const func: DeployFunction = async ({
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
 
-    await transferOwnership(market, deployer, timelockAddress);
+    await transferOwnership(market, deployer, timelock);
   }
 
   for (const contract of [auditor, exactlyOracle]) {
-    await transferOwnership(contract, deployer, timelockAddress);
+    await transferOwnership(contract, deployer, timelock);
   }
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ExactlyOracle", "InterestRateModel", "ProxyAdmin", "TimelockController", "Assets"];
+func.dependencies = ["Auditor", "ExactlyOracle", "ProxyAdmin", "TimelockController", "Assets"];
 
 export default func;

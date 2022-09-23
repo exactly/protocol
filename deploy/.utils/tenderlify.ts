@@ -2,8 +2,10 @@ import { basename } from "path";
 import { config, getChainId, network, tenderly } from "hardhat";
 import type { Deployment } from "hardhat-deploy/types";
 
-export default async (name: string, { address, metadata }: Deployment) => {
-  if (!network.live) return;
+export default async (name: string, deployment: Deployment) => {
+  if (!network.live) return deployment;
+
+  const { address, metadata } = deployment;
   if (!metadata) throw new Error("missing metadata");
 
   const {
@@ -37,4 +39,6 @@ export default async (name: string, { address, metadata }: Deployment) => {
     config.tenderly.project,
     config.tenderly.username,
   );
+
+  return deployment;
 };
