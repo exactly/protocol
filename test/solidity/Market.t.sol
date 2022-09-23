@@ -867,7 +867,6 @@ contract MarketTest is Test {
     oracle.setPrice(marketWETH, 3_000e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
-    uint256 floatingAssetsBefore = market.floatingAssets();
     vm.prank(BOB);
     market.liquidate(address(this), 100 ether, marketWETH);
     uint256 assetsRepaid = uint256(100 ether).divWadDown(1.01e18);
@@ -875,7 +874,7 @@ contract MarketTest is Test {
     uint256 assetsSeized = assetsRepaid.mulDivUp(10**18, 3_000 ether).mulWadUp(1.1e18);
     assertEq(ERC20(market.asset()).balanceOf(BOB), bobDAIBalanceBefore - assetsRepaid - lendersIncentiveRepaid);
     assertEq(weth.balanceOf(address(BOB)), assetsSeized);
-    assertEq(market.floatingAssets(), floatingAssetsBefore + lendersIncentiveRepaid);
+    assertEq(market.earningsAccumulator(), lendersIncentiveRepaid);
   }
 
   function testLiquidateFlexibleAndFixedBorrowPositionsInSingleCall() external {
@@ -958,7 +957,7 @@ contract MarketTest is Test {
 
     assertApproxEqRel(market.previewDebt(address(this)), 1_430 ether, 1e18);
     assertApproxEqRel(market.floatingDebt(), 1_430 ether, 1e18);
-    assertEq(market.floatingAssets(), 50_400 ether + lendersIncentive);
+    assertEq(market.earningsAccumulator(), lendersIncentive);
     assertEq(market.lastFloatingDebtUpdate(), 365 days);
   }
 

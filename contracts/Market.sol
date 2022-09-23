@@ -531,7 +531,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     // reverts on failure
     (uint256 lendersAssets, uint256 seizeAssets) = auditor.calculateSeize(this, seizeMarket, borrower, repaidAssets);
-    floatingAssets += lendersAssets;
+    earningsAccumulator += lendersAssets;
 
     if (address(seizeMarket) == address(this)) {
       internalSeize(this, msg.sender, borrower, seizeAssets);
