@@ -661,7 +661,7 @@ contract MarketTest is Test {
     market.liquidate(address(this), type(uint256).max, marketWETH);
 
     oracle.setPrice(marketWETH, 0.1e18);
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
 

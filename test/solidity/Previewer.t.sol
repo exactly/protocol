@@ -827,17 +827,17 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewRepayAtMaturityWithEmptyMaturity() external {
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     previewer.previewRepayAtMaturity(market, FixedLib.INTERVAL, 1 ether, address(this));
   }
 
   function testPreviewRepayAtMaturityWithEmptyMaturityAndZeroAmount() external {
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     previewer.previewRepayAtMaturity(market, FixedLib.INTERVAL, 0, address(this));
   }
 
   function testPreviewRepayAtMaturityWithInvalidMaturity() external {
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     previewer.previewRepayAtMaturity(market, 376 seconds, 1 ether, address(this));
   }
 
@@ -937,17 +937,17 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewWithdrawAtMaturityWithEmptyMaturity() external {
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     previewer.previewWithdrawAtMaturity(market, FixedLib.INTERVAL, 1 ether);
   }
 
   function testPreviewWithdrawAtMaturityWithEmptyMaturityAndZeroAmount() external {
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     previewer.previewWithdrawAtMaturity(market, FixedLib.INTERVAL, 0);
   }
 
   function testPreviewWithdrawAtMaturityWithInvalidMaturity() external {
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     previewer.previewWithdrawAtMaturity(market, 376 seconds, 1 ether);
   }
 
