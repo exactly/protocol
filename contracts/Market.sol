@@ -109,7 +109,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address receiver,
     address borrower
   ) external whenNotPaused returns (uint256 borrowShares) {
-    checkAllowance(borrower, assets);
+    spendAllowance(borrower, assets);
 
     updateFloatingDebt();
 
@@ -262,7 +262,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     // validate that the account is not taking arbitrary fees
     if (assetsOwed > maxAssets) revert Disagreement();
 
-    checkAllowance(borrower, assetsOwed);
+    spendAllowance(borrower, assetsOwed);
 
     {
       // if account doesn't have a current position, add it to the list
@@ -335,7 +335,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     if (assetsDiscounted < minAssetsRequired) revert Disagreement();
 
-    checkAllowance(owner, assetsDiscounted);
+    spendAllowance(owner, assetsDiscounted);
 
     {
       // remove the supply from the fixed rate pool
@@ -916,7 +916,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Checks msg.sender's allowance over account's assets.
   /// @param account account in which the allowance will be checked.
   /// @param assets assets from account that msg.sender wants to operate on.
-  function checkAllowance(address account, uint256 assets) internal {
+  function spendAllowance(address account, uint256 assets) internal {
     if (msg.sender != account) {
       uint256 allowed = allowance[account][msg.sender]; // saves gas for limited approvals.
 
