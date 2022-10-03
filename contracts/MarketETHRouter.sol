@@ -7,6 +7,7 @@ import { Market } from "./Market.sol";
 
 contract MarketETHRouter is Initializable {
   using SafeTransferLib for address;
+  using SafeTransferLib for WETH;
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Market public immutable market;
@@ -32,7 +33,7 @@ contract MarketETHRouter is Initializable {
   }
 
   function initialize() external initializer {
-    weth.approve(address(market), type(uint256).max);
+    weth.safeApprove(address(market), type(uint256).max);
   }
 
   receive() external payable {
