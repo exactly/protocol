@@ -7,7 +7,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 library FixedLib {
   using FixedPointMathLib for uint256;
 
-  uint256 public constant INTERVAL = 4 weeks;
+  uint256 internal constant INTERVAL = 4 weeks;
 
   /// @notice Gets the amount of revenue sharing between the backup supplier and the new fixed pool supplier.
   /// @param pool fixed rate pool.
