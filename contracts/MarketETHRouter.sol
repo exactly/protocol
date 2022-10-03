@@ -41,15 +41,15 @@ contract MarketETHRouter is Initializable {
   }
 
   function deposit() external payable wrap returns (uint256 shares) {
-    shares = market.deposit(msg.value, msg.sender);
+    return market.deposit(msg.value, msg.sender);
   }
 
   function withdraw(uint256 assets) external unwrap(assets) returns (uint256 shares) {
-    shares = market.withdraw(assets, address(this), msg.sender);
+    return market.withdraw(assets, address(this), msg.sender);
   }
 
   function borrow(uint256 assets) external unwrap(assets) returns (uint256 borrowShares) {
-    borrowShares = market.borrow(assets, address(this), msg.sender);
+    return market.borrow(assets, address(this), msg.sender);
   }
 
   function repay(uint256 assets) external payable wrap returns (uint256 repaidAssets, uint256 borrowShares) {
