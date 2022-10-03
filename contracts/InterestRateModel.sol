@@ -44,7 +44,7 @@ contract InterestRateModel {
   /// @param borrowed ex-ante amount borrowed from this fixed rate pool.
   /// @param supplied deposits in the fixed rate pool.
   /// @param backupAssets backup supplier assets.
-  /// @return rate of the fee that the borrower will have to pay (represented with 1e18 decimals).
+  /// @return rate of the fee that the borrower will have to pay (represented with 18 decimals).
   function fixedBorrowRate(
     uint256 maturity,
     uint256 amount,
