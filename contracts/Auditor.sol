@@ -366,7 +366,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Emitted when a new market is listed for borrow/lending.
   /// @param market address of the market that was listed.
   /// @param decimals decimals of the market's underlying asset.
-  event MarketListed(Market market, uint8 decimals);
+  event MarketListed(Market indexed market, uint8 decimals);
 
   /// @notice Emitted when an account enters a market to use his deposit as collateral for a loan.
   /// @param market address of the market that the account entered.
@@ -390,7 +390,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
   /// @notice Emitted when a new Oracle has been set.
   /// @param oracle address of the new oracle that is used to calculate liquidity.
-  event OracleSet(ExactlyOracle oracle);
+  event OracleSet(ExactlyOracle indexed oracle);
 
   struct LiquidationIncentive {
     uint128 liquidator;

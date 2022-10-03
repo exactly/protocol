@@ -24,7 +24,7 @@ contract AuditorTest is Test {
   MockOracle internal oracle;
   MockMarket internal market;
 
-  event MarketListed(Market market, uint8 decimals);
+  event MarketListed(Market indexed market, uint8 decimals);
   event MarketEntered(Market indexed market, address indexed account);
   event MarketExited(Market indexed market, address indexed account);
 
@@ -37,7 +37,7 @@ contract AuditorTest is Test {
   }
 
   function testEnableMarket() external {
-    vm.expectEmit(false, false, false, true, address(auditor));
+    vm.expectEmit(true, true, true, true, address(auditor));
     emit MarketListed(Market(address(market)), 18);
 
     auditor.enableMarket(Market(address(market)), 0.8e18, 18);
