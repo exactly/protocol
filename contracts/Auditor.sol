@@ -89,9 +89,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
     // for each asset the account is in
     uint256 marketMap = accountMarkets[account];
-    uint256 maxValue = marketList.length;
-    for (uint256 i = 0; i < maxValue; ) {
-      if ((marketMap & (1 << i)) != 0) {
+    for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
+      if (marketMap & 1 != 0) {
         Market market = marketList[i];
         uint256 decimals = markets[market].decimals;
         uint256 adjustFactor = markets[market].adjustFactor;
@@ -120,7 +119,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       unchecked {
         ++i;
       }
-      if ((1 << i) > marketMap) break;
     }
   }
 
@@ -183,9 +181,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     MarketVars memory repay;
     LiquidityVars memory usd;
     uint256 marketMap = accountMarkets[borrower];
-    uint256 marketCount = marketList.length;
-    for (uint256 i = 0; i < marketCount; ) {
-      if ((marketMap & (1 << i)) != 0) {
+    for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
+      if (marketMap & 1 != 0) {
         Market market = marketList[i];
         MarketData memory memMarket = markets[market];
         MarketVars memory m = MarketVars({
@@ -210,7 +207,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       unchecked {
         ++i;
       }
-      if ((1 << i) > marketMap) break;
     }
 
     if (usd.adjustedCollateral >= usd.adjustedDebt) revert InsufficientShortfall();
@@ -278,23 +274,23 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @dev Collateral is multiplied by price and adjust factor to be accurately evaluated as positive collateral asset.
   /// @param account account in which debt is being checked.
   function handleBadDebt(address account) external {
-    uint256 marketCount = marketList.length;
-    uint256 marketMap = accountMarkets[account];
-    for (uint256 i = 0; i < marketCount; ) {
-      if ((marketMap & (1 << i)) != 0) {
+    uint256 memMarketMap = accountMarkets[account];
+    uint256 marketMap = memMarketMap;
+    for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
+      if (marketMap & 1 != 0) {
         Market market = marketList[i];
         MarketData storage m = markets[market];
         uint256 assets = market.maxWithdraw(account);
         if (assets.mulDivDown(oracle.assetPrice(market), 10**m.decimals).mulWadDown(m.adjustFactor) > 0) return;
       }
-
       unchecked {
         ++i;
       }
     }
 
-    for (uint256 i = 0; i < marketCount; ) {
-      marketList[i].clearBadDebt(account);
+    marketMap = memMarketMap;
+    for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
+      if (marketMap & 1 != 0) marketList[i].clearBadDebt(account);
       unchecked {
         ++i;
       }
