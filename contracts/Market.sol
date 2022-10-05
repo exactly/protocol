@@ -247,22 +247,22 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     );
     assetsOwed = assets + fee;
 
-    {
-      uint256 backupDebtAddition = pool.borrow(assets);
-      if (backupDebtAddition > 0) {
-        uint256 newFloatingBackupBorrowed = floatingBackupBorrowed + backupDebtAddition;
-        floatingBackupBorrowed = newFloatingBackupBorrowed;
-        updateFloatingDebt();
-        if (newFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
-          revert InsufficientProtocolLiquidity();
-        }
-      }
-    }
-
     // validate that the account is not taking arbitrary fees
     if (assetsOwed > maxAssets) revert Disagreement();
 
     spendAllowance(borrower, assetsOwed);
+
+    {
+      uint256 backupDebtAddition = pool.borrow(assets);
+      if (backupDebtAddition > 0) {
+        uint256 newFloatingBackupBorrowed = floatingBackupBorrowed + backupDebtAddition;
+        updateFloatingDebt();
+        if (newFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
+          revert InsufficientProtocolLiquidity();
+        }
+        floatingBackupBorrowed = newFloatingBackupBorrowed;
+      }
+    }
 
     {
       // if account doesn't have a current position, add it to the list
@@ -640,9 +640,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     updateFloatingDebt();
     uint256 earnings = accrueAccumulatedEarnings();
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
-    floatingAssets = newFloatingAssets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed
     if (floatingBackupBorrowed + floatingDebt > newFloatingAssets) revert InsufficientProtocolLiquidity();
+    floatingAssets = newFloatingAssets;
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.

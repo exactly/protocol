@@ -1877,12 +1877,12 @@ contract MarketTest is Test {
 
     // borrowing more from maturity number 2 should revert
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 100 ether + 1, 101 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 100 ether + 1, type(uint256).max, address(this), address(this));
 
     // assets in maturity number 2 = 50
     market.depositAtMaturity(FixedLib.INTERVAL * 2, 50 ether, 50 ether, address(this));
     // assets in maturity number 1 = 25
-    market.borrowAtMaturity(FixedLib.INTERVAL, 125 ether, 150 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 125 ether, type(uint256).max, address(this), address(this));
 
     // withdrawing 50 from maturity number 1 should revert
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
@@ -1893,7 +1893,7 @@ contract MarketTest is Test {
     market.borrow(25 ether, address(this), address(this));
     // borrowing 25 eth from maturity should revert due to reserve factor
     vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 25 ether, 25 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 25 ether, type(uint256).max, address(this), address(this));
   }
 
   function testEarlyRepaymentWithExcessiveAmountOfFees() external {
