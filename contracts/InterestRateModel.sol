@@ -55,10 +55,11 @@ contract InterestRateModel {
     if (block.timestamp >= maturity) revert AlreadyMatured();
 
     uint256 potentialAssets = supplied + backupAssets;
-    uint256 utilizationBefore = borrowed.divWadDown(potentialAssets);
     uint256 utilizationAfter = (borrowed + amount).divWadUp(potentialAssets);
 
     if (utilizationAfter > 1e18) revert UtilizationExceeded();
+
+    uint256 utilizationBefore = borrowed.divWadDown(potentialAssets);
 
     return fixedRate(utilizationBefore, utilizationAfter).mulDivDown(maturity - block.timestamp, 365 days);
   }
