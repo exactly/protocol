@@ -935,7 +935,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
   /// liquidity.
   /// @dev Value can only be set between 20% and 0%.
-  /// @param backupFeeRate_ percentage amount represented with 1e18 decimals.
+  /// @param backupFeeRate_ percentage amount represented with 18 decimals.
   function setBackupFeeRate(uint256 backupFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     backupFeeRate = backupFeeRate_;
     emit BackupFeeRateSet(backupFeeRate_);
@@ -1001,7 +1001,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Sets the treasury variables.
   /// @param treasury_ address of the treasury that will receive the minted eTokens.
-  /// @param treasuryFeeRate_ represented with 1e18 decimals.
+  /// @param treasuryFeeRate_ represented with 18 decimals.
   function setTreasury(address treasury_, uint256 treasuryFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
@@ -1127,12 +1127,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   event BackupFeeRateSet(uint256 backupFeeRate);
 
   /// @notice Emitted when the damp speeds are changed by admin.
-  /// @param dampSpeedUp represented with 1e18 decimals.
-  /// @param dampSpeedDown represented with 1e18 decimals.
+  /// @param dampSpeedUp represented with 18 decimals.
+  /// @param dampSpeedDown represented with 18 decimals.
   event DampSpeedSet(uint256 dampSpeedUp, uint256 dampSpeedDown);
 
   /// @notice Emitted when the earningsAccumulatorSmoothFactor is changed by admin.
-  /// @param earningsAccumulatorSmoothFactor factor represented with 1e18 decimals.
+  /// @param earningsAccumulatorSmoothFactor factor represented with 18 decimals.
   event EarningsAccumulatorSmoothFactorSet(uint256 earningsAccumulatorSmoothFactor);
 
   /// @notice Emitted when the interestRateModel is changed by admin.
@@ -1144,7 +1144,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   event MaxFuturePoolsSet(uint256 maxFuturePools);
 
   /// @notice Emitted when the penaltyRate is changed by admin.
-  /// @param penaltyRate penaltyRate percentage per second represented with 1e18 decimals.
+  /// @param penaltyRate penaltyRate percentage per second represented with 18 decimals.
   event PenaltyRateSet(uint256 penaltyRate);
 
   /// @notice Emitted when the reserveFactor is changed by admin.
@@ -1153,7 +1153,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Emitted when the treasury variables are changed by admin.
   /// @param treasury address of the treasury that will receive the minted eTokens.
-  /// @param treasuryFeeRate represented with 1e18 decimals.
+  /// @param treasuryFeeRate represented with 18 decimals.
   event TreasurySet(address indexed treasury, uint256 treasuryFeeRate);
 
   /// @notice Emitted when market state is updated.
