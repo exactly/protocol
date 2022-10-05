@@ -546,12 +546,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
   }
 
-  /// @notice Clears floating and fixed debt for an account spreading the losses between the floating assets.
+  /// @notice Clears floating and fixed debt for an account spreading the losses to the `earningsAccumulator`.
   /// @dev Can only be called from the auditor.
   /// @param account account with insufficient collateral to be cleared the debt.
   function clearBadDebt(address account) external {
     if (msg.sender != address(auditor)) revert NotAuditor();
 
+    floatingAssets += accrueAccumulatedEarnings();
+    uint256 accumulator = earningsAccumulator;
     uint256 totalBadDebt = 0;
     uint256 packedMaturities = fixedBorrows[account];
     uint256 maturity = packedMaturities & ((1 << 32) - 1);
@@ -560,7 +562,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       if (packedMaturities & 1 != 0) {
         FixedLib.Position storage position = fixedBorrowPositions[maturity][account];
         uint256 badDebt = position.principal + position.fee;
-        if (badDebt > 0) {
+        if (accumulator >= badDebt) {
+          accumulator -= badDebt;
           totalBadDebt += badDebt;
           floatingBackupBorrowed -= fixedPools[maturity].repay(position.principal);
           delete fixedBorrowPositions[maturity][account];
@@ -572,19 +575,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       packedMaturities >>= 1;
       maturity += FixedLib.INTERVAL;
     }
-    uint256 borrowShares = floatingBorrowShares[account];
-    if (borrowShares > 0) totalBadDebt += noTransferRefund(borrowShares, account);
-    if (totalBadDebt > 0) spreadBadDebt(totalBadDebt);
-  }
-
-  /// @notice Spreads bad debt subtracting the amount from the `earningsAccumulator` and/or `floatingAssets`.
-  /// @param badDebt amount that it's assumed an account won't repay due to insufficient collateral.
-  function spreadBadDebt(uint256 badDebt) internal {
-    uint256 memEarningsAccumulator = earningsAccumulator;
-    uint256 fromAccumulator = Math.min(memEarningsAccumulator, badDebt);
-    earningsAccumulator = memEarningsAccumulator - fromAccumulator;
-    if (fromAccumulator < badDebt) floatingAssets -= badDebt - fromAccumulator;
-
+    if (floatingBorrowShares[account] > 0 && (accumulator = previewRepay(accumulator)) > 0) {
+      totalBadDebt += noTransferRefund(accumulator, account);
+    }
+    if (totalBadDebt > 0) earningsAccumulator -= totalBadDebt;
     emitMarketUpdate();
   }
 

@@ -407,7 +407,18 @@ describe("Liquidations", function () {
       describe("WHEN WETH price suddenly decreases (now alice has bad debt) AND she gets liquidated", () => {
         beforeEach(async () => {
           await dai.connect(john).approve(marketDAI.address, MaxUint256);
-          await marketDAI.connect(john).deposit(parseUnits("10000"), john.address);
+          await dai.mint(john.address, parseUnits("100000"));
+          await marketDAI.connect(john).deposit(parseUnits("100000"), john.address);
+
+          // distribute earnings to accumulator
+          await exactlyEnv.setBorrowRate("1");
+          await marketDAI.setBackupFeeRate(parseUnits("1"));
+          await marketDAI
+            .connect(john)
+            .borrowAtMaturity(futurePools(1)[0], parseUnits("10000"), parseUnits("20000"), john.address, john.address);
+          await marketDAI
+            .connect(john)
+            .depositAtMaturity(futurePools(1)[0], parseUnits("10000"), parseUnits("10000"), john.address);
 
           await exactlyEnv.oracle.setPrice(marketETH.address, parseUnits("100"));
           await marketDAI.connect(john).liquidate(alice.address, MaxUint256, marketETH.address);

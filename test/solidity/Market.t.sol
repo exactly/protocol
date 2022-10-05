@@ -24,6 +24,7 @@ import {
 
 contract MarketTest is Test {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for uint128;
 
   address internal constant BOB = address(0x69);
   address internal constant ALICE = address(0x420);
@@ -560,19 +561,27 @@ contract MarketTest is Test {
       0
     );
     assertEq(remainingCollateral, 0);
-    assertEq(remainingDebt, 0);
+    // accumulator can't afford covering bad debt
+    assertEq(remainingDebt, 5591732318181818181818);
     assertEq(marketWETH.balanceOf(address(this)), 0);
     assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
   }
 
   function testMultipleLiquidationSameUser() external {
-    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
-    market.deposit(5_000 ether, ALICE);
+    market.deposit(40_000 ether, ALICE);
     market.setPenaltyRate(2e11);
     oracle.setPrice(marketWETH, 5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
+    // distribute earnings to accumulator
+    market.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    vm.prank(ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10_000 ether, 20_000 ether, ALICE, ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 10_000 ether, 10_000 ether, ALICE);
+
+    irm.setBorrowRate(0);
     market.borrowAtMaturity(FixedLib.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
     oracle.setPrice(marketWETH, 1_000e18);
 
@@ -637,13 +646,20 @@ contract MarketTest is Test {
   }
 
   function testLiquidateLeavingDustAsCollateral() external {
-    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
-    market.deposit(5_000 ether, ALICE);
+    market.deposit(50_000 ether, ALICE);
     market.setPenaltyRate(2e11);
     oracle.setPrice(marketWETH, 5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
+    // distribute earnings to accumulator
+    market.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    vm.prank(ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 15_000 ether, 30_000 ether, ALICE, ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 15_000 ether, 15_000 ether, ALICE);
+
+    irm.setBorrowRate(0);
     for (uint256 i = 1; i <= 3; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
     }
@@ -789,14 +805,184 @@ contract MarketTest is Test {
     market.clearBadDebt(address(this));
   }
 
+  function testClearBadDebtWithEmptyAccumulatorShouldNotRevert() external {
+    oracle.setPrice(marketWETH, 5_000e18);
+    marketWETH.deposit(1 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    market.deposit(1_000 ether, BOB);
+    market.borrow(500 ether, address(this), address(this));
+    oracle.setPrice(marketWETH, 1);
+    (uint256 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
+    uint256 floatingAssetsBefore = market.floatingAssets();
+    assertEq(
+      market.maxWithdraw(address(this)).mulDivDown(auditor.oracle().assetPrice(market), 10**decimals).mulWadDown(
+        adjustFactor
+      ),
+      0
+    );
+    assertEq(market.earningsAccumulator(), 0);
+
+    auditor.handleBadDebt(address(this));
+    assertEq(market.earningsAccumulator(), 0);
+    assertEq(market.floatingAssets(), floatingAssetsBefore);
+    // user still has debt
+    assertGt(market.previewDebt(address(this)), 0);
+  }
+
+  function testClearBadDebtPartiallyRepaysEachFixedBorrow() external {
+    irm.setBorrowRate(1e18);
+    oracle.setPrice(marketWETH, 5_000e18);
+    marketWETH.deposit(1 ether, address(this));
+    auditor.enterMarket(marketWETH);
+
+    market.deposit(1_000 ether, BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
+    // with a 100% borrow rate the accumulator keeps 10% of the fees
+    market.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
+    assertEq(market.earningsAccumulator(), 20 ether);
+
+    oracle.setPrice(marketWETH, 1);
+    // clear the first fixed borrow debt with accumulator's earnings
+    vm.expectEmit(true, true, true, true, address(market));
+    emit RepayAtMaturity(FixedLib.INTERVAL, address(auditor), address(this), 10 ether, 10 ether);
+    auditor.handleBadDebt(address(this));
+
+    // only first fixed borrow is covered
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal + fee, 0);
+    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
+    assertEq(principal + fee, 400 ether);
+    assertEq(market.earningsAccumulator(), 10 ether);
+  }
+
+  function testClearBadDebtExactlyRepaysFixedBorrowWithAccumulatorAmount() external {
+    irm.setBorrowRate(10e18);
+    oracle.setPrice(marketWETH, 5_000e18);
+    marketWETH.deposit(1 ether, address(this));
+    auditor.enterMarket(marketWETH);
+
+    market.deposit(1_000 ether, BOB);
+    market.borrow(50 ether, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
+    // with a 1000% borrow rate the accumulator keeps 100% of the fees
+    market.depositAtMaturity(FixedLib.INTERVAL, 5 ether, 5 ether, address(this));
+    market.repayAtMaturity(FixedLib.INTERVAL, 50 ether, 50 ether, address(this));
+    assertEq(market.earningsAccumulator(), 5 ether);
+
+    oracle.setPrice(marketWETH, 1);
+    vm.expectEmit(true, true, true, true, address(market));
+    emit RepayAtMaturity(FixedLib.INTERVAL, address(auditor), address(this), 5 ether, 5 ether);
+    auditor.handleBadDebt(address(this));
+
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal + fee, 0);
+    assertEq(market.fixedBorrows(address(this)), 0);
+    assertEq(market.earningsAccumulator(), 0);
+    // floating debt remains untouched
+    assertEq(market.previewRefund(market.floatingBorrowShares(address(this))), 50 ether);
+  }
+
+  function testClearBadDebtPartiallyRepaysFloatingDebt() external {
+    irm.setBorrowRate(1e18);
+    oracle.setPrice(marketWETH, 5_000e18);
+    marketWETH.deposit(1 ether, address(this));
+    auditor.enterMarket(marketWETH);
+
+    market.deposit(1_000 ether, BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
+    market.borrow(50 ether, address(this), address(this));
+    // with a 100% borrow rate the accumulator keeps 10% of the fees
+    market.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
+    assertEq(market.earningsAccumulator(), 20 ether);
+
+    oracle.setPrice(marketWETH, 1);
+    // clear the first fixed borrow debt and 1/5 of the floating debt with accumulator's earnings
+    vm.expectEmit(true, true, true, true, address(market));
+    emit Repay(address(auditor), address(this), 10 ether, 10 ether);
+    auditor.handleBadDebt(address(this));
+
+    // only first fixed borrow is covered
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal + fee, 0);
+    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
+    assertEq(principal + fee, 400 ether);
+    assertEq(market.previewRefund(market.floatingBorrowShares(address(this))), 40 ether);
+    assertEq(market.earningsAccumulator(), 0);
+  }
+
+  function testClearBadDebtAvoidingFixedBorrowsIfAccumulatorLower() external {
+    irm.setBorrowRate(1e18);
+    oracle.setPrice(marketWETH, 5_000e18);
+    marketWETH.deposit(1 ether, address(this));
+    auditor.enterMarket(marketWETH);
+
+    market.deposit(1_000 ether, BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 11 ether, type(uint256).max, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 100 ether, type(uint256).max, address(this), address(this));
+    market.borrow(5 ether, address(this), address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
+
+    oracle.setPrice(marketWETH, 1);
+    vm.expectEmit(true, true, true, true, address(market));
+    emit Repay(address(auditor), address(this), 5 ether, 5 ether);
+    auditor.handleBadDebt(address(this));
+
+    // only first fixed borrow is covered
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal + fee, 22 ether);
+    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
+    assertEq(principal + fee, 200 ether);
+    assertEq(market.previewRefund(market.floatingBorrowShares(address(this))), 0);
+    assertEq(market.earningsAccumulator(), 5 ether);
+  }
+
+  function testClearBadDebtShouldAccrueAccumulatedEarningsBeforeSpreadingLosses() external {
+    irm.setBorrowRate(1e18);
+    oracle.setPrice(marketWETH, 5_000e18);
+    marketWETH.deposit(1 ether, address(this));
+    auditor.enterMarket(marketWETH);
+
+    market.deposit(1_000 ether, BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, type(uint256).max, address(this), address(this));
+    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
+    // with a 100% borrow rate the accumulator keeps 10% of the fees
+    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
+    market.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
+    assertEq(market.earningsAccumulator(), 21 ether);
+
+    vm.warp(4 weeks);
+    uint256 totalAssetsBefore = market.totalAssets();
+    oracle.setPrice(marketWETH, 1);
+    vm.expectEmit(true, true, true, true, address(market));
+    emit MarketUpdate(4 weeks, market.totalSupply(), market.floatingAssets() + 5.25 ether, 0, 0, 15.75 ether);
+    auditor.handleBadDebt(address(this));
+    assertEq(market.floatingAssets(), totalAssetsBefore);
+
+    // no borrow is covered
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    assertEq(principal + fee, 20 ether);
+    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
+    assertEq(principal + fee, 400 ether);
+    assertEq(market.earningsAccumulator(), 15.75 ether);
+  }
+
   function testLiquidateAndSeizeExactAmountWithDustAsCollateral() external {
-    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether + 5, address(this));
-    market.deposit(5_000 ether, ALICE);
+    market.deposit(100_000 ether, ALICE);
     market.setPenaltyRate(2e11);
     oracle.setPrice(marketWETH, 5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
+    // distribute earnings to accumulator
+    market.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    vm.prank(ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 20_000 ether, 40_000 ether, ALICE, ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 20_000 ether, 20_000 ether, ALICE);
+
+    irm.setBorrowRate(0);
     for (uint256 i = 1; i <= 3; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether + 100, 1_000 ether + 100, address(this), address(this));
     }
@@ -842,6 +1028,14 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
 
+    // distribute earnings to accumulator
+    market.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    vm.prank(ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 15_000 ether, 30_000 ether, ALICE, ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 15_000 ether, 15_000 ether, ALICE);
+
+    market.setBackupFeeRate(1e17);
     oracle.setPrice(marketWETH, 5_000e18);
     market.borrow(4_000 ether, address(this), address(this));
     oracle.setPrice(marketWETH, 4_000e18);
@@ -984,11 +1178,18 @@ contract MarketTest is Test {
   }
 
   function testLiquidateAndDistributeLosses() external {
-    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
 
+    // distribute earnings to accumulator
+    market.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    vm.prank(ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10_000 ether, 20_000 ether, ALICE, ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 10_000 ether, 10_000 ether, ALICE);
+
+    irm.setBorrowRate(0);
     oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
@@ -996,11 +1197,11 @@ contract MarketTest is Test {
     oracle.setPrice(marketWETH, 3_000e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
-    uint256 floatingAssetsBefore = market.floatingAssets();
+    uint256 accumulatorBefore = market.earningsAccumulator();
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
     uint256 bobDAIBalanceAfter = ERC20(market.asset()).balanceOf(BOB);
-    uint256 floatingAssetsAfter = market.floatingAssets();
+    uint256 accumulatorAfter = market.earningsAccumulator();
     uint256 totalUsdDebt = 1_000 ether * 4;
     // if 110% is 1.15 ether then 100% is 1.0454545455 ether * 3_000 (eth price) = 3136363636363636363637
     uint256 totalBobRepayment = 3136363636363636363637;
@@ -1009,7 +1210,7 @@ contract MarketTest is Test {
     // BOB SEIZES ALL ACCOUNT COLLATERAL
     assertEq(weth.balanceOf(address(BOB)), 1.15 ether);
     assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment + lendersIncentive);
-    assertEq(floatingAssetsBefore - floatingAssetsAfter + lendersIncentive, totalUsdDebt - totalBobRepayment);
+    assertEq(accumulatorBefore - accumulatorAfter + lendersIncentive, totalUsdDebt - totalBobRepayment);
     assertEq(market.fixedBorrows(address(this)), 0);
     for (uint256 i = 1; i <= 4; i++) {
       (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * i, address(this));
@@ -1019,13 +1220,20 @@ contract MarketTest is Test {
 
   function testLiquidateAndSubtractLossesFromAccumulator() external {
     vm.warp(1);
-    irm.setBorrowRate(0.1e18);
-    market.setBackupFeeRate(0);
     marketWETH.deposit(1.3 ether, address(this));
-    market.deposit(50_000 ether, ALICE);
+    market.deposit(100_000 ether, ALICE);
     market.setMaxFuturePools(12);
     market.setPenaltyRate(2e11);
 
+    // distribute earnings to accumulator
+    market.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    vm.prank(ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 20_000 ether, 40_000 ether, ALICE, ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 20_000 ether, 20_000 ether, ALICE);
+
+    irm.setBorrowRate(0.1e18);
+    market.setBackupFeeRate(0);
     oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 3; i <= 6; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_100 ether, address(this), address(this));
@@ -1040,36 +1248,40 @@ contract MarketTest is Test {
     (, uint256 debt) = market.accountSnapshot(ALICE);
     vm.prank(ALICE);
     market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, debt, address(ALICE));
-    uint256 earningsAccumulator = market.earningsAccumulator();
-    uint256 floatingAssets = market.floatingAssets();
-
-    assertEq(earningsAccumulator, debt - principal - fee);
+    uint256 earningsAccumulatorBefore = market.earningsAccumulator();
+    uint256 lendersIncentive = 1181818181818181818;
+    uint256 badDebt = 981818181818181818181 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
+    uint256 accumulatedEarnings = (earningsAccumulatorBefore + lendersIncentive).mulDivDown(
+      block.timestamp - market.lastAccumulatorAccrual(),
+      block.timestamp -
+        market.lastAccumulatorAccrual() +
+        market.earningsAccumulatorSmoothFactor().mulWadDown(market.maxFuturePools() * FixedLib.INTERVAL)
+    );
 
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
 
-    uint256 badDebt = 981818181818181818181 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
-    uint256 backupEarningsDistributedInRepayment = 66666662073779496497;
-    uint256 lendersIncentive = 1181818181818181818;
-
-    assertEq(market.earningsAccumulator(), 0);
+    assertGt(market.earningsAccumulator(), 0);
     assertEq(
       badDebt,
-      earningsAccumulator +
-        floatingAssets -
-        market.floatingAssets() +
-        backupEarningsDistributedInRepayment +
-        lendersIncentive
+      earningsAccumulatorBefore - market.earningsAccumulator() - accumulatedEarnings + lendersIncentive
     );
     assertEq(market.fixedBorrows(address(this)), 0);
   }
 
   function testDistributionOfLossesShouldReduceFromFloatingBackupBorrowedAccordingly() external {
-    irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
 
+    // distribute earnings to accumulator
+    market.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    vm.prank(ALICE);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 10_000 ether, 20_000 ether, ALICE, ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 10_000 ether, 10_000 ether, ALICE);
+
+    irm.setBorrowRate(0);
     oracle.setPrice(marketWETH, 5_000e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
@@ -1105,9 +1317,21 @@ contract MarketTest is Test {
   function testLiquidationClearingDebtOfAllAccountMarkets() external {
     oracle.setPrice(marketWETH, 3_000e18);
     marketWETH.deposit(10 ether, BOB);
-    market.deposit(1000 ether, BOB);
-
+    market.deposit(50_000 ether, BOB);
     marketWETH.deposit(1 ether, address(this));
+
+    // distribute earnings to accumulator
+    market.setBackupFeeRate(1e18);
+    marketWETH.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    vm.prank(BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 15_000 ether, 30_000 ether, BOB, BOB);
+    market.depositAtMaturity(FixedLib.INTERVAL, 15_000 ether, 15_000 ether, BOB);
+    vm.prank(BOB);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 2 ether, 4 ether, BOB, BOB);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 2 ether, 2 ether, BOB);
+
+    irm.setBorrowRate(1e17);
     market.borrow(500 ether, address(this), address(this));
     marketWETH.borrow(0.25 ether, address(this), address(this));
 
@@ -1143,10 +1367,15 @@ contract MarketTest is Test {
   }
 
   function testLiquidationResultingInZeroCollateralAndZeroDebt() external {
-    irm.setBorrowRate(0);
     oracle.setPrice(marketWETH, 2_000e18);
 
-    market.deposit(50_000 ether, ALICE);
+    market.deposit(500_000 ether, ALICE);
+    vm.prank(ALICE);
+    market.approve(address(this), type(uint256).max);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 100_000 ether, 110_000 ether, ALICE, ALICE);
+    market.depositAtMaturity(FixedLib.INTERVAL, 100_000 ether, 100_000 ether, ALICE);
+
+    irm.setBorrowRate(0);
     marketWETH.deposit(1 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
 
