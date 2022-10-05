@@ -157,7 +157,7 @@ library FixedLib {
     // initialize the maturity with also the 1st bit on the 33th position set
     if (encoded == 0) return maturity | (1 << 32);
 
-    uint256 baseMaturity = encoded % (1 << 32);
+    uint256 baseMaturity = encoded & ((1 << 32) - 1);
     if (maturity < baseMaturity) {
       // if the new maturity is lower than the base, set it as the new base
       // wipe clean the last 32 bits, shift the amount of `INTERVAL` and set the new value with the 33rd bit set
@@ -179,7 +179,7 @@ library FixedLib {
   function clearMaturity(uint256 encoded, uint256 maturity) internal pure returns (uint256) {
     if (encoded == 0 || encoded == maturity | (1 << 32)) return 0;
 
-    uint256 baseMaturity = encoded % (1 << 32);
+    uint256 baseMaturity = encoded & ((1 << 32) - 1);
     // if the baseMaturity is the one being cleaned
     if (maturity == baseMaturity) {
       // wipe 32 bytes + 1 for the old base flag

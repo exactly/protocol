@@ -487,38 +487,36 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     maxAssets = auditor.checkLiquidation(this, seizeMarket, borrower, maxAssets);
     if (maxAssets == 0) revert ZeroRepay();
 
-    uint256 packedMaturities = fixedBorrows[borrower];
-    uint256 baseMaturity = packedMaturities % (1 << 32);
-    packedMaturities = packedMaturities >> 32;
-    for (uint256 i = 0; i < 224; ) {
-      if ((packedMaturities & (1 << i)) != 0) {
-        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
-        uint256 actualRepay;
-        if (block.timestamp < maturity) {
-          actualRepay = noTransferRepayAtMaturity(maturity, maxAssets, maxAssets, borrower, false);
-          maxAssets -= actualRepay;
-        } else {
-          uint256 position;
-          {
-            FixedLib.Position storage p = fixedBorrowPositions[maturity][borrower];
-            position = p.principal + p.fee;
-          }
-          uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
-          actualRepay = debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets;
-
-          if (actualRepay == 0) maxAssets = 0;
-          else {
-            actualRepay = noTransferRepayAtMaturity(maturity, actualRepay, maxAssets, borrower, false);
+    {
+      uint256 packedMaturities = fixedBorrows[borrower];
+      uint256 maturity = packedMaturities & ((1 << 32) - 1);
+      packedMaturities = packedMaturities >> 32;
+      while (packedMaturities != 0 && maxAssets != 0) {
+        if (packedMaturities & 1 != 0) {
+          uint256 actualRepay;
+          if (block.timestamp < maturity) {
+            actualRepay = noTransferRepayAtMaturity(maturity, maxAssets, maxAssets, borrower, false);
             maxAssets -= actualRepay;
-          }
-        }
-        repaidAssets += actualRepay;
-      }
+          } else {
+            uint256 position;
+            {
+              FixedLib.Position storage p = fixedBorrowPositions[maturity][borrower];
+              position = p.principal + p.fee;
+            }
+            uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * penaltyRate);
+            actualRepay = debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets;
 
-      unchecked {
-        ++i;
+            if (actualRepay == 0) maxAssets = 0;
+            else {
+              actualRepay = noTransferRepayAtMaturity(maturity, actualRepay, maxAssets, borrower, false);
+              maxAssets -= actualRepay;
+            }
+          }
+          repaidAssets += actualRepay;
+        }
+        packedMaturities >>= 1;
+        maturity += FixedLib.INTERVAL;
       }
-      if ((1 << i) > packedMaturities || maxAssets == 0) break;
     }
 
     if (maxAssets > 0 && floatingBorrowShares[borrower] > 0) {
@@ -556,12 +554,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     uint256 totalBadDebt = 0;
     uint256 packedMaturities = fixedBorrows[account];
-    uint256 baseMaturity = packedMaturities % (1 << 32);
+    uint256 maturity = packedMaturities & ((1 << 32) - 1);
     packedMaturities = packedMaturities >> 32;
-    for (uint256 i = 0; i < 224; ) {
-      if ((packedMaturities & (1 << i)) != 0) {
-        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
-
+    while (packedMaturities != 0) {
+      if (packedMaturities & 1 != 0) {
         FixedLib.Position storage position = fixedBorrowPositions[maturity][account];
         uint256 badDebt = position.principal + position.fee;
         if (badDebt > 0) {
@@ -573,11 +569,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
           emit RepayAtMaturity(maturity, msg.sender, account, badDebt, badDebt);
         }
       }
-
-      unchecked {
-        ++i;
-      }
-      if ((1 << i) > packedMaturities) break;
+      packedMaturities >>= 1;
+      maturity += FixedLib.INTERVAL;
     }
     uint256 borrowShares = floatingBorrowShares[account];
     if (borrowShares > 0) totalBadDebt += noTransferRefund(borrowShares, account);
@@ -732,12 +725,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function previewDebt(address account) public view returns (uint256 debt) {
     uint256 memPenaltyRate = penaltyRate;
     uint256 packedMaturities = fixedBorrows[account];
-    uint256 baseMaturity = packedMaturities % (1 << 32);
+    uint256 maturity = packedMaturities & ((1 << 32) - 1);
     packedMaturities = packedMaturities >> 32;
-    // calculate all maturities using the baseMaturity and the following bits representing the following intervals
-    for (uint256 i = 0; i < 224; ) {
-      if ((packedMaturities & (1 << i)) != 0) {
-        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
+    // calculate all maturities using the base maturity and the following bits representing the following intervals
+    while (packedMaturities != 0) {
+      if (packedMaturities & 1 != 0) {
         FixedLib.Position storage position = fixedBorrowPositions[maturity][account];
         uint256 positionAssets = position.principal + position.fee;
 
@@ -746,11 +738,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         uint256 secondsDelayed = FixedLib.secondsPre(maturity, block.timestamp);
         if (secondsDelayed > 0) debt += positionAssets.mulWadDown(secondsDelayed * memPenaltyRate);
       }
-
-      unchecked {
-        ++i;
-      }
-      if ((1 << i) > packedMaturities) break;
+      packedMaturities >>= 1;
+      maturity += FixedLib.INTERVAL;
     }
     // calculate floating borrowed debt
     uint256 shares = floatingBorrowShares[account];

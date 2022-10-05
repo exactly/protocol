@@ -112,7 +112,7 @@ contract PoolLibTest is Test {
       if (indexes[i] > 223) continue;
 
       uint256 maturity = ((uint256(indexes[i]) + 1) * FixedLib.INTERVAL);
-      uint256 base = maturities % (1 << 32);
+      uint256 base = maturities & ((1 << 32) - 1);
 
       if (maturity < base) vm.expectRevert(stdError.arithmeticError);
       uint256 newMaturities = this.clearMaturity(maturities, maturity);
@@ -134,7 +134,7 @@ contract PoolLibTest is Test {
   }
 
   function hasMaturity(uint256 encoded, uint256 maturity) internal pure returns (bool) {
-    uint256 baseMaturity = encoded % (1 << 32);
+    uint256 baseMaturity = encoded & ((1 << 32) - 1);
     if (maturity < baseMaturity) return false;
 
     uint256 range = (maturity - baseMaturity) / FixedLib.INTERVAL;

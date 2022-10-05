@@ -322,15 +322,17 @@ contract Previewer {
     uint256 userMaturityCount = 0;
     FixedPosition[] memory allMaturityPositions = new FixedPosition[](224);
     uint256 packedMaturities = getMaturities(account);
-    for (uint256 i = 0; i < 224; ++i) {
-      if (((packedMaturities >> 32) & (1 << i)) != 0) {
-        uint256 maturity = (packedMaturities % (1 << 32)) + (i * FixedLib.INTERVAL);
+    uint256 maturity = packedMaturities & ((1 << 32) - 1);
+    packedMaturities = packedMaturities >> 32;
+    while (packedMaturities != 0) {
+      if (packedMaturities & 1 != 0) {
         (uint256 principal, uint256 fee) = getPositions(maturity, account);
         allMaturityPositions[userMaturityCount].maturity = maturity;
         allMaturityPositions[userMaturityCount].position = FixedLib.Position(principal, fee);
         ++userMaturityCount;
       }
-      if ((1 << i) > packedMaturities) break;
+      packedMaturities >>= 1;
+      maturity += FixedLib.INTERVAL;
     }
 
     userMaturityPositions = new FixedPosition[](userMaturityCount);
