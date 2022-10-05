@@ -719,6 +719,28 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 0.0999 ether, 1_000 ether, address(this), address(this));
   }
 
+  function testShareValueNotDecreasingWhenMintingToTreasury() external {
+    market.setTreasury(address(BOB), 0.1e18);
+    market.deposit(10 ether, address(this));
+    market.borrow(3 ether, address(this), address(this));
+    vm.warp(100 days);
+    uint256 shareValueBefore = market.previewMint(1e18);
+    market.borrow(1, address(this), address(this));
+    uint256 shareValueAfter = market.previewMint(1e18);
+    assertGe(shareValueAfter, shareValueBefore);
+  }
+
+  function testTotalAssetsProjectingFloatingDebtCorrectly() external {
+    market.setTreasury(address(BOB), 0.1e18);
+    market.deposit(10 ether, address(this));
+    market.borrow(1 ether, address(this), address(this));
+    vm.warp(1 days);
+    uint256 totalAssets = market.totalAssets();
+    uint256 newDebt = market.totalFloatingBorrowAssets() - market.floatingDebt();
+    market.deposit(2, address(this));
+    assertEq(market.totalAssets() - totalAssets, 2 + newDebt.mulWadUp(market.treasuryFeeRate()));
+  }
+
   function testTotalAssetsProjectingBackupEarningsCorrectly() external {
     market.deposit(10 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 2 ether, address(this), address(this));
