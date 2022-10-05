@@ -357,7 +357,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     // the account gets discounted the full amount
     position.reduceProportionally(positionAssets);
-    if (position.principal + position.fee == 0) {
+    if (position.principal | position.fee == 0) {
       delete fixedDepositPositions[maturity][owner];
       fixedDeposits[owner] = fixedDeposits[owner].clearMaturity(maturity);
     } else {
@@ -456,7 +456,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     // update the account position
     position.reduceProportionally(debtCovered);
-    if (position.principal + position.fee == 0) {
+    if (position.principal | position.fee == 0) {
       delete fixedBorrowPositions[maturity][borrower];
       fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
     } else {
