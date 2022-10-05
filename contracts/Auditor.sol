@@ -140,9 +140,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
       accountMarkets[borrower] = marketMap | (1 << m.index);
       emit MarketEntered(market, borrower);
-
-      // it should be impossible to break this invariant
-      assert((accountMarkets[borrower] & (1 << m.index)) != 0);
     }
 
     // verify that current liquidity is not short
