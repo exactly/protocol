@@ -29,11 +29,12 @@ export default async (account: string, contract: Contract, functionName: string,
     const safeTxHash = await safeSdk.getTransactionHash(safeTransaction);
     const senderSignature = await safeSdk.signTransactionHash(safeTxHash);
     await safeService.proposeTransaction({
-      safeAddress,
       safeTxHash,
-      safeTransactionData: safeTransaction.data,
-      senderSignature: senderSignature.data,
+      safeAddress,
       senderAddress,
+      senderSignature: senderSignature.data,
+      safeTransactionData: safeTransaction.data,
+      origin: "deploy",
     });
   }
 };

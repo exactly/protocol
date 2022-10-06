@@ -23,9 +23,9 @@ const config: Config = {
       accounts: { accountsBalance: `1${"0".repeat(32)}` },
       allowUnlimitedContractSize: true,
     },
-    rinkeby: {
-      gnosisSafeTxService: "https://safe-transaction.rinkeby.gnosis.io/",
-      url: env.RINKEBY_NODE ?? "https://rinkeby.infura.io/",
+    goerli: {
+      gnosisSafeTxService: "https://safe-transaction-goerli.safe.global",
+      url: env.GOERLI_NODE ?? "https://goerli.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
     },
   },
@@ -33,7 +33,7 @@ const config: Config = {
     deployer: { default: 0 },
     multisig: {
       default: 0,
-      rinkeby: "0x755DF607BA55ff6430FEE0126A52Bf82D1e57F5f",
+      goerli: "0x1801f5EAeAbA3fD02cBF4b7ED1A7b58AD84C0705",
     },
   },
   finance: {
