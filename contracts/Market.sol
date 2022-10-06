@@ -578,7 +578,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (floatingBorrowShares[account] > 0 && (accumulator = previewRepay(accumulator)) > 0) {
       totalBadDebt += noTransferRefund(accumulator, account);
     }
-    if (totalBadDebt > 0) earningsAccumulator -= totalBadDebt;
+    if (totalBadDebt > 0) {
+      earningsAccumulator -= totalBadDebt;
+      emit SpreadBadDebt(account, totalBadDebt);
+    }
     emitMarketUpdate();
   }
 
@@ -1115,6 +1118,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param borrower address which had the original debt.
   /// @param assets amount seized of the collateral.
   event Seize(address indexed liquidator, address indexed borrower, uint256 assets);
+
+  /// @notice Emitted when an account is cleared from bad debt.
+  /// @param borrower address which was cleared from bad debt.
+  /// @param assets amount that was subtracted from the borrower's debt and spread to the `earningsAccumulator`.
+  event SpreadBadDebt(address indexed borrower, uint256 assets);
 
   /// @notice Emitted when the backupFeeRate parameter is changed by admin.
   /// @param backupFeeRate rate charged to the fixed pools to be accrued by the floating depositors.

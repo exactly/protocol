@@ -1259,6 +1259,8 @@ contract MarketTest is Test {
     );
 
     vm.prank(BOB);
+    vm.expectEmit(true, true, true, true, address(market));
+    emit SpreadBadDebt(address(this), badDebt);
     market.liquidate(address(this), type(uint256).max, marketWETH);
 
     assertGt(market.earningsAccumulator(), 0);
@@ -2282,6 +2284,7 @@ contract MarketTest is Test {
     Market indexed seizeMarket,
     uint256 seizedAssets
   );
+  event SpreadBadDebt(address indexed borrower, uint256 assets);
 }
 
 contract MarketHarness is Market {
