@@ -17,7 +17,7 @@ import type { HardhatUserConfig as Config } from "hardhat/types";
 setup({ automaticVerifications: false });
 
 const config: Config = {
-  solidity: { version: "0.8.16", settings: { optimizer: { enabled: true, runs: 200 } } },
+  solidity: { version: "0.8.17", settings: { optimizer: { enabled: true, runs: 200 } } },
   networks: {
     hardhat: {
       accounts: { accountsBalance: `1${"0".repeat(32)}` },
