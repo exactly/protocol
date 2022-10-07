@@ -175,10 +175,11 @@ contract Previewer {
     returns (FixedPreview[] memory previews)
   {
     uint256 maxFuturePools = market.maxFuturePools();
-    uint256 nextMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     previews = new FixedPreview[](maxFuturePools);
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      previews[i] = previewDepositAtMaturity(market, nextMaturity + FixedLib.INTERVAL * i, assets);
+      previews[i] = previewDepositAtMaturity(market, maturity, assets);
+      maturity += FixedLib.INTERVAL;
     }
   }
 
@@ -225,10 +226,15 @@ contract Previewer {
     returns (FixedPreview[] memory previews)
   {
     uint256 maxFuturePools = market.maxFuturePools();
-    uint256 nextMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     previews = new FixedPreview[](maxFuturePools);
     for (uint256 i = 0; i < maxFuturePools; i++) {
-      previews[i] = previewBorrowAtMaturity(market, nextMaturity + FixedLib.INTERVAL * i, assets);
+      try this.previewBorrowAtMaturity(market, maturity, assets) returns (FixedPreview memory preview) {
+        previews[i] = preview;
+      } catch {
+        previews[i] = FixedPreview({ maturity: maturity, assets: type(uint256).max, utilization: type(uint256).max });
+      }
+      maturity += FixedLib.INTERVAL;
     }
   }
 
