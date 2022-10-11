@@ -210,7 +210,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     // if account doesn't have a current position, add it to the list
     if (position.principal == 0) fixedDeposits[receiver] = fixedDeposits[receiver].setMaturity(maturity);
 
-    fixedDepositPositions[maturity][receiver] = FixedLib.Position(position.principal + assets, position.fee + fee);
+    position.principal += assets;
+    position.fee += fee;
 
     floatingAssets += backupEarnings;
 
