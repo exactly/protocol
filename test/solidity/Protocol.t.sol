@@ -260,6 +260,7 @@ contract ProtocolTest is Test {
 
   function deposit(uint256 i, uint256 assets) internal {
     Market market = markets[(i / 2) % markets.length];
+    uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     underlyingAssets[(i / 2) % underlyingAssets.length].mint(account, assets);
     if (market.totalSupply() > 0 && market.totalAssets() == 0) {
@@ -274,10 +275,12 @@ contract ProtocolTest is Test {
     }
     vm.prank(account);
     market.deposit(assets, account);
+    if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
   }
 
   function mint(uint256 i, uint256 shares) internal {
     Market market = markets[(i / 2) % markets.length];
+    uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     if (market.totalSupply() > 0 && market.totalAssets() == 0) {
       forceEarningsToAccumulator(market, markets[(i / 2 + 1) % markets.length]);
@@ -289,6 +292,7 @@ contract ProtocolTest is Test {
     emit Deposit(account, account, expectedAssets, shares);
     vm.prank(account);
     market.mint(shares, account);
+    if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
   }
 
   function enterMarket(uint256 i) internal {
@@ -329,6 +333,7 @@ contract ProtocolTest is Test {
 
   function borrow(uint256 i, uint256 assets) internal {
     Market market = markets[(i / 2) % markets.length];
+    uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     uint256 expectedShares = market.previewBorrow(assets);
     (uint256 collateral, uint256 debt) = previewAccountLiquidity(account, market, assets, expectedShares);
@@ -348,10 +353,12 @@ contract ProtocolTest is Test {
     }
     vm.prank(account);
     market.borrow(assets, account, account);
+    if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
   }
 
   function repay(uint256 i, uint256 assets) internal {
     Market market = markets[(i / 2) % markets.length];
+    uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     underlyingAssets[(i / 2) % underlyingAssets.length].mint(account, assets);
     uint256 borrowShares = Math.min(market.previewRepay(assets), market.floatingBorrowShares(account));
@@ -364,10 +371,12 @@ contract ProtocolTest is Test {
     }
     vm.prank(account);
     market.repay(assets, account);
+    if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
   }
 
   function refund(uint256 i, uint256 shares) internal {
     Market market = markets[(i / 2) % markets.length];
+    uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     uint256 borrowShares = Math.min(shares, market.floatingBorrowShares(account));
     uint256 refundAssets = market.previewRefund(borrowShares);
@@ -380,10 +389,12 @@ contract ProtocolTest is Test {
     }
     vm.prank(account);
     market.refund(shares, account);
+    if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
   }
 
   function withdraw(uint256 i, uint256 assets) internal {
     Market market = markets[(i / 2) % markets.length];
+    uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     (, , uint256 index, ) = auditor.markets(market);
     uint256 expectedShares = market.totalAssets() != 0 ? market.previewWithdraw(assets) : 0;
@@ -411,10 +422,12 @@ contract ProtocolTest is Test {
     }
     vm.prank(account);
     market.withdraw(assets, account, account);
+    if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
   }
 
   function redeem(uint256 i, uint256 shares) internal {
     Market market = markets[(i / 2) % markets.length];
+    uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     (, , uint256 index, ) = auditor.markets(market);
     uint256 expectedAssets = market.previewRedeem(shares);
@@ -442,10 +455,12 @@ contract ProtocolTest is Test {
     }
     vm.prank(account);
     market.redeem(shares, account, account);
+    if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
   }
 
   function transfer(uint256 i, uint256 shares) internal {
     Market market = markets[(i / 2) % markets.length];
+    uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     address otherAccount = accounts[(i + 1) % accounts.length];
     (, , uint256 index, ) = auditor.markets(market);
@@ -462,11 +477,13 @@ contract ProtocolTest is Test {
     }
     vm.prank(account);
     market.transfer(otherAccount, shares);
+    if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
   }
 
   function liquidate(uint256 i) internal {
     Market market = markets[i];
     Market collateralMarket = markets[(i + 1) % MARKET_COUNT];
+    uint256 shareValue = collateralMarket.totalSupply() > 0 ? collateralMarket.previewMint(1e18) : 0;
     (, , uint256 index, ) = auditor.markets(market);
     (, , uint256 collateralIndex, ) = auditor.markets(collateralMarket);
     (uint256 collateral, uint256 debt) = accountLiquidity(BOB, Market(address(0)), 0, 0);
@@ -507,6 +524,7 @@ contract ProtocolTest is Test {
     }
     vm.prank(ALICE);
     uint256 repaidAssets = market.liquidate(BOB, type(uint256).max, collateralMarket);
+    if (collateralMarket.totalSupply() > 0) assertGe(collateralMarket.previewMint(1e18), shareValue);
     if (repaidAssets > 0) {
       BadDebtVars memory b;
       (b.adjustFactor, b.decimals, , ) = auditor.markets(market);
@@ -536,6 +554,32 @@ contract ProtocolTest is Test {
       if (auditor.accountMarkets(account) == 0) {
         for (uint256 j = 0; j < MARKET_COUNT; ++j) {
           assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
+        }
+      }
+      for (uint256 j = 0; j < MARKET_COUNT; ++j) {
+        uint256 packedMaturities = markets[j].fixedBorrows(account);
+        uint256 maturity = packedMaturities & ((1 << 32) - 1);
+        packedMaturities = packedMaturities >> 32;
+        while (packedMaturities != 0) {
+          if (packedMaturities & 1 != 0) {
+            FixedLib.Position memory p;
+            (p.principal, p.fee) = markets[j].fixedBorrowPositions(maturity, account);
+            assertGt(p.principal + p.fee, 0, "should contain debt");
+          }
+          packedMaturities >>= 1;
+          maturity += FixedLib.INTERVAL;
+        }
+        packedMaturities = markets[j].fixedDeposits(account);
+        maturity = packedMaturities & ((1 << 32) - 1);
+        packedMaturities = packedMaturities >> 32;
+        while (packedMaturities != 0) {
+          if (packedMaturities & 1 != 0) {
+            FixedLib.Position memory p;
+            (p.principal, p.fee) = markets[j].fixedDepositPositions(maturity, account);
+            assertGt(p.principal + p.fee, 0, "should contain deposit");
+          }
+          packedMaturities >>= 1;
+          maturity += FixedLib.INTERVAL;
         }
       }
     }
