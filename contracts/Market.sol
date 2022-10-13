@@ -111,7 +111,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   ) external whenNotPaused returns (uint256 borrowShares) {
     spendAllowance(borrower, assets);
 
-    updateFloatingDebt();
+    depositToTreasury(updateFloatingDebt());
 
     borrowShares = previewBorrow(assets);
 
@@ -163,7 +163,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param borrower the address of the account that has the debt.
   /// @return assets the actual amount that should be transferred into the protocol.
   function noTransferRefund(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
-    updateFloatingDebt();
+    depositToTreasury(updateFloatingDebt());
     uint256 userBorrowShares = floatingBorrowShares[borrower];
     borrowShares = Math.min(borrowShares, userBorrowShares);
     assets = previewRefund(borrowShares);
@@ -257,7 +257,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       uint256 backupDebtAddition = pool.borrow(assets);
       if (backupDebtAddition > 0) {
         uint256 newFloatingBackupBorrowed = floatingBackupBorrowed + backupDebtAddition;
-        updateFloatingDebt();
+        depositToTreasury(updateFloatingDebt());
         if (newFloatingBackupBorrowed + floatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
           revert InsufficientProtocolLiquidity();
         }
@@ -635,7 +635,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param assets amount of assets to be withdrawn from the floating pool.
   function beforeWithdraw(uint256 assets, uint256) internal override {
     updateFloatingAssetsAverage();
-    updateFloatingDebt();
+    depositToTreasury(updateFloatingDebt());
     uint256 earnings = accrueAccumulatedEarnings();
     uint256 newFloatingAssets = floatingAssets + earnings - assets;
     // check if the underlying liquidity that the account wants to withdraw is borrowed
@@ -647,9 +647,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param assets amount of assets to be deposited to the floating pool.
   function afterDeposit(uint256 assets, uint256) internal override whenNotPaused {
     updateFloatingAssetsAverage();
-    updateFloatingDebt();
+    uint256 treasuryFee = updateFloatingDebt();
     uint256 earnings = accrueAccumulatedEarnings();
     floatingAssets += earnings + assets;
+    depositToTreasury(treasuryFee);
     emitMarketUpdate();
   }
 
@@ -745,30 +746,32 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Charges treasury fee to certain amount of earnings.
-  /// @dev Mints amount of eTokens on behalf of the treasury address.
   /// @param earnings amount of earnings.
   /// @return earnings minus the fees charged by the treasury.
   function chargeTreasuryFee(uint256 earnings) internal returns (uint256) {
-    uint256 memTreasuryFeeRate = treasuryFeeRate;
-    if (memTreasuryFeeRate == 0 || earnings == 0) return earnings;
-
-    uint256 fee = earnings.mulWadDown(memTreasuryFeeRate);
-    _mint(treasury, previewDeposit(fee));
-    floatingAssets += fee;
+    uint256 fee = earnings.mulWadDown(treasuryFeeRate);
+    depositToTreasury(fee);
     return earnings - fee;
   }
 
   /// @notice Collects all earnings that are charged to borrowers that make use of fixed pool deposits' assets.
-  /// @dev Mints amount of eTokens on behalf of the treasury address.
   /// @param earnings amount of earnings.
   function collectFreeLunch(uint256 earnings) internal {
     if (earnings == 0) return;
 
     if (treasuryFeeRate > 0) {
-      _mint(treasury, previewDeposit(earnings));
-      floatingAssets += earnings;
+      depositToTreasury(earnings);
     } else {
       earningsAccumulator += earnings;
+    }
+  }
+
+  /// @notice Deposits amount of assets on behalf of the treasury address.
+  /// @param fee amount of assets to be deposited.
+  function depositToTreasury(uint256 fee) internal {
+    if (fee > 0) {
+      _mint(treasury, previewDeposit(fee));
+      floatingAssets += fee;
     }
   }
 
@@ -809,7 +812,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Updates the floating pool borrows' variables.
-  function updateFloatingDebt() internal {
+  function updateFloatingDebt() internal returns (uint256 treasuryFee) {
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
     uint256 newFloatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
@@ -821,7 +824,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     );
 
     memFloatingDebt += newDebt;
-    floatingAssets += chargeTreasuryFee(newDebt);
+    treasuryFee = newDebt.mulWadDown(treasuryFeeRate);
+    floatingAssets += newDebt - treasuryFee;
     floatingDebt = memFloatingDebt;
     floatingUtilization = newFloatingUtilization;
     lastFloatingDebtUpdate = uint32(block.timestamp);
@@ -831,8 +835,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Calculates the total floating debt, considering elapsed time since last update and current interest rate.
   /// @return actual floating debt plus projected interest.
   function totalFloatingBorrowAssets() public view returns (uint256) {
-    uint256 memFloatingAssets = floatingAssets;
     uint256 memFloatingDebt = floatingDebt;
+    uint256 memFloatingAssets = floatingAssets;
     uint256 newFloatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
       interestRateModel.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
@@ -968,7 +972,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param interestRateModel_ new interest rate model.
   function setInterestRateModel(InterestRateModel interestRateModel_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     interestRateModel = interestRateModel_;
-    updateFloatingDebt();
+    depositToTreasury(updateFloatingDebt());
     emitMarketUpdate();
     emit InterestRateModelSet(interestRateModel_);
   }

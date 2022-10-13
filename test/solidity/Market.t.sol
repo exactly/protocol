@@ -746,6 +746,16 @@ contract MarketTest is Test {
     assertGe(shareValueAfter, shareValueBefore);
   }
 
+  function testShareValueNotDecreasingAfterDeposit() external {
+    market.setTreasury(address(BOB), 0.1e18);
+    market.deposit(10 ether, address(this));
+    market.borrow(1 ether, address(this), address(this));
+    vm.warp(10 days);
+    uint256 shareValue = market.previewMint(1e18);
+    market.deposit(1 ether, address(this));
+    assertGe(market.previewMint(1e18), shareValue);
+  }
+
   function testTotalAssetsProjectingFloatingDebtCorrectly() external {
     market.setTreasury(address(BOB), 0.1e18);
     market.deposit(10 ether, address(this));
