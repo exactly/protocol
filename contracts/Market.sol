@@ -825,7 +825,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     memFloatingDebt += newDebt;
     treasuryFee = newDebt.mulWadDown(treasuryFeeRate);
-    floatingAssets += newDebt - treasuryFee;
+    floatingAssets = memFloatingAssets + newDebt - treasuryFee;
     floatingDebt = memFloatingDebt;
     floatingUtilization = newFloatingUtilization;
     lastFloatingDebtUpdate = uint32(block.timestamp);
