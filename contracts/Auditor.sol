@@ -39,13 +39,14 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Allows assets of a certain market to be used as collateral for borrowing other assets.
   /// @param market market to enabled as collateral.
   function enterMarket(Market market) external {
-    MarketData memory m = markets[market];
+    MarketData storage m = markets[market];
     if (!m.isListed) revert MarketNotListed();
 
     uint256 marketMap = accountMarkets[msg.sender];
+    uint256 marketMask = 1 << m.index;
 
-    if ((marketMap & (1 << m.index)) != 0) return;
-    accountMarkets[msg.sender] = marketMap | (1 << m.index);
+    if ((marketMap & marketMask) != 0) return;
+    accountMarkets[msg.sender] = marketMap | marketMask;
 
     emit MarketEntered(market, msg.sender);
   }
@@ -55,7 +56,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// for an outstanding borrow.
   /// @param market market to be disabled as collateral.
   function exitMarket(Market market) external {
-    MarketData memory m = markets[market];
+    MarketData storage m = markets[market];
     if (!m.isListed) revert MarketNotListed();
 
     (uint256 assets, uint256 debt) = market.accountSnapshot(msg.sender);
@@ -67,9 +68,10 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     checkShortfall(market, msg.sender, assets);
 
     uint256 marketMap = accountMarkets[msg.sender];
+    uint256 marketMask = 1 << m.index;
 
-    if ((marketMap & (1 << m.index)) == 0) return;
-    accountMarkets[msg.sender] = marketMap & ~(1 << m.index);
+    if ((marketMap & marketMask) == 0) return;
+    accountMarkets[msg.sender] = marketMap & ~marketMask;
 
     emit MarketExited(market, msg.sender);
   }
@@ -93,8 +95,9 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
       if (marketMap & 1 != 0) {
         Market market = marketList[i];
-        uint256 baseUnit = 10**markets[market].decimals;
-        uint256 adjustFactor = markets[market].adjustFactor;
+        MarketData storage m = markets[market];
+        uint256 baseUnit = 10**m.decimals;
+        uint256 adjustFactor = m.adjustFactor;
 
         // read the balances
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
@@ -128,16 +131,18 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param market address of the market where the borrow is made.
   /// @param borrower address of the account that will repay the debt.
   function checkBorrow(Market market, address borrower) external {
-    MarketData memory m = markets[market];
+    MarketData storage m = markets[market];
     if (!m.isListed) revert MarketNotListed();
+
     uint256 marketMap = accountMarkets[borrower];
+    uint256 marketMask = 1 << m.index;
 
     // validate borrow state
-    if ((marketMap & (1 << m.index)) == 0) {
+    if ((marketMap & marketMask) == 0) {
       // only markets may call checkBorrow if borrower not in market
       if (msg.sender != address(market)) revert NotMarket();
 
-      accountMarkets[borrower] = marketMap | (1 << m.index);
+      accountMarkets[borrower] = marketMap | marketMask;
       emit MarketEntered(market, borrower);
     }
 
@@ -186,11 +191,11 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
       if (marketMap & 1 != 0) {
         Market market = marketList[i];
-        MarketData memory memMarket = markets[market];
+        MarketData storage marketData = markets[market];
         MarketVars memory m = MarketVars({
           price: memOracle.assetPrice(market),
-          adjustFactor: memMarket.adjustFactor,
-          baseUnit: 10**memMarket.decimals
+          adjustFactor: marketData.adjustFactor,
+          baseUnit: 10**marketData.decimals
         });
 
         if (market == repayMarket) repay = m;
