@@ -89,16 +89,19 @@ contract Previewer {
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
       Market market = auditor.marketList(i);
+      Market.Account memory a;
+      Auditor.MarketData memory m;
       uint256 oraclePrice = oracle.assetPrice(market);
-      (uint128 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
+      (m.adjustFactor, m.decimals, m.index, m.isListed) = auditor.markets(market);
+      (a.fixedDeposits, a.fixedBorrows, a.floatingBorrowShares) = market.accounts(account);
       data[i] = MarketAccount({
         // market
         market: market,
-        decimals: decimals,
+        decimals: m.decimals,
         assetSymbol: market.asset().symbol(),
         oraclePrice: oraclePrice,
         penaltyRate: market.penaltyRate(),
-        adjustFactor: adjustFactor,
+        adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
         fixedPools: fixedPools(market),
         floatingBackupBorrowed: market.floatingBackupBorrowed(),
@@ -108,14 +111,14 @@ contract Previewer {
         // account
         isCollateral: markets & (1 << i) != 0 ? true : false,
         maxBorrowAssets: adjustedCollateral >= adjustedDebt
-          ? (adjustedCollateral - adjustedDebt).mulDivUp(10**decimals, oraclePrice).mulWadUp(adjustFactor)
+          ? (adjustedCollateral - adjustedDebt).mulDivUp(10**m.decimals, oraclePrice).mulWadUp(m.adjustFactor)
           : 0,
-        floatingBorrowShares: market.floatingBorrowShares(account),
+        floatingBorrowShares: a.floatingBorrowShares,
         floatingBorrowAssets: maxRepay(market, account),
         floatingDepositShares: market.balanceOf(account),
         floatingDepositAssets: market.maxWithdraw(account),
-        fixedDepositPositions: maturityPositions(account, market.fixedDeposits, market.fixedDepositPositions),
-        fixedBorrowPositions: maturityPositions(account, market.fixedBorrows, market.fixedBorrowPositions)
+        fixedDepositPositions: maturityPositions(account, a.fixedDeposits, market.fixedDepositPositions),
+        fixedBorrowPositions: maturityPositions(account, a.fixedBorrows, market.fixedBorrowPositions)
       });
     }
   }
@@ -322,12 +325,11 @@ contract Previewer {
 
   function maturityPositions(
     address account,
-    function(address) external view returns (uint256) getMaturities,
+    uint256 packedMaturities,
     function(uint256, address) external view returns (uint256, uint256) getPositions
   ) internal view returns (FixedPosition[] memory userMaturityPositions) {
     uint256 userMaturityCount = 0;
     FixedPosition[] memory allMaturityPositions = new FixedPosition[](224);
-    uint256 packedMaturities = getMaturities(account);
     uint256 maturity = packedMaturities & ((1 << 32) - 1);
     packedMaturities = packedMaturities >> 32;
     while (packedMaturities != 0) {
@@ -360,7 +362,8 @@ contract Previewer {
   }
 
   function maxRepay(Market market, address borrower) internal view returns (uint256) {
-    return market.previewRefund(market.floatingBorrowShares(borrower));
+    (, , uint256 floatingBorrowShares) = market.accounts(borrower);
+    return market.previewRefund(floatingBorrowShares);
   }
 
   function newFloatingDebt(Market market) internal view returns (uint256) {

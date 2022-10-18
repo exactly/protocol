@@ -88,7 +88,7 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(thirdMaturity, 2.31 ether, 3 ether, address(this), address(this));
 
     vm.warp(2 days + 3 hours);
-    market.depositAtMaturity(thirdMaturity, 1.1 ether, 1.1 ether, address(BOB));
+    market.depositAtMaturity(thirdMaturity, 1.1 ether, 1.1 ether, BOB);
 
     vm.warp(3 days);
     Previewer.FixedPreview[] memory positionAssetsMaturities = previewer.previewDepositAtAllMaturities(market, 1 ether);
@@ -719,9 +719,9 @@ contract PreviewerTest is Test {
     vm.prank(BOB);
     weth.approve(address(marketWETH), 1_000 ether);
     vm.prank(BOB);
-    marketWETH.deposit(10 ether, address(BOB));
+    marketWETH.deposit(10 ether, BOB);
     vm.prank(BOB);
-    market.deposit(5000 ether, address(BOB));
+    market.deposit(5000 ether, BOB);
 
     // dai collateral (1000) * 0.8 = 800
     // eth collateral (1000) * 0.7 = 700
@@ -811,9 +811,9 @@ contract PreviewerTest is Test {
 
     vm.warp(365 days + 80 days);
     vm.prank(BOB);
-    market.deposit(100 ether, address(BOB));
+    market.deposit(100 ether, BOB);
     vm.prank(BOB);
-    market.borrow(10 ether, address(BOB), address(BOB));
+    market.borrow(10 ether, BOB, BOB);
 
     vm.warp(365 days + 120 days);
     data = previewer.exactly(address(this));
@@ -821,9 +821,10 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingBorrowShares, 10 ether);
 
     vm.warp(365 days + 123 days + 7 seconds);
-    data = previewer.exactly(address(BOB));
-    assertEq(data[0].floatingBorrowAssets, market.previewDebt(address(BOB)));
-    assertEq(data[0].floatingBorrowShares, market.floatingBorrowShares(address(BOB)));
+    data = previewer.exactly(BOB);
+    (, , uint256 floatingBorrowShares) = market.accounts(BOB);
+    assertEq(data[0].floatingBorrowAssets, market.previewDebt(BOB));
+    assertEq(data[0].floatingBorrowShares, floatingBorrowShares);
   }
 
   function testPreviewRepayAtMaturityWithEmptyMaturity() external {

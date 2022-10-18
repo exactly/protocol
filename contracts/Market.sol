@@ -27,11 +27,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   mapping(uint256 => mapping(address => FixedLib.Position)) public fixedDepositPositions;
   mapping(uint256 => mapping(address => FixedLib.Position)) public fixedBorrowPositions;
-  mapping(address => uint256) public floatingBorrowShares;
-
-  mapping(address => uint256) public fixedBorrows;
-  mapping(address => uint256) public fixedDeposits;
   mapping(uint256 => FixedLib.Pool) public fixedPools;
+
+  mapping(address => Account) public accounts;
 
   uint256 public floatingBackupBorrowed;
   uint256 public floatingDebt;
@@ -123,7 +121,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     }
 
     totalFloatingBorrowShares += borrowShares;
-    floatingBorrowShares[borrower] += borrowShares;
+    accounts[borrower].floatingBorrowShares += borrowShares;
 
     emit Borrow(msg.sender, receiver, borrower, assets, borrowShares);
     emitMarketUpdate();
@@ -164,14 +162,15 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @return assets the actual amount that should be transferred into the protocol.
   function noTransferRefund(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
     depositToTreasury(updateFloatingDebt());
-    uint256 userBorrowShares = floatingBorrowShares[borrower];
+    Account storage account = accounts[borrower];
+    uint256 userBorrowShares = account.floatingBorrowShares;
     borrowShares = Math.min(borrowShares, userBorrowShares);
     assets = previewRefund(borrowShares);
 
     if (assets == 0) revert ZeroRepay();
 
     floatingDebt -= assets;
-    floatingBorrowShares[borrower] = userBorrowShares - borrowShares;
+    account.floatingBorrowShares = userBorrowShares - borrowShares;
     totalFloatingBorrowShares -= borrowShares;
 
     emit Repay(msg.sender, borrower, assets, borrowShares);
@@ -208,7 +207,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     FixedLib.Position storage position = fixedDepositPositions[maturity][receiver];
 
     // if account doesn't have a current position, add it to the list
-    if (position.principal == 0) fixedDeposits[receiver] = fixedDeposits[receiver].setMaturity(maturity);
+    if (position.principal == 0) {
+      Account storage account = accounts[receiver];
+      account.fixedDeposits = account.fixedDeposits.setMaturity(maturity);
+    }
 
     position.principal += assets;
     position.fee += fee;
@@ -268,7 +270,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     {
       // if account doesn't have a current position, add it to the list
       FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
-      if (position.principal == 0) fixedBorrows[borrower] = fixedBorrows[borrower].setMaturity(maturity);
+      if (position.principal == 0) {
+        Account storage account = accounts[borrower];
+        account.fixedBorrows = account.fixedBorrows.setMaturity(maturity);
+      }
 
       // calculate what portion of the fees are to be accrued and what portion goes to earnings accumulator
       (uint256 newUnassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
@@ -360,7 +365,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     position.reduceProportionally(positionAssets);
     if (position.principal | position.fee == 0) {
       delete fixedDepositPositions[maturity][owner];
-      fixedDeposits[owner] = fixedDeposits[owner].clearMaturity(maturity);
+      Account storage account = accounts[owner];
+      account.fixedDeposits = account.fixedDeposits.clearMaturity(maturity);
     } else {
       // proportionally reduce the values
       fixedDepositPositions[maturity][owner] = position;
@@ -459,7 +465,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     position.reduceProportionally(debtCovered);
     if (position.principal | position.fee == 0) {
       delete fixedBorrowPositions[maturity][borrower];
-      fixedBorrows[borrower] = fixedBorrows[borrower].clearMaturity(maturity);
+      Account storage account = accounts[borrower];
+      account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
     } else {
       // proportionally reduce the values
       fixedBorrowPositions[maturity][borrower] = position;
@@ -488,8 +495,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     maxAssets = auditor.checkLiquidation(this, seizeMarket, borrower, maxAssets);
     if (maxAssets == 0) revert ZeroRepay();
 
+    Account storage account = accounts[borrower];
+
     {
-      uint256 packedMaturities = fixedBorrows[borrower];
+      uint256 packedMaturities = account.fixedBorrows;
       uint256 maturity = packedMaturities & ((1 << 32) - 1);
       packedMaturities = packedMaturities >> 32;
       while (packedMaturities != 0 && maxAssets != 0) {
@@ -520,7 +529,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       }
     }
 
-    if (maxAssets > 0 && floatingBorrowShares[borrower] > 0) {
+    if (maxAssets > 0 && account.floatingBorrowShares > 0) {
       uint256 borrowShares = previewRepay(maxAssets);
       if (borrowShares > 0) {
         uint256 actualRepayAssets = noTransferRefund(borrowShares, borrower);
@@ -549,39 +558,40 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Clears floating and fixed debt for an account spreading the losses to the `earningsAccumulator`.
   /// @dev Can only be called from the auditor.
-  /// @param account account with insufficient collateral to be cleared the debt.
-  function clearBadDebt(address account) external {
+  /// @param borrower account with insufficient collateral to be cleared the debt.
+  function clearBadDebt(address borrower) external {
     if (msg.sender != address(auditor)) revert NotAuditor();
 
     floatingAssets += accrueAccumulatedEarnings();
+    Account storage account = accounts[borrower];
     uint256 accumulator = earningsAccumulator;
     uint256 totalBadDebt = 0;
-    uint256 packedMaturities = fixedBorrows[account];
+    uint256 packedMaturities = account.fixedBorrows;
     uint256 maturity = packedMaturities & ((1 << 32) - 1);
     packedMaturities = packedMaturities >> 32;
     while (packedMaturities != 0) {
       if (packedMaturities & 1 != 0) {
-        FixedLib.Position storage position = fixedBorrowPositions[maturity][account];
+        FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
         uint256 badDebt = position.principal + position.fee;
         if (accumulator >= badDebt) {
           accumulator -= badDebt;
           totalBadDebt += badDebt;
           floatingBackupBorrowed -= fixedPools[maturity].repay(position.principal);
-          delete fixedBorrowPositions[maturity][account];
-          fixedBorrows[account] = fixedBorrows[account].clearMaturity(maturity);
+          delete fixedBorrowPositions[maturity][borrower];
+          account.fixedBorrows = account.fixedBorrows.clearMaturity(maturity);
 
-          emit RepayAtMaturity(maturity, msg.sender, account, badDebt, badDebt);
+          emit RepayAtMaturity(maturity, msg.sender, borrower, badDebt, badDebt);
         }
       }
       packedMaturities >>= 1;
       maturity += FixedLib.INTERVAL;
     }
-    if (floatingBorrowShares[account] > 0 && (accumulator = previewRepay(accumulator)) > 0) {
-      totalBadDebt += noTransferRefund(accumulator, account);
+    if (account.floatingBorrowShares > 0 && (accumulator = previewRepay(accumulator)) > 0) {
+      totalBadDebt += noTransferRefund(accumulator, borrower);
     }
     if (totalBadDebt > 0) {
       earningsAccumulator -= totalBadDebt;
-      emit SpreadBadDebt(account, totalBadDebt);
+      emit SpreadBadDebt(borrower, totalBadDebt);
     }
     emitMarketUpdate();
   }
@@ -719,17 +729,18 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Gets all borrows and penalties for an account.
-  /// @param account account to return status snapshot for fixed and floating borrows.
+  /// @param borrower account to return status snapshot for fixed and floating borrows.
   /// @return debt the total debt, denominated in number of assets.
-  function previewDebt(address account) public view returns (uint256 debt) {
+  function previewDebt(address borrower) public view returns (uint256 debt) {
+    Account storage account = accounts[borrower];
     uint256 memPenaltyRate = penaltyRate;
-    uint256 packedMaturities = fixedBorrows[account];
+    uint256 packedMaturities = account.fixedBorrows;
     uint256 maturity = packedMaturities & ((1 << 32) - 1);
     packedMaturities = packedMaturities >> 32;
     // calculate all maturities using the base maturity and the following bits representing the following intervals
     while (packedMaturities != 0) {
       if (packedMaturities & 1 != 0) {
-        FixedLib.Position storage position = fixedBorrowPositions[maturity][account];
+        FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
         uint256 positionAssets = position.principal + position.fee;
 
         debt += positionAssets;
@@ -741,7 +752,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       maturity += FixedLib.INTERVAL;
     }
     // calculate floating borrowed debt
-    uint256 shares = floatingBorrowShares[account];
+    uint256 shares = account.floatingBorrowShares;
     if (shares > 0) debt += previewRefund(shares);
   }
 
@@ -1193,6 +1204,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param timestamp current timestamp.
   /// @param utilization new floating utilization.
   event FloatingDebtUpdate(uint256 timestamp, uint256 utilization);
+
+  struct Account {
+    uint256 fixedDeposits;
+    uint256 fixedBorrows;
+    uint256 floatingBorrowShares;
+  }
 }
 
 error Disagreement();

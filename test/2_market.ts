@@ -147,8 +147,8 @@ describe("Market", function () {
         expect((await marketDAI.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("60"));
       });
       it("AND contract's state variable fixedBorrows registers the maturity where the account borrowed from", async () => {
-        const maturities = await marketDAI.fixedBorrows(maria.address);
-        expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+        const { fixedBorrows } = await marketDAI.accounts(maria.address);
+        expect(decodeMaturities(fixedBorrows)).contains(futurePools(1)[0].toNumber());
       });
       describe("AND WHEN trying to repay 100 (too much)", () => {
         let balanceBefore: BigNumber;
@@ -178,8 +178,8 @@ describe("Market", function () {
           await marketDAI.repayAtMaturity(futurePools(1)[0], parseUnits("60"), parseUnits("60"), maria.address);
         });
         it("THEN contract's state variable fixedBorrows registers the second maturity where the account borrowed from", async () => {
-          const maturities = await marketDAI.fixedBorrows(maria.address);
-          expect(decodeMaturities(maturities)).contains(futurePools(2)[1].toNumber());
+          const { fixedBorrows } = await marketDAI.accounts(maria.address);
+          expect(decodeMaturities(fixedBorrows)).contains(futurePools(2)[1].toNumber());
         });
       });
       describe("AND WHEN fully repaying the debt", () => {
@@ -191,8 +191,8 @@ describe("Market", function () {
             .withArgs(futurePools(1)[0], maria.address, maria.address, parseUnits("60"), parseUnits("60"));
         });
         it("AND contract's state variable fixedBorrows does not register the maturity where the account borrowed from anymore", async () => {
-          const maturities = await marketDAI.fixedBorrows(maria.address);
-          expect(decodeMaturities(maturities).length).eq(0);
+          const { fixedBorrows } = await marketDAI.accounts(maria.address);
+          expect(decodeMaturities(fixedBorrows).length).eq(0);
         });
         describe("AND WHEN withdrawing collateral and maturity pool deposit", () => {
           beforeEach(async () => {
@@ -211,8 +211,8 @@ describe("Market", function () {
             expect(await dai.balanceOf(marketDAI.address)).to.equal(0);
           });
           it("AND contract's state variable fixedDeposits does not register the maturity where the account deposited to anymore", async () => {
-            const maturities = await marketDAI.fixedDeposits(maria.address);
-            expect(decodeMaturities(maturities).length).eq(0);
+            const { fixedDeposits } = await marketDAI.accounts(maria.address);
+            expect(decodeMaturities(fixedDeposits).length).eq(0);
           });
         });
 
@@ -231,8 +231,8 @@ describe("Market", function () {
             expect(await dai.balanceOf(maria.address)).to.equal(parseUnits("9900"));
           });
           it("AND contract's state variable fixedDeposits does not register the maturity where the account deposited to anymore", async () => {
-            const maturities = await marketDAI.fixedDeposits(maria.address);
-            expect(decodeMaturities(maturities).length).eq(0);
+            const { fixedDeposits } = await marketDAI.accounts(maria.address);
+            expect(decodeMaturities(fixedDeposits).length).eq(0);
           });
         });
 
@@ -434,8 +434,8 @@ describe("Market", function () {
       ).to.be.revertedWith("Disagreement()");
     });
     it("AND contract's state variable fixedDeposits registers the maturity where the account supplied to", async () => {
-      const maturities = await marketDAI.fixedDeposits(maria.address);
-      expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+      const { fixedDeposits } = await marketDAI.accounts(maria.address);
+      expect(decodeMaturities(fixedDeposits)).contains(futurePools(1)[0].toNumber());
     });
     it("WHEN trying to deposit 100 DAI with a minimum required amount to be received of 103, THEN 102 are received instead AND the transaction reverts with TOO_MUCH_SLIPPAGE", async () => {
       await expect(

@@ -66,8 +66,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         expect(position[0]).to.be.equal(parseUnits("5"));
       });
       it("AND contract's state variable fixedDeposits registers the maturity where the account deposited to", async () => {
-        const maturities = await marketWETH.fixedDeposits(alice.address);
-        expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+        const { fixedDeposits } = await marketWETH.accounts(alice.address);
+        expect(decodeMaturities(fixedDeposits)).contains(futurePools(1)[0].toNumber());
       });
     });
 
@@ -93,8 +93,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
           expect(position[0]).to.be.equal(parseUnits("5"));
         });
         it("AND contract's state variable fixedDeposits registers the maturity where the account deposited to", async () => {
-          const maturities = await marketWETH.fixedDeposits(alice.address);
-          expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+          const { fixedDeposits } = await marketWETH.accounts(alice.address);
+          expect(decodeMaturities(fixedDeposits)).contains(futurePools(1)[0].toNumber());
         });
       });
     });
@@ -227,8 +227,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
           expect(await weth.balanceOf(marketWETH.address)).to.equal(parseUnits("0"));
         });
         it("AND contract's state variable fixedDeposits registers the maturity where the account deposited to", async () => {
-          const maturities = await marketWETH.fixedDeposits(alice.address);
-          expect(decodeMaturities(maturities).length).equal(0);
+          const { fixedDeposits } = await marketWETH.accounts(alice.address);
+          expect(decodeMaturities(fixedDeposits).length).equal(0);
         });
       });
       describe("WHEN she withdraws to WETH", () => {
@@ -285,8 +285,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
           expect((await marketWETH.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("5"));
         });
         it("AND contract's state variable fixedBorrows registers the maturity where the account borrowed from", async () => {
-          const maturities = await marketWETH.fixedBorrows(alice.address);
-          expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+          const { fixedBorrows } = await marketWETH.accounts(alice.address);
+          expect(decodeMaturities(fixedBorrows)).contains(futurePools(1)[0].toNumber());
         });
       });
       describe("WHEN borrowing with WETH (erc20)", () => {
@@ -309,8 +309,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
           expect((await marketWETH.fixedPools(futurePools(1)[0]))[0]).to.equal(parseUnits("5"));
         });
         it("AND contract's state variable fixedBorrows registers the maturity where the account borrowed from", async () => {
-          const maturities = await marketWETH.fixedBorrows(alice.address);
-          expect(decodeMaturities(maturities)).contains(futurePools(1)[0].toNumber());
+          const { fixedBorrows } = await marketWETH.accounts(alice.address);
+          expect(decodeMaturities(fixedBorrows)).contains(futurePools(1)[0].toNumber());
         });
       });
 
@@ -419,7 +419,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
             .withArgs(routerETH.address, routerETH.address, alice.address, parseUnits("5"), parseUnits("5"));
         });
         it("AND a 5 WETH borrow is registered", async () => {
-          expect(await marketWETH.floatingBorrowShares(alice.address)).to.equal(parseUnits("5"));
+          const { floatingBorrowShares } = await marketWETH.accounts(alice.address);
+          expect(floatingBorrowShares).to.equal(parseUnits("5"));
         });
       });
       describe("WHEN borrowing with WETH (erc20)", () => {
@@ -433,7 +434,8 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
             .withArgs(alice.address, alice.address, alice.address, parseUnits("5"), parseUnits("5"));
         });
         it("AND a 5 WETH borrow is registered", async () => {
-          expect(await marketWETH.floatingBorrowShares(alice.address)).to.equal(parseUnits("5"));
+          const { floatingBorrowShares } = await marketWETH.accounts(alice.address);
+          expect(floatingBorrowShares).to.equal(parseUnits("5"));
         });
       });
 
