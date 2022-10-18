@@ -92,7 +92,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
       if (marketMap & 1 != 0) {
         Market market = marketList[i];
-        uint256 decimals = markets[market].decimals;
+        uint256 baseUnit = 10**markets[market].decimals;
         uint256 adjustFactor = markets[market].adjustFactor;
 
         // read the balances
@@ -102,17 +102,17 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         vars.oraclePrice = oracle.assetPrice(market);
 
         // sum all the collateral prices
-        sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
+        sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, baseUnit).mulWadDown(adjustFactor);
 
         // sum all the debt
-        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.oraclePrice, 10**decimals).divWadUp(adjustFactor);
+        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.oraclePrice, baseUnit).divWadUp(adjustFactor);
 
         // simulate the effects of withdrawing from a pool
         if (market == marketToSimulate) {
           // calculate the effects of redeeming markets
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
-            sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
+            sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.oraclePrice, baseUnit).mulWadDown(adjustFactor);
           }
         }
       }
@@ -188,18 +188,18 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         MarketVars memory m = MarketVars({
           price: oracle.assetPrice(market),
           adjustFactor: memMarket.adjustFactor,
-          decimals: memMarket.decimals
+          baseUnit: 10**memMarket.decimals
         });
 
         if (market == repayMarket) repay = m;
 
         (uint256 collateral, uint256 debt) = market.accountSnapshot(borrower);
 
-        uint256 value = debt.mulDivUp(m.price, 10**m.decimals);
+        uint256 value = debt.mulDivUp(m.price, m.baseUnit);
         usd.totalDebt += value;
         usd.adjustedDebt += value.divWadUp(m.adjustFactor);
 
-        value = collateral.mulDivDown(m.price, 10**m.decimals);
+        value = collateral.mulDivDown(m.price, m.baseUnit);
         usd.totalCollateral += value;
         usd.adjustedCollateral += value.mulWadDown(m.adjustFactor);
         if (market == seizeMarket) usd.seizeAvailable = value;
@@ -224,7 +224,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
           usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)),
           usd.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
         )
-        .mulDivUp(10**repay.decimals, repay.price),
+        .mulDivUp(repay.baseUnit, repay.price),
       maxLiquidatorAssets < ASSETS_THRESHOLD
         ? maxLiquidatorAssets.divWadDown(1e18 + memIncentive.lenders)
         : maxLiquidatorAssets
@@ -414,8 +414,8 @@ error RemainingDebt();
 
 struct MarketVars {
   uint256 price;
+  uint256 baseUnit;
   uint128 adjustFactor;
-  uint8 decimals;
 }
 
 struct LiquidityVars {
