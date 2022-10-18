@@ -86,6 +86,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     uint256 withdrawAmount
   ) public view returns (uint256 sumCollateral, uint256 sumDebtPlusEffects) {
     AccountLiquidity memory vars; // holds all our calculation results
+    ExactlyOracle memOracle = oracle;
 
     // for each asset the account is in
     uint256 marketMap = accountMarkets[account];
@@ -99,7 +100,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
 
         // get the normalized price of the asset (18 decimals)
-        vars.oraclePrice = oracle.assetPrice(market);
+        vars.oraclePrice = memOracle.assetPrice(market);
 
         // sum all the collateral prices
         sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, baseUnit).mulWadDown(adjustFactor);
@@ -180,13 +181,14 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
     MarketVars memory repay;
     LiquidityVars memory usd;
+    ExactlyOracle memOracle = oracle;
     uint256 marketMap = accountMarkets[borrower];
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
       if (marketMap & 1 != 0) {
         Market market = marketList[i];
         MarketData memory memMarket = markets[market];
         MarketVars memory m = MarketVars({
-          price: oracle.assetPrice(market),
+          price: memOracle.assetPrice(market),
           adjustFactor: memMarket.adjustFactor,
           baseUnit: 10**memMarket.decimals
         });
@@ -257,8 +259,9 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
 
     // read oracle prices for borrowed and collateral markets
-    uint256 priceBorrowed = oracle.assetPrice(repayMarket);
-    uint256 priceCollateral = oracle.assetPrice(seizeMarket);
+    ExactlyOracle memOracle = oracle;
+    uint256 priceBorrowed = memOracle.assetPrice(repayMarket);
+    uint256 priceCollateral = memOracle.assetPrice(seizeMarket);
     uint256 amountInUSD = actualRepayAssets.mulDivUp(priceBorrowed, 10**markets[repayMarket].decimals);
 
     // 10**18: usd amount decimals
@@ -274,6 +277,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @dev Collateral is multiplied by price and adjust factor to be accurately evaluated as positive collateral asset.
   /// @param account account in which debt is being checked.
   function handleBadDebt(address account) external {
+    ExactlyOracle memOracle = oracle;
     uint256 memMarketMap = accountMarkets[account];
     uint256 marketMap = memMarketMap;
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
@@ -281,7 +285,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         Market market = marketList[i];
         MarketData storage m = markets[market];
         uint256 assets = market.maxWithdraw(account);
-        if (assets.mulDivDown(oracle.assetPrice(market), 10**m.decimals).mulWadDown(m.adjustFactor) > 0) return;
+        if (assets.mulDivDown(memOracle.assetPrice(market), 10**m.decimals).mulWadDown(m.adjustFactor) > 0) return;
       }
       unchecked {
         ++i;
