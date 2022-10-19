@@ -9,8 +9,9 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Market, InsufficientProtocolLiquidity } from "../../contracts/Market.sol";
 import { InterestRateModel, UtilizationExceeded, AlreadyMatured } from "../../contracts/InterestRateModel.sol";
-import { Auditor, ExactlyOracle, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
-import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
+import { ExactlyOracle, AggregatorV2V3Interface } from "../../contracts/ExactlyOracle.sol";
+import { Auditor, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
+import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
 import { Previewer } from "../../contracts/periphery/Previewer.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
@@ -25,12 +26,12 @@ contract PreviewerTest is Test {
   Auditor internal auditor;
   MockERC20 internal asset;
   Previewer internal previewer;
-  MockOracle internal oracle;
+  ExactlyOracle internal oracle;
   InterestRateModel internal irm;
 
   function setUp() external {
     asset = new MockERC20("DAI", "DAI", 18);
-    oracle = new MockOracle();
+    oracle = new ExactlyOracle(type(uint256).max);
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
     auditor.initialize(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
@@ -40,6 +41,7 @@ contract PreviewerTest is Test {
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
     auditor.enableMarket(market, 0.8e18, 18);
+    oracle.setPriceFeed(market, AggregatorV2V3Interface(address(new MockPriceFeed(1e8))));
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
@@ -394,7 +396,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 2800e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(2800e8))));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -482,7 +484,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 2800e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(2800e8))));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -537,7 +539,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 2800e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(2800e8))));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -564,7 +566,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 2800e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(2800e8))));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -603,7 +605,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 2800e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(2800e8))));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -682,7 +684,8 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 1000e18);
+    MockPriceFeed wethPriceFeed = new MockPriceFeed(1000e8);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(wethPriceFeed)));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 1 ether);
     weth.approve(address(marketWETH), 1 ether);
@@ -692,7 +695,7 @@ contract PreviewerTest is Test {
     auditor.enterMarket(market);
 
     market.borrow(1000 ether, address(this), address(this));
-    oracle.setPrice(marketWETH, 100e18);
+    wethPriceFeed.setPrice(100e8);
 
     // if account has shortfall then max borrow assets should be 0
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -705,7 +708,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 1000e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(1000e8))));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 1 ether);
     weth.approve(address(marketWETH), 1 ether);
@@ -762,7 +765,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 1000e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(1000e8))));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 1_000 ether);
     weth.approve(address(marketWETH), 1_000 ether);
@@ -995,7 +998,7 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    oracle.setPrice(marketWETH, 2800e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(2800e8))));
     auditor.enableMarket(marketWETH, 0.7e18, 18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
@@ -1039,7 +1042,7 @@ contract PreviewerTest is Test {
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
     assertEq(data[1].isCollateral, true);
 
-    oracle.setPrice(marketWETH, 2800e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(2800e8))));
     vm.warp(200 seconds);
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 33 ether, 40 ether, address(this), address(this));
     data = previewer.exactly(address(this));
@@ -1059,7 +1062,7 @@ contract PreviewerTest is Test {
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
 
-    oracle.setPrice(marketWETH, 1831e18);
+    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(new MockPriceFeed(1831e8))));
     data = previewer.exactly(address(this));
     assertEq(data[1].oraclePrice, 1831e18);
   }

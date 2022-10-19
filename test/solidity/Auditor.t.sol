@@ -5,10 +5,11 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { ExactlyOracle, AggregatorV2V3Interface } from "../../contracts/ExactlyOracle.sol";
+import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
 import {
   Auditor,
   Market,
-  ExactlyOracle,
   AuditorMismatch,
   InsufficientAccountLiquidity,
   MarketAlreadyListed,
@@ -21,7 +22,7 @@ contract AuditorTest is Test {
   address internal constant BOB = address(0x420);
 
   Auditor internal auditor;
-  MockOracle internal oracle;
+  ExactlyOracle internal oracle;
   MockMarket internal market;
 
   event MarketListed(Market indexed market, uint8 decimals);
@@ -29,10 +30,11 @@ contract AuditorTest is Test {
   event MarketExited(Market indexed market, address indexed account);
 
   function setUp() external {
-    oracle = new MockOracle();
+    oracle = new ExactlyOracle(type(uint256).max);
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
-    auditor.initialize(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor.initialize(oracle, Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     market = new MockMarket(auditor);
+    oracle.setPriceFeed(Market(address(market)), AggregatorV2V3Interface(address(new MockPriceFeed(1e8))));
     vm.label(BOB, "bob");
   }
 
@@ -77,6 +79,7 @@ contract AuditorTest is Test {
       markets[i] = Market(address(new MockMarket(auditor)));
       auditor.enableMarket(markets[i], 0.8e18, 18);
       auditor.enterMarket(markets[i]);
+      oracle.setPriceFeed(markets[i], AggregatorV2V3Interface(address(new MockPriceFeed(1e8))));
     }
 
     for (uint8 i = 0; i < markets.length; i++) {
@@ -139,8 +142,7 @@ contract AuditorTest is Test {
     for (uint8 i = 0; i < markets.length; i++) {
       markets[i] = Market(address(new MockMarket(auditor)));
       auditor.enableMarket(markets[i], 0.9e18 - (i * 0.1e18), 18 - (i * 3));
-
-      if (i % 2 != 0) oracle.setPrice(markets[i], i * 10**(i + 18));
+      oracle.setPriceFeed(markets[i], AggregatorV2V3Interface(address(new MockPriceFeed(1e8))));
 
       vm.prank(BOB);
       auditor.enterMarket(markets[i]);
@@ -175,17 +177,5 @@ contract MockMarket {
 
   function accountSnapshot(address) external view returns (uint256, uint256) {
     return (collateral, debt);
-  }
-}
-
-contract MockOracle {
-  mapping(Market => uint256) public prices;
-
-  function setPrice(Market market, uint256 value) public {
-    prices[market] = value;
-  }
-
-  function assetPrice(Market market) public view returns (uint256) {
-    return prices[market] > 0 ? prices[market] : 1e18;
   }
 }
