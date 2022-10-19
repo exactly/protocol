@@ -15,15 +15,10 @@ contract ExactlyOracle is AccessControl {
 
   /// @notice Chainlink's price feed aggregator addresses by market.
   mapping(Market => AggregatorV2V3Interface) public priceFeeds;
-  /// @notice How long is a price still valid, in seconds.
-  uint256 public immutable priceExpiration;
 
   /// @notice Constructor.
-  /// @param priceExpiration_ The max delay time for Chainlink's prices to be considered as updated.
-  constructor(uint256 priceExpiration_) {
+  constructor() {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-
-    priceExpiration = priceExpiration_;
   }
 
   /// @notice Gets an asset price by Market.
@@ -31,10 +26,8 @@ contract ExactlyOracle is AccessControl {
   /// @param market address of the asset.
   /// @return The price of the asset scaled to 18-digit decimals.
   function assetPrice(Market market) public view returns (uint256) {
-    (, int256 price, , uint256 updatedAt, ) = priceFeeds[market].latestRoundData();
-
-    if (price <= 0 || block.timestamp - updatedAt > priceExpiration) revert InvalidPrice();
-
+    int256 price = priceFeeds[market].latestAnswer();
+    if (price <= 0) revert InvalidPrice();
     // scale price to 18 decimals
     return uint256(price) * 10**(TARGET_DECIMALS - ORACLE_DECIMALS);
   }

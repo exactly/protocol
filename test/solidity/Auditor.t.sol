@@ -30,7 +30,7 @@ contract AuditorTest is Test {
   event MarketExited(Market indexed market, address indexed account);
 
   function setUp() external {
-    oracle = new ExactlyOracle(type(uint256).max);
+    oracle = new ExactlyOracle();
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
     auditor.initialize(oracle, Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     market = new MockMarket(auditor);

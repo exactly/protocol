@@ -43,7 +43,7 @@ contract MarketTest is Test {
     vm.warp(0);
 
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
-    oracle = new ExactlyOracle(type(uint256).max);
+    oracle = new ExactlyOracle();
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
     auditor.initialize(oracle, Auditor.LiquidationIncentive(0.09e18, 0.01e18));
