@@ -189,25 +189,21 @@ declare module "hardhat/types/config" {
 
   export interface MainnetNetworkUserConfig extends HttpNetworkUserConfig {
     timelockDelay: number;
-    priceExpiration: number;
     gnosisSafeTxService: string;
   }
 
   export interface HttpNetworkUserConfig {
     timelockDelay?: number;
-    priceExpiration?: number;
     gnosisSafeTxService?: string;
   }
 
   export interface HardhatNetworkConfig {
     timelockDelay?: number;
-    priceExpiration?: number;
     gnosisSafeTxService: string;
   }
 
   export interface HttpNetworkConfig {
     timelockDelay?: number;
-    priceExpiration?: number;
     gnosisSafeTxService: string;
   }
 }

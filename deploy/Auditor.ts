@@ -17,9 +17,8 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [{ address: timelockAddress }, { address: oracleAddress }, { deployer }] = await Promise.all([
+  const [{ address: timelockAddress }, { deployer }] = await Promise.all([
     get("TimelockController"),
-    get("ExactlyOracle"),
     getNamedAccounts(),
   ]);
   const liquidationIncentive = {
@@ -35,7 +34,7 @@ const func: DeployFunction = async ({
         viaAdminContract: "ProxyAdmin",
         proxyContract: "TransparentUpgradeableProxy",
         execute: {
-          init: { methodName: "initialize", args: [oracleAddress, liquidationIncentive] },
+          init: { methodName: "initialize", args: [liquidationIncentive] },
         },
       },
       from: deployer,
@@ -43,10 +42,6 @@ const func: DeployFunction = async ({
     }),
   );
   const auditor = await getContract<Auditor>("Auditor", await getSigner(deployer));
-
-  if ((await auditor.oracle()) !== oracleAddress) {
-    await executeOrPropose(auditor, "setOracle", [oracleAddress]);
-  }
 
   const currentLiquidationIncentive = await auditor.liquidationIncentive();
   if (
@@ -58,6 +53,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Auditor"];
-func.dependencies = ["ProxyAdmin", "ExactlyOracle", "TimelockController"];
+func.dependencies = ["ProxyAdmin", "TimelockController"];
 
 export default func;

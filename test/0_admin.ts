@@ -8,13 +8,13 @@ import type {
   Market,
   Market__factory,
   MockERC20,
+  MockPriceFeed,
   ProxyAdmin,
   TransparentUpgradeableProxy,
 } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
-  constants: { AddressZero },
   utils: { parseUnits },
   getContractFactory,
   getNamedSigner,
@@ -25,6 +25,7 @@ const { fixture, get } = deployments;
 
 describe("Auditor Admin", function () {
   let dai: MockERC20;
+  let priceFeedDAI: MockPriceFeed;
   let auditor: Auditor;
   let marketDAI: Market;
   let deployer: SignerWithAddress;
@@ -41,15 +42,17 @@ describe("Auditor Admin", function () {
     dai = await getContract<MockERC20>("DAI", deployer);
     auditor = await getContract<Auditor>("Auditor", deployer);
     marketDAI = await getContract<Market>("MarketDAI", deployer);
+    marketDAI = await getContract<Market>("MarketDAI", deployer);
+    priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", deployer);
 
     await dai.connect(multisig).mint(deployer.address, "10000");
   });
 
   describe("GIVEN a regular account", () => {
     it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.enableMarket(marketDAI.address, 0, await dai.decimals())).to.be.revertedWith(
-        "AccessControl",
-      );
+      await expect(
+        auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0, await dai.decimals()),
+      ).to.be.revertedWith("AccessControl");
     });
 
     it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
@@ -58,8 +61,8 @@ describe("Auditor Admin", function () {
       ).to.be.revertedWith("AccessControl");
     });
 
-    it("WHEN trying to set a new oracle, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.be.revertedWith("AccessControl");
+    it("WHEN trying to set a new price feed, THEN the transaction should revert with Access Control", async () => {
+      await expect(auditor.setPriceFeed(marketDAI.address, priceFeedDAI.address)).to.be.revertedWith("AccessControl");
     });
 
     it("WHEN trying to set adjust factor, THEN the transaction should revert with Access Control", async () => {
@@ -79,9 +82,9 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MarketAlreadyListed", async () => {
-      await expect(auditor.enableMarket(marketDAI.address, 0, await dai.decimals())).to.be.revertedWith(
-        "MarketAlreadyListed()",
-      );
+      await expect(
+        auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0, await dai.decimals()),
+      ).to.be.revertedWith("MarketAlreadyListed()");
     });
 
     it("WHEN trying to set a new market with a different auditor, THEN the transaction should revert with AuditorMismatch", async () => {
@@ -90,9 +93,9 @@ describe("Auditor Admin", function () {
         dai.address,
         newAuditor.address,
       );
-      await expect(auditor.enableMarket(market.address, parseUnits("0.5"), await dai.decimals())).to.be.revertedWith(
-        "AuditorMismatch()",
-      );
+      await expect(
+        auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5"), await dai.decimals()),
+      ).to.be.revertedWith("AuditorMismatch()");
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
@@ -108,13 +111,9 @@ describe("Auditor Admin", function () {
         dai.address,
         auditor.address,
       );
-      await expect(auditor.enableMarket(market.address, parseUnits("0.5"), 18))
+      await expect(auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5"), 18))
         .to.emit(auditor, "MarketListed")
         .withArgs(market.address, 18);
-    });
-
-    it("WHEN setting new oracle, THEN the auditor should emit OracleSet event", async () => {
-      await expect(auditor.setOracle((await get("ExactlyOracle")).address)).to.emit(auditor, "OracleSet");
     });
 
     it("WHEN setting a new liquidation incentive, THEN the auditor should emit LiquidationIncentiveSet event", async () => {
@@ -143,7 +142,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to initialize implementation, THEN the transaction should revert with Initializable", async () => {
-      await expect(newAuditor.initialize(AddressZero, { liquidator: 0, lenders: 0 })).to.be.revertedWith(
+      await expect(newAuditor.initialize({ liquidator: 0, lenders: 0 })).to.be.revertedWith(
         "Initializable: contract is already initialized",
       );
     });

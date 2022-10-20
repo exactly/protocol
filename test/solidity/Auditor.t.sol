@@ -5,15 +5,15 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { ExactlyOracle, AggregatorV2V3Interface } from "../../contracts/ExactlyOracle.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
 import {
-  Auditor,
   Market,
+  Auditor,
+  IPriceFeed,
+  RemainingDebt,
   AuditorMismatch,
-  InsufficientAccountLiquidity,
   MarketAlreadyListed,
-  RemainingDebt
+  InsufficientAccountLiquidity
 } from "../../contracts/Auditor.sol";
 
 contract AuditorTest is Test {
@@ -22,19 +22,18 @@ contract AuditorTest is Test {
   address internal constant BOB = address(0x420);
 
   Auditor internal auditor;
-  ExactlyOracle internal oracle;
   MockMarket internal market;
+  IPriceFeed internal priceFeed;
 
   event MarketListed(Market indexed market, uint8 decimals);
   event MarketEntered(Market indexed market, address indexed account);
   event MarketExited(Market indexed market, address indexed account);
 
   function setUp() external {
-    oracle = new ExactlyOracle();
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
-    auditor.initialize(oracle, Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     market = new MockMarket(auditor);
-    oracle.setPriceFeed(Market(address(market)), AggregatorV2V3Interface(address(new MockPriceFeed(1e8))));
+    priceFeed = new MockPriceFeed(1e8);
     vm.label(BOB, "bob");
   }
 
@@ -42,11 +41,14 @@ contract AuditorTest is Test {
     vm.expectEmit(true, true, true, true, address(auditor));
     emit MarketListed(Market(address(market)), 18);
 
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
 
-    (uint256 adjustFactor, uint8 decimals, uint8 index, bool isListed) = auditor.markets(Market(address(market)));
+    (uint256 adjustFactor, uint8 decimals, uint8 index, bool isListed, IPriceFeed oraclePriceFeed) = auditor.markets(
+      Market(address(market))
+    );
     Market[] memory markets = auditor.allMarkets();
     assertTrue(isListed);
+    assertEq(address(oraclePriceFeed), address(priceFeed));
     assertEq(index, 0);
     assertEq(decimals, 18);
     assertEq(adjustFactor, 0.8e18);
@@ -56,7 +58,7 @@ contract AuditorTest is Test {
 
   function testEnterExitMarket() external {
     market.setCollateral(1 ether);
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
 
     vm.expectEmit(true, false, false, true, address(auditor));
     emit MarketEntered(Market(address(market)), address(this));
@@ -77,9 +79,8 @@ contract AuditorTest is Test {
     Market[] memory markets = new Market[](4);
     for (uint8 i = 0; i < markets.length; i++) {
       markets[i] = Market(address(new MockMarket(auditor)));
-      auditor.enableMarket(markets[i], 0.8e18, 18);
+      auditor.enableMarket(markets[i], priceFeed, 0.8e18, 18);
       auditor.enterMarket(markets[i]);
-      oracle.setPriceFeed(markets[i], AggregatorV2V3Interface(address(new MockPriceFeed(1e8))));
     }
 
     for (uint8 i = 0; i < markets.length; i++) {
@@ -90,7 +91,7 @@ contract AuditorTest is Test {
   }
 
   function testExitMarketOwning() external {
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
     vm.expectRevert(RemainingDebt.selector);
@@ -98,25 +99,25 @@ contract AuditorTest is Test {
   }
 
   function testEnableMarketAlreadyListed() external {
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
     vm.expectRevert(MarketAlreadyListed.selector);
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
   }
 
   function testEnableMarketAuditorMismatch() external {
     market.setAuditor(address(0));
     vm.expectRevert(AuditorMismatch.selector);
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
   }
 
   function testBorrowMPValidation() external {
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     auditor.checkBorrow(Market(address(market)), address(this));
   }
 
   function testBorrowMPValidationRevert() external {
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
     vm.expectRevert(InsufficientAccountLiquidity.selector);
@@ -124,13 +125,13 @@ contract AuditorTest is Test {
   }
 
   function testAccountShortfall() external {
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     auditor.checkShortfall(Market(address(market)), address(this), 1);
   }
 
   function testAccountShortfallRevert() external {
-    auditor.enableMarket(Market(address(market)), 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
     vm.expectRevert(InsufficientAccountLiquidity.selector);
@@ -141,8 +142,7 @@ contract AuditorTest is Test {
     Market[] memory markets = new Market[](4);
     for (uint8 i = 0; i < markets.length; i++) {
       markets[i] = Market(address(new MockMarket(auditor)));
-      auditor.enableMarket(markets[i], 0.9e18 - (i * 0.1e18), 18 - (i * 3));
-      oracle.setPriceFeed(markets[i], AggregatorV2V3Interface(address(new MockPriceFeed(1e8))));
+      auditor.enableMarket(markets[i], priceFeed, 0.9e18 - (i * 0.1e18), 18 - (i * 3));
 
       vm.prank(BOB);
       auditor.enterMarket(markets[i]);

@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, Market, MockERC20, MockPriceFeed, WETH } from "../types";
+import type { Auditor, Market, MockERC20, WETH } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
@@ -21,10 +21,6 @@ describe("Liquidity computations", function () {
   let wbtc: MockERC20;
   let weth: WETH;
   let auditor: Auditor;
-  let priceFeedDAI: MockPriceFeed;
-  let priceFeedUSDC: MockPriceFeed;
-  let priceFeedWBTC: MockPriceFeed;
-  let priceFeedWETH: MockPriceFeed;
   let marketDAI: Market;
   let marketUSDC: Market;
   let marketWBTC: Market;
@@ -47,10 +43,6 @@ describe("Liquidity computations", function () {
     wbtc = await getContract<MockERC20>("WBTC", laura);
     weth = await getContract<WETH>("WETH", laura);
     auditor = await getContract<Auditor>("Auditor", laura);
-    priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI");
-    priceFeedUSDC = await getContract<MockPriceFeed>("PriceFeedUSDC");
-    priceFeedWBTC = await getContract<MockPriceFeed>("PriceFeedWBTC");
-    priceFeedWETH = await getContract<MockPriceFeed>("PriceFeedWETH");
     marketDAI = await getContract<Market>("MarketDAI", laura);
     marketUSDC = await getContract<Market>("MarketUSDC", laura);
     marketWBTC = await getContract<Market>("MarketWBTC", laura);
@@ -195,10 +187,6 @@ describe("Liquidity computations", function () {
         describe("AND WHEN moving to five days after the maturity date", () => {
           beforeEach(async () => {
             // Move in time to maturity
-            await priceFeedDAI.setUpdatedAt(futurePools(1)[0].toNumber() + 86_400 * 5);
-            await priceFeedUSDC.setUpdatedAt(futurePools(1)[0].toNumber() + 86_400 * 5);
-            await priceFeedWBTC.setUpdatedAt(futurePools(1)[0].toNumber() + 86_400 * 5);
-            await priceFeedWETH.setUpdatedAt(futurePools(1)[0].toNumber() + 86_400 * 5);
             await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 5]);
           });
           it("THEN 5 days of *daily* base rate interest is charged, adding 0.02*5 =10% interest to the debt", async () => {
@@ -217,10 +205,6 @@ describe("Liquidity computations", function () {
           describe("AND WHEN moving to fifteen days after the maturity date", () => {
             beforeEach(async () => {
               // Move in time to maturity
-              await priceFeedDAI.setUpdatedAt(futurePools(1)[0].toNumber() + 86_400 * 15);
-              await priceFeedUSDC.setUpdatedAt(futurePools(1)[0].toNumber() + 86_400 * 15);
-              await priceFeedWBTC.setUpdatedAt(futurePools(1)[0].toNumber() + 86_400 * 15);
-              await priceFeedWETH.setUpdatedAt(futurePools(1)[0].toNumber() + 86_400 * 15);
               await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + 86_400 * 15]);
             });
             it("THEN 15 days of *daily* base rate interest is charged, adding 0.02*15 =35% interest to the debt, causing a shortfall", async () => {

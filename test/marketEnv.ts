@@ -11,7 +11,7 @@ import type {
   MockERC20__factory,
   MockInterestRateModel,
   MockInterestRateModel__factory,
-  MockOracle__factory,
+  MockPriceFeed__factory,
 } from "../types";
 
 const {
@@ -70,10 +70,6 @@ export class MarketEnv {
     const asset = await MockERC20.deploy("Fake", "F", 18);
     await asset.deployed();
 
-    const MockOracle = (await getContractFactory("MockOracle")) as MockOracle__factory;
-    const oracle = await MockOracle.deploy();
-    await oracle.deployed();
-
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
     const auditorImpl = await Auditor.deploy();
     await auditorImpl.deployed();
@@ -83,7 +79,7 @@ export class MarketEnv {
     );
     await auditorProxy.deployed();
     const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
-    await auditor.initialize(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
+    await auditor.initialize({ liquidator: parseUnits("0.1"), lenders: 0 });
 
     const MarketHarness = (await getContractFactory("MarketHarness")) as MarketHarness__factory;
     const marketHarness = await MarketHarness.deploy(
@@ -99,8 +95,10 @@ export class MarketEnv {
       parseUnits("0.42"),
     );
     await marketHarness.deployed();
-    await oracle.setPrice(marketHarness.address, parseUnits("1"));
-    await auditor.enableMarket(marketHarness.address, parseUnits("0.9"), 18);
+    const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
+    const mockPriceFeed = await MockPriceFeed.deploy(parseUnits("1", 8));
+    await mockPriceFeed.deployed();
+    await auditor.enableMarket(marketHarness.address, mockPriceFeed.address, parseUnits("0.9"), 18);
 
     return new MarketEnv(mockInterestRateModel, marketHarness, asset, owner);
   }

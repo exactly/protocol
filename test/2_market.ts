@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { BigNumber } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, Market, MockERC20, MockPriceFeed, WETH } from "../types";
+import type { Auditor, Market, MockERC20, WETH } from "../types";
 import decodeMaturities from "./utils/decodeMaturities";
 import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
@@ -546,8 +546,6 @@ describe("Market", function () {
       describe("AND WHEN 5 years go by and a lot of flexible borrows are added", () => {
         beforeEach(async () => {
           await provider.send("evm_setNextBlockTimestamp", [timestamp + 86_400 * 365 * 5]);
-          await (await getContract<MockPriceFeed>("PriceFeedDAI")).setUpdatedAt(timestamp + 86_400 * 365 * 5);
-          await (await getContract<MockPriceFeed>("PriceFeedWETH")).setUpdatedAt(timestamp + 86_400 * 365 * 5);
 
           // borrow and repay to have all those flexible fees accrued
           await marketDAI.borrow("1", maria.address, maria.address);

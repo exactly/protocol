@@ -4,9 +4,8 @@ pragma solidity 0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { AlreadyMatured } from "../InterestRateModel.sol";
-import { ExactlyOracle } from "../ExactlyOracle.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
-import { Auditor } from "../Auditor.sol";
+import { Auditor, IPriceFeed } from "../Auditor.sol";
 import { Market } from "../Market.sol";
 
 /// @title Previewer
@@ -82,7 +81,6 @@ contract Previewer {
   /// @param account address which the extended data will be calculated.
   /// @return data extended accountability of all markets for the account.
   function exactly(address account) external view returns (MarketAccount[] memory data) {
-    ExactlyOracle oracle = auditor.oracle();
     uint256 markets = auditor.accountMarkets(account);
     uint256 maxValue = auditor.allMarkets().length;
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, Market(address(0)), 0);
@@ -91,8 +89,8 @@ contract Previewer {
       Market market = auditor.marketList(i);
       Market.Account memory a;
       Auditor.MarketData memory m;
-      uint256 oraclePrice = oracle.assetPrice(market);
-      (m.adjustFactor, m.decimals, m.index, m.isListed) = auditor.markets(market);
+      (m.adjustFactor, m.decimals, m.index, m.isListed, m.priceFeed) = auditor.markets(market);
+      uint256 oraclePrice = auditor.assetPrice(m.priceFeed);
       (a.fixedDeposits, a.fixedBorrows, a.floatingBorrowShares) = market.accounts(account);
       data[i] = MarketAccount({
         // market
@@ -127,13 +125,12 @@ contract Previewer {
   /// @param usdAmount amount in usd expressed with 18 decimals.
   /// @return data with fixed rate simulations for every market.
   function previewFixed(uint256 usdAmount) external view returns (FixedMarket[] memory data) {
-    ExactlyOracle oracle = auditor.oracle();
     uint256 maxValue = auditor.allMarkets().length;
     data = new FixedMarket[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
       Market market = auditor.marketList(i);
-      (, uint8 decimals, , ) = auditor.markets(market);
-      uint256 assets = usdAmount.mulDivDown(10**decimals, oracle.assetPrice(market));
+      (, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
+      uint256 assets = usdAmount.mulDivDown(10**decimals, auditor.assetPrice(priceFeed));
       data[i] = FixedMarket({
         market: market,
         decimals: decimals,

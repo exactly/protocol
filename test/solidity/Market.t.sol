@@ -7,8 +7,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Test, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
-import { Auditor, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
-import { ExactlyOracle, AggregatorV2V3Interface } from "../../contracts/ExactlyOracle.sol";
+import { Auditor, IPriceFeed, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
@@ -37,23 +36,20 @@ contract MarketTest is Test {
   MockPriceFeed internal daiPriceFeed;
   MockPriceFeed internal wethPriceFeed;
   MockInterestRateModel internal irm;
-  ExactlyOracle internal oracle;
 
   function setUp() external {
     vm.warp(0);
 
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
-    oracle = new ExactlyOracle();
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
-    auditor.initialize(oracle, Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
 
     irm = new MockInterestRateModel(0.1e18);
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
     daiPriceFeed = new MockPriceFeed(1e8);
-    oracle.setPriceFeed(market, AggregatorV2V3Interface(address(daiPriceFeed)));
 
     weth = new MockERC20("WETH", "WETH", 18);
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
@@ -68,10 +64,9 @@ contract MarketTest is Test {
       0.42e18
     );
     wethPriceFeed = new MockPriceFeed(1300e8);
-    oracle.setPriceFeed(marketWETH, AggregatorV2V3Interface(address(wethPriceFeed)));
 
-    auditor.enableMarket(market, 0.8e18, 18);
-    auditor.enableMarket(marketWETH, 0.9e18, 18);
+    auditor.enableMarket(market, daiPriceFeed, 0.8e18, 18);
+    auditor.enableMarket(marketWETH, wethPriceFeed, 0.9e18, 18);
     auditor.enterMarket(marketWETH);
 
     vm.label(BOB, "Bob");
@@ -476,8 +471,7 @@ contract MarketTest is Test {
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
     marketHarness.approve(BOB, 50_000 ether);
-    auditor.enableMarket(marketHarness, 0.8e18, 18);
-    oracle.setPriceFeed(marketHarness, AggregatorV2V3Interface(address(daiPriceFeed)));
+    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18, 18);
 
     marketHarness.setFloatingAssets(500 ether);
     marketHarness.setSupply(2000 ether);
@@ -512,8 +506,7 @@ contract MarketTest is Test {
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
-    auditor.enableMarket(marketHarness, 0.8e18, 18);
-    oracle.setPriceFeed(marketHarness, AggregatorV2V3Interface(address(daiPriceFeed)));
+    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18, 18);
 
     marketHarness.setFloatingAssets(500 ether);
     marketHarness.setSupply(2000 ether);
@@ -537,7 +530,7 @@ contract MarketTest is Test {
     market.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this), address(this));
 
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    (uint256 adjustFactor, , , ) = auditor.markets(market);
+    (uint256 adjustFactor, , , , ) = auditor.markets(market);
 
     assertEq(collateral, uint256(1_000 ether).mulDivDown(1e18, 10**18).mulWadDown(adjustFactor));
     assertEq(collateral, 800 ether);
@@ -831,10 +824,10 @@ contract MarketTest is Test {
     market.deposit(1_000 ether, BOB);
     market.borrow(500 ether, address(this), address(this));
     wethPriceFeed.setPrice(1);
-    (uint256 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
+    (uint256 adjustFactor, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
     uint256 floatingAssetsBefore = market.floatingAssets();
     assertEq(
-      market.maxWithdraw(address(this)).mulDivDown(auditor.oracle().assetPrice(market), 10**decimals).mulWadDown(
+      market.maxWithdraw(address(this)).mulDivDown(auditor.assetPrice(priceFeed), 10**decimals).mulWadDown(
         adjustFactor
       ),
       0
@@ -2233,8 +2226,7 @@ contract MarketTest is Test {
         0.42e18
       );
 
-      auditor.enableMarket(markets[i], 0.8e18, 18);
-      oracle.setPriceFeed(markets[i], AggregatorV2V3Interface(address(daiPriceFeed)));
+      auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18, 18);
       asset.mint(BOB, 50_000 ether);
       asset.mint(address(this), 50_000 ether);
       vm.prank(BOB);

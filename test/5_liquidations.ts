@@ -158,7 +158,7 @@ describe("Liquidations", function () {
       describe("A position can be recollateralized through liquidation", () => {
         describe("AND WHEN WETH price halves (Alices liquidity is 63k*0.6+1.5k*0.7=38850)", () => {
           beforeEach(async () => {
-            await exactlyEnv.oracle.setPrice(marketETH.address, parseUnits("1500"));
+            await exactlyEnv.setPrice(marketETH.address, parseUnits("1500", 8));
           });
 
           it("THEN alice has a small (39900-38850 = 1050) liquidity shortfall", async () => {
@@ -193,7 +193,7 @@ describe("Liquidations", function () {
 
       describe("AND WHEN WBTC price halves (Alices liquidity is 32.5k*0.6+3k*0.7=21.6k)", () => {
         beforeEach(async () => {
-          await exactlyEnv.oracle.setPrice(marketWBTC.address, parseUnits("32500"));
+          await exactlyEnv.setPrice(marketWBTC.address, parseUnits("32500", 8));
         });
         describe("the collateral can be entirely depleted and still have some debt left", () => {
           describe("WHEN depleting Alices WETH collateral", () => {
@@ -213,7 +213,7 @@ describe("Liquidations", function () {
               });
               describe("AND WHEN liquidating the rest of the collateral", () => {
                 beforeEach(async () => {
-                  await exactlyEnv.oracle.setPrice(marketETH.address, parseUnits("10"));
+                  await exactlyEnv.setPrice(marketETH.address, parseUnits("10", 8));
                   await marketDAI.connect(bob).liquidate(alice.address, parseUnits("2045"), marketWBTC.address);
                 });
                 it("THEN Alice has zero WBTC deposited", async () => {
@@ -328,7 +328,7 @@ describe("Liquidations", function () {
       });
       describe("WHEN WETH price doubles AND john borrows 10k DAI from a maturity pool (all liquidity in smart pool)", () => {
         beforeEach(async () => {
-          await exactlyEnv.oracle.setPrice(marketETH.address, parseUnits("8000"));
+          await exactlyEnv.setPrice(marketETH.address, parseUnits("8000", 8));
           exactlyEnv.switchWallet(john);
           await exactlyEnv.borrowMP("DAI", futurePools(1)[0].toNumber(), "10000");
         });
@@ -380,7 +380,7 @@ describe("Liquidations", function () {
         let johnETHBalanceBefore: BigNumber;
         let johnDAIBalanceBefore: BigNumber;
         beforeEach(async () => {
-          await exactlyEnv.oracle.setPrice(marketETH.address, parseUnits("1500"));
+          await exactlyEnv.setPrice(marketETH.address, parseUnits("1500", 8));
           await exactlyEnv.moveInTimeAndMine(futurePools(1)[0].toNumber() + 86_400 * 20);
           johnETHBalanceBefore = await eth.balanceOf(john.address);
           johnDAIBalanceBefore = await dai.balanceOf(john.address);
@@ -420,7 +420,7 @@ describe("Liquidations", function () {
             .connect(john)
             .depositAtMaturity(futurePools(1)[0], parseUnits("10000"), parseUnits("10000"), john.address);
 
-          await exactlyEnv.oracle.setPrice(marketETH.address, parseUnits("100"));
+          await exactlyEnv.setPrice(marketETH.address, parseUnits("100", 8));
           await marketDAI.connect(john).liquidate(alice.address, MaxUint256, marketETH.address);
         });
         it("THEN alice's debt is cleared", async () => {

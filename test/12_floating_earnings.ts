@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import { BigNumber } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { Auditor, Market, MockERC20, MockInterestRateModel, MockPriceFeed } from "../types";
+import type { Auditor, Market, MockERC20, MockInterestRateModel } from "../types";
 import futurePools, { INTERVAL } from "./utils/futurePools";
 import timelockExecute from "./utils/timelockExecute";
 
@@ -18,8 +18,6 @@ const {
 describe("Smart Pool Earnings Distribution", function () {
   let dai: MockERC20;
   let wbtc: MockERC20;
-  let priceFeedDAI: MockPriceFeed;
-  let priceFeedWBTC: MockPriceFeed;
   let marketDAI: Market;
   let marketWBTC: Market;
   let auditor: Auditor;
@@ -40,8 +38,6 @@ describe("Smart Pool Earnings Distribution", function () {
     dai = await getContract<MockERC20>("DAI", bob);
     wbtc = await getContract<MockERC20>("WBTC", bob);
     auditor = await getContract<Auditor>("Auditor", bob);
-    priceFeedDAI = await getContract<MockPriceFeed>("PriceFeedDAI", bob);
-    priceFeedWBTC = await getContract<MockPriceFeed>("PriceFeedWBTC", bob);
     marketDAI = await getContract<Market>("MarketDAI", bob);
     marketWBTC = await getContract<Market>("MarketWBTC", bob);
 
@@ -63,7 +59,6 @@ describe("Smart Pool Earnings Distribution", function () {
     beforeEach(async () => {
       await marketDAI.deposit(parseUnits("10000"), bob.address);
 
-      await priceFeedDAI.setUpdatedAt(futurePools(1)[0].toNumber());
       await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber()]);
 
       await marketDAI.borrowAtMaturity(
@@ -101,7 +96,6 @@ describe("Smart Pool Earnings Distribution", function () {
     });
     describe("AND GIVEN 7 days go by and bob repays late", () => {
       beforeEach(async () => {
-        await priceFeedDAI.setUpdatedAt(futurePools(1)[0].toNumber() + INTERVAL + 86_400 * 7);
         // 7 * 0,02 -> 14% late repayments (154)
         await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + INTERVAL + 86_400 * 7 + 1]);
         await marketDAI.repayAtMaturity(
@@ -207,8 +201,6 @@ describe("Smart Pool Earnings Distribution", function () {
         await marketDAI.deposit(parseUnits("10000"), bob.address);
         await timelockExecute(owner, marketDAI, "setReserveFactor", [0]);
 
-        await priceFeedDAI.setUpdatedAt(futurePools(1)[0].toNumber());
-        await priceFeedWBTC.setUpdatedAt(futurePools(1)[0].toNumber());
         await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber()]);
         await marketDAI.borrowAtMaturity(
           futurePools(1)[0].add(INTERVAL),

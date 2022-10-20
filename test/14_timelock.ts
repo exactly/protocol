@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import type { ExactlyOracle, TimelockController } from "../types";
+import type { Auditor, TimelockController } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 
 const {
@@ -13,11 +13,12 @@ const {
 } = ethers;
 
 describe("Timelock - AccessControl", function () {
-  let exactlyOracle: ExactlyOracle;
+  let auditor: Auditor;
   let timelockController: TimelockController;
   let owner: SignerWithAddress;
   let account: SignerWithAddress;
   let priceFeed: string;
+  let marketDAI: string;
 
   before(async () => {
     owner = await getNamedSigner("multisig");
@@ -27,16 +28,17 @@ describe("Timelock - AccessControl", function () {
   beforeEach(async () => {
     await deployments.fixture("Markets");
 
-    exactlyOracle = await getContract<ExactlyOracle>("ExactlyOracle", owner);
+    auditor = await getContract<Auditor>("Auditor", owner);
     timelockController = await getContract<TimelockController>("TimelockController", owner);
     priceFeed = (await deployments.get("PriceFeedDAI")).address;
+    marketDAI = (await deployments.get("MarketDAI")).address;
 
-    await timelockExecute(owner, exactlyOracle, "grantRole", [await exactlyOracle.DEFAULT_ADMIN_ROLE(), owner.address]);
+    await timelockExecute(owner, auditor, "grantRole", [await auditor.DEFAULT_ADMIN_ROLE(), owner.address]);
   });
 
-  describe("GIVEN a deployed ExactlyOracle contract", () => {
+  describe("GIVEN a deployed Auditor contract", () => {
     it("THEN it should not revert when setting a new asset source with owner address", async () => {
-      await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.not.be.reverted;
+      await expect(auditor.setPriceFeed(marketDAI, priceFeed)).to.not.be.reverted;
     });
     describe("AND GIVEN a deployed Timelock contract", () => {
       it("THEN owner address doesn't have TIMELOCK_ADMIN role for Timelock contract", async () => {
@@ -45,41 +47,41 @@ describe("Timelock - AccessControl", function () {
       });
       describe("AND WHEN the owner grants the ADMIN role to the Timelock contract address", () => {
         beforeEach(async () => {
-          await exactlyOracle.grantRole(await exactlyOracle.DEFAULT_ADMIN_ROLE(), timelockController.address);
+          await auditor.grantRole(await auditor.DEFAULT_ADMIN_ROLE(), timelockController.address);
         });
         it("THEN it should still not revert when setting new asset sources with owner address", async () => {
-          await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.not.be.reverted;
+          await expect(auditor.setPriceFeed(marketDAI, priceFeed)).to.not.be.reverted;
         });
         describe("AND WHEN the owner schedules a new asset source with a 3 second delay in the Timelock", () => {
           let calldata: string;
           beforeEach(async () => {
-            calldata = exactlyOracle.interface.encodeFunctionData("setPriceFeed", [AddressZero, priceFeed]);
-            await timelockController.schedule(exactlyOracle.address, 0, calldata, HashZero, HashZero, 3);
+            calldata = auditor.interface.encodeFunctionData("setPriceFeed", [marketDAI, priceFeed]);
+            await timelockController.schedule(auditor.address, 0, calldata, HashZero, HashZero, 3);
           });
           it("THEN it should revert when executing before delay time", async () => {
             await expect(
-              timelockController.execute(exactlyOracle.address, 0, calldata, HashZero, HashZero),
+              timelockController.execute(auditor.address, 0, calldata, HashZero, HashZero),
             ).to.be.revertedWith("TimelockController: operation is not ready");
           });
           it("THEN it should not revert when executing after delay time", async () => {
             await provider.send("evm_mine", []);
             await provider.send("evm_mine", []);
-            await expect(timelockController.execute(exactlyOracle.address, 0, calldata, HashZero, HashZero)).to.not.be
+            await expect(timelockController.execute(auditor.address, 0, calldata, HashZero, HashZero)).to.not.be
               .reverted;
           });
         });
         it("AND WHEN account tries to schedule a set of new asset sources through the Timelock, THEN it should revert", async () => {
-          const data = exactlyOracle.interface.encodeFunctionData("setPriceFeed", [AddressZero, AddressZero]);
+          const data = auditor.interface.encodeFunctionData("setPriceFeed", [AddressZero, AddressZero]);
           await expect(
-            timelockController.connect(account).schedule(exactlyOracle.address, 0, data, HashZero, HashZero, 3),
+            timelockController.connect(account).schedule(auditor.address, 0, data, HashZero, HashZero, 3),
           ).to.be.revertedWith("AccessControl");
         });
         describe("AND WHEN the owner revokes his ADMIN role", () => {
           beforeEach(async () => {
-            await exactlyOracle.revokeRole(await exactlyOracle.DEFAULT_ADMIN_ROLE(), owner.address);
+            await auditor.revokeRole(await auditor.DEFAULT_ADMIN_ROLE(), owner.address);
           });
           it("THEN it should revert when trying to set new asset sources with owner address", async () => {
-            await expect(exactlyOracle.setPriceFeed(AddressZero, priceFeed)).to.be.revertedWith("AccessControl");
+            await expect(auditor.setPriceFeed(marketDAI, priceFeed)).to.be.revertedWith("AccessControl");
           });
         });
         describe("AND WHEN the owner address grants another account PROPOSER and EXECUTOR roles for Timelock contract", () => {
@@ -98,13 +100,11 @@ describe("Timelock - AccessControl", function () {
             expect(userHasProposerRole).to.equal(true);
           });
           it("THEN account can schedule and execute transactions through the Timelock", async () => {
-            const data = exactlyOracle.interface.encodeFunctionData("setPriceFeed", [AddressZero, priceFeed]);
-            await expect(
-              timelockController.connect(account).schedule(exactlyOracle.address, 0, data, HashZero, HashZero, 1),
-            ).to.not.be.reverted;
-            await expect(
-              timelockController.connect(account).execute(exactlyOracle.address, 0, data, HashZero, HashZero),
-            ).to.not.be.reverted;
+            const data = auditor.interface.encodeFunctionData("setPriceFeed", [AddressZero, priceFeed]);
+            await expect(timelockController.connect(account).schedule(auditor.address, 0, data, HashZero, HashZero, 1))
+              .to.not.be.reverted;
+            await expect(timelockController.connect(account).execute(auditor.address, 0, data, HashZero, HashZero)).to
+              .not.be.reverted;
           });
           it("THEN it should revert when account tries to grant another address PROPOSER and EXECUTOR roles for Timelock contract", async () => {
             // Only addresses with TIMELOCK_ADMIN_ROLE can grant these roles

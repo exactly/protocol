@@ -26,7 +26,6 @@
     "node": ">=16"
   },
   "dependencies": {
-    "@chainlink/contracts": "0.5.1",
     "@openzeppelin/contracts": "4.7.3",
     "@openzeppelin/contracts-upgradeable": "^4.7.3",
     "solmate": "transmissions11/solmate#v7"

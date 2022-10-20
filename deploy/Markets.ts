@@ -1,5 +1,5 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, ExactlyOracle, Market } from "../types";
+import type { Auditor, ERC20, Market } from "../types";
 import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
@@ -20,13 +20,11 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [auditor, exactlyOracle, { address: timelock }, { deployer, multisig, treasury = AddressZero }] =
-    await Promise.all([
-      getContract<Auditor>("Auditor"),
-      getContract<ExactlyOracle>("ExactlyOracle"),
-      get("TimelockController"),
-      getNamedAccounts(),
-    ]);
+  const [auditor, { address: timelock }, { deployer, multisig, treasury = AddressZero }] = await Promise.all([
+    getContract<Auditor>("Auditor"),
+    get("TimelockController"),
+    getNamedAccounts(),
+  ]);
 
   const earningsAccumulatorSmoothFactor = parseUnits(String(finance.earningsAccumulatorSmoothFactor));
   const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)).div(86_400);
@@ -142,15 +140,21 @@ const func: DeployFunction = async ({
     }
 
     const { address: priceFeed } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
-    if ((await exactlyOracle.priceFeeds(market.address)) !== priceFeed) {
-      await executeOrPropose(exactlyOracle, "setPriceFeed", [market.address, priceFeed]);
-    }
-
     const adjustFactor = parseUnits(String(config.adjustFactor));
     if (!(await auditor.allMarkets()).includes(market.address)) {
-      await executeOrPropose(auditor, "enableMarket", [market.address, adjustFactor, await asset.decimals()]);
-    } else if (!(await auditor.markets(market.address)).adjustFactor.eq(adjustFactor)) {
-      await executeOrPropose(auditor, "setAdjustFactor", [market.address, adjustFactor]);
+      await executeOrPropose(auditor, "enableMarket", [
+        market.address,
+        priceFeed,
+        adjustFactor,
+        await asset.decimals(),
+      ]);
+    } else {
+      if ((await auditor.markets(market.address)).priceFeed !== priceFeed) {
+        await executeOrPropose(auditor, "setPriceFeed", [market.address, priceFeed]);
+      }
+      if (!(await auditor.markets(market.address)).adjustFactor.eq(adjustFactor)) {
+        await executeOrPropose(auditor, "setAdjustFactor", [market.address, adjustFactor]);
+      }
     }
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
@@ -158,12 +162,10 @@ const func: DeployFunction = async ({
     await transferOwnership(market, deployer, timelock);
   }
 
-  for (const contract of [auditor, exactlyOracle]) {
-    await transferOwnership(contract, deployer, timelock);
-  }
+  await transferOwnership(auditor, deployer, timelock);
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ExactlyOracle", "ProxyAdmin", "TimelockController", "Assets"];
+func.dependencies = ["Auditor", "ProxyAdmin", "TimelockController", "Assets"];
 
 export default func;

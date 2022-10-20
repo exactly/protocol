@@ -5,7 +5,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import { ExactlyOracle } from "./ExactlyOracle.sol";
+import { IPriceFeed } from "./utils/IPriceFeed.sol";
 import { Market } from "./Market.sol";
 
 contract Auditor is Initializable, AccessControlUpgradeable {
@@ -13,6 +13,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
   uint256 public constant TARGET_HEALTH = 1.25e18;
   uint256 public constant ASSETS_THRESHOLD = type(uint256).max / 1e18;
+  uint256 public constant ORACLE_DECIMALS = 8;
 
   mapping(address => uint256) public accountMarkets;
   mapping(Market => MarketData) public markets;
@@ -20,19 +21,16 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
   LiquidationIncentive public liquidationIncentive;
 
-  ExactlyOracle public oracle;
-
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
     _disableInitializers();
   }
 
-  function initialize(ExactlyOracle oracle_, LiquidationIncentive memory liquidationIncentive_) external initializer {
+  function initialize(LiquidationIncentive memory liquidationIncentive_) external initializer {
     __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-    setOracle(oracle_);
     setLiquidationIncentive(liquidationIncentive_);
   }
 
@@ -88,7 +86,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     uint256 withdrawAmount
   ) public view returns (uint256 sumCollateral, uint256 sumDebtPlusEffects) {
     AccountLiquidity memory vars; // holds all our calculation results
-    ExactlyOracle memOracle = oracle;
 
     // for each asset the account is in
     uint256 marketMap = accountMarkets[account];
@@ -103,7 +100,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
 
         // get the normalized price of the asset (18 decimals)
-        vars.oraclePrice = memOracle.assetPrice(market);
+        vars.oraclePrice = assetPrice(m.priceFeed);
 
         // sum all the collateral prices
         sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, baseUnit).mulWadDown(adjustFactor);
@@ -186,14 +183,13 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
     MarketVars memory repay;
     LiquidityVars memory usd;
-    ExactlyOracle memOracle = oracle;
     uint256 marketMap = accountMarkets[borrower];
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
       if (marketMap & 1 != 0) {
         Market market = marketList[i];
         MarketData storage marketData = markets[market];
         MarketVars memory m = MarketVars({
-          price: memOracle.assetPrice(market),
+          price: assetPrice(marketData.priceFeed),
           adjustFactor: marketData.adjustFactor,
           baseUnit: 10**marketData.decimals
         });
@@ -264,9 +260,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
 
     // read oracle prices for borrowed and collateral markets
-    ExactlyOracle memOracle = oracle;
-    uint256 priceBorrowed = memOracle.assetPrice(repayMarket);
-    uint256 priceCollateral = memOracle.assetPrice(seizeMarket);
+    uint256 priceBorrowed = assetPrice(markets[repayMarket].priceFeed);
+    uint256 priceCollateral = assetPrice(markets[seizeMarket].priceFeed);
     uint256 amountInUSD = actualRepayAssets.mulDivUp(priceBorrowed, 10**markets[repayMarket].decimals);
 
     // 10**18: usd amount decimals
@@ -282,7 +277,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @dev Collateral is multiplied by price and adjust factor to be accurately evaluated as positive collateral asset.
   /// @param account account in which debt is being checked.
   function handleBadDebt(address account) external {
-    ExactlyOracle memOracle = oracle;
     uint256 memMarketMap = accountMarkets[account];
     uint256 marketMap = memMarketMap;
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
@@ -290,7 +284,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         Market market = marketList[i];
         MarketData storage m = markets[market];
         uint256 assets = market.maxWithdraw(account);
-        if (assets.mulDivDown(memOracle.assetPrice(market), 10**m.decimals).mulWadDown(m.adjustFactor) > 0) return;
+        if (assets.mulDivDown(assetPrice(m.priceFeed), 10**m.decimals).mulWadDown(m.adjustFactor) > 0) return;
       }
       unchecked {
         ++i;
@@ -306,6 +300,16 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Gets the asset price of a price feed.
+  /// @dev If Chainlink's asset price is <= 0 the call is reverted.
+  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price.
+  /// @return The price of the asset scaled to 18-digit decimals.
+  function assetPrice(IPriceFeed priceFeed) public view returns (uint256) {
+    int256 oraclePrice = priceFeed.latestAnswer();
+    if (oraclePrice <= 0) revert InvalidPrice();
+    return uint256(oraclePrice) * 10**(18 - ORACLE_DECIMALS);
+  }
+
   /// @notice Retrieves all markets.
   function allMarkets() external view returns (Market[] memory) {
     return marketList;
@@ -314,10 +318,12 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Enables a certain market.
   /// @dev Enabling more than 256 markets will cause an overflow when casting market index to uint8.
   /// @param market market to add to the protocol.
+  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in USD.
   /// @param adjustFactor market's adjust factor for the underlying asset.
   /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
     Market market,
+    IPriceFeed priceFeed,
     uint128 adjustFactor,
     uint8 decimals
   ) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -329,12 +335,14 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       isListed: true,
       adjustFactor: adjustFactor,
       decimals: decimals,
-      index: uint8(marketList.length)
+      index: uint8(marketList.length),
+      priceFeed: priceFeed
     });
 
     marketList.push(market);
 
     emit MarketListed(market, decimals);
+    emit PriceFeedSet(market, priceFeed);
     emit AdjustFactorSet(market, adjustFactor);
   }
 
@@ -348,6 +356,15 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     emit AdjustFactorSet(market, adjustFactor);
   }
 
+  /// @notice Sets the Chainlink Price Feed Aggregator source for a market.
+  /// @param market market address of the asset.
+  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in USD.
+  function setPriceFeed(Market market, IPriceFeed priceFeed) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (priceFeed.decimals() != ORACLE_DECIMALS) revert InvalidPriceFeed();
+    markets[market].priceFeed = priceFeed;
+    emit PriceFeedSet(market, priceFeed);
+  }
+
   /// @notice Sets liquidation incentive (liquidator and lenders) for the whole ecosystem.
   /// @param liquidationIncentive_ new liquidation incentive.
   function setLiquidationIncentive(LiquidationIncentive memory liquidationIncentive_)
@@ -356,13 +373,6 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   {
     liquidationIncentive = liquidationIncentive_;
     emit LiquidationIncentiveSet(liquidationIncentive_);
-  }
-
-  /// @notice Sets Oracle's to be used.
-  /// @param oracle_ address of the new oracle.
-  function setOracle(ExactlyOracle oracle_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    oracle = oracle_;
-    emit OracleSet(oracle_);
   }
 
   /// @notice Emitted when a new market is listed for borrow/lending.
@@ -390,9 +400,10 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param liquidationIncentive represented with 18 decimals.
   event LiquidationIncentiveSet(LiquidationIncentive liquidationIncentive);
 
-  /// @notice Emitted when a new Oracle has been set.
-  /// @param oracle address of the new oracle that is used to calculate liquidity.
-  event OracleSet(ExactlyOracle indexed oracle);
+  /// @notice Emitted when a market and prie feed is changed by admin.
+  /// @param market address of the asset used to get the price from this oracle.
+  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in USD.
+  event PriceFeedSet(Market indexed market, IPriceFeed indexed priceFeed);
 
   struct LiquidationIncentive {
     uint128 liquidator;
@@ -410,12 +421,15 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     uint8 decimals;
     uint8 index;
     bool isListed;
+    IPriceFeed priceFeed;
   }
 }
 
 error AuditorMismatch();
 error InsufficientAccountLiquidity();
 error InsufficientShortfall();
+error InvalidPrice();
+error InvalidPriceFeed();
 error MarketAlreadyListed();
 error MarketNotListed();
 error NotMarket();

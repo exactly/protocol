@@ -13,8 +13,8 @@ import type {
   MockERC20__factory,
   MockInterestRateModel,
   MockInterestRateModel__factory,
-  MockOracle,
-  MockOracle__factory,
+  MockPriceFeed,
+  MockPriceFeed__factory,
   WETH,
   WETH__factory,
 } from "../types";
@@ -29,10 +29,10 @@ const {
 
 /** @deprecated use deploy fixture */
 export class DefaultEnv {
-  oracle: MockOracle;
   auditor: Auditor;
   interestRateModel: InterestRateModel | MockInterestRateModel;
   marketContracts: Record<string, Market>;
+  priceFeeds: Record<string, MockPriceFeed>;
   underlyingContracts: Record<string, MockERC20 | WETH>;
   baseRate: BigNumber;
   marginRate: BigNumber;
@@ -43,17 +43,17 @@ export class DefaultEnv {
   maxOracleDelayTime: number;
 
   constructor(
-    _oracle: MockOracle,
     _auditor: Auditor,
     _interestRateModel: InterestRateModel | MockInterestRateModel,
     _marketContracts: Record<string, Market>,
+    _priceFeeds: Record<string, MockPriceFeed>,
     _underlyingContracts: Record<string, MockERC20 | WETH>,
     _mockAssets: Record<string, MockAssetSpec>,
     _currentWallet: SignerWithAddress,
   ) {
-    this.oracle = _oracle;
     this.auditor = _auditor;
     this.marketContracts = _marketContracts;
+    this.priceFeeds = _priceFeeds;
     this.underlyingContracts = _underlyingContracts;
     this.interestRateModel = _interestRateModel;
     this.mockAssets = _mockAssets;
@@ -69,32 +69,29 @@ export class DefaultEnv {
       DAI: {
         decimals: 18,
         adjustFactor: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
+        usdPrice: parseUnits("1", 8),
       },
       WETH: {
         decimals: 18,
         adjustFactor: parseUnits("0.7"),
-        usdPrice: parseUnits("3000"),
+        usdPrice: parseUnits("3000", 8),
       },
       WBTC: {
         decimals: 8,
         adjustFactor: parseUnits("0.6"),
-        usdPrice: parseUnits("63000"),
+        usdPrice: parseUnits("63000", 8),
       },
       USDC: {
         decimals: 6,
         adjustFactor: parseUnits("0.8"),
-        usdPrice: parseUnits("1"),
+        usdPrice: parseUnits("1", 8),
       },
     };
     const marketContracts: Record<string, Market> = {};
+    const priceFeeds: Record<string, MockPriceFeed> = {};
     const underlyingContracts: Record<string, MockERC20 | WETH> = {};
 
     const owner = await getNamedSigner("deployer");
-
-    const MockOracle = (await getContractFactory("MockOracle")) as MockOracle__factory;
-    const oracle = await MockOracle.deploy();
-    await oracle.deployed();
 
     const MockInterestRateModelFactory = (await getContractFactory(
       "MockInterestRateModel",
@@ -125,7 +122,7 @@ export class DefaultEnv {
     );
     await auditorProxy.deployed();
     const auditor = new Contract(auditorProxy.address, Auditor.interface, owner) as Auditor;
-    await auditor.initialize(oracle.address, { liquidator: parseUnits("0.1"), lenders: 0 });
+    await auditor.initialize({ liquidator: parseUnits("0.1"), lenders: 0 });
 
     // enable all the Markets in the auditor
     await Promise.all(
@@ -164,18 +161,29 @@ export class DefaultEnv {
           parseUnits("0.42"),
         );
 
-        // Mock PriceOracle setting dummy price
-        await oracle.setPrice(market.address, usdPrice);
+        // deploy a MockPriceFeed setting dummy price
+        const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
+        const mockPriceFeed = await MockPriceFeed.deploy(usdPrice);
+        await mockPriceFeed.deployed();
         // Enable Market for MarketASSET by setting the collateral rates
-        await auditor.enableMarket(market.address, adjustFactor, decimals);
+        await auditor.enableMarket(market.address, mockPriceFeed.address, adjustFactor, decimals);
 
         // Handy maps with all the markets and underlying assets
+        priceFeeds[market.address] = mockPriceFeed;
         marketContracts[symbol] = market;
         underlyingContracts[symbol] = asset;
       }),
     );
 
-    return new DefaultEnv(oracle, auditor, interestRateModel, marketContracts, underlyingContracts, mockAssets, owner);
+    return new DefaultEnv(
+      auditor,
+      interestRateModel,
+      marketContracts,
+      priceFeeds,
+      underlyingContracts,
+      mockAssets,
+      owner,
+    );
   }
 
   public getMarket(key: string) {
@@ -184,10 +192,6 @@ export class DefaultEnv {
 
   public getUnderlying(key: string) {
     return this.underlyingContracts[key];
-  }
-
-  public async setOracle(oracleAddress: string) {
-    return this.auditor.connect(this.currentWallet).setOracle(oracleAddress);
   }
 
   public switchWallet(wallet: SignerWithAddress) {
@@ -315,10 +319,6 @@ export class DefaultEnv {
     return this.mockAssets[assetString]?.decimals;
   }
 
-  public async enableMarket(market: string, adjustFactor: BigNumber, decimals: number) {
-    return this.auditor.connect(this.currentWallet).enableMarket(market, adjustFactor, decimals);
-  }
-
   public async maturityPool(assetString: string, maturityPoolID: number) {
     const market = this.getMarket(assetString);
     return market.fixedPools(maturityPoolID);
@@ -326,6 +326,10 @@ export class DefaultEnv {
 
   public async previewDebt(market: string) {
     return this.getMarket(market).previewDebt(this.currentWallet.address);
+  }
+
+  public async setPrice(market: string, price: BigNumber) {
+    return this.priceFeeds[market].setPrice(price);
   }
 }
 
