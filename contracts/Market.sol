@@ -80,7 +80,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     __Pausable_init();
 
     string memory assetSymbol = asset.symbol();
-    name = string.concat("EToken", assetSymbol);
+    name = string.concat("exactly ", assetSymbol);
     symbol = string.concat("e", assetSymbol);
     lastAccumulatorAccrual = uint32(block.timestamp);
     lastFloatingDebtUpdate = uint32(block.timestamp);
