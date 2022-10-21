@@ -30,7 +30,10 @@ module.exports = {
     {
       files: ["test/**/*"],
       extends: ["plugin:mocha/recommended", "plugin:chai-expect/recommended", "plugin:chai-friendly/recommended"],
-      rules: { "mocha/no-mocha-arrows": "off" },
+      rules: {
+        "mocha/no-mocha-arrows": "off",
+        "mocha/no-exclusive-tests": "error",
+      },
     },
   ],
 };
