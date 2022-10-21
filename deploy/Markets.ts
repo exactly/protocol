@@ -8,6 +8,9 @@ import tenderlify from "./.utils/tenderlify";
 import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
+  network: {
+    config: { markets },
+  },
   config: {
     finance: { maxFuturePools, ...finance },
   },
@@ -34,7 +37,7 @@ const func: DeployFunction = async ({
   const dampSpeedDown = parseUnits(String(finance.dampSpeed.down));
   const treasuryFeeRate = parseUnits(String(finance.treasuryFeeRate ?? 0));
 
-  for (const [symbol, config] of Object.entries(finance.markets)) {
+  for (const [symbol, config] of Object.entries(markets)) {
     const { address: interestRateModel } = await tenderlify(
       "InterestRateModel",
       await deploy(`InterestRateModel${symbol}`, {

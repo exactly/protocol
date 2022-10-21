@@ -1,5 +1,5 @@
 import { env } from "process";
-import { ethers, network, config } from "hardhat";
+import { ethers, network } from "hardhat";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { MockPriceFeed } from "../../types";
 
@@ -9,20 +9,20 @@ const {
   getSigner,
 } = ethers;
 const {
-  config: { priceDecimals },
+  config: { priceDecimals, markets },
   live,
 } = network;
 
 export const mockPrices = Object.fromEntries(
-  Object.keys(config.finance.markets)
+  Object.keys(markets)
     .filter((symbol) => live && env[`${symbol}_PRICE`])
     .map((symbol) => [symbol, parseUnits(env[`${symbol}_PRICE`] as string, priceDecimals)]),
 );
 
-const func: DeployFunction = async ({ config: { finance }, deployments: { deploy, log }, getNamedAccounts }) => {
+const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
   const signer = await getSigner(deployer);
-  for (const symbol in finance.markets) {
+  for (const symbol in markets) {
     const decimals = { USDC: 6, WBTC: 8 }[symbol] ?? 18;
     await deploy(symbol, {
       skipIfAlreadyDeployed: true,

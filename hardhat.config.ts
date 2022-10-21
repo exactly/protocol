@@ -9,9 +9,9 @@ import "@nomiclabs/hardhat-waffle";
 import "@primitivefi/hardhat-dodoc";
 import "@openzeppelin/hardhat-upgrades";
 import { env } from "process";
-import { task } from "hardhat/config";
 import { setup } from "@tenderly/hardhat-tenderly";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
+import { task, extendConfig } from "hardhat/config";
 import type { HardhatUserConfig as Config } from "hardhat/types";
 
 setup({ automaticVerifications: false });
@@ -142,11 +142,18 @@ task(
   .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)
   .addOptionalParam("account", "signer's account name", "deployer", string);
 
+extendConfig((hardhatConfig, { finance: { markets } }) => {
+  for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
+    networkConfig.markets = Object.fromEntries(
+      Object.entries(markets).filter(([, { networks }]) => !networks || networks.find((name) => name === networkName)),
+    );
+  }
+});
+
 export default config;
 
 declare module "hardhat/types/config" {
   export interface FinanceConfig {
-    markets: { [asset: string]: MarketConfig };
     liquidationIncentive: { liquidator: number; lenders: number };
     penaltyRatePerDay: number;
     treasuryFeeRate?: number;
@@ -164,10 +171,18 @@ declare module "hardhat/types/config" {
     };
   }
 
+  export interface FinanceUserConfig extends FinanceConfig {
+    markets: { [asset: string]: MarketUserConfig };
+  }
+
   export interface MarketConfig {
     adjustFactor: number;
     fixedCurve: Curve;
     floatingCurve: Curve;
+  }
+
+  export interface MarketUserConfig extends MarketConfig {
+    networks?: string[];
   }
 
   export interface Curve {
@@ -182,7 +197,7 @@ declare module "hardhat/types/config" {
   }
 
   export interface HardhatUserConfig {
-    finance: FinanceConfig;
+    finance: FinanceUserConfig;
   }
 
   export interface HardhatConfig {
@@ -203,11 +218,13 @@ declare module "hardhat/types/config" {
     priceDecimals: number;
     timelockDelay: undefined;
     safeTxService: undefined;
+    markets: { [asset: string]: MarketConfig };
   }
 
   export interface HttpNetworkConfig {
     priceDecimals: number;
     timelockDelay?: number;
     safeTxService: string;
+    markets: { [asset: string]: MarketConfig };
   }
 }
