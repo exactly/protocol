@@ -142,7 +142,9 @@ const func: DeployFunction = async ({
       await executeOrPropose(market, "setTreasury", [treasury, treasuryFeeRate]);
     }
 
-    const { address: priceFeed } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
+    const { address: priceFeed } = await get(
+      `${mockPrices[symbol] ? "Mock" : ""}PriceFeed${config.wrap ? "Wrapper" : ""}${symbol}`,
+    );
     const adjustFactor = parseUnits(String(config.adjustFactor));
     if (!(await auditor.allMarkets()).includes(market.address)) {
       await executeOrPropose(auditor, "enableMarket", [
@@ -169,6 +171,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ProxyAdmin", "TimelockController", "Assets"];
+func.dependencies = ["Auditor", "ProxyAdmin", "TimelockController", "Assets", "PriceFeedWrappers"];
 
 export default func;

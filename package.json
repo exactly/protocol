@@ -31,6 +31,7 @@
     "solmate": "transmissions11/solmate#v7"
   },
   "devDependencies": {
+    "@ethersproject/abi": "5.7.0",
     "@gnosis.pm/safe-core-sdk": "^3.1.1",
     "@gnosis.pm/safe-core-sdk-types": "^1.6.1",
     "@gnosis.pm/safe-ethers-lib": "^1.6.1",

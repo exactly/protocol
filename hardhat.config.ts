@@ -20,7 +20,7 @@ const config: Config = {
   solidity: { version: "0.8.17", settings: { optimizer: { enabled: true, runs: 200 } } },
   networks: {
     hardhat: {
-      accounts: { accountsBalance: `1${"0".repeat(32)}` },
+      accounts: { accountsBalance: (10n ** 32n).toString() },
       priceDecimals: 8,
       allowUnlimitedContractSize: true,
     },
@@ -117,6 +117,21 @@ const config: Config = {
           maxUtilization: 1.0216,
         },
       },
+      LINK: {
+        networks: ["hardhat", "goerli"],
+        adjustFactor: 0.85,
+        fixedCurve: {
+          a: 1.5372,
+          b: -1.3898,
+          maxUtilization: 1.0865,
+        },
+        floatingCurve: {
+          a: 0.0547,
+          b: -0.0335,
+          maxUtilization: 1.0216,
+        },
+        wrap: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
+      },
     },
   },
   dodoc: { exclude: ["mocks/", "k/", "elin/", "rc/"] },
@@ -179,6 +194,11 @@ declare module "hardhat/types/config" {
     adjustFactor: number;
     fixedCurve: Curve;
     floatingCurve: Curve;
+    wrap?: {
+      wrapper: string;
+      fn: string;
+      baseUnit: bigint;
+    };
   }
 
   export interface MarketUserConfig extends MarketConfig {

@@ -9,7 +9,9 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateModel.sol";
 import { Auditor, IPriceFeed, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
+import { PriceFeedWrapper } from "../../contracts/PriceFeedWrapper.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
+import { MockStETH } from "../../contracts/mocks/MockStETH.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
   ERC20,
@@ -2221,6 +2223,39 @@ contract MarketTest is Test {
     (, uint256 fixedBorrows, ) = market.accounts(address(this));
     assertEq(market.previewDebt(address(this)), 0);
     assertEq(fixedBorrows, 0);
+  }
+
+  function testOperationsWithStEthAsset() external {
+    MockStETH stETH = new MockStETH(1090725952265553962);
+    Market marketStETH = Market(address(new ERC1967Proxy(address(new Market(stETH, auditor)), "")));
+    marketStETH.initialize(
+      3,
+      1e18,
+      InterestRateModel(address(irm)),
+      0.02e18 / uint256(1 days),
+      1e17,
+      0,
+      0.0046e18,
+      0.42e18
+    );
+    PriceFeedWrapper priceFeedWrapper = new PriceFeedWrapper(
+      new MockPriceFeed(18, 0.99e18),
+      address(stETH),
+      MockStETH.getPooledEthByShares.selector,
+      1e18
+    );
+    auditor.enableMarket(marketStETH, priceFeedWrapper, 0.8e18, 18);
+
+    stETH.mint(address(this), 50_000 ether);
+    stETH.approve(address(marketStETH), type(uint256).max);
+
+    assertEq(auditor.assetPrice(priceFeedWrapper), 1079818692742898422);
+
+    marketStETH.deposit(50_000 ether, address(this));
+    marketStETH.borrow(5_000 ether, address(this), address(this));
+    vm.warp(10 days);
+    marketStETH.repay(2_500 ether, address(this));
+    marketStETH.withdraw(20_000 ether, address(this), address(this));
   }
 
   function testMultipleBorrowsForMultipleAssets() external {

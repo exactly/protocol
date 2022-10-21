@@ -22,7 +22,7 @@ export const mockPrices = Object.fromEntries(
 const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
   const signer = await getSigner(deployer);
-  for (const symbol in markets) {
+  for (const [symbol, { wrap }] of Object.entries(markets)) {
     const decimals = { USDC: 6, WBTC: 8 }[symbol] ?? 18;
     await deploy(symbol, {
       skipIfAlreadyDeployed: true,
@@ -31,6 +31,17 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       from: deployer,
       log: true,
     });
+
+    if (wrap) {
+      await deploy(wrap.wrapper, {
+        skipIfAlreadyDeployed: true,
+        contract: "MockStETH",
+        args: [parseUnits("1")],
+        from: deployer,
+        log: true,
+      });
+    }
+
     await deploy(`PriceFeed${symbol}`, {
       skipIfAlreadyDeployed: true,
       contract: "MockPriceFeed",
