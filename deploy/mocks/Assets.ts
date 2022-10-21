@@ -8,11 +8,15 @@ const {
   getContract,
   getSigner,
 } = ethers;
+const {
+  config: { priceDecimals },
+  live,
+} = network;
 
 export const mockPrices = Object.fromEntries(
   Object.keys(config.finance.markets)
-    .filter((symbol) => network.live && env[`${symbol}_PRICE`])
-    .map((symbol) => [symbol, parseUnits(env[`${symbol}_PRICE`] as string, 8)]),
+    .filter((symbol) => live && env[`${symbol}_PRICE`])
+    .map((symbol) => [symbol, parseUnits(env[`${symbol}_PRICE`] as string, priceDecimals)]),
 );
 
 const func: DeployFunction = async ({ config: { finance }, deployments: { deploy, log }, getNamedAccounts }) => {
@@ -30,7 +34,7 @@ const func: DeployFunction = async ({ config: { finance }, deployments: { deploy
     await deploy(`PriceFeed${symbol}`, {
       skipIfAlreadyDeployed: true,
       contract: "MockPriceFeed",
-      args: [{ WBTC: 63_000e8, WETH: 1_000e8 }[symbol] ?? 1e8],
+      args: [priceDecimals, parseUnits({ WBTC: "63000", WETH: "1000" }[symbol] ?? "1", priceDecimals)],
       from: deployer,
       log: true,
     });
@@ -45,7 +49,7 @@ const func: DeployFunction = async ({ config: { finance }, deployments: { deploy
       });
       const priceFeed = await getContract<MockPriceFeed>(name, signer);
       if (!mockPrices[symbol].eq(await priceFeed.price())) {
-        log("setting price", symbol, formatUnits(mockPrices[symbol], 8));
+        log("setting price", symbol, formatUnits(mockPrices[symbol], priceDecimals));
         await (await priceFeed.setPrice(mockPrices[symbol])).wait();
       }
     }

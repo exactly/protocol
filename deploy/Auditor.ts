@@ -4,6 +4,9 @@ import executeOrPropose from "./.utils/executeOrPropose";
 import validateUpgrade from "./.utils/validateUpgrade";
 
 const func: DeployFunction = async ({
+  network: {
+    config: { priceDecimals },
+  },
   config: {
     finance: {
       liquidationIncentive: { liquidator: liquidatorIncentive, lenders: lendersIncentive },
@@ -26,7 +29,7 @@ const func: DeployFunction = async ({
     lenders: parseUnits(String(lendersIncentive)),
   };
 
-  await validateUpgrade("Auditor", { envKey: "AUDITOR" }, async (name, opts) =>
+  await validateUpgrade("Auditor", { args: [priceDecimals], envKey: "AUDITOR" }, async (name, opts) =>
     deploy(name, {
       ...opts,
       proxy: {

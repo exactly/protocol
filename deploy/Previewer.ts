@@ -1,11 +1,20 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 import validateUpgrade from "./.utils/validateUpgrade";
 
-const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAccounts }) => {
+const func: DeployFunction = async ({
+  ethers: {
+    constants: { AddressZero },
+  },
+  deployments: { deploy, get, getOrNull },
+  getNamedAccounts,
+}) => {
   const { deployer } = await getNamedAccounts();
   await validateUpgrade(
     "Previewer",
-    { args: [(await get("Auditor")).address], envKey: "PREVIEWER" },
+    {
+      args: [(await get("Auditor")).address, (await getOrNull("PriceFeedETH"))?.address ?? AddressZero],
+      envKey: "PREVIEWER",
+    },
     async (name, opts) =>
       deploy(name, {
         ...opts,

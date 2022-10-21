@@ -5,10 +5,11 @@ import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { IPriceFeed } from "../utils/IPriceFeed.sol";
 
 contract MockPriceFeed is IPriceFeed {
-  uint8 public constant decimals = 8; // solhint-disable-line const-name-snakecase
+  uint8 public immutable decimals;
   int256 public price;
 
-  constructor(int256 price_) {
+  constructor(uint8 decimals_, int256 price_) {
+    decimals = decimals_;
     setPrice(price_);
   }
 

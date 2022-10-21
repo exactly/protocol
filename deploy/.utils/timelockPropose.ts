@@ -28,7 +28,7 @@ export default async (contract: Contract, functionName: string, args?: readonly 
     ).wait();
   }
 
-  if (network.config.gnosisSafeTxService) {
+  if (network.config.safeTxService) {
     await multisigPropose("deployer", timelock, "execute", [contract.address, 0, calldata, predecessor, HashZero]);
   } else {
     log("timelock: executing", `${await format(contract.address)}.${functionName}`, await format(args));

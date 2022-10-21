@@ -114,7 +114,7 @@ export class DefaultEnv {
     await interestRateModel.deployed();
 
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
-    const auditorImpl = await Auditor.deploy();
+    const auditorImpl = await Auditor.deploy(8);
     await auditorImpl.deployed();
     const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
       auditorImpl.address,
@@ -163,7 +163,7 @@ export class DefaultEnv {
 
         // deploy a MockPriceFeed setting dummy price
         const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
-        const mockPriceFeed = await MockPriceFeed.deploy(usdPrice);
+        const mockPriceFeed = await MockPriceFeed.deploy(8, usdPrice);
         await mockPriceFeed.deployed();
         // Enable Market for MarketASSET by setting the collateral rates
         await auditor.enableMarket(market.address, mockPriceFeed.address, adjustFactor, decimals);

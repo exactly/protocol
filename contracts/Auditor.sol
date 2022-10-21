@@ -11,9 +11,16 @@ import { Market } from "./Market.sol";
 contract Auditor is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
 
+  address public constant BASE_FEED = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
   uint256 public constant TARGET_HEALTH = 1.25e18;
   uint256 public constant ASSETS_THRESHOLD = type(uint256).max / 1e18;
-  uint256 public constant ORACLE_DECIMALS = 8;
+
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  uint256 public immutable priceDecimals;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  uint256 internal immutable baseFactor;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  uint256 internal immutable basePrice;
 
   mapping(address => uint256) public accountMarkets;
   mapping(Market => MarketData) public markets;
@@ -22,7 +29,11 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   LiquidationIncentive public liquidationIncentive;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor() {
+  constructor(uint256 priceDecimals_) {
+    priceDecimals = priceDecimals_;
+    baseFactor = 10**(18 - priceDecimals_);
+    basePrice = 10**priceDecimals_;
+
     _disableInitializers();
   }
 
@@ -78,8 +89,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param account account in which the liquidity will be calculated.
   /// @param marketToSimulate market in which to simulate withdraw operation.
   /// @param withdrawAmount amount to simulate as withdraw.
-  /// @return sumCollateral sum of all collateral, already multiplied by each adjust factor (denominated in usd).
-  /// @return sumDebtPlusEffects sum of all debt divided by adjust factor considering withdrawal (denominated in usd).
+  /// @return sumCollateral sum of all collateral, already multiplied by each adjust factor (denominated in base).
+  /// @return sumDebtPlusEffects sum of all debt divided by adjust factor considering withdrawal (denominated in base).
   function accountLiquidity(
     address account,
     Market marketToSimulate,
@@ -100,20 +111,20 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
 
         // get the normalized price of the asset (18 decimals)
-        vars.oraclePrice = assetPrice(m.priceFeed);
+        vars.price = assetPrice(m.priceFeed);
 
         // sum all the collateral prices
-        sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, baseUnit).mulWadDown(adjustFactor);
+        sumCollateral += vars.balance.mulDivDown(vars.price, baseUnit).mulWadDown(adjustFactor);
 
         // sum all the debt
-        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.oraclePrice, baseUnit).divWadUp(adjustFactor);
+        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.price, baseUnit).divWadUp(adjustFactor);
 
         // simulate the effects of withdrawing from a pool
         if (market == marketToSimulate) {
           // calculate the effects of redeeming markets
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
-            sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.oraclePrice, baseUnit).mulWadDown(adjustFactor);
+            sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.price, baseUnit).mulWadDown(adjustFactor);
           }
         }
       }
@@ -182,7 +193,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     if (!markets[repayMarket].isListed || !markets[seizeMarket].isListed) revert MarketNotListed();
 
     MarketVars memory repay;
-    LiquidityVars memory usd;
+    LiquidityVars memory base;
     uint256 marketMap = accountMarkets[borrower];
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
       if (marketMap & 1 != 0) {
@@ -199,33 +210,33 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         (uint256 collateral, uint256 debt) = market.accountSnapshot(borrower);
 
         uint256 value = debt.mulDivUp(m.price, m.baseUnit);
-        usd.totalDebt += value;
-        usd.adjustedDebt += value.divWadUp(m.adjustFactor);
+        base.totalDebt += value;
+        base.adjustedDebt += value.divWadUp(m.adjustFactor);
 
         value = collateral.mulDivDown(m.price, m.baseUnit);
-        usd.totalCollateral += value;
-        usd.adjustedCollateral += value.mulWadDown(m.adjustFactor);
-        if (market == seizeMarket) usd.seizeAvailable = value;
+        base.totalCollateral += value;
+        base.adjustedCollateral += value.mulWadDown(m.adjustFactor);
+        if (market == seizeMarket) base.seizeAvailable = value;
       }
       unchecked {
         ++i;
       }
     }
 
-    if (usd.adjustedCollateral >= usd.adjustedDebt) revert InsufficientShortfall();
+    if (base.adjustedCollateral >= base.adjustedDebt) revert InsufficientShortfall();
 
     LiquidationIncentive memory memIncentive = liquidationIncentive;
-    uint256 adjustFactor = usd.adjustedCollateral.mulWadDown(usd.totalDebt).divWadUp(
-      usd.adjustedDebt.mulWadUp(usd.totalCollateral)
+    uint256 adjustFactor = base.adjustedCollateral.mulWadDown(base.totalDebt).divWadUp(
+      base.adjustedDebt.mulWadUp(base.totalCollateral)
     );
-    uint256 closeFactor = (TARGET_HEALTH - usd.adjustedCollateral.divWadUp(usd.adjustedDebt)).divWadUp(
+    uint256 closeFactor = (TARGET_HEALTH - base.adjustedCollateral.divWadUp(base.adjustedDebt)).divWadUp(
       TARGET_HEALTH - adjustFactor.mulWadDown(1e18 + memIncentive.liquidator + memIncentive.lenders)
     );
     maxRepayAssets = Math.min(
       Math
         .min(
-          usd.totalDebt.mulWadUp(Math.min(1e18, closeFactor)),
-          usd.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
+          base.totalDebt.mulWadUp(Math.min(1e18, closeFactor)),
+          base.seizeAvailable.divWadUp(1e18 + memIncentive.liquidator + memIncentive.lenders)
         )
         .mulDivUp(repay.baseUnit, repay.price),
       maxLiquidatorAssets < ASSETS_THRESHOLD
@@ -259,14 +270,13 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     LiquidationIncentive memory memIncentive = liquidationIncentive;
     lendersAssets = actualRepayAssets.mulWadDown(memIncentive.lenders);
 
-    // read oracle prices for borrowed and collateral markets
+    // read prices for borrowed and collateral markets
     uint256 priceBorrowed = assetPrice(markets[repayMarket].priceFeed);
     uint256 priceCollateral = assetPrice(markets[seizeMarket].priceFeed);
-    uint256 amountInUSD = actualRepayAssets.mulDivUp(priceBorrowed, 10**markets[repayMarket].decimals);
+    uint256 baseAmount = actualRepayAssets.mulDivUp(priceBorrowed, 10**markets[repayMarket].decimals);
 
-    // 10**18: usd amount decimals
     seizeAssets = Math.min(
-      amountInUSD.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadUp(
+      baseAmount.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadUp(
         1e18 + memIncentive.liquidator + memIncentive.lenders
       ),
       seizeMarket.maxWithdraw(borrower)
@@ -305,9 +315,11 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price.
   /// @return The price of the asset scaled to 18-digit decimals.
   function assetPrice(IPriceFeed priceFeed) public view returns (uint256) {
-    int256 oraclePrice = priceFeed.latestAnswer();
-    if (oraclePrice <= 0) revert InvalidPrice();
-    return uint256(oraclePrice) * 10**(18 - ORACLE_DECIMALS);
+    if (address(priceFeed) == BASE_FEED) return basePrice;
+
+    int256 price = priceFeed.latestAnswer();
+    if (price <= 0) revert InvalidPrice();
+    return uint256(price) * baseFactor;
   }
 
   /// @notice Retrieves all markets.
@@ -318,7 +330,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @notice Enables a certain market.
   /// @dev Enabling more than 256 markets will cause an overflow when casting market index to uint8.
   /// @param market market to add to the protocol.
-  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in USD.
+  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in base.
   /// @param adjustFactor market's adjust factor for the underlying asset.
   /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
@@ -358,9 +370,9 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
   /// @notice Sets the Chainlink Price Feed Aggregator source for a market.
   /// @param market market address of the asset.
-  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in USD.
+  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in base.
   function setPriceFeed(Market market, IPriceFeed priceFeed) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (priceFeed.decimals() != ORACLE_DECIMALS) revert InvalidPriceFeed();
+    if (address(priceFeed) != BASE_FEED && priceFeed.decimals() != priceDecimals) revert InvalidPriceFeed();
     markets[market].priceFeed = priceFeed;
     emit PriceFeedSet(market, priceFeed);
   }
@@ -401,8 +413,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   event LiquidationIncentiveSet(LiquidationIncentive liquidationIncentive);
 
   /// @notice Emitted when a market and prie feed is changed by admin.
-  /// @param market address of the asset used to get the price from this oracle.
-  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in USD.
+  /// @param market address of the asset used to get the price.
+  /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in base.
   event PriceFeedSet(Market indexed market, IPriceFeed indexed priceFeed);
 
   struct LiquidationIncentive {
@@ -413,7 +425,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   struct AccountLiquidity {
     uint256 balance;
     uint256 borrowBalance;
-    uint256 oraclePrice;
+    uint256 price;
   }
 
   struct MarketData {

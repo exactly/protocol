@@ -8,7 +8,7 @@ import { DefaultEnv } from "./defaultEnv";
 const nextPoolId = futurePools(1)[0].toNumber();
 
 const {
-  constants: { MaxUint256 },
+  constants: { AddressZero, MaxUint256 },
   utils: { parseUnits },
   getContractFactory,
 } = ethers;
@@ -122,7 +122,7 @@ describe("Validations", function () {
   });
   it("Previewer is deployed", async () => {
     const factory = (await getContractFactory("Previewer")) as Previewer__factory;
-    await factory.deploy(auditor.address);
+    await factory.deploy(auditor.address, AddressZero);
   });
 });
 

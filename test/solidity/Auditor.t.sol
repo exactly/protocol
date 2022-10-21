@@ -30,10 +30,10 @@ contract AuditorTest is Test {
   event MarketExited(Market indexed market, address indexed account);
 
   function setUp() external {
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     market = new MockMarket(auditor);
-    priceFeed = new MockPriceFeed(1e8);
+    priceFeed = new MockPriceFeed(18, 1e18);
     vm.label(BOB, "bob");
   }
 

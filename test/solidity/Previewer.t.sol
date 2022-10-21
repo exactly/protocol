@@ -24,20 +24,24 @@ contract PreviewerTest is Test {
   Market internal market;
   Auditor internal auditor;
   MockERC20 internal asset;
+  MockPriceFeed internal ethPriceFeed;
+  MockPriceFeed internal daiPriceFeed;
   Previewer internal previewer;
   InterestRateModel internal irm;
 
   function setUp() external {
     asset = new MockERC20("DAI", "DAI", 18);
+    ethPriceFeed = new MockPriceFeed(8, 1_000e8);
+    daiPriceFeed = new MockPriceFeed(18, 1e18);
 
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
 
     irm = new InterestRateModel(0.72e18, -0.22e18, 1.1e18, 0.72e18, -0.22e18, 1.1e18);
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    auditor.enableMarket(market, new MockPriceFeed(1e8), 0.8e18, 18);
+    auditor.enableMarket(market, daiPriceFeed, 0.8e18, 18);
 
     vm.label(BOB, "Bob");
     vm.label(ALICE, "Alice");
@@ -50,7 +54,7 @@ contract PreviewerTest is Test {
     vm.prank(ALICE);
     asset.approve(address(market), 50_000 ether);
 
-    previewer = new Previewer(auditor);
+    previewer = new Previewer(auditor, ethPriceFeed);
   }
 
   function testPreviewDepositAtMaturityReturningAccurateAmount() external {
@@ -392,7 +396,9 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    auditor.enableMarket(marketWETH, new MockPriceFeed(2800e8), 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(2800e18);
+    daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
     marketWETH.deposit(50_000 ether, address(this));
@@ -479,7 +485,9 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    auditor.enableMarket(marketWETH, new MockPriceFeed(2800e8), 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(2_800e8);
+    daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
     marketWETH.deposit(50_000 ether, address(this));
@@ -533,7 +541,9 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    auditor.enableMarket(marketWETH, new MockPriceFeed(2800e8), 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(2_800e8);
+    daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
     marketWETH.deposit(50_000 ether, address(this));
@@ -559,7 +569,9 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    auditor.enableMarket(marketWETH, new MockPriceFeed(2800e8), 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(2_800e8);
+    daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
     marketWETH.deposit(50_000 ether, address(this));
@@ -597,7 +609,9 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    auditor.enableMarket(marketWETH, new MockPriceFeed(2800e8), 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(2_800e8);
+    daiPriceFeed.setPrice(0.0003571428571e18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
     marketWETH.deposit(50_000 ether, address(this));
@@ -675,8 +689,9 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    MockPriceFeed wethPriceFeed = new MockPriceFeed(1000e8);
-    auditor.enableMarket(marketWETH, wethPriceFeed, 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
     weth.mint(address(this), 1 ether);
     weth.approve(address(marketWETH), 1 ether);
     marketWETH.deposit(1 ether, address(this));
@@ -685,7 +700,8 @@ contract PreviewerTest is Test {
     auditor.enterMarket(market);
 
     market.borrow(1000 ether, address(this), address(this));
-    wethPriceFeed.setPrice(100e8);
+    ethPriceFeed.setPrice(100e8);
+    daiPriceFeed.setPrice(0.01e18);
 
     // if account has shortfall then max borrow assets should be 0
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -698,7 +714,9 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    auditor.enableMarket(marketWETH, new MockPriceFeed(1000e8), 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
     weth.mint(address(this), 1 ether);
     weth.approve(address(marketWETH), 1 ether);
     marketWETH.deposit(1 ether, address(this));
@@ -754,7 +772,9 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    auditor.enableMarket(marketWETH, new MockPriceFeed(1000e8), 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
     weth.mint(address(this), 1_000 ether);
     weth.approve(address(marketWETH), 1_000 ether);
     marketWETH.deposit(1_000 ether, address(this));
@@ -966,14 +986,20 @@ contract PreviewerTest is Test {
     // sum all the collateral prices
     uint256 sumCollateral = data[0]
       .floatingDepositAssets
-      .mulDivDown(data[0].oraclePrice, 10**data[0].decimals)
+      .mulDivDown(
+        data[0].oraclePrice.mulDivDown(10**ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
+        10**data[0].decimals
+      )
       .mulWadDown(data[0].adjustFactor);
 
     // sum all the debt
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
-      data[0].fixedBorrowPositions[0].position.fee).mulDivDown(data[0].oraclePrice, 10**data[0].decimals).divWadUp(
-        data[0].adjustFactor
-      );
+      data[0].fixedBorrowPositions[0].position.fee)
+      .mulDivUp(
+        data[0].oraclePrice.mulDivDown(10**ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
+        10**data[0].decimals
+      )
+      .divWadUp(data[0].adjustFactor);
 
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
 
@@ -981,13 +1007,27 @@ contract PreviewerTest is Test {
     assertEq(sumDebt, realDebt);
   }
 
+  function testOraclePriceReturningAccurateValues() external {
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(2_000e8);
+    daiPriceFeed.setPrice(0.0005e18);
+
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].oraclePrice, 1e18);
+    assertEq(data[1].oraclePrice, 2_000e18);
+  }
+
   function testAccountsWithIntermediateOperationsReturningAccurateAmounts() external {
     // deploy a new asset for more liquidity combinations
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
-    MockPriceFeed wethPriceFeed = new MockPriceFeed(2800e8);
-    auditor.enableMarket(marketWETH, wethPriceFeed, 0.7e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18, 18);
+    ethPriceFeed.setPrice(2_000e8);
+    daiPriceFeed.setPrice(0.0005e18);
     weth.mint(address(this), 50_000 ether);
     weth.approve(address(marketWETH), 50_000 ether);
 
@@ -1012,7 +1052,7 @@ contract PreviewerTest is Test {
       );
 
     (uint256 realCollateral, uint256 realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
+    assertApproxEqRel(sumCollateral - sumDebt, ((realCollateral - realDebt) * 2000e18) / 1e18, 1e5);
     assertEq(data[0].isCollateral, true);
 
     marketWETH.deposit(100 ether, address(this));
@@ -1027,31 +1067,23 @@ contract PreviewerTest is Test {
       data[1].adjustFactor
     );
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
+    assertApproxEqRel(sumCollateral - sumDebt, ((realCollateral - realDebt) * 2000e18) / 1e18, 1e5);
     assertEq(data[1].isCollateral, true);
 
     vm.warp(200 seconds);
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 33 ether, 40 ether, address(this), address(this));
     data = previewer.exactly(address(this));
 
-    sumCollateral =
-      data[0].floatingDepositAssets.mulDivDown(data[0].oraclePrice, 10**data[0].decimals).mulWadDown(
-        data[0].adjustFactor
-      ) +
-      data[1].floatingDepositAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(
-        data[1].adjustFactor
-      );
-
     sumDebt += (data[1].fixedBorrowPositions[0].position.principal + data[1].fixedBorrowPositions[0].position.fee)
       .mulDivDown(data[1].oraclePrice, 10**data[1].decimals)
       .divWadDown(data[1].adjustFactor);
 
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    assertEq(sumCollateral - sumDebt, realCollateral - realDebt);
+    assertApproxEqRel(sumCollateral - sumDebt, ((realCollateral - realDebt) * 2000e18) / 1e18, 1e10);
 
-    wethPriceFeed.setPrice(1831e8);
+    ethPriceFeed.setPrice(1_831e8);
     data = previewer.exactly(address(this));
-    assertEq(data[1].oraclePrice, 1831e18);
+    assertEq(data[1].oraclePrice, 1_831e18);
   }
 
   function testAccountsWithAccountThatHasBalances() external {
@@ -1099,7 +1131,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].fixedBorrowPositions[1].position.fee, secondMaturityBorrowFee);
     assertEq(data[0].fixedBorrowPositions.length, 2);
 
-    assertEq(data[0].oraclePrice, 1e18);
+    assertEq(data[0].oraclePrice, 1_000e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].penaltyRate, market.penaltyRate());
     assertEq(data[0].decimals, 18);
@@ -1116,7 +1148,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingDepositShares, market.convertToShares(10 ether));
     assertEq(data[0].fixedDepositPositions.length, 0);
     assertEq(data[0].fixedBorrowPositions.length, 0);
-    assertEq(data[0].oraclePrice, 1e18);
+    assertEq(data[0].oraclePrice, 1_000e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
     assertEq(data[0].maxFuturePools, 12);
@@ -1170,7 +1202,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingDepositShares, 0);
     assertEq(data[0].fixedDepositPositions.length, 0);
     assertEq(data[0].fixedBorrowPositions.length, 0);
-    assertEq(data[0].oraclePrice, 1e18);
+    assertEq(data[0].oraclePrice, 1_000e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
     assertEq(data[0].maxFuturePools, 12);

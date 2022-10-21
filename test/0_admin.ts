@@ -88,7 +88,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set a new market with a different auditor, THEN the transaction should revert with AuditorMismatch", async () => {
-      const newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy();
+      const newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8);
       const market = await ((await getContractFactory("Market")) as Market__factory).deploy(
         dai.address,
         newAuditor.address,
@@ -138,7 +138,7 @@ describe("Auditor Admin", function () {
     beforeEach(async () => {
       proxy = auditor as Contract as TransparentUpgradeableProxy;
       proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", deployer);
-      newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy();
+      newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8);
     });
 
     it("WHEN trying to initialize implementation, THEN the transaction should revert with Initializable", async () => {

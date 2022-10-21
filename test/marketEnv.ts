@@ -71,7 +71,7 @@ export class MarketEnv {
     await asset.deployed();
 
     const Auditor = (await getContractFactory("Auditor")) as Auditor__factory;
-    const auditorImpl = await Auditor.deploy();
+    const auditorImpl = await Auditor.deploy(8);
     await auditorImpl.deployed();
     const auditorProxy = await ((await getContractFactory("ERC1967Proxy")) as ERC1967Proxy__factory).deploy(
       auditorImpl.address,
@@ -96,7 +96,7 @@ export class MarketEnv {
     );
     await marketHarness.deployed();
     const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
-    const mockPriceFeed = await MockPriceFeed.deploy(parseUnits("1", 8));
+    const mockPriceFeed = await MockPriceFeed.deploy(8, parseUnits("1", 8));
     await mockPriceFeed.deployed();
     await auditor.enableMarket(marketHarness.address, mockPriceFeed.address, parseUnits("0.9"), 18);
 

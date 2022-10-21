@@ -19,6 +19,8 @@ contract Previewer {
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IPriceFeed public immutable basePriceFeed;
 
   struct MarketAccount {
     // market
@@ -73,8 +75,9 @@ contract Previewer {
   }
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(Auditor auditor_) {
+  constructor(Auditor auditor_, IPriceFeed basePriceFeed_) {
     auditor = auditor_;
+    basePriceFeed = basePriceFeed_;
   }
 
   /// @notice Function to get a certain account extended data.
@@ -84,6 +87,9 @@ contract Previewer {
     uint256 markets = auditor.accountMarkets(account);
     uint256 maxValue = auditor.allMarkets().length;
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, Market(address(0)), 0);
+    uint256 basePrice = address(basePriceFeed) != address(0)
+      ? uint256(basePriceFeed.latestAnswer()) * 10**(18 - basePriceFeed.decimals())
+      : 1e18;
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
       Market market = auditor.marketList(i);
@@ -97,7 +103,7 @@ contract Previewer {
         market: market,
         decimals: m.decimals,
         assetSymbol: market.asset().symbol(),
-        oraclePrice: oraclePrice,
+        oraclePrice: oraclePrice.mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),
         adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
@@ -125,12 +131,15 @@ contract Previewer {
   /// @param usdAmount amount in usd expressed with 18 decimals.
   /// @return data with fixed rate simulations for every market.
   function previewFixed(uint256 usdAmount) external view returns (FixedMarket[] memory data) {
+    uint256 baseAmount = address(basePriceFeed) != address(0)
+      ? usdAmount.divWadDown(uint256(basePriceFeed.latestAnswer()) * 10**(18 - basePriceFeed.decimals()))
+      : usdAmount;
     uint256 maxValue = auditor.allMarkets().length;
     data = new FixedMarket[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
       Market market = auditor.marketList(i);
       (, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
-      uint256 assets = usdAmount.mulDivDown(10**decimals, auditor.assetPrice(priceFeed));
+      uint256 assets = baseAmount.mulDivDown(10**decimals, auditor.assetPrice(priceFeed));
       data[i] = FixedMarket({
         market: market,
         decimals: decimals,

@@ -21,10 +21,12 @@ const config: Config = {
   networks: {
     hardhat: {
       accounts: { accountsBalance: `1${"0".repeat(32)}` },
+      priceDecimals: 8,
       allowUnlimitedContractSize: true,
     },
     goerli: {
-      gnosisSafeTxService: "https://safe-transaction-goerli.safe.global",
+      priceDecimals: 8,
+      safeTxService: "https://safe-transaction-goerli.safe.global",
       url: env.GOERLI_NODE ?? "https://goerli.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
     },
@@ -176,7 +178,7 @@ declare module "hardhat/types/config" {
 
   export interface NetworksUserConfig {
     hardhat?: HardhatNetworkUserConfig;
-    mainnet?: MainnetNetworkUserConfig;
+    goerli?: HttpNetworkUserConfig;
   }
 
   export interface HardhatUserConfig {
@@ -187,23 +189,25 @@ declare module "hardhat/types/config" {
     finance: FinanceConfig;
   }
 
-  export interface MainnetNetworkUserConfig extends HttpNetworkUserConfig {
-    timelockDelay: number;
-    gnosisSafeTxService: string;
+  export interface HardhatNetworkUserConfig {
+    priceDecimals: number;
   }
 
   export interface HttpNetworkUserConfig {
+    priceDecimals: number;
     timelockDelay?: number;
-    gnosisSafeTxService?: string;
+    safeTxService: string;
   }
 
   export interface HardhatNetworkConfig {
-    timelockDelay?: number;
-    gnosisSafeTxService: string;
+    priceDecimals: number;
+    timelockDelay: undefined;
+    safeTxService: undefined;
   }
 
   export interface HttpNetworkConfig {
+    priceDecimals: number;
     timelockDelay?: number;
-    gnosisSafeTxService: string;
+    safeTxService: string;
   }
 }

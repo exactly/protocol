@@ -34,24 +34,23 @@ contract MarketTest is Test {
   Auditor internal auditor;
   MockERC20 internal weth;
   MockPriceFeed internal daiPriceFeed;
-  MockPriceFeed internal wethPriceFeed;
   MockInterestRateModel internal irm;
 
   function setUp() external {
     vm.warp(0);
 
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
+    weth = new MockERC20("WETH", "WETH", 18);
 
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
 
     irm = new MockInterestRateModel(0.1e18);
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
-    daiPriceFeed = new MockPriceFeed(1e8);
+    daiPriceFeed = new MockPriceFeed(18, 1e18);
 
-    weth = new MockERC20("WETH", "WETH", 18);
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
       12,
@@ -63,10 +62,9 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
-    wethPriceFeed = new MockPriceFeed(1300e8);
 
     auditor.enableMarket(market, daiPriceFeed, 0.8e18, 18);
-    auditor.enableMarket(marketWETH, wethPriceFeed, 0.9e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18, 18);
     auditor.enterMarket(marketWETH);
 
     vm.label(BOB, "Bob");
@@ -74,12 +72,14 @@ contract MarketTest is Test {
     asset.mint(BOB, 50_000 ether);
     asset.mint(ALICE, 50_000 ether);
     asset.mint(address(this), 1_000_000 ether);
-    weth.mint(address(this), 50_000 ether);
+    weth.mint(address(this), 1_000_000 ether);
 
-    weth.approve(address(marketWETH), 50_000 ether);
     asset.approve(address(market), type(uint256).max);
+    weth.approve(address(marketWETH), type(uint256).max);
     vm.prank(BOB);
     asset.approve(address(market), type(uint256).max);
+    vm.prank(BOB);
+    weth.approve(address(marketWETH), type(uint256).max);
     vm.prank(ALICE);
     asset.approve(address(market), type(uint256).max);
   }
@@ -545,17 +545,17 @@ contract MarketTest is Test {
     market.setMaxFuturePools(12);
     market.setPenaltyRate(2e11);
 
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
 
-    wethPriceFeed.setPrice(10e8);
+    daiPriceFeed.setPrice(0.1e18);
     vm.warp(2 * FixedLib.INTERVAL + 1);
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(market));
-    emit Liquidate(BOB, address(this), 10454545454545454545, 104545454545454545, marketWETH, 1.15 ether);
+    emit Liquidate(BOB, address(this), 10454545454545454550, 104545454545454545, marketWETH, 1.15 ether);
     market.liquidate(address(this), type(uint256).max, marketWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
@@ -564,7 +564,7 @@ contract MarketTest is Test {
     );
     assertEq(remainingCollateral, 0);
     // accumulator can't afford covering bad debt
-    assertEq(remainingDebt, 5591732318181818181818);
+    assertEq((remainingDebt * 1e18) / 0.1e18, 5591732318181818181820);
     assertEq(marketWETH.balanceOf(address(this)), 0);
     assertEq(weth.balanceOf(BOB), 1.15 ether);
   }
@@ -573,7 +573,7 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(40_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     // distribute earnings to accumulator
@@ -585,7 +585,7 @@ contract MarketTest is Test {
 
     irm.setBorrowRate(0);
     market.borrowAtMaturity(FixedLib.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
-    wethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
 
     vm.warp(FixedLib.INTERVAL * 2 + 1);
     vm.prank(BOB);
@@ -595,16 +595,16 @@ contract MarketTest is Test {
       Market(address(0)),
       0
     );
-    assertEq(remainingCollateral, 540 ether);
-    assertEq(remainingDebt, 6794.201 ether);
+    assertEq((remainingCollateral * 1e18) / 0.001e18, 540 ether);
+    assertEq((remainingDebt * 1e18) / 0.001e18, 6794.201 ether);
     assertEq(marketWETH.balanceOf(address(this)), 0.6 ether);
     assertEq(weth.balanceOf(BOB), 0.55 ether);
 
     vm.prank(BOB);
     market.liquidate(address(this), 100 ether, marketWETH);
     (remainingCollateral, remainingDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    assertEq(remainingCollateral, 441 ether);
-    assertEq(remainingDebt, 6669.201 ether);
+    assertEq((remainingCollateral * 1e18) / 0.001e18, 441 ether);
+    assertEq((remainingDebt * 1e18) / 0.001e18, 6669.201 ether);
     assertEq(marketWETH.balanceOf(address(this)), 0.49 ether);
     assertEq(weth.balanceOf(BOB), 0.66 ether);
 
@@ -622,10 +622,10 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
 
     market.borrowAtMaturity(FixedLib.INTERVAL, 4_000 ether, 4_000 ether, address(this), address(this));
-    wethPriceFeed.setPrice(100e8);
+    daiPriceFeed.setPrice(0.01e18);
 
     vm.expectRevert(ZeroRepay.selector);
     vm.prank(BOB);
@@ -637,10 +637,10 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
 
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
-    wethPriceFeed.setPrice(100e8);
+    daiPriceFeed.setPrice(0.01e18);
 
     vm.expectRevert(ZeroRepay.selector);
     vm.prank(BOB);
@@ -648,40 +648,44 @@ contract MarketTest is Test {
   }
 
   function testLiquidateLeavingDustAsCollateral() external {
-    marketWETH.deposit(1.15 ether, address(this));
-    market.deposit(50_000 ether, ALICE);
-    market.setPenaltyRate(2e11);
-    wethPriceFeed.setPrice(5_000e8);
+    vm.prank(ALICE);
+    marketWETH.approve(address(this), type(uint256).max);
+
+    market.deposit(1.15 ether, address(this));
+    auditor.enterMarket(market);
+    marketWETH.deposit(50_000 ether, ALICE);
+    marketWETH.setPenaltyRate(2e11);
+    daiPriceFeed.setPrice(5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
 
     // distribute earnings to accumulator
-    market.setBackupFeeRate(1e18);
+    marketWETH.setBackupFeeRate(1e18);
     irm.setBorrowRate(1e18);
-    vm.prank(ALICE);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 15_000 ether, 30_000 ether, ALICE, ALICE);
-    market.depositAtMaturity(FixedLib.INTERVAL, 15_000 ether, 15_000 ether, ALICE);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 15_000 ether, 30_000 ether, ALICE, ALICE);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 15_000 ether, 15_000 ether, ALICE);
 
     irm.setBorrowRate(0);
     for (uint256 i = 1; i <= 3; i++) {
-      market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
+      marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
     }
-    wethPriceFeed.setPrice(99e8);
+    daiPriceFeed.setPrice(99e18);
 
     vm.warp(FixedLib.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
 
+    weth.mint(BOB, 1_000_000 ether);
     vm.prank(BOB);
-    market.liquidate(address(this), 103499999999999999800, marketWETH);
-    assertEq(marketWETH.maxWithdraw(address(this)), 1);
+    marketWETH.liquidate(address(this), 103499999999999999800, market);
+    assertEq(market.maxWithdraw(address(this)), 1);
 
-    wethPriceFeed.setPrice(5e8);
+    daiPriceFeed.setPrice(5e18);
     vm.expectRevert(ZeroWithdraw.selector);
     vm.prank(BOB);
-    market.liquidate(address(this), type(uint256).max, marketWETH);
+    marketWETH.liquidate(address(this), type(uint256).max, market);
 
-    wethPriceFeed.setPrice(0.1e8);
+    daiPriceFeed.setPrice(0.1e18);
     vm.expectRevert(bytes(""));
     vm.prank(BOB);
-    market.liquidate(address(this), type(uint256).max, marketWETH);
+    marketWETH.liquidate(address(this), type(uint256).max, market);
 
     auditor.handleBadDebt(address(this));
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
@@ -696,7 +700,7 @@ contract MarketTest is Test {
 
   function testBorrowFromFreeLunchShouldNotRevertWithFloatingFullUtilization() external {
     marketWETH.deposit(1.15 ether, address(this));
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     auditor.enterMarket(marketWETH);
 
     market.deposit(10 ether, address(this));
@@ -711,7 +715,7 @@ contract MarketTest is Test {
 
   function testEarlyWithdrawFromFreeLunchShouldNotRevertWithFloatingFullUtilization() external {
     marketWETH.deposit(1.15 ether, address(this));
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     auditor.enterMarket(marketWETH);
 
     market.deposit(10 ether, address(this));
@@ -726,7 +730,7 @@ contract MarketTest is Test {
 
   function testBorrowAtMaturityUpdatesFloatingDebtAndFloatingAssets() external {
     marketWETH.deposit(1.15 ether, address(this));
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     auditor.enterMarket(marketWETH);
 
     market.setReserveFactor(0.09e18);
@@ -818,12 +822,12 @@ contract MarketTest is Test {
   }
 
   function testClearBadDebtWithEmptyAccumulatorShouldNotRevert() external {
-    wethPriceFeed.setPrice(50_000_000_000_000e8);
+    daiPriceFeed.setPrice(2e4);
     marketWETH.deposit(0.0000000001 ether, address(this));
     auditor.enterMarket(marketWETH);
     market.deposit(1_000 ether, BOB);
     market.borrow(500 ether, address(this), address(this));
-    wethPriceFeed.setPrice(1);
+    daiPriceFeed.setPrice(1);
     (uint256 adjustFactor, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
     uint256 floatingAssetsBefore = market.floatingAssets();
     assertEq(
@@ -843,170 +847,181 @@ contract MarketTest is Test {
 
   function testClearBadDebtPartiallyRepaysEachFixedBorrow() external {
     irm.setBorrowRate(1e18);
-    wethPriceFeed.setPrice(50_000_000_000_000e8);
-    marketWETH.deposit(0.0000000001 ether, address(this));
-    auditor.enterMarket(marketWETH);
+    daiPriceFeed.setPrice(50_000_000_000_000e18);
+    market.deposit(0.0000000001 ether, address(this));
+    auditor.enterMarket(market);
 
-    market.deposit(1_000 ether, BOB);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
+    marketWETH.deposit(1_000 ether, BOB);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
     // with a 100% borrow rate the accumulator keeps 10% of the fees
-    market.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
-    assertEq(market.earningsAccumulator(), 20 ether);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
+    assertEq(marketWETH.earningsAccumulator(), 20 ether);
 
-    wethPriceFeed.setPrice(1);
+    daiPriceFeed.setPrice(1);
     // clear the first fixed borrow debt with accumulator's earnings
-    vm.expectEmit(true, true, true, true, address(market));
+    vm.expectEmit(true, true, true, true, address(marketWETH));
     emit RepayAtMaturity(FixedLib.INTERVAL, address(auditor), address(this), 10 ether, 10 ether);
     auditor.handleBadDebt(address(this));
 
     // only first fixed borrow is covered
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    (uint256 principal, uint256 fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal + fee, 0);
-    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
+    (principal, fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
     assertEq(principal + fee, 400 ether);
-    assertEq(market.earningsAccumulator(), 10 ether);
+    assertEq(marketWETH.earningsAccumulator(), 10 ether);
   }
 
   function testClearBadDebtExactlyRepaysFixedBorrowWithAccumulatorAmount() external {
     irm.setBorrowRate(10e18);
-    wethPriceFeed.setPrice(50_000_000_000_000e8);
-    marketWETH.deposit(0.0000000001 ether, address(this));
-    auditor.enterMarket(marketWETH);
+    daiPriceFeed.setPrice(50_000_000_000_000e18);
+    market.deposit(0.0000000001 ether, address(this));
+    auditor.enterMarket(market);
 
-    market.deposit(1_000 ether, BOB);
-    market.borrow(50 ether, address(this), address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
+    marketWETH.deposit(1_000 ether, BOB);
+    marketWETH.borrow(50 ether, address(this), address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
     // with a 1000% borrow rate the accumulator keeps 100% of the fees
-    market.depositAtMaturity(FixedLib.INTERVAL, 5 ether, 5 ether, address(this));
-    market.repayAtMaturity(FixedLib.INTERVAL, 50 ether, 50 ether, address(this));
-    assertEq(market.earningsAccumulator(), 5 ether);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 5 ether, 5 ether, address(this));
+    marketWETH.repayAtMaturity(FixedLib.INTERVAL, 50 ether, 50 ether, address(this));
+    assertEq(marketWETH.earningsAccumulator(), 5 ether);
 
-    wethPriceFeed.setPrice(1);
-    vm.expectEmit(true, true, true, true, address(market));
+    daiPriceFeed.setPrice(1);
+    vm.expectEmit(true, true, true, true, address(marketWETH));
     emit RepayAtMaturity(FixedLib.INTERVAL, address(auditor), address(this), 5 ether, 5 ether);
     auditor.handleBadDebt(address(this));
 
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
-    (, uint256 fixedBorrows, uint256 floatingBorrowShares) = market.accounts(address(this));
+    (uint256 principal, uint256 fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    (, uint256 fixedBorrows, uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     assertEq(principal + fee, 0);
     assertEq(fixedBorrows, 0);
-    assertEq(market.earningsAccumulator(), 0);
+    assertEq(marketWETH.earningsAccumulator(), 0);
     // floating debt remains untouched
-    assertEq(market.previewRefund(floatingBorrowShares), 50 ether);
+    assertEq(marketWETH.previewRefund(floatingBorrowShares), 50 ether);
   }
 
   function testClearBadDebtPartiallyRepaysFloatingDebt() external {
     irm.setBorrowRate(1e18);
-    wethPriceFeed.setPrice(50_000_000_000_000e8);
-    marketWETH.deposit(0.0000000001 ether, address(this));
-    auditor.enterMarket(marketWETH);
+    daiPriceFeed.setPrice(50_000_000_000_000e18);
+    market.deposit(0.0000000001 ether, address(this));
+    auditor.enterMarket(market);
 
-    market.deposit(1_000 ether, BOB);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
-    market.borrow(50 ether, address(this), address(this));
+    marketWETH.deposit(1_000 ether, BOB);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 5 ether, type(uint256).max, address(this), address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
+    marketWETH.borrow(50 ether, address(this), address(this));
     // with a 100% borrow rate the accumulator keeps 10% of the fees
-    market.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
-    assertEq(market.earningsAccumulator(), 20 ether);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
+    assertEq(marketWETH.earningsAccumulator(), 20 ether);
 
-    wethPriceFeed.setPrice(1);
+    daiPriceFeed.setPrice(1);
     // clear the first fixed borrow debt and 1/5 of the floating debt with accumulator's earnings
-    vm.expectEmit(true, true, true, true, address(market));
+    vm.expectEmit(true, true, true, true, address(marketWETH));
     emit Repay(address(auditor), address(this), 10 ether, 10 ether);
     auditor.handleBadDebt(address(this));
 
     // only first fixed borrow is covered
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    (uint256 principal, uint256 fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal + fee, 0);
-    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
-    (, , uint256 floatingBorrowShares) = market.accounts(address(this));
+    (principal, fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
+    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     assertEq(principal + fee, 400 ether);
-    assertEq(market.previewRefund(floatingBorrowShares), 40 ether);
-    assertEq(market.earningsAccumulator(), 0);
+    assertEq(marketWETH.previewRefund(floatingBorrowShares), 40 ether);
+    assertEq(marketWETH.earningsAccumulator(), 0);
   }
 
   function testClearBadDebtAvoidingFixedBorrowsIfAccumulatorLower() external {
     irm.setBorrowRate(1e18);
-    wethPriceFeed.setPrice(50_000_000_000_000e8);
-    marketWETH.deposit(0.0000000001 ether, address(this));
-    auditor.enterMarket(marketWETH);
+    daiPriceFeed.setPrice(50_000_000_000_000e18);
+    market.deposit(0.0000000001 ether, address(this));
+    auditor.enterMarket(market);
 
-    market.deposit(1_000 ether, BOB);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 11 ether, type(uint256).max, address(this), address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 100 ether, type(uint256).max, address(this), address(this));
-    market.borrow(5 ether, address(this), address(this));
-    market.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
+    marketWETH.deposit(1_000 ether, BOB);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 11 ether, type(uint256).max, address(this), address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 100 ether, type(uint256).max, address(this), address(this));
+    marketWETH.borrow(5 ether, address(this), address(this));
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
 
-    wethPriceFeed.setPrice(1);
-    vm.expectEmit(true, true, true, true, address(market));
+    daiPriceFeed.setPrice(1);
+    vm.expectEmit(true, true, true, true, address(marketWETH));
     emit Repay(address(auditor), address(this), 5 ether, 5 ether);
     auditor.handleBadDebt(address(this));
 
     // only first fixed borrow is covered
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    (uint256 principal, uint256 fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal + fee, 22 ether);
-    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
-    (, , uint256 floatingBorrowShares) = market.accounts(address(this));
+    (principal, fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
+    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     assertEq(principal + fee, 200 ether);
-    assertEq(market.previewRefund(floatingBorrowShares), 0);
-    assertEq(market.earningsAccumulator(), 5 ether);
+    assertEq(marketWETH.previewRefund(floatingBorrowShares), 0);
+    assertEq(marketWETH.earningsAccumulator(), 5 ether);
   }
 
   function testClearBadDebtShouldAccrueAccumulatedEarningsBeforeSpreadingLosses() external {
+    marketWETH.setMaxFuturePools(3);
     irm.setBorrowRate(1e18);
-    wethPriceFeed.setPrice(50_000_000_000_000e8);
-    marketWETH.deposit(0.0000000001 ether, address(this));
-    auditor.enterMarket(marketWETH);
+    daiPriceFeed.setPrice(50_000_000_000_000e18);
+    market.deposit(0.0000000001 ether, address(this));
+    auditor.enterMarket(market);
 
-    market.deposit(1_000 ether, BOB);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, type(uint256).max, address(this), address(this));
-    market.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
+    marketWETH.deposit(1_000 ether, BOB);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 10 ether, type(uint256).max, address(this), address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, type(uint256).max, address(this), address(this));
     // with a 100% borrow rate the accumulator keeps 10% of the fees
-    market.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
-    market.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
-    assertEq(market.earningsAccumulator(), 21 ether);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 100 ether, address(this));
+    assertEq(marketWETH.earningsAccumulator(), 21 ether);
 
     vm.warp(4 weeks);
-    uint256 totalAssetsBefore = market.totalAssets();
-    wethPriceFeed.setPrice(1);
-    vm.expectEmit(true, true, true, true, address(market));
-    emit MarketUpdate(4 weeks, market.totalSupply(), market.floatingAssets() + 5.25 ether, 0, 0, 15.75 ether);
+    uint256 totalAssetsBefore = marketWETH.totalAssets();
+    daiPriceFeed.setPrice(1);
+    vm.expectEmit(true, true, true, true, address(marketWETH));
+    emit MarketUpdate(4 weeks, marketWETH.totalSupply(), marketWETH.floatingAssets() + 5.25 ether, 0, 0, 15.75 ether);
     auditor.handleBadDebt(address(this));
-    assertEq(market.floatingAssets(), totalAssetsBefore);
+    assertEq(marketWETH.floatingAssets(), totalAssetsBefore);
 
     // no borrow is covered
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
+    (uint256 principal, uint256 fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     assertEq(principal + fee, 20 ether);
-    (principal, fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
+    (principal, fee) = marketWETH.fixedBorrowPositions(FixedLib.INTERVAL * 2, address(this));
     assertEq(principal + fee, 400 ether);
-    assertEq(market.earningsAccumulator(), 15.75 ether);
+    assertEq(marketWETH.earningsAccumulator(), 15.75 ether);
   }
 
   function testLiquidateAndSeizeExactAmountWithDustAsCollateral() external {
-    marketWETH.deposit(1.15 ether + 5, address(this));
-    market.deposit(100_000 ether, ALICE);
-    market.setPenaltyRate(2e11);
-    wethPriceFeed.setPrice(5_000e8);
+    vm.prank(ALICE);
+    marketWETH.approve(address(this), type(uint256).max);
+
+    market.deposit(1.15 ether + 5, address(this));
+    marketWETH.deposit(100_000 ether, ALICE);
+    marketWETH.setPenaltyRate(2e11);
+    daiPriceFeed.setPrice(5_000e18);
     auditor.setLiquidationIncentive(Auditor.LiquidationIncentive(0.1e18, 0));
+    auditor.enterMarket(market);
 
     // distribute earnings to accumulator
-    market.setBackupFeeRate(1e18);
+    marketWETH.setBackupFeeRate(1e18);
     irm.setBorrowRate(1e18);
-    vm.prank(ALICE);
-    market.borrowAtMaturity(FixedLib.INTERVAL, 20_000 ether, 40_000 ether, ALICE, ALICE);
-    market.depositAtMaturity(FixedLib.INTERVAL, 20_000 ether, 20_000 ether, ALICE);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 20_000 ether, 40_000 ether, ALICE, ALICE);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 20_000 ether, 20_000 ether, ALICE);
 
     irm.setBorrowRate(0);
     for (uint256 i = 1; i <= 3; i++) {
-      market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether + 100, 1_000 ether + 100, address(this), address(this));
+      marketWETH.borrowAtMaturity(
+        FixedLib.INTERVAL,
+        1_000 ether + 100,
+        1_000 ether + 100,
+        address(this),
+        address(this)
+      );
     }
-    wethPriceFeed.setPrice(100e8);
+    daiPriceFeed.setPrice(100e18);
 
     vm.warp(FixedLib.INTERVAL * 3 + 182 days + 123 minutes + 10 seconds);
 
+    weth.mint(BOB, 1_000_000 ether);
     vm.prank(BOB);
-    market.liquidate(address(this), type(uint256).max, marketWETH);
+    marketWETH.liquidate(address(this), type(uint256).max, market);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
       Market(address(0)),
@@ -1021,11 +1036,11 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(5_000 ether, ALICE);
     market.setPenaltyRate(2e11);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
 
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL * 2, 1_000 ether, 1_000 ether, address(this), address(this));
-    wethPriceFeed.setPrice(100e8);
+    daiPriceFeed.setPrice(0.01e18);
 
     vm.prank(BOB);
     market.liquidate(address(this), 2, marketWETH);
@@ -1051,9 +1066,9 @@ contract MarketTest is Test {
     market.depositAtMaturity(FixedLib.INTERVAL, 15_000 ether, 15_000 ether, ALICE);
 
     market.setBackupFeeRate(1e17);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     market.borrow(4_000 ether, address(this), address(this));
-    wethPriceFeed.setPrice(4_000e8);
+    daiPriceFeed.setPrice(0.00025e18);
 
     (, , uint256 floatingBorrowShares) = market.accounts(address(this));
     assertEq(floatingBorrowShares, 4_000 ether);
@@ -1071,23 +1086,23 @@ contract MarketTest is Test {
     assertEq(floatingBorrowShares, 4_000 ether - assetsRepaid);
     assertEq(floatingBorrowShares, remainingDebt);
 
-    (uint256 usdCollateral, uint256 usdDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    assertEq(usdCollateral, remainingCollateral.mulWadDown(4_000 ether).mulWadDown(0.9e18));
-    assertEq(usdDebt, remainingDebt.divWadUp(0.8e18));
+    (uint256 ethCollateral, uint256 ethDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertEq(ethCollateral, remainingCollateral.mulWadDown(0.9e18));
+    assertEq(ethDebt, (remainingDebt.divWadUp(0.8e18) * 0.00025e18) / 1e18);
 
-    wethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
     // full liquidation
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
 
     (, remainingDebt) = market.accountSnapshot(address(this));
     (remainingCollateral, ) = marketWETH.accountSnapshot(address(this));
-    (usdCollateral, usdDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    (ethCollateral, ethDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     (, , floatingBorrowShares) = market.accounts(address(this));
     assertEq(remainingCollateral, 0);
     assertEq(remainingDebt, 0);
-    assertEq(usdCollateral, 0);
-    assertEq(usdDebt, 0);
+    assertEq(ethCollateral, 0);
+    assertEq(ethDebt, 0);
     assertEq(floatingBorrowShares, 0);
     assertEq(weth.balanceOf(BOB), 1.15 ether);
   }
@@ -1096,9 +1111,9 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
 
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     market.borrow(4_000 ether, address(this), address(this));
-    wethPriceFeed.setPrice(3_000e8);
+    daiPriceFeed.setPrice(0.0003333333333e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
     vm.prank(BOB);
@@ -1107,14 +1122,14 @@ contract MarketTest is Test {
     uint256 lendersIncentiveRepaid = assetsRepaid.mulWadDown(0.01e18);
     uint256 assetsSeized = assetsRepaid.mulDivUp(10**18, 3_000 ether).mulWadUp(1.1e18);
     assertEq(ERC20(market.asset()).balanceOf(BOB), bobDAIBalanceBefore - assetsRepaid - lendersIncentiveRepaid);
-    assertEq(weth.balanceOf(BOB), assetsSeized);
+    assertApproxEqRel(weth.balanceOf(BOB), assetsSeized, 1e10);
     assertEq(market.earningsAccumulator(), lendersIncentiveRepaid);
   }
 
   function testLiquidateFlexibleAndFixedBorrowPositionsInSingleCall() external {
     irm.setBorrowRate(0);
     marketWETH.deposit(1.15 ether, address(this));
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     market.deposit(50_000 ether, ALICE);
 
     for (uint256 i = 1; i <= 2; i++) {
@@ -1122,7 +1137,7 @@ contract MarketTest is Test {
     }
 
     market.borrow(2_000 ether, address(this), address(this));
-    wethPriceFeed.setPrice(4_000e8);
+    daiPriceFeed.setPrice(0.00025e18);
 
     vm.prank(BOB);
     market.liquidate(address(this), 1000 ether, marketWETH);
@@ -1155,11 +1170,11 @@ contract MarketTest is Test {
     market.deposit(50_000 ether, ALICE);
     market.setMaxFuturePools(12);
 
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
-    wethPriceFeed.setPrice(3_000e8);
+    daiPriceFeed.setPrice(0.000333333333333333e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
     vm.prank(BOB);
@@ -1171,7 +1186,7 @@ contract MarketTest is Test {
 
     // BOB STILL SEIZES ALL ACCOUNT COLLATERAL
     assertEq(weth.balanceOf(BOB), 1.15 ether);
-    assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment);
+    assertApproxEqRel(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment, 1e8);
   }
 
   function testLiquidateFlexibleBorrowConsideringDebtOverTime() external {
@@ -1179,7 +1194,7 @@ contract MarketTest is Test {
     marketWETH.deposit(1.15 ether, address(this));
     market.deposit(50_000 ether, ALICE);
 
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     market.borrow(4_000 ether, address(this), address(this));
 
     // 10% yearly interest
@@ -1189,7 +1204,7 @@ contract MarketTest is Test {
     // bob is allowed to repay 2970
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
-    uint256 lendersIncentive = 29694323144104803448;
+    uint256 lendersIncentive = 29694323144104803450;
 
     assertApproxEqRel(market.previewDebt(address(this)), 1_430 ether, 1e18);
     assertApproxEqRel(market.floatingDebt(), 1_430 ether, 1e18);
@@ -1210,11 +1225,11 @@ contract MarketTest is Test {
     market.depositAtMaturity(FixedLib.INTERVAL, 10_000 ether, 10_000 ether, ALICE);
 
     irm.setBorrowRate(0);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
     }
-    wethPriceFeed.setPrice(3_000e8);
+    daiPriceFeed.setPrice(0.0003333333333333e18);
 
     uint256 bobDAIBalanceBefore = ERC20(market.asset()).balanceOf(BOB);
     uint256 accumulatorBefore = market.earningsAccumulator();
@@ -1222,7 +1237,7 @@ contract MarketTest is Test {
     market.liquidate(address(this), type(uint256).max, marketWETH);
     uint256 bobDAIBalanceAfter = ERC20(market.asset()).balanceOf(BOB);
     uint256 accumulatorAfter = market.earningsAccumulator();
-    uint256 totalUsdDebt = 1_000 ether * 4;
+    uint256 totalethDebt = 1_000 ether * 4;
     // if 110% is 1.15 ether then 100% is 1.0454545455 ether * 3_000 (eth price) = 3136363636363636363637
     uint256 totalBobRepayment = 3136363636363636363637;
     uint256 lendersIncentive = uint256(3136363636363636363637).mulWadDown(0.01e18);
@@ -1230,8 +1245,8 @@ contract MarketTest is Test {
 
     // BOB SEIZES ALL ACCOUNT COLLATERAL
     assertEq(weth.balanceOf(BOB), 1.15 ether);
-    assertEq(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment + lendersIncentive);
-    assertEq(accumulatorBefore - accumulatorAfter + lendersIncentive, totalUsdDebt - totalBobRepayment);
+    assertApproxEqRel(bobDAIBalanceBefore - bobDAIBalanceAfter, totalBobRepayment + lendersIncentive, 1e10);
+    assertApproxEqRel(accumulatorBefore - accumulatorAfter + lendersIncentive, totalethDebt - totalBobRepayment, 1e10);
     assertEq(fixedBorrows, 0);
     for (uint256 i = 1; i <= 4; i++) {
       (uint256 principal, uint256 fee) = market.fixedBorrowPositions(FixedLib.INTERVAL * i, address(this));
@@ -1255,13 +1270,13 @@ contract MarketTest is Test {
 
     irm.setBorrowRate(0.1e18);
     market.setBackupFeeRate(0);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     for (uint256 i = 3; i <= 6; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_100 ether, address(this), address(this));
     }
     vm.prank(ALICE);
     market.borrowAtMaturity(FixedLib.INTERVAL, 5_000 ether, 5_500 ether, ALICE, ALICE);
-    wethPriceFeed.setPrice(100e8);
+    daiPriceFeed.setPrice(0.01e18);
 
     vm.warp(FixedLib.INTERVAL * 2);
 
@@ -1270,8 +1285,8 @@ contract MarketTest is Test {
     vm.prank(ALICE);
     market.repayAtMaturity(FixedLib.INTERVAL, principal + fee, debt, ALICE);
     uint256 earningsAccumulatorBefore = market.earningsAccumulator();
-    uint256 lendersIncentive = 1181818181818181818;
-    uint256 badDebt = 981818181818181818181 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
+    uint256 lendersIncentive = 1181818181818181800;
+    uint256 badDebt = 981818181818181818100 + 1100000000000000000000 + 1100000000000000000000 + 1100000000000000000000;
     uint256 accumulatedEarnings = (earningsAccumulatorBefore + lendersIncentive).mulDivDown(
       block.timestamp - market.lastAccumulatorAccrual(),
       block.timestamp -
@@ -1285,9 +1300,10 @@ contract MarketTest is Test {
     market.liquidate(address(this), type(uint256).max, marketWETH);
 
     assertGt(market.earningsAccumulator(), 0);
-    assertEq(
+    assertApproxEqRel(
       badDebt,
-      earningsAccumulatorBefore - market.earningsAccumulator() - accumulatedEarnings + lendersIncentive
+      earningsAccumulatorBefore - market.earningsAccumulator() - accumulatedEarnings + lendersIncentive,
+      1e2
     );
     (, uint256 fixedBorrows, ) = market.accounts(address(this));
     assertEq(fixedBorrows, 0);
@@ -1306,14 +1322,14 @@ contract MarketTest is Test {
     market.depositAtMaturity(FixedLib.INTERVAL, 10_000 ether, 10_000 ether, ALICE);
 
     irm.setBorrowRate(0);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
       // deposit so floatingBackupBorrowed is 0
       market.depositAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this));
     }
-    wethPriceFeed.setPrice(3_000e8);
+    daiPriceFeed.setPrice(0.0003333333333e18);
 
     assertEq(market.floatingBackupBorrowed(), 0);
     vm.prank(BOB);
@@ -1322,14 +1338,14 @@ contract MarketTest is Test {
     assertEq(market.floatingBackupBorrowed(), 0);
 
     marketWETH.deposit(1.15 ether, address(this));
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     for (uint256 i = 1; i <= 4; i++) {
       market.borrowAtMaturity(FixedLib.INTERVAL * i, 1_000 ether, 1_000 ether, address(this), address(this));
 
       // withdraw 500 so floatingBackupBorrowed is half
       market.withdrawAtMaturity(FixedLib.INTERVAL * i, 500 ether, 500 ether, address(this), address(this));
     }
-    wethPriceFeed.setPrice(3_000e8);
+    daiPriceFeed.setPrice(0.0003333333333e18);
 
     assertEq(market.floatingBackupBorrowed(), (1_000 ether * 4) / 2);
     vm.prank(BOB);
@@ -1339,7 +1355,7 @@ contract MarketTest is Test {
   }
 
   function testLiquidationClearingDebtOfAllAccountMarkets() external {
-    wethPriceFeed.setPrice(3_000e8);
+    daiPriceFeed.setPrice(0.0003333333333e18);
     marketWETH.deposit(10 ether, BOB);
     market.deposit(50_000 ether, BOB);
     marketWETH.deposit(1 ether, address(this));
@@ -1359,7 +1375,7 @@ contract MarketTest is Test {
     market.borrow(500 ether, address(this), address(this));
     marketWETH.borrow(0.25 ether, address(this), address(this));
 
-    wethPriceFeed.setPrice(100e8);
+    daiPriceFeed.setPrice(0.01e18);
     vm.prank(BOB);
     market.liquidate(address(this), type(uint256).max, marketWETH);
 
@@ -1373,13 +1389,13 @@ contract MarketTest is Test {
 
   function testCappedLiquidation() external {
     irm.setBorrowRate(0);
-    wethPriceFeed.setPrice(2_000e8);
+    daiPriceFeed.setPrice(0.0005e18);
 
     market.deposit(50_000 ether, ALICE);
     marketWETH.deposit(1 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
 
-    wethPriceFeed.setPrice(900e8);
+    daiPriceFeed.setPrice(0.001111111111e18);
 
     vm.prank(BOB);
     // vm.expectEmit(true, true, true, true, address(market));
@@ -1391,7 +1407,7 @@ contract MarketTest is Test {
   }
 
   function testLiquidationResultingInZeroCollateralAndZeroDebt() external {
-    wethPriceFeed.setPrice(2_000e8);
+    daiPriceFeed.setPrice(0.0005e18);
 
     market.deposit(500_000 ether, ALICE);
     vm.prank(ALICE);
@@ -1403,11 +1419,11 @@ contract MarketTest is Test {
     marketWETH.deposit(1 ether, address(this));
     market.borrowAtMaturity(FixedLib.INTERVAL, 1_000 ether, 1_000 ether, address(this), address(this));
 
-    wethPriceFeed.setPrice(900e8);
+    daiPriceFeed.setPrice(0.001111111111111111e18);
 
     vm.prank(BOB);
     vm.expectEmit(true, true, true, true, address(market));
-    emit Liquidate(BOB, address(this), 818181818181818181819, 8181818181818181818, marketWETH, 1 ether);
+    emit Liquidate(BOB, address(this), 818181818181818263719, 8181818181818182637, marketWETH, 1 ether);
     market.liquidate(address(this), 1_000 ether, marketWETH);
     (uint256 remainingCollateral, uint256 remainingDebt) = auditor.accountLiquidity(
       address(this),
@@ -1947,7 +1963,7 @@ contract MarketTest is Test {
     // TODO refactor
     vm.warp(0);
 
-    wethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
     weth.mint(BOB, 1 ether);
     vm.prank(BOB);
     weth.approve(address(marketWETH), 1 ether);
@@ -2018,7 +2034,7 @@ contract MarketTest is Test {
 
   function testFlexibleBorrowExceedingReserve() external {
     marketWETH.deposit(1 ether, address(this));
-    wethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
 
     market.deposit(10 ether, address(this));
     market.setReserveFactor(0.1e18);
@@ -2032,7 +2048,7 @@ contract MarketTest is Test {
 
   function testFlexibleBorrowExceedingReserveIncludingFixedBorrow() external {
     marketWETH.deposit(1 ether, address(this));
-    wethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
 
     market.deposit(10 ether, address(this));
     market.setReserveFactor(0.1e18);
@@ -2048,7 +2064,7 @@ contract MarketTest is Test {
 
   function testFlexibleBorrowExceedingReserveWithNewDebt() external {
     marketWETH.deposit(1 ether, address(this));
-    wethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
 
     market.deposit(10 ether, address(this));
     market.setReserveFactor(0.1e18);
@@ -2106,7 +2122,7 @@ contract MarketTest is Test {
   }
 
   function testInsufficientProtocolLiquidity() external {
-    wethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
 
     marketWETH.deposit(50 ether, address(this));
     // smart pool assets = 100
@@ -2134,7 +2150,7 @@ contract MarketTest is Test {
   }
 
   function testMaturityInsufficientProtocolLiquidity() external {
-    wethPriceFeed.setPrice(1_000e8);
+    daiPriceFeed.setPrice(0.001e18);
     market.setReserveFactor(0.1e18);
 
     marketWETH.deposit(50 ether, address(this));
@@ -2169,7 +2185,7 @@ contract MarketTest is Test {
 
     market.deposit(1_000_000 ether, address(this));
     marketWETH.deposit(10_000 ether, BOB);
-    wethPriceFeed.setPrice(5_000e8);
+    daiPriceFeed.setPrice(0.0002e18);
     vm.prank(BOB);
     auditor.enterMarket(marketWETH);
 

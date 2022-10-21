@@ -53,7 +53,7 @@ describe("auditor", function () {
     await timelockExecute(owner, auditor, "grantRole", [await auditor.DEFAULT_ADMIN_ROLE(), owner.address]);
     const { address } = await deployments.deploy("NewPriceFeed", {
       contract: "MockPriceFeed",
-      args: [1],
+      args: [8, 1],
       from: owner.address,
     });
     await expect(await auditor.connect(owner).setPriceFeed(marketDAI.address, address))
