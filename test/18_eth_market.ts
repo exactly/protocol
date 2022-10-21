@@ -171,6 +171,28 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
           expect(balanceDiff).to.be.lt(parseUnits("3"));
         });
       });
+      describe("WHEN redeeming 3 eWETH to ETH", () => {
+        let tx: ContractTransaction;
+        let aliceETHBalanceBefore: BigNumber;
+        beforeEach(async () => {
+          aliceETHBalanceBefore = await provider.getBalance(alice.address);
+          tx = await routerETH.redeem(parseUnits("3"));
+        });
+        it("THEN a Withdraw event is emitted", async () => {
+          await expect(tx)
+            .to.emit(marketWETH, "Withdraw")
+            .withArgs(routerETH.address, routerETH.address, alice.address, parseUnits("3"), parseUnits("3"));
+        });
+        it("AND the ETHMarket contract has a balance of 2 WETH", async () => {
+          expect(await weth.balanceOf(marketWETH.address)).to.equal(parseUnits("2"));
+        });
+        it("AND alice's ETH balance has increased by roughly 3", async () => {
+          const newBalance = await provider.getBalance(alice.address);
+          const balanceDiff = newBalance.sub(aliceETHBalanceBefore);
+          expect(balanceDiff).to.be.gt(parseUnits("2.95"));
+          expect(balanceDiff).to.be.lt(parseUnits("3"));
+        });
+      });
       describe("WHEN withdrawing 3 eWETH to WETH", () => {
         let tx: ContractTransaction;
         beforeEach(async () => {

@@ -48,6 +48,11 @@ contract MarketETHRouter is Initializable {
     return market.withdraw(assets, address(this), msg.sender);
   }
 
+  function redeem(uint256 shares) external returns (uint256 assets) {
+    assets = market.redeem(shares, address(this), msg.sender);
+    unwrapAndTransfer(assets);
+  }
+
   function borrow(uint256 assets) external unwrap(assets) returns (uint256 borrowShares) {
     return market.borrow(assets, address(this), msg.sender);
   }
