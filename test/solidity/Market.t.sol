@@ -467,6 +467,21 @@ contract MarketTest is Test {
     market.transfer(ALICE, ERC20(market).balanceOf(address(this)));
   }
 
+  function testSumDebtPlusEffectsShouldntRoundUpWhenWithdrawing() external {
+    market.deposit(10_000 ether, address(this));
+    auditor.enterMarket(market);
+    market.deposit(33_333 ether, BOB);
+
+    vm.prank(BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1.1 ether, BOB, BOB);
+    vm.warp(FixedLib.INTERVAL / 2);
+    market.deposit(3_000 ether, ALICE);
+
+    daiPriceFeed.setPrice(0.0002e18);
+    // if sumDebtPlusEffects rounds up this will revert
+    market.transfer(ALICE, ERC20(market).balanceOf(address(this)));
+  }
+
   function testRoundingDownAssetsWhenTransferingFromAnAccountWithoutShortfall() external {
     market.deposit(10_000 ether, address(this));
     auditor.enterMarket(market);
