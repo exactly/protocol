@@ -117,18 +117,17 @@ const config: Config = {
           maxUtilization: 1.0216,
         },
       },
-      LINK: {
-        networks: ["hardhat", "goerli"],
-        adjustFactor: 0.85,
+      wstETH: {
+        adjustFactor: 0.82,
         fixedCurve: {
-          a: 1.5372,
-          b: -1.3898,
-          maxUtilization: 1.0865,
+          a: 1.1568,
+          b: -1.0794,
+          maxUtilization: 1.0475,
         },
         floatingCurve: {
-          a: 0.0547,
-          b: -0.0335,
-          maxUtilization: 1.0216,
+          a: 0.0174,
+          b: 0.0027,
+          maxUtilization: 1.007,
         },
         wrap: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
       },
