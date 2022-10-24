@@ -702,7 +702,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of shares to be transferred.
   function transfer(address to, uint256 shares) public override returns (bool) {
-    auditor.checkShortfall(this, msg.sender, previewMint(shares));
+    auditor.checkShortfall(this, msg.sender, previewRedeem(shares));
     return super.transfer(to, shares);
   }
 
@@ -717,7 +717,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address to,
     uint256 shares
   ) public override returns (bool) {
-    auditor.checkShortfall(this, from, previewMint(shares));
+    auditor.checkShortfall(this, from, previewRedeem(shares));
     return super.transferFrom(from, to, shares);
   }
 

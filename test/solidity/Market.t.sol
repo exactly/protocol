@@ -453,7 +453,38 @@ contract MarketTest is Test {
     market.withdrawAtMaturity(maturity, 1, 0, BOB, address(this));
   }
 
-  function testRoundingUpAssetsToValidateShortfallWhenTransferringFrom() external {
+  function testRoundingDownAssetsWhenTransferingWithAnAccountWithoutShortfall() external {
+    market.deposit(10_000 ether, address(this));
+    auditor.enterMarket(market);
+    market.deposit(33_333 ether, BOB);
+
+    vm.prank(BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1.1 ether, BOB, BOB);
+    vm.warp(FixedLib.INTERVAL / 2);
+    market.deposit(3_000 ether, ALICE);
+
+    // previewMint(shares) = previewRedeem(shares) + 1
+    market.transfer(ALICE, ERC20(market).balanceOf(address(this)));
+  }
+
+  function testRoundingDownAssetsWhenTransferingFromAnAccountWithoutShortfall() external {
+    market.deposit(10_000 ether, address(this));
+    auditor.enterMarket(market);
+    market.deposit(33_333 ether, BOB);
+
+    vm.prank(BOB);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 1 ether, 1.1 ether, BOB, BOB);
+    vm.warp(FixedLib.INTERVAL / 2);
+    market.deposit(3_000 ether, ALICE);
+
+    market.approve(BOB, type(uint256).max);
+    vm.startPrank(BOB);
+    // previewMint(shares) = previewRedeem(shares) + 1
+    market.transferFrom(address(this), BOB, ERC20(market).balanceOf(address(this)));
+    vm.stopPrank();
+  }
+
+  function testRoundingDownAssetsToValidateShortfallWhenTransferringFrom() external {
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
 
     // deploy a harness market to be able to set different supply and floatingAssets
@@ -485,11 +516,10 @@ contract MarketTest is Test {
     // try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
     // if it rounds down to 1, it will pass
     vm.prank(BOB);
-    vm.expectRevert(InsufficientAccountLiquidity.selector);
     marketHarness.transferFrom(address(this), BOB, 5);
   }
 
-  function testRoundingUpAssetsToValidateShortfallWhenTransferring() external {
+  function testRoundingDownAssetsToValidateShortfallWhenTransferring() external {
     MockERC20 asset = new MockERC20("DAI", "DAI", 18);
 
     // deploy a harness market to be able to set different supply and floatingAssets
@@ -519,7 +549,6 @@ contract MarketTest is Test {
 
     // try to transfer 5 shares, if it correctly rounds up to 2 withdraw amount then it should fail
     // if it rounds down to 1, it will pass
-    vm.expectRevert(InsufficientAccountLiquidity.selector);
     marketHarness.transfer(BOB, 5);
   }
 
