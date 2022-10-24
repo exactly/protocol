@@ -85,19 +85,18 @@ library FixedLib {
   function accrueEarnings(Pool storage pool, uint256 maturity) internal returns (uint256 backupEarnings) {
     uint256 lastAccrual = pool.lastAccrual;
 
-    if (lastAccrual == maturity) return 0;
-
-    // seconds from last accrual to the closest:
-    // maturity date or the current timestamp
-    uint256 secondsSinceLastAccrue = secondsPre(lastAccrual, Math.min(maturity, block.timestamp));
-    // seconds from last accrual to the maturity date
-    uint256 secondsTotalToMaturity = secondsPre(lastAccrual, maturity);
-    pool.lastAccrual = Math.min(maturity, block.timestamp);
-
-    // assign some of the earnings to be collected at maturity
-    uint256 unassignedEarnings = pool.unassignedEarnings;
-    backupEarnings = unassignedEarnings.mulDivDown(secondsSinceLastAccrue, secondsTotalToMaturity);
-    pool.unassignedEarnings = unassignedEarnings - backupEarnings;
+    if (block.timestamp < maturity) {
+      uint256 unassignedEarnings = pool.unassignedEarnings;
+      pool.lastAccrual = block.timestamp;
+      backupEarnings = unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
+      pool.unassignedEarnings = unassignedEarnings - backupEarnings;
+    } else if (lastAccrual == maturity) {
+      backupEarnings = 0;
+    } else {
+      pool.lastAccrual = maturity;
+      backupEarnings = pool.unassignedEarnings;
+      pool.unassignedEarnings = 0;
+    }
   }
 
   /// @notice Calculates the amount that a fixed rate pool borrowed from the backup supplier.
@@ -197,14 +196,6 @@ library FixedLib {
       // otherwise just clear the bit
       return encoded & ~(1 << (32 + ((maturity - baseMaturity) / INTERVAL)));
     }
-  }
-
-  /// @notice Calculates how many seconds are left to a certain date.
-  /// @param timestampFrom to calculate the difference in seconds from a date.
-  /// @param timestampTo to calculate the difference in seconds to a date.
-  /// @return seconds left to the date.
-  function secondsPre(uint256 timestampFrom, uint256 timestampTo) internal pure returns (uint256) {
-    return timestampFrom < timestampTo ? timestampTo - timestampFrom : 0;
   }
 
   /// @notice Verifies that a maturity is `VALID`, `MATURED`, `NOT_READY` or `INVALID`.

@@ -745,8 +745,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
         debt += positionAssets;
 
-        uint256 secondsDelayed = FixedLib.secondsPre(maturity, block.timestamp);
-        if (secondsDelayed > 0) debt += positionAssets.mulWadDown(secondsDelayed * memPenaltyRate);
+        if (block.timestamp > maturity) {
+          debt += positionAssets.mulWadDown((block.timestamp - maturity) * memPenaltyRate);
+        }
       }
       packedMaturities >>= 1;
       maturity += FixedLib.INTERVAL;
