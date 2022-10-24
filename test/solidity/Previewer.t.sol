@@ -987,7 +987,7 @@ contract PreviewerTest is Test {
     uint256 sumCollateral = data[0]
       .floatingDepositAssets
       .mulDivDown(
-        data[0].oraclePrice.mulDivDown(10**ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
+        data[0].usdPrice.mulDivDown(10**ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
         10**data[0].decimals
       )
       .mulWadDown(data[0].adjustFactor);
@@ -996,7 +996,7 @@ contract PreviewerTest is Test {
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
       data[0].fixedBorrowPositions[0].position.fee)
       .mulDivUp(
-        data[0].oraclePrice.mulDivDown(10**ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
+        data[0].usdPrice.mulDivDown(10**ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
         10**data[0].decimals
       )
       .divWadUp(data[0].adjustFactor);
@@ -1016,8 +1016,8 @@ contract PreviewerTest is Test {
     daiPriceFeed.setPrice(0.0005e18);
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
-    assertEq(data[0].oraclePrice, 1e18);
-    assertEq(data[1].oraclePrice, 2_000e18);
+    assertEq(data[0].usdPrice, 1e18);
+    assertEq(data[1].usdPrice, 2_000e18);
   }
 
   function testAccountsWithIntermediateOperationsReturningAccurateAmounts() external {
@@ -1040,14 +1040,13 @@ contract PreviewerTest is Test {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
     // sum all the collateral prices
-    uint256 sumCollateral = data[0]
-      .floatingDepositAssets
-      .mulDivDown(data[0].oraclePrice, 10**data[0].decimals)
-      .mulWadDown(data[0].adjustFactor);
+    uint256 sumCollateral = data[0].floatingDepositAssets.mulDivDown(data[0].usdPrice, 10**data[0].decimals).mulWadDown(
+      data[0].adjustFactor
+    );
 
     // sum all the debt
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
-      data[0].fixedBorrowPositions[0].position.fee).mulDivUp(data[0].oraclePrice, 10**data[0].decimals).divWadUp(
+      data[0].fixedBorrowPositions[0].position.fee).mulDivUp(data[0].usdPrice, 10**data[0].decimals).divWadUp(
         data[0].adjustFactor
       );
 
@@ -1063,7 +1062,7 @@ contract PreviewerTest is Test {
 
     auditor.enterMarket(marketWETH);
     data = previewer.exactly(address(this));
-    sumCollateral += data[1].floatingDepositAssets.mulDivDown(data[1].oraclePrice, 10**data[1].decimals).mulWadDown(
+    sumCollateral += data[1].floatingDepositAssets.mulDivDown(data[1].usdPrice, 10**data[1].decimals).mulWadDown(
       data[1].adjustFactor
     );
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -1075,7 +1074,7 @@ contract PreviewerTest is Test {
     data = previewer.exactly(address(this));
 
     sumDebt += (data[1].fixedBorrowPositions[0].position.principal + data[1].fixedBorrowPositions[0].position.fee)
-      .mulDivDown(data[1].oraclePrice, 10**data[1].decimals)
+      .mulDivDown(data[1].usdPrice, 10**data[1].decimals)
       .divWadDown(data[1].adjustFactor);
 
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -1083,7 +1082,7 @@ contract PreviewerTest is Test {
 
     ethPriceFeed.setPrice(1_831e8);
     data = previewer.exactly(address(this));
-    assertEq(data[1].oraclePrice, 1_831e18);
+    assertEq(data[1].usdPrice, 1_831e18);
   }
 
   function testAccountsWithAccountThatHasBalances() external {
@@ -1131,7 +1130,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].fixedBorrowPositions[1].position.fee, secondMaturityBorrowFee);
     assertEq(data[0].fixedBorrowPositions.length, 2);
 
-    assertEq(data[0].oraclePrice, 1_000e18);
+    assertEq(data[0].usdPrice, 1_000e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].penaltyRate, market.penaltyRate());
     assertEq(data[0].decimals, 18);
@@ -1148,7 +1147,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingDepositShares, market.convertToShares(10 ether));
     assertEq(data[0].fixedDepositPositions.length, 0);
     assertEq(data[0].fixedBorrowPositions.length, 0);
-    assertEq(data[0].oraclePrice, 1_000e18);
+    assertEq(data[0].usdPrice, 1_000e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
     assertEq(data[0].maxFuturePools, 12);
@@ -1202,7 +1201,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].floatingDepositShares, 0);
     assertEq(data[0].fixedDepositPositions.length, 0);
     assertEq(data[0].fixedBorrowPositions.length, 0);
-    assertEq(data[0].oraclePrice, 1_000e18);
+    assertEq(data[0].usdPrice, 1_000e18);
     assertEq(data[0].adjustFactor, 0.8e18);
     assertEq(data[0].decimals, 18);
     assertEq(data[0].maxFuturePools, 12);

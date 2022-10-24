@@ -27,7 +27,7 @@ contract Previewer {
     Market market;
     uint8 decimals;
     string assetSymbol;
-    uint256 oraclePrice;
+    uint256 usdPrice;
     uint256 penaltyRate;
     uint256 adjustFactor;
     uint8 maxFuturePools;
@@ -96,14 +96,14 @@ contract Previewer {
       Market.Account memory a;
       Auditor.MarketData memory m;
       (m.adjustFactor, m.decimals, m.index, m.isListed, m.priceFeed) = auditor.markets(market);
-      uint256 oraclePrice = auditor.assetPrice(m.priceFeed);
+      uint256 price = auditor.assetPrice(m.priceFeed);
       (a.fixedDeposits, a.fixedBorrows, a.floatingBorrowShares) = market.accounts(account);
       data[i] = MarketAccount({
         // market
         market: market,
         decimals: m.decimals,
         assetSymbol: market.asset().symbol(),
-        oraclePrice: oraclePrice.mulWadDown(basePrice),
+        usdPrice: price.mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),
         adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
@@ -115,7 +115,7 @@ contract Previewer {
         // account
         isCollateral: markets & (1 << i) != 0 ? true : false,
         maxBorrowAssets: adjustedCollateral >= adjustedDebt
-          ? (adjustedCollateral - adjustedDebt).mulDivUp(10**m.decimals, oraclePrice).mulWadUp(m.adjustFactor)
+          ? (adjustedCollateral - adjustedDebt).mulDivUp(10**m.decimals, price).mulWadUp(m.adjustFactor)
           : 0,
         floatingBorrowShares: a.floatingBorrowShares,
         floatingBorrowAssets: maxRepay(market, account),
