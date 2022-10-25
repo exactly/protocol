@@ -884,7 +884,7 @@ describe("Fixed Rate Operations", () => {
                 });
                 it("THEN the maturity pool state is correctly updated", async () => {
                   expect(mp.borrowed).to.eq(parseUnits("0"));
-                  expect(mp.supplied).to.be.eq(fixedDepositPositions.principal);
+                  expect(mp.supplied).to.be.eq(fixedDepositPositions.principal.add(1));
                 });
                 it("THEN unassignedEarnings are still 0", async () => {
                   expect(mp.unassignedEarnings).to.eq(parseUnits("0"));
@@ -913,7 +913,7 @@ describe("Fixed Rate Operations", () => {
                 it("THEN the withdrawAmount + remaining fees + supplied that still remains in the pool equals initial total deposit", async () => {
                   const fxDepositPositions = await marketHarness.fixedDepositPositions(nextPoolID, laura.address);
 
-                  expect(returnValue.add(mp.supplied).add(fxDepositPositions[1])).to.eq(parseUnits("100010125"));
+                  expect(returnValue.add(mp.supplied).add(fxDepositPositions[1])).to.eq(parseUnits("100010125").add(1));
                 });
               });
               describe("AND GIVEN a partial withdrawMP of half amount deposited + half earned fees", () => {

@@ -125,9 +125,10 @@ library FixedLib {
   /// @param amount to be used as a full value (principal + interest).
   /// @return reduced position.
   function reduceProportionally(Position memory position, uint256 amount) internal pure returns (Position memory) {
-    uint256 principal = amount.mulDivDown(position.principal, position.principal + position.fee);
-    position.principal -= principal;
-    position.fee -= amount - principal;
+    uint256 positionAssets = position.principal + position.fee;
+    uint256 newPositionAssets = positionAssets - amount;
+    position.principal = newPositionAssets.mulDivDown(position.principal, positionAssets);
+    position.fee = newPositionAssets - position.principal;
     return position;
   }
 
