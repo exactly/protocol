@@ -140,8 +140,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     whenNotPaused
     returns (uint256 actualRepay, uint256 borrowShares)
   {
-    borrowShares = previewRepay(assets);
-    actualRepay = noTransferRefund(borrowShares, borrower);
+    (actualRepay, borrowShares) = noTransferRefund(previewRepay(assets), borrower);
     emitMarketUpdate();
     asset.safeTransferFrom(msg.sender, address(this), actualRepay);
   }
@@ -150,8 +149,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param borrowShares shares to be subtracted from the borrower's accountability.
   /// @param borrower address of the account that has the debt.
   /// @return assets subtracted assets from the borrower's accountability.
-  function refund(uint256 borrowShares, address borrower) external whenNotPaused returns (uint256 assets) {
-    assets = noTransferRefund(borrowShares, borrower);
+  /// @return actualShares actual subtracted shares from the borrower's accountability.
+  function refund(uint256 borrowShares, address borrower)
+    external
+    whenNotPaused
+    returns (uint256 assets, uint256 actualShares)
+  {
+    (assets, actualShares) = noTransferRefund(borrowShares, borrower);
     emitMarketUpdate();
     asset.safeTransferFrom(msg.sender, address(this), assets);
   }
@@ -160,20 +164,24 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param borrowShares shares to be subtracted from the borrower's accountability.
   /// @param borrower the address of the account that has the debt.
   /// @return assets the actual amount that should be transferred into the protocol.
-  function noTransferRefund(uint256 borrowShares, address borrower) internal returns (uint256 assets) {
+  /// @return actualShares actual subtracted shares from the borrower's accountability.
+  function noTransferRefund(uint256 borrowShares, address borrower)
+    internal
+    returns (uint256 assets, uint256 actualShares)
+  {
     depositToTreasury(updateFloatingDebt());
     Account storage account = accounts[borrower];
     uint256 userBorrowShares = account.floatingBorrowShares;
-    borrowShares = Math.min(borrowShares, userBorrowShares);
-    assets = previewRefund(borrowShares);
+    actualShares = Math.min(borrowShares, userBorrowShares);
+    assets = previewRefund(actualShares);
 
     if (assets == 0) revert ZeroRepay();
 
     floatingDebt -= assets;
-    account.floatingBorrowShares = userBorrowShares - borrowShares;
-    totalFloatingBorrowShares -= borrowShares;
+    account.floatingBorrowShares = userBorrowShares - actualShares;
+    totalFloatingBorrowShares -= actualShares;
 
-    emit Repay(msg.sender, borrower, assets, borrowShares);
+    emit Repay(msg.sender, borrower, assets, actualShares);
   }
 
   /// @notice Deposits a certain amount to a maturity.
@@ -532,7 +540,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (maxAssets > 0 && account.floatingBorrowShares > 0) {
       uint256 borrowShares = previewRepay(maxAssets);
       if (borrowShares > 0) {
-        uint256 actualRepayAssets = noTransferRefund(borrowShares, borrower);
+        (uint256 actualRepayAssets, ) = noTransferRefund(borrowShares, borrower);
         repaidAssets += actualRepayAssets;
       }
     }
@@ -587,7 +595,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       maturity += FixedLib.INTERVAL;
     }
     if (account.floatingBorrowShares > 0 && (accumulator = previewRepay(accumulator)) > 0) {
-      totalBadDebt += noTransferRefund(accumulator, borrower);
+      (uint256 badDebt, ) = noTransferRefund(accumulator, borrower);
+      totalBadDebt += badDebt;
     }
     if (totalBadDebt > 0) {
       earningsAccumulator -= totalBadDebt;

@@ -63,8 +63,8 @@ contract MarketETHRouter is Initializable {
     if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets);
   }
 
-  function refund(uint256 borrowShares) external payable wrap returns (uint256 repaidAssets) {
-    repaidAssets = market.refund(borrowShares, msg.sender);
+  function refund(uint256 borrowShares) external payable wrap returns (uint256 repaidAssets, uint256 actualShares) {
+    (repaidAssets, actualShares) = market.refund(borrowShares, msg.sender);
 
     if (msg.value > repaidAssets) unwrapAndTransfer(msg.value - repaidAssets);
   }
