@@ -59,9 +59,8 @@ library FixedLib {
   function borrow(Pool storage pool, uint256 amount) internal returns (uint256 backupDebtAddition) {
     uint256 borrowed = pool.borrowed;
     uint256 newBorrowed = borrowed + amount;
-    uint256 oldSupply = Math.max(borrowed, pool.supplied);
 
-    backupDebtAddition = newBorrowed - Math.min(oldSupply, newBorrowed);
+    backupDebtAddition = newBorrowed - Math.min(Math.max(borrowed, pool.supplied), newBorrowed);
     pool.borrowed = newBorrowed;
   }
 
