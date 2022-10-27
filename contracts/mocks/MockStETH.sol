@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 
+/// @dev Used only for testing purposes.
 contract MockStETH is ERC20 {
   uint256 public pooledEthByShares;
 
