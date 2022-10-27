@@ -33,6 +33,6 @@ contract PriceFeedWrapper is IPriceFeed {
     (, bytes memory data) = address(wrapper).staticcall(abi.encodeWithSelector(conversionSelector, baseUnit));
     uint256 rate = abi.decode(data, (uint256));
 
-    return int256(rate.mulDivDown(uint256(mainPrice), baseUnit));
+    return int256(uint256(mainPrice).mulDivDown(rate, baseUnit));
   }
 }

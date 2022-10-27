@@ -340,8 +340,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     uint8 decimals
   ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (market.auditor() != this) revert AuditorMismatch();
-
     if (markets[market].isListed) revert MarketAlreadyListed();
+    if (address(priceFeed) != BASE_FEED && priceFeed.decimals() != priceDecimals) revert InvalidPriceFeed();
 
     markets[market] = MarketData({
       isListed: true,

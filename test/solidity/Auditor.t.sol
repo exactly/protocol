@@ -12,6 +12,7 @@ import {
   IPriceFeed,
   RemainingDebt,
   AuditorMismatch,
+  InvalidPriceFeed,
   MarketAlreadyListed,
   InsufficientAccountLiquidity
 } from "../../contracts/Auditor.sol";
@@ -54,6 +55,12 @@ contract AuditorTest is Test {
     assertEq(adjustFactor, 0.8e18);
     assertEq(markets.length, 1);
     assertEq(address(markets[0]), address(market));
+  }
+
+  function testEnableMarketShouldRevertWithInvalidPriceFeed() external {
+    MockPriceFeed invalidPriceFeed = new MockPriceFeed(8, 1e8);
+    vm.expectRevert(InvalidPriceFeed.selector);
+    auditor.enableMarket(Market(address(market)), invalidPriceFeed, 0.8e18, 18);
   }
 
   function testEnterExitMarket() external {
