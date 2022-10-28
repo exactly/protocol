@@ -7,10 +7,15 @@ import { IPriceFeed } from "./utils/IPriceFeed.sol";
 contract PriceFeedWrapper is IPriceFeed {
   using FixedPointMathLib for uint256;
 
+  /// @notice Main price feed where the price is fetched from.
   IPriceFeed public immutable mainPriceFeed;
+  /// @notice Number of decimals that the answer of this price feed has.
   uint8 public immutable decimals;
+  /// @notice Address of the wrapper contract where the asset rate is fetched from.
   address public immutable wrapper;
+  /// @notice Function selector of the wrapper contract where the asset rate is fetched from.
   bytes4 public immutable conversionSelector;
+  /// @notice Base units that are sent to the conversion function to get the asset rate.
   uint256 public immutable baseUnit;
 
   constructor(

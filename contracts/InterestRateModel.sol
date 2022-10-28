@@ -8,15 +8,22 @@ contract InterestRateModel {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
 
+  /// @notice Threshold to define which method should be used to calculate the interest rates.
   /// @dev When `eta` (`delta / alpha`) is lower than this value, use simpson's rule for approximation.
   uint256 internal constant PRECISION_THRESHOLD = 7.5e14;
 
+  /// @notice Scale factor of the fixed curve.
   uint256 public immutable fixedCurveA;
+  /// @notice Origin intercept of the fixed curve.
   int256 public immutable fixedCurveB;
+  /// @notice Asymptote of the fixed curve.
   uint256 public immutable fixedMaxUtilization;
 
+  /// @notice Scale factor of the floating curve.
   uint256 public immutable floatingCurveA;
+  /// @notice Origin intercept of the floating curve.
   int256 public immutable floatingCurveB;
+  /// @notice Asymptote of the floating curve.
   uint256 public immutable floatingMaxUtilization;
 
   constructor(

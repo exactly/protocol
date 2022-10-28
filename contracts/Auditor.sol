@@ -11,21 +11,32 @@ import { Market } from "./Market.sol";
 contract Auditor is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
 
+  /// @notice Address that a market should have as price feed to consider as base price and avoid external price call.
   address public constant BASE_FEED = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+  /// @notice Target health factor that the account should have after it's liquidated to prevent cascade liquidations.
   uint256 public constant TARGET_HEALTH = 1.25e18;
+  /// @notice Maximum value the liquidator can send and still have granular control of max assets.
+  /// Above this threshold, they should send `type(uint256).max`.
   uint256 public constant ASSETS_THRESHOLD = type(uint256).max / 1e18;
 
+  /// @notice Decimals that the answer of all price feeds should have.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   uint256 public immutable priceDecimals;
+  /// @notice Base factor to scale the price returned by the feed to 18 decimals.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   uint256 internal immutable baseFactor;
+  /// @notice Base price used if the feed to fetch the price from is `BASE_FEED`.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   uint256 internal immutable basePrice;
 
+  /// @notice Tracks the markets' indexes that an account has entered as collateral.
   mapping(address => uint256) public accountMarkets;
+  /// @notice Stores market parameters per each enabled market.
   mapping(Market => MarketData) public markets;
+  /// @notice Array of all enabled markets.
   Market[] public marketList;
 
+  /// @notice Liquidation incentive factors for the liquidator and the lenders of the market where the debt is repaid.
   LiquidationIncentive public liquidationIncentive;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
@@ -37,6 +48,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     _disableInitializers();
   }
 
+  /// @notice Initializes the contract.
+  /// @dev can only be called once.
   function initialize(LiquidationIncentive memory liquidationIncentive_) external initializer {
     __AccessControl_init();
 
@@ -250,7 +263,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param repayMarket market from where the debt will be repaid.
   /// @param seizeMarket market where the assets will be seized.
   function checkSeize(Market repayMarket, Market seizeMarket) external view {
-    // If markets are listed, they have also the same Auditor
+    // if markets are listed, they also point to the same Auditor
     if (!markets[seizeMarket].isListed || !markets[repayMarket].isListed) revert MarketNotListed();
   }
 
@@ -417,23 +430,36 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in base.
   event PriceFeedSet(Market indexed market, IPriceFeed indexed priceFeed);
 
-  struct LiquidationIncentive {
-    uint128 liquidator;
-    uint128 lenders;
-  }
-
-  struct AccountLiquidity {
-    uint256 balance;
-    uint256 borrowBalance;
-    uint256 price;
-  }
-
+  /// @notice Stores the market parameters used for liquidity calculations.
+  /// @param adjustFactor used to asses the lending power of the market's underlying asset.
+  /// @param decimals number of decimals of the market's underlying asset.
+  /// @param index index of the market in the `marketList`.
+  /// @param isListed true if the market is enabled.
+  /// @param priceFeed address of the price feed used to query the asset's price.
   struct MarketData {
     uint128 adjustFactor;
     uint8 decimals;
     uint8 index;
     bool isListed;
     IPriceFeed priceFeed;
+  }
+
+  /// @notice Stores the liquidator and lenders factors used in liquidations to calculate the amount to seize.
+  /// @param liquidator factor used to calculate the extra bonus a liquidator can seize.
+  /// @param lenders factor used to calculate the bonus that the pool lenders receive.
+  struct LiquidationIncentive {
+    uint128 liquidator;
+    uint128 lenders;
+  }
+
+  /// @notice Used as memory access to temporary store account liquidity data.
+  /// @param balance collateral balance of the account.
+  /// @param borrowBalance borrow balance of the account.
+  /// @param price asset price returned by the price feed with 18 decimals.
+  struct AccountLiquidity {
+    uint256 balance;
+    uint256 borrowBalance;
+    uint256 price;
   }
 }
 

@@ -25,38 +25,62 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
 
+  /// @notice Tracks account's fixed deposit positions by maturity, account and position.
   mapping(uint256 => mapping(address => FixedLib.Position)) public fixedDepositPositions;
+  /// @notice Tracks account's fixed borrow positions by maturity, account and position.
   mapping(uint256 => mapping(address => FixedLib.Position)) public fixedBorrowPositions;
+  /// @notice Tracks fixed pools state by maturity.
   mapping(uint256 => FixedLib.Pool) public fixedPools;
 
+  /// @notice Tracks fixed deposit and borrow map and floating borrow shares of an account.
   mapping(address => Account) public accounts;
 
+  /// @notice Amount of assets lent by the floating pool to the fixed pools.
   uint256 public floatingBackupBorrowed;
+  /// @notice Amount of assets lent by the floating pool to accounts.
   uint256 public floatingDebt;
 
+  /// @notice Accumulated earnings from extraordinary sources to be gradually distributed.
   uint256 public earningsAccumulator;
+  /// @notice Rate per second to be charged to delayed fixed pools borrowers after maturity.
   uint256 public penaltyRate;
+  /// @notice Rate charged to the fixed pool to be retained by the floating pool for initially providing liquidity.
   uint256 public backupFeeRate;
+  /// @notice Damp speed factor to update `floatingAssetsAverage` when `floatingAssets` is higher.
   uint256 public dampSpeedUp;
+  /// @notice Damp speed factor to update `floatingAssetsAverage` when `floatingAssets` is lower.
   uint256 public dampSpeedDown;
 
+  /// @notice Number of fixed pools to be active at the same time.
   uint8 public maxFuturePools;
+  /// @notice Last time the accumulator distributed earnings.
   uint32 public lastAccumulatorAccrual;
+  /// @notice Last time the floating debt was updated.
   uint32 public lastFloatingDebtUpdate;
+  /// @notice Last time the floating assets average was updated.
   uint32 public lastAverageUpdate;
 
+  /// @notice Interest rate model contract used to get the borrow rates.
   InterestRateModel public interestRateModel;
 
+  /// @notice Factor used for gradual accrual of earnings to the floating pool.
   uint128 public earningsAccumulatorSmoothFactor;
+  /// @notice Percentage factor that represents the liquidity reserves that can't be borrowed.
   uint128 public reserveFactor;
 
+  /// @notice Amount of floating assets deposited to the pool.
   uint256 public floatingAssets;
+  /// @notice Average of the floating assets to get fixed borrow rates and prevent rate manipulation.
   uint256 public floatingAssetsAverage;
 
+  /// @notice Total amount of floating borrow shares assigned to floating borrow accounts.
   uint256 public totalFloatingBorrowShares;
+  /// @notice Current floating utilization used to get the new floating borrow rate.
   uint256 public floatingUtilization;
 
+  /// @notice Address of the treasury that will receive the allocated earnings.
   address public treasury;
+  /// @notice Rate to be charged by the treasury to floating and fixed borrows.
   uint256 public treasuryFeeRate;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
@@ -66,6 +90,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     _disableInitializers();
   }
 
+  /// @notice Initializes the contract.
+  /// @dev can only be called once.
   function initialize(
     uint8 maxFuturePools_,
     uint128 earningsAccumulatorSmoothFactor_,
@@ -171,14 +197,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   {
     depositToTreasury(updateFloatingDebt());
     Account storage account = accounts[borrower];
-    uint256 userBorrowShares = account.floatingBorrowShares;
-    actualShares = Math.min(borrowShares, userBorrowShares);
+    uint256 accountBorrowShares = account.floatingBorrowShares;
+    actualShares = Math.min(borrowShares, accountBorrowShares);
     assets = previewRefund(actualShares);
 
     if (assets == 0) revert ZeroRepay();
 
     floatingDebt -= assets;
-    account.floatingBorrowShares = userBorrowShares - actualShares;
+    account.floatingBorrowShares = accountBorrowShares - actualShares;
     totalFloatingBorrowShares -= actualShares;
 
     emit Repay(msg.sender, borrower, assets, actualShares);
@@ -331,7 +357,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     if (positionAssets > position.principal + position.fee) positionAssets = position.principal + position.fee;
 
-    // verify if there are any penalties/fee for him because of early withdrawal - if so: discount
+    // verify if there are any penalties/fee for the account because of early withdrawal, if so discount
     if (block.timestamp < maturity) {
       assetsDiscounted = positionAssets.divWadDown(
         1e18 +
@@ -361,7 +387,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       floatingBackupBorrowed = newFloatingBackupBorrowed;
     }
 
-    // All the fees go to unassigned or to the floating pool
+    // all the fees go to unassigned or to the floating pool
     (uint256 unassignedEarnings, uint256 newBackupEarnings) = pool.distributeEarnings(
       chargeTreasuryFee(positionAssets - assetsDiscounted),
       assetsDiscounted
@@ -448,10 +474,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         // remove the fee from unassigned earnings
         pool.unassignedEarnings -= discountFee + backupFee;
 
-        // The fee charged to the MP supplier go to the earnings accumulator
+        // the fee charged to the fixed pool supplier goes to the earnings accumulator
         earningsAccumulator += backupFee;
 
-        // The fee gets discounted from the account through `actualRepayAssets`
+        // the fee gets discounted from the account through `actualRepayAssets`
         actualRepayAssets = debtCovered - discountFee;
       } else {
         actualRepayAssets = debtCovered;
@@ -459,7 +485,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     } else {
       actualRepayAssets = debtCovered + debtCovered.mulWadDown((block.timestamp - maturity) * penaltyRate);
 
-      // All penalties go to the earnings accumulator
+      // all penalties go to the earnings accumulator
       earningsAccumulator += actualRepayAssets - debtCovered;
     }
 
@@ -824,6 +850,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     lastAverageUpdate = uint32(block.timestamp);
   }
 
+  /// @notice Gets the current `floatingAssetsAverage` without updating the storage variable.
+  /// @return projected `floatingAssetsAverage`.
   function previewFloatingAssetsAverage() public view returns (uint256) {
     uint256 memFloatingAssets = floatingAssets;
     uint256 memFloatingAssetsAverage = floatingAssetsAverage;
@@ -833,6 +861,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Updates the floating pool borrows' variables.
+  /// @return treasuryFee amount of fees charged by the treasury to the new calculated floating debt.
   function updateFloatingDebt() internal returns (uint256 treasuryFee) {
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
@@ -900,7 +929,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Simulates the effects of a borrow at the current time, given current contract conditions.
   /// @param assets amount of assets to borrow.
-  /// @return amount of shares that will be asigned to the user after the borrow.
+  /// @return amount of shares that will be asigned to the account after the borrow.
   function previewBorrow(uint256 assets) public view returns (uint256) {
     uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
 
@@ -909,7 +938,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Simulates the effects of a repay at the current time, given current contract conditions.
   /// @param assets amount of assets to repay.
-  /// @return amount of shares that will be subtracted from the user after the repay.
+  /// @return amount of shares that will be subtracted from the account after the repay.
   function previewRepay(uint256 assets) public view returns (uint256) {
     uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
 
@@ -917,7 +946,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Simulates the effects of a refund at the current time, given current contract conditions.
-  /// @param shares amount of shares to subtract from user's accountability.
+  /// @param shares amount of shares to subtract from caller's accountability.
   /// @return amount of assets that will be repaid.
   function previewRefund(uint256 shares) public view returns (uint256) {
     uint256 supply = totalFloatingBorrowShares; // Saves an extra SLOAD if totalFloatingBorrowShares is non-zero.
@@ -955,8 +984,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit FixedEarningsUpdate(block.timestamp, maturity, fixedPools[maturity].unassignedEarnings);
   }
 
-  /// @notice Sets the rate charged to the mp depositors that the sp suppliers will retain for initially providing
-  /// liquidity.
+  /// @notice Sets the rate charged to the fixed depositors that the floating pool suppliers will retain for initially
+  /// providing liquidity.
   /// @dev Value can only be set between 20% and 0%.
   /// @param backupFeeRate_ percentage amount represented with 18 decimals.
   function setBackupFeeRate(uint256 backupFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -998,7 +1027,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit InterestRateModelSet(interestRateModel_);
   }
 
-  /// @notice Sets the protocol's max future pools for borrowing and lending.
+  /// @notice Sets the protocol's max future pools for fixed borrowing and lending.
   /// @dev Value can not be 0 or higher than 224. If value is decreased, VALID maturities will become NOT_READY.
   /// @param futurePools number of pools to be active at the same time.
   function setMaxFuturePools(uint8 futurePools) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -1215,6 +1244,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param utilization new floating utilization.
   event FloatingDebtUpdate(uint256 timestamp, uint256 utilization);
 
+  /// @notice Stores fixed deposits and fixed borrows map and floating borrow shares of an account.
+  /// @param fixedDeposits encoded map maturity dates where the account supplied to.
+  /// @param fixedBorrows encoded map maturity dates where the account borrowed from.
+  /// @param floatingBorrowShares number of floating borrow shares assigned to the account.
   struct Account {
     uint256 fixedDeposits;
     uint256 fixedBorrows;

@@ -228,7 +228,7 @@ library FixedLib {
     }
   }
 
-  /// @notice Contains the accountability of a fixed interest rate pool.
+  /// @notice Stores the accountability of a fixed interest rate pool.
   /// @param borrowed total amount borrowed from the pool.
   /// @param supplied total amount supplied to the pool.
   /// @param unassignedEarnings total amount of earnings not yet distributed and accrued.
@@ -240,7 +240,7 @@ library FixedLib {
     uint256 lastAccrual;
   }
 
-  /// @notice Contains principal and fee of a borrow or a supply position of a account in a fixed rate pool.
+  /// @notice Stores principal and fee of a borrow or a supply position of a account in a fixed rate pool.
   /// @param principal amount borrowed or supplied to the fixed rate pool.
   /// @param fee amount of fees to be repaid or earned at the maturity of the fixed rate pool.
   struct Position {
