@@ -41,93 +41,81 @@ const config: Config = {
   finance: {
     liquidationIncentive: {
       liquidator: 0.05,
-      lenders: 0.01,
+      lenders: 0.0025,
     },
     penaltyRatePerDay: 0.02,
-    backupFeeRate: 0.05,
+    backupFeeRate: 0.1,
     reserveFactor: 0.1,
     dampSpeed: {
       up: 0.0046,
-      down: 0.42,
+      down: 0.4,
     },
     maxFuturePools: 3,
     earningsAccumulatorSmoothFactor: 2,
-    interestRateModel: {
-      fixedCurve: {
-        a: 1.526175,
-        b: -0.1695,
-        maxUtilization: 7.65,
-      },
-      floatingCurve: {
-        a: 1.526175,
-        b: -0.1695,
-        maxUtilization: 7.65,
-      },
-    },
     markets: {
       WETH: {
-        adjustFactor: 0.82,
-        fixedCurve: {
-          a: 1.1568,
-          b: -1.0794,
-          maxUtilization: 1.0475,
-        },
+        adjustFactor: 0.84,
         floatingCurve: {
           a: 0.0174,
           b: 0.0027,
           maxUtilization: 1.007,
         },
+        fixedCurve: {
+          a: 1.1568,
+          b: -1.0794,
+          maxUtilization: 1.0475,
+        },
       },
       DAI: {
-        adjustFactor: 0.95,
-        fixedCurve: {
-          a: 0.6391,
-          b: -0.6175,
-          maxUtilization: 1.0105,
-        },
+        adjustFactor: 0.9,
         floatingCurve: {
           a: 0.022,
           b: -0.0066,
           maxUtilization: 1.0182,
         },
+        fixedCurve: {
+          a: 0.6391,
+          b: -0.6175,
+          maxUtilization: 1.0105,
+        },
       },
       USDC: {
-        adjustFactor: 0.98,
-        fixedCurve: {
-          a: 0.6777,
-          b: -0.6542,
-          maxUtilization: 1.0203,
-        },
+        adjustFactor: 0.91,
         floatingCurve: {
           a: 0.0186,
           b: -0.0084,
           maxUtilization: 1.0154,
         },
+        fixedCurve: {
+          a: 0.6777,
+          b: -0.6542,
+          maxUtilization: 1.0203,
+        },
       },
       WBTC: {
         adjustFactor: 0.85,
-        fixedCurve: {
-          a: 1.5372,
-          b: -1.3898,
-          maxUtilization: 1.0865,
-        },
         floatingCurve: {
           a: 0.0547,
           b: -0.0335,
           maxUtilization: 1.0216,
         },
+        fixedCurve: {
+          a: 1.5372,
+          b: -1.3898,
+          maxUtilization: 1.0865,
+        },
       },
       wstETH: {
         adjustFactor: 0.82,
-        fixedCurve: {
-          a: 1.1568,
-          b: -1.0794,
-          maxUtilization: 1.0475,
-        },
         floatingCurve: {
-          a: 0.0174,
-          b: 0.0027,
-          maxUtilization: 1.007,
+          a: 0.0268,
+          b: -0.0014,
+          maxUtilization: 1.015,
+        },
+        fixedCurve: {
+          a: 1.5372,
+          b: -1.3898,
+          maxUtilization: 1.0865,
         },
         wrap: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
       },
@@ -179,10 +167,6 @@ declare module "hardhat/types/config" {
     };
     maxFuturePools: number;
     earningsAccumulatorSmoothFactor: number;
-    interestRateModel: {
-      fixedCurve: Curve;
-      floatingCurve: Curve;
-    };
   }
 
   export interface FinanceUserConfig extends FinanceConfig {

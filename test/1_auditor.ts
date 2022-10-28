@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type { Auditor, Market, MockERC20, MockPriceFeed, WETH } from "../types";
+import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
 const {
@@ -38,6 +39,7 @@ describe("Auditor from Account Space", function () {
     marketDAI = await getContract<Market>("MarketDAI", account);
     marketWETH = await getContract<Market>("MarketWETH", account);
 
+    await timelockExecute(owner, auditor, "setAdjustFactor", [marketDAI.address, parseUnits("0.95")]);
     await dai.connect(owner).mint(account.address, parseUnits("100000"));
     await weth.deposit({ value: parseUnits("10") });
     await weth.approve(marketWETH.address, parseUnits("10"));
