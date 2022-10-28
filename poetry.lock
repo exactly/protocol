@@ -10,6 +10,17 @@ python-versions = ">=3.6"
 pysha3 = ">=1.0.2"
 
 [[package]]
+name = "packaging"
+version = "21.3"
+description = "Core utilities for Python packages"
+category = "dev"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+pyparsing = ">=2.0.2,<3.0.5 || >3.0.5"
+
+[[package]]
 name = "prettytable"
 version = "3.4.1"
 description = "A simple Python library for easily displaying tabular data in a visually appealing ASCII table format"
@@ -22,6 +33,17 @@ wcwidth = "*"
 
 [package.extras]
 tests = ["pytest", "pytest-cov", "pytest-lazy-fixture"]
+
+[[package]]
+name = "pyparsing"
+version = "3.0.9"
+description = "pyparsing module - Classes and methods to define and execute parsing grammars"
+category = "dev"
+optional = false
+python-versions = ">=3.6.8"
+
+[package.extras]
+diagrams = ["railroad-diagrams", "jinja2"]
 
 [[package]]
 name = "pysha3"
@@ -49,11 +71,15 @@ dev = ["solc-select (>=v1.0.0b1)", "numpy", "deepdiff", "pytest-cov", "pytest", 
 
 [[package]]
 name = "solc-select"
-version = "1.0.0b1"
+version = "1.0.1"
 description = "Manage multiple Solidity compiler versions."
 category = "dev"
 optional = false
 python-versions = ">=3.6"
+
+[package.dependencies]
+packaging = "*"
+pysha3 = "*"
 
 [[package]]
 name = "wcwidth"
@@ -66,11 +92,16 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "c0a807f4f549633fb387e28f5b44741d3d5b313f368b6dcc8be98600b25f4775"
+content-hash = "8d4f8ed5ca4ca725961eab9de9abb061ef3a7560d18ca0f29f53994bf596decb"
 
 [metadata.files]
 crytic-compile = []
+packaging = [
+    {file = "packaging-21.3-py3-none-any.whl", hash = "sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522"},
+    {file = "packaging-21.3.tar.gz", hash = "sha256:dd47c42927d89ab911e606518907cc2d3a1f38bbd026385970643f9c5b8ecfeb"},
+]
 prettytable = []
+pyparsing = []
 pysha3 = [
     {file = "pysha3-1.0.2-cp27-cp27m-manylinux1_i686.whl", hash = "sha256:6e6a84efb7856f5d760ee55cd2b446972cb7b835676065f6c4f694913ea8f8d9"},
     {file = "pysha3-1.0.2-cp27-cp27m-manylinux1_x86_64.whl", hash = "sha256:f9046d59b3e72aa84f6dae83a040bd1184ebd7fef4e822d38186a8158c89e3cf"},
