@@ -2,6 +2,7 @@ import Safe from "@gnosis.pm/safe-core-sdk";
 import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
 import SafeServiceClient from "@gnosis.pm/safe-service-client";
 import { ethers, network, getNamedAccounts } from "hardhat";
+import { getAddress } from "ethers/lib/utils";
 import type { Contract } from "ethers";
 import format from "./format";
 
@@ -28,7 +29,7 @@ export default async (account: string, contract: Contract, functionName: string,
     }
     const safeTransaction = await safeSdk.createTransaction({
       safeTransactionData: {
-        to: contract.address,
+        to: getAddress(contract.address),
         data: calldata,
         value: "0",
         nonce: await safeService.getNextNonce(safeAddress),
