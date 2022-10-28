@@ -1,6 +1,6 @@
 {
   "name": "@exactly-protocol/protocol",
-  "version": "0.0.1-dev",
+  "version": "0.1.0",
   "license": "BUSL-1.1",
   "scripts": {
     "lint": "run-s --continue-on-error lint:**",
