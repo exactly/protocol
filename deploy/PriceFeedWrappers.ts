@@ -12,10 +12,10 @@ const func: DeployFunction = async ({ network, deployments: { deploy, get }, get
     const { address, abi } = await get(wrap.wrapper);
     await tenderlify(
       "PriceFeedWrapper",
-      await deploy(`PriceFeedWrapper${symbol}`, {
+      await deploy(`PriceFeed${symbol}`, {
         contract: "PriceFeedWrapper",
         args: [
-          (await get(`PriceFeed${symbol}`)).address,
+          (await get(`PriceFeedMain${symbol}`)).address,
           address,
           new Interface(abi).getSighash(wrap.fn),
           BigNumber.from(wrap.baseUnit),

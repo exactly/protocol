@@ -42,7 +42,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       });
     }
 
-    await deploy(`PriceFeed${symbol}`, {
+    await deploy(`PriceFeed${wrap ? "Main" : ""}${symbol}`, {
       skipIfAlreadyDeployed: true,
       contract: "MockPriceFeed",
       args: [priceDecimals, parseUnits({ WBTC: "63000", WETH: "1000" }[symbol] ?? "1", priceDecimals)],
