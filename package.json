@@ -17,6 +17,7 @@
     "coverage:foundry": "FOUNDRY_PROFILE=production forge coverage --report lcov",
     "coverage:foundry:snapshot": "forge snapshot --check",
     "coverage:hardhat": "hardhat coverage",
+    "deploy:mainnet": "hardhat --network mainnet deploy",
     "deploy:goerli": "hardhat --network goerli deploy",
     "postinstall": "run-s --continue-on-error postinstall:** || cd .",
     "postinstall:foundry": "forge install",

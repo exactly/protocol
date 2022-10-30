@@ -1,0 +1,14 @@
+{
+  "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+  "abi": [
+    {
+      "constant": true,
+      "inputs": [{ "name": "_sharesAmount", "type": "uint256" }],
+      "name": "getPooledEthByShares",
+      "outputs": [{ "name": "", "type": "uint256" }],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]
+}

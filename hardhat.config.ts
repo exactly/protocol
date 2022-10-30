@@ -24,6 +24,13 @@ const config: Config = {
       priceDecimals: 8,
       allowUnlimitedContractSize: true,
     },
+    mainnet: {
+      priceDecimals: 18,
+      timelockDelay: 12 * 3_600,
+      safeTxService: "https://safe-transaction-mainnet.safe.global",
+      url: env.MAINNET_NODE ?? "https://mainnet.infura.io/",
+      ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
+    },
     goerli: {
       priceDecimals: 8,
       safeTxService: "https://safe-transaction-goerli.safe.global",
@@ -35,6 +42,7 @@ const config: Config = {
     deployer: { default: 0 },
     multisig: {
       default: 0,
+      mainnet: "0x7A65824d74B0C20730B6eE4929ABcc41Cbe843Aa",
       goerli: "0x1801f5EAeAbA3fD02cBF4b7ED1A7b58AD84C0705",
     },
   },
@@ -196,6 +204,7 @@ declare module "hardhat/types/config" {
 
   export interface NetworksUserConfig {
     hardhat?: HardhatNetworkUserConfig;
+    mainnet?: HttpNetworkUserConfig;
     goerli?: HttpNetworkUserConfig;
   }
 
