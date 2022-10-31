@@ -2713,6 +2713,14 @@
         "storage": [],
         "types": {}
       }
+    },
+    "0xf6da0e129FDC6E8FDa49d8B2B33a6D4bA43c677b": {
+      "address": "0xf6da0e129FDC6E8FDa49d8B2B33a6D4bA43c677b",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [],
+        "types": {}
+      }
     }
   }
 }
