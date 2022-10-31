@@ -152,7 +152,7 @@ const func: DeployFunction = async ({
         await asset.decimals(),
       ]);
     } else {
-      if ((await auditor.markets(market.address)).priceFeed !== priceFeed) {
+      if ((await auditor.markets(market.address)).priceFeed.toLowerCase() !== priceFeed.toLowerCase()) {
         await executeOrPropose(auditor, "setPriceFeed", [market.address, priceFeed]);
       }
       if (!(await auditor.markets(market.address)).adjustFactor.eq(adjustFactor)) {
