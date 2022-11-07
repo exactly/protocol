@@ -39,7 +39,11 @@ const config: Config = {
     },
   },
   namedAccounts: {
-    deployer: { default: 0 },
+    deployer: {
+      default: 0,
+      mainnet: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
+      goerli: "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
+    },
     multisig: {
       default: 0,
       mainnet: "0x7A65824d74B0C20730B6eE4929ABcc41Cbe843Aa",
