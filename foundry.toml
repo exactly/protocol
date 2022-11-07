@@ -4,9 +4,11 @@ optimizer = true
 optimizer_runs = 200
 
 ffi = true
-src = 'test/solidity'
-out = 'artifacts/.foundry'
-cache_path = 'cache/.foundry'
+src = "test/solidity"
+out = "artifacts/.foundry"
+script = "scripts"
+cache_path = "cache/.foundry"
+fs_permissions = [{ access = "read", path = "./deployments" }]
 verbosity = 3
 
 [profile.production.fuzz]
