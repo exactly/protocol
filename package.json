@@ -17,7 +17,7 @@
     "test:hardhat": "hardhat test --deploy-fixture",
     "coverage": "run-s --continue-on-error coverage:**",
     "coverage:foundry": "FOUNDRY_PROFILE=production forge coverage --report lcov",
-    "coverage:foundry:snapshot": "forge snapshot --check",
+    "coverage:foundry:snapshot": "forge snapshot --no-match-test testFuzzAddRemoveAll --check",
     "coverage:hardhat": "hardhat coverage",
     "deploy:mainnet": "hardhat --network mainnet deploy",
     "deploy:goerli": "hardhat --network goerli deploy",
