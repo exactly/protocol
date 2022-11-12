@@ -2,6 +2,8 @@
   "name": "@exactly-protocol/protocol",
   "version": "0.1.0",
   "license": "BUSL-1.1",
+  "homepage": "https://exact.ly",
+  "repository": "github:exactly-protocol/protocol",
   "scripts": {
     "lint": "run-s --continue-on-error lint:**",
     "lint:sol": "solhint '{contracts,test}/**/*.sol'",
@@ -23,6 +25,11 @@
     "postinstall:foundry": "forge install",
     "postinstall:hardhat": "hardhat compile --force"
   },
+  "files": [
+    "contracts",
+    "deployments",
+    "hardhat.config.ts"
+  ],
   "engines": {
     "node": ">=16"
   },
