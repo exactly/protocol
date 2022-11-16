@@ -1112,14 +1112,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param receiver address which will be collecting the assets.
   /// @param owner address which had the assets withdrawn.
   /// @param positionAssets position size reduced.
-  /// @param assetsDiscounted amount of assets withdrawn (can include a discount for early withdraw).
+  /// @param assets amount of assets withdrawn (can include a discount for early withdraw).
   event WithdrawAtMaturity(
     uint256 indexed maturity,
     address caller,
     address indexed receiver,
     address indexed owner,
     uint256 positionAssets,
-    uint256 assetsDiscounted
+    uint256 assets
   );
 
   /// @notice Emitted when an account borrows amount of an asset from a certain maturity date.

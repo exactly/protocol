@@ -845,7 +845,7 @@
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "assetsDiscounted",
+          "name": "assets",
           "type": "uint256"
         }
       ],
@@ -2563,7 +2563,7 @@
       "outputs": [
         {
           "internalType": "uint256",
-          "name": "assetsDiscounted",
+          "name": "assets",
           "type": "uint256"
         }
       ],

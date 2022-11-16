@@ -2383,8 +2383,8 @@ contract MarketTest is Test {
     address caller,
     address indexed receiver,
     address indexed owner,
-    uint256 assets,
-    uint256 assetsDiscounted
+    uint256 positionAssets,
+    uint256 assets
   );
   event BorrowAtMaturity(
     uint256 indexed maturity,
