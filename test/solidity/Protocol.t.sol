@@ -10,12 +10,11 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Market, ZeroRepay, InsufficientProtocolLiquidity, ZeroWithdraw } from "../../contracts/Market.sol";
 import { InterestRateModel, UtilizationExceeded } from "../../contracts/InterestRateModel.sol";
-import { MockOracle } from "../../contracts/mocks/MockOracle.sol";
+import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
   Auditor,
   RemainingDebt,
-  ExactlyOracle,
   AuditorMismatch,
   InsufficientAccountLiquidity,
   InsufficientShortfall,
@@ -44,12 +43,11 @@ contract ProtocolTest is Test {
   Auditor internal auditor;
   Market[] internal markets;
   MockERC20[] internal underlyingAssets;
-  MockOracle internal oracle;
+  mapping(Market => MockPriceFeed) internal priceFeeds;
 
   function setUp() external {
-    oracle = new MockOracle();
-    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor()), "")));
-    auditor.initialize(ExactlyOracle(address(oracle)), Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
+    auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     InterestRateModel irm = new InterestRateModel(0.023e18, -0.0025e18, 1.02e18, 0.023e18, -0.0025e18, 1.02e18);
 
     accounts.push(BOB);
@@ -60,8 +58,9 @@ contract ProtocolTest is Test {
       Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
       market.initialize(MAX_FUTURE_POOLS, 2e18, irm, PENALTY_RATE, 1e17, RESERVE_FACTOR, 0.0046e18, 0.42e18);
       vm.label(address(market), string.concat("Market", i.toString()));
+      MockPriceFeed priceFeed = new MockPriceFeed(18, 1e18);
       // market.setTreasury(address(this), 0.1e18);
-      auditor.enableMarket(market, 0.9e18, 18);
+      auditor.enableMarket(market, priceFeed, 0.9e18, 18);
 
       asset.approve(address(market), type(uint256).max);
       for (uint256 j = 0; j < accounts.length; ++j) {
@@ -71,6 +70,7 @@ contract ProtocolTest is Test {
 
       asset.mint(ALICE, type(uint128).max);
 
+      priceFeeds[market] = priceFeed;
       markets.push(market);
       underlyingAssets.push(asset);
     }
@@ -125,7 +125,8 @@ contract ProtocolTest is Test {
       if (values[i * 4 + 11] > 0) repayAtMaturity(i, values[i * 4 + 11]);
 
       for (uint256 j = 0; j < MARKET_COUNT; j++) {
-        if (prices[i * MARKET_COUNT + j] > 0) oracle.setPrice(markets[j], prices[i * MARKET_COUNT + j]);
+        if (prices[i * MARKET_COUNT + j] > 0)
+          priceFeeds[markets[j]].setPrice(int256(uint256(prices[i * MARKET_COUNT + j])));
         liquidate(j);
       }
       checkInvariants();
@@ -298,7 +299,7 @@ contract ProtocolTest is Test {
   function enterMarket(uint256 i) internal {
     Market market = markets[(i / 2) % markets.length];
     address account = accounts[i % accounts.length];
-    (, , uint256 index, ) = auditor.markets(market);
+    (, , uint256 index, , ) = auditor.markets(market);
 
     if ((auditor.accountMarkets(account) & (1 << index)) == 0) {
       vm.expectEmit(true, true, true, true, address(auditor));
@@ -311,7 +312,7 @@ contract ProtocolTest is Test {
   function exitMarket(uint256 i) internal {
     Market market = markets[(i / 2) % markets.length];
     address account = accounts[i % accounts.length];
-    (, , uint256 index, ) = auditor.markets(market);
+    (, , uint256 index, , ) = auditor.markets(market);
     (uint256 balance, uint256 debt) = market.accountSnapshot(account);
     (uint256 adjustedCollateral, uint256 adjustedDebt) = accountLiquidity(account, market, 0, balance);
     uint256 marketMap = auditor.accountMarkets(account);
@@ -360,8 +361,9 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
+    (, , uint256 floatingBorrowShares) = market.accounts(account);
     underlyingAssets[(i / 2) % underlyingAssets.length].mint(account, assets);
-    uint256 borrowShares = Math.min(market.previewRepay(assets), market.floatingBorrowShares(account));
+    uint256 borrowShares = Math.min(market.previewRepay(assets), floatingBorrowShares);
     uint256 refundAssets = market.previewRefund(borrowShares);
 
     if (refundAssets == 0) vm.expectRevert(ZeroRepay.selector);
@@ -378,7 +380,8 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
-    uint256 borrowShares = Math.min(shares, market.floatingBorrowShares(account));
+    (, , uint256 floatingBorrowShares) = market.accounts(account);
+    uint256 borrowShares = Math.min(shares, floatingBorrowShares);
     uint256 refundAssets = market.previewRefund(borrowShares);
     underlyingAssets[(i / 2) % underlyingAssets.length].mint(account, refundAssets);
 
@@ -396,7 +399,7 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
-    (, , uint256 index, ) = auditor.markets(market);
+    (, , uint256 index, , ) = auditor.markets(market);
     uint256 expectedShares = market.totalAssets() != 0 ? market.previewWithdraw(assets) : 0;
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, assets);
     uint256 earnings = previewAccumulatedEarnings(market);
@@ -429,7 +432,7 @@ contract ProtocolTest is Test {
     Market market = markets[(i / 2) % markets.length];
     uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
-    (, , uint256 index, ) = auditor.markets(market);
+    (, , uint256 index, , ) = auditor.markets(market);
     uint256 expectedAssets = market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, expectedAssets);
     uint256 earnings = previewAccumulatedEarnings(market);
@@ -463,8 +466,8 @@ contract ProtocolTest is Test {
     uint256 shareValue = market.totalSupply() > 0 ? market.previewMint(1e18) : 0;
     address account = accounts[i % accounts.length];
     address otherAccount = accounts[(i + 1) % accounts.length];
-    (, , uint256 index, ) = auditor.markets(market);
-    uint256 withdrawAssets = market.previewMint(shares);
+    (, , uint256 index, , ) = auditor.markets(market);
+    uint256 withdrawAssets = market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, withdrawAssets);
 
     if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
@@ -484,8 +487,8 @@ contract ProtocolTest is Test {
     Market market = markets[i];
     Market collateralMarket = markets[(i + 1) % MARKET_COUNT];
     uint256 shareValue = collateralMarket.totalSupply() > 0 ? collateralMarket.previewMint(1e18) : 0;
-    (, , uint256 index, ) = auditor.markets(market);
-    (, , uint256 collateralIndex, ) = auditor.markets(collateralMarket);
+    (, , uint256 index, , ) = auditor.markets(market);
+    (, , uint256 collateralIndex, , ) = auditor.markets(collateralMarket);
     (uint256 collateral, uint256 debt) = accountLiquidity(BOB, Market(address(0)), 0, 0);
 
     if (collateral >= debt) {
@@ -527,14 +530,18 @@ contract ProtocolTest is Test {
     if (collateralMarket.totalSupply() > 0) assertGe(collateralMarket.previewMint(1e18), shareValue);
     if (repaidAssets > 0) {
       BadDebtVars memory b;
-      (b.adjustFactor, b.decimals, , ) = auditor.markets(market);
+      (b.adjustFactor, b.decimals, , , ) = auditor.markets(market);
       (b.balance, b.repayMarketDebt) = market.accountSnapshot(BOB);
-      b.adjustedCollateral = b.balance.mulDivDown(oracle.assetPrice(market), 10**b.decimals).mulWadDown(b.adjustFactor);
-      (b.adjustFactor, b.decimals, , ) = auditor.markets(market);
+      b.adjustedCollateral = b
+        .balance
+        .mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10**b.decimals)
+        .mulWadDown(b.adjustFactor);
+      (b.adjustFactor, b.decimals, , , ) = auditor.markets(market);
       (b.balance, b.collateralMarketDebt) = collateralMarket.accountSnapshot(BOB);
-      b.adjustedCollateral += b.balance.mulDivDown(oracle.assetPrice(collateralMarket), 10**b.decimals).mulWadDown(
-        b.adjustFactor
-      );
+      b.adjustedCollateral += b
+        .balance
+        .mulDivDown(uint256(priceFeeds[collateralMarket].latestAnswer()), 10**b.decimals)
+        .mulWadDown(b.adjustFactor);
 
       // if collateral is 0 then debt should be 0
       if (b.adjustedCollateral == 0) {
@@ -557,7 +564,7 @@ contract ProtocolTest is Test {
         }
       }
       for (uint256 j = 0; j < MARKET_COUNT; ++j) {
-        uint256 packedMaturities = markets[j].fixedBorrows(account);
+        (, uint256 packedMaturities, ) = markets[j].accounts(account);
         uint256 maturity = packedMaturities & ((1 << 32) - 1);
         packedMaturities = packedMaturities >> 32;
         while (packedMaturities != 0) {
@@ -569,7 +576,7 @@ contract ProtocolTest is Test {
           packedMaturities >>= 1;
           maturity += FixedLib.INTERVAL;
         }
-        packedMaturities = markets[j].fixedDeposits(account);
+        (packedMaturities, , ) = markets[j].accounts(account);
         maturity = packedMaturities & ((1 << 32) - 1);
         packedMaturities = packedMaturities >> 32;
         while (packedMaturities != 0) {
@@ -589,7 +596,7 @@ contract ProtocolTest is Test {
       uint256 fixedDeposits = 0;
       for (uint256 j = 0; j < accounts.length; ++j) {
         address account = accounts[j];
-        uint256 packedMaturities = market.fixedBorrows(account);
+        (, uint256 packedMaturities, ) = market.accounts(account);
         uint256 baseMaturity = packedMaturities % (1 << 32);
         packedMaturities = packedMaturities >> 32;
         for (uint256 k = 0; k < 224; ++k) {
@@ -600,7 +607,7 @@ contract ProtocolTest is Test {
           }
           if ((1 << k) > packedMaturities) break;
         }
-        packedMaturities = market.fixedDeposits(account);
+        (packedMaturities, , ) = market.accounts(account);
         baseMaturity = packedMaturities % (1 << 32);
         packedMaturities = packedMaturities >> 32;
         for (uint256 k = 0; k < 224; ++k) {
@@ -678,7 +685,7 @@ contract ProtocolTest is Test {
     uint256 floatingAssets;
     uint256 fixedAssets;
     uint256 maxAssets = auditor.checkLiquidation(market, collateralMarket, BOB, type(uint256).max);
-    uint256 packedMaturities = market.fixedBorrows(account);
+    (, uint256 packedMaturities, ) = market.accounts(account);
     uint256 baseMaturity = packedMaturities % (1 << 32);
     packedMaturities = packedMaturities >> 32;
     for (uint256 i = 0; i < 224; ++i) {
@@ -706,7 +713,7 @@ contract ProtocolTest is Test {
       }
       if ((1 << i) > packedMaturities || maxAssets == 0) break;
     }
-    uint256 shares = market.floatingBorrowShares(account);
+    (, , uint256 shares) = market.accounts(account);
     if (maxAssets > 0 && shares > 0) {
       uint256 borrowShares = market.previewRepay(maxAssets);
       if (borrowShares > 0) {
@@ -722,9 +729,9 @@ contract ProtocolTest is Test {
     for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
-        (, uint8 decimals, , ) = auditor.markets(market);
+        (, uint8 decimals, , , ) = auditor.markets(market);
         (uint256 balance, ) = market.accountSnapshot(account);
-        sumCollateral += balance.mulDivDown(oracle.assetPrice(market), 10**decimals);
+        sumCollateral += balance.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10**decimals);
       }
       if ((1 << i) > marketMap) break;
     }
@@ -732,8 +739,8 @@ contract ProtocolTest is Test {
 
   function seizeAvailable(address account, Market market) internal view returns (uint256) {
     uint256 collateral = market.convertToAssets(market.balanceOf(account));
-    (, uint8 decimals, , ) = auditor.markets(market);
-    return collateral.mulDivDown(oracle.assetPrice(market), 10**decimals);
+    (, uint8 decimals, , , ) = auditor.markets(market);
+    return collateral.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10**decimals);
   }
 
   function accountLiquidity(
@@ -747,21 +754,21 @@ contract ProtocolTest is Test {
     uint256 marketMap = auditor.accountMarkets(account);
     // if simulating a borrow, add the market to the account's map
     if (borrowAssets > 0) {
-      (, , uint256 index, ) = auditor.markets(marketToSimulate);
+      (, , uint256 index, , ) = auditor.markets(marketToSimulate);
       if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
     }
     for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
-        (uint128 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
+        (uint128 adjustFactor, uint8 decimals, , , ) = auditor.markets(market);
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
-        vars.oraclePrice = oracle.assetPrice(market);
-        sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
+        vars.price = uint256(priceFeeds[market].latestAnswer());
+        sumCollateral += vars.balance.mulDivDown(vars.price, 10**decimals).mulWadDown(adjustFactor);
         sumDebtPlusEffects += (vars.borrowBalance + (market == marketToSimulate ? borrowAssets : 0))
-          .mulDivUp(vars.oraclePrice, 10**decimals)
+          .mulDivUp(vars.price, 10**decimals)
           .divWadUp(adjustFactor);
         if (market == marketToSimulate && withdrawAssets != 0) {
-          sumDebtPlusEffects += withdrawAssets.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
+          sumDebtPlusEffects += withdrawAssets.mulDivDown(vars.price, 10**decimals).mulWadDown(adjustFactor);
         }
       }
       if ((1 << i) > marketMap) break;
@@ -779,19 +786,19 @@ contract ProtocolTest is Test {
     uint256 marketMap = auditor.accountMarkets(account);
     // if simulating a borrow, add the market to the account's map
     if (borrowAssets > 0) {
-      (, , uint256 index, ) = auditor.markets(marketToSimulate);
+      (, , uint256 index, , ) = auditor.markets(marketToSimulate);
       if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
     }
     for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
-        (uint128 adjustFactor, uint8 decimals, , ) = auditor.markets(market);
+        (uint128 adjustFactor, uint8 decimals, , , ) = auditor.markets(market);
         if (market == marketToSimulate) {
           (vars.balance, vars.borrowBalance) = previewAccountSnapshot(market, account, borrowAssets, borrowShares);
         } else (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
-        vars.oraclePrice = oracle.assetPrice(market);
-        sumCollateral += vars.balance.mulDivDown(vars.oraclePrice, 10**decimals).mulWadDown(adjustFactor);
-        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.oraclePrice, 10**decimals).divWadUp(adjustFactor);
+        vars.price = uint256(priceFeeds[market].latestAnswer());
+        sumCollateral += vars.balance.mulDivDown(vars.price, 10**decimals).mulWadDown(adjustFactor);
+        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.price, 10**decimals).divWadUp(adjustFactor);
       }
       if ((1 << i) > marketMap) break;
     }
@@ -841,7 +848,7 @@ contract ProtocolTest is Test {
     uint256 borrowShares
   ) internal view returns (uint256 debt) {
     uint256 memPenaltyRate = market.penaltyRate();
-    uint256 packedMaturities = market.fixedBorrows(account);
+    (, uint256 packedMaturities, ) = market.accounts(account);
     uint256 baseMaturity = packedMaturities % (1 << 32);
     packedMaturities = packedMaturities >> 32;
     for (uint256 i = 0; i < 224; ++i) {
@@ -852,12 +859,13 @@ contract ProtocolTest is Test {
 
         debt += positionAssets;
 
-        uint256 secondsDelayed = FixedLib.secondsPre(maturity, block.timestamp);
-        if (secondsDelayed > 0) debt += positionAssets.mulWadDown(secondsDelayed * memPenaltyRate);
+        if (block.timestamp > maturity) {
+          debt += positionAssets.mulWadDown((block.timestamp - maturity) * memPenaltyRate);
+        }
       }
       if ((1 << i) > packedMaturities) break;
     }
-    uint256 shares = market.floatingBorrowShares(account);
+    (, , uint256 shares) = market.accounts(account);
     if (shares + borrowShares > 0) debt += previewRefund(market, shares, borrowAssets, borrowShares);
   }
 
@@ -895,9 +903,7 @@ contract ProtocolTest is Test {
     (uint256 borrowed, uint256 supplied, uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
     uint256 memBackupSupplied = borrowed - Math.min(borrowed, supplied);
     if (memBackupSupplied != 0) {
-      uint256 secondsSinceLastAccrue = FixedLib.secondsPre(lastAccrual, Math.min(maturity, block.timestamp));
-      uint256 secondsTotalToMaturity = FixedLib.secondsPre(lastAccrual, maturity);
-      unassignedEarnings -= unassignedEarnings.mulDivDown(secondsSinceLastAccrue, secondsTotalToMaturity);
+      unassignedEarnings -= unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual);
       yield = unassignedEarnings.mulDivDown(Math.min(amount, memBackupSupplied), memBackupSupplied);
       uint256 backupFee = yield.mulWadDown(market.backupFeeRate());
       yield -= backupFee;
