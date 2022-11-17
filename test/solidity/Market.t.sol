@@ -851,6 +851,7 @@ contract MarketTest is Test {
   }
 
   function testSetInterestRateModelShouldUpdateFloatingDebt() external {
+    market.setInterestRateModel(InterestRateModel(address(new MockInterestRateModel(0.1e18))));
     market.deposit(100 ether, address(this));
     market.borrow(30 ether, address(this), address(this));
     vm.warp(1 days);
@@ -860,6 +861,21 @@ contract MarketTest is Test {
     emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
     market.setInterestRateModel(new InterestRateModel(0.023e18, -0.0025e18, 1e18 + 1, 0.023e18, -0.0025e18, 1e18 + 1));
     assertGt(market.floatingDebt(), floatingDebtBefore);
+    // if floatingDebt is updated with these last new irm values, then floatingDebt would be lower than 30.003 ether
+    assertGt(market.floatingDebt(), 30.003 ether);
+  }
+
+  function testSetInterestRateModelWithAddressZeroShouldNotUpdateFloatingDebt() external {
+    market.deposit(100 ether, address(this));
+    market.borrow(30 ether, address(this), address(this));
+    market.setInterestRateModel(InterestRateModel(address(0)));
+    vm.warp(1 days);
+    uint256 floatingDebtBefore = market.floatingDebt();
+
+    vm.expectEmit(true, true, true, false, address(market));
+    emit MarketUpdate(block.timestamp, market.totalSupply(), 0, 0, 0, 0);
+    market.setInterestRateModel(new InterestRateModel(0.023e18, -0.0025e18, 1e18 + 1, 0.023e18, -0.0025e18, 1e18 + 1));
+    assertEq(market.floatingDebt(), floatingDebtBefore);
   }
 
   function testClearBadDebtCalledByAccount() external {
