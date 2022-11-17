@@ -1021,8 +1021,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Sets the interest rate model to be used to calculate rates.
   /// @param interestRateModel_ new interest rate model.
   function setInterestRateModel(InterestRateModel interestRateModel_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (address(interestRateModel) != address(0)) depositToTreasury(updateFloatingDebt());
     interestRateModel = interestRateModel_;
-    depositToTreasury(updateFloatingDebt());
     emitMarketUpdate();
     emit InterestRateModelSet(interestRateModel_);
   }
