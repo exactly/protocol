@@ -512,12 +512,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emitFixedEarningsUpdate(maturity);
   }
 
-  /// @notice Liquidates undercollateralized position(s).
-  /// @dev Msg.sender liquidates borrower's position(s) and repays a certain amount of debt for multiple maturities,
-  /// seizing a part of borrower's collateral.
-  /// @param borrower wallet that has an outstanding debt across all maturities.
+  /// @notice Liquidates undercollateralized fixed/floating (or both) position(s).
+  /// @dev Msg.sender liquidates borrower's position(s) and repays a certain amount of debt for the floating pool,
+  /// or/and for multiple fixed pools, seizing a portion of borrower's collateral.
+  /// @param borrower account that has an outstanding debt across floating or fixed pools.
   /// @param maxAssets maximum amount of debt that the liquidator is willing to accept. (it can be less)
-  /// @param seizeMarket market from which the collateral will be seized to give the liquidator.
+  /// @param seizeMarket market from which the collateral will be seized to give to the liquidator.
   /// @return repaidAssets actual amount repaid.
   function liquidate(
     address borrower,
@@ -634,7 +634,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Public function to seize a certain amount of assets.
   /// @dev Public function for liquidator to seize borrowers assets in the floating pool.
   /// This function will only be called from another Market, on `liquidation` calls.
-  /// That's why msg.sender needs to be passed to the private function (to be validated as a market)
+  /// That's why msg.sender needs to be passed to the internal function (to be validated as a Market).
   /// @param liquidator address which will receive the seized assets.
   /// @param borrower address from which the assets will be seized.
   /// @param assets amount to be removed from borrower's possession.
@@ -649,7 +649,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Internal function to seize a certain amount of assets.
   /// @dev Internal function for liquidator to seize borrowers assets in the floating pool.
   /// Will only be called from this Market on `liquidation` or through `seize` calls from another Market.
-  /// That's why msg.sender needs to be passed to the internal function (to be validated as a market).
+  /// That's why msg.sender needs to be passed to the internal function (to be validated as a Market).
   /// @param seizeMarket address which is calling the seize function (see `seize` public function).
   /// @param liquidator address which will receive the seized assets.
   /// @param borrower address from which the assets will be seized.
@@ -758,7 +758,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Gets current snapshot for an account across all maturities.
   /// @param account account to return status snapshot in the specified maturity date.
-  /// @return the amount the account deposited to the floating pool and the total money it owes from maturities.
+  /// @return the amount deposited to the floating pool and the amount owed to floating and fixed pools.
   function accountSnapshot(address account) external view returns (uint256, uint256) {
     return (convertToAssets(balanceOf[account]), previewDebt(account));
   }
@@ -986,7 +986,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Sets the rate charged to the fixed depositors that the floating pool suppliers will retain for initially
   /// providing liquidity.
-  /// @dev Value can only be set between 20% and 0%.
   /// @param backupFeeRate_ percentage amount represented with 18 decimals.
   function setBackupFeeRate(uint256 backupFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     backupFeeRate = backupFeeRate_;
@@ -994,7 +993,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets the damp speed used to update the floatingAssetsAverage.
-  /// @dev Values can only be set between 0 and 100%.
   /// @param up damp speed up, represented with 18 decimals.
   /// @param down damp speed down, represented with 18 decimals.
   function setDampSpeed(uint256 up, uint256 down) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -1005,8 +1003,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets the factor used when smoothly accruing earnings to the floating pool.
-  /// @dev Value cannot be higher than 4. If set at 0, then all remaining accumulated earnings are
-  /// distributed in following operation to the floating pool.
   /// @param earningsAccumulatorSmoothFactor_ represented with 18 decimals.
   function setEarningsAccumulatorSmoothFactor(uint128 earningsAccumulatorSmoothFactor_)
     public
@@ -1028,7 +1024,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets the protocol's max future pools for fixed borrowing and lending.
-  /// @dev Value can not be 0 or higher than 224. If value is decreased, VALID maturities will become NOT_READY.
+  /// @dev If value is decreased, VALID maturities will become NOT_READY.
   /// @param futurePools number of pools to be active at the same time.
   function setMaxFuturePools(uint8 futurePools) public onlyRole(DEFAULT_ADMIN_ROLE) {
     maxFuturePools = futurePools;
@@ -1036,7 +1032,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets the penalty rate per second.
-  /// @dev Value can only be set approximately between 5% and 1% daily.
   /// @param penaltyRate_ percentage represented with 18 decimals.
   function setPenaltyRate(uint256 penaltyRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     penaltyRate = penaltyRate_;
@@ -1044,7 +1039,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets the percentage that represents the liquidity reserves that can't be borrowed.
-  /// @dev Value can only be set between 20% and 0%.
   /// @param reserveFactor_ parameter represented with 18 decimals.
   function setReserveFactor(uint128 reserveFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     reserveFactor = reserveFactor_;
