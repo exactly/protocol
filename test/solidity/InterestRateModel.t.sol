@@ -47,7 +47,7 @@ contract InterestRateModelTest is
     assertEq(rate, newRate);
   }
 
-  function testReferenceFloatingRate(uint256 v0, uint64 delta) external {
+  function testFuzzReferenceRate(uint256 v0, uint64 delta) external {
     uint256 u0 = v0 % 1e18;
     uint256 u1 = u0 + (delta % (floatingMaxUtilization - u0));
 
