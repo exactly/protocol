@@ -6,16 +6,19 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
-contract InterestRateModelTest is
-  Test,
-  InterestRateModel(0.023e18, -0.0025e18, 1.02e18, 0.023e18, -0.0025e18, 1.02e18)
-{
+contract InterestRateModelTest is Test {
   using FixedPointMathLib for uint256;
+
+  InterestRateModelHarness internal irm;
+
+  function setUp() external {
+    irm = new InterestRateModelHarness(0.023e18, -0.0025e18, 1.02e18, 0.023e18, -0.0025e18, 1.02e18);
+  }
 
   function testMinFixedRate() external {
     uint256 borrowed = 10 ether;
     uint256 floatingAssetsAverage = 100 ether;
-    (uint256 rate, uint256 utilization) = this.minFixedRate(borrowed, 0, floatingAssetsAverage);
+    (uint256 rate, uint256 utilization) = irm.minFixedRate(borrowed, 0, floatingAssetsAverage);
     assertEq(rate, 0.0225 ether);
     assertEq(utilization, 0.1 ether);
   }
@@ -23,7 +26,7 @@ contract InterestRateModelTest is
   function testFixedBorrowRate() external {
     uint256 assets = 10 ether;
     uint256 floatingAssetsAverage = 100 ether;
-    uint256 rate = this.fixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, floatingAssetsAverage);
+    uint256 rate = irm.fixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, floatingAssetsAverage);
     assertEq(rate, 1628784207150172);
   }
 
@@ -31,32 +34,57 @@ contract InterestRateModelTest is
     uint256 smartPoolFloatingBorrows = 50 ether;
     uint256 floatingAssets = 100 ether;
     uint256 spCurrentUtilization = smartPoolFloatingBorrows.divWadDown(floatingAssets);
-    uint256 rate = this.floatingBorrowRate(0, spCurrentUtilization);
+    uint256 rate = irm.floatingBorrowRate(0, spCurrentUtilization);
     assertEq(rate, 28491538356330811);
   }
 
   function testFloatingBorrowRateUsingMinMaxUtilizations() external {
     uint256 utilizationBefore = 0.5e18;
     uint256 utilizationAfter = 0.9e18;
-    uint256 rate = this.floatingBorrowRate(utilizationBefore, utilizationAfter);
+    uint256 rate = irm.floatingBorrowRate(utilizationBefore, utilizationAfter);
 
     utilizationBefore = 0.9e18;
     utilizationAfter = 0.5e18;
-    uint256 newRate = this.floatingBorrowRate(utilizationBefore, utilizationAfter);
+    uint256 newRate = irm.floatingBorrowRate(utilizationBefore, utilizationAfter);
 
     assertEq(rate, newRate);
   }
 
   function testFuzzReferenceRate(uint256 v0, uint64 delta) external {
+    (uint256 rate, uint256 refRate) = irm.floatingRate(v0, delta);
+    assertApproxEqAbs(rate, refRate, 3e3);
+  }
+}
+
+contract InterestRateModelHarness is InterestRateModel, Test {
+  constructor(
+    uint256 fixedCurveA_,
+    int256 fixedCurveB_,
+    uint256 fixedMaxUtilization_,
+    uint256 floatingCurveA_,
+    int256 floatingCurveB_,
+    uint256 floatingMaxUtilization_
+  )
+    InterestRateModel(
+      fixedCurveA_,
+      fixedCurveB_,
+      fixedMaxUtilization_,
+      floatingCurveA_,
+      floatingCurveB_,
+      floatingMaxUtilization_
+    )
+  {} // solhint-disable-line no-empty-blocks
+
+  function floatingRate(uint256 v0, uint64 delta) public returns (uint256 rate, uint256 refRate) {
     uint256 u0 = v0 % 1e18;
     uint256 u1 = u0 + (delta % (floatingMaxUtilization - u0));
+
+    rate = floatingRate(u0, u1);
 
     string[] memory ffi = new string[](2);
     ffi[0] = "scripts/irm.sh";
     ffi[1] = encodeHex(abi.encode(u0, u1, floatingCurveA, floatingCurveB, floatingMaxUtilization));
-    uint256 refRate = abi.decode(vm.ffi(ffi), (uint256));
-
-    assertApproxEqAbs(floatingRate(u0, u1), refRate, 3e3);
+    refRate = abi.decode(vm.ffi(ffi), (uint256));
   }
 
   function encodeHex(bytes memory raw) internal pure returns (string memory) {
