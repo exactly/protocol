@@ -1,4 +1,5 @@
 ignore:
   - test/**
+  - scripts/**
   - contracts/mocks/**
   - contracts/utils/import.sol
