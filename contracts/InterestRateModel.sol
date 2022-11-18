@@ -85,6 +85,21 @@ contract InterestRateModel {
     return floatingRate(Math.min(utilizationBefore, utilizationAfter), Math.max(utilizationBefore, utilizationAfter));
   }
 
+  /// @notice Gets the current annualized fixed rate to borrow with supply/demand values in the fixed rate pool and
+  /// assets from the backup supplier.
+  /// @param borrowed amount borrowed from the fixed rate pool.
+  /// @param supplied deposits in the fixed rate pool.
+  /// @param backupAssets backup supplier assets.
+  /// @return rate of the fee that the borrower will have to pay and current utilization.
+  function minFixedRate(
+    uint256 borrowed,
+    uint256 supplied,
+    uint256 backupAssets
+  ) external view returns (uint256 rate, uint256 utilization) {
+    utilization = borrowed.divWadUp(supplied + backupAssets);
+    rate = fixedRate(utilization, utilization);
+  }
+
   /// @notice Returns the interest rate integral from `u0` to `u1`, using the analytical solution (ln).
   /// @dev Uses the fixed rate curve parameters.
   /// Handles special case where delta utilization tends to zero, using simpson's rule.

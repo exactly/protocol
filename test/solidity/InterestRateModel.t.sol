@@ -12,6 +12,14 @@ contract InterestRateModelTest is
 {
   using FixedPointMathLib for uint256;
 
+  function testMinFixedRate() external {
+    uint256 borrowed = 10 ether;
+    uint256 floatingAssetsAverage = 100 ether;
+    (uint256 rate, uint256 utilization) = this.minFixedRate(borrowed, 0, floatingAssetsAverage);
+    assertEq(rate, 0.0225 ether);
+    assertEq(utilization, 0.1 ether);
+  }
+
   function testFixedBorrowRate() external {
     uint256 assets = 10 ether;
     uint256 floatingAssetsAverage = 100 ether;
