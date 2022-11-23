@@ -26,6 +26,7 @@ contract Previewer {
     // market
     Market market;
     uint8 decimals;
+    address asset;
     string assetSymbol;
     uint256 usdPrice;
     uint256 penaltyRate;
@@ -72,6 +73,9 @@ contract Previewer {
     uint256 supplied;
     uint256 available;
     uint256 utilization;
+    uint256 depositRate;
+    uint256 minBorrowRate;
+    uint256 optimalDeposit;
   }
 
   /// @custom:oz-upgrades-unsafe-allow constructor
@@ -102,6 +106,7 @@ contract Previewer {
         // market
         market: market,
         decimals: m.decimals,
+        asset: address(market.asset()),
         assetSymbol: market.asset().symbol(),
         usdPrice: price.mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),
@@ -123,29 +128,6 @@ contract Previewer {
         floatingDepositAssets: market.maxWithdraw(account),
         fixedDepositPositions: maturityPositions(account, a.fixedDeposits, market.fixedDepositPositions),
         fixedBorrowPositions: maturityPositions(account, a.fixedBorrows, market.fixedBorrowPositions)
-      });
-    }
-  }
-
-  /// @notice Function to preview deposits and borrows at fixed rates in all markets.
-  /// @param usdAmount amount in usd expressed with 18 decimals.
-  /// @return data with fixed rate simulations for every market.
-  function previewFixed(uint256 usdAmount) external view returns (FixedMarket[] memory data) {
-    uint256 baseAmount = address(basePriceFeed) != address(0)
-      ? usdAmount.divWadDown(uint256(basePriceFeed.latestAnswer()) * 10 ** (18 - basePriceFeed.decimals()))
-      : usdAmount;
-    uint256 maxValue = auditor.allMarkets().length;
-    data = new FixedMarket[](maxValue);
-    for (uint256 i = 0; i < maxValue; ++i) {
-      Market market = auditor.marketList(i);
-      (, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
-      uint256 assets = baseAmount.mulDivDown(10 ** decimals, auditor.assetPrice(priceFeed));
-      data[i] = FixedMarket({
-        market: market,
-        decimals: decimals,
-        assets: assets,
-        deposits: previewDepositAtAllMaturities(market, assets),
-        borrows: previewBorrowAtAllMaturities(market, assets)
       });
     }
   }
@@ -299,24 +281,38 @@ contract Previewer {
     pools = new FixedPool[](market.maxFuturePools());
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
       FixedLib.Pool memory pool;
-      (pool.borrowed, pool.supplied, , ) = market.fixedPools(
+      (pool.borrowed, pool.supplied, pool.unassignedEarnings, ) = market.fixedPools(
         block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1)
       );
-
-      uint256 maxAssets = (market.floatingAssets() + freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
-      uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
+      (uint256 minBorrowRate, uint256 utilization) = (market.previewFloatingAssetsAverage() + pool.supplied) > 0
+        ? market.interestRateModel().minFixedRate(pool.borrowed, pool.supplied, market.previewFloatingAssetsAverage())
+        : (0, 0);
 
       pools[i] = FixedPool({
         maturity: block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1),
         borrowed: pool.borrowed,
         supplied: pool.supplied,
         available: Math.min(
-          maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt() + freshFloatingDebt),
-          memFloatingAssetsAverage
+          (market.floatingAssets() + freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor()) -
+            Math.min(
+              (market.floatingAssets() + freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor()),
+              market.floatingBackupBorrowed() + market.floatingDebt() + freshFloatingDebt
+            ),
+          market.previewFloatingAssetsAverage()
         ) +
           pool.supplied -
           Math.min(pool.supplied, pool.borrowed),
-        utilization: memFloatingAssetsAverage > 0 ? pool.borrowed.divWadUp(pool.supplied + memFloatingAssetsAverage) : 0
+        utilization: utilization,
+        optimalDeposit: pool.borrowed - Math.min(pool.borrowed, pool.supplied),
+        depositRate: uint256(365 days).mulDivDown(
+          pool.borrowed - Math.min(pool.borrowed, pool.supplied) > 0
+            ? (pool.unassignedEarnings.mulWadDown(1e18 - market.backupFeeRate())).divWadDown(
+              pool.borrowed - Math.min(pool.borrowed, pool.supplied)
+            )
+            : 0,
+          block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1) - block.timestamp
+        ),
+        minBorrowRate: minBorrowRate
       });
     }
   }
