@@ -10,6 +10,7 @@ import { MockInterestRateModel } from "../../contracts/mocks/MockInterestRateMod
 import { Auditor, IPriceFeed, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
 import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { PriceFeedWrapper } from "../../contracts/PriceFeedWrapper.sol";
+import { PriceFeedDouble } from "../../contracts/PriceFeedDouble.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
 import { MockStETH } from "../../contracts/mocks/MockStETH.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
@@ -2316,6 +2317,37 @@ contract MarketTest is Test {
     vm.warp(10 days);
     marketStETH.repay(2_500 ether, address(this));
     marketStETH.withdraw(20_000 ether, address(this), address(this));
+  }
+
+  function testOperationsWithBtcWbtcRate() external {
+    MockERC20 wbtc = new MockERC20("WBTC", "WBTC", 8);
+    Market marketWBTC = Market(address(new ERC1967Proxy(address(new Market(wbtc, auditor)), "")));
+    marketWBTC.initialize(
+      3,
+      1e18,
+      InterestRateModel(address(irm)),
+      0.02e18 / uint256(1 days),
+      1e17,
+      0,
+      0.0046e18,
+      0.42e18
+    );
+    PriceFeedDouble priceFeedDouble = new PriceFeedDouble(
+      new MockPriceFeed(18, 14 ether),
+      new MockPriceFeed(8, 99000000)
+    );
+    auditor.enableMarket(marketWBTC, priceFeedDouble, 0.8e18, 8);
+
+    wbtc.mint(address(this), 50_000e8);
+    wbtc.approve(address(marketWBTC), type(uint256).max);
+
+    assertEq(auditor.assetPrice(priceFeedDouble), 1386e16);
+
+    marketWBTC.deposit(50_000e8, address(this));
+    marketWBTC.borrow(5_000e8, address(this), address(this));
+    vm.warp(10 days);
+    marketWBTC.repay(2_500e8, address(this));
+    marketWBTC.withdraw(20_000e8, address(this), address(this));
   }
 
   function testMultipleBorrowsForMultipleAssets() external {
