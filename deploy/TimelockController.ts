@@ -2,13 +2,16 @@ import type { DeployFunction } from "hardhat-deploy/types";
 import { TimelockController } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
 import tenderlify from "./.utils/tenderlify";
-import revokeRole from "./.utils/revokeRole";
 
 const func: DeployFunction = async ({
   network: {
     config: { timelockDelay = 0 },
   },
-  ethers: { getContract, getSigner },
+  ethers: {
+    constants: { AddressZero },
+    getContract,
+    getSigner,
+  },
   deployments: { deploy },
   getNamedAccounts,
 }) => {
@@ -17,7 +20,7 @@ const func: DeployFunction = async ({
     "TimelockController",
     await deploy("TimelockController", {
       skipIfAlreadyDeployed: true,
-      args: [timelockDelay, [multisig, deployer], [multisig]],
+      args: [timelockDelay, [multisig, deployer], [multisig], AddressZero],
       from: deployer,
       log: true,
     }),
@@ -27,8 +30,6 @@ const func: DeployFunction = async ({
   if (!(await timelock.getMinDelay()).eq(timelockDelay)) {
     await timelockPropose(timelock, "updateDelay", [timelockDelay]);
   }
-
-  await revokeRole(timelock, await timelock.TIMELOCK_ADMIN_ROLE(), deployer);
 };
 
 func.tags = ["TimelockController"];
