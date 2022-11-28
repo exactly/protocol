@@ -22,7 +22,7 @@ export const mockPrices = Object.fromEntries(
 const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
   const signer = await getSigner(deployer);
-  for (const [symbol, { wrap }] of Object.entries(markets)) {
+  for (const [symbol, { priceFeed }] of Object.entries(markets)) {
     const decimals = { USDC: 6, WBTC: 8 }[symbol] ?? 18;
     await deploy(symbol, {
       skipIfAlreadyDeployed: true,
@@ -32,8 +32,16 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       log: true,
     });
 
-    if (wrap) {
-      await deploy(wrap.wrapper, {
+    if (priceFeed === "double") {
+      await deploy(`PriceFeed${symbol}Two`, {
+        skipIfAlreadyDeployed: true,
+        contract: "MockPriceFeed",
+        args: [0, 1],
+        from: deployer,
+        log: true,
+      });
+    } else if (priceFeed) {
+      await deploy(priceFeed.wrapper, {
         skipIfAlreadyDeployed: true,
         contract: "MockStETH",
         args: [parseUnits("1")],
@@ -42,7 +50,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
       });
     }
 
-    await deploy(`PriceFeed${wrap ? "Main" : ""}${symbol}`, {
+    await deploy(`PriceFeed${symbol}${priceFeed ? (priceFeed === "double" ? "One" : "Main") : ""}`, {
       skipIfAlreadyDeployed: true,
       contract: "MockPriceFeed",
       args: [priceDecimals, parseUnits({ WBTC: "63000", WETH: "1000" }[symbol] ?? "1", priceDecimals)],
@@ -58,10 +66,10 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
         from: deployer,
         log: true,
       });
-      const priceFeed = await getContract<MockPriceFeed>(name, signer);
-      if (!mockPrices[symbol].eq(await priceFeed.price())) {
+      const mockPriceFeed = await getContract<MockPriceFeed>(name, signer);
+      if (!mockPrices[symbol].eq(await mockPriceFeed.price())) {
         log("setting price", symbol, formatUnits(mockPrices[symbol], priceDecimals));
-        await (await priceFeed.setPrice(mockPrices[symbol])).wait();
+        await (await mockPriceFeed.setPrice(mockPrices[symbol])).wait();
       }
     }
   }

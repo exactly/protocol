@@ -116,6 +116,7 @@ const config: Config = {
           b: -0.3417,
           maxUtilization: 1.0003,
         },
+        priceFeed: "double",
       },
       wstETH: {
         adjustFactor: 0.82,
@@ -129,7 +130,7 @@ const config: Config = {
           b: -0.344,
           maxUtilization: 1.0052,
         },
-        wrap: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
+        priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
       },
     },
   },
@@ -189,11 +190,7 @@ declare module "hardhat/types/config" {
     adjustFactor: number;
     fixedCurve: Curve;
     floatingCurve: Curve;
-    wrap?: {
-      wrapper: string;
-      fn: string;
-      baseUnit: bigint;
-    };
+    priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
   }
 
   export interface MarketUserConfig extends MarketConfig {
