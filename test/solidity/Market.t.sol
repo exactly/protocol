@@ -578,9 +578,9 @@ contract MarketTest is Test {
     (uint256 collateral, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     (uint256 adjustFactor, , , , ) = auditor.markets(market);
 
-    assertEq(collateral, uint256(1_000 ether).mulDivDown(1e18, 10**18).mulWadDown(adjustFactor));
+    assertEq(collateral, uint256(1_000 ether).mulDivDown(1e18, 10 ** 18).mulWadDown(adjustFactor));
     assertEq(collateral, 800 ether);
-    assertEq(debt, uint256(100 ether).mulDivUp(1e18, 10**18).divWadUp(adjustFactor));
+    assertEq(debt, uint256(100 ether).mulDivUp(1e18, 10 ** 18).divWadUp(adjustFactor));
     assertEq(debt, 125 ether);
   }
 
@@ -893,7 +893,7 @@ contract MarketTest is Test {
     (uint256 adjustFactor, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
     uint256 floatingAssetsBefore = market.floatingAssets();
     assertEq(
-      market.maxWithdraw(address(this)).mulDivDown(auditor.assetPrice(priceFeed), 10**decimals).mulWadDown(
+      market.maxWithdraw(address(this)).mulDivDown(auditor.assetPrice(priceFeed), 10 ** decimals).mulWadDown(
         adjustFactor
       ),
       0
@@ -1182,7 +1182,7 @@ contract MarketTest is Test {
     market.liquidate(address(this), 100 ether, marketWETH);
     uint256 assetsRepaid = uint256(100 ether).divWadDown(1.01e18);
     uint256 lendersIncentiveRepaid = assetsRepaid.mulWadDown(0.01e18);
-    uint256 assetsSeized = assetsRepaid.mulDivUp(10**18, 3_000 ether).mulWadUp(1.1e18);
+    uint256 assetsSeized = assetsRepaid.mulDivUp(10 ** 18, 3_000 ether).mulWadUp(1.1e18);
     assertEq(ERC20(market.asset()).balanceOf(BOB), bobDAIBalanceBefore - assetsRepaid - lendersIncentiveRepaid);
     assertApproxEqRel(weth.balanceOf(BOB), assetsSeized, 1e10);
     assertEq(market.earningsAccumulator(), lendersIncentiveRepaid);

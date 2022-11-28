@@ -204,12 +204,7 @@ library FixedLib {
   /// @param maxPools number of pools available in the time horizon.
   /// @param requiredState state required by the caller to be verified (see `State` for description).
   /// @param alternativeState state required by the caller to be verified (see `State` for description).
-  function checkPoolState(
-    uint256 maturity,
-    uint8 maxPools,
-    State requiredState,
-    State alternativeState
-  ) internal view {
+  function checkPoolState(uint256 maturity, uint8 maxPools, State requiredState, State alternativeState) internal view {
     State state;
     if (maturity % INTERVAL != 0) {
       state = State.INVALID;

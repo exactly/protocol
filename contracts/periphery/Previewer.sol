@@ -88,7 +88,7 @@ contract Previewer {
     uint256 maxValue = auditor.allMarkets().length;
     (uint256 adjustedCollateral, uint256 adjustedDebt) = auditor.accountLiquidity(account, Market(address(0)), 0);
     uint256 basePrice = address(basePriceFeed) != address(0)
-      ? uint256(basePriceFeed.latestAnswer()) * 10**(18 - basePriceFeed.decimals())
+      ? uint256(basePriceFeed.latestAnswer()) * 10 ** (18 - basePriceFeed.decimals())
       : 1e18;
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
@@ -115,7 +115,7 @@ contract Previewer {
         // account
         isCollateral: markets & (1 << i) != 0 ? true : false,
         maxBorrowAssets: adjustedCollateral >= adjustedDebt
-          ? (adjustedCollateral - adjustedDebt).mulDivUp(10**m.decimals, price).mulWadUp(m.adjustFactor)
+          ? (adjustedCollateral - adjustedDebt).mulDivUp(10 ** m.decimals, price).mulWadUp(m.adjustFactor)
           : 0,
         floatingBorrowShares: a.floatingBorrowShares,
         floatingBorrowAssets: maxRepay(market, account),
@@ -132,14 +132,14 @@ contract Previewer {
   /// @return data with fixed rate simulations for every market.
   function previewFixed(uint256 usdAmount) external view returns (FixedMarket[] memory data) {
     uint256 baseAmount = address(basePriceFeed) != address(0)
-      ? usdAmount.divWadDown(uint256(basePriceFeed.latestAnswer()) * 10**(18 - basePriceFeed.decimals()))
+      ? usdAmount.divWadDown(uint256(basePriceFeed.latestAnswer()) * 10 ** (18 - basePriceFeed.decimals()))
       : usdAmount;
     uint256 maxValue = auditor.allMarkets().length;
     data = new FixedMarket[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
       Market market = auditor.marketList(i);
       (, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
-      uint256 assets = baseAmount.mulDivDown(10**decimals, auditor.assetPrice(priceFeed));
+      uint256 assets = baseAmount.mulDivDown(10 ** decimals, auditor.assetPrice(priceFeed));
       data[i] = FixedMarket({
         market: market,
         decimals: decimals,
@@ -178,11 +178,10 @@ contract Previewer {
   /// @param market address of the market.
   /// @param assets amount of assets that will be deposited.
   /// @return previews array containing amount plus yield that account will receive after each maturity.
-  function previewDepositAtAllMaturities(Market market, uint256 assets)
-    public
-    view
-    returns (FixedPreview[] memory previews)
-  {
+  function previewDepositAtAllMaturities(
+    Market market,
+    uint256 assets
+  ) public view returns (FixedPreview[] memory previews) {
     uint256 maxFuturePools = market.maxFuturePools();
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     previews = new FixedPreview[](maxFuturePools);
@@ -229,11 +228,10 @@ contract Previewer {
   /// @param market address of the market.
   /// @param assets amount of assets that will be borrowed.
   /// @return previews array containing amount plus yield that account will receive after each maturity.
-  function previewBorrowAtAllMaturities(Market market, uint256 assets)
-    public
-    view
-    returns (FixedPreview[] memory previews)
-  {
+  function previewBorrowAtAllMaturities(
+    Market market,
+    uint256 assets
+  ) public view returns (FixedPreview[] memory previews) {
     uint256 maxFuturePools = market.maxFuturePools();
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     previews = new FixedPreview[](maxFuturePools);
@@ -353,11 +351,7 @@ contract Previewer {
     for (uint256 i = 0; i < userMaturityCount; ++i) userMaturityPositions[i] = allMaturityPositions[i];
   }
 
-  function fixedDepositYield(
-    Market market,
-    uint256 maturity,
-    uint256 assets
-  ) internal view returns (uint256 yield) {
+  function fixedDepositYield(Market market, uint256 maturity, uint256 assets) internal view returns (uint256 yield) {
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
     pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(

@@ -97,12 +97,10 @@ contract MarketETHRouter is Initializable {
   /// @param maturity maturity date where the assets will be deposited.
   /// @param minAssetsRequired minimum amount of assets required by the caller for the transaction to be accepted.
   /// @return maturityAssets total amount of assets (principal + fee) to be withdrawn at maturity.
-  function depositAtMaturity(uint256 maturity, uint256 minAssetsRequired)
-    external
-    payable
-    wrap
-    returns (uint256 maturityAssets)
-  {
+  function depositAtMaturity(
+    uint256 maturity,
+    uint256 minAssetsRequired
+  ) external payable wrap returns (uint256 maturityAssets) {
     return market.depositAtMaturity(maturity, msg.value, minAssetsRequired, msg.sender);
   }
 

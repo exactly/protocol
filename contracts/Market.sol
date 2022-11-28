@@ -161,11 +161,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param borrower address of the account that has the debt.
   /// @return actualRepay the actual amount that should be transferred into the protocol.
   /// @return borrowShares subtracted shares from the borrower's accountability.
-  function repay(uint256 assets, address borrower)
-    external
-    whenNotPaused
-    returns (uint256 actualRepay, uint256 borrowShares)
-  {
+  function repay(
+    uint256 assets,
+    address borrower
+  ) external whenNotPaused returns (uint256 actualRepay, uint256 borrowShares) {
     (actualRepay, borrowShares) = noTransferRefund(previewRepay(assets), borrower);
     emitMarketUpdate();
     asset.safeTransferFrom(msg.sender, address(this), actualRepay);
@@ -176,11 +175,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param borrower address of the account that has the debt.
   /// @return assets subtracted assets from the borrower's accountability.
   /// @return actualShares actual subtracted shares from the borrower's accountability.
-  function refund(uint256 borrowShares, address borrower)
-    external
-    whenNotPaused
-    returns (uint256 assets, uint256 actualShares)
-  {
+  function refund(
+    uint256 borrowShares,
+    address borrower
+  ) external whenNotPaused returns (uint256 assets, uint256 actualShares) {
     (assets, actualShares) = noTransferRefund(borrowShares, borrower);
     emitMarketUpdate();
     asset.safeTransferFrom(msg.sender, address(this), assets);
@@ -191,10 +189,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param borrower the address of the account that has the debt.
   /// @return assets the actual amount that should be transferred into the protocol.
   /// @return actualShares actual subtracted shares from the borrower's accountability.
-  function noTransferRefund(uint256 borrowShares, address borrower)
-    internal
-    returns (uint256 assets, uint256 actualShares)
-  {
+  function noTransferRefund(
+    uint256 borrowShares,
+    address borrower
+  ) internal returns (uint256 assets, uint256 actualShares) {
     depositToTreasury(updateFloatingDebt());
     Account storage account = accounts[borrower];
     uint256 accountBorrowShares = account.floatingBorrowShares;
@@ -638,11 +636,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param liquidator address which will receive the seized assets.
   /// @param borrower address from which the assets will be seized.
   /// @param assets amount to be removed from borrower's possession.
-  function seize(
-    address liquidator,
-    address borrower,
-    uint256 assets
-  ) external whenNotPaused {
+  function seize(address liquidator, address borrower, uint256 assets) external whenNotPaused {
     internalSeize(Market(msg.sender), liquidator, borrower, assets);
   }
 
@@ -654,12 +648,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param liquidator address which will receive the seized assets.
   /// @param borrower address from which the assets will be seized.
   /// @param assets amount to be removed from borrower's possession.
-  function internalSeize(
-    Market seizeMarket,
-    address liquidator,
-    address borrower,
-    uint256 assets
-  ) internal {
+  function internalSeize(Market seizeMarket, address liquidator, address borrower, uint256 assets) internal {
     if (assets == 0) revert ZeroWithdraw();
 
     // reverts on failure
@@ -705,11 +694,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param receiver address to which the assets will be transferred.
   /// @param owner address which owns the floating pool assets.
   /// @return shares amount of shares redeemed for underlying asset.
-  function withdraw(
-    uint256 assets,
-    address receiver,
-    address owner
-  ) public override returns (uint256 shares) {
+  function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {
     auditor.checkShortfall(this, owner, assets);
     shares = super.withdraw(assets, receiver, owner);
     emitMarketUpdate();
@@ -721,11 +706,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param receiver address to which the assets will be transferred.
   /// @param owner address which owns the floating pool assets.
   /// @return assets amount of underlying asset that was withdrawn.
-  function redeem(
-    uint256 shares,
-    address receiver,
-    address owner
-  ) public override returns (uint256 assets) {
+  function redeem(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {
     auditor.checkShortfall(this, owner, previewRedeem(shares));
     assets = super.redeem(shares, receiver, owner);
     emitMarketUpdate();
@@ -747,11 +728,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param from address from which the assets will be transferred.
   /// @param to address to which the assets will be transferred.
   /// @param shares amount of shares to be transferred.
-  function transferFrom(
-    address from,
-    address to,
-    uint256 shares
-  ) public override returns (bool) {
+  function transferFrom(address from, address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, from, previewRedeem(shares));
     return super.transferFrom(from, to, shares);
   }
@@ -1004,10 +981,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Sets the factor used when smoothly accruing earnings to the floating pool.
   /// @param earningsAccumulatorSmoothFactor_ represented with 18 decimals.
-  function setEarningsAccumulatorSmoothFactor(uint128 earningsAccumulatorSmoothFactor_)
-    public
-    onlyRole(DEFAULT_ADMIN_ROLE)
-  {
+  function setEarningsAccumulatorSmoothFactor(
+    uint128 earningsAccumulatorSmoothFactor_
+  ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     floatingAssets += accrueAccumulatedEarnings();
     emitMarketUpdate();
     earningsAccumulatorSmoothFactor = earningsAccumulatorSmoothFactor_;

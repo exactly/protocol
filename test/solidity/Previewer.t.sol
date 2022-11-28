@@ -987,8 +987,8 @@ contract PreviewerTest is Test {
     uint256 sumCollateral = data[0]
       .floatingDepositAssets
       .mulDivDown(
-        data[0].usdPrice.mulDivDown(10**ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
-        10**data[0].decimals
+        data[0].usdPrice.mulDivDown(10 ** ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
+        10 ** data[0].decimals
       )
       .mulWadDown(data[0].adjustFactor);
 
@@ -996,8 +996,8 @@ contract PreviewerTest is Test {
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
       data[0].fixedBorrowPositions[0].position.fee)
       .mulDivUp(
-        data[0].usdPrice.mulDivDown(10**ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
-        10**data[0].decimals
+        data[0].usdPrice.mulDivDown(10 ** ethPriceFeed.decimals(), uint256(ethPriceFeed.latestAnswer())),
+        10 ** data[0].decimals
       )
       .divWadUp(data[0].adjustFactor);
 
@@ -1040,13 +1040,14 @@ contract PreviewerTest is Test {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
     // sum all the collateral prices
-    uint256 sumCollateral = data[0].floatingDepositAssets.mulDivDown(data[0].usdPrice, 10**data[0].decimals).mulWadDown(
-      data[0].adjustFactor
-    );
+    uint256 sumCollateral = data[0]
+      .floatingDepositAssets
+      .mulDivDown(data[0].usdPrice, 10 ** data[0].decimals)
+      .mulWadDown(data[0].adjustFactor);
 
     // sum all the debt
     uint256 sumDebt = (data[0].fixedBorrowPositions[0].position.principal +
-      data[0].fixedBorrowPositions[0].position.fee).mulDivUp(data[0].usdPrice, 10**data[0].decimals).divWadUp(
+      data[0].fixedBorrowPositions[0].position.fee).mulDivUp(data[0].usdPrice, 10 ** data[0].decimals).divWadUp(
         data[0].adjustFactor
       );
 
@@ -1062,7 +1063,7 @@ contract PreviewerTest is Test {
 
     auditor.enterMarket(marketWETH);
     data = previewer.exactly(address(this));
-    sumCollateral += data[1].floatingDepositAssets.mulDivDown(data[1].usdPrice, 10**data[1].decimals).mulWadDown(
+    sumCollateral += data[1].floatingDepositAssets.mulDivDown(data[1].usdPrice, 10 ** data[1].decimals).mulWadDown(
       data[1].adjustFactor
     );
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -1074,7 +1075,7 @@ contract PreviewerTest is Test {
     data = previewer.exactly(address(this));
 
     sumDebt += (data[1].fixedBorrowPositions[0].position.principal + data[1].fixedBorrowPositions[0].position.fee)
-      .mulDivDown(data[1].usdPrice, 10**data[1].decimals)
+      .mulDivDown(data[1].usdPrice, 10 ** data[1].decimals)
       .divWadDown(data[1].adjustFactor);
 
     (realCollateral, realDebt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);

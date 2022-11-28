@@ -90,21 +90,13 @@ contract FixedPoolHarness {
     fixedPool.unassignedEarnings -= fee;
   }
 
-  function scaleProportionally(
-    uint256 scaledDebtPrincipal,
-    uint256 scaledDebtFee,
-    uint256 amount
-  ) external {
+  function scaleProportionally(uint256 scaledDebtPrincipal, uint256 scaledDebtFee, uint256 amount) external {
     scaledDebt.principal = scaledDebtPrincipal;
     scaledDebt.fee = scaledDebtFee;
     scaledDebt = scaledDebt.scaleProportionally(amount);
   }
 
-  function reduceProportionally(
-    uint256 scaledDebtPrincipal,
-    uint256 scaledDebtFee,
-    uint256 amount
-  ) external {
+  function reduceProportionally(uint256 scaledDebtPrincipal, uint256 scaledDebtFee, uint256 amount) external {
     scaledDebt.principal = scaledDebtPrincipal;
     scaledDebt.fee = scaledDebtFee;
     scaledDebt = scaledDebt.reduceProportionally(amount);

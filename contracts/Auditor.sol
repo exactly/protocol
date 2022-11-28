@@ -42,8 +42,8 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(uint256 priceDecimals_) {
     priceDecimals = priceDecimals_;
-    baseFactor = 10**(18 - priceDecimals_);
-    basePrice = 10**priceDecimals_;
+    baseFactor = 10 ** (18 - priceDecimals_);
+    basePrice = 10 ** priceDecimals_;
 
     _disableInitializers();
   }
@@ -117,7 +117,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
       if (marketMap & 1 != 0) {
         Market market = marketList[i];
         MarketData storage m = markets[market];
-        uint256 baseUnit = 10**m.decimals;
+        uint256 baseUnit = 10 ** m.decimals;
         uint256 adjustFactor = m.adjustFactor;
 
         // read the balances
@@ -176,11 +176,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param market address of the market where the operation will happen.
   /// @param account address of the account to check for possible shortfall.
   /// @param amount amount that the account wants to withdraw or transfer.
-  function checkShortfall(
-    Market market,
-    address account,
-    uint256 amount
-  ) public view {
+  function checkShortfall(Market market, address account, uint256 amount) public view {
     // if the account is not 'in' the market, bypass the liquidity check
     if ((accountMarkets[account] & (1 << markets[market].index)) == 0) return;
 
@@ -215,7 +211,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         MarketVars memory m = MarketVars({
           price: assetPrice(marketData.priceFeed),
           adjustFactor: marketData.adjustFactor,
-          baseUnit: 10**marketData.decimals
+          baseUnit: 10 ** marketData.decimals
         });
 
         if (market == repayMarket) repay = m;
@@ -286,10 +282,10 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     // read prices for borrowed and collateral markets
     uint256 priceBorrowed = assetPrice(markets[repayMarket].priceFeed);
     uint256 priceCollateral = assetPrice(markets[seizeMarket].priceFeed);
-    uint256 baseAmount = actualRepayAssets.mulDivUp(priceBorrowed, 10**markets[repayMarket].decimals);
+    uint256 baseAmount = actualRepayAssets.mulDivUp(priceBorrowed, 10 ** markets[repayMarket].decimals);
 
     seizeAssets = Math.min(
-      baseAmount.mulDivUp(10**markets[seizeMarket].decimals, priceCollateral).mulWadUp(
+      baseAmount.mulDivUp(10 ** markets[seizeMarket].decimals, priceCollateral).mulWadUp(
         1e18 + memIncentive.liquidator + memIncentive.lenders
       ),
       seizeMarket.maxWithdraw(borrower)
@@ -307,7 +303,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         Market market = marketList[i];
         MarketData storage m = markets[market];
         uint256 assets = market.maxWithdraw(account);
-        if (assets.mulDivDown(assetPrice(m.priceFeed), 10**m.decimals).mulWadDown(m.adjustFactor) > 0) return;
+        if (assets.mulDivDown(assetPrice(m.priceFeed), 10 ** m.decimals).mulWadDown(m.adjustFactor) > 0) return;
       }
       unchecked {
         ++i;
@@ -392,10 +388,9 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
   /// @notice Sets liquidation incentive (liquidator and lenders) for the whole ecosystem.
   /// @param liquidationIncentive_ new liquidation incentive.
-  function setLiquidationIncentive(LiquidationIncentive memory liquidationIncentive_)
-    public
-    onlyRole(DEFAULT_ADMIN_ROLE)
-  {
+  function setLiquidationIncentive(
+    LiquidationIncentive memory liquidationIncentive_
+  ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     liquidationIncentive = liquidationIncentive_;
     emit LiquidationIncentiveSet(liquidationIncentive_);
   }

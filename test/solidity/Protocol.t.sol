@@ -534,13 +534,13 @@ contract ProtocolTest is Test {
       (b.balance, b.repayMarketDebt) = market.accountSnapshot(BOB);
       b.adjustedCollateral = b
         .balance
-        .mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10**b.decimals)
+        .mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10 ** b.decimals)
         .mulWadDown(b.adjustFactor);
       (b.adjustFactor, b.decimals, , , ) = auditor.markets(market);
       (b.balance, b.collateralMarketDebt) = collateralMarket.accountSnapshot(BOB);
       b.adjustedCollateral += b
         .balance
-        .mulDivDown(uint256(priceFeeds[collateralMarket].latestAnswer()), 10**b.decimals)
+        .mulDivDown(uint256(priceFeeds[collateralMarket].latestAnswer()), 10 ** b.decimals)
         .mulWadDown(b.adjustFactor);
 
       // if collateral is 0 then debt should be 0
@@ -731,7 +731,7 @@ contract ProtocolTest is Test {
       if ((marketMap & (1 << i)) != 0) {
         (, uint8 decimals, , , ) = auditor.markets(market);
         (uint256 balance, ) = market.accountSnapshot(account);
-        sumCollateral += balance.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10**decimals);
+        sumCollateral += balance.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10 ** decimals);
       }
       if ((1 << i) > marketMap) break;
     }
@@ -740,7 +740,7 @@ contract ProtocolTest is Test {
   function seizeAvailable(address account, Market market) internal view returns (uint256) {
     uint256 collateral = market.convertToAssets(market.balanceOf(account));
     (, uint8 decimals, , , ) = auditor.markets(market);
-    return collateral.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10**decimals);
+    return collateral.mulDivDown(uint256(priceFeeds[market].latestAnswer()), 10 ** decimals);
   }
 
   function accountLiquidity(
@@ -763,12 +763,12 @@ contract ProtocolTest is Test {
         (uint128 adjustFactor, uint8 decimals, , , ) = auditor.markets(market);
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
         vars.price = uint256(priceFeeds[market].latestAnswer());
-        sumCollateral += vars.balance.mulDivDown(vars.price, 10**decimals).mulWadDown(adjustFactor);
+        sumCollateral += vars.balance.mulDivDown(vars.price, 10 ** decimals).mulWadDown(adjustFactor);
         sumDebtPlusEffects += (vars.borrowBalance + (market == marketToSimulate ? borrowAssets : 0))
-          .mulDivUp(vars.price, 10**decimals)
+          .mulDivUp(vars.price, 10 ** decimals)
           .divWadUp(adjustFactor);
         if (market == marketToSimulate && withdrawAssets != 0) {
-          sumDebtPlusEffects += withdrawAssets.mulDivDown(vars.price, 10**decimals).mulWadDown(adjustFactor);
+          sumDebtPlusEffects += withdrawAssets.mulDivDown(vars.price, 10 ** decimals).mulWadDown(adjustFactor);
         }
       }
       if ((1 << i) > marketMap) break;
@@ -797,8 +797,8 @@ contract ProtocolTest is Test {
           (vars.balance, vars.borrowBalance) = previewAccountSnapshot(market, account, borrowAssets, borrowShares);
         } else (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
         vars.price = uint256(priceFeeds[market].latestAnswer());
-        sumCollateral += vars.balance.mulDivDown(vars.price, 10**decimals).mulWadDown(adjustFactor);
-        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.price, 10**decimals).divWadUp(adjustFactor);
+        sumCollateral += vars.balance.mulDivDown(vars.price, 10 ** decimals).mulWadDown(adjustFactor);
+        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.price, 10 ** decimals).divWadUp(adjustFactor);
       }
       if ((1 << i) > marketMap) break;
     }
@@ -895,11 +895,7 @@ contract ProtocolTest is Test {
     return memFloatingDebt + newDebt;
   }
 
-  function previewDepositYield(
-    Market market,
-    uint256 maturity,
-    uint256 amount
-  ) internal view returns (uint256 yield) {
+  function previewDepositYield(Market market, uint256 maturity, uint256 amount) internal view returns (uint256 yield) {
     (uint256 borrowed, uint256 supplied, uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(maturity);
     uint256 memBackupSupplied = borrowed - Math.min(borrowed, supplied);
     if (memBackupSupplied != 0) {

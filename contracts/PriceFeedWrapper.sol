@@ -18,12 +18,7 @@ contract PriceFeedWrapper is IPriceFeed {
   /// @notice Base units that are sent to the conversion function to get the asset rate.
   uint256 public immutable baseUnit;
 
-  constructor(
-    IPriceFeed mainPriceFeed_,
-    address wrapper_,
-    bytes4 conversionSelector_,
-    uint256 baseUnit_
-  ) {
+  constructor(IPriceFeed mainPriceFeed_, address wrapper_, bytes4 conversionSelector_, uint256 baseUnit_) {
     mainPriceFeed = mainPriceFeed_;
     decimals = mainPriceFeed_.decimals();
     wrapper = wrapper_;
