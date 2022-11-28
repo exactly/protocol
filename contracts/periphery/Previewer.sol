@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import { AlreadyMatured } from "../InterestRateModel.sol";
+import { InterestRateModel as IRM, AlreadyMatured } from "../InterestRateModel.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
 import { Auditor, IPriceFeed } from "../Auditor.sol";
 import { Market } from "../Market.sol";
@@ -28,6 +28,7 @@ contract Previewer {
     uint8 decimals;
     address asset;
     string assetSymbol;
+    InterestRateModel interestRateModel;
     uint256 usdPrice;
     uint256 penaltyRate;
     uint256 adjustFactor;
@@ -46,6 +47,16 @@ contract Previewer {
     uint256 floatingDepositAssets;
     FixedPosition[] fixedDepositPositions;
     FixedPosition[] fixedBorrowPositions;
+  }
+
+  struct InterestRateModel {
+    address id;
+    uint256 fixedCurveA;
+    int256 fixedCurveB;
+    uint256 fixedMaxUtilization;
+    uint256 floatingCurveA;
+    int256 floatingCurveB;
+    uint256 floatingMaxUtilization;
   }
 
   struct FixedMarket {
@@ -97,10 +108,10 @@ contract Previewer {
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
       Market market = auditor.marketList(i);
+      IRM irm = market.interestRateModel();
       Market.Account memory a;
       Auditor.MarketData memory m;
       (m.adjustFactor, m.decimals, m.index, m.isListed, m.priceFeed) = auditor.markets(market);
-      uint256 price = auditor.assetPrice(m.priceFeed);
       (a.fixedDeposits, a.fixedBorrows, a.floatingBorrowShares) = market.accounts(account);
       data[i] = MarketAccount({
         // market
@@ -108,7 +119,16 @@ contract Previewer {
         decimals: m.decimals,
         asset: address(market.asset()),
         assetSymbol: market.asset().symbol(),
-        usdPrice: price.mulWadDown(basePrice),
+        interestRateModel: InterestRateModel({
+          id: address(irm),
+          fixedCurveA: irm.fixedCurveA(),
+          fixedCurveB: irm.fixedCurveB(),
+          fixedMaxUtilization: irm.fixedMaxUtilization(),
+          floatingCurveA: irm.floatingCurveA(),
+          floatingCurveB: irm.floatingCurveB(),
+          floatingMaxUtilization: irm.floatingMaxUtilization()
+        }),
+        usdPrice: auditor.assetPrice(m.priceFeed).mulWadDown(basePrice),
         penaltyRate: market.penaltyRate(),
         adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
@@ -120,7 +140,9 @@ contract Previewer {
         // account
         isCollateral: markets & (1 << i) != 0 ? true : false,
         maxBorrowAssets: adjustedCollateral >= adjustedDebt
-          ? (adjustedCollateral - adjustedDebt).mulDivUp(10 ** m.decimals, price).mulWadUp(m.adjustFactor)
+          ? (adjustedCollateral - adjustedDebt).mulDivUp(10 ** m.decimals, auditor.assetPrice(m.priceFeed)).mulWadUp(
+            m.adjustFactor
+          )
           : 0,
         floatingBorrowShares: a.floatingBorrowShares,
         floatingBorrowAssets: maxRepay(market, account),

@@ -758,6 +758,18 @@ contract PreviewerTest is Test {
     }
   }
 
+  function testExactlyReturningInterestRateModelData() external {
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+
+    assertEq(data[0].interestRateModel.id, address(irm));
+    assertEq(data[0].interestRateModel.fixedCurveA, irm.fixedCurveA());
+    assertEq(data[0].interestRateModel.fixedCurveB, irm.fixedCurveB());
+    assertEq(data[0].interestRateModel.fixedMaxUtilization, irm.fixedMaxUtilization());
+    assertEq(data[0].interestRateModel.floatingCurveA, irm.floatingCurveA());
+    assertEq(data[0].interestRateModel.floatingCurveB, irm.floatingCurveB());
+    assertEq(data[0].interestRateModel.floatingMaxUtilization, irm.floatingMaxUtilization());
+  }
+
   function testMaxBorrowAssetsCapacity() external {
     market.deposit(100 ether, address(this));
     auditor.enterMarket(market);
