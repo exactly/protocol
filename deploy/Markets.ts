@@ -1,3 +1,4 @@
+import { env } from "process";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { Auditor, ERC20, Market } from "../types";
 import { mockPrices } from "./mocks/Assets";
@@ -41,6 +42,7 @@ const func: DeployFunction = async ({
     const { address: interestRateModel } = await tenderlify(
       "InterestRateModel",
       await deploy(`InterestRateModel${symbol}`, {
+        skipIfAlreadyDeployed: !JSON.parse(env[`DEPLOY_IRM_${symbol}`] ?? "false"),
         contract: "InterestRateModel",
         args: [
           parseUnits(String(config.fixedCurve.a)),
