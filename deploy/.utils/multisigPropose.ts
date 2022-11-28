@@ -11,7 +11,7 @@ export default async (account: string, contract: Contract, functionName: string,
   if (!txServiceUrl) throw new Error("missing safeTxService");
 
   const { [account]: senderAddress, multisig: safeAddress } = await getNamedAccounts();
-  const ethAdapter = new EthersAdapter({ ethers, signer: await ethers.getSigner(senderAddress) });
+  const ethAdapter = new EthersAdapter({ ethers, signerOrProvider: await ethers.getSigner(senderAddress) });
   const safeService = new SafeServiceClient({ txServiceUrl, ethAdapter });
   const calldata = contract.interface.encodeFunctionData(functionName, args);
   if (
