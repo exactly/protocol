@@ -69,6 +69,7 @@ contract Previewer {
 
   struct FixedPosition {
     uint256 maturity;
+    uint256 previewValue;
     FixedLib.Position position;
   }
 
@@ -148,8 +149,20 @@ contract Previewer {
         floatingBorrowAssets: maxRepay(market, account),
         floatingDepositShares: market.balanceOf(account),
         floatingDepositAssets: market.maxWithdraw(account),
-        fixedDepositPositions: maturityPositions(account, a.fixedDeposits, market.fixedDepositPositions),
-        fixedBorrowPositions: maturityPositions(account, a.fixedBorrows, market.fixedBorrowPositions)
+        fixedDepositPositions: fixedPositions(
+          market,
+          account,
+          a.fixedDeposits,
+          market.fixedDepositPositions,
+          this.previewWithdrawAtMaturity
+        ),
+        fixedBorrowPositions: fixedPositions(
+          market,
+          account,
+          a.fixedBorrows,
+          market.fixedBorrowPositions,
+          this.previewRepayAtMaturity
+        )
       });
     }
   }
@@ -257,8 +270,9 @@ contract Previewer {
   function previewWithdrawAtMaturity(
     Market market,
     uint256 maturity,
-    uint256 positionAssets
-  ) external view returns (uint256 withdrawAssets) {
+    uint256 positionAssets,
+    address
+  ) public view returns (uint256 withdrawAssets) {
     if (block.timestamp >= maturity) return positionAssets;
 
     FixedLib.Pool memory pool;
@@ -287,7 +301,7 @@ contract Previewer {
     uint256 maturity,
     uint256 positionAssets,
     address borrower
-  ) external view returns (uint256 repayAssets) {
+  ) public view returns (uint256 repayAssets) {
     if (block.timestamp >= maturity) {
       return positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
     }
@@ -345,10 +359,12 @@ contract Previewer {
     return maxAssets - Math.min(maxAssets, market.floatingBackupBorrowed() + market.floatingDebt() + freshFloatingDebt);
   }
 
-  function maturityPositions(
+  function fixedPositions(
+    Market market,
     address account,
     uint256 packedMaturities,
-    function(uint256, address) external view returns (uint256, uint256) getPositions
+    function(uint256, address) external view returns (uint256, uint256) getPosition,
+    function(Market, uint256, uint256, address) external view returns (uint256) previewValue
   ) internal view returns (FixedPosition[] memory userMaturityPositions) {
     uint256 userMaturityCount = 0;
     FixedPosition[] memory allMaturityPositions = new FixedPosition[](224);
@@ -356,9 +372,18 @@ contract Previewer {
     packedMaturities = packedMaturities >> 32;
     while (packedMaturities != 0) {
       if (packedMaturities & 1 != 0) {
-        (uint256 principal, uint256 fee) = getPositions(maturity, account);
+        uint256 positionAssets;
+        {
+          (uint256 principal, uint256 fee) = getPosition(maturity, account);
+          positionAssets = principal + fee;
+          allMaturityPositions[userMaturityCount].position = FixedLib.Position(principal, fee);
+        }
+        try previewValue(market, maturity, positionAssets, account) returns (uint256 assets) {
+          allMaturityPositions[userMaturityCount].previewValue = assets;
+        } catch {
+          allMaturityPositions[userMaturityCount].previewValue = positionAssets;
+        }
         allMaturityPositions[userMaturityCount].maturity = maturity;
-        allMaturityPositions[userMaturityCount].position = FixedLib.Position(principal, fee);
         ++userMaturityCount;
       }
       packedMaturities >>= 1;
