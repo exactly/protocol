@@ -135,7 +135,7 @@ const config: Config = {
     },
   },
   dodoc: { exclude: ["mocks/", "k/", "elin/", "rc/"] },
-  tenderly: { project: "exactly", username: "exactly", privateVerification: true },
+  tenderly: { project: "exactly", username: "exactly", privateVerification: false },
   typechain: { outDir: "types", target: "ethers-v5" },
   contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
   gasReporter: {
