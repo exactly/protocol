@@ -10473,6 +10473,14 @@
         "storage": [],
         "types": {}
       }
+    },
+    "0xb8A222246F6557485D3BBa70Ce523CC3dF06A540": {
+      "address": "0xb8A222246F6557485D3BBa70Ce523CC3dF06A540",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [],
+        "types": {}
+      }
     }
   }
 }
