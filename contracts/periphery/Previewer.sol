@@ -25,6 +25,7 @@ contract Previewer {
   struct MarketAccount {
     // market
     Market market;
+    string symbol;
     uint8 decimals;
     address asset;
     string assetSymbol;
@@ -38,6 +39,8 @@ contract Previewer {
     uint256 floatingAvailableAssets;
     uint256 totalFloatingBorrowAssets;
     uint256 totalFloatingDepositAssets;
+    uint256 totalFloatingBorrowShares;
+    uint256 totalFloatingDepositShares;
     // account
     bool isCollateral;
     uint256 maxBorrowAssets;
@@ -117,6 +120,7 @@ contract Previewer {
       data[i] = MarketAccount({
         // market
         market: market,
+        symbol: market.symbol(),
         decimals: m.decimals,
         asset: address(market.asset()),
         assetSymbol: market.asset().symbol(),
@@ -138,6 +142,8 @@ contract Previewer {
         floatingAvailableAssets: floatingAvailableAssets(market),
         totalFloatingDepositAssets: market.totalAssets(),
         totalFloatingBorrowAssets: market.totalFloatingBorrowAssets(),
+        totalFloatingBorrowShares: market.totalFloatingBorrowShares(),
+        totalFloatingDepositShares: market.totalSupply(),
         // account
         isCollateral: markets & (1 << i) != 0 ? true : false,
         maxBorrowAssets: adjustedCollateral >= adjustedDebt

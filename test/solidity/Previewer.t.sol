@@ -1251,10 +1251,13 @@ contract PreviewerTest is Test {
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
+    assertEq(data[0].symbol, market.symbol());
     assertEq(data[0].asset, address(market.asset()));
     assertEq(data[0].assetSymbol, market.asset().symbol());
     assertEq(data[0].floatingDepositAssets, market.convertToAssets(market.balanceOf(address(this))));
     assertEq(data[0].floatingDepositShares, market.balanceOf(address(this)));
+    assertEq(data[0].totalFloatingBorrowShares, market.totalFloatingBorrowShares());
+    assertEq(data[0].totalFloatingDepositShares, market.totalSupply());
 
     assertEq(data[0].fixedDepositPositions[0].maturity, FixedLib.INTERVAL);
     assertEq(data[0].fixedDepositPositions[0].position.principal, firstMaturitySupplyPrincipal);
@@ -1273,9 +1276,9 @@ contract PreviewerTest is Test {
 
     assertEq(data[0].usdPrice, 1_000e18);
     assertEq(data[0].adjustFactor, 0.8e18);
-    assertEq(data[0].penaltyRate, market.penaltyRate());
     assertEq(data[0].decimals, 18);
     assertEq(data[0].maxFuturePools, 12);
+    assertEq(data[0].penaltyRate, market.penaltyRate());
     assertEq(data[0].isCollateral, true);
   }
 
@@ -1286,6 +1289,8 @@ contract PreviewerTest is Test {
     assertEq(data[0].assetSymbol, "DAI");
     assertEq(data[0].floatingDepositAssets, 10 ether);
     assertEq(data[0].floatingDepositShares, market.convertToShares(10 ether));
+    assertEq(data[0].totalFloatingBorrowShares, 0);
+    assertEq(data[0].totalFloatingDepositShares, market.convertToShares(10 ether));
     assertEq(data[0].fixedDepositPositions.length, 0);
     assertEq(data[0].fixedBorrowPositions.length, 0);
     assertEq(data[0].usdPrice, 1_000e18);
@@ -1337,9 +1342,13 @@ contract PreviewerTest is Test {
   function testAccountsWithEmptyAccount() external {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
 
+    assertEq(data[0].symbol, market.symbol());
+    assertEq(data[0].asset, address(market.asset()));
     assertEq(data[0].assetSymbol, "DAI");
     assertEq(data[0].floatingDepositAssets, 0);
     assertEq(data[0].floatingDepositShares, 0);
+    assertEq(data[0].totalFloatingBorrowShares, 0);
+    assertEq(data[0].totalFloatingDepositShares, 0);
     assertEq(data[0].fixedDepositPositions.length, 0);
     assertEq(data[0].fixedBorrowPositions.length, 0);
     assertEq(data[0].usdPrice, 1_000e18);
