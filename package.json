@@ -3,7 +3,7 @@
   "version": "0.2.2",
   "license": "BUSL-1.1",
   "homepage": "https://exact.ly",
-  "repository": "github:exactly-protocol/protocol",
+  "repository": "github:exactly/protocol",
   "scripts": {
     "lint": "run-s --continue-on-error lint:**",
     "lint:sol": "solhint '{contracts,test}/**/*.sol'",

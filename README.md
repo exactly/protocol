@@ -1,12 +1,12 @@
 # Exactly Protocol
 
-![CI Status](https://github.com/exactly-protocol/protocol/actions/workflows/test.yml/badge.svg)
-[![codecov](https://codecov.io/gh/exactly-protocol/protocol/branch/main/graph/badge.svg?token=qYngTpvXBT)](https://codecov.io/gh/exactly-protocol/protocol)
+![CI Status](https://github.com/exactly/protocol/actions/workflows/test.yml/badge.svg)
+[![codecov](https://codecov.io/gh/exactly/protocol/branch/main/graph/badge.svg)](https://codecov.io/gh/exactly/protocol)
 
 ## Clone
 
 ```bash
-git clone git@github.com:exactly-protocol/protocol.git
+git clone git@github.com:exactly/protocol.git
 ```
 
 ## Install Locally
