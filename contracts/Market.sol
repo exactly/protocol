@@ -220,6 +220,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 minAssetsRequired,
     address receiver
   ) external whenNotPaused returns (uint256 positionAssets) {
+    if (assets == 0) revert ZeroDeposit();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
@@ -270,6 +271,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     address receiver,
     address borrower
   ) external whenNotPaused returns (uint256 assetsOwed) {
+    if (assets == 0) revert ZeroBorrow();
     // reverts on failure
     FixedLib.checkPoolState(maturity, maxFuturePools, FixedLib.State.VALID, FixedLib.State.NONE);
 
@@ -1229,5 +1231,7 @@ error Disagreement();
 error InsufficientProtocolLiquidity();
 error NotAuditor();
 error SelfLiquidation();
-error ZeroWithdraw();
+error ZeroBorrow();
+error ZeroDeposit();
 error ZeroRepay();
+error ZeroWithdraw();

@@ -8,7 +8,14 @@ import { Test, stdError } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { Market, ZeroRepay, InsufficientProtocolLiquidity, ZeroWithdraw } from "../../contracts/Market.sol";
+import {
+  Market,
+  InsufficientProtocolLiquidity,
+  ZeroBorrow,
+  ZeroDeposit,
+  ZeroRepay,
+  ZeroWithdraw
+} from "../../contracts/Market.sol";
 import { InterestRateModel, UtilizationExceeded } from "../../contracts/InterestRateModel.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
@@ -113,16 +120,16 @@ contract ProtocolTest is Test {
       if (values[i * 4 + 7] > 0) transfer(i, values[i * 4 + 7]);
 
       if (timing[i * 4 + 8] > 0) vm.warp(block.timestamp + timing[i * 4 + 8]);
-      if (values[i * 4 + 8] > 0) depositAtMaturity(i, values[i * 4 + 8]);
+      depositAtMaturity(i, values[i * 4 + 8]);
 
       if (timing[i * 4 + 9] > 0) vm.warp(block.timestamp + timing[i * 4 + 9]);
-      if (values[i * 4 + 9] > 0) withdrawAtMaturity(i, values[i * 4 + 9]);
+      withdrawAtMaturity(i, values[i * 4 + 9]);
 
       if (timing[i * 4 + 10] > 0) vm.warp(block.timestamp + timing[i * 4 + 10]);
-      if (values[i * 4 + 10] > 0) borrowAtMaturity(i, values[i * 4 + 10]);
+      borrowAtMaturity(i, values[i * 4 + 10]);
 
       if (timing[i * 4 + 11] > 0) vm.warp(block.timestamp + timing[i * 4 + 11]);
-      if (values[i * 4 + 11] > 0) repayAtMaturity(i, values[i * 4 + 11]);
+      repayAtMaturity(i, values[i * 4 + 11]);
 
       for (uint256 j = 0; j < MARKET_COUNT; j++) {
         if (prices[i * MARKET_COUNT + j] > 0)
@@ -139,8 +146,12 @@ contract ProtocolTest is Test {
     underlyingAssets[(i / 2) % underlyingAssets.length].mint(account, assets);
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
 
-    vm.expectEmit(true, true, true, false, address(market));
-    emit DepositAtMaturity(maturity, account, account, assets, 0);
+    if (assets == 0) {
+      vm.expectRevert(ZeroDeposit.selector);
+    } else {
+      vm.expectEmit(true, true, true, false, address(market));
+      emit DepositAtMaturity(maturity, account, account, assets, 0);
+    }
     vm.prank(account);
     market.depositAtMaturity(maturity, assets, 0, account);
   }
@@ -154,7 +165,9 @@ contract ProtocolTest is Test {
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
     uint256 backupAssets = previewFloatingAssetsAverage(market);
 
-    if (block.timestamp < maturity && supplied + backupAssets == 0) {
+    if (assets == 0) {
+      vm.expectRevert(ZeroWithdraw.selector);
+    } else if (block.timestamp < maturity && supplied + backupAssets == 0) {
       vm.expectRevert(bytes(""));
     } else if (
       (block.timestamp < maturity && positionAssets > backupAssets + supplied) ||
@@ -231,7 +244,9 @@ contract ProtocolTest is Test {
       backupDebtAddition = newBorrowed - Math.min(Math.max(borrowed, supplied), newBorrowed);
     }
 
-    if (supplied + backupAssets == 0) {
+    if (assets == 0) {
+      vm.expectRevert(ZeroBorrow.selector);
+    } else if (supplied + backupAssets == 0) {
       vm.expectRevert(bytes(""));
     } else if (assets > backupAssets + supplied || (borrowed + assets).divWadUp(backupAssets + supplied) > 1e18) {
       vm.expectRevert(UtilizationExceeded.selector);

@@ -20,6 +20,8 @@ import {
   FixedLib,
   ZeroRepay,
   NotAuditor,
+  ZeroBorrow,
+  ZeroDeposit,
   ZeroWithdraw,
   Disagreement,
   InsufficientProtocolLiquidity
@@ -202,6 +204,16 @@ contract MarketTest is Test {
     market.deposit(1 ether, address(this));
     market.deposit(1 ether, address(this));
     market.deposit(1 ether, address(this));
+  }
+
+  function testBorrowAtMaturityWithZeroAssets() external {
+    vm.expectRevert(ZeroBorrow.selector);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 0, 0, address(this), address(this));
+  }
+
+  function testDepositAtMaturityWithZeroAssets() external {
+    vm.expectRevert(ZeroDeposit.selector);
+    market.depositAtMaturity(FixedLib.INTERVAL, 0, 0, address(this));
   }
 
   function testSmartPoolEarningsDistribution() external {
