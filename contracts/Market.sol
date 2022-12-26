@@ -152,6 +152,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (address(rewardsController) != address(0)) {
       rewardsController.handleAction(
         RewardsController.Operation.FloatingBorrow,
+        0,
         borrower,
         totalFloatingBorrowShares,
         accounts[borrower].floatingBorrowShares
@@ -215,6 +216,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (address(rewardsController) != address(0)) {
       rewardsController.handleAction(
         RewardsController.Operation.FloatingBorrow,
+        0,
         borrower,
         totalFloatingBorrowShares,
         accountBorrowShares
@@ -252,12 +254,20 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     positionAssets = assets + fee;
     if (positionAssets < minAssetsRequired) revert Disagreement();
 
+    FixedLib.Position storage position = fixedDepositPositions[maturity][receiver];
+    if (address(rewardsController) != address(0)) {
+      rewardsController.handleAction(
+        RewardsController.Operation.FixedDeposit,
+        maturity,
+        receiver,
+        pool.supplied,
+        position.principal
+      );
+    }
+
     floatingBackupBorrowed -= pool.deposit(assets);
     pool.unassignedEarnings -= fee + backupFee;
     earningsAccumulator += backupFee;
-
-    // update account's position
-    FixedLib.Position storage position = fixedDepositPositions[maturity][receiver];
 
     // if account doesn't have a current position, add it to the list
     if (position.principal == 0) {
@@ -265,6 +275,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       account.fixedDeposits = account.fixedDeposits.setMaturity(maturity);
     }
 
+    // update account's position
     position.principal += assets;
     position.fee += fee;
 
@@ -309,6 +320,17 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     spendAllowance(borrower, assetsOwed);
 
+    FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
+    if (address(rewardsController) != address(0)) {
+      rewardsController.handleAction(
+        RewardsController.Operation.FixedBorrow,
+        maturity,
+        borrower,
+        pool.borrowed,
+        position.principal
+      );
+    }
+
     {
       uint256 backupDebtAddition = pool.borrow(assets);
       if (backupDebtAddition > 0) {
@@ -323,7 +345,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     {
       // if account doesn't have a current position, add it to the list
-      FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
       if (position.principal == 0) {
         Account storage account = accounts[borrower];
         account.fixedBorrows = account.fixedBorrows.setMaturity(maturity);
@@ -396,6 +417,16 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (assetsDiscounted < minAssetsRequired) revert Disagreement();
 
     spendAllowance(owner, assetsDiscounted);
+
+    if (address(rewardsController) != address(0)) {
+      rewardsController.handleAction(
+        RewardsController.Operation.FixedDeposit,
+        maturity,
+        owner,
+        pool.supplied,
+        position.principal
+      );
+    }
 
     {
       // remove the supply from the fixed rate pool
@@ -484,6 +515,16 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       .Position(position.principal, position.fee)
       .scaleProportionally(debtCovered)
       .principal;
+
+    if (address(rewardsController) != address(0)) {
+      rewardsController.handleAction(
+        RewardsController.Operation.FixedBorrow,
+        maturity,
+        borrower,
+        pool.borrowed,
+        position.principal
+      );
+    }
 
     // early repayment allows a discount from the unassigned earnings
     if (block.timestamp < maturity) {
@@ -736,14 +777,20 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   function _mint(address to, uint256 amount) internal override {
     if (address(rewardsController) != address(0)) {
-      rewardsController.handleAction(RewardsController.Operation.FloatingDeposit, to, totalSupply, balanceOf[to]);
+      rewardsController.handleAction(RewardsController.Operation.FloatingDeposit, 0, to, totalSupply, balanceOf[to]);
     }
     super._mint(to, amount);
   }
 
   function _burn(address from, uint256 amount) internal override {
     if (address(rewardsController) != address(0)) {
-      rewardsController.handleAction(RewardsController.Operation.FloatingDeposit, from, totalSupply, balanceOf[from]);
+      rewardsController.handleAction(
+        RewardsController.Operation.FloatingDeposit,
+        0,
+        from,
+        totalSupply,
+        balanceOf[from]
+      );
     }
     super._burn(from, amount);
   }
@@ -759,12 +806,19 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       uint256 memTotalSupply = totalSupply;
       rewardsController.handleAction(
         RewardsController.Operation.FloatingDeposit,
+        0,
         msg.sender,
         memTotalSupply,
         balanceOf[msg.sender]
       );
       if (msg.sender != to) {
-        rewardsController.handleAction(RewardsController.Operation.FloatingDeposit, to, memTotalSupply, balanceOf[to]);
+        rewardsController.handleAction(
+          RewardsController.Operation.FloatingDeposit,
+          0,
+          to,
+          memTotalSupply,
+          balanceOf[to]
+        );
       }
     }
     return super.transfer(to, shares);
@@ -782,12 +836,19 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       uint256 memTotalSupply = totalSupply;
       rewardsController.handleAction(
         RewardsController.Operation.FloatingDeposit,
+        0,
         from,
         memTotalSupply,
         balanceOf[from]
       );
       if (from != to) {
-        rewardsController.handleAction(RewardsController.Operation.FloatingDeposit, to, memTotalSupply, balanceOf[to]);
+        rewardsController.handleAction(
+          RewardsController.Operation.FloatingDeposit,
+          0,
+          to,
+          memTotalSupply,
+          balanceOf[to]
+        );
       }
     }
     return super.transferFrom(from, to, shares);

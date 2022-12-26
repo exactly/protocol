@@ -14,7 +14,7 @@ contract RewardsController {
   address internal manager;
 
   // Map of rewarded asset addresses and their data (assetAddress => marketOperationData)
-  mapping(address => mapping(Operation => MarketOperationData)) internal _assets;
+  mapping(address => mapping(Operation => mapping(uint256 => MarketOperationData))) internal _assets;
   // Map of reward assets (rewardAddress => enabled)
   mapping(address => bool) internal _isRewardEnabled;
   // Rewards list
@@ -34,31 +34,46 @@ contract RewardsController {
   function getRewardsData(
     address asset,
     Operation operation,
+    uint256 maturity,
     address reward
   ) public view returns (uint256, uint256, uint256, uint256) {
     return (
-      _assets[asset][operation].rewards[reward].index,
-      _assets[asset][operation].rewards[reward].emissionPerSecond,
-      _assets[asset][operation].rewards[reward].lastUpdateTimestamp,
-      _assets[asset][operation].rewards[reward].distributionEnd
+      _assets[asset][operation][maturity].rewards[reward].index,
+      _assets[asset][operation][maturity].rewards[reward].emissionPerSecond,
+      _assets[asset][operation][maturity].rewards[reward].lastUpdateTimestamp,
+      _assets[asset][operation][maturity].rewards[reward].distributionEnd
     );
   }
 
-  function getAssetIndex(address asset, Operation operation, address reward) external view returns (uint256, uint256) {
-    RewardData storage rewardData = _assets[asset][operation].rewards[reward];
-    return _getAssetIndex(rewardData, ERC20(asset).totalSupply(), 10 ** _assets[asset][operation].decimals);
+  function getAssetIndex(
+    address asset,
+    Operation operation,
+    uint256 maturity,
+    address reward
+  ) external view returns (uint256, uint256) {
+    RewardData storage rewardData = _assets[asset][operation][maturity].rewards[reward];
+    return _getAssetIndex(rewardData, ERC20(asset).totalSupply(), 10 ** _assets[asset][operation][maturity].decimals);
   }
 
-  function getDistributionEnd(address asset, Operation operation, address reward) external view returns (uint256) {
-    return _assets[asset][operation].rewards[reward].distributionEnd;
+  function getDistributionEnd(
+    address asset,
+    Operation operation,
+    uint256 maturity,
+    address reward
+  ) external view returns (uint256) {
+    return _assets[asset][operation][maturity].rewards[reward].distributionEnd;
   }
 
-  function getRewardsByAsset(address asset, Operation operation) external view returns (address[] memory) {
-    uint128 rewardsCount = _assets[asset][operation].availableRewardsCount;
+  function getRewardsByAsset(
+    address asset,
+    Operation operation,
+    uint256 maturity
+  ) external view returns (address[] memory) {
+    uint128 rewardsCount = _assets[asset][operation][maturity].availableRewardsCount;
     address[] memory availableRewards = new address[](rewardsCount);
 
     for (uint128 i = 0; i < rewardsCount; i++) {
-      availableRewards[i] = _assets[asset][operation].availableRewards[i];
+      availableRewards[i] = _assets[asset][operation][maturity].availableRewards[i];
     }
     return availableRewards;
   }
@@ -71,15 +86,21 @@ contract RewardsController {
     address user,
     address asset,
     Operation operation,
+    uint256 maturity,
     address reward
   ) public view returns (uint256) {
-    return _assets[asset][operation].rewards[reward].usersData[user].index;
+    return _assets[asset][operation][maturity].rewards[reward].usersData[user].index;
   }
 
-  function getUserAccruedRewards(address user, Operation operation, address reward) external view returns (uint256) {
+  function getUserAccruedRewards(
+    address user,
+    Operation operation,
+    uint256 maturity,
+    address reward
+  ) external view returns (uint256) {
     uint256 totalAccrued;
     for (uint256 i = 0; i < _assetsList.length; i++) {
-      totalAccrued += _assets[_assetsList[i]][operation].rewards[reward].usersData[user].accrued;
+      totalAccrued += _assets[_assetsList[i]][operation][maturity].rewards[reward].usersData[user].accrued;
     }
 
     return totalAccrued;
@@ -87,7 +108,7 @@ contract RewardsController {
 
   function getUserRewards(
     address[] calldata assets,
-    Operation[] calldata operations,
+    OperationData[] calldata operations,
     address user,
     address reward
   ) external view returns (uint256) {
@@ -96,7 +117,7 @@ contract RewardsController {
 
   function getAllUserRewards(
     address[] calldata assets,
-    Operation[] calldata operations,
+    OperationData[] calldata operations,
     address user
   ) external view returns (address[] memory rewardsList, uint256[] memory unclaimedAmounts) {
     UserAssetBalance[] memory userAssetBalances = _getUserAssetBalances(assets, operations, user);
@@ -107,10 +128,9 @@ contract RewardsController {
     for (uint256 i = 0; i < userAssetBalances.length; i++) {
       for (uint256 r = 0; r < rewardsList.length; r++) {
         rewardsList[r] = _rewardsList[r];
-        unclaimedAmounts[r] += _assets[userAssetBalances[i].asset][userAssetBalances[i].operation]
-          .rewards[rewardsList[r]]
-          .usersData[user]
-          .accrued;
+        unclaimedAmounts[r] += _assets[userAssetBalances[i].asset][userAssetBalances[i].operation][
+          userAssetBalances[i].maturity
+        ].rewards[rewardsList[r]].usersData[user].accrued;
 
         if (userAssetBalances[i].userBalance == 0) {
           continue;
@@ -124,33 +144,35 @@ contract RewardsController {
   function setDistributionEnd(
     address asset,
     Operation operation,
+    uint256 maturity,
     address reward,
     uint32 newDistributionEnd
   ) external onlyEmissionManager {
-    uint256 oldDistributionEnd = _assets[asset][operation].rewards[reward].distributionEnd;
-    _assets[asset][operation].rewards[reward].distributionEnd = newDistributionEnd;
+    uint256 oldDistributionEnd = _assets[asset][operation][maturity].rewards[reward].distributionEnd;
+    _assets[asset][operation][maturity].rewards[reward].distributionEnd = newDistributionEnd;
 
     emit AssetConfigUpdated(
       asset,
       reward,
-      _assets[asset][operation].rewards[reward].emissionPerSecond,
-      _assets[asset][operation].rewards[reward].emissionPerSecond,
+      _assets[asset][operation][maturity].rewards[reward].emissionPerSecond,
+      _assets[asset][operation][maturity].rewards[reward].emissionPerSecond,
       oldDistributionEnd,
       newDistributionEnd,
-      _assets[asset][operation].rewards[reward].index
+      _assets[asset][operation][maturity].rewards[reward].index
     );
   }
 
   function setEmissionPerSecond(
     address asset,
     Operation operation,
+    uint256 maturity,
     address[] calldata rewards,
     uint88[] calldata newEmissionsPerSecond
   ) external onlyEmissionManager {
     require(rewards.length == newEmissionsPerSecond.length, "INVALID_INPUT");
     for (uint256 i = 0; i < rewards.length; i++) {
-      MarketOperationData storage assetConfig = _assets[asset][operation];
-      RewardData storage rewardConfig = _assets[asset][operation].rewards[rewards[i]];
+      MarketOperationData storage assetConfig = _assets[asset][operation][maturity];
+      RewardData storage rewardConfig = _assets[asset][operation][maturity].rewards[rewards[i]];
       uint256 decimals = assetConfig.decimals;
       require(decimals != 0 && rewardConfig.lastUpdateTimestamp != 0, "DISTRIBUTION_DOES_NOT_EXIST");
 
@@ -173,29 +195,28 @@ contract RewardsController {
 
   /**
    * @dev Configure the _assets for a specific emission
-   * @param rewardsInput The array of each asset configuration
+   * @param rewardsInput The userAssetBalances of each asset configuration
    **/
   function _configureAssets(RewardsConfigInput[] memory rewardsInput) internal {
     for (uint256 i = 0; i < rewardsInput.length; i++) {
-      if (_assets[rewardsInput[i].asset][rewardsInput[i].operation].decimals == 0) {
+      if (_assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity].decimals == 0) {
         //never initialized before, adding to the list of assets
         _assetsList.push(rewardsInput[i].asset);
       }
 
-      uint256 decimals = _assets[rewardsInput[i].asset][rewardsInput[i].operation].decimals = ERC20(
-        rewardsInput[i].asset
-      ).decimals();
+      uint256 decimals = _assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity]
+        .decimals = ERC20(rewardsInput[i].asset).decimals();
 
-      RewardData storage rewardConfig = _assets[rewardsInput[i].asset][rewardsInput[i].operation].rewards[
-        rewardsInput[i].reward
-      ];
+      RewardData storage rewardConfig = _assets[rewardsInput[i].asset][rewardsInput[i].operation][
+        rewardsInput[i].maturity
+      ].rewards[rewardsInput[i].reward];
 
       // Add reward address to asset available rewards if latestUpdateTimestamp is zero
       if (rewardConfig.lastUpdateTimestamp == 0) {
-        _assets[rewardsInput[i].asset][rewardsInput[i].operation].availableRewards[
-          _assets[rewardsInput[i].asset][rewardsInput[i].operation].availableRewardsCount
+        _assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity].availableRewards[
+          _assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity].availableRewardsCount
         ] = rewardsInput[i].reward;
-        _assets[rewardsInput[i].asset][rewardsInput[i].operation].availableRewardsCount++;
+        _assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity].availableRewardsCount++;
       }
 
       // Add reward address to global rewards list if still not enabled
@@ -295,23 +316,23 @@ contract RewardsController {
   function _updateData(
     address asset,
     Operation operation,
+    uint256 maturity,
     address user,
     uint256 userBalance,
     uint256 totalSupply
   ) internal {
     uint256 assetUnit;
-    uint256 numAvailableRewards = _assets[asset][operation].availableRewardsCount;
     unchecked {
-      assetUnit = 10 ** _assets[asset][operation].decimals;
+      assetUnit = 10 ** _assets[asset][operation][maturity].decimals;
     }
 
-    if (numAvailableRewards == 0) {
+    if (_assets[asset][operation][maturity].availableRewardsCount == 0) {
       return;
     }
     unchecked {
-      for (uint128 r = 0; r < numAvailableRewards; r++) {
-        address reward = _assets[asset][operation].availableRewards[r];
-        RewardData storage rewardData = _assets[asset][operation].rewards[reward];
+      for (uint128 r = 0; r < _assets[asset][operation][maturity].availableRewardsCount; r++) {
+        address reward = _assets[asset][operation][maturity].availableRewards[r];
+        RewardData storage rewardData = _assets[asset][operation][maturity].rewards[reward];
 
         (uint256 newAssetIndex, bool rewardDataUpdated) = _updateRewardData(rewardData, totalSupply, assetUnit);
 
@@ -340,6 +361,7 @@ contract RewardsController {
       _updateData(
         userAssetBalances[i].asset,
         userAssetBalances[i].operation,
+        userAssetBalances[i].maturity,
         user,
         userAssetBalances[i].userBalance,
         userAssetBalances[i].totalSupply
@@ -362,14 +384,16 @@ contract RewardsController {
     // Add unrealized rewards
     for (uint256 i = 0; i < userAssetBalances.length; i++) {
       if (userAssetBalances[i].userBalance == 0) {
-        unclaimedRewards += _assets[userAssetBalances[i].asset][userAssetBalances[i].operation]
-          .rewards[reward]
-          .usersData[user]
-          .accrued;
+        unclaimedRewards += _assets[userAssetBalances[i].asset][userAssetBalances[i].operation][
+          userAssetBalances[i].maturity
+        ].rewards[reward].usersData[user].accrued;
       } else {
         unclaimedRewards +=
           _getPendingRewards(user, reward, userAssetBalances[i]) +
-          _assets[userAssetBalances[i].asset][userAssetBalances[i].operation].rewards[reward].usersData[user].accrued;
+          _assets[userAssetBalances[i].asset][userAssetBalances[i].operation][userAssetBalances[i].maturity]
+            .rewards[reward]
+            .usersData[user]
+            .accrued;
       }
     }
 
@@ -388,8 +412,11 @@ contract RewardsController {
     address reward,
     UserAssetBalance memory userAssetBalance
   ) internal view returns (uint256) {
-    RewardData storage rewardData = _assets[userAssetBalance.asset][userAssetBalance.operation].rewards[reward];
-    uint256 assetUnit = 10 ** _assets[userAssetBalance.asset][userAssetBalance.operation].decimals;
+    RewardData storage rewardData = _assets[userAssetBalance.asset][userAssetBalance.operation][
+      userAssetBalance.maturity
+    ].rewards[reward];
+    uint256 assetUnit = 10 **
+      _assets[userAssetBalance.asset][userAssetBalance.operation][userAssetBalance.maturity].decimals;
     (, uint256 nextIndex) = _getAssetIndex(rewardData, userAssetBalance.totalSupply, assetUnit);
 
     return _getRewards(userAssetBalance.userBalance, nextIndex, rewardData.usersData[user].index, assetUnit);
@@ -451,8 +478,8 @@ contract RewardsController {
     return (oldIndex, (firstTerm + oldIndex));
   }
 
-  function getAssetDecimals(address asset, Operation operation) external view returns (uint8) {
-    return _assets[asset][operation].decimals;
+  function getAssetDecimals(address asset, Operation operation, uint256 maturity) external view returns (uint8) {
+    return _assets[asset][operation][maturity].decimals;
   }
 
   function configureAssets(RewardsConfigInput[] memory config) external onlyEmissionManager {
@@ -462,57 +489,66 @@ contract RewardsController {
     _configureAssets(config);
   }
 
-  function handleAction(Operation operation, address user, uint256 totalSupply, uint256 userBalance) external {
-    _updateData(msg.sender, operation, user, userBalance, totalSupply);
+  function handleAction(
+    Operation operation,
+    uint256 maturity,
+    address user,
+    uint256 totalSupply,
+    uint256 userBalance
+  ) external {
+    _updateData(msg.sender, operation, maturity, user, userBalance, totalSupply);
   }
 
   function claimAllRewards(
     address[] calldata assets,
-    Operation[] calldata operations,
+    OperationData[] calldata operations,
     address to
   ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
     require(to != address(0), "INVALID_TO_ADDRESS");
-    return _claimAllRewards(assets, operations, msg.sender, msg.sender, to);
+    return _claimAllRewards(assets, operations, msg.sender, to);
   }
 
   function claimAllRewardsToSelf(
     address[] calldata assets,
-    Operation[] calldata operations
+    OperationData[] calldata operations
   ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
-    return _claimAllRewards(assets, operations, msg.sender, msg.sender, msg.sender);
+    return _claimAllRewards(assets, operations, msg.sender, msg.sender);
   }
 
   function _claimAllRewards(
     address[] calldata assets,
-    Operation[] calldata operations,
-    address claimer,
+    OperationData[] calldata operations,
     address user,
     address to
   ) internal returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
-    uint256 rewardsListLength = _rewardsList.length;
-    rewardsList = new address[](rewardsListLength);
-    claimedAmounts = new uint256[](rewardsListLength);
+    rewardsList = new address[](_rewardsList.length);
+    claimedAmounts = new uint256[](_rewardsList.length);
 
     _updateDataMultiple(user, _getUserAssetBalances(assets, operations, user));
 
     for (uint256 i = 0; i < assets.length; i++) {
-      address asset = assets[i];
-      for (uint256 j = 0; j < rewardsListLength; j++) {
+      for (uint256 j = 0; j < _rewardsList.length; j++) {
         for (uint256 k = 0; k < operations.length; k++) {
           if (rewardsList[j] == address(0)) {
             rewardsList[j] = _rewardsList[j];
           }
-          uint256 rewardAmount = _assets[asset][operations[k]].rewards[rewardsList[j]].usersData[user].accrued;
+          uint256 rewardAmount = _assets[assets[i]][operations[k].operation][operations[k].maturity]
+            .rewards[rewardsList[j]]
+            .usersData[user]
+            .accrued;
           if (rewardAmount != 0) {
             claimedAmounts[j] += rewardAmount;
-            _assets[asset][operations[k]].rewards[rewardsList[j]].usersData[user].accrued = 0;
+            _assets[assets[i]][operations[k].operation][operations[k].maturity]
+              .rewards[rewardsList[j]]
+              .usersData[user]
+              .accrued = 0;
           }
         }
       }
     }
-    for (uint256 i = 0; i < rewardsListLength; i++) {
+    for (uint256 i = 0; i < _rewardsList.length; i++) {
       _transferRewards(to, rewardsList[i], claimedAmounts[i]);
-      emit RewardsClaimed(user, rewardsList[i], to, claimer, claimedAmounts[i]);
+      emit RewardsClaimed(user, rewardsList[i], to, claimedAmounts[i]);
     }
     return (rewardsList, claimedAmounts);
   }
@@ -525,31 +561,54 @@ contract RewardsController {
    */
   function _getUserAssetBalances(
     address[] calldata assets,
-    Operation[] calldata operations,
+    OperationData[] calldata operations,
     address user
   ) internal view returns (UserAssetBalance[] memory userAssetBalances) {
+    uint256 index = 0;
     userAssetBalances = new UserAssetBalance[](assets.length * operations.length);
     for (uint256 i = 0; i < assets.length; i++) {
       for (uint256 j = 0; j < operations.length; j++) {
-        if (operations[j] == Operation.FloatingDeposit) {
-          userAssetBalances[i + j] = UserAssetBalance({
+        if (operations[j].operation == Operation.FloatingDeposit) {
+          userAssetBalances[index] = UserAssetBalance({
             asset: assets[i],
-            operation: operations[j],
+            operation: operations[j].operation,
+            maturity: 0,
             userBalance: Market(assets[i]).balanceOf(user),
             totalSupply: Market(assets[i]).totalSupply()
           });
-        } else if (operations[j] == Operation.FloatingBorrow) {
+        } else if (operations[j].operation == Operation.FloatingBorrow) {
           (, , uint256 floatingBorrowShares) = Market(assets[i]).accounts(user);
-          userAssetBalances[i + j] = UserAssetBalance({
+          userAssetBalances[index] = UserAssetBalance({
             asset: assets[i],
-            operation: operations[j],
+            operation: operations[j].operation,
+            maturity: 0,
             userBalance: floatingBorrowShares,
             totalSupply: Market(assets[i]).totalFloatingBorrowShares()
           });
+        } else if (operations[j].operation == Operation.FixedDeposit) {
+          (uint256 principal, ) = Market(assets[i]).fixedDepositPositions(operations[j].maturity, user);
+          (, uint256 supplied, , ) = Market(assets[i]).fixedPools(operations[j].maturity);
+          userAssetBalances[index] = UserAssetBalance({
+            asset: assets[i],
+            operation: operations[j].operation,
+            maturity: operations[j].maturity,
+            userBalance: principal,
+            totalSupply: supplied
+          });
+        } else if (operations[j].operation == Operation.FixedBorrow) {
+          (uint256 principal, ) = Market(assets[i]).fixedBorrowPositions(operations[j].maturity, user);
+          (uint256 borrowed, , , ) = Market(assets[i]).fixedPools(operations[j].maturity);
+          userAssetBalances[index] = UserAssetBalance({
+            asset: assets[i],
+            operation: operations[j].operation,
+            maturity: operations[j].maturity,
+            userBalance: principal,
+            totalSupply: borrowed
+          });
         }
+        ++index;
       }
     }
-    return userAssetBalances;
   }
 
   /**
@@ -571,18 +630,25 @@ contract RewardsController {
     FixedBorrow
   }
 
+  struct OperationData {
+    Operation operation;
+    uint256 maturity;
+  }
+
   struct RewardsConfigInput {
     uint88 emissionPerSecond;
     uint256 totalSupply;
     uint32 distributionEnd;
     address asset;
     Operation operation;
+    uint256 maturity;
     address reward;
   }
 
   struct UserAssetBalance {
     address asset;
     Operation operation;
+    uint256 maturity;
     uint256 userBalance;
     uint256 totalSupply;
   }
@@ -634,11 +700,5 @@ contract RewardsController {
     uint256 newDistributionEnd,
     uint256 assetIndex
   );
-  event RewardsClaimed(
-    address indexed user,
-    address indexed reward,
-    address indexed to,
-    address claimer,
-    uint256 amount
-  );
+  event RewardsClaimed(address indexed user, address indexed reward, address indexed to, uint256 amount);
 }
