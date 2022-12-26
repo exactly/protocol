@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { Vm } from "forge-std/Vm.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Test, stdError } from "forge-std/Test.sol";
@@ -68,6 +67,8 @@ contract MarketTest is Test {
       0.42e18
     );
 
+    vm.label(address(market), "MarketDAI");
+    vm.label(address(marketWETH), "MarketWETH");
     auditor.enableMarket(market, daiPriceFeed, 0.8e18, 18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18, 18);
     auditor.enterMarket(marketWETH);
@@ -87,6 +88,15 @@ contract MarketTest is Test {
     weth.approve(address(marketWETH), type(uint256).max);
     vm.prank(ALICE);
     asset.approve(address(market), type(uint256).max);
+  }
+
+  function testRefreshSymbol() external {
+    vm.store(address(market), bytes32(uint256(202)), bytes32("eDAI") | bytes32(uint256(8)));
+    assertEq(market.symbol(), "eDAI");
+
+    market.refreshSymbol();
+
+    assertEq(market.symbol(), "exaDAI");
   }
 
   function testDepositToSmartPool() external {

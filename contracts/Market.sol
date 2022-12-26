@@ -107,7 +107,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     string memory assetSymbol = asset.symbol();
     name = string.concat("exactly ", assetSymbol);
-    symbol = string.concat("e", assetSymbol);
+    symbol = string.concat("exa", assetSymbol);
     lastAccumulatorAccrual = uint32(block.timestamp);
     lastFloatingDebtUpdate = uint32(block.timestamp);
     lastAverageUpdate = uint32(block.timestamp);
@@ -121,6 +121,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     setBackupFeeRate(backupFeeRate_);
     setReserveFactor(reserveFactor_);
     setDampSpeed(dampSpeedUp_, dampSpeedDown_);
+  }
+
+  function refreshSymbol() external {
+    symbol = string.concat("exa", asset.symbol());
   }
 
   /// @notice Borrows a certain amount from the floating pool.
