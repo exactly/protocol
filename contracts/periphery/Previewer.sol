@@ -277,23 +277,34 @@ contract Previewer {
     Market market,
     uint256 maturity,
     uint256 positionAssets,
-    address
-  ) public view returns (uint256 withdrawAssets) {
-    if (block.timestamp >= maturity) return positionAssets;
-
+    address owner
+  ) public view returns (FixedPreview memory) {
     FixedLib.Pool memory pool;
     (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
+    FixedLib.Position memory position;
+    (position.principal, position.fee) = market.fixedDepositPositions(maturity, owner);
+    uint256 principal = position.scaleProportionally(positionAssets).principal;
+    uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
 
-    withdrawAssets = positionAssets.divWadDown(
-      1e18 +
-        market.interestRateModel().fixedBorrowRate(
-          maturity,
-          positionAssets,
-          pool.borrowed,
-          pool.supplied,
-          market.previewFloatingAssetsAverage()
-        )
-    );
+    return
+      FixedPreview({
+        maturity: maturity,
+        assets: block.timestamp < maturity
+          ? positionAssets.divWadDown(
+            1e18 +
+              market.interestRateModel().fixedBorrowRate(
+                maturity,
+                positionAssets,
+                pool.borrowed,
+                pool.supplied,
+                memFloatingAssetsAverage
+              )
+          )
+          : positionAssets,
+        utilization: memFloatingAssetsAverage > 0
+          ? pool.borrowed.divWadUp(pool.supplied + memFloatingAssetsAverage - principal)
+          : 0
+      });
   }
 
   /// @notice Gets the assets that will be repaid when repaying a certain amount at the current maturity.
@@ -307,15 +318,24 @@ contract Previewer {
     uint256 maturity,
     uint256 positionAssets,
     address borrower
-  ) public view returns (uint256 repayAssets) {
-    if (block.timestamp >= maturity) {
-      return positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
-    }
-
+  ) public view returns (FixedPreview memory) {
+    FixedLib.Pool memory pool;
+    (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
     FixedLib.Position memory position;
     (position.principal, position.fee) = market.fixedBorrowPositions(maturity, borrower);
+    uint256 principal = position.scaleProportionally(positionAssets).principal;
+    uint256 memFloatingAssetsAverage = market.previewFloatingAssetsAverage();
 
-    return positionAssets - fixedDepositYield(market, maturity, position.scaleProportionally(positionAssets).principal);
+    return
+      FixedPreview({
+        maturity: maturity,
+        assets: block.timestamp < maturity
+          ? positionAssets - fixedDepositYield(market, maturity, principal)
+          : positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate()),
+        utilization: memFloatingAssetsAverage > 0
+          ? (pool.borrowed - principal).divWadUp(pool.supplied + memFloatingAssetsAverage)
+          : 0
+      });
   }
 
   function fixedPools(Market market) internal view returns (FixedPool[] memory pools) {
@@ -370,7 +390,7 @@ contract Previewer {
     address account,
     uint256 packedMaturities,
     function(uint256, address) external view returns (uint256, uint256) getPosition,
-    function(Market, uint256, uint256, address) external view returns (uint256) previewValue
+    function(Market, uint256, uint256, address) external view returns (FixedPreview memory) previewValue
   ) internal view returns (FixedPosition[] memory userMaturityPositions) {
     uint256 userMaturityCount = 0;
     FixedPosition[] memory allMaturityPositions = new FixedPosition[](224);
@@ -384,8 +404,8 @@ contract Previewer {
           positionAssets = principal + fee;
           allMaturityPositions[userMaturityCount].position = FixedLib.Position(principal, fee);
         }
-        try previewValue(market, maturity, positionAssets, account) returns (uint256 assets) {
-          allMaturityPositions[userMaturityCount].previewValue = assets;
+        try previewValue(market, maturity, positionAssets, account) returns (FixedPreview memory fixedPreview) {
+          allMaturityPositions[userMaturityCount].previewValue = fixedPreview.assets;
         } catch {
           allMaturityPositions[userMaturityCount].previewValue = positionAssets;
         }

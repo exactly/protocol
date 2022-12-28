@@ -64,8 +64,7 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
 
     vm.warp(3 days);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewDepositAtMaturity(market, maturity, 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, maturity, 1 ether);
     market.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
     (uint256 principalAfterDeposit, uint256 earningsAfterDeposit) = market.fixedDepositPositions(
       maturity,
@@ -122,8 +121,7 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
 
     vm.warp(3 days);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewDepositAtMaturity(market, maturity, 0);
+    Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, maturity, 0);
 
     assertEq(preview.assets, 0);
   }
@@ -135,8 +133,7 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
 
     vm.warp(3 days);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewDepositAtMaturity(market, maturity, 1);
+    Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, maturity, 1);
 
     assertEq(preview.assets, 1);
   }
@@ -151,8 +148,7 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(maturity, 2.3 ether, 3 ether, address(this), address(this));
 
     vm.warp(3 days);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewDepositAtMaturity(market, maturity, 0.47 ether);
+    Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, maturity, 0.47 ether);
     market.depositAtMaturity(maturity, 0.47 ether, 0.47 ether, address(this));
     (uint256 principalAfterDeposit, uint256 earningsAfterDeposit) = market.fixedDepositPositions(
       maturity,
@@ -174,28 +170,24 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewDepositAtMaturityWithEmptyMaturity() external {
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewDepositAtMaturity(market, FixedLib.INTERVAL, 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, FixedLib.INTERVAL, 1 ether);
     assertEq(preview.assets, 1 ether);
   }
 
   function testPreviewDepositAtMaturityWithEmptyMaturityAndZeroAmount() external {
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewDepositAtMaturity(market, FixedLib.INTERVAL, 0);
+    Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, FixedLib.INTERVAL, 0);
     assertEq(preview.assets, 0);
   }
 
   function testPreviewDepositAtMaturityWithInvalidMaturity() external {
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewDepositAtMaturity(market, 376 seconds, 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, 376 seconds, 1 ether);
     assertEq(preview.assets, 1 ether);
   }
 
   function testPreviewDepositAtMaturityWithSameTimestamp() external {
     uint256 maturity = FixedLib.INTERVAL;
     vm.warp(maturity);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewDepositAtMaturity(market, maturity, 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewDepositAtMaturity(market, maturity, 1 ether);
     assertEq(preview.assets, 1 ether);
   }
 
@@ -261,8 +253,7 @@ contract PreviewerTest is Test {
     uint256 maturity = FixedLib.INTERVAL;
     market.deposit(10 ether, address(this));
     vm.warp(180 seconds);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewBorrowAtMaturity(market, maturity, 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, maturity, 1 ether);
     market.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
     (uint256 principalAfterBorrow, uint256 feesAfterBorrow) = market.fixedBorrowPositions(maturity, address(this));
 
@@ -273,8 +264,7 @@ contract PreviewerTest is Test {
     uint256 maturity = FixedLib.INTERVAL;
     market.deposit(10 ether, address(this));
     vm.warp(180 seconds);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewBorrowAtMaturity(market, maturity, 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, maturity, 1 ether);
     assertEq(preview.utilization, uint256(1 ether).divWadUp(previewFloatingAssetsAverage()));
 
     market.depositAtMaturity(maturity, 1.47 ether, 1.47 ether, address(this));
@@ -287,8 +277,7 @@ contract PreviewerTest is Test {
   function testPreviewBorrowAtMaturityWithZeroAmount() external {
     market.deposit(10 ether, address(this));
     vm.warp(5 seconds);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewBorrowAtMaturity(market, FixedLib.INTERVAL, 0);
+    Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, FixedLib.INTERVAL, 0);
     assertEq(preview.assets, 0);
   }
 
@@ -296,8 +285,7 @@ contract PreviewerTest is Test {
     market.deposit(5 ether, address(this));
     vm.warp(100 seconds);
     market.deposit(5 ether, address(this));
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewBorrowAtMaturity(market, FixedLib.INTERVAL, 1);
+    Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, FixedLib.INTERVAL, 1);
     assertEq(preview.assets, 1);
   }
 
@@ -305,8 +293,7 @@ contract PreviewerTest is Test {
     market.deposit(5 ether, address(this));
     vm.warp(100 seconds);
     market.deposit(5 ether, address(this));
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewBorrowAtMaturity(market, FixedLib.INTERVAL, 5);
+    Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, FixedLib.INTERVAL, 5);
     assertEq(preview.assets, 5);
   }
 
@@ -317,8 +304,7 @@ contract PreviewerTest is Test {
     market.deposit(50 ether, ALICE);
 
     vm.warp(2 days);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewBorrowAtMaturity(market, maturity, 2.3 ether);
+    Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, maturity, 2.3 ether);
     market.borrowAtMaturity(maturity, 2.3 ether, 3 ether, address(this), address(this));
     (uint256 principalAfterBorrow, uint256 feesAfterBorrow) = market.fixedBorrowPositions(maturity, address(this));
     assertEq(preview.assets, principalAfterBorrow + feesAfterBorrow);
@@ -344,8 +330,7 @@ contract PreviewerTest is Test {
   function testPreviewBorrowAtMaturityWithInvalidMaturity() external {
     market.deposit(10 ether, address(this));
     vm.warp(100 seconds);
-    Previewer.FixedPreview memory preview;
-    preview = previewer.previewBorrowAtMaturity(market, 376 seconds, 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewBorrowAtMaturity(market, 376 seconds, 1 ether);
     assertGe(preview.assets, 1 ether);
   }
 
@@ -374,12 +359,12 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(maturity, 2 ether, 3 ether, BOB, BOB);
 
     vm.warp(3 days);
-    uint256 repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, 1 ether, address(this));
+    Previewer.FixedPreview memory preview = previewer.previewRepayAtMaturity(market, maturity, 1 ether, address(this));
     uint256 balanceBeforeRepay = asset.balanceOf(address(this));
     market.repayAtMaturity(maturity, 1 ether, 1 ether, address(this));
     uint256 discountAfterRepay = 1 ether - (balanceBeforeRepay - asset.balanceOf(address(this)));
 
-    assertEq(repayAssetsPreviewed, 1 ether - discountAfterRepay);
+    assertEq(preview.assets, 1 ether - discountAfterRepay);
   }
 
   function testPreviewRepayAtMaturityWithZeroAmount() external {
@@ -387,11 +372,10 @@ contract PreviewerTest is Test {
     market.deposit(10 ether, address(this));
     vm.warp(100 seconds);
     market.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
-
     vm.warp(3 days);
-    uint256 repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, 0, address(this));
 
-    assertEq(repayAssetsPreviewed, 0);
+    Previewer.FixedPreview memory preview = previewer.previewRepayAtMaturity(market, maturity, 0, address(this));
+    assertEq(preview.assets, 0);
   }
 
   function testPreviewRepayAtMaturityWithOneUnit() external {
@@ -401,7 +385,8 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
     vm.warp(3 days);
 
-    assertEq(previewer.previewRepayAtMaturity(market, maturity, 1, address(this)), 1);
+    Previewer.FixedPreview memory preview = previewer.previewRepayAtMaturity(market, maturity, 1, address(this));
+    assertEq(preview.assets, 1);
   }
 
   function testPreviewRepayAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
@@ -416,29 +401,34 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(maturity, 2.3 ether, 3 ether, BOB, BOB);
 
     vm.warp(3 days);
-    uint256 repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, 0.47 ether, address(this));
+    Previewer.FixedPreview memory preview = previewer.previewRepayAtMaturity(
+      market,
+      maturity,
+      0.47 ether,
+      address(this)
+    );
     uint256 balanceBeforeRepay = asset.balanceOf(address(this));
     market.repayAtMaturity(maturity, 0.47 ether, 0.47 ether, address(this));
     uint256 discountAfterRepay = 0.47 ether - (balanceBeforeRepay - asset.balanceOf(address(this)));
-    assertEq(repayAssetsPreviewed, 0.47 ether - discountAfterRepay);
+    assertEq(preview.assets, 0.47 ether - discountAfterRepay);
 
     vm.warp(5 days);
-    repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, 1.1 ether, address(this));
+    preview = previewer.previewRepayAtMaturity(market, maturity, 1.1 ether, address(this));
     balanceBeforeRepay = asset.balanceOf(address(this));
     market.repayAtMaturity(maturity, 1.1 ether, 1.1 ether, address(this));
     discountAfterRepay = 1.1 ether - (balanceBeforeRepay - asset.balanceOf(address(this)));
-    assertEq(repayAssetsPreviewed, 1.1 ether - discountAfterRepay);
+    assertEq(preview.assets, 1.1 ether - discountAfterRepay);
 
     vm.warp(6 days);
     (uint256 bobOwedPrincipal, uint256 bobOwedFee) = market.fixedBorrowPositions(maturity, BOB);
     uint256 totalOwedBob = bobOwedPrincipal + bobOwedFee;
-    repayAssetsPreviewed = previewer.previewRepayAtMaturity(market, maturity, totalOwedBob, BOB);
+    preview = previewer.previewRepayAtMaturity(market, maturity, totalOwedBob, BOB);
     balanceBeforeRepay = asset.balanceOf(BOB);
     vm.prank(BOB);
     market.repayAtMaturity(maturity, totalOwedBob, totalOwedBob, BOB);
     discountAfterRepay = totalOwedBob - (balanceBeforeRepay - asset.balanceOf(BOB));
     (bobOwedPrincipal, ) = market.fixedBorrowPositions(maturity, BOB);
-    assertEq(repayAssetsPreviewed, totalOwedBob - discountAfterRepay);
+    assertEq(preview.assets, totalOwedBob - discountAfterRepay);
     assertEq(bobOwedPrincipal, 0);
   }
 
@@ -595,19 +585,19 @@ contract PreviewerTest is Test {
       address(this)
     );
     vm.warp(4 days + 20 minutes + 69 seconds);
-    uint256 firstMaturityPreviewWithdraw = previewer.previewWithdrawAtMaturity(
+    Previewer.FixedPreview memory firstMaturityPreviewWithdraw = previewer.previewWithdrawAtMaturity(
       market,
       FixedLib.INTERVAL,
       firstMaturitySupplyPrincipal + firstMaturitySupplyFee,
-      address(0)
+      address(this)
     );
-    uint256 secondMaturityPreviewWithdraw = previewer.previewWithdrawAtMaturity(
+    Previewer.FixedPreview memory secondMaturityPreviewWithdraw = previewer.previewWithdrawAtMaturity(
       market,
       FixedLib.INTERVAL * 2,
       secondMaturitySupplyPrincipal + secondMaturitySupplyFee,
-      address(0)
+      address(this)
     );
-    uint256 firstMaturityPreviewRepay = previewer.previewRepayAtMaturity(
+    Previewer.FixedPreview memory firstMaturityPreviewRepay = previewer.previewRepayAtMaturity(
       market,
       FixedLib.INTERVAL,
       firstMaturityBorrowPrincipal + firstMaturityBorrowFee,
@@ -618,17 +608,17 @@ contract PreviewerTest is Test {
     assertEq(data[0].fixedDepositPositions[0].maturity, FixedLib.INTERVAL);
     assertEq(data[0].fixedDepositPositions[0].position.principal, firstMaturitySupplyPrincipal);
     assertEq(data[0].fixedDepositPositions[0].position.fee, firstMaturitySupplyFee);
-    assertEq(data[0].fixedDepositPositions[0].previewValue, firstMaturityPreviewWithdraw);
+    assertEq(data[0].fixedDepositPositions[0].previewValue, firstMaturityPreviewWithdraw.assets);
     assertEq(data[0].fixedDepositPositions[1].maturity, FixedLib.INTERVAL * 2);
     assertEq(data[0].fixedDepositPositions[1].position.principal, secondMaturitySupplyPrincipal);
     assertEq(data[0].fixedDepositPositions[1].position.fee, secondMaturitySupplyFee);
-    assertEq(data[0].fixedDepositPositions[1].previewValue, secondMaturityPreviewWithdraw);
+    assertEq(data[0].fixedDepositPositions[1].previewValue, secondMaturityPreviewWithdraw.assets);
     assertEq(data[0].fixedDepositPositions.length, 2);
 
     assertEq(data[0].fixedBorrowPositions[0].maturity, FixedLib.INTERVAL);
     assertEq(data[0].fixedBorrowPositions[0].position.principal, firstMaturityBorrowPrincipal);
     assertEq(data[0].fixedBorrowPositions[0].position.fee, firstMaturityBorrowFee);
-    assertEq(data[0].fixedBorrowPositions[0].previewValue, firstMaturityPreviewRepay);
+    assertEq(data[0].fixedBorrowPositions[0].previewValue, firstMaturityPreviewRepay.assets);
     assertEq(data[0].fixedBorrowPositions.length, 1);
 
     vm.warp(FixedLib.INTERVAL + 5 days);
@@ -993,18 +983,26 @@ contract PreviewerTest is Test {
   }
 
   function testPreviewRepayAtMaturityWithSameTimestamp() external {
+    market.deposit(10 ether, address(this));
+    vm.warp(9011);
     uint256 maturity = FixedLib.INTERVAL;
+    uint256 assets = market.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
     vm.warp(maturity);
 
-    assertEq(previewer.previewRepayAtMaturity(market, maturity, 1 ether, address(this)), 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewRepayAtMaturity(market, maturity, assets, address(this));
+    assertEq(preview.assets, assets);
   }
 
   function testPreviewRepayAtMaturityWithMaturedMaturity() external {
+    market.deposit(10 ether, address(this));
+    vm.warp(9011);
     uint256 maturity = FixedLib.INTERVAL;
+    uint256 assets = market.borrowAtMaturity(maturity, 1 ether, 2 ether, address(this), address(this));
     vm.warp(maturity + 100);
-    uint256 penalties = uint256(1 ether).mulWadDown(100 * market.penaltyRate());
+    uint256 penalties = assets.mulWadDown(100 * market.penaltyRate());
 
-    assertEq(previewer.previewRepayAtMaturity(market, maturity, 1 ether, address(this)), 1 ether + penalties);
+    Previewer.FixedPreview memory preview = previewer.previewRepayAtMaturity(market, maturity, assets, address(this));
+    assertEq(preview.assets, assets + penalties);
   }
 
   function testPreviewWithdrawAtMaturityReturningAccurateAmount() external {
@@ -1012,12 +1010,17 @@ contract PreviewerTest is Test {
     market.depositAtMaturity(maturity, 10 ether, 10 ether, address(this));
 
     vm.warp(3 days);
-    uint256 withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, 10 ether, address(0));
+    Previewer.FixedPreview memory preview = previewer.previewWithdrawAtMaturity(
+      market,
+      maturity,
+      10 ether,
+      address(this)
+    );
     uint256 balanceBeforeWithdraw = asset.balanceOf(address(this));
     market.withdrawAtMaturity(maturity, 10 ether, 0.9 ether, address(this), address(this));
     uint256 feeAfterWithdraw = 10 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
 
-    assertEq(withdrawAssetsPreviewed, 10 ether - feeAfterWithdraw);
+    assertEq(preview.assets, 10 ether - feeAfterWithdraw);
   }
 
   function testPreviewWithdrawAtMaturityWithZeroAmount() external {
@@ -1025,7 +1028,8 @@ contract PreviewerTest is Test {
     market.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
 
     vm.warp(3 days);
-    assertEq(previewer.previewWithdrawAtMaturity(market, maturity, 0, address(0)), 0);
+    Previewer.FixedPreview memory preview = previewer.previewWithdrawAtMaturity(market, maturity, 0, address(this));
+    assertEq(preview.assets, 0);
   }
 
   function testPreviewWithdrawAtMaturityWithOneUnit() external {
@@ -1033,9 +1037,9 @@ contract PreviewerTest is Test {
     market.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
 
     vm.warp(3 days);
-    uint256 feesPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, 1, address(0));
+    Previewer.FixedPreview memory preview = previewer.previewWithdrawAtMaturity(market, maturity, 1, address(this));
 
-    assertEq(feesPreviewed, 1 - 1);
+    assertEq(preview.assets, 1 - 1);
   }
 
   function testPreviewWithdrawAtMaturityWithFiveUnits() external {
@@ -1043,9 +1047,9 @@ contract PreviewerTest is Test {
     market.depositAtMaturity(maturity, 1 ether, 1 ether, address(this));
 
     vm.warp(3 days);
-    uint256 feesPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, 5, address(0));
+    Previewer.FixedPreview memory preview = previewer.previewWithdrawAtMaturity(market, maturity, 5, address(this));
 
-    assertEq(feesPreviewed, 5 - 1);
+    assertEq(preview.assets, 5 - 1);
   }
 
   function testPreviewWithdrawAtMaturityReturningAccurateAmountWithIntermediateOperations() external {
@@ -1059,18 +1063,23 @@ contract PreviewerTest is Test {
     market.borrowAtMaturity(maturity, 2.3 ether, 3 ether, BOB, BOB);
 
     vm.warp(3 days);
-    uint256 withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, 0.47 ether, address(0));
+    Previewer.FixedPreview memory preview = previewer.previewWithdrawAtMaturity(
+      market,
+      maturity,
+      0.47 ether,
+      address(this)
+    );
     uint256 balanceBeforeWithdraw = asset.balanceOf(address(this));
     market.withdrawAtMaturity(maturity, 0.47 ether, 0.4 ether, address(this), address(this));
     uint256 feeAfterWithdraw = 0.47 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
-    assertEq(withdrawAssetsPreviewed, 0.47 ether - feeAfterWithdraw);
+    assertEq(preview.assets, 0.47 ether - feeAfterWithdraw);
 
     vm.warp(5 days);
-    withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, 1.1 ether, address(0));
+    preview = previewer.previewWithdrawAtMaturity(market, maturity, 1.1 ether, address(this));
     balanceBeforeWithdraw = asset.balanceOf(address(this));
     market.withdrawAtMaturity(maturity, 1.1 ether, 1 ether, address(this), address(this));
     feeAfterWithdraw = 1.1 ether - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
-    assertEq(withdrawAssetsPreviewed, 1.1 ether - feeAfterWithdraw);
+    assertEq(preview.assets, 1.1 ether - feeAfterWithdraw);
 
     vm.warp(6 days);
     (uint256 contractPositionPrincipal, uint256 contractPositionEarnings) = market.fixedDepositPositions(
@@ -1078,41 +1087,56 @@ contract PreviewerTest is Test {
       address(this)
     );
     uint256 contractPosition = contractPositionPrincipal + contractPositionEarnings;
-    withdrawAssetsPreviewed = previewer.previewWithdrawAtMaturity(market, maturity, contractPosition, address(0));
+    preview = previewer.previewWithdrawAtMaturity(market, maturity, contractPosition, address(this));
     balanceBeforeWithdraw = asset.balanceOf(address(this));
     market.withdrawAtMaturity(maturity, contractPosition, contractPosition - 1 ether, address(this), address(this));
     feeAfterWithdraw = contractPosition - (asset.balanceOf(address(this)) - balanceBeforeWithdraw);
     (contractPositionPrincipal, ) = market.fixedDepositPositions(maturity, address(this));
 
-    assertEq(withdrawAssetsPreviewed, contractPosition - feeAfterWithdraw);
+    assertEq(preview.assets, contractPosition - feeAfterWithdraw);
   }
 
   function testPreviewWithdrawAtMaturityWithEmptyMaturity() external {
     vm.expectRevert(bytes(""));
-    previewer.previewWithdrawAtMaturity(market, FixedLib.INTERVAL, 1 ether, address(0));
+    previewer.previewWithdrawAtMaturity(market, FixedLib.INTERVAL, 1 ether, address(this));
   }
 
   function testPreviewWithdrawAtMaturityWithEmptyMaturityAndZeroAmount() external {
     vm.expectRevert(bytes(""));
-    previewer.previewWithdrawAtMaturity(market, FixedLib.INTERVAL, 0, address(0));
+    previewer.previewWithdrawAtMaturity(market, FixedLib.INTERVAL, 0, address(this));
   }
 
   function testPreviewWithdrawAtMaturityWithInvalidMaturity() external {
     vm.expectRevert(bytes(""));
-    previewer.previewWithdrawAtMaturity(market, 376 seconds, 1 ether, address(0));
+    previewer.previewWithdrawAtMaturity(market, 376 seconds, 1 ether, address(this));
   }
 
   function testPreviewWithdrawAtMaturityWithSameTimestamp() external {
     uint256 maturity = FixedLib.INTERVAL;
+    uint256 assets = market.depositAtMaturity(maturity, 1 ether, 0, address(this));
     vm.warp(maturity);
 
-    assertEq(previewer.previewWithdrawAtMaturity(market, maturity, 1 ether, address(0)), 1 ether);
+    Previewer.FixedPreview memory preview = previewer.previewWithdrawAtMaturity(
+      market,
+      maturity,
+      assets,
+      address(this)
+    );
+    assertEq(preview.assets, assets);
   }
 
   function testPreviewWithdrawAtMaturityWithMaturedMaturity() external {
     uint256 maturity = FixedLib.INTERVAL;
+    uint256 assets = market.depositAtMaturity(maturity, 1 ether, 0, address(this));
     vm.warp(maturity + 1);
-    assertEq(previewer.previewWithdrawAtMaturity(market, maturity, 1 ether, address(0)), 1 ether);
+
+    Previewer.FixedPreview memory preview = previewer.previewWithdrawAtMaturity(
+      market,
+      maturity,
+      assets,
+      address(this)
+    );
+    assertEq(preview.assets, assets);
   }
 
   function testAccountsReturningAccurateAmounts() external {
