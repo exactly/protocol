@@ -36,6 +36,8 @@ contract Previewer {
     uint256 adjustFactor;
     uint8 maxFuturePools;
     FixedPool[] fixedPools;
+    uint256 floatingBorrowRate;
+    uint256 floatingUtilization;
     uint256 floatingBackupBorrowed;
     uint256 floatingAvailableAssets;
     uint256 totalFloatingBorrowAssets;
@@ -105,11 +107,11 @@ contract Previewer {
     data = new MarketAccount[](maxValue);
     for (uint256 i = 0; i < maxValue; ++i) {
       Market market = auditor.marketList(i);
-      IRM irm = market.interestRateModel();
       Market.Account memory a;
       Auditor.MarketData memory m;
-      (m.adjustFactor, m.decimals, m.index, m.isListed, m.priceFeed) = auditor.markets(market);
       (a.fixedDeposits, a.fixedBorrows, a.floatingBorrowShares) = market.accounts(account);
+      (m.adjustFactor, m.decimals, m.index, m.isListed, m.priceFeed) = auditor.markets(market);
+      IRM irm = market.interestRateModel();
       data[i] = MarketAccount({
         // market
         market: market,
@@ -132,10 +134,17 @@ contract Previewer {
         adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
         fixedPools: fixedPools(market),
+        floatingBorrowRate: irm.floatingBorrowRate(
+          market.floatingUtilization(),
+          market.floatingAssets() > 0 ? Math.min(market.floatingDebt().divWadUp(market.floatingAssets()), 1e18) : 0
+        ),
+        floatingUtilization: market.floatingAssets() > 0
+          ? Math.min(market.floatingDebt().divWadUp(market.floatingAssets()), 1e18)
+          : 0,
         floatingBackupBorrowed: market.floatingBackupBorrowed(),
         floatingAvailableAssets: floatingAvailableAssets(market),
-        totalFloatingDepositAssets: market.totalAssets(),
         totalFloatingBorrowAssets: market.totalFloatingBorrowAssets(),
+        totalFloatingDepositAssets: market.totalAssets(),
         totalFloatingBorrowShares: market.totalFloatingBorrowShares(),
         totalFloatingDepositShares: market.totalSupply(),
         // account

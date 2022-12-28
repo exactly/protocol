@@ -564,6 +564,15 @@ contract PreviewerTest is Test {
     assertEq(data[1].fixedPools[1].utilization, 0.004 ether);
   }
 
+  function testFloatingRateAndUtilization() external {
+    auditor.enterMarket(market);
+    market.deposit(100 ether, address(this));
+    market.borrow(64 ether, address(this), address(this));
+    Previewer.MarketAccount[] memory exactly = previewer.exactly(address(this));
+    assertEq(exactly[0].floatingBorrowRate, 760818840466236380);
+    assertEq(exactly[0].floatingUtilization, 0.64e18);
+  }
+
   function testPreviewValueInFixedOperations() external {
     market.deposit(100 ether, address(this));
     vm.warp(1 days);
