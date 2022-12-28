@@ -63,14 +63,6 @@ contract Previewer {
     uint256 floatingMaxUtilization;
   }
 
-  struct FixedMarket {
-    Market market;
-    uint8 decimals;
-    uint256 assets;
-    FixedPreview[] deposits;
-    FixedPreview[] borrows;
-  }
-
   struct FixedPosition {
     uint256 maturity;
     uint256 previewValue;
