@@ -28,6 +28,7 @@ contract Previewer {
     string symbol;
     uint8 decimals;
     address asset;
+    string assetName;
     string assetSymbol;
     InterestRateModel interestRateModel;
     uint256 usdPrice;
@@ -123,6 +124,7 @@ contract Previewer {
         symbol: market.symbol(),
         decimals: m.decimals,
         asset: address(market.asset()),
+        assetName: market.asset().name(),
         assetSymbol: market.asset().symbol(),
         interestRateModel: InterestRateModel({
           id: address(irm),

@@ -30,7 +30,7 @@ contract PreviewerTest is Test {
   InterestRateModel internal irm;
 
   function setUp() external {
-    asset = new MockERC20("DAI", "DAI", 18);
+    asset = new MockERC20("Dai Stablecoin", "DAI", 18);
     ethPriceFeed = new MockPriceFeed(8, 1_000e8);
     daiPriceFeed = new MockPriceFeed(18, 1e18);
 
@@ -1253,6 +1253,7 @@ contract PreviewerTest is Test {
 
     assertEq(data[0].symbol, market.symbol());
     assertEq(data[0].asset, address(market.asset()));
+    assertEq(data[0].assetName, market.asset().name());
     assertEq(data[0].assetSymbol, market.asset().symbol());
     assertEq(data[0].floatingDepositAssets, market.convertToAssets(market.balanceOf(address(this))));
     assertEq(data[0].floatingDepositShares, market.balanceOf(address(this)));
@@ -1345,6 +1346,7 @@ contract PreviewerTest is Test {
     assertEq(data[0].symbol, market.symbol());
     assertEq(data[0].asset, address(market.asset()));
     assertEq(data[0].assetSymbol, "DAI");
+    assertEq(data[0].assetName, "Dai Stablecoin");
     assertEq(data[0].floatingDepositAssets, 0);
     assertEq(data[0].floatingDepositShares, 0);
     assertEq(data[0].totalFloatingBorrowShares, 0);
