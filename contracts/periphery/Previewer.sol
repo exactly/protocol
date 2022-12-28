@@ -193,9 +193,7 @@ contract Previewer {
       FixedPreview({
         maturity: maturity,
         assets: assets + fixedDepositYield(market, maturity, assets),
-        utilization: memFloatingAssetsAverage > 0
-          ? (borrowed + assets).divWadUp(supplied + memFloatingAssetsAverage)
-          : 0
+        utilization: memFloatingAssetsAverage > 0 ? borrowed.divWadUp(supplied + assets + memFloatingAssetsAverage) : 0
       });
   }
 
