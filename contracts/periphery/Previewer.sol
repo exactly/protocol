@@ -134,8 +134,7 @@ contract Previewer {
         adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
         fixedPools: fixedPools(market),
-        floatingBorrowRate: irm.floatingBorrowRate(
-          market.floatingUtilization(),
+        floatingBorrowRate: irm.floatingRate(
           market.floatingAssets() > 0 ? Math.min(market.floatingDebt().divWadUp(market.floatingAssets()), 1e18) : 0
         ),
         floatingUtilization: market.floatingAssets() > 0
@@ -443,12 +442,12 @@ contract Previewer {
   function newFloatingDebt(Market market) internal view returns (uint256) {
     uint256 memFloatingDebt = market.floatingDebt();
     uint256 memFloatingAssets = market.floatingAssets();
-    uint256 newFloatingUtilization = memFloatingAssets > 0
+    uint256 floatingUtilization = memFloatingAssets > 0
       ? Math.min(memFloatingDebt.divWadUp(memFloatingAssets), 1e18)
       : 0;
     return
       memFloatingDebt.mulWadDown(
-        market.interestRateModel().floatingBorrowRate(market.floatingUtilization(), newFloatingUtilization).mulDivDown(
+        market.interestRateModel().floatingRate(floatingUtilization).mulDivDown(
           block.timestamp - market.lastFloatingDebtUpdate(),
           365 days
         )

@@ -8,7 +8,7 @@ contract MockInterestRateModel {
     borrowRate = borrowRate_;
   }
 
-  function floatingBorrowRate(uint256, uint256) external view returns (uint256) {
+  function floatingRate(uint256) external view returns (uint256) {
     return borrowRate;
   }
 

@@ -578,7 +578,7 @@ contract PreviewerTest is Test {
     market.deposit(100 ether, address(this));
     market.borrow(64 ether, address(this), address(this));
     Previewer.MarketAccount[] memory exactly = previewer.exactly(address(this));
-    assertEq(exactly[0].floatingBorrowRate, 760818840466236380);
+    assertEq(exactly[0].floatingBorrowRate, 1345217391304347826);
     assertEq(exactly[0].floatingUtilization, 0.64e18);
   }
 

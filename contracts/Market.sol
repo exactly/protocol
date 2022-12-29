@@ -75,8 +75,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Total amount of floating borrow shares assigned to floating borrow accounts.
   uint256 public totalFloatingBorrowShares;
-  /// @notice Current floating utilization used to get the new floating borrow rate.
-  uint256 public floatingUtilization;
+
+  /// @dev gap from deprecated state.
+  uint256 private __gap;
 
   /// @notice Address of the treasury that will receive the allocated earnings.
   address public treasury;
@@ -844,21 +845,17 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function updateFloatingDebt() internal returns (uint256 treasuryFee) {
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
-    uint256 newFloatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
+    uint256 floatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
-      interestRateModel.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
-        block.timestamp - lastFloatingDebtUpdate,
-        365 days
-      )
+      interestRateModel.floatingRate(floatingUtilization).mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
     );
 
     memFloatingDebt += newDebt;
     treasuryFee = newDebt.mulWadDown(treasuryFeeRate);
     floatingAssets = memFloatingAssets + newDebt - treasuryFee;
     floatingDebt = memFloatingDebt;
-    floatingUtilization = newFloatingUtilization;
     lastFloatingDebtUpdate = uint32(block.timestamp);
-    emit FloatingDebtUpdate(block.timestamp, newFloatingUtilization);
+    emit FloatingDebtUpdate(block.timestamp, floatingUtilization);
   }
 
   /// @notice Calculates the total floating debt, considering elapsed time since last update and current interest rate.
@@ -866,12 +863,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function totalFloatingBorrowAssets() public view returns (uint256) {
     uint256 memFloatingDebt = floatingDebt;
     uint256 memFloatingAssets = floatingAssets;
-    uint256 newFloatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
+    uint256 floatingUtilization = memFloatingAssets > 0 ? memFloatingDebt.divWadUp(memFloatingAssets) : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
-      interestRateModel.floatingBorrowRate(floatingUtilization, newFloatingUtilization).mulDivDown(
-        block.timestamp - lastFloatingDebtUpdate,
-        365 days
-      )
+      interestRateModel.floatingRate(floatingUtilization).mulDivDown(block.timestamp - lastFloatingDebtUpdate, 365 days)
     );
     return memFloatingDebt + newDebt;
   }
