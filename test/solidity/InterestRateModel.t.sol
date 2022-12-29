@@ -31,27 +31,14 @@ contract InterestRateModelTest is Test {
   }
 
   function testFloatingBorrowRate() external {
-    uint256 smartPoolFloatingBorrows = 50 ether;
+    uint256 floatingDebt = 50 ether;
     uint256 floatingAssets = 100 ether;
-    uint256 spCurrentUtilization = smartPoolFloatingBorrows.divWadDown(floatingAssets);
-    uint256 rate = irm.floatingBorrowRate(0, spCurrentUtilization);
-    assertEq(rate, 28491538356330811);
-  }
-
-  function testFloatingBorrowRateUsingMinMaxUtilizations() external {
-    uint256 utilizationBefore = 0.5e18;
-    uint256 utilizationAfter = 0.9e18;
-    uint256 rate = irm.floatingBorrowRate(utilizationBefore, utilizationAfter);
-
-    utilizationBefore = 0.9e18;
-    utilizationAfter = 0.5e18;
-    uint256 newRate = irm.floatingBorrowRate(utilizationBefore, utilizationAfter);
-
-    assertEq(rate, newRate);
+    uint256 rate = irm.floatingRate(floatingDebt.divWadDown(floatingAssets));
+    assertEq(rate, 41730769230769230);
   }
 
   function testFuzzReferenceRate(uint256 v0, uint64 delta) external {
-    (uint256 rate, uint256 refRate) = irm.floatingRate(v0, delta);
+    (uint256 rate, uint256 refRate) = irm.fixedRate(v0, delta);
     assertApproxEqAbs(rate, refRate, 3e3);
   }
 }
@@ -75,11 +62,11 @@ contract InterestRateModelHarness is InterestRateModel, Test {
     )
   {} // solhint-disable-line no-empty-blocks
 
-  function floatingRate(uint256 v0, uint64 delta) public returns (uint256 rate, uint256 refRate) {
+  function fixedRate(uint256 v0, uint64 delta) public returns (uint256 rate, uint256 refRate) {
     uint256 u0 = v0 % 1e18;
     uint256 u1 = u0 + (delta % (floatingMaxUtilization - u0));
 
-    rate = floatingRate(u0, u1);
+    rate = fixedRate(u0, u1);
 
     string[] memory ffi = new string[](2);
     ffi[0] = "scripts/irm.sh";

@@ -898,11 +898,11 @@ contract ProtocolTest is Test {
   function previewTotalFloatingBorrowAssets(Market market) internal view returns (uint256) {
     uint256 memFloatingAssets = market.floatingAssets();
     uint256 memFloatingDebt = market.floatingDebt();
-    uint256 newFloatingUtilization = memFloatingAssets > 0
+    uint256 floatingUtilization = memFloatingAssets > 0
       ? Math.min(memFloatingDebt.divWadUp(memFloatingAssets), 1e18)
       : 0;
     uint256 newDebt = memFloatingDebt.mulWadDown(
-      market.interestRateModel().floatingBorrowRate(market.floatingUtilization(), newFloatingUtilization).mulDivDown(
+      market.interestRateModel().floatingRate(floatingUtilization).mulDivDown(
         block.timestamp - market.lastFloatingDebtUpdate(),
         365 days
       )
@@ -925,15 +925,12 @@ contract ProtocolTest is Test {
     InterestRateModel memIRM = market.interestRateModel();
     uint256 memFloatingDebt = market.floatingDebt();
     uint256 memFloatingAssets = market.floatingAssets();
-    uint256 newFloatingUtilization = memFloatingAssets > 0
+    uint256 floatingUtilization = memFloatingAssets > 0
       ? Math.min(memFloatingDebt.divWadUp(memFloatingAssets), 1e18)
       : 0;
     return
       memFloatingDebt.mulWadDown(
-        memIRM.floatingBorrowRate(market.floatingUtilization(), newFloatingUtilization).mulDivDown(
-          block.timestamp - market.lastFloatingDebtUpdate(),
-          365 days
-        )
+        memIRM.floatingRate(floatingUtilization).mulDivDown(block.timestamp - market.lastFloatingDebtUpdate(), 365 days)
       );
   }
 

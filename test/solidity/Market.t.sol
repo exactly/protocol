@@ -1707,7 +1707,6 @@ contract MarketTest is Test {
     vm.warp(0);
     market.deposit(100 ether, address(this));
     market.borrow(10 ether, address(this), address(this));
-    uint256 floatingUtilization = market.floatingUtilization();
 
     vm.warp(365 days);
     market.deposit(2, address(this));
@@ -1715,22 +1714,18 @@ contract MarketTest is Test {
     assertEq(market.floatingDebt(), 11 ether);
     assertEq(market.floatingAssets(), 101 ether + 2);
     assertEq(market.lastFloatingDebtUpdate(), 365 days);
-    assertGt(market.floatingUtilization(), floatingUtilization);
-    floatingUtilization = market.floatingUtilization();
 
     vm.warp(730 days);
     market.mint(1, address(this));
     assertEq(market.floatingDebt(), 12.1 ether);
     assertEq(market.floatingAssets(), 102.1 ether + 4);
     assertEq(market.lastFloatingDebtUpdate(), 730 days);
-    assertGt(market.floatingUtilization(), floatingUtilization);
   }
 
   function testWithdrawShouldUpdateFlexibleBorrowVariables() external {
     vm.warp(0);
     market.deposit(100 ether, address(this));
     market.borrow(10 ether, address(this), address(this));
-    uint256 floatingUtilization = market.floatingUtilization();
 
     vm.warp(365 days);
     market.withdraw(1, address(this), address(this));
@@ -1738,8 +1733,6 @@ contract MarketTest is Test {
     assertEq(market.floatingDebt(), 11 ether);
     assertEq(market.floatingAssets(), 101 ether - 1);
     assertEq(market.lastFloatingDebtUpdate(), 365 days);
-    assertGt(market.floatingUtilization(), floatingUtilization);
-    floatingUtilization = market.floatingUtilization();
 
     vm.warp(730 days);
     market.redeem(1, address(this), address(this));
@@ -1747,7 +1740,6 @@ contract MarketTest is Test {
     assertEq(market.floatingDebt(), 12.1 ether);
     assertEq(market.floatingAssets(), 102.1 ether - 2);
     assertEq(market.lastFloatingDebtUpdate(), 730 days);
-    assertGt(market.floatingUtilization(), floatingUtilization);
   }
 
   function testChargeTreasuryToFixedBorrows() external {
