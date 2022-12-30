@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
+import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { Market } from "./Market.sol";
 
@@ -9,18 +10,18 @@ import { Market } from "./Market.sol";
  * @notice Abstract contract template to build Distributors contracts for ERC20 rewards to protocol participants
  **/
 contract RewardsController {
-  ERC20 public rewardsAsset;
+  using SafeTransferLib for ERC20;
 
   address internal manager;
 
-  // Map of rewarded asset addresses and their data (assetAddress => marketOperationData)
-  mapping(address => mapping(Operation => mapping(uint256 => MarketOperationData))) internal _assets;
-  // Map of reward assets (rewardAddress => enabled)
-  mapping(address => bool) internal _isRewardEnabled;
+  // Map of rewarded operations and their data
+  mapping(Market => mapping(Operation => mapping(uint256 => MarketOperationData))) internal distributionData;
+  // Map of reward assets
+  mapping(address => bool) internal isRewardEnabled;
   // Rewards list
-  address[] internal _rewardsList;
-  // Assets list
-  address[] internal _assetsList;
+  address[] internal rewardList;
+  // Markets list
+  Market[] internal marketList;
 
   constructor() {
     manager = msg.sender;
@@ -32,64 +33,69 @@ contract RewardsController {
   }
 
   function getRewardsData(
-    address asset,
+    Market market,
     Operation operation,
     uint256 maturity,
     address reward
   ) public view returns (uint256, uint256, uint256, uint256) {
     return (
-      _assets[asset][operation][maturity].rewards[reward].index,
-      _assets[asset][operation][maturity].rewards[reward].emissionPerSecond,
-      _assets[asset][operation][maturity].rewards[reward].lastUpdateTimestamp,
-      _assets[asset][operation][maturity].rewards[reward].distributionEnd
+      distributionData[market][operation][maturity].rewards[reward].index,
+      distributionData[market][operation][maturity].rewards[reward].emissionPerSecond,
+      distributionData[market][operation][maturity].rewards[reward].lastUpdateTimestamp,
+      distributionData[market][operation][maturity].rewards[reward].distributionEnd
     );
   }
 
-  function getAssetIndex(
-    address asset,
+  function getOperationIndex(
+    Market market,
     Operation operation,
     uint256 maturity,
     address reward
   ) external view returns (uint256, uint256) {
-    RewardData storage rewardData = _assets[asset][operation][maturity].rewards[reward];
-    return _getAssetIndex(rewardData, ERC20(asset).totalSupply(), 10 ** _assets[asset][operation][maturity].decimals);
+    RewardData storage rewardData = distributionData[market][operation][maturity].rewards[reward];
+    return
+      _getOperationIndex(
+        rewardData,
+        getTotalSupplyByOperation(market, operation, maturity),
+        10 ** distributionData[market][operation][maturity].decimals
+      );
   }
 
   function getDistributionEnd(
-    address asset,
+    Market market,
     Operation operation,
     uint256 maturity,
     address reward
   ) external view returns (uint256) {
-    return _assets[asset][operation][maturity].rewards[reward].distributionEnd;
+    return distributionData[market][operation][maturity].rewards[reward].distributionEnd;
   }
 
-  function getRewardsByAsset(
-    address asset,
+  function getRewardsByOperation(
+    Market market,
     Operation operation,
     uint256 maturity
   ) external view returns (address[] memory) {
-    uint128 rewardsCount = _assets[asset][operation][maturity].availableRewardsCount;
+    uint128 rewardsCount = distributionData[market][operation][maturity].availableRewardsCount;
     address[] memory availableRewards = new address[](rewardsCount);
 
     for (uint128 i = 0; i < rewardsCount; i++) {
-      availableRewards[i] = _assets[asset][operation][maturity].availableRewards[i];
+      availableRewards[i] = distributionData[market][operation][maturity].availableRewards[i];
     }
     return availableRewards;
   }
 
   function getRewardsList() external view returns (address[] memory) {
-    return _rewardsList;
+    return rewardList;
   }
 
-  function getUserAssetIndex(
+  function getUserOperationIndex(
     address user,
-    address asset,
+    Market market,
     Operation operation,
     uint256 maturity,
     address reward
-  ) public view returns (uint256) {
-    return _assets[asset][operation][maturity].rewards[reward].usersData[user].index;
+  ) external view returns (uint256) {
+    return distributionData[market][operation][maturity].rewards[reward].usersData[user].index;
   }
 
   function getUserAccruedRewards(
@@ -99,90 +105,94 @@ contract RewardsController {
     address reward
   ) external view returns (uint256) {
     uint256 totalAccrued;
-    for (uint256 i = 0; i < _assetsList.length; i++) {
-      totalAccrued += _assets[_assetsList[i]][operation][maturity].rewards[reward].usersData[user].accrued;
+    for (uint256 i = 0; i < marketList.length; i++) {
+      totalAccrued += distributionData[marketList[i]][operation][maturity].rewards[reward].usersData[user].accrued;
     }
 
     return totalAccrued;
   }
 
   function getUserRewards(
-    address[] calldata assets,
+    Market[] calldata markets,
     OperationData[] calldata operations,
     address user,
     address reward
   ) external view returns (uint256) {
-    return _getUserReward(user, reward, _getUserAssetBalances(assets, operations, user));
+    return _getUserReward(user, reward, getUserOperationBalances(markets, operations, user));
   }
 
   function getAllUserRewards(
-    address[] calldata assets,
+    Market[] calldata markets,
     OperationData[] calldata operations,
     address user
   ) external view returns (address[] memory rewardsList, uint256[] memory unclaimedAmounts) {
-    UserAssetBalance[] memory userAssetBalances = _getUserAssetBalances(assets, operations, user);
-    rewardsList = new address[](_rewardsList.length);
+    UserOperationBalance[] memory userOperationBalances = getUserOperationBalances(markets, operations, user);
+    rewardsList = new address[](rewardList.length);
     unclaimedAmounts = new uint256[](rewardsList.length);
 
     // Add unrealized rewards from user to unclaimedRewards
-    for (uint256 i = 0; i < userAssetBalances.length; i++) {
+    for (uint256 i = 0; i < userOperationBalances.length; i++) {
       for (uint256 r = 0; r < rewardsList.length; r++) {
-        rewardsList[r] = _rewardsList[r];
-        unclaimedAmounts[r] += _assets[userAssetBalances[i].asset][userAssetBalances[i].operation][
-          userAssetBalances[i].maturity
+        rewardsList[r] = rewardList[r];
+        unclaimedAmounts[r] += distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
+          userOperationBalances[i].maturity
         ].rewards[rewardsList[r]].usersData[user].accrued;
 
-        if (userAssetBalances[i].userBalance == 0) {
+        if (userOperationBalances[i].userBalance == 0) {
           continue;
         }
-        unclaimedAmounts[r] += _getPendingRewards(user, rewardsList[r], userAssetBalances[i]);
+        unclaimedAmounts[r] += _getPendingRewards(user, rewardsList[r], userOperationBalances[i]);
       }
     }
     return (rewardsList, unclaimedAmounts);
   }
 
   function setDistributionEnd(
-    address asset,
+    Market market,
     Operation operation,
     uint256 maturity,
     address reward,
     uint32 newDistributionEnd
   ) external onlyEmissionManager {
-    uint256 oldDistributionEnd = _assets[asset][operation][maturity].rewards[reward].distributionEnd;
-    _assets[asset][operation][maturity].rewards[reward].distributionEnd = newDistributionEnd;
+    uint256 oldDistributionEnd = distributionData[market][operation][maturity].rewards[reward].distributionEnd;
+    distributionData[market][operation][maturity].rewards[reward].distributionEnd = newDistributionEnd;
 
-    emit AssetConfigUpdated(
-      asset,
+    emit OperationConfigUpdated(
+      market,
       reward,
-      _assets[asset][operation][maturity].rewards[reward].emissionPerSecond,
-      _assets[asset][operation][maturity].rewards[reward].emissionPerSecond,
+      distributionData[market][operation][maturity].rewards[reward].emissionPerSecond,
+      distributionData[market][operation][maturity].rewards[reward].emissionPerSecond,
       oldDistributionEnd,
       newDistributionEnd,
-      _assets[asset][operation][maturity].rewards[reward].index
+      distributionData[market][operation][maturity].rewards[reward].index
     );
   }
 
   function setEmissionPerSecond(
-    address asset,
+    Market market,
     Operation operation,
     uint256 maturity,
     address[] calldata rewards,
     uint88[] calldata newEmissionsPerSecond
   ) external onlyEmissionManager {
-    require(rewards.length == newEmissionsPerSecond.length, "INVALID_INPUT");
+    if (rewards.length != newEmissionsPerSecond.length) revert InvalidInput();
     for (uint256 i = 0; i < rewards.length; i++) {
-      MarketOperationData storage assetConfig = _assets[asset][operation][maturity];
-      RewardData storage rewardConfig = _assets[asset][operation][maturity].rewards[rewards[i]];
-      uint256 decimals = assetConfig.decimals;
-      require(decimals != 0 && rewardConfig.lastUpdateTimestamp != 0, "DISTRIBUTION_DOES_NOT_EXIST");
+      MarketOperationData storage operationData = distributionData[market][operation][maturity];
+      RewardData storage rewardConfig = distributionData[market][operation][maturity].rewards[rewards[i]];
+      uint256 decimals = operationData.decimals;
+      if (decimals == 0 || rewardConfig.lastUpdateTimestamp == 0) revert InvalidDistributionData();
 
-      (uint256 newIndex, ) = _updateRewardData(rewardConfig, ERC20(asset).totalSupply(), 10 ** decimals);
+      (uint256 newIndex, ) = _updateRewardData(
+        rewardConfig,
+        getTotalSupplyByOperation(market, operation, maturity),
+        10 ** decimals
+      );
 
       uint256 oldEmissionPerSecond = rewardConfig.emissionPerSecond;
       rewardConfig.emissionPerSecond = newEmissionsPerSecond[i];
 
-      emit AssetConfigUpdated(
-        asset,
+      emit OperationConfigUpdated(
+        market,
         rewards[i],
         oldEmissionPerSecond,
         newEmissionsPerSecond[i],
@@ -193,63 +203,26 @@ contract RewardsController {
     }
   }
 
-  /**
-   * @dev Configure the _assets for a specific emission
-   * @param rewardsInput The userAssetBalances of each asset configuration
-   **/
-  function _configureAssets(RewardsConfigInput[] memory rewardsInput) internal {
-    for (uint256 i = 0; i < rewardsInput.length; i++) {
-      if (_assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity].decimals == 0) {
-        //never initialized before, adding to the list of assets
-        _assetsList.push(rewardsInput[i].asset);
-      }
-
-      uint256 decimals = _assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity]
-        .decimals = ERC20(rewardsInput[i].asset).decimals();
-
-      RewardData storage rewardConfig = _assets[rewardsInput[i].asset][rewardsInput[i].operation][
-        rewardsInput[i].maturity
-      ].rewards[rewardsInput[i].reward];
-
-      // Add reward address to asset available rewards if latestUpdateTimestamp is zero
-      if (rewardConfig.lastUpdateTimestamp == 0) {
-        _assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity].availableRewards[
-          _assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity].availableRewardsCount
-        ] = rewardsInput[i].reward;
-        _assets[rewardsInput[i].asset][rewardsInput[i].operation][rewardsInput[i].maturity].availableRewardsCount++;
-      }
-
-      // Add reward address to global rewards list if still not enabled
-      if (_isRewardEnabled[rewardsInput[i].reward] == false) {
-        _isRewardEnabled[rewardsInput[i].reward] = true;
-        _rewardsList.push(rewardsInput[i].reward);
-      }
-
-      // Due emissions is still zero, updates only latestUpdateTimestamp
-      (uint256 newIndex, ) = _updateRewardData(rewardConfig, rewardsInput[i].totalSupply, 10 ** decimals);
-
-      // Configure emission and distribution end of the reward per asset
-      uint88 oldEmissionsPerSecond = rewardConfig.emissionPerSecond;
-      uint32 oldDistributionEnd = rewardConfig.distributionEnd;
-      rewardConfig.emissionPerSecond = rewardsInput[i].emissionPerSecond;
-      rewardConfig.distributionEnd = rewardsInput[i].distributionEnd;
-
-      emit AssetConfigUpdated(
-        rewardsInput[i].asset,
-        rewardsInput[i].reward,
-        oldEmissionsPerSecond,
-        rewardsInput[i].emissionPerSecond,
-        oldDistributionEnd,
-        rewardsInput[i].distributionEnd,
-        newIndex
-      );
+  function getTotalSupplyByOperation(
+    Market market,
+    Operation operation,
+    uint256 maturity
+  ) internal view returns (uint256 totalSupply) {
+    if (operation == Operation.Deposit && maturity == 0) {
+      totalSupply = market.totalSupply();
+    } else if (operation == Operation.Borrow && maturity == 0) {
+      totalSupply = market.totalFloatingBorrowShares();
+    } else if (operation == Operation.Deposit) {
+      (, totalSupply, , ) = market.fixedPools(maturity);
+    } else if (operation == Operation.Borrow) {
+      (totalSupply, , , ) = market.fixedPools(maturity);
     }
   }
 
   /**
    * @dev Updates the state of the distribution for the specified reward
    * @param rewardData Storage pointer to the distribution reward config
-   * @param totalSupply Current total of underlying assets for this distribution
+   * @param totalSupply Total balance of the operation's pool
    * @param assetUnit One unit of asset (10**decimals)
    * @return The new distribution index
    * @return True if the index was updated, false otherwise
@@ -259,10 +232,10 @@ contract RewardsController {
     uint256 totalSupply,
     uint256 assetUnit
   ) internal returns (uint256, bool) {
-    (uint256 oldIndex, uint256 newIndex) = _getAssetIndex(rewardData, totalSupply, assetUnit);
+    (uint256 oldIndex, uint256 newIndex) = _getOperationIndex(rewardData, totalSupply, assetUnit);
     bool indexUpdated;
     if (newIndex != oldIndex) {
-      require(newIndex <= type(uint104).max, "INDEX_OVERFLOW");
+      if (newIndex > type(uint104).max) revert IndexOverflow();
       indexUpdated = true;
 
       //optimization: storing one after another saves one SSTORE
@@ -279,8 +252,8 @@ contract RewardsController {
    * @dev Updates the state of the distribution for the specific user
    * @param rewardData Storage pointer to the distribution reward config
    * @param user The address of the user
-   * @param userBalance The user balance of the asset
-   * @param newAssetIndex The new index of the asset distribution
+   * @param userBalance The user's balance in the operation's pool
+   * @param newOperationIndex The new index of the operation distribution
    * @param assetUnit One unit of asset (10**decimals)
    * @return The rewards accrued since the last update
    **/
@@ -288,17 +261,17 @@ contract RewardsController {
     RewardData storage rewardData,
     address user,
     uint256 userBalance,
-    uint256 newAssetIndex,
+    uint256 newOperationIndex,
     uint256 assetUnit
   ) internal returns (uint256, bool) {
     uint256 userIndex = rewardData.usersData[user].index;
     uint256 rewardsAccrued;
     bool dataUpdated;
-    if ((dataUpdated = userIndex != newAssetIndex)) {
+    if ((dataUpdated = userIndex != newOperationIndex)) {
       // already checked for overflow in _updateRewardData
-      rewardData.usersData[user].index = uint104(newAssetIndex);
+      rewardData.usersData[user].index = uint104(newOperationIndex);
       if (userBalance != 0) {
-        rewardsAccrued = _getRewards(userBalance, newAssetIndex, userIndex, assetUnit);
+        rewardsAccrued = _getRewards(userBalance, newOperationIndex, userIndex, assetUnit);
 
         rewardData.usersData[user].accrued += uint128(rewardsAccrued);
       }
@@ -307,14 +280,14 @@ contract RewardsController {
   }
 
   /**
-   * @dev Iterates and accrues all the rewards for asset of the specific user
-   * @param asset The address of the reference asset of the distribution
+   * @dev Iterates and accrues all the rewards for the operations of the specific user
+   * @param market The address of the reference Market of the distribution
    * @param user The user address
-   * @param userBalance The current user asset balance
-   * @param totalSupply Total supply of the asset
+   * @param userBalance The user's balance in the operation's pool
+   * @param totalSupply Total balance of the operation's pool
    **/
   function _updateData(
-    address asset,
+    Market market,
     Operation operation,
     uint256 maturity,
     address user,
@@ -323,48 +296,48 @@ contract RewardsController {
   ) internal {
     uint256 assetUnit;
     unchecked {
-      assetUnit = 10 ** _assets[asset][operation][maturity].decimals;
+      assetUnit = 10 ** distributionData[market][operation][maturity].decimals;
     }
 
-    if (_assets[asset][operation][maturity].availableRewardsCount == 0) {
+    if (distributionData[market][operation][maturity].availableRewardsCount == 0) {
       return;
     }
     unchecked {
-      for (uint128 r = 0; r < _assets[asset][operation][maturity].availableRewardsCount; r++) {
-        address reward = _assets[asset][operation][maturity].availableRewards[r];
-        RewardData storage rewardData = _assets[asset][operation][maturity].rewards[reward];
+      for (uint128 r = 0; r < distributionData[market][operation][maturity].availableRewardsCount; r++) {
+        address reward = distributionData[market][operation][maturity].availableRewards[r];
+        RewardData storage rewardData = distributionData[market][operation][maturity].rewards[reward];
 
-        (uint256 newAssetIndex, bool rewardDataUpdated) = _updateRewardData(rewardData, totalSupply, assetUnit);
+        (uint256 newOperationIndex, bool rewardDataUpdated) = _updateRewardData(rewardData, totalSupply, assetUnit);
 
         (uint256 rewardsAccrued, bool userDataUpdated) = _updateUserData(
           rewardData,
           user,
           userBalance,
-          newAssetIndex,
+          newOperationIndex,
           assetUnit
         );
 
         if (rewardDataUpdated || userDataUpdated) {
-          emit Accrued(asset, reward, user, newAssetIndex, newAssetIndex, rewardsAccrued);
+          emit Accrued(market, reward, user, newOperationIndex, newOperationIndex, rewardsAccrued);
         }
       }
     }
   }
 
   /**
-   * @dev Accrues all the rewards of the assets specified in the userAssetBalances list
+   * @dev Accrues all rewards of the operations specified in the userOperationBalances list
    * @param user The address of the user
-   * @param userAssetBalances List of structs with the user balance and total supply of a set of assets
+   * @param userOperationBalances List of structs with the user balance and total supply of a set of operations
    **/
-  function _updateDataMultiple(address user, UserAssetBalance[] memory userAssetBalances) internal {
-    for (uint256 i = 0; i < userAssetBalances.length; i++) {
+  function _updateDataMultiple(address user, UserOperationBalance[] memory userOperationBalances) internal {
+    for (uint256 i = 0; i < userOperationBalances.length; i++) {
       _updateData(
-        userAssetBalances[i].asset,
-        userAssetBalances[i].operation,
-        userAssetBalances[i].maturity,
+        userOperationBalances[i].market,
+        userOperationBalances[i].operation,
+        userOperationBalances[i].maturity,
         user,
-        userAssetBalances[i].userBalance,
-        userAssetBalances[i].totalSupply
+        userOperationBalances[i].userBalance,
+        userOperationBalances[i].totalSupply
       );
     }
   }
@@ -373,27 +346,26 @@ contract RewardsController {
    * @dev Return the accrued unclaimed amount of a reward from a user over a list of distribution
    * @param user The address of the user
    * @param reward The address of the reward token
-   * @param userAssetBalances List of structs with the user balance and total supply of a set of assets
+   * @param userOperationBalances List of structs with the user balance and total supply of a set of operations
    * @return unclaimedRewards The accrued rewards for the user until the moment
    **/
   function _getUserReward(
     address user,
     address reward,
-    UserAssetBalance[] memory userAssetBalances
+    UserOperationBalance[] memory userOperationBalances
   ) internal view returns (uint256 unclaimedRewards) {
     // Add unrealized rewards
-    for (uint256 i = 0; i < userAssetBalances.length; i++) {
-      if (userAssetBalances[i].userBalance == 0) {
-        unclaimedRewards += _assets[userAssetBalances[i].asset][userAssetBalances[i].operation][
-          userAssetBalances[i].maturity
+    for (uint256 i = 0; i < userOperationBalances.length; i++) {
+      if (userOperationBalances[i].userBalance == 0) {
+        unclaimedRewards += distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
+          userOperationBalances[i].maturity
         ].rewards[reward].usersData[user].accrued;
       } else {
         unclaimedRewards +=
-          _getPendingRewards(user, reward, userAssetBalances[i]) +
-          _assets[userAssetBalances[i].asset][userAssetBalances[i].operation][userAssetBalances[i].maturity]
-            .rewards[reward]
-            .usersData[user]
-            .accrued;
+          _getPendingRewards(user, reward, userOperationBalances[i]) +
+          distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
+            userOperationBalances[i].maturity
+          ].rewards[reward].usersData[user].accrued;
       }
     }
 
@@ -404,27 +376,28 @@ contract RewardsController {
    * @dev Calculates the pending (not yet accrued) rewards since the last user action
    * @param user The address of the user
    * @param reward The address of the reward token
-   * @param userAssetBalance struct with the user balance and total supply of the incentivized asset
+   * @param userOperationBalance Struct with the user balance and total balance of the operation's pool
    * @return The pending rewards for the user since the last user action
    **/
   function _getPendingRewards(
     address user,
     address reward,
-    UserAssetBalance memory userAssetBalance
+    UserOperationBalance memory userOperationBalance
   ) internal view returns (uint256) {
-    RewardData storage rewardData = _assets[userAssetBalance.asset][userAssetBalance.operation][
-      userAssetBalance.maturity
+    RewardData storage rewardData = distributionData[userOperationBalance.market][userOperationBalance.operation][
+      userOperationBalance.maturity
     ].rewards[reward];
     uint256 assetUnit = 10 **
-      _assets[userAssetBalance.asset][userAssetBalance.operation][userAssetBalance.maturity].decimals;
-    (, uint256 nextIndex) = _getAssetIndex(rewardData, userAssetBalance.totalSupply, assetUnit);
+      distributionData[userOperationBalance.market][userOperationBalance.operation][userOperationBalance.maturity]
+        .decimals;
+    (, uint256 nextIndex) = _getOperationIndex(rewardData, userOperationBalance.totalSupply, assetUnit);
 
-    return _getRewards(userAssetBalance.userBalance, nextIndex, rewardData.usersData[user].index, assetUnit);
+    return _getRewards(userOperationBalance.userBalance, nextIndex, rewardData.usersData[user].index, assetUnit);
   }
 
   /**
    * @dev Internal function for the calculation of user's rewards on a distribution
-   * @param userBalance Balance of the user asset on a distribution
+   * @param userBalance The user's balance in the operation's pool
    * @param reserveIndex Current index of the distribution
    * @param userIndex Index stored for the user, representation his staking moment
    * @param assetUnit One unit of asset (10**decimals)
@@ -446,11 +419,11 @@ contract RewardsController {
   /**
    * @dev Calculates the next value of an specific distribution index, with validations
    * @param rewardData Storage pointer to the distribution reward config
-   * @param totalSupply of the asset being rewarded
+   * @param totalSupply Total balance of the operation's pool
    * @param assetUnit One unit of asset (10**decimals)
    * @return The new index.
    **/
-  function _getAssetIndex(
+  function _getOperationIndex(
     RewardData storage rewardData,
     uint256 totalSupply,
     uint256 assetUnit
@@ -478,128 +451,163 @@ contract RewardsController {
     return (oldIndex, (firstTerm + oldIndex));
   }
 
-  function getAssetDecimals(address asset, Operation operation, uint256 maturity) external view returns (uint8) {
-    return _assets[asset][operation][maturity].decimals;
+  function getOperationAssetDecimals(
+    Market market,
+    Operation operation,
+    uint256 maturity
+  ) external view returns (uint8) {
+    return distributionData[market][operation][maturity].decimals;
   }
 
-  function configureAssets(RewardsConfigInput[] memory config) external onlyEmissionManager {
-    for (uint256 i = 0; i < config.length; i++) {
-      config[i].totalSupply = ERC20(config[i].asset).totalSupply();
+  function configureDistributionOperations(RewardsConfigInput[] memory configs) external onlyEmissionManager {
+    for (uint256 i = 0; i < configs.length; i++) {
+      configs[i].totalSupply = getTotalSupplyByOperation(configs[i].market, configs[i].operation, configs[i].maturity);
     }
-    _configureAssets(config);
+    for (uint256 i = 0; i < configs.length; i++) {
+      if (distributionData[configs[i].market][configs[i].operation][configs[i].maturity].decimals == 0) {
+        //never initialized before, adding to the list of markets
+        marketList.push(configs[i].market);
+      }
+
+      uint256 decimals = distributionData[configs[i].market][configs[i].operation][configs[i].maturity]
+        .decimals = configs[i].market.decimals();
+
+      RewardData storage rewardConfig = distributionData[configs[i].market][configs[i].operation][configs[i].maturity]
+        .rewards[configs[i].reward];
+
+      // Add reward address to distribution data's available rewards if latestUpdateTimestamp is zero
+      if (rewardConfig.lastUpdateTimestamp == 0) {
+        distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewards[
+          distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewardsCount
+        ] = configs[i].reward;
+        distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewardsCount++;
+      }
+
+      // Add reward address to global rewards list if still not enabled
+      if (isRewardEnabled[configs[i].reward] == false) {
+        isRewardEnabled[configs[i].reward] = true;
+        rewardList.push(configs[i].reward);
+      }
+
+      // Due emissions is still zero, updates only latestUpdateTimestamp
+      (uint256 newIndex, ) = _updateRewardData(rewardConfig, configs[i].totalSupply, 10 ** decimals);
+
+      // Configure emission and distribution end of the reward per operation
+      uint88 oldEmissionsPerSecond = rewardConfig.emissionPerSecond;
+      uint32 oldDistributionEnd = rewardConfig.distributionEnd;
+      rewardConfig.emissionPerSecond = configs[i].emissionPerSecond;
+      rewardConfig.distributionEnd = configs[i].distributionEnd;
+
+      emit OperationConfigUpdated(
+        configs[i].market,
+        configs[i].reward,
+        oldEmissionsPerSecond,
+        configs[i].emissionPerSecond,
+        oldDistributionEnd,
+        configs[i].distributionEnd,
+        newIndex
+      );
+    }
   }
 
-  function handleAction(
+  function handleOperation(Operation operation, address user, uint256 totalSupply, uint256 userBalance) external {
+    _updateData(Market(msg.sender), operation, 0, user, userBalance, totalSupply);
+  }
+
+  function handleOperationAtMaturity(
     Operation operation,
     uint256 maturity,
     address user,
     uint256 totalSupply,
     uint256 userBalance
   ) external {
-    _updateData(msg.sender, operation, maturity, user, userBalance, totalSupply);
+    _updateData(Market(msg.sender), operation, maturity, user, userBalance, totalSupply);
   }
 
-  function claimAllRewards(
-    address[] calldata assets,
+  function claimRewards(
+    Market[] calldata markets,
     OperationData[] calldata operations,
     address to
   ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
-    require(to != address(0), "INVALID_TO_ADDRESS");
-    return _claimAllRewards(assets, operations, msg.sender, to);
-  }
+    rewardsList = new address[](rewardList.length);
+    claimedAmounts = new uint256[](rewardList.length);
 
-  function claimAllRewardsToSelf(
-    address[] calldata assets,
-    OperationData[] calldata operations
-  ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
-    return _claimAllRewards(assets, operations, msg.sender, msg.sender);
-  }
+    _updateDataMultiple(msg.sender, getUserOperationBalances(markets, operations, msg.sender));
 
-  function _claimAllRewards(
-    address[] calldata assets,
-    OperationData[] calldata operations,
-    address user,
-    address to
-  ) internal returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
-    rewardsList = new address[](_rewardsList.length);
-    claimedAmounts = new uint256[](_rewardsList.length);
-
-    _updateDataMultiple(user, _getUserAssetBalances(assets, operations, user));
-
-    for (uint256 i = 0; i < assets.length; i++) {
-      for (uint256 j = 0; j < _rewardsList.length; j++) {
+    for (uint256 i = 0; i < markets.length; i++) {
+      for (uint256 j = 0; j < rewardList.length; j++) {
         for (uint256 k = 0; k < operations.length; k++) {
           if (rewardsList[j] == address(0)) {
-            rewardsList[j] = _rewardsList[j];
+            rewardsList[j] = rewardList[j];
           }
-          uint256 rewardAmount = _assets[assets[i]][operations[k].operation][operations[k].maturity]
+          uint256 rewardAmount = distributionData[markets[i]][operations[k].operation][operations[k].maturity]
             .rewards[rewardsList[j]]
-            .usersData[user]
+            .usersData[msg.sender]
             .accrued;
           if (rewardAmount != 0) {
             claimedAmounts[j] += rewardAmount;
-            _assets[assets[i]][operations[k].operation][operations[k].maturity]
+            distributionData[markets[i]][operations[k].operation][operations[k].maturity]
               .rewards[rewardsList[j]]
-              .usersData[user]
+              .usersData[msg.sender]
               .accrued = 0;
           }
         }
       }
     }
-    for (uint256 i = 0; i < _rewardsList.length; i++) {
-      _transferRewards(to, rewardsList[i], claimedAmounts[i]);
-      emit RewardsClaimed(user, rewardsList[i], to, claimedAmounts[i]);
+    for (uint256 i = 0; i < rewardList.length; i++) {
+      ERC20(rewardsList[i]).safeTransfer(to, claimedAmounts[i]);
+      emit RewardsClaimed(msg.sender, rewardsList[i], to, claimedAmounts[i]);
     }
     return (rewardsList, claimedAmounts);
   }
 
   /**
-   * @dev Get user balances and total supply of all the assets specified by the assets parameter
-   * @param assets List of assets to retrieve user balance and total supply
+   * @dev Get user balances and total supply of all the operations specified by the markets and operations parameters
+   * @param markets List of markets to retrieve user balance and total supply
    * @param user Address of the user
-   * @return userAssetBalances contains a list of structs with user balance and total supply of the given assets
+   * @return userOperationBalances contains a list of structs with user balance and total amount of the operation's pool
    */
-  function _getUserAssetBalances(
-    address[] calldata assets,
+  function getUserOperationBalances(
+    Market[] calldata markets,
     OperationData[] calldata operations,
     address user
-  ) internal view returns (UserAssetBalance[] memory userAssetBalances) {
+  ) internal view returns (UserOperationBalance[] memory userOperationBalances) {
+    userOperationBalances = new UserOperationBalance[](markets.length * operations.length);
     uint256 index = 0;
-    userAssetBalances = new UserAssetBalance[](assets.length * operations.length);
-    for (uint256 i = 0; i < assets.length; i++) {
+    for (uint256 i = 0; i < markets.length; i++) {
       for (uint256 j = 0; j < operations.length; j++) {
-        if (operations[j].operation == Operation.FloatingDeposit) {
-          userAssetBalances[index] = UserAssetBalance({
-            asset: assets[i],
+        if (operations[j].operation == Operation.Deposit && operations[j].maturity == 0) {
+          userOperationBalances[index] = UserOperationBalance({
+            market: markets[i],
             operation: operations[j].operation,
             maturity: 0,
-            userBalance: Market(assets[i]).balanceOf(user),
-            totalSupply: Market(assets[i]).totalSupply()
+            userBalance: markets[i].balanceOf(user),
+            totalSupply: markets[i].totalSupply()
           });
-        } else if (operations[j].operation == Operation.FloatingBorrow) {
-          (, , uint256 floatingBorrowShares) = Market(assets[i]).accounts(user);
-          userAssetBalances[index] = UserAssetBalance({
-            asset: assets[i],
+        } else if (operations[j].operation == Operation.Borrow && operations[j].maturity == 0) {
+          (, , uint256 floatingBorrowShares) = markets[i].accounts(user);
+          userOperationBalances[index] = UserOperationBalance({
+            market: markets[i],
             operation: operations[j].operation,
             maturity: 0,
             userBalance: floatingBorrowShares,
-            totalSupply: Market(assets[i]).totalFloatingBorrowShares()
+            totalSupply: markets[i].totalFloatingBorrowShares()
           });
-        } else if (operations[j].operation == Operation.FixedDeposit) {
-          (uint256 principal, ) = Market(assets[i]).fixedDepositPositions(operations[j].maturity, user);
-          (, uint256 supplied, , ) = Market(assets[i]).fixedPools(operations[j].maturity);
-          userAssetBalances[index] = UserAssetBalance({
-            asset: assets[i],
+        } else if (operations[j].operation == Operation.Deposit) {
+          (uint256 principal, ) = markets[i].fixedDepositPositions(operations[j].maturity, user);
+          (, uint256 supplied, , ) = markets[i].fixedPools(operations[j].maturity);
+          userOperationBalances[index] = UserOperationBalance({
+            market: markets[i],
             operation: operations[j].operation,
             maturity: operations[j].maturity,
             userBalance: principal,
             totalSupply: supplied
           });
-        } else if (operations[j].operation == Operation.FixedBorrow) {
-          (uint256 principal, ) = Market(assets[i]).fixedBorrowPositions(operations[j].maturity, user);
-          (uint256 borrowed, , , ) = Market(assets[i]).fixedPools(operations[j].maturity);
-          userAssetBalances[index] = UserAssetBalance({
-            asset: assets[i],
+        } else if (operations[j].operation == Operation.Borrow) {
+          (uint256 principal, ) = markets[i].fixedBorrowPositions(operations[j].maturity, user);
+          (uint256 borrowed, , , ) = markets[i].fixedPools(operations[j].maturity);
+          userOperationBalances[index] = UserOperationBalance({
+            market: markets[i],
             operation: operations[j].operation,
             maturity: operations[j].maturity,
             userBalance: principal,
@@ -611,23 +619,9 @@ contract RewardsController {
     }
   }
 
-  /**
-   * @dev Function to transfer rewards to the desired account using delegatecall and
-   * @param to Account address to send the rewards
-   * @param reward Address of the reward token
-   * @param amount Amount of rewards to transfer
-   */
-  function _transferRewards(address to, address reward, uint256 amount) internal {
-    bool success = ERC20(reward).transfer(to, amount);
-
-    require(success == true, "TRANSFER_ERROR");
-  }
-
   enum Operation {
-    FloatingDeposit,
-    FloatingBorrow,
-    FixedDeposit,
-    FixedBorrow
+    Deposit,
+    Borrow
   }
 
   struct OperationData {
@@ -639,14 +633,14 @@ contract RewardsController {
     uint88 emissionPerSecond;
     uint256 totalSupply;
     uint32 distributionEnd;
-    address asset;
+    Market market;
     Operation operation;
     uint256 maturity;
     address reward;
   }
 
-  struct UserAssetBalance {
-    address asset;
+  struct UserOperationBalance {
+    Market market;
     Operation operation;
     uint256 maturity;
     uint256 userBalance;
@@ -676,29 +670,32 @@ contract RewardsController {
   struct MarketOperationData {
     // Map of reward token addresses and their data (rewardTokenAddress => rewardData)
     mapping(address => RewardData) rewards;
-    // List of reward token addresses for the asset
+    // List of reward asset addresses for the operation
     mapping(uint128 => address) availableRewards;
-    // Count of reward tokens for the asset
+    // Count of reward tokens for the operation
     uint128 availableRewardsCount;
-    // Number of decimals of the asset
+    // Number of decimals of the operation's asset
     uint8 decimals;
   }
   event Accrued(
-    address indexed asset,
+    Market indexed market,
     address indexed reward,
     address indexed user,
-    uint256 assetIndex,
+    uint256 operationIndex,
     uint256 userIndex,
     uint256 rewardsAccrued
   );
-  event AssetConfigUpdated(
-    address indexed asset,
+  event OperationConfigUpdated(
+    Market indexed market,
     address indexed reward,
     uint256 oldEmission,
     uint256 newEmission,
     uint256 oldDistributionEnd,
     uint256 newDistributionEnd,
-    uint256 assetIndex
+    uint256 operationIndex
   );
   event RewardsClaimed(address indexed user, address indexed reward, address indexed to, uint256 amount);
 }
+error InvalidInput();
+error InvalidDistributionData();
+error IndexOverflow();

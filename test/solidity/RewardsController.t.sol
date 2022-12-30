@@ -66,8 +66,8 @@ contract RewardsControllerTest is Test {
       emissionPerSecond: 1,
       totalSupply: 0,
       distributionEnd: 10 days,
-      asset: address(marketDAI),
-      operation: RewardsController.Operation.FloatingDeposit,
+      market: marketDAI,
+      operation: RewardsController.Operation.Deposit,
       maturity: 0,
       reward: address(rewardsAsset)
     });
@@ -75,8 +75,8 @@ contract RewardsControllerTest is Test {
       emissionPerSecond: 2,
       totalSupply: 0,
       distributionEnd: 10 days,
-      asset: address(marketWETH),
-      operation: RewardsController.Operation.FloatingDeposit,
+      market: marketWETH,
+      operation: RewardsController.Operation.Deposit,
       maturity: 0,
       reward: address(rewardsAsset)
     });
@@ -84,8 +84,8 @@ contract RewardsControllerTest is Test {
       emissionPerSecond: 1,
       totalSupply: 0,
       distributionEnd: 10 days,
-      asset: address(marketDAI),
-      operation: RewardsController.Operation.FloatingBorrow,
+      market: marketDAI,
+      operation: RewardsController.Operation.Borrow,
       maturity: 0,
       reward: address(rewardsAsset)
     });
@@ -93,8 +93,8 @@ contract RewardsControllerTest is Test {
       emissionPerSecond: 1,
       totalSupply: 0,
       distributionEnd: 10 days,
-      asset: address(marketDAI),
-      operation: RewardsController.Operation.FixedDeposit,
+      market: marketDAI,
+      operation: RewardsController.Operation.Deposit,
       maturity: FixedLib.INTERVAL,
       reward: address(rewardsAsset)
     });
@@ -102,12 +102,12 @@ contract RewardsControllerTest is Test {
       emissionPerSecond: 1,
       totalSupply: 0,
       distributionEnd: 10 days,
-      asset: address(marketDAI),
-      operation: RewardsController.Operation.FixedBorrow,
+      market: marketDAI,
+      operation: RewardsController.Operation.Borrow,
       maturity: FixedLib.INTERVAL,
       reward: address(rewardsAsset)
     });
-    rewardsController.configureAssets(configs);
+    rewardsController.configureDistributionOperations(configs);
     marketDAI.setRewardsController(rewardsController);
     rewardsAsset.mint(address(rewardsController), 100 ether);
 
@@ -122,118 +122,106 @@ contract RewardsControllerTest is Test {
 
   function testGetUserRewardsDAIWithDeposit() external {
     marketDAI.deposit(100 ether, address(this));
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     vm.warp(3 days + 20 minutes);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * (3 days + 20 minutes)
     );
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 7 days
     );
   }
 
   function testGetUserRewardsDAIWithMint() external {
     marketDAI.mint(100 ether, address(this));
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 7 days
     );
   }
 
   function testGetUserRewardsDAIWithTransfer() external {
     marketDAI.deposit(100 ether, address(this));
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     marketDAI.transfer(ALICE, marketDAI.balanceOf(address(this)));
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     assertEq(
-      rewardsController.getUserRewards(assets, operations, ALICE, address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, ALICE, address(rewardsAsset)),
       emissionPerSecond * 4 days
     );
   }
 
   function testGetUserRewardsDAIWithTransferFrom() external {
     marketDAI.deposit(100 ether, address(this));
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     marketDAI.approve(address(this), type(uint256).max);
@@ -241,71 +229,65 @@ contract RewardsControllerTest is Test {
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     assertEq(
-      rewardsController.getUserRewards(assets, operations, ALICE, address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, ALICE, address(rewardsAsset)),
       emissionPerSecond * 4 days
     );
   }
 
   function testGetUserRewardsDAIWithWithdraw() external {
     marketDAI.deposit(100 ether, address(this));
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     marketDAI.withdraw(100 ether, address(this), address(this));
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
   }
 
   function testGetUserRewardsDAIWithRedeem() external {
     marketDAI.deposit(100 ether, address(this));
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     marketDAI.redeem(100 ether, address(this), address(this));
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
   }
@@ -318,28 +300,25 @@ contract RewardsControllerTest is Test {
     auditor.enterMarket(marketWETH);
     marketDAI.borrow(50 ether, address(this), address(this));
 
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingBorrow,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Borrow, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingBorrow,
+      marketDAI,
+      RewardsController.Operation.Borrow,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 7 days
     );
   }
@@ -352,30 +331,27 @@ contract RewardsControllerTest is Test {
     auditor.enterMarket(marketWETH);
     marketDAI.borrow(50 ether, address(this), address(this));
 
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingBorrow,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Borrow, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingBorrow,
+      marketDAI,
+      RewardsController.Operation.Borrow,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     marketDAI.refund(50 ether, address(this));
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
   }
@@ -388,30 +364,27 @@ contract RewardsControllerTest is Test {
     auditor.enterMarket(marketWETH);
     marketDAI.borrow(50 ether, address(this), address(this));
 
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingBorrow,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Borrow, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingBorrow,
+      marketDAI,
+      RewardsController.Operation.Borrow,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     marketDAI.repay(marketDAI.previewRefund(50 ether), address(this));
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
   }
@@ -419,29 +392,29 @@ contract RewardsControllerTest is Test {
   function testGetUserRewardsDAIWithFixedDeposit() external {
     marketDAI.depositAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this));
 
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
     operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FixedDeposit,
+      operation: RewardsController.Operation.Deposit,
       maturity: FixedLib.INTERVAL
     });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FixedDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       FixedLib.INTERVAL,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 7 days
     );
   }
@@ -455,29 +428,29 @@ contract RewardsControllerTest is Test {
     vm.warp(1 days);
     marketDAI.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 150 ether, address(this), address(this));
 
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
     operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FixedBorrow,
+      operation: RewardsController.Operation.Borrow,
       maturity: FixedLib.INTERVAL
     });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FixedBorrow,
+      marketDAI,
+      RewardsController.Operation.Borrow,
       FixedLib.INTERVAL,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 2 days
     );
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 6 days
     );
   }
@@ -485,30 +458,30 @@ contract RewardsControllerTest is Test {
   function testGetUserRewardsDAIWithWithdrawAtMaturity() external {
     marketDAI.depositAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this));
 
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
     operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FixedDeposit,
+      operation: RewardsController.Operation.Deposit,
       maturity: FixedLib.INTERVAL
     });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FixedDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       FixedLib.INTERVAL,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     marketDAI.withdrawAtMaturity(FixedLib.INTERVAL, 100 ether, 0, address(this), address(this));
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
   }
@@ -522,23 +495,23 @@ contract RewardsControllerTest is Test {
     vm.warp(1 days);
     marketDAI.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 150 ether, address(this), address(this));
 
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
     operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FixedBorrow,
+      operation: RewardsController.Operation.Borrow,
       maturity: FixedLib.INTERVAL
     });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FixedBorrow,
+      marketDAI,
+      RewardsController.Operation.Borrow,
       FixedLib.INTERVAL,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 2 days
     );
     (uint256 principal, uint256 fee) = marketDAI.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
@@ -546,22 +519,19 @@ contract RewardsControllerTest is Test {
 
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 2 days
     );
   }
 
   function testGetUserRewardsDAIWithAnotherUserInPool() external {
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
@@ -572,107 +542,98 @@ contract RewardsControllerTest is Test {
     marketDAI.deposit(100 ether, ALICE);
 
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 5 days
     );
-    assertEq(rewardsController.getUserRewards(assets, operations, ALICE, address(rewardsAsset)), 0);
+    assertEq(rewardsController.getUserRewards(markets, operations, ALICE, address(rewardsAsset)), 0);
 
     vm.warp(7.5 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 5 days + (emissionPerSecond * 2.5 days) / 2
     );
     assertEq(
-      rewardsController.getUserRewards(assets, operations, ALICE, address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, ALICE, address(rewardsAsset)),
       (emissionPerSecond * 2.5 days) / 2
     );
   }
 
   function testGetUserRewardsWETH() external {
     marketWETH.deposit(1 ether, address(this));
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketWETH);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketWETH;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
-      address(marketWETH),
-      RewardsController.Operation.FloatingDeposit,
+      marketWETH,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 3 days
     );
     vm.warp(3 days + 20 minutes);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * (3 days + 20 minutes)
     );
     vm.warp(7 days);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * 7 days
     );
   }
 
-  function testClaimAllRewardsToSelf() external {
+  function testClaimRewards() external {
     marketDAI.deposit(100 ether, address(this));
     marketWETH.deposit(10 ether, address(this));
-    address[] memory assets = new address[](2);
-    assets[0] = address(marketDAI);
-    assets[1] = address(marketWETH);
+    Market[] memory markets = new Market[](2);
+    markets[0] = marketDAI;
+    markets[1] = marketWETH;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
 
     vm.warp(4 days + 20 minutes);
     uint256 rewardsToBeClaimed = rewardsController.getUserRewards(
-      assets,
+      markets,
       operations,
       address(this),
       address(rewardsAsset)
     );
-    rewardsController.claimAllRewardsToSelf(assets, operations);
+    rewardsController.claimRewards(markets, operations, address(this));
 
     assertEq(rewardsAsset.balanceOf(address(this)), rewardsToBeClaimed);
-    assertEq(rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)), 0);
+    assertEq(rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)), 0);
   }
 
   function testDistributionEnd() external {
     marketDAI.deposit(100 ether, address(this));
     marketWETH.deposit(10 ether, address(this));
 
-    address[] memory assets = new address[](1);
-    assets[0] = address(marketDAI);
+    Market[] memory markets = new Market[](1);
+    markets[0] = marketDAI;
     RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
-    operations[0] = RewardsController.OperationData({
-      operation: RewardsController.Operation.FloatingDeposit,
-      maturity: 0
-    });
+    operations[0] = RewardsController.OperationData({ operation: RewardsController.Operation.Deposit, maturity: 0 });
     (, uint256 emissionPerSecond, , uint256 distributionEnd) = rewardsController.getRewardsData(
-      address(marketDAI),
-      RewardsController.Operation.FloatingDeposit,
+      marketDAI,
+      RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
 
     vm.warp(distributionEnd);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * distributionEnd
     );
 
     vm.warp(distributionEnd + 4 days + 20 minutes);
     assertEq(
-      rewardsController.getUserRewards(assets, operations, address(this), address(rewardsAsset)),
+      rewardsController.getUserRewards(markets, operations, address(this), address(rewardsAsset)),
       emissionPerSecond * distributionEnd
     );
   }
