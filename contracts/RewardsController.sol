@@ -41,32 +41,29 @@ contract RewardsController is AccessControl {
   }
 
   function claimRewards(
-    Market[] calldata markets,
     OperationData[] calldata operations,
     address to
   ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
     rewardsList = new address[](rewardList.length);
     claimedAmounts = new uint256[](rewardList.length);
 
-    _updateDataMultiple(msg.sender, getUserOperationBalances(markets, operations, msg.sender));
+    _updateDataMultiple(msg.sender, getUserOperationBalances(operations, msg.sender));
 
-    for (uint256 i = 0; i < markets.length; i++) {
+    for (uint256 i = 0; i < operations.length; i++) {
       for (uint256 j = 0; j < rewardList.length; j++) {
-        for (uint256 k = 0; k < operations.length; k++) {
-          if (rewardsList[j] == address(0)) {
-            rewardsList[j] = rewardList[j];
-          }
-          uint256 rewardAmount = distributionData[markets[i]][operations[k].operation][operations[k].maturity]
+        if (rewardsList[j] == address(0)) {
+          rewardsList[j] = rewardList[j];
+        }
+        uint256 rewardAmount = distributionData[operations[i].market][operations[i].operation][operations[i].maturity]
+          .rewards[rewardsList[j]]
+          .usersData[msg.sender]
+          .accrued;
+        if (rewardAmount != 0) {
+          claimedAmounts[j] += rewardAmount;
+          distributionData[operations[i].market][operations[i].operation][operations[i].maturity]
             .rewards[rewardsList[j]]
             .usersData[msg.sender]
-            .accrued;
-          if (rewardAmount != 0) {
-            claimedAmounts[j] += rewardAmount;
-            distributionData[markets[i]][operations[k].operation][operations[k].maturity]
-              .rewards[rewardsList[j]]
-              .usersData[msg.sender]
-              .accrued = 0;
-          }
+            .accrued = 0;
         }
       }
     }
@@ -162,12 +159,11 @@ contract RewardsController is AccessControl {
   }
 
   function getUserRewards(
-    Market[] calldata markets,
     OperationData[] calldata operations,
     address user,
     address reward
   ) external view returns (uint256 unclaimedRewards) {
-    UserOperationBalance[] memory userOperationBalances = getUserOperationBalances(markets, operations, user);
+    UserOperationBalance[] memory userOperationBalances = getUserOperationBalances(operations, user);
     for (uint256 i = 0; i < userOperationBalances.length; i++) {
       if (userOperationBalances[i].userBalance == 0) {
         unclaimedRewards += distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
@@ -184,11 +180,10 @@ contract RewardsController is AccessControl {
   }
 
   function getAllUserRewards(
-    Market[] calldata markets,
     OperationData[] calldata operations,
     address user
   ) external view returns (address[] memory rewardsList, uint256[] memory unclaimedAmounts) {
-    UserOperationBalance[] memory userOperationBalances = getUserOperationBalances(markets, operations, user);
+    UserOperationBalance[] memory userOperationBalances = getUserOperationBalances(operations, user);
     rewardsList = new address[](rewardList.length);
     unclaimedAmounts = new uint256[](rewardsList.length);
 
@@ -429,59 +424,56 @@ contract RewardsController is AccessControl {
 
   /**
    * @dev Get user balances and total supply of all the operations specified by the markets and operations parameters
-   * @param markets List of markets to retrieve user balance and total supply
+   * @param operations List of operations to retrieve user balance and total supply
    * @param user Address of the user
    * @return userOperationBalances contains a list of structs with user balance and total amount of the operation's pool
    */
   function getUserOperationBalances(
-    Market[] calldata markets,
     OperationData[] calldata operations,
     address user
   ) internal view returns (UserOperationBalance[] memory userOperationBalances) {
-    userOperationBalances = new UserOperationBalance[](markets.length * operations.length);
+    userOperationBalances = new UserOperationBalance[](operations.length);
     uint256 index = 0;
-    for (uint256 i = 0; i < markets.length; i++) {
-      for (uint256 j = 0; j < operations.length; j++) {
-        if (operations[j].operation == Operation.Deposit && operations[j].maturity == 0) {
-          userOperationBalances[index] = UserOperationBalance({
-            market: markets[i],
-            operation: operations[j].operation,
-            maturity: 0,
-            userBalance: markets[i].balanceOf(user),
-            totalSupply: markets[i].totalSupply()
-          });
-        } else if (operations[j].operation == Operation.Borrow && operations[j].maturity == 0) {
-          (, , uint256 floatingBorrowShares) = markets[i].accounts(user);
-          userOperationBalances[index] = UserOperationBalance({
-            market: markets[i],
-            operation: operations[j].operation,
-            maturity: 0,
-            userBalance: floatingBorrowShares,
-            totalSupply: markets[i].totalFloatingBorrowShares()
-          });
-        } else if (operations[j].operation == Operation.Deposit) {
-          (uint256 principal, ) = markets[i].fixedDepositPositions(operations[j].maturity, user);
-          (, uint256 supplied, , ) = markets[i].fixedPools(operations[j].maturity);
-          userOperationBalances[index] = UserOperationBalance({
-            market: markets[i],
-            operation: operations[j].operation,
-            maturity: operations[j].maturity,
-            userBalance: principal,
-            totalSupply: supplied
-          });
-        } else if (operations[j].operation == Operation.Borrow) {
-          (uint256 principal, ) = markets[i].fixedBorrowPositions(operations[j].maturity, user);
-          (uint256 borrowed, , , ) = markets[i].fixedPools(operations[j].maturity);
-          userOperationBalances[index] = UserOperationBalance({
-            market: markets[i],
-            operation: operations[j].operation,
-            maturity: operations[j].maturity,
-            userBalance: principal,
-            totalSupply: borrowed
-          });
-        }
-        ++index;
+    for (uint256 i = 0; i < operations.length; i++) {
+      if (operations[i].operation == Operation.Deposit && operations[i].maturity == 0) {
+        userOperationBalances[index] = UserOperationBalance({
+          market: operations[i].market,
+          operation: operations[i].operation,
+          maturity: 0,
+          userBalance: operations[i].market.balanceOf(user),
+          totalSupply: operations[i].market.totalSupply()
+        });
+      } else if (operations[i].operation == Operation.Borrow && operations[i].maturity == 0) {
+        (, , uint256 floatingBorrowShares) = operations[i].market.accounts(user);
+        userOperationBalances[index] = UserOperationBalance({
+          market: operations[i].market,
+          operation: operations[i].operation,
+          maturity: 0,
+          userBalance: floatingBorrowShares,
+          totalSupply: operations[i].market.totalFloatingBorrowShares()
+        });
+      } else if (operations[i].operation == Operation.Deposit) {
+        (uint256 principal, ) = operations[i].market.fixedDepositPositions(operations[i].maturity, user);
+        (, uint256 supplied, , ) = operations[i].market.fixedPools(operations[i].maturity);
+        userOperationBalances[index] = UserOperationBalance({
+          market: operations[i].market,
+          operation: operations[i].operation,
+          maturity: operations[i].maturity,
+          userBalance: principal,
+          totalSupply: supplied
+        });
+      } else if (operations[i].operation == Operation.Borrow) {
+        (uint256 principal, ) = operations[i].market.fixedBorrowPositions(operations[i].maturity, user);
+        (uint256 borrowed, , , ) = operations[i].market.fixedPools(operations[i].maturity);
+        userOperationBalances[index] = UserOperationBalance({
+          market: operations[i].market,
+          operation: operations[i].operation,
+          maturity: operations[i].maturity,
+          userBalance: principal,
+          totalSupply: borrowed
+        });
       }
+      ++index;
     }
   }
 
@@ -598,6 +590,7 @@ contract RewardsController is AccessControl {
   }
 
   struct OperationData {
+    Market market;
     Operation operation;
     uint256 maturity;
   }
@@ -650,6 +643,7 @@ contract RewardsController is AccessControl {
     // Number of decimals of the operation's asset
     uint8 decimals;
   }
+
   event Accrued(
     Market indexed market,
     address indexed reward,
