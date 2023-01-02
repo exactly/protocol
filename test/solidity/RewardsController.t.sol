@@ -107,7 +107,7 @@ contract RewardsControllerTest is Test {
       maturity: FixedLib.INTERVAL,
       reward: address(rewardsAsset)
     });
-    rewardsController.configureDistributionOperations(configs);
+    rewardsController.setDistributionOperations(configs);
     marketDAI.setRewardsController(rewardsController);
     rewardsAsset.mint(address(rewardsController), 100 ether);
 

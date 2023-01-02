@@ -26,18 +26,73 @@ contract RewardsController is AccessControl {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
+  function handleOperation(Operation operation, address user, uint256 totalSupply, uint256 userBalance) external {
+    _updateData(Market(msg.sender), operation, 0, user, userBalance, totalSupply);
+  }
+
+  function handleOperationAtMaturity(
+    Operation operation,
+    uint256 maturity,
+    address user,
+    uint256 totalSupply,
+    uint256 userBalance
+  ) external {
+    _updateData(Market(msg.sender), operation, maturity, user, userBalance, totalSupply);
+  }
+
+  function claimRewards(
+    Market[] calldata markets,
+    OperationData[] calldata operations,
+    address to
+  ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
+    rewardsList = new address[](rewardList.length);
+    claimedAmounts = new uint256[](rewardList.length);
+
+    _updateDataMultiple(msg.sender, getUserOperationBalances(markets, operations, msg.sender));
+
+    for (uint256 i = 0; i < markets.length; i++) {
+      for (uint256 j = 0; j < rewardList.length; j++) {
+        for (uint256 k = 0; k < operations.length; k++) {
+          if (rewardsList[j] == address(0)) {
+            rewardsList[j] = rewardList[j];
+          }
+          uint256 rewardAmount = distributionData[markets[i]][operations[k].operation][operations[k].maturity]
+            .rewards[rewardsList[j]]
+            .usersData[msg.sender]
+            .accrued;
+          if (rewardAmount != 0) {
+            claimedAmounts[j] += rewardAmount;
+            distributionData[markets[i]][operations[k].operation][operations[k].maturity]
+              .rewards[rewardsList[j]]
+              .usersData[msg.sender]
+              .accrued = 0;
+          }
+        }
+      }
+    }
+    for (uint256 i = 0; i < rewardList.length; i++) {
+      ERC20(rewardsList[i]).safeTransfer(to, claimedAmounts[i]);
+      emit RewardsClaimed(msg.sender, rewardsList[i], to, claimedAmounts[i]);
+    }
+    return (rewardsList, claimedAmounts);
+  }
+
   function getRewardsData(
     Market market,
     Operation operation,
     uint256 maturity,
     address reward
-  ) public view returns (uint256, uint256, uint256, uint256) {
+  ) external view returns (uint256, uint256, uint256, uint256) {
     return (
       distributionData[market][operation][maturity].rewards[reward].index,
       distributionData[market][operation][maturity].rewards[reward].emissionPerSecond,
       distributionData[market][operation][maturity].rewards[reward].lastUpdateTimestamp,
       distributionData[market][operation][maturity].rewards[reward].distributionEnd
     );
+  }
+
+  function getOperationDecimals(Market market, Operation operation, uint256 maturity) external view returns (uint8) {
+    return distributionData[market][operation][maturity].decimals;
   }
 
   function getOperationIndex(
@@ -111,8 +166,21 @@ contract RewardsController is AccessControl {
     OperationData[] calldata operations,
     address user,
     address reward
-  ) external view returns (uint256) {
-    return _getUserReward(user, reward, getUserOperationBalances(markets, operations, user));
+  ) external view returns (uint256 unclaimedRewards) {
+    UserOperationBalance[] memory userOperationBalances = getUserOperationBalances(markets, operations, user);
+    for (uint256 i = 0; i < userOperationBalances.length; i++) {
+      if (userOperationBalances[i].userBalance == 0) {
+        unclaimedRewards += distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
+          userOperationBalances[i].maturity
+        ].rewards[reward].usersData[user].accrued;
+      } else {
+        unclaimedRewards +=
+          _getPendingRewards(user, reward, userOperationBalances[i]) +
+          distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
+            userOperationBalances[i].maturity
+          ].rewards[reward].usersData[user].accrued;
+      }
+    }
   }
 
   function getAllUserRewards(
@@ -139,62 +207,6 @@ contract RewardsController is AccessControl {
       }
     }
     return (rewardsList, unclaimedAmounts);
-  }
-
-  function setDistributionEnd(
-    Market market,
-    Operation operation,
-    uint256 maturity,
-    address reward,
-    uint32 newDistributionEnd
-  ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    uint256 oldDistributionEnd = distributionData[market][operation][maturity].rewards[reward].distributionEnd;
-    distributionData[market][operation][maturity].rewards[reward].distributionEnd = newDistributionEnd;
-
-    emit OperationConfigUpdated(
-      market,
-      reward,
-      distributionData[market][operation][maturity].rewards[reward].emissionPerSecond,
-      distributionData[market][operation][maturity].rewards[reward].emissionPerSecond,
-      oldDistributionEnd,
-      newDistributionEnd,
-      distributionData[market][operation][maturity].rewards[reward].index
-    );
-  }
-
-  function setEmissionPerSecond(
-    Market market,
-    Operation operation,
-    uint256 maturity,
-    address[] calldata rewards,
-    uint88[] calldata newEmissionsPerSecond
-  ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (rewards.length != newEmissionsPerSecond.length) revert InvalidInput();
-    for (uint256 i = 0; i < rewards.length; i++) {
-      MarketOperationData storage operationData = distributionData[market][operation][maturity];
-      RewardData storage rewardConfig = distributionData[market][operation][maturity].rewards[rewards[i]];
-      uint256 decimals = operationData.decimals;
-      if (decimals == 0 || rewardConfig.lastUpdateTimestamp == 0) revert InvalidDistributionData();
-
-      (uint256 newIndex, ) = _updateRewardData(
-        rewardConfig,
-        getTotalSupplyByOperation(market, operation, maturity),
-        10 ** decimals
-      );
-
-      uint256 oldEmissionPerSecond = rewardConfig.emissionPerSecond;
-      rewardConfig.emissionPerSecond = newEmissionsPerSecond[i];
-
-      emit OperationConfigUpdated(
-        market,
-        rewards[i],
-        oldEmissionPerSecond,
-        newEmissionsPerSecond[i],
-        rewardConfig.distributionEnd,
-        rewardConfig.distributionEnd,
-        newIndex
-      );
-    }
   }
 
   function getTotalSupplyByOperation(
@@ -337,36 +349,6 @@ contract RewardsController is AccessControl {
   }
 
   /**
-   * @dev Return the accrued unclaimed amount of a reward from a user over a list of distribution
-   * @param user The address of the user
-   * @param reward The address of the reward token
-   * @param userOperationBalances List of structs with the user balance and total supply of a set of operations
-   * @return unclaimedRewards The accrued rewards for the user until the moment
-   **/
-  function _getUserReward(
-    address user,
-    address reward,
-    UserOperationBalance[] memory userOperationBalances
-  ) internal view returns (uint256 unclaimedRewards) {
-    // Add unrealized rewards
-    for (uint256 i = 0; i < userOperationBalances.length; i++) {
-      if (userOperationBalances[i].userBalance == 0) {
-        unclaimedRewards += distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
-          userOperationBalances[i].maturity
-        ].rewards[reward].usersData[user].accrued;
-      } else {
-        unclaimedRewards +=
-          _getPendingRewards(user, reward, userOperationBalances[i]) +
-          distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
-            userOperationBalances[i].maturity
-          ].rewards[reward].usersData[user].accrued;
-      }
-    }
-
-    return unclaimedRewards;
-  }
-
-  /**
    * @dev Calculates the pending (not yet accrued) rewards since the last user action
    * @param user The address of the user
    * @param reward The address of the reward token
@@ -445,116 +427,6 @@ contract RewardsController is AccessControl {
     return (oldIndex, (firstTerm + oldIndex));
   }
 
-  function getOperationAssetDecimals(
-    Market market,
-    Operation operation,
-    uint256 maturity
-  ) external view returns (uint8) {
-    return distributionData[market][operation][maturity].decimals;
-  }
-
-  function configureDistributionOperations(RewardsConfigInput[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    for (uint256 i = 0; i < configs.length; i++) {
-      configs[i].totalSupply = getTotalSupplyByOperation(configs[i].market, configs[i].operation, configs[i].maturity);
-    }
-    for (uint256 i = 0; i < configs.length; i++) {
-      if (distributionData[configs[i].market][configs[i].operation][configs[i].maturity].decimals == 0) {
-        //never initialized before, adding to the list of markets
-        marketList.push(configs[i].market);
-      }
-
-      uint256 decimals = distributionData[configs[i].market][configs[i].operation][configs[i].maturity]
-        .decimals = configs[i].market.decimals();
-
-      RewardData storage rewardConfig = distributionData[configs[i].market][configs[i].operation][configs[i].maturity]
-        .rewards[configs[i].reward];
-
-      // Add reward address to distribution data's available rewards if latestUpdateTimestamp is zero
-      if (rewardConfig.lastUpdateTimestamp == 0) {
-        distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewards[
-          distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewardsCount
-        ] = configs[i].reward;
-        distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewardsCount++;
-      }
-
-      // Add reward address to global rewards list if still not enabled
-      if (isRewardEnabled[configs[i].reward] == false) {
-        isRewardEnabled[configs[i].reward] = true;
-        rewardList.push(configs[i].reward);
-      }
-
-      // Due emissions is still zero, updates only latestUpdateTimestamp
-      (uint256 newIndex, ) = _updateRewardData(rewardConfig, configs[i].totalSupply, 10 ** decimals);
-
-      // Configure emission and distribution end of the reward per operation
-      uint88 oldEmissionsPerSecond = rewardConfig.emissionPerSecond;
-      uint32 oldDistributionEnd = rewardConfig.distributionEnd;
-      rewardConfig.emissionPerSecond = configs[i].emissionPerSecond;
-      rewardConfig.distributionEnd = configs[i].distributionEnd;
-
-      emit OperationConfigUpdated(
-        configs[i].market,
-        configs[i].reward,
-        oldEmissionsPerSecond,
-        configs[i].emissionPerSecond,
-        oldDistributionEnd,
-        configs[i].distributionEnd,
-        newIndex
-      );
-    }
-  }
-
-  function handleOperation(Operation operation, address user, uint256 totalSupply, uint256 userBalance) external {
-    _updateData(Market(msg.sender), operation, 0, user, userBalance, totalSupply);
-  }
-
-  function handleOperationAtMaturity(
-    Operation operation,
-    uint256 maturity,
-    address user,
-    uint256 totalSupply,
-    uint256 userBalance
-  ) external {
-    _updateData(Market(msg.sender), operation, maturity, user, userBalance, totalSupply);
-  }
-
-  function claimRewards(
-    Market[] calldata markets,
-    OperationData[] calldata operations,
-    address to
-  ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
-    rewardsList = new address[](rewardList.length);
-    claimedAmounts = new uint256[](rewardList.length);
-
-    _updateDataMultiple(msg.sender, getUserOperationBalances(markets, operations, msg.sender));
-
-    for (uint256 i = 0; i < markets.length; i++) {
-      for (uint256 j = 0; j < rewardList.length; j++) {
-        for (uint256 k = 0; k < operations.length; k++) {
-          if (rewardsList[j] == address(0)) {
-            rewardsList[j] = rewardList[j];
-          }
-          uint256 rewardAmount = distributionData[markets[i]][operations[k].operation][operations[k].maturity]
-            .rewards[rewardsList[j]]
-            .usersData[msg.sender]
-            .accrued;
-          if (rewardAmount != 0) {
-            claimedAmounts[j] += rewardAmount;
-            distributionData[markets[i]][operations[k].operation][operations[k].maturity]
-              .rewards[rewardsList[j]]
-              .usersData[msg.sender]
-              .accrued = 0;
-          }
-        }
-      }
-    }
-    for (uint256 i = 0; i < rewardList.length; i++) {
-      ERC20(rewardsList[i]).safeTransfer(to, claimedAmounts[i]);
-      emit RewardsClaimed(msg.sender, rewardsList[i], to, claimedAmounts[i]);
-    }
-    return (rewardsList, claimedAmounts);
-  }
-
   /**
    * @dev Get user balances and total supply of all the operations specified by the markets and operations parameters
    * @param markets List of markets to retrieve user balance and total supply
@@ -610,6 +482,113 @@ contract RewardsController is AccessControl {
         }
         ++index;
       }
+    }
+  }
+
+  function setDistributionOperations(RewardsConfigInput[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    for (uint256 i = 0; i < configs.length; i++) {
+      configs[i].totalSupply = getTotalSupplyByOperation(configs[i].market, configs[i].operation, configs[i].maturity);
+    }
+    for (uint256 i = 0; i < configs.length; i++) {
+      if (distributionData[configs[i].market][configs[i].operation][configs[i].maturity].decimals == 0) {
+        //never initialized before, adding to the list of markets
+        marketList.push(configs[i].market);
+      }
+
+      uint256 decimals = distributionData[configs[i].market][configs[i].operation][configs[i].maturity]
+        .decimals = configs[i].market.decimals();
+
+      RewardData storage rewardConfig = distributionData[configs[i].market][configs[i].operation][configs[i].maturity]
+        .rewards[configs[i].reward];
+
+      // Add reward address to distribution data's available rewards if latestUpdateTimestamp is zero
+      if (rewardConfig.lastUpdateTimestamp == 0) {
+        distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewards[
+          distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewardsCount
+        ] = configs[i].reward;
+        distributionData[configs[i].market][configs[i].operation][configs[i].maturity].availableRewardsCount++;
+      }
+
+      // Add reward address to global rewards list if still not enabled
+      if (isRewardEnabled[configs[i].reward] == false) {
+        isRewardEnabled[configs[i].reward] = true;
+        rewardList.push(configs[i].reward);
+      }
+
+      // Due emissions is still zero, updates only latestUpdateTimestamp
+      (uint256 newIndex, ) = _updateRewardData(rewardConfig, configs[i].totalSupply, 10 ** decimals);
+
+      // Configure emission and distribution end of the reward per operation
+      uint88 oldEmissionsPerSecond = rewardConfig.emissionPerSecond;
+      uint32 oldDistributionEnd = rewardConfig.distributionEnd;
+      rewardConfig.emissionPerSecond = configs[i].emissionPerSecond;
+      rewardConfig.distributionEnd = configs[i].distributionEnd;
+
+      emit OperationConfigUpdated(
+        configs[i].market,
+        configs[i].reward,
+        oldEmissionsPerSecond,
+        configs[i].emissionPerSecond,
+        oldDistributionEnd,
+        configs[i].distributionEnd,
+        newIndex
+      );
+    }
+  }
+
+  function setDistributionEnd(
+    Market market,
+    Operation operation,
+    uint256 maturity,
+    address reward,
+    uint32 newDistributionEnd
+  ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    uint256 oldDistributionEnd = distributionData[market][operation][maturity].rewards[reward].distributionEnd;
+    distributionData[market][operation][maturity].rewards[reward].distributionEnd = newDistributionEnd;
+
+    emit OperationConfigUpdated(
+      market,
+      reward,
+      distributionData[market][operation][maturity].rewards[reward].emissionPerSecond,
+      distributionData[market][operation][maturity].rewards[reward].emissionPerSecond,
+      oldDistributionEnd,
+      newDistributionEnd,
+      distributionData[market][operation][maturity].rewards[reward].index
+    );
+  }
+
+  function setEmissionPerSecond(
+    Market market,
+    Operation operation,
+    uint256 maturity,
+    address[] calldata rewards,
+    uint88[] calldata newEmissionsPerSecond
+  ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (rewards.length != newEmissionsPerSecond.length) revert InvalidInput();
+    for (uint256 i = 0; i < rewards.length; i++) {
+      MarketOperationData storage operationData = distributionData[market][operation][maturity];
+      RewardData storage rewardConfig = distributionData[market][operation][maturity].rewards[rewards[i]];
+      uint256 decimals = operationData.decimals;
+      if (decimals == 0 || rewardConfig.lastUpdateTimestamp == 0) revert InvalidDistributionData();
+
+      (uint256 newIndex, ) = _updateRewardData(
+        rewardConfig,
+        getTotalSupplyByOperation(market, operation, maturity),
+        10 ** decimals
+      );
+
+      uint256 oldEmissionPerSecond = rewardConfig.emissionPerSecond;
+      rewardConfig.emissionPerSecond = newEmissionsPerSecond[i];
+
+      emit OperationConfigUpdated(
+        market,
+        rewards[i],
+        oldEmissionPerSecond,
+        newEmissionsPerSecond[i],
+        rewardConfig.distributionEnd,
+        rewardConfig.distributionEnd,
+        newIndex
+      );
     }
   }
 
