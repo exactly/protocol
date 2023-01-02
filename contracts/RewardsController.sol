@@ -19,8 +19,8 @@ contract RewardsController is AccessControl {
   mapping(address => bool) internal isRewardEnabled;
   // Rewards list
   address[] internal rewardList;
-  // Markets list
-  Market[] internal marketList;
+  // Operations list
+  OperationData[] internal operationsList;
 
   constructor() {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -144,15 +144,12 @@ contract RewardsController is AccessControl {
     return distributionData[market][operation][maturity].rewards[reward].usersData[user].index;
   }
 
-  function getUserAccruedRewards(
-    address user,
-    Operation operation,
-    uint256 maturity,
-    address reward
-  ) external view returns (uint256) {
+  function getUserAccruedRewards(address user, address reward) external view returns (uint256) {
     uint256 totalAccrued;
-    for (uint256 i = 0; i < marketList.length; i++) {
-      totalAccrued += distributionData[marketList[i]][operation][maturity].rewards[reward].usersData[user].accrued;
+    for (uint256 i = 0; i < operationsList.length; i++) {
+      totalAccrued += distributionData[operationsList[i].market][operationsList[i].operation][
+        operationsList[i].maturity
+      ].rewards[reward].usersData[user].accrued;
     }
 
     return totalAccrued;
@@ -483,8 +480,10 @@ contract RewardsController is AccessControl {
     }
     for (uint256 i = 0; i < configs.length; i++) {
       if (distributionData[configs[i].market][configs[i].operation][configs[i].maturity].decimals == 0) {
-        //never initialized before, adding to the list of markets
-        marketList.push(configs[i].market);
+        //never initialized before, adding to the list of operations
+        operationsList.push(
+          OperationData({ market: configs[i].market, operation: configs[i].operation, maturity: configs[i].maturity })
+        );
       }
 
       uint256 decimals = distributionData[configs[i].market][configs[i].operation][configs[i].maturity]

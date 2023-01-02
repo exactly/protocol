@@ -11,7 +11,13 @@ import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor, IPriceFeed } from "../../contracts/Auditor.sol";
 import { Market } from "../../contracts/Market.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
-import { ERC20, RewardsController } from "../../contracts/RewardsController.sol";
+import {
+  ERC20,
+  RewardsController,
+  InvalidInput,
+  InvalidDistributionData,
+  IndexOverflow
+} from "../../contracts/RewardsController.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
 contract RewardsControllerTest is Test {
@@ -22,6 +28,7 @@ contract RewardsControllerTest is Test {
   Market internal marketDAI;
   Market internal marketWETH;
   MockERC20 internal rewardsAsset;
+  MockInterestRateModel internal irm;
 
   function setUp() external {
     vm.warp(0);
@@ -31,7 +38,7 @@ contract RewardsControllerTest is Test {
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
-    MockInterestRateModel irm = new MockInterestRateModel(0.1e18);
+    irm = new MockInterestRateModel(0.1e18);
 
     marketDAI = Market(address(new ERC1967Proxy(address(new Market(dai, auditor)), "")));
     marketDAI.initialize(
@@ -651,5 +658,125 @@ contract RewardsControllerTest is Test {
       rewardsController.getUserRewards(operations, address(this), address(rewardsAsset)),
       emissionPerSecond * distributionEnd
     );
+  }
+
+  function testEmissionPerSecond() external {
+    vm.warp(1 days);
+    marketDAI.deposit(100 ether, address(this));
+
+    address[] memory rewards = new address[](1);
+    rewards[0] = address(rewardsAsset);
+    uint88[] memory emissionsPerSecond = new uint88[](1);
+
+    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+      marketDAI,
+      RewardsController.Operation.Deposit,
+      0,
+      address(rewardsAsset)
+    );
+    emissionsPerSecond[0] = uint88(emissionPerSecond * 2);
+    rewardsController.setEmissionPerSecond(
+      marketDAI,
+      RewardsController.Operation.Deposit,
+      0,
+      rewards,
+      emissionsPerSecond
+    );
+    (, uint256 newEmissionPerSecond, , ) = rewardsController.getRewardsData(
+      marketDAI,
+      RewardsController.Operation.Deposit,
+      0,
+      address(rewardsAsset)
+    );
+    assertEq(newEmissionPerSecond, emissionPerSecond * 2);
+  }
+
+  function testEmissionPerSecondWithLengthMismatchShouldRevert() external {
+    address[] memory rewards = new address[](1);
+    rewards[0] = address(rewardsAsset);
+    uint88[] memory emissionsPerSecond = new uint88[](2);
+    emissionsPerSecond[0] = uint88(1);
+    emissionsPerSecond[1] = uint88(2);
+
+    vm.expectRevert(InvalidInput.selector);
+    rewardsController.setEmissionPerSecond(
+      marketDAI,
+      RewardsController.Operation.Deposit,
+      0,
+      rewards,
+      emissionsPerSecond
+    );
+  }
+
+  function testEmissionPerSecondWithZeroLastUpdateShouldRevert() external {
+    address[] memory rewards = new address[](1);
+    rewards[0] = address(rewardsAsset);
+    uint88[] memory emissionsPerSecond = new uint88[](1);
+    emissionsPerSecond[0] = uint88(1);
+
+    vm.expectRevert(InvalidDistributionData.selector);
+    rewardsController.setEmissionPerSecond(
+      marketDAI,
+      RewardsController.Operation.Deposit,
+      0,
+      rewards,
+      emissionsPerSecond
+    );
+  }
+
+  function testEmissionPerSecondWithZeroDecimalsShouldRevert() external {
+    MockERC20 asset = new MockERC20("TEST", "TEST", 0);
+    Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
+    RewardsController.RewardsConfigInput[] memory configs = new RewardsController.RewardsConfigInput[](1);
+    configs[0] = RewardsController.RewardsConfigInput({
+      emissionPerSecond: 1,
+      totalSupply: 0,
+      distributionEnd: 10 days,
+      market: market,
+      operation: RewardsController.Operation.Deposit,
+      maturity: FixedLib.INTERVAL,
+      reward: address(rewardsAsset)
+    });
+    rewardsController.setDistributionOperations(configs);
+    asset.mint(address(this), 100 ether);
+    asset.approve(address(market), type(uint256).max);
+    market.depositAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this));
+
+    vm.warp(1 days);
+
+    address[] memory rewards = new address[](1);
+    rewards[0] = address(rewardsAsset);
+    uint88[] memory emissionsPerSecond = new uint88[](1);
+    emissionsPerSecond[0] = uint88(1);
+
+    vm.expectRevert(InvalidDistributionData.selector);
+    rewardsController.setEmissionPerSecond(
+      marketDAI,
+      RewardsController.Operation.Deposit,
+      0,
+      rewards,
+      emissionsPerSecond
+    );
+  }
+
+  function testIndexOverflowShouldRevert() external {
+    vm.warp(1 days);
+    marketDAI.deposit(1, address(this));
+
+    address[] memory rewards = new address[](1);
+    rewards[0] = address(rewardsAsset);
+    uint88[] memory emissionsPerSecond = new uint88[](1);
+    emissionsPerSecond[0] = type(uint88).max;
+    rewardsController.setEmissionPerSecond(
+      marketDAI,
+      RewardsController.Operation.Deposit,
+      0,
+      rewards,
+      emissionsPerSecond
+    );
+    vm.warp(2 days);
+    vm.expectRevert(IndexOverflow.selector);
+    marketDAI.deposit(1, address(this));
   }
 }
