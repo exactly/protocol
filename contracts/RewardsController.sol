@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { Market } from "./Market.sol";
@@ -9,10 +10,8 @@ import { Market } from "./Market.sol";
  * @title RewardsController
  * @notice Abstract contract template to build Distributors contracts for ERC20 rewards to protocol participants
  **/
-contract RewardsController {
+contract RewardsController is AccessControl {
   using SafeTransferLib for ERC20;
-
-  address internal manager;
 
   // Map of rewarded operations and their data
   mapping(Market => mapping(Operation => mapping(uint256 => MarketOperationData))) internal distributionData;
@@ -24,12 +23,7 @@ contract RewardsController {
   Market[] internal marketList;
 
   constructor() {
-    manager = msg.sender;
-  }
-
-  modifier onlyEmissionManager() {
-    require(msg.sender == manager, "RewardsController: only manager");
-    _;
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
   function getRewardsData(
@@ -153,7 +147,7 @@ contract RewardsController {
     uint256 maturity,
     address reward,
     uint32 newDistributionEnd
-  ) external onlyEmissionManager {
+  ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     uint256 oldDistributionEnd = distributionData[market][operation][maturity].rewards[reward].distributionEnd;
     distributionData[market][operation][maturity].rewards[reward].distributionEnd = newDistributionEnd;
 
@@ -174,7 +168,7 @@ contract RewardsController {
     uint256 maturity,
     address[] calldata rewards,
     uint88[] calldata newEmissionsPerSecond
-  ) external onlyEmissionManager {
+  ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (rewards.length != newEmissionsPerSecond.length) revert InvalidInput();
     for (uint256 i = 0; i < rewards.length; i++) {
       MarketOperationData storage operationData = distributionData[market][operation][maturity];
@@ -459,7 +453,7 @@ contract RewardsController {
     return distributionData[market][operation][maturity].decimals;
   }
 
-  function configureDistributionOperations(RewardsConfigInput[] memory configs) external onlyEmissionManager {
+  function configureDistributionOperations(RewardsConfigInput[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; i++) {
       configs[i].totalSupply = getTotalSupplyByOperation(configs[i].market, configs[i].operation, configs[i].maturity);
     }
