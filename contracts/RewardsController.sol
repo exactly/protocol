@@ -26,18 +26,18 @@ contract RewardsController is AccessControl {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
-  function handleOperation(Operation operation, address user, uint256 totalSupply, uint256 userBalance) external {
-    _updateData(Market(msg.sender), operation, 0, user, userBalance, totalSupply);
+  function handleOperation(Operation operation, address account, uint256 totalSupply, uint256 accountBalance) external {
+    _updateData(Market(msg.sender), operation, 0, account, accountBalance, totalSupply);
   }
 
   function handleOperationAtMaturity(
     Operation operation,
     uint256 maturity,
-    address user,
+    address account,
     uint256 totalSupply,
-    uint256 userBalance
+    uint256 accountBalance
   ) external {
-    _updateData(Market(msg.sender), operation, maturity, user, userBalance, totalSupply);
+    _updateData(Market(msg.sender), operation, maturity, account, accountBalance, totalSupply);
   }
 
   function claimRewards(
@@ -47,7 +47,7 @@ contract RewardsController is AccessControl {
     rewardsList = new address[](rewardList.length);
     claimedAmounts = new uint256[](rewardList.length);
 
-    _updateDataMultiple(msg.sender, getUserOperationBalances(operations, msg.sender));
+    _updateDataMultiple(msg.sender, getAccountOperationBalances(operations, msg.sender));
 
     for (uint256 i = 0; i < operations.length; i++) {
       for (uint256 j = 0; j < rewardList.length; j++) {
@@ -56,13 +56,13 @@ contract RewardsController is AccessControl {
         }
         uint256 rewardAmount = distributionData[operations[i].market][operations[i].operation][operations[i].maturity]
           .rewards[rewardsList[j]]
-          .usersData[msg.sender]
+          .accountsData[msg.sender]
           .accrued;
         if (rewardAmount != 0) {
           claimedAmounts[j] += rewardAmount;
           distributionData[operations[i].market][operations[i].operation][operations[i].maturity]
             .rewards[rewardsList[j]]
-            .usersData[msg.sender]
+            .accountsData[msg.sender]
             .accrued = 0;
         }
       }
@@ -134,68 +134,68 @@ contract RewardsController is AccessControl {
     return rewardList;
   }
 
-  function getUserOperationIndex(
-    address user,
+  function getAccountOperationIndex(
+    address account,
     Market market,
     Operation operation,
     uint256 maturity,
     address reward
   ) external view returns (uint256) {
-    return distributionData[market][operation][maturity].rewards[reward].usersData[user].index;
+    return distributionData[market][operation][maturity].rewards[reward].accountsData[account].index;
   }
 
-  function getUserAccruedRewards(address user, address reward) external view returns (uint256) {
+  function getAccountAccruedRewards(address account, address reward) external view returns (uint256) {
     uint256 totalAccrued;
     for (uint256 i = 0; i < operationsList.length; i++) {
       totalAccrued += distributionData[operationsList[i].market][operationsList[i].operation][
         operationsList[i].maturity
-      ].rewards[reward].usersData[user].accrued;
+      ].rewards[reward].accountsData[account].accrued;
     }
 
     return totalAccrued;
   }
 
-  function getUserRewards(
+  function getAccountRewards(
     OperationData[] calldata operations,
-    address user,
+    address account,
     address reward
   ) external view returns (uint256 unclaimedRewards) {
-    UserOperationBalance[] memory userOperationBalances = getUserOperationBalances(operations, user);
-    for (uint256 i = 0; i < userOperationBalances.length; i++) {
-      if (userOperationBalances[i].userBalance == 0) {
-        unclaimedRewards += distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
-          userOperationBalances[i].maturity
-        ].rewards[reward].usersData[user].accrued;
+    AccountOperationBalance[] memory accountOperationBalances = getAccountOperationBalances(operations, account);
+    for (uint256 i = 0; i < accountOperationBalances.length; i++) {
+      if (accountOperationBalances[i].accountBalance == 0) {
+        unclaimedRewards += distributionData[accountOperationBalances[i].market][accountOperationBalances[i].operation][
+          accountOperationBalances[i].maturity
+        ].rewards[reward].accountsData[account].accrued;
       } else {
         unclaimedRewards +=
-          _getPendingRewards(user, reward, userOperationBalances[i]) +
-          distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
-            userOperationBalances[i].maturity
-          ].rewards[reward].usersData[user].accrued;
+          _getPendingRewards(account, reward, accountOperationBalances[i]) +
+          distributionData[accountOperationBalances[i].market][accountOperationBalances[i].operation][
+            accountOperationBalances[i].maturity
+          ].rewards[reward].accountsData[account].accrued;
       }
     }
   }
 
-  function getAllUserRewards(
+  function getAllAccountRewards(
     OperationData[] calldata operations,
-    address user
+    address account
   ) external view returns (address[] memory rewardsList, uint256[] memory unclaimedAmounts) {
-    UserOperationBalance[] memory userOperationBalances = getUserOperationBalances(operations, user);
+    AccountOperationBalance[] memory accountOperationBalances = getAccountOperationBalances(operations, account);
     rewardsList = new address[](rewardList.length);
     unclaimedAmounts = new uint256[](rewardsList.length);
 
-    // Add unrealized rewards from user to unclaimedRewards
-    for (uint256 i = 0; i < userOperationBalances.length; i++) {
+    // Add unrealized rewards from account to unclaimedRewards
+    for (uint256 i = 0; i < accountOperationBalances.length; i++) {
       for (uint256 r = 0; r < rewardsList.length; r++) {
         rewardsList[r] = rewardList[r];
-        unclaimedAmounts[r] += distributionData[userOperationBalances[i].market][userOperationBalances[i].operation][
-          userOperationBalances[i].maturity
-        ].rewards[rewardsList[r]].usersData[user].accrued;
+        unclaimedAmounts[r] += distributionData[accountOperationBalances[i].market][
+          accountOperationBalances[i].operation
+        ][accountOperationBalances[i].maturity].rewards[rewardsList[r]].accountsData[account].accrued;
 
-        if (userOperationBalances[i].userBalance == 0) {
+        if (accountOperationBalances[i].accountBalance == 0) {
           continue;
         }
-        unclaimedAmounts[r] += _getPendingRewards(user, rewardsList[r], userOperationBalances[i]);
+        unclaimedAmounts[r] += _getPendingRewards(account, rewardsList[r], accountOperationBalances[i]);
       }
     }
     return (rewardsList, unclaimedAmounts);
@@ -247,49 +247,49 @@ contract RewardsController is AccessControl {
   }
 
   /**
-   * @dev Updates the state of the distribution for the specific user
+   * @dev Updates the state of the distribution for the specific account
    * @param rewardData Storage pointer to the distribution reward config
-   * @param user The address of the user
-   * @param userBalance The user's balance in the operation's pool
+   * @param account The address of the account
+   * @param accountBalance The account's balance in the operation's pool
    * @param newOperationIndex The new index of the operation distribution
    * @param assetUnit One unit of asset (10**decimals)
    * @return The rewards accrued since the last update
    **/
-  function _updateUserData(
+  function _updateAccountData(
     RewardData storage rewardData,
-    address user,
-    uint256 userBalance,
+    address account,
+    uint256 accountBalance,
     uint256 newOperationIndex,
     uint256 assetUnit
   ) internal returns (uint256, bool) {
-    uint256 userIndex = rewardData.usersData[user].index;
+    uint256 accountIndex = rewardData.accountsData[account].index;
     uint256 rewardsAccrued;
     bool dataUpdated;
-    if ((dataUpdated = userIndex != newOperationIndex)) {
+    if ((dataUpdated = accountIndex != newOperationIndex)) {
       // already checked for overflow in _updateRewardData
-      rewardData.usersData[user].index = uint104(newOperationIndex);
-      if (userBalance != 0) {
-        rewardsAccrued = _getRewards(userBalance, newOperationIndex, userIndex, assetUnit);
+      rewardData.accountsData[account].index = uint104(newOperationIndex);
+      if (accountBalance != 0) {
+        rewardsAccrued = _getRewards(accountBalance, newOperationIndex, accountIndex, assetUnit);
 
-        rewardData.usersData[user].accrued += uint128(rewardsAccrued);
+        rewardData.accountsData[account].accrued += uint128(rewardsAccrued);
       }
     }
     return (rewardsAccrued, dataUpdated);
   }
 
   /**
-   * @dev Iterates and accrues all the rewards for the operations of the specific user
+   * @dev Iterates and accrues all the rewards for the operations of the specific account
    * @param market The address of the reference Market of the distribution
-   * @param user The user address
-   * @param userBalance The user's balance in the operation's pool
+   * @param account The account address
+   * @param accountBalance The account's balance in the operation's pool
    * @param totalSupply Total balance of the operation's pool
    **/
   function _updateData(
     Market market,
     Operation operation,
     uint256 maturity,
-    address user,
-    uint256 userBalance,
+    address account,
+    uint256 accountBalance,
     uint256 totalSupply
   ) internal {
     uint256 assetUnit;
@@ -307,77 +307,79 @@ contract RewardsController is AccessControl {
 
         (uint256 newOperationIndex, bool rewardDataUpdated) = _updateRewardData(rewardData, totalSupply, assetUnit);
 
-        (uint256 rewardsAccrued, bool userDataUpdated) = _updateUserData(
+        (uint256 rewardsAccrued, bool accountDataUpdated) = _updateAccountData(
           rewardData,
-          user,
-          userBalance,
+          account,
+          accountBalance,
           newOperationIndex,
           assetUnit
         );
 
-        if (rewardDataUpdated || userDataUpdated) {
-          emit Accrued(market, reward, user, newOperationIndex, newOperationIndex, rewardsAccrued);
+        if (rewardDataUpdated || accountDataUpdated) {
+          emit Accrued(market, reward, account, newOperationIndex, newOperationIndex, rewardsAccrued);
         }
       }
     }
   }
 
   /**
-   * @dev Accrues all rewards of the operations specified in the userOperationBalances list
-   * @param user The address of the user
-   * @param userOperationBalances List of structs with the user balance and total supply of a set of operations
+   * @dev Accrues all rewards of the operations specified in the accountOperationBalances list
+   * @param account The address of the account
+   * @param accountOperationBalances List of structs with the account balance and total supply of a set of operations
    **/
-  function _updateDataMultiple(address user, UserOperationBalance[] memory userOperationBalances) internal {
-    for (uint256 i = 0; i < userOperationBalances.length; i++) {
+  function _updateDataMultiple(address account, AccountOperationBalance[] memory accountOperationBalances) internal {
+    for (uint256 i = 0; i < accountOperationBalances.length; i++) {
       _updateData(
-        userOperationBalances[i].market,
-        userOperationBalances[i].operation,
-        userOperationBalances[i].maturity,
-        user,
-        userOperationBalances[i].userBalance,
-        userOperationBalances[i].totalSupply
+        accountOperationBalances[i].market,
+        accountOperationBalances[i].operation,
+        accountOperationBalances[i].maturity,
+        account,
+        accountOperationBalances[i].accountBalance,
+        accountOperationBalances[i].totalSupply
       );
     }
   }
 
   /**
-   * @dev Calculates the pending (not yet accrued) rewards since the last user action
-   * @param user The address of the user
+   * @dev Calculates the pending (not yet accrued) rewards since the last account action
+   * @param account The address of the account
    * @param reward The address of the reward token
-   * @param userOperationBalance Struct with the user balance and total balance of the operation's pool
-   * @return The pending rewards for the user since the last user action
+   * @param accountOperationBalance Struct with the account balance and total balance of the operation's pool
+   * @return The pending rewards for the account since the last account action
    **/
   function _getPendingRewards(
-    address user,
+    address account,
     address reward,
-    UserOperationBalance memory userOperationBalance
+    AccountOperationBalance memory accountOperationBalance
   ) internal view returns (uint256) {
-    RewardData storage rewardData = distributionData[userOperationBalance.market][userOperationBalance.operation][
-      userOperationBalance.maturity
+    RewardData storage rewardData = distributionData[accountOperationBalance.market][accountOperationBalance.operation][
+      accountOperationBalance.maturity
     ].rewards[reward];
     uint256 assetUnit = 10 **
-      distributionData[userOperationBalance.market][userOperationBalance.operation][userOperationBalance.maturity]
-        .decimals;
-    (, uint256 nextIndex) = _getOperationIndex(rewardData, userOperationBalance.totalSupply, assetUnit);
+      distributionData[accountOperationBalance.market][accountOperationBalance.operation][
+        accountOperationBalance.maturity
+      ].decimals;
+    (, uint256 nextIndex) = _getOperationIndex(rewardData, accountOperationBalance.totalSupply, assetUnit);
 
-    return _getRewards(userOperationBalance.userBalance, nextIndex, rewardData.usersData[user].index, assetUnit);
+    return
+      _getRewards(accountOperationBalance.accountBalance, nextIndex, rewardData.accountsData[account].index, assetUnit);
   }
 
   /**
-   * @dev Internal function for the calculation of user's rewards on a distribution
-   * @param userBalance The user's balance in the operation's pool
+   * @dev Internal function for the calculation of account's rewards on a distribution
+   * @param accountBalance The account's balance in the operation's pool
    * @param reserveIndex Current index of the distribution
-   * @param userIndex Index stored for the user, representation his staking moment
+   * @param accountIndex Index stored for the account, representation his staking moment
    * @param assetUnit One unit of asset (10**decimals)
    * @return The rewards
    **/
   function _getRewards(
-    uint256 userBalance,
+    uint256 accountBalance,
     uint256 reserveIndex,
-    uint256 userIndex,
+    uint256 accountIndex,
     uint256 assetUnit
   ) internal pure returns (uint256) {
-    uint256 result = userBalance * (reserveIndex - userIndex);
+    uint256 result = accountBalance * (reserveIndex - accountIndex);
     assembly {
       result := div(result, assetUnit)
     }
@@ -420,53 +422,53 @@ contract RewardsController is AccessControl {
   }
 
   /**
-   * @dev Get user balances and total supply of all the operations specified by the markets and operations parameters
-   * @param operations List of operations to retrieve user balance and total supply
-   * @param user Address of the user
-   * @return userOperationBalances contains a list of structs with user balance and total amount of the operation's pool
+   * @dev Get account balances and total supply of all the operations specified by the markets and operations parameters
+   * @param operations List of operations to retrieve account balance and total supply
+   * @param account Address of the account
+   * @return accountOperationBalances contains a list of structs with account balance and total amount of the operation's pool
    */
-  function getUserOperationBalances(
+  function getAccountOperationBalances(
     OperationData[] calldata operations,
-    address user
-  ) internal view returns (UserOperationBalance[] memory userOperationBalances) {
-    userOperationBalances = new UserOperationBalance[](operations.length);
+    address account
+  ) internal view returns (AccountOperationBalance[] memory accountOperationBalances) {
+    accountOperationBalances = new AccountOperationBalance[](operations.length);
     uint256 index = 0;
     for (uint256 i = 0; i < operations.length; i++) {
       if (operations[i].operation == Operation.Deposit && operations[i].maturity == 0) {
-        userOperationBalances[index] = UserOperationBalance({
+        accountOperationBalances[index] = AccountOperationBalance({
           market: operations[i].market,
           operation: operations[i].operation,
           maturity: 0,
-          userBalance: operations[i].market.balanceOf(user),
+          accountBalance: operations[i].market.balanceOf(account),
           totalSupply: operations[i].market.totalSupply()
         });
       } else if (operations[i].operation == Operation.Borrow && operations[i].maturity == 0) {
-        (, , uint256 floatingBorrowShares) = operations[i].market.accounts(user);
-        userOperationBalances[index] = UserOperationBalance({
+        (, , uint256 floatingBorrowShares) = operations[i].market.accounts(account);
+        accountOperationBalances[index] = AccountOperationBalance({
           market: operations[i].market,
           operation: operations[i].operation,
           maturity: 0,
-          userBalance: floatingBorrowShares,
+          accountBalance: floatingBorrowShares,
           totalSupply: operations[i].market.totalFloatingBorrowShares()
         });
       } else if (operations[i].operation == Operation.Deposit) {
-        (uint256 principal, ) = operations[i].market.fixedDepositPositions(operations[i].maturity, user);
+        (uint256 principal, ) = operations[i].market.fixedDepositPositions(operations[i].maturity, account);
         (, uint256 supplied, , ) = operations[i].market.fixedPools(operations[i].maturity);
-        userOperationBalances[index] = UserOperationBalance({
+        accountOperationBalances[index] = AccountOperationBalance({
           market: operations[i].market,
           operation: operations[i].operation,
           maturity: operations[i].maturity,
-          userBalance: principal,
+          accountBalance: principal,
           totalSupply: supplied
         });
       } else if (operations[i].operation == Operation.Borrow) {
-        (uint256 principal, ) = operations[i].market.fixedBorrowPositions(operations[i].maturity, user);
+        (uint256 principal, ) = operations[i].market.fixedBorrowPositions(operations[i].maturity, account);
         (uint256 borrowed, , , ) = operations[i].market.fixedPools(operations[i].maturity);
-        userOperationBalances[index] = UserOperationBalance({
+        accountOperationBalances[index] = AccountOperationBalance({
           market: operations[i].market,
           operation: operations[i].operation,
           maturity: operations[i].maturity,
-          userBalance: principal,
+          accountBalance: principal,
           totalSupply: borrowed
         });
       }
@@ -604,18 +606,18 @@ contract RewardsController is AccessControl {
     address reward;
   }
 
-  struct UserOperationBalance {
+  struct AccountOperationBalance {
     Market market;
     Operation operation;
     uint256 maturity;
-    uint256 userBalance;
+    uint256 accountBalance;
     uint256 totalSupply;
   }
 
-  struct UserData {
-    // Liquidity index of the reward distribution for the user
+  struct AccountData {
+    // Liquidity index of the reward distribution for the account
     uint104 index;
-    // Amount of accrued rewards for the user since last user index update
+    // Amount of accrued rewards for the account since last account index update
     uint128 accrued;
   }
 
@@ -628,8 +630,8 @@ contract RewardsController is AccessControl {
     uint32 lastUpdateTimestamp;
     // The end of the distribution of rewards (in seconds)
     uint32 distributionEnd;
-    // Map of user addresses and their rewards data (userAddress => userData)
-    mapping(address => UserData) usersData;
+    // Map of account addresses and their rewards data (accountAddress => accountData)
+    mapping(address => AccountData) accountsData;
   }
 
   struct MarketOperationData {
@@ -646,9 +648,9 @@ contract RewardsController is AccessControl {
   event Accrued(
     Market indexed market,
     address indexed reward,
-    address indexed user,
+    address indexed account,
     uint256 operationIndex,
-    uint256 userIndex,
+    uint256 accountIndex,
     uint256 rewardsAccrued
   );
   event OperationConfigUpdated(
@@ -660,7 +662,7 @@ contract RewardsController is AccessControl {
     uint256 newDistributionEnd,
     uint256 operationIndex
   );
-  event RewardsClaimed(address indexed user, address indexed reward, address indexed to, uint256 amount);
+  event RewardsClaimed(address indexed account, address indexed reward, address indexed to, uint256 amount);
 }
 error InvalidInput();
 error InvalidDistributionData();
