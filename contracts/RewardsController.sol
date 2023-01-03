@@ -19,8 +19,8 @@ contract RewardsController is AccessControl {
   mapping(address => bool) internal isRewardEnabled;
   // Rewards list
   address[] internal rewardList;
-  // Operations list
-  OperationData[] internal operationsList;
+  // Map of operations by account
+  mapping(address => OperationData[]) public accountOperations;
 
   constructor() {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -40,12 +40,10 @@ contract RewardsController is AccessControl {
     _updateData(Market(msg.sender), operation, maturity, account, accountBalance, totalSupply);
   }
 
-  function claimRewards(
-    OperationData[] calldata operations,
-    address to
-  ) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
+  function claimRewards(address to) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
     rewardsList = new address[](rewardList.length);
     claimedAmounts = new uint256[](rewardList.length);
+    OperationData[] memory operations = accountOperations[msg.sender];
 
     _updateDataMultiple(msg.sender, getAccountOperationBalances(operations, msg.sender));
 
@@ -134,6 +132,10 @@ contract RewardsController is AccessControl {
     return rewardList;
   }
 
+  function allAccountOperations(address account) external view returns (OperationData[] memory) {
+    return accountOperations[account];
+  }
+
   function getAccountOperationIndex(
     address account,
     Market market,
@@ -144,22 +146,18 @@ contract RewardsController is AccessControl {
     return distributionData[market][operation][maturity].rewards[reward].accountsData[account].index;
   }
 
-  function getAccountAccruedRewards(address account, address reward) external view returns (uint256) {
-    uint256 totalAccrued;
-    for (uint256 i = 0; i < operationsList.length; i++) {
-      totalAccrued += distributionData[operationsList[i].market][operationsList[i].operation][
-        operationsList[i].maturity
-      ].rewards[reward].accountsData[account].accrued;
+  function getAccountAccruedRewards(address account, address reward) external view returns (uint256 totalAccrued) {
+    OperationData[] memory operations = accountOperations[account];
+    for (uint256 i = 0; i < operations.length; i++) {
+      totalAccrued += distributionData[operations[i].market][operations[i].operation][operations[i].maturity]
+        .rewards[reward]
+        .accountsData[account]
+        .accrued;
     }
-
-    return totalAccrued;
   }
 
-  function getAccountRewards(
-    OperationData[] calldata operations,
-    address account,
-    address reward
-  ) external view returns (uint256 unclaimedRewards) {
+  function getAccountRewards(address account, address reward) external view returns (uint256 unclaimedRewards) {
+    OperationData[] memory operations = accountOperations[account];
     AccountOperationBalance[] memory accountOperationBalances = getAccountOperationBalances(operations, account);
     for (uint256 i = 0; i < accountOperationBalances.length; i++) {
       if (accountOperationBalances[i].accountBalance == 0) {
@@ -307,6 +305,9 @@ contract RewardsController is AccessControl {
 
         (uint256 newOperationIndex, bool rewardDataUpdated) = _updateRewardData(rewardData, totalSupply, assetUnit);
 
+        if (accountBalance == 0 && rewardData.accountsData[account].index == 0) {
+          accountOperations[account].push(OperationData(market, operation, maturity));
+        }
         (uint256 rewardsAccrued, bool accountDataUpdated) = _updateAccountData(
           rewardData,
           account,
@@ -425,17 +426,17 @@ contract RewardsController is AccessControl {
    * @dev Get account balances and total supply of all the operations specified by the markets and operations parameters
    * @param operations List of operations to retrieve account balance and total supply
    * @param account Address of the account
-   * @return accountOperationBalances contains a list of structs with account balance and total amount of the operation's pool
+   * @return accountOperationBalances contains a list of structs with account balance and total amount of the
+   * operation's pool
    */
   function getAccountOperationBalances(
-    OperationData[] calldata operations,
+    OperationData[] memory operations,
     address account
   ) internal view returns (AccountOperationBalance[] memory accountOperationBalances) {
     accountOperationBalances = new AccountOperationBalance[](operations.length);
-    uint256 index = 0;
     for (uint256 i = 0; i < operations.length; i++) {
       if (operations[i].operation == Operation.Deposit && operations[i].maturity == 0) {
-        accountOperationBalances[index] = AccountOperationBalance({
+        accountOperationBalances[i] = AccountOperationBalance({
           market: operations[i].market,
           operation: operations[i].operation,
           maturity: 0,
@@ -444,7 +445,7 @@ contract RewardsController is AccessControl {
         });
       } else if (operations[i].operation == Operation.Borrow && operations[i].maturity == 0) {
         (, , uint256 floatingBorrowShares) = operations[i].market.accounts(account);
-        accountOperationBalances[index] = AccountOperationBalance({
+        accountOperationBalances[i] = AccountOperationBalance({
           market: operations[i].market,
           operation: operations[i].operation,
           maturity: 0,
@@ -454,7 +455,7 @@ contract RewardsController is AccessControl {
       } else if (operations[i].operation == Operation.Deposit) {
         (uint256 principal, ) = operations[i].market.fixedDepositPositions(operations[i].maturity, account);
         (, uint256 supplied, , ) = operations[i].market.fixedPools(operations[i].maturity);
-        accountOperationBalances[index] = AccountOperationBalance({
+        accountOperationBalances[i] = AccountOperationBalance({
           market: operations[i].market,
           operation: operations[i].operation,
           maturity: operations[i].maturity,
@@ -464,7 +465,7 @@ contract RewardsController is AccessControl {
       } else if (operations[i].operation == Operation.Borrow) {
         (uint256 principal, ) = operations[i].market.fixedBorrowPositions(operations[i].maturity, account);
         (uint256 borrowed, , , ) = operations[i].market.fixedPools(operations[i].maturity);
-        accountOperationBalances[index] = AccountOperationBalance({
+        accountOperationBalances[i] = AccountOperationBalance({
           market: operations[i].market,
           operation: operations[i].operation,
           maturity: operations[i].maturity,
@@ -472,7 +473,6 @@ contract RewardsController is AccessControl {
           totalSupply: borrowed
         });
       }
-      ++index;
     }
   }
 
@@ -481,13 +481,6 @@ contract RewardsController is AccessControl {
       configs[i].totalSupply = getTotalSupplyByOperation(configs[i].market, configs[i].operation, configs[i].maturity);
     }
     for (uint256 i = 0; i < configs.length; i++) {
-      if (distributionData[configs[i].market][configs[i].operation][configs[i].maturity].decimals == 0) {
-        //never initialized before, adding to the list of operations
-        operationsList.push(
-          OperationData({ market: configs[i].market, operation: configs[i].operation, maturity: configs[i].maturity })
-        );
-      }
-
       uint256 decimals = distributionData[configs[i].market][configs[i].operation][configs[i].maturity]
         .decimals = configs[i].market.decimals();
 
