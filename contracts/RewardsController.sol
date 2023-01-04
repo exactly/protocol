@@ -27,7 +27,7 @@ contract RewardsController is AccessControl {
   }
 
   function handleOperation(Operation operation, address account, uint256 totalSupply, uint256 accountBalance) external {
-    _updateData(Market(msg.sender), operation, 0, account, accountBalance, totalSupply);
+    updateData(Market(msg.sender), operation, 0, account, accountBalance, totalSupply);
   }
 
   function handleOperationAtMaturity(
@@ -37,7 +37,7 @@ contract RewardsController is AccessControl {
     uint256 totalSupply,
     uint256 accountBalance
   ) external {
-    _updateData(Market(msg.sender), operation, maturity, account, accountBalance, totalSupply);
+    updateData(Market(msg.sender), operation, maturity, account, accountBalance, totalSupply);
   }
 
   function claimRewards(address to) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
@@ -45,7 +45,7 @@ contract RewardsController is AccessControl {
     claimedAmounts = new uint256[](rewardList.length);
     OperationData[] memory operations = accountOperations[msg.sender];
 
-    _updateDataMultiple(msg.sender, getAccountOperationBalances(operations, msg.sender));
+    updateDataMultiple(msg.sender, getAccountOperationBalances(operations, msg.sender));
 
     for (uint256 i = 0; i < operations.length; i++) {
       for (uint256 j = 0; j < rewardList.length; j++) {
@@ -88,21 +88,6 @@ contract RewardsController is AccessControl {
 
   function getOperationDecimals(Market market, Operation operation, uint256 maturity) external view returns (uint8) {
     return distributionData[market][operation][maturity].decimals;
-  }
-
-  function getOperationIndex(
-    Market market,
-    Operation operation,
-    uint256 maturity,
-    address reward
-  ) external view returns (uint256, uint256) {
-    RewardData storage rewardData = distributionData[market][operation][maturity].rewards[reward];
-    return
-      _getOperationIndex(
-        rewardData,
-        getTotalSupplyByOperation(market, operation, maturity),
-        10 ** distributionData[market][operation][maturity].decimals
-      );
   }
 
   function getDistributionEnd(
@@ -166,7 +151,7 @@ contract RewardsController is AccessControl {
         ].rewards[reward].accountsData[account].accrued;
       } else {
         unclaimedRewards +=
-          _getPendingRewards(account, reward, accountOperationBalances[i]) +
+          getPendingRewards(account, reward, accountOperationBalances[i]) +
           distributionData[accountOperationBalances[i].market][accountOperationBalances[i].operation][
             accountOperationBalances[i].maturity
           ].rewards[reward].accountsData[account].accrued;
@@ -193,7 +178,7 @@ contract RewardsController is AccessControl {
         if (accountOperationBalances[i].accountBalance == 0) {
           continue;
         }
-        unclaimedAmounts[r] += _getPendingRewards(account, rewardsList[r], accountOperationBalances[i]);
+        unclaimedAmounts[r] += getPendingRewards(account, rewardsList[r], accountOperationBalances[i]);
       }
     }
     return (rewardsList, unclaimedAmounts);
@@ -223,12 +208,12 @@ contract RewardsController is AccessControl {
    * @return The new distribution index
    * @return True if the index was updated, false otherwise
    **/
-  function _updateRewardData(
+  function updateRewardData(
     RewardData storage rewardData,
     uint256 totalSupply,
     uint256 assetUnit
   ) internal returns (uint256, bool) {
-    (uint256 oldIndex, uint256 newIndex) = _getOperationIndex(rewardData, totalSupply, assetUnit);
+    (uint256 oldIndex, uint256 newIndex) = getOperationIndex(rewardData, totalSupply, assetUnit);
     bool indexUpdated;
     if (newIndex != oldIndex) {
       if (newIndex > type(uint104).max) revert IndexOverflow();
@@ -253,7 +238,7 @@ contract RewardsController is AccessControl {
    * @param assetUnit One unit of asset (10**decimals)
    * @return The rewards accrued since the last update
    **/
-  function _updateAccountData(
+  function updateAccountData(
     RewardData storage rewardData,
     address account,
     uint256 accountBalance,
@@ -264,10 +249,10 @@ contract RewardsController is AccessControl {
     uint256 rewardsAccrued;
     bool dataUpdated;
     if ((dataUpdated = accountIndex != newOperationIndex)) {
-      // already checked for overflow in _updateRewardData
+      // already checked for overflow in updateRewardData
       rewardData.accountsData[account].index = uint104(newOperationIndex);
       if (accountBalance != 0) {
-        rewardsAccrued = _getRewards(accountBalance, newOperationIndex, accountIndex, assetUnit);
+        rewardsAccrued = getRewards(accountBalance, newOperationIndex, accountIndex, assetUnit);
 
         rewardData.accountsData[account].accrued += uint128(rewardsAccrued);
       }
@@ -282,7 +267,7 @@ contract RewardsController is AccessControl {
    * @param accountBalance The account's balance in the operation's pool
    * @param totalSupply Total balance of the operation's pool
    **/
-  function _updateData(
+  function updateData(
     Market market,
     Operation operation,
     uint256 maturity,
@@ -303,12 +288,12 @@ contract RewardsController is AccessControl {
         address reward = distributionData[market][operation][maturity].availableRewards[r];
         RewardData storage rewardData = distributionData[market][operation][maturity].rewards[reward];
 
-        (uint256 newOperationIndex, bool rewardDataUpdated) = _updateRewardData(rewardData, totalSupply, assetUnit);
+        (uint256 newOperationIndex, bool rewardDataUpdated) = updateRewardData(rewardData, totalSupply, assetUnit);
 
         if (accountBalance == 0 && rewardData.accountsData[account].index == 0) {
           accountOperations[account].push(OperationData(market, operation, maturity));
         }
-        (uint256 rewardsAccrued, bool accountDataUpdated) = _updateAccountData(
+        (uint256 rewardsAccrued, bool accountDataUpdated) = updateAccountData(
           rewardData,
           account,
           accountBalance,
@@ -328,9 +313,9 @@ contract RewardsController is AccessControl {
    * @param account The address of the account
    * @param accountOperationBalances List of structs with the account balance and total supply of a set of operations
    **/
-  function _updateDataMultiple(address account, AccountOperationBalance[] memory accountOperationBalances) internal {
+  function updateDataMultiple(address account, AccountOperationBalance[] memory accountOperationBalances) internal {
     for (uint256 i = 0; i < accountOperationBalances.length; i++) {
-      _updateData(
+      updateData(
         accountOperationBalances[i].market,
         accountOperationBalances[i].operation,
         accountOperationBalances[i].maturity,
@@ -348,7 +333,7 @@ contract RewardsController is AccessControl {
    * @param accountOperationBalance Struct with the account balance and total balance of the operation's pool
    * @return The pending rewards for the account since the last account action
    **/
-  function _getPendingRewards(
+  function getPendingRewards(
     address account,
     address reward,
     AccountOperationBalance memory accountOperationBalance
@@ -360,10 +345,10 @@ contract RewardsController is AccessControl {
       distributionData[accountOperationBalance.market][accountOperationBalance.operation][
         accountOperationBalance.maturity
       ].decimals;
-    (, uint256 nextIndex) = _getOperationIndex(rewardData, accountOperationBalance.totalSupply, assetUnit);
+    (, uint256 nextIndex) = getOperationIndex(rewardData, accountOperationBalance.totalSupply, assetUnit);
 
     return
-      _getRewards(accountOperationBalance.accountBalance, nextIndex, rewardData.accountsData[account].index, assetUnit);
+      getRewards(accountOperationBalance.accountBalance, nextIndex, rewardData.accountsData[account].index, assetUnit);
   }
 
   /**
@@ -374,7 +359,7 @@ contract RewardsController is AccessControl {
    * @param assetUnit One unit of asset (10**decimals)
    * @return The rewards
    **/
-  function _getRewards(
+  function getRewards(
     uint256 accountBalance,
     uint256 reserveIndex,
     uint256 accountIndex,
@@ -394,7 +379,7 @@ contract RewardsController is AccessControl {
    * @param assetUnit One unit of asset (10**decimals)
    * @return The new index.
    **/
-  function _getOperationIndex(
+  function getOperationIndex(
     RewardData storage rewardData,
     uint256 totalSupply,
     uint256 assetUnit
@@ -502,7 +487,7 @@ contract RewardsController is AccessControl {
       }
 
       // Due emissions is still zero, updates only latestUpdateTimestamp
-      (uint256 newIndex, ) = _updateRewardData(rewardConfig, configs[i].totalSupply, 10 ** decimals);
+      (uint256 newIndex, ) = updateRewardData(rewardConfig, configs[i].totalSupply, 10 ** decimals);
 
       // Configure emission and distribution end of the reward per operation
       uint88 oldEmissionsPerSecond = rewardConfig.emissionPerSecond;
@@ -557,7 +542,7 @@ contract RewardsController is AccessControl {
       uint256 decimals = operationData.decimals;
       if (decimals == 0 || rewardConfig.lastUpdateTimestamp == 0) revert InvalidDistributionData();
 
-      (uint256 newIndex, ) = _updateRewardData(
+      (uint256 newIndex, ) = updateRewardData(
         rewardConfig,
         getTotalSupplyByOperation(market, operation, maturity),
         10 ** decimals
