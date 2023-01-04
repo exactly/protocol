@@ -15,7 +15,7 @@ import {
   ERC20,
   RewardsController,
   InvalidInput,
-  InvalidDistributionData,
+  InvalidDistribution,
   IndexOverflow
 } from "../../contracts/RewardsController.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
@@ -128,9 +128,9 @@ contract RewardsControllerTest is Test {
     weth.approve(address(marketWETH), type(uint256).max);
   }
 
-  function testGetAccountRewardsDAIWithDeposit() external {
+  function testAccountAccruedDAIWithDeposit() external {
     marketDAI.deposit(100 ether, address(this));
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -138,19 +138,19 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     vm.warp(3 days + 20 minutes);
     assertEq(
-      rewardsController.getAccountRewards(address(this), address(rewardsAsset)),
+      rewardsController.accountAccrued(address(this), address(rewardsAsset)),
       emissionPerSecond * (3 days + 20 minutes)
     );
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
   }
 
-  function testGetAccountRewardsDAIWithMint() external {
+  function testAccountAccruedDAIWithMint() external {
     marketDAI.mint(100 ether, address(this));
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -158,14 +158,14 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
   }
 
-  function testGetAccountRewardsDAIWithTransfer() external {
+  function testAccountAccruedDAIWithTransfer() external {
     marketDAI.deposit(100 ether, address(this));
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -173,17 +173,17 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     marketDAI.transfer(ALICE, marketDAI.balanceOf(address(this)));
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
-    assertEq(rewardsController.getAccountRewards(ALICE, address(rewardsAsset)), emissionPerSecond * 4 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(ALICE, address(rewardsAsset)), emissionPerSecond * 4 days);
   }
 
-  function testGetAccountRewardsDAIWithTransferFrom() external {
+  function testAccountAccruedDAIWithTransferFrom() external {
     marketDAI.deposit(100 ether, address(this));
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -191,18 +191,18 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     marketDAI.approve(address(this), type(uint256).max);
     marketDAI.transferFrom(address(this), ALICE, marketDAI.balanceOf(address(this)));
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
-    assertEq(rewardsController.getAccountRewards(ALICE, address(rewardsAsset)), emissionPerSecond * 4 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(ALICE, address(rewardsAsset)), emissionPerSecond * 4 days);
   }
 
-  function testGetAccountRewardsDAIWithWithdraw() external {
+  function testAccountAccruedDAIWithWithdraw() external {
     marketDAI.deposit(100 ether, address(this));
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -210,16 +210,16 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     marketDAI.withdraw(100 ether, address(this), address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
   }
 
-  function testGetAccountRewardsDAIWithRedeem() external {
+  function testAccountAccruedDAIWithRedeem() external {
     marketDAI.deposit(100 ether, address(this));
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -227,14 +227,14 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     marketDAI.redeem(100 ether, address(this), address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
   }
 
-  function testGetAccountRewardsDAIWithFloatingBorrow() external {
+  function testAccountAccruedDAIWithFloatingBorrow() external {
     vm.prank(ALICE);
     marketDAI.deposit(100 ether, ALICE);
 
@@ -242,7 +242,7 @@ contract RewardsControllerTest is Test {
     auditor.enterMarket(marketWETH);
     marketDAI.borrow(50 ether, address(this), address(this));
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Borrow,
       0,
@@ -250,12 +250,12 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
   }
 
-  function testGetAccountRewardsDAIWithFloatingRefund() external {
+  function testAccountAccruedDAIWithFloatingRefund() external {
     vm.prank(ALICE);
     marketDAI.deposit(100 ether, ALICE);
 
@@ -263,7 +263,7 @@ contract RewardsControllerTest is Test {
     auditor.enterMarket(marketWETH);
     marketDAI.borrow(50 ether, address(this), address(this));
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Borrow,
       0,
@@ -271,14 +271,14 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     marketDAI.refund(50 ether, address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
   }
 
-  function testGetAccountRewardsDAIWithFloatingRepay() external {
+  function testAccountAccruedDAIWithFloatingRepay() external {
     vm.prank(ALICE);
     marketDAI.deposit(100 ether, ALICE);
 
@@ -286,7 +286,7 @@ contract RewardsControllerTest is Test {
     auditor.enterMarket(marketWETH);
     marketDAI.borrow(50 ether, address(this), address(this));
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Borrow,
       0,
@@ -294,17 +294,17 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     marketDAI.repay(marketDAI.previewRefund(50 ether), address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
   }
 
-  function testGetAccountRewardsDAIWithFixedDeposit() external {
+  function testAccountAccruedDAIWithFixedDeposit() external {
     marketDAI.depositAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this));
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       FixedLib.INTERVAL,
@@ -312,13 +312,13 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
   }
 
-  function testGetAccountRewardsDAIWithFixedBorrow() external {
+  function testAccountAccruedDAIWithFixedBorrow() external {
     vm.prank(ALICE);
     marketDAI.deposit(100 ether, ALICE);
 
@@ -327,7 +327,7 @@ contract RewardsControllerTest is Test {
     vm.warp(1 days);
     marketDAI.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 150 ether, address(this), address(this));
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Borrow,
       FixedLib.INTERVAL,
@@ -335,16 +335,16 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 2 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 2 days);
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 6 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 6 days);
   }
 
-  function testGetAccountRewardsDAIWithWithdrawAtMaturity() external {
+  function testAccountAccruedDAIWithWithdrawAtMaturity() external {
     marketDAI.depositAtMaturity(FixedLib.INTERVAL, 100 ether, 100 ether, address(this));
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       FixedLib.INTERVAL,
@@ -352,14 +352,14 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     marketDAI.withdrawAtMaturity(FixedLib.INTERVAL, 100 ether, 0, address(this), address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
   }
 
-  function testGetAccountRewardsDAIWithRepayAtMaturity() external {
+  function testAccountAccruedDAIWithRepayAtMaturity() external {
     vm.prank(ALICE);
     marketDAI.deposit(100 ether, ALICE);
 
@@ -368,7 +368,7 @@ contract RewardsControllerTest is Test {
     vm.warp(1 days);
     marketDAI.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 150 ether, address(this), address(this));
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Borrow,
       FixedLib.INTERVAL,
@@ -376,15 +376,15 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 2 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 2 days);
     (uint256 principal, uint256 fee) = marketDAI.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     marketDAI.repayAtMaturity(FixedLib.INTERVAL, principal + fee, principal + fee, address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 2 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 2 days);
   }
 
-  function testGetAccountRewardsDAIWithTwoBorrows() external {
+  function testAccountAccruedDAIWithTwoBorrows() external {
     vm.prank(ALICE);
     marketDAI.deposit(100 ether, ALICE);
 
@@ -393,7 +393,7 @@ contract RewardsControllerTest is Test {
     vm.warp(1 days);
     marketDAI.borrowAtMaturity(FixedLib.INTERVAL, 100 ether, 150 ether, address(this), address(this));
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Borrow,
       FixedLib.INTERVAL,
@@ -401,7 +401,7 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 2 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 2 days);
     (uint256 principal, uint256 fee) = marketDAI.fixedBorrowPositions(FixedLib.INTERVAL, address(this));
     marketDAI.repayAtMaturity(FixedLib.INTERVAL, principal + fee, principal + fee, address(this));
 
@@ -410,13 +410,13 @@ contract RewardsControllerTest is Test {
 
     vm.warp(6 days);
     assertEq(
-      rewardsController.getAccountRewards(address(this), address(rewardsAsset)),
+      rewardsController.accountAccrued(address(this), address(rewardsAsset)),
       emissionPerSecond * 2 days + emissionPerSecond * 2 days
     );
   }
 
-  function testGetAccountRewardsDAIWithAnotherAccountInPool() external {
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+  function testAccountAccruedDAIWithAnotherAccountInPool() external {
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -428,20 +428,20 @@ contract RewardsControllerTest is Test {
     vm.prank(ALICE);
     marketDAI.deposit(100 ether, ALICE);
 
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 5 days);
-    assertEq(rewardsController.getAccountRewards(ALICE, address(rewardsAsset)), 0);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 5 days);
+    assertEq(rewardsController.accountAccrued(ALICE, address(rewardsAsset)), 0);
 
     vm.warp(7.5 days);
     assertEq(
-      rewardsController.getAccountRewards(address(this), address(rewardsAsset)),
+      rewardsController.accountAccrued(address(this), address(rewardsAsset)),
       emissionPerSecond * 5 days + (emissionPerSecond * 2.5 days) / 2
     );
-    assertEq(rewardsController.getAccountRewards(ALICE, address(rewardsAsset)), (emissionPerSecond * 2.5 days) / 2);
+    assertEq(rewardsController.accountAccrued(ALICE, address(rewardsAsset)), (emissionPerSecond * 2.5 days) / 2);
   }
 
-  function testGetAccountRewardsWETH() external {
+  function testAccountAccruedWETH() external {
     marketWETH.deposit(1 ether, address(this));
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketWETH,
       RewardsController.Operation.Deposit,
       0,
@@ -449,39 +449,57 @@ contract RewardsControllerTest is Test {
     );
 
     vm.warp(3 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 3 days);
     vm.warp(3 days + 20 minutes);
     assertEq(
-      rewardsController.getAccountRewards(address(this), address(rewardsAsset)),
+      rewardsController.accountAccrued(address(this), address(rewardsAsset)),
       emissionPerSecond * (3 days + 20 minutes)
     );
     vm.warp(7 days);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), emissionPerSecond * 7 days);
   }
 
-  function testClaimRewards() external {
+  function testClaimAll() external {
     marketDAI.deposit(100 ether, address(this));
     marketWETH.deposit(10 ether, address(this));
 
     vm.warp(4 days + 20 minutes);
-    uint256 rewardsToBeClaimed = rewardsController.getAccountRewards(address(this), address(rewardsAsset));
-    rewardsController.claimRewards(address(this));
+    uint256 rewardsToBeClaimed = rewardsController.accountAccrued(address(this), address(rewardsAsset));
+    rewardsController.claimAll(address(this));
 
     assertEq(rewardsAsset.balanceOf(address(this)), rewardsToBeClaimed);
-    assertEq(rewardsController.getAccountRewards(address(this), address(rewardsAsset)), 0);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), 0);
+  }
+
+  function testClaim() external {
+    marketDAI.deposit(100 ether, address(this));
+    marketWETH.deposit(10 ether, address(this));
+
+    vm.warp(4 days + 20 minutes);
+    uint256 rewardsToBeClaimed = rewardsController.accountAccrued(address(this), address(rewardsAsset));
+    RewardsController.OperationData[] memory operations = new RewardsController.OperationData[](1);
+    operations[0] = RewardsController.OperationData({
+      market: marketDAI,
+      operation: RewardsController.Operation.Deposit,
+      maturity: 0
+    });
+    rewardsController.claim(operations, address(this));
+
+    assertEq(rewardsAsset.balanceOf(address(this)), rewardsToBeClaimed);
+    assertEq(rewardsController.accountAccrued(address(this), address(rewardsAsset)), 0);
   }
 
   function testDistributionEnd() external {
     marketDAI.deposit(100 ether, address(this));
     marketWETH.deposit(10 ether, address(this));
 
-    (, uint256 daiEmissionPerSecond, , uint256 daiDistributionEnd) = rewardsController.getRewardsData(
+    (, uint256 daiEmissionPerSecond, , uint256 daiDistributionEnd) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
       address(rewardsAsset)
     );
-    (, uint256 wethEmissionPerSecond, , uint256 wethDistributionEnd) = rewardsController.getRewardsData(
+    (, uint256 wethEmissionPerSecond, , uint256 wethDistributionEnd) = rewardsController.rewardsData(
       marketWETH,
       RewardsController.Operation.Deposit,
       0,
@@ -490,13 +508,13 @@ contract RewardsControllerTest is Test {
 
     vm.warp(daiDistributionEnd);
     assertEq(
-      rewardsController.getAccountRewards(address(this), address(rewardsAsset)),
+      rewardsController.accountAccrued(address(this), address(rewardsAsset)),
       daiEmissionPerSecond * daiDistributionEnd + wethEmissionPerSecond * wethDistributionEnd
     );
 
     vm.warp(daiDistributionEnd + 4 days + 20 minutes);
     assertEq(
-      rewardsController.getAccountRewards(address(this), address(rewardsAsset)),
+      rewardsController.accountAccrued(address(this), address(rewardsAsset)),
       daiEmissionPerSecond * daiDistributionEnd + wethEmissionPerSecond * wethDistributionEnd
     );
   }
@@ -509,7 +527,7 @@ contract RewardsControllerTest is Test {
     rewards[0] = address(rewardsAsset);
     uint88[] memory emissionsPerSecond = new uint88[](1);
 
-    (, uint256 emissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 emissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -523,7 +541,7 @@ contract RewardsControllerTest is Test {
       rewards,
       emissionsPerSecond
     );
-    (, uint256 newEmissionPerSecond, , ) = rewardsController.getRewardsData(
+    (, uint256 newEmissionPerSecond, , ) = rewardsController.rewardsData(
       marketDAI,
       RewardsController.Operation.Deposit,
       0,
@@ -555,7 +573,7 @@ contract RewardsControllerTest is Test {
     uint88[] memory emissionsPerSecond = new uint88[](1);
     emissionsPerSecond[0] = uint88(1);
 
-    vm.expectRevert(InvalidDistributionData.selector);
+    vm.expectRevert(InvalidDistribution.selector);
     rewardsController.setEmissionPerSecond(
       marketDAI,
       RewardsController.Operation.Deposit,
@@ -591,7 +609,7 @@ contract RewardsControllerTest is Test {
     uint88[] memory emissionsPerSecond = new uint88[](1);
     emissionsPerSecond[0] = uint88(1);
 
-    vm.expectRevert(InvalidDistributionData.selector);
+    vm.expectRevert(InvalidDistribution.selector);
     rewardsController.setEmissionPerSecond(
       marketDAI,
       RewardsController.Operation.Deposit,
