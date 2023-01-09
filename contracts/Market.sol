@@ -153,7 +153,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       rewardsController.handleOperation(
         RewardsController.Operation.Borrow,
         borrower,
-        totalFloatingBorrowShares,
         accounts[borrower].floatingBorrowShares
       );
     }
@@ -213,12 +212,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     if (assets == 0) revert ZeroRepay();
     if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(
-        RewardsController.Operation.Borrow,
-        borrower,
-        totalFloatingBorrowShares,
-        accountBorrowShares
-      );
+      rewardsController.handleOperation(RewardsController.Operation.Borrow, borrower, accountBorrowShares);
     }
 
     floatingDebt -= assets;
@@ -258,7 +252,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         RewardsController.Operation.Deposit,
         maturity,
         receiver,
-        pool.supplied,
         position.principal
       );
     }
@@ -324,7 +317,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         RewardsController.Operation.Borrow,
         maturity,
         borrower,
-        pool.borrowed,
         position.principal
       );
     }
@@ -421,7 +413,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         RewardsController.Operation.Deposit,
         maturity,
         owner,
-        pool.supplied,
         position.principal
       );
     }
@@ -519,7 +510,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         RewardsController.Operation.Borrow,
         maturity,
         borrower,
-        pool.borrowed,
         position.principal
       );
     }
@@ -775,14 +765,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   function _mint(address to, uint256 amount) internal override {
     if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(RewardsController.Operation.Deposit, to, totalSupply, balanceOf[to]);
+      rewardsController.handleOperation(RewardsController.Operation.Deposit, to, balanceOf[to]);
     }
     super._mint(to, amount);
   }
 
   function _burn(address from, uint256 amount) internal override {
     if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(RewardsController.Operation.Deposit, from, totalSupply, balanceOf[from]);
+      rewardsController.handleOperation(RewardsController.Operation.Deposit, from, balanceOf[from]);
     }
     super._burn(from, amount);
   }
@@ -795,15 +785,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function transfer(address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, msg.sender, previewRedeem(shares));
     if (address(rewardsController) != address(0)) {
-      uint256 memTotalSupply = totalSupply;
-      rewardsController.handleOperation(
-        RewardsController.Operation.Deposit,
-        msg.sender,
-        memTotalSupply,
-        balanceOf[msg.sender]
-      );
+      rewardsController.handleOperation(RewardsController.Operation.Deposit, msg.sender, balanceOf[msg.sender]);
       if (msg.sender != to) {
-        rewardsController.handleOperation(RewardsController.Operation.Deposit, to, memTotalSupply, balanceOf[to]);
+        rewardsController.handleOperation(RewardsController.Operation.Deposit, to, balanceOf[to]);
       }
     }
     return super.transfer(to, shares);
@@ -818,10 +802,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function transferFrom(address from, address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, from, previewRedeem(shares));
     if (address(rewardsController) != address(0)) {
-      uint256 memTotalSupply = totalSupply;
-      rewardsController.handleOperation(RewardsController.Operation.Deposit, from, memTotalSupply, balanceOf[from]);
+      rewardsController.handleOperation(RewardsController.Operation.Deposit, from, balanceOf[from]);
       if (from != to) {
-        rewardsController.handleOperation(RewardsController.Operation.Deposit, to, memTotalSupply, balanceOf[to]);
+        rewardsController.handleOperation(RewardsController.Operation.Deposit, to, balanceOf[to]);
       }
     }
     return super.transferFrom(from, to, shares);
