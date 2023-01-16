@@ -544,10 +544,11 @@ contract PreviewerTest is Test {
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 250 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    uint256 depositRate = 419609965132025088;
     // MarketDAI
     assertEq(data[0].fixedPools[0].optimalDeposit, 10 ether);
     assertEq(data[0].fixedPools[0].minBorrowRate, 0.5 ether);
-    assertEq(data[0].fixedPools[0].depositRate, 419609965132025088);
+    assertEq(data[0].fixedPools[0].depositRate, depositRate);
     assertEq(data[0].fixedPools[0].utilization, 0.1 ether);
     assertEq(data[0].fixedPools[1].optimalDeposit, 0);
     assertEq(data[0].fixedPools[1].minBorrowRate, 434545454545454545);
@@ -562,6 +563,14 @@ contract PreviewerTest is Test {
     assertEq(data[1].fixedPools[1].minBorrowRate, 436934306569343065);
     assertEq(data[1].fixedPools[1].depositRate, 392164587117173006);
     assertEq(data[1].fixedPools[1].utilization, 0.004 ether);
+
+    vm.warp(block.timestamp + 1 days);
+    data = previewer.exactly(address(this));
+    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 1);
+
+    vm.warp(block.timestamp + 3 hours + 4 minutes + 19 minutes);
+    data = previewer.exactly(address(this));
+    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 1);
   }
 
   function testFloatingRateAndUtilization() external {

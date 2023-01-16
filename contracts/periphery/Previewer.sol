@@ -344,13 +344,17 @@ contract Previewer {
     pools = new FixedPool[](market.maxFuturePools());
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
       FixedLib.Pool memory pool;
-      (pool.borrowed, pool.supplied, pool.unassignedEarnings, ) = market.fixedPools(
+      (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(
         block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1)
       );
       (uint256 minBorrowRate, uint256 utilization) = (market.previewFloatingAssetsAverage() + pool.supplied) > 0
         ? market.interestRateModel().minFixedRate(pool.borrowed, pool.supplied, market.previewFloatingAssetsAverage())
         : (0, 0);
 
+      pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
+        block.timestamp - pool.lastAccrual,
+        (block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1)) - pool.lastAccrual
+      );
       pools[i] = FixedPool({
         maturity: block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1),
         borrowed: pool.borrowed,
