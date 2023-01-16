@@ -15304,6 +15304,14 @@
           }
         }
       }
+    },
+    "0xB08670E1AcCaFb3E911D2F352486eF0fdFd0b765": {
+      "address": "0xB08670E1AcCaFb3E911D2F352486eF0fdFd0b765",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [],
+        "types": {}
+      }
     }
   }
 }
