@@ -9970,6 +9970,14 @@
           }
         }
       }
+    },
+    "0x60e543F802D6417894bF653B64E2A08F01A5C146": {
+      "address": "0x60e543F802D6417894bF653B64E2A08F01A5C146",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [],
+        "types": {}
+      }
     }
   }
 }
