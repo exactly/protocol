@@ -40,6 +40,8 @@
     "solmate": "transmissions11/solmate#v7"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.26.0",
+    "@changesets/types": "^5.2.1",
     "@ethersproject/abi": "5.7.0",
     "@gnosis.pm/safe-core-sdk": "^3.2.0",
     "@gnosis.pm/safe-core-sdk-types": "^1.7.0",
