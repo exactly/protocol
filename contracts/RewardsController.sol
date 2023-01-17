@@ -324,11 +324,10 @@ contract RewardsController is AccessControl {
     uint256 targetDebt = rewardData.targetDebt;
 
     uint256 target = totalDebt < targetDebt ? totalDebt.divWadDown(targetDebt) : 1e18;
-    if (target > 0) {
+    uint256 distributionFactor = undistributedFactor.mulWadDown(target);
+    if (distributionFactor > 0) {
       uint256 deltaTime = block.timestamp - rewardData.lastUpdate;
-
       uint256 mintingFactor = mintingRate.mulWadDown(1e18 - target);
-      uint256 distributionFactor = undistributedFactor.mulWadDown(target);
       uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
       newUndistributed =
         lastUndistributed +
@@ -337,6 +336,8 @@ contract RewardsController is AccessControl {
       rewards = targetDebt.mulWadDown(
         uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
       );
+    } else {
+      newUndistributed = lastUndistributed;
     }
   }
 
@@ -388,6 +389,10 @@ contract RewardsController is AccessControl {
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; ++i) {
       RewardData storage rewardConfig = distribution[configs[i].market].rewards[configs[i].reward];
+      rewardConfig.floatingDepositIndex = 1;
+      rewardConfig.floatingBorrowIndex = 1;
+      rewardConfig.fixedDepositIndex = 1;
+      rewardConfig.fixedBorrowIndex = 1;
 
       // Add reward address to distribution data's available rewards if latestUpdateTimestamp is zero
       if (rewardConfig.lastUpdate == 0) {

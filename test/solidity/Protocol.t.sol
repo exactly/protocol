@@ -28,6 +28,7 @@ import {
   MarketAlreadyListed,
   RemainingDebt
 } from "../../contracts/Auditor.sol";
+import { RewardsController } from "../../contracts/RewardsController.sol";
 
 contract ProtocolTest is Test {
   using FixedPointMathLib for int256;
@@ -51,6 +52,8 @@ contract ProtocolTest is Test {
   Market[] internal markets;
   MockERC20[] internal underlyingAssets;
   mapping(Market => MockPriceFeed) internal priceFeeds;
+  MockERC20 internal rewardsAsset;
+  RewardsController internal rewardsController;
 
   function setUp() external {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
@@ -81,14 +84,28 @@ contract ProtocolTest is Test {
       markets.push(market);
       underlyingAssets.push(asset);
     }
+    rewardsController = new RewardsController(auditor);
+    rewardsAsset = new MockERC20("OP", "OP", 18);
+    rewardsAsset.mint(address(rewardsController), 2_000 ether);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: markets[0],
+      reward: address(rewardsAsset),
+      targetDebt: 20_000 ether,
+      totalDistribution: 2_000 ether,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.5e18
+    });
+    rewardsController.config(configs);
+    markets[0].setRewardsController(rewardsController);
 
     vm.label(BOB, "bob");
     vm.label(ALICE, "alice");
   }
 
-  function testFuzzSingleAccountFloatingOperations(
-    uint16[N * 2 * 12] calldata timing,
-    uint16[N * 2 * 12] calldata values,
+  function testFuzzMarketOperations(
+    uint16[N * 2 * 13] calldata timing,
+    uint16[N * 2 * 13] calldata values,
     uint80[N * 2 * MARKET_COUNT] calldata prices
   ) external {
     for (uint256 i = 0; i < N * 2; ++i) {
@@ -130,6 +147,9 @@ contract ProtocolTest is Test {
 
       if (timing[i * 4 + 11] > 0) vm.warp(block.timestamp + timing[i * 4 + 11]);
       repayAtMaturity(i, values[i * 4 + 11]);
+
+      if (timing[i * 4 + 12] > 0) vm.warp(block.timestamp + timing[i * 4 + 12]);
+      if (values[i * 4 + 12] % 2 == 0) claim(i);
 
       for (uint256 j = 0; j < MARKET_COUNT; j++) {
         if (prices[i * MARKET_COUNT + j] > 0)
@@ -309,6 +329,16 @@ contract ProtocolTest is Test {
     vm.prank(account);
     market.mint(shares, account);
     if (market.totalSupply() > 0) assertGe(market.previewMint(1e18), shareValue);
+  }
+
+  function claim(uint256 i) internal {
+    address account = accounts[i % accounts.length];
+    uint256 accumulatedRewards = rewardsController.claimable(account, address(rewardsAsset));
+    uint256 balanceBefore = rewardsAsset.balanceOf(account);
+    rewardsController.allAccountOperations(account);
+    vm.prank(account);
+    rewardsController.claimAll(account);
+    assertEq(rewardsAsset.balanceOf(account), balanceBefore + accumulatedRewards);
   }
 
   function enterMarket(uint256 i) internal {
@@ -602,6 +632,35 @@ contract ProtocolTest is Test {
           }
           packedMaturities >>= 1;
           maturity += FixedLib.INTERVAL;
+        }
+      }
+      RewardsController.MarketOperation[] memory marketOps = rewardsController.allAccountOperations((address(this)));
+      for (uint256 m = 0; m < marketOps.length; ++m) {
+        bool hasFloatingDepositOperation;
+        bool hasFloatingBorrowOperation;
+        bool hasFixedDepositOperation;
+        bool hasFixedBorrowOperation;
+        for (uint256 j = 0; j < marketOps[m].operations.length; ++j) {
+          if (
+            marketOps[m].operations[j].operation == RewardsController.Operation.Deposit &&
+            marketOps[m].operations[j].maturity == 0
+          ) {
+            assertTrue(!hasFloatingDepositOperation, "already has floating deposit operation");
+            hasFloatingDepositOperation = true;
+          } else if (
+            marketOps[m].operations[j].operation == RewardsController.Operation.Borrow &&
+            marketOps[m].operations[j].maturity == 0
+          ) {
+            assertTrue(!hasFloatingBorrowOperation, "already has floating borrow operation");
+            hasFloatingBorrowOperation = true;
+          }
+          if (marketOps[m].operations[j].operation == RewardsController.Operation.Deposit) {
+            assertTrue(!hasFixedDepositOperation, "already has fixed deposit operation");
+            hasFixedDepositOperation = true;
+          } else {
+            assertTrue(!hasFixedBorrowOperation, "already has fixed borrow operation");
+            hasFixedBorrowOperation = true;
+          }
         }
       }
     }

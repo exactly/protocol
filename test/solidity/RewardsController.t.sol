@@ -101,7 +101,7 @@ contract RewardsControllerTest is Test {
     rewardsController.config(configs);
     marketDAI.setRewardsController(rewardsController);
     marketWETH.setRewardsController(rewardsController);
-    rewardsAsset.mint(address(rewardsController), 200_000 ether);
+    rewardsAsset.mint(address(rewardsController), 4_000 ether);
 
     dai.mint(address(this), 100 ether);
     dai.mint(ALICE, 100 ether);
@@ -490,6 +490,35 @@ contract RewardsControllerTest is Test {
     assertEq(indexes.floatingDeposit, newIndexes.floatingDeposit);
   }
 
+  function testOperationsArrayShouldNotPushSameOperationTwice() external {
+    marketDAI.deposit(10 ether, address(this));
+    marketDAI.withdraw(10 ether, address(this), address(this));
+    marketDAI.depositAtMaturity(FixedLib.INTERVAL, 10 ether, 10 ether, address(this));
+    marketDAI.withdrawAtMaturity(FixedLib.INTERVAL, 10 ether, 0, address(this), address(this));
+    rewardsController.claimAll(address(this));
+    rewardsController.claimAll(address(this));
+    rewardsController.claimAll(address(this));
+    RewardsController.MarketOperation[] memory marketOps = rewardsController.allAccountOperations((address(this)));
+
+    assertEq(marketOps[0].operations.length, 2);
+  }
+
+  function testUpdateWithTotalDebtZeroShouldNotUpdateLastUndistributed() external {
+    marketDAI.deposit(10 ether, address(this));
+    (, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketDAI, address(rewardsAsset));
+
+    vm.warp(1 days);
+    assertEq(deltaRewards(marketDAI), 0);
+    marketDAI.deposit(10 ether, address(this));
+    (uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
+      marketDAI,
+      address(rewardsAsset)
+    );
+
+    assertEq(newLastUndistributed, lastUndistributed);
+    assertEq(newLastUpdate, block.timestamp);
+  }
+
   function testClaimableWETH() external {
     marketWETH.deposit(10 ether, address(this));
     marketWETH.borrow(1 ether, address(this), address(this));
@@ -843,11 +872,11 @@ contract RewardsControllerTest is Test {
     }
 
     uint256 target = totalDebt < targetDebt ? totalDebt.divWadDown(targetDebt) : 1e18;
-    if (target > 0) {
+    uint256 distributionFactor = undistributedFactor.mulWadDown(target);
+    if (distributionFactor > 0) {
       uint256 deltaTime = block.timestamp - lastUpdate;
 
       uint256 mintingFactor = mintingRate.mulWadDown(1e18 - target);
-      uint256 distributionFactor = undistributedFactor.mulWadDown(target);
       uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
       uint256 newUndistributed = lastUndistributed +
         mintingFactor.divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
