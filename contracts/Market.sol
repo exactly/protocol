@@ -149,13 +149,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (floatingBackupBorrowed + newFloatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
       revert InsufficientProtocolLiquidity();
     }
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(
-        RewardsController.Operation.Borrow,
-        borrower,
-        accounts[borrower].floatingBorrowShares
-      );
-    }
+    if (address(rewardsController) != address(0)) rewardsController.handleBorrow(borrower);
 
     totalFloatingBorrowShares += borrowShares;
     accounts[borrower].floatingBorrowShares += borrowShares;
@@ -211,9 +205,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     assets = previewRefund(actualShares);
 
     if (assets == 0) revert ZeroRepay();
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(RewardsController.Operation.Borrow, borrower, accountBorrowShares);
-    }
+    if (address(rewardsController) != address(0)) rewardsController.handleBorrow(borrower);
 
     floatingDebt -= assets;
     account.floatingBorrowShares = accountBorrowShares - actualShares;
@@ -246,19 +238,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     positionAssets = assets + fee;
     if (positionAssets < minAssetsRequired) revert Disagreement();
 
-    FixedLib.Position storage position = fixedDepositPositions[maturity][receiver];
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperationAtMaturity(
-        RewardsController.Operation.Deposit,
-        maturity,
-        receiver,
-        position.principal
-      );
-    }
-
     floatingBackupBorrowed -= pool.deposit(assets);
     pool.unassignedEarnings -= fee + backupFee;
     earningsAccumulator += backupFee;
+
+    // update account's position
+    FixedLib.Position storage position = fixedDepositPositions[maturity][receiver];
 
     // if account doesn't have a current position, add it to the list
     if (position.principal == 0) {
@@ -309,18 +294,11 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     // validate that the account is not taking arbitrary fees
     if (assetsOwed > maxAssets) revert Disagreement();
 
+    if (address(rewardsController) != address(0)) rewardsController.handleBorrow(borrower);
+
     spendAllowance(borrower, assetsOwed);
 
     FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperationAtMaturity(
-        RewardsController.Operation.Borrow,
-        maturity,
-        borrower,
-        position.principal
-      );
-    }
-
     {
       uint256 backupDebtAddition = pool.borrow(assets);
       if (backupDebtAddition > 0) {
@@ -407,15 +385,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (assetsDiscounted < minAssetsRequired) revert Disagreement();
 
     spendAllowance(owner, assetsDiscounted);
-
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperationAtMaturity(
-        RewardsController.Operation.Deposit,
-        maturity,
-        owner,
-        position.principal
-      );
-    }
 
     {
       // remove the supply from the fixed rate pool
@@ -505,14 +474,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       .scaleProportionally(debtCovered)
       .principal;
 
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperationAtMaturity(
-        RewardsController.Operation.Borrow,
-        maturity,
-        borrower,
-        position.principal
-      );
-    }
+    if (address(rewardsController) != address(0)) rewardsController.handleBorrow(borrower);
 
     // early repayment allows a discount from the unassigned earnings
     if (block.timestamp < maturity) {
@@ -747,6 +709,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @return shares amount of shares redeemed for underlying asset.
   function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {
     auditor.checkShortfall(this, owner, assets);
+    if (address(rewardsController) != address(0)) rewardsController.handleDeposit(owner);
     shares = super.withdraw(assets, receiver, owner);
     emitMarketUpdate();
   }
@@ -759,22 +722,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @return assets amount of underlying asset that was withdrawn.
   function redeem(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {
     auditor.checkShortfall(this, owner, previewRedeem(shares));
+    if (address(rewardsController) != address(0)) rewardsController.handleDeposit(owner);
     assets = super.redeem(shares, receiver, owner);
     emitMarketUpdate();
   }
 
   function _mint(address to, uint256 amount) internal override {
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(RewardsController.Operation.Deposit, to, balanceOf[to]);
-    }
+    if (address(rewardsController) != address(0)) rewardsController.handleDeposit(to);
     super._mint(to, amount);
-  }
-
-  function _burn(address from, uint256 amount) internal override {
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(RewardsController.Operation.Deposit, from, balanceOf[from]);
-    }
-    super._burn(from, amount);
   }
 
   /// @notice Moves amount of shares from the caller's account to `to`.
@@ -785,10 +740,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function transfer(address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, msg.sender, previewRedeem(shares));
     if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(RewardsController.Operation.Deposit, msg.sender, balanceOf[msg.sender]);
-      if (msg.sender != to) {
-        rewardsController.handleOperation(RewardsController.Operation.Deposit, to, balanceOf[to]);
-      }
+      rewardsController.handleDeposit(msg.sender);
+      if (msg.sender != to) rewardsController.handleDeposit(to);
     }
     return super.transfer(to, shares);
   }
@@ -802,10 +755,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   function transferFrom(address from, address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, from, previewRedeem(shares));
     if (address(rewardsController) != address(0)) {
-      rewardsController.handleOperation(RewardsController.Operation.Deposit, from, balanceOf[from]);
-      if (from != to) {
-        rewardsController.handleOperation(RewardsController.Operation.Deposit, to, balanceOf[to]);
-      }
+      rewardsController.handleDeposit(from);
+      if (from != to) rewardsController.handleDeposit(to);
     }
     return super.transferFrom(from, to, shares);
   }

@@ -118,7 +118,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         Market market = marketList[i];
         MarketData storage m = markets[market];
         uint256 baseUnit = 10 ** m.decimals;
-        uint256 adjustFactor = m.adjustFactor;
+        uint256 memAdjustFactor = m.adjustFactor;
 
         // read the balances
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
@@ -127,17 +127,17 @@ contract Auditor is Initializable, AccessControlUpgradeable {
         vars.price = assetPrice(m.priceFeed);
 
         // sum all the collateral prices
-        sumCollateral += vars.balance.mulDivDown(vars.price, baseUnit).mulWadDown(adjustFactor);
+        sumCollateral += vars.balance.mulDivDown(vars.price, baseUnit).mulWadDown(memAdjustFactor);
 
         // sum all the debt
-        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.price, baseUnit).divWadUp(adjustFactor);
+        sumDebtPlusEffects += vars.borrowBalance.mulDivUp(vars.price, baseUnit).divWadUp(memAdjustFactor);
 
         // simulate the effects of withdrawing from a pool
         if (market == marketToSimulate) {
           // calculate the effects of redeeming markets
           // (having less collateral is the same as having more debt for this calculation)
           if (withdrawAmount != 0) {
-            sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.price, baseUnit).mulWadDown(adjustFactor);
+            sumDebtPlusEffects += withdrawAmount.mulDivDown(vars.price, baseUnit).mulWadDown(memAdjustFactor);
           }
         }
       }
@@ -235,11 +235,13 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     if (base.adjustedCollateral >= base.adjustedDebt) revert InsufficientShortfall();
 
     LiquidationIncentive memory memIncentive = liquidationIncentive;
-    uint256 adjustFactor = base.adjustedCollateral.mulWadDown(base.totalDebt).divWadUp(
-      base.adjustedDebt.mulWadUp(base.totalCollateral)
-    );
     uint256 closeFactor = (TARGET_HEALTH - base.adjustedCollateral.divWadUp(base.adjustedDebt)).divWadUp(
-      TARGET_HEALTH - adjustFactor.mulWadDown(1e18 + memIncentive.liquidator + memIncentive.lenders)
+      TARGET_HEALTH -
+        base
+          .adjustedCollateral
+          .mulWadDown(base.totalDebt)
+          .divWadUp(base.adjustedDebt.mulWadUp(base.totalCollateral))
+          .mulWadDown(1e18 + memIncentive.liquidator + memIncentive.lenders)
     );
     maxRepayAssets = Math.min(
       Math
@@ -336,16 +338,22 @@ contract Auditor is Initializable, AccessControlUpgradeable {
     return marketList;
   }
 
+  /// @notice Retrieves the market's adjust factor.
+  /// @param market market to get the adjust factor from.
+  function adjustFactor(Market market) external view returns (uint256) {
+    return markets[market].adjustFactor;
+  }
+
   /// @notice Enables a certain market.
   /// @dev Enabling more than 256 markets will cause an overflow when casting market index to uint8.
   /// @param market market to add to the protocol.
   /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in base.
-  /// @param adjustFactor market's adjust factor for the underlying asset.
+  /// @param adjustFactor_ market's adjust factor for the underlying asset.
   /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
     Market market,
     IPriceFeed priceFeed,
-    uint128 adjustFactor,
+    uint128 adjustFactor_,
     uint8 decimals
   ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (market.auditor() != this) revert AuditorMismatch();
@@ -354,7 +362,7 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
     markets[market] = MarketData({
       isListed: true,
-      adjustFactor: adjustFactor,
+      adjustFactor: adjustFactor_,
       decimals: decimals,
       index: uint8(marketList.length),
       priceFeed: priceFeed
@@ -364,17 +372,17 @@ contract Auditor is Initializable, AccessControlUpgradeable {
 
     emit MarketListed(market, decimals);
     emit PriceFeedSet(market, priceFeed);
-    emit AdjustFactorSet(market, adjustFactor);
+    emit AdjustFactorSet(market, adjustFactor_);
   }
 
   /// @notice Sets the adjust factor for a certain market.
   /// @param market address of the market to change adjust factor for.
-  /// @param adjustFactor adjust factor for the underlying asset.
-  function setAdjustFactor(Market market, uint128 adjustFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  /// @param adjustFactor_ adjust factor for the underlying asset.
+  function setAdjustFactor(Market market, uint128 adjustFactor_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     if (!markets[market].isListed) revert MarketNotListed();
 
-    markets[market].adjustFactor = adjustFactor;
-    emit AdjustFactorSet(market, adjustFactor);
+    markets[market].adjustFactor = adjustFactor_;
+    emit AdjustFactorSet(market, adjustFactor_);
   }
 
   /// @notice Sets the Chainlink Price Feed Aggregator source for a market.

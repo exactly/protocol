@@ -94,7 +94,11 @@ contract ProtocolTest is Test {
       targetDebt: 20_000 ether,
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
-      undistributedFactor: 0.5e18
+      undistributedFactor: 0.5e18,
+      decaySpeed: 2,
+      compensationFactor: 0.85e18,
+      mixedConstantReward: 0,
+      depositConstantReward: 0.02e18
     });
     rewardsController.config(configs);
     markets[0].setRewardsController(rewardsController);
