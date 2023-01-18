@@ -23,7 +23,7 @@ contract RewardsController is AccessControl {
   // Rewards list
   address[] internal rewardList;
   // Map of operations by account
-  mapping(address => mapping(Market => MaturityOperation[])) public accountOperations;
+  mapping(address => mapping(Market => Operation[])) public accountOperations;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_) {
@@ -33,21 +33,16 @@ contract RewardsController is AccessControl {
   }
 
   function handleDeposit(address account) external {
-    AccountMaturityOperation[] memory ops = new AccountMaturityOperation[](1);
-    ops[0] = AccountMaturityOperation({
-      operation: Operation.Deposit,
-      maturity: 0,
-      balance: Market(msg.sender).balanceOf(account)
-    });
+    AccountOperation[] memory ops = new AccountOperation[](1);
+    ops[0] = AccountOperation({ operation: Operation.Deposit, balance: Market(msg.sender).balanceOf(account) });
     update(account, Market(msg.sender), ops);
   }
 
   function handleBorrow(address account) external {
-    AccountMaturityOperation[] memory ops = new AccountMaturityOperation[](1);
+    AccountOperation[] memory ops = new AccountOperation[](1);
     (, , uint256 floatingBorrowShares) = Market(msg.sender).accounts(account);
-    ops[0] = AccountMaturityOperation({
+    ops[0] = AccountOperation({
       operation: Operation.Borrow,
-      maturity: 0,
       balance: floatingBorrowShares + accountFixedBorrowShares(Market(msg.sender), account)
     });
     update(account, Market(msg.sender), ops);
@@ -68,7 +63,7 @@ contract RewardsController is AccessControl {
       update(
         msg.sender,
         operations[i].market,
-        accountMaturityOperations(operations[i].market, operations[i].operations, msg.sender)
+        accountBalanceOperations(operations[i].market, operations[i].operations, msg.sender)
       );
       for (uint256 r = 0; r < rewardList.length; ++r) {
         if (rewardsList[r] == address(0)) rewardsList[r] = rewardList[r];
@@ -76,13 +71,12 @@ contract RewardsController is AccessControl {
         for (uint256 o = 0; o < operations[i].operations.length; ++o) {
           uint256 rewardAmount = distribution[operations[i].market]
           .rewards[rewardsList[r]]
-          .accounts[msg.sender][operations[i].operations[o].operation][operations[i].operations[o].maturity].accrued;
+          .accounts[msg.sender][operations[i].operations[o]].accrued;
           if (rewardAmount != 0) {
             claimedAmounts[r] += rewardAmount;
             distribution[operations[i].market]
             .rewards[rewardsList[r]]
-            .accounts[msg.sender][operations[i].operations[o].operation][operations[i].operations[o].maturity]
-              .accrued = 0;
+            .accounts[msg.sender][operations[i].operations[o]].accrued = 0;
           }
         }
       }
@@ -135,7 +129,7 @@ contract RewardsController is AccessControl {
     Market[] memory marketList = auditor.allMarkets();
     marketOps = new MarketOperation[](marketList.length);
     for (uint256 i = 0; i < marketList.length; ++i) {
-      MaturityOperation[] memory ops = accountOperations[account][marketList[i]];
+      Operation[] memory ops = accountOperations[account][marketList[i]];
       marketOps[i] = MarketOperation({ market: marketList[i], operations: ops });
     }
   }
@@ -144,12 +138,11 @@ contract RewardsController is AccessControl {
     address account,
     Market market,
     Operation operation,
-    uint256 maturity,
     address reward
   ) external view returns (uint256, uint256) {
     return (
-      distribution[market].rewards[reward].accounts[account][operation][maturity].accrued,
-      distribution[market].rewards[reward].accounts[account][operation][maturity].index
+      distribution[market].rewards[reward].accounts[account][operation].accrued,
+      distribution[market].rewards[reward].accounts[account][operation].index
     );
   }
 
@@ -158,20 +151,16 @@ contract RewardsController is AccessControl {
     for (uint256 i = 0; i < marketOps.length; ++i) {
       if (distribution[marketOps[i].market].availableRewardsCount == 0) continue;
 
-      AccountMaturityOperation[] memory ops = accountMaturityOperations(
-        marketOps[i].market,
-        marketOps[i].operations,
-        account
-      );
+      AccountOperation[] memory ops = accountBalanceOperations(marketOps[i].market, marketOps[i].operations, account);
       for (uint256 o = 0; o < ops.length; ++o) {
         unclaimedRewards += distribution[marketOps[i].market]
         .rewards[reward]
-        .accounts[account][ops[o].operation][ops[o].maturity].accrued;
+        .accounts[account][ops[o].operation].accrued;
       }
       unclaimedRewards += pendingRewards(
         account,
         reward,
-        AccountMarketOperation({ market: marketOps[i].market, operations: ops })
+        AccountMarketOperation({ market: marketOps[i].market, accountOperations: ops })
       );
     }
   }
@@ -180,7 +169,7 @@ contract RewardsController is AccessControl {
   /// @param account The account address
   /// @param market The market address
   /// @param ops The account's balance in the operation's pool
-  function update(address account, Market market, AccountMaturityOperation[] memory ops) internal {
+  function update(address account, Market market, AccountOperation[] memory ops) internal {
     uint256 baseUnit;
     unchecked {
       baseUnit = 10 ** distribution[market].decimals;
@@ -200,21 +189,21 @@ contract RewardsController is AccessControl {
         }
 
         for (uint256 i = 0; i < ops.length; ++i) {
-          uint256 accountIndex = rewardData.accounts[account][ops[i].operation][ops[i].maturity].index;
+          uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
           uint256 newAccountIndex;
           if (ops[i].balance == 0 && accountIndex == 0) {
-            accountOperations[account][market].push(MaturityOperation(ops[i].operation, ops[i].maturity));
+            accountOperations[account][market].push(ops[i].operation);
           }
-          if (ops[i].operation == Operation.Deposit && ops[i].maturity == 0) {
+          if (ops[i].operation == Operation.Deposit) {
             newAccountIndex = rewardData.floatingDepositIndex;
-          } else if (ops[i].operation == Operation.Borrow && ops[i].maturity == 0) {
+          } else if (ops[i].operation == Operation.Borrow) {
             newAccountIndex = rewardData.floatingBorrowIndex;
           }
           if (accountIndex != newAccountIndex) {
-            rewardData.accounts[account][ops[i].operation][ops[i].maturity].index = uint104(newAccountIndex);
+            rewardData.accounts[account][ops[i].operation].index = uint104(newAccountIndex);
             if (ops[i].balance != 0) {
               uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
-              rewardData.accounts[account][ops[i].operation][ops[i].maturity].accrued += uint128(rewardsAccrued);
+              rewardData.accounts[account][ops[i].operation].accrued += uint128(rewardsAccrued);
               emit Accrue(market, reward, account, newAccountIndex, newAccountIndex, rewardsAccrued);
             }
           }
@@ -274,18 +263,18 @@ contract RewardsController is AccessControl {
     RewardData storage rewardData = distribution[ops.market].rewards[reward];
     uint256 baseUnit = 10 ** distribution[ops.market].decimals;
     (uint256 depositIndex, uint256 borrowIndex, ) = previewAllocation(rewardData, ops.market);
-    for (uint256 o = 0; o < ops.operations.length; ++o) {
+    for (uint256 o = 0; o < ops.accountOperations.length; ++o) {
       uint256 nextIndex;
-      if (ops.operations[o].operation == Operation.Borrow && ops.operations[o].maturity == 0) {
+      if (ops.accountOperations[o].operation == Operation.Borrow) {
         nextIndex = borrowIndex;
-      } else if (ops.operations[o].operation == Operation.Deposit && ops.operations[o].maturity == 0) {
+      } else if (ops.accountOperations[o].operation == Operation.Deposit) {
         nextIndex = depositIndex;
       }
 
       rewards += accountRewards(
-        ops.operations[o].balance,
+        ops.accountOperations[o].balance,
         nextIndex,
-        rewardData.accounts[account][ops.operations[o].operation][ops.operations[o].maturity].index,
+        rewardData.accounts[account][ops.accountOperations[o].operation].index,
         baseUnit
       );
     }
@@ -401,24 +390,19 @@ contract RewardsController is AccessControl {
   /// @param account Address of the account
   /// @return accountMaturityOps contains a list of structs with account balance and total amount of the
   /// operation's pool
-  function accountMaturityOperations(
+  function accountBalanceOperations(
     Market market,
-    MaturityOperation[] memory ops,
+    Operation[] memory ops,
     address account
-  ) internal view returns (AccountMaturityOperation[] memory accountMaturityOps) {
-    accountMaturityOps = new AccountMaturityOperation[](ops.length);
+  ) internal view returns (AccountOperation[] memory accountMaturityOps) {
+    accountMaturityOps = new AccountOperation[](ops.length);
     for (uint256 i = 0; i < ops.length; ++i) {
-      if (ops[i].operation == Operation.Deposit && ops[i].maturity == 0) {
-        accountMaturityOps[i] = AccountMaturityOperation({
-          operation: ops[i].operation,
-          maturity: 0,
-          balance: market.balanceOf(account)
-        });
-      } else if (ops[i].operation == Operation.Borrow && ops[i].maturity == 0) {
+      if (ops[i] == Operation.Deposit) {
+        accountMaturityOps[i] = AccountOperation({ operation: ops[i], balance: market.balanceOf(account) });
+      } else if (ops[i] == Operation.Borrow) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
-        accountMaturityOps[i] = AccountMaturityOperation({
-          operation: ops[i].operation,
-          maturity: 0,
+        accountMaturityOps[i] = AccountOperation({
+          operation: ops[i],
           balance: floatingBorrowShares + accountFixedBorrowShares(market, account)
         });
       }
@@ -467,25 +451,19 @@ contract RewardsController is AccessControl {
     Borrow
   }
 
-  struct MaturityOperation {
+  struct AccountOperation {
     Operation operation;
-    uint256 maturity;
-  }
-
-  struct AccountMaturityOperation {
-    Operation operation;
-    uint256 maturity;
     uint256 balance;
   }
 
   struct MarketOperation {
     Market market;
-    MaturityOperation[] operations;
+    Operation[] operations;
   }
 
   struct AccountMarketOperation {
     Market market;
-    AccountMaturityOperation[] operations;
+    AccountOperation[] accountOperations;
   }
 
   struct Account {
@@ -524,7 +502,7 @@ contract RewardsController is AccessControl {
     uint256 floatingBorrowIndex;
     uint256 floatingDepositIndex;
     // Map of account addresses and their rewards data (accountAddress => accounts)
-    mapping(address => mapping(Operation => mapping(uint256 => Account))) accounts;
+    mapping(address => mapping(Operation => Account)) accounts;
   }
 
   struct Distribution {

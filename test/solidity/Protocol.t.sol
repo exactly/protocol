@@ -640,30 +640,17 @@ contract ProtocolTest is Test {
       }
       RewardsController.MarketOperation[] memory marketOps = rewardsController.allAccountOperations((address(this)));
       for (uint256 m = 0; m < marketOps.length; ++m) {
-        bool hasFloatingDepositOperation;
-        bool hasFloatingBorrowOperation;
-        bool hasFixedDepositOperation;
-        bool hasFixedBorrowOperation;
+        bool hasDepositOperation;
+        bool hasBorrowOperation;
         for (uint256 j = 0; j < marketOps[m].operations.length; ++j) {
-          if (
-            marketOps[m].operations[j].operation == RewardsController.Operation.Deposit &&
-            marketOps[m].operations[j].maturity == 0
-          ) {
-            assertTrue(!hasFloatingDepositOperation, "already has floating deposit operation");
-            hasFloatingDepositOperation = true;
-          } else if (
-            marketOps[m].operations[j].operation == RewardsController.Operation.Borrow &&
-            marketOps[m].operations[j].maturity == 0
-          ) {
-            assertTrue(!hasFloatingBorrowOperation, "already has floating borrow operation");
-            hasFloatingBorrowOperation = true;
-          }
-          if (marketOps[m].operations[j].operation == RewardsController.Operation.Deposit) {
-            assertTrue(!hasFixedDepositOperation, "already has fixed deposit operation");
-            hasFixedDepositOperation = true;
+          if (marketOps[m].operations[j] == RewardsController.Operation.Deposit) {
+            assertTrue(!hasDepositOperation, "already has floating deposit operation");
+            hasDepositOperation = true;
+          } else if (marketOps[m].operations[j] == RewardsController.Operation.Borrow) {
+            assertTrue(!hasBorrowOperation, "already has floating borrow operation");
+            hasBorrowOperation = true;
           } else {
-            assertTrue(!hasFixedBorrowOperation, "already has fixed borrow operation");
-            hasFixedBorrowOperation = true;
+            revert("invalid operation");
           }
         }
       }
