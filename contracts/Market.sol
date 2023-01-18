@@ -963,6 +963,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     }
   }
 
+  function fixedPoolBorrowed(uint256 maturity) external view returns (uint256) {
+    return fixedPools[maturity].borrowed;
+  }
+
+  function fixedPoolBalance(uint256 maturity) external view returns (uint256, uint256) {
+    return (fixedPools[maturity].supplied, fixedPools[maturity].borrowed);
+  }
+
   /// @notice Emits MarketUpdate event.
   /// @dev Internal function to avoid code duplication.
   function emitMarketUpdate() internal {

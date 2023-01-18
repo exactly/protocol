@@ -39,6 +39,7 @@ contract ProtocolTest is Test {
   using FixedLib for FixedLib.Position;
 
   uint256 internal constant N = 6;
+  uint256 internal constant O = 13;
   address internal constant BOB = address(0x420);
   address internal constant ALICE = address(0x69);
   address internal constant MARIA = address(0x42069);
@@ -97,7 +98,7 @@ contract ProtocolTest is Test {
       undistributedFactor: 0.5e18,
       decaySpeed: 2,
       compensationFactor: 0.85e18,
-      mixedConstantReward: 0,
+      borrowConstantReward: 0,
       depositConstantReward: 0.02e18
     });
     rewardsController.config(configs);
@@ -108,52 +109,52 @@ contract ProtocolTest is Test {
   }
 
   function testFuzzMarketOperations(
-    uint16[N * 2 * 13] calldata timing,
-    uint16[N * 2 * 13] calldata values,
+    uint16[N * 2 * O] calldata timing,
+    uint16[N * 2 * O] calldata values,
     uint80[N * 2 * MARKET_COUNT] calldata prices
   ) external {
     for (uint256 i = 0; i < N * 2; ++i) {
-      if (values[i * 4 + 0] % 2 == 0) enterMarket(i);
-      if (values[i * 4 + 0] % 2 == 1) exitMarket(i);
+      if (values[i * O + 0] % 2 == 0) enterMarket(i);
+      if (values[i * O + 0] % 2 == 1) exitMarket(i);
 
-      if (timing[i * 4 + 0] > 0) vm.warp(block.timestamp + timing[i * 4 + 0]);
-      if (values[i * 4 + 0] > 0) deposit(i, values[i * 4 + 0]);
+      if (timing[i * O + 0] > 0) vm.warp(block.timestamp + timing[i * O + 0]);
+      if (values[i * O + 0] > 0) deposit(i, values[i * O + 0]);
 
-      if (timing[i * 4 + 1] > 0) vm.warp(block.timestamp + timing[i * 4 + 1]);
-      if (values[i * 4 + 1] > 0) mint(i, values[i * 4 + 1]);
+      if (timing[i * O + 1] > 0) vm.warp(block.timestamp + timing[i * O + 1]);
+      if (values[i * O + 1] > 0) mint(i, values[i * O + 1]);
 
-      if (timing[i * 4 + 2] > 0) vm.warp(block.timestamp + timing[i * 4 + 2]);
-      if (values[i * 4 + 2] > 0) borrow(i, values[i * 4 + 2]);
+      if (timing[i * O + 2] > 0) vm.warp(block.timestamp + timing[i * O + 2]);
+      if (values[i * O + 2] > 0) borrow(i, values[i * O + 2]);
 
-      if (timing[i * 4 + 3] > 0) vm.warp(block.timestamp + timing[i * 4 + 3]);
-      if (values[i * 4 + 3] > 0) repay(i, values[i * 4 + 3]);
+      if (timing[i * O + 3] > 0) vm.warp(block.timestamp + timing[i * O + 3]);
+      if (values[i * O + 3] > 0) repay(i, values[i * O + 3]);
 
-      if (timing[i * 4 + 4] > 0) vm.warp(block.timestamp + timing[i * 4 + 4]);
-      if (values[i * 4 + 4] > 0) refund(i, values[i * 4 + 4]);
+      if (timing[i * O + 4] > 0) vm.warp(block.timestamp + timing[i * O + 4]);
+      if (values[i * O + 4] > 0) refund(i, values[i * O + 4]);
 
-      if (timing[i * 4 + 5] > 0) vm.warp(block.timestamp + timing[i * 4 + 5]);
-      if (values[i * 4 + 5] > 0) withdraw(i, values[i * 4 + 5]);
+      if (timing[i * O + 5] > 0) vm.warp(block.timestamp + timing[i * O + 5]);
+      if (values[i * O + 5] > 0) withdraw(i, values[i * O + 5]);
 
-      if (timing[i * 4 + 6] > 0) vm.warp(block.timestamp + timing[i * 4 + 6]);
-      if (values[i * 4 + 6] > 0) redeem(i, values[i * 4 + 6]);
+      if (timing[i * O + 6] > 0) vm.warp(block.timestamp + timing[i * O + 6]);
+      if (values[i * O + 6] > 0) redeem(i, values[i * O + 6]);
 
-      if (timing[i * 4 + 7] > 0) vm.warp(block.timestamp + timing[i * 4 + 7]);
-      if (values[i * 4 + 7] > 0) transfer(i, values[i * 4 + 7]);
+      if (timing[i * O + 7] > 0) vm.warp(block.timestamp + timing[i * O + 7]);
+      if (values[i * O + 7] > 0) transfer(i, values[i * O + 7]);
 
-      if (timing[i * 4 + 8] > 0) vm.warp(block.timestamp + timing[i * 4 + 8]);
-      depositAtMaturity(i, values[i * 4 + 8]);
+      if (timing[i * O + 8] > 0) vm.warp(block.timestamp + timing[i * O + 8]);
+      depositAtMaturity(i, values[i * O + 8]);
 
-      if (timing[i * 4 + 9] > 0) vm.warp(block.timestamp + timing[i * 4 + 9]);
-      withdrawAtMaturity(i, values[i * 4 + 9]);
+      if (timing[i * O + 9] > 0) vm.warp(block.timestamp + timing[i * O + 9]);
+      withdrawAtMaturity(i, values[i * O + 9]);
 
-      if (timing[i * 4 + 10] > 0) vm.warp(block.timestamp + timing[i * 4 + 10]);
-      borrowAtMaturity(i, values[i * 4 + 10]);
+      if (timing[i * O + 10] > 0) vm.warp(block.timestamp + timing[i * O + 10]);
+      borrowAtMaturity(i, values[i * O + 10]);
 
-      if (timing[i * 4 + 11] > 0) vm.warp(block.timestamp + timing[i * 4 + 11]);
-      repayAtMaturity(i, values[i * 4 + 11]);
+      if (timing[i * O + 11] > 0) vm.warp(block.timestamp + timing[i * O + 11]);
+      repayAtMaturity(i, values[i * O + 11]);
 
-      if (timing[i * 4 + 12] > 0) vm.warp(block.timestamp + timing[i * 4 + 12]);
-      if (values[i * 4 + 12] % 2 == 0) claim(i);
+      if (timing[i * O + 12] > 0) vm.warp(block.timestamp + timing[i * O + 12]);
+      if (values[i * O + 12] % 2 == 0) claim(i);
 
       for (uint256 j = 0; j < MARKET_COUNT; j++) {
         if (prices[i * MARKET_COUNT + j] > 0)

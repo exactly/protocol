@@ -108,7 +108,7 @@ contract RewardsController is AccessControl {
     return (
       distribution[market].rewards[reward].decaySpeed,
       distribution[market].rewards[reward].compensationFactor,
-      distribution[market].rewards[reward].mixedConstantReward,
+      distribution[market].rewards[reward].borrowConstantReward,
       distribution[market].rewards[reward].depositConstantReward
     );
   }
@@ -176,36 +176,34 @@ contract RewardsController is AccessControl {
     }
 
     if (distribution[market].availableRewardsCount == 0) return;
-    unchecked {
-      for (uint128 r = 0; r < distribution[market].availableRewardsCount; ++r) {
-        address reward = distribution[market].availableRewards[r];
-        RewardData storage rewardData = distribution[market].rewards[reward];
-        {
-          (uint256 depositIndex, uint256 borrowIndex, uint256 newUndistributed) = previewAllocation(rewardData, market);
-          rewardData.lastUpdate = uint32(block.timestamp);
-          rewardData.lastUndistributed = newUndistributed;
-          rewardData.floatingBorrowIndex = borrowIndex;
-          rewardData.floatingDepositIndex = depositIndex;
-        }
+    for (uint128 r = 0; r < distribution[market].availableRewardsCount; ++r) {
+      address reward = distribution[market].availableRewards[r];
+      RewardData storage rewardData = distribution[market].rewards[reward];
+      {
+        (uint256 depositIndex, uint256 borrowIndex, uint256 newUndistributed) = previewAllocation(rewardData, market);
+        rewardData.lastUpdate = uint32(block.timestamp);
+        rewardData.lastUndistributed = newUndistributed;
+        rewardData.floatingDepositIndex = depositIndex;
+        rewardData.floatingBorrowIndex = borrowIndex;
+      }
 
-        for (uint256 i = 0; i < ops.length; ++i) {
-          uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
-          uint256 newAccountIndex;
-          if (ops[i].balance == 0 && accountIndex == 0) {
-            accountOperations[account][market].push(ops[i].operation);
-          }
-          if (ops[i].operation == Operation.Deposit) {
-            newAccountIndex = rewardData.floatingDepositIndex;
-          } else if (ops[i].operation == Operation.Borrow) {
-            newAccountIndex = rewardData.floatingBorrowIndex;
-          }
-          if (accountIndex != newAccountIndex) {
-            rewardData.accounts[account][ops[i].operation].index = uint104(newAccountIndex);
-            if (ops[i].balance != 0) {
-              uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
-              rewardData.accounts[account][ops[i].operation].accrued += uint128(rewardsAccrued);
-              emit Accrue(market, reward, account, newAccountIndex, newAccountIndex, rewardsAccrued);
-            }
+      for (uint256 i = 0; i < ops.length; ++i) {
+        uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
+        uint256 newAccountIndex;
+        if (ops[i].balance == 0 && accountIndex == 0) {
+          accountOperations[account][market].push(ops[i].operation);
+        }
+        if (ops[i].operation == Operation.Deposit) {
+          newAccountIndex = rewardData.floatingDepositIndex;
+        } else if (ops[i].operation == Operation.Borrow) {
+          newAccountIndex = rewardData.floatingBorrowIndex;
+        }
+        if (accountIndex != newAccountIndex) {
+          rewardData.accounts[account][ops[i].operation].index = uint104(newAccountIndex);
+          if (ops[i].balance != 0) {
+            uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
+            rewardData.accounts[account][ops[i].operation].accrued += uint128(rewardsAccrued);
+            emit Accrue(market, reward, account, newAccountIndex, newAccountIndex, rewardsAccrued);
           }
         }
       }
@@ -213,34 +211,30 @@ contract RewardsController is AccessControl {
   }
 
   function totalFixedBorrowShares(Market market) internal view returns (uint256 fixedDebt) {
-    for (uint256 i = 0; i < market.maxFuturePools(); i++) {
-      (uint256 borrowed, , , ) = market.fixedPools(
-        block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1)
-      );
-      fixedDebt += borrowed;
+    uint256 distributionStart = distribution[market].start;
+    uint256 firstMaturity = distributionStart - (distributionStart % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 maxMaturity = block.timestamp -
+      (block.timestamp % FixedLib.INTERVAL) +
+      (FixedLib.INTERVAL * market.maxFuturePools());
+
+    for (uint256 maturity = firstMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+      fixedDebt += market.fixedPoolBorrowed(maturity);
     }
     fixedDebt = market.previewRepay(fixedDebt);
   }
 
   function accountFixedBorrowShares(Market market, address account) internal view returns (uint256 fixedDebt) {
-    for (uint256 i = 0; i < market.maxFuturePools(); i++) {
-      (uint256 principal, ) = market.fixedBorrowPositions(
-        block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1),
-        account
-      );
+    uint256 distributionStart = distribution[market].start;
+    uint256 firstMaturity = distributionStart - (distributionStart % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 maxMaturity = block.timestamp -
+      (block.timestamp % FixedLib.INTERVAL) +
+      (FixedLib.INTERVAL * market.maxFuturePools());
+
+    for (uint256 maturity = firstMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+      (uint256 principal, ) = market.fixedBorrowPositions(maturity, account);
       fixedDebt += principal;
     }
     fixedDebt = market.previewRepay(fixedDebt);
-  }
-
-  struct AllocationVars {
-    uint256 utilization;
-    uint256 adjustFactor;
-    uint256 sigmoid;
-    uint256 borrowRewardRule;
-    uint256 depositRewardRule;
-    uint256 borrowAllocation;
-    uint256 depositAllocation;
   }
 
   function rewardIndexes(Market market, address reward) external view returns (uint256, uint256) {
@@ -300,17 +294,22 @@ contract RewardsController is AccessControl {
     Market market
   ) internal view returns (uint256 depositIndex, uint256 borrowIndex, uint256 newUndistributed) {
     uint256 totalDebt = market.totalFloatingBorrowAssets();
+    uint256 totalDeposits = market.totalAssets();
     {
       uint256 memMaxFuturePools = market.maxFuturePools();
       uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
       uint256 maxMaturity = latestMaturity + memMaxFuturePools * FixedLib.INTERVAL;
       for (uint256 m = latestMaturity; m <= maxMaturity; m += FixedLib.INTERVAL) {
-        (uint256 borrowed, , , ) = market.fixedPools(m);
+        (uint256 supplied, uint256 borrowed) = market.fixedPoolBalance(m);
+        totalDeposits += supplied;
         totalDebt += borrowed;
       }
     }
-    uint256 targetDebt = rewardData.targetDebt;
-    uint256 target = totalDebt < targetDebt ? totalDebt.divWadDown(targetDebt) : 1e18;
+    uint256 target;
+    {
+      uint256 targetDebt = rewardData.targetDebt;
+      target = totalDebt < targetDebt ? totalDebt.divWadDown(targetDebt) : 1e18;
+    }
     uint256 distributionFactor = rewardData.undistributedFactor.mulWadDown(target);
     if (distributionFactor > 0) {
       uint256 rewards;
@@ -323,14 +322,13 @@ contract RewardsController is AccessControl {
           lastUndistributed +
           mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
           lastUndistributed.mulWadDown(1e18 - exponential);
-        rewards = targetDebt.mulWadDown(
+        rewards = rewardData.targetDebt.mulWadDown(
           uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
         );
       }
-
       {
         AllocationVars memory v;
-        v.utilization = market.totalAssets() > 0 ? totalDebt.divWadDown(market.totalAssets()) : 0;
+        v.utilization = totalDeposits > 0 ? totalDebt.divWadDown(totalDeposits) : 0;
         v.adjustFactor = auditor.adjustFactor(market);
         v.sigmoid = v.utilization > 0
           ? uint256(1e18).divWadDown(
@@ -347,37 +345,38 @@ contract RewardsController is AccessControl {
           .mulWadDown(
             market.interestRateModel().floatingRate(v.utilization).mulWadDown(
               1e18 - v.utilization.mulWadDown(1e18 - target)
-            ) + rewardData.mixedConstantReward
+            ) + rewardData.borrowConstantReward
           )
           .mulWadDown(1e18 - v.sigmoid);
         v.depositRewardRule =
           rewardData.depositConstantReward +
           (v.adjustFactor.mulWadDown(v.adjustFactor))
             .divWadDown(1e18 - v.adjustFactor.mulWadDown(v.adjustFactor))
-            .mulWadDown(rewardData.mixedConstantReward)
+            .mulWadDown(rewardData.borrowConstantReward)
             .mulWadDown(v.sigmoid);
         v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
         v.depositAllocation = 1e18 - v.borrowAllocation;
-        depositIndex =
-          rewardData.floatingDepositIndex +
-          (
-            market.totalSupply() > 0
-              ? rewards.mulWadDown(v.depositAllocation).mulDivDown(10 ** market.decimals(), market.totalSupply())
-              : 0
-          );
-        borrowIndex =
-          rewardData.floatingBorrowIndex +
-          (
-            market.totalFloatingBorrowShares() + totalFixedBorrowShares(market) > 0
-              ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(
-                10 ** market.decimals(),
-                market.totalFloatingBorrowShares() + totalFixedBorrowShares(market)
-              )
-              : 0
-          );
+        {
+          uint256 totalDepositSupply = market.totalSupply();
+          uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + totalFixedBorrowShares(market);
+          depositIndex =
+            rewardData.floatingDepositIndex +
+            (
+              totalDepositSupply > 0
+                ? rewards.mulWadDown(v.depositAllocation).mulDivDown(10 ** market.decimals(), totalDepositSupply)
+                : 0
+            );
+          borrowIndex =
+            rewardData.floatingBorrowIndex +
+            (
+              totalBorrowSupply > 0
+                ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(10 ** market.decimals(), totalBorrowSupply)
+                : 0
+            );
+        }
       }
     } else {
-      depositIndex = rewardData.floatingBorrowIndex;
+      depositIndex = rewardData.floatingDepositIndex;
       borrowIndex = rewardData.floatingBorrowIndex;
       newUndistributed = rewardData.lastUndistributed;
     }
@@ -412,8 +411,6 @@ contract RewardsController is AccessControl {
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; ++i) {
       RewardData storage rewardConfig = distribution[configs[i].market].rewards[configs[i].reward];
-      rewardConfig.floatingDepositIndex = 1;
-      rewardConfig.floatingBorrowIndex = 1;
 
       // Add reward address to distribution data's available rewards if latestUpdateTimestamp is zero
       if (rewardConfig.lastUpdate == 0) {
@@ -422,7 +419,12 @@ contract RewardsController is AccessControl {
         ] = configs[i].reward;
         distribution[configs[i].market].availableRewardsCount++;
         distribution[configs[i].market].decimals = configs[i].market.decimals();
+        rewardConfig.floatingDepositIndex = 1;
+        rewardConfig.floatingBorrowIndex = 1;
         rewardConfig.lastUpdate = uint32(block.timestamp);
+      }
+      if (distribution[configs[i].market].start == 0) {
+        distribution[configs[i].market].start = uint32(block.timestamp);
       }
 
       // Add reward address to global rewards list if still not enabled
@@ -436,7 +438,7 @@ contract RewardsController is AccessControl {
       rewardConfig.undistributedFactor = configs[i].undistributedFactor;
       rewardConfig.decaySpeed = configs[i].decaySpeed;
       rewardConfig.compensationFactor = configs[i].compensationFactor;
-      rewardConfig.mixedConstantReward = configs[i].mixedConstantReward;
+      rewardConfig.borrowConstantReward = configs[i].borrowConstantReward;
       rewardConfig.depositConstantReward = configs[i].depositConstantReward;
       rewardConfig.mintingRate = configs[i].totalDistribution.divWadDown(configs[i].targetDebt).mulWadDown(
         uint256(1e18) / configs[i].distributionPeriod
@@ -449,6 +451,16 @@ contract RewardsController is AccessControl {
   enum Operation {
     Deposit,
     Borrow
+  }
+
+  struct AllocationVars {
+    uint256 utilization;
+    uint256 adjustFactor;
+    uint256 sigmoid;
+    uint256 borrowRewardRule;
+    uint256 depositRewardRule;
+    uint256 borrowAllocation;
+    uint256 depositAllocation;
   }
 
   struct AccountOperation {
@@ -482,7 +494,7 @@ contract RewardsController is AccessControl {
     uint256 undistributedFactor;
     uint256 decaySpeed;
     uint256 compensationFactor;
-    uint256 mixedConstantReward;
+    uint256 borrowConstantReward;
     uint256 depositConstantReward;
   }
 
@@ -496,7 +508,7 @@ contract RewardsController is AccessControl {
     // allocation model
     uint256 decaySpeed;
     uint256 compensationFactor;
-    uint256 mixedConstantReward;
+    uint256 borrowConstantReward;
     uint256 depositConstantReward;
     // Liquidity index of the reward distribution
     uint256 floatingBorrowIndex;
@@ -514,6 +526,7 @@ contract RewardsController is AccessControl {
     uint128 availableRewardsCount;
     // Number of decimals of the operation's asset
     uint8 decimals;
+    uint32 start;
   }
 
   event Accrue(
