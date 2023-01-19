@@ -20,11 +20,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   // Map of rewarded operations and their distribution data
   mapping(Market => Distribution) internal distribution;
   // Map of reward assets
-  mapping(address => bool) internal isRewardEnabled;
+  mapping(address => bool) internal rewardEnabled;
   // Rewards list
   address[] internal rewardList;
   // Map of operations by account
   mapping(address => mapping(Market => Operation[])) public accountOperations;
+  mapping(address => mapping(Market => mapping(Operation => bool))) public accountOperationEnabled;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_) {
@@ -200,8 +201,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       for (uint256 i = 0; i < ops.length; ++i) {
         uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
         uint256 newAccountIndex;
-        if (ops[i].balance == 0 && accountIndex == 0) {
+
+        if (!accountOperationEnabled[account][market][ops[i].operation]) {
           accountOperations[account][market].push(ops[i].operation);
+          accountOperationEnabled[account][market][ops[i].operation] = true;
         }
         if (ops[i].operation == Operation.Deposit) {
           newAccountIndex = rewardData.floatingDepositIndex;
@@ -426,8 +429,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         ] = configs[i].reward;
         distribution[configs[i].market].availableRewardsCount++;
         distribution[configs[i].market].decimals = configs[i].market.decimals();
-        rewardConfig.floatingDepositIndex = 1;
-        rewardConfig.floatingBorrowIndex = 1;
         rewardConfig.lastUpdate = uint32(block.timestamp);
       }
       if (distribution[configs[i].market].start == 0) {
@@ -435,8 +436,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
 
       // Add reward address to global rewards list if still not enabled
-      if (isRewardEnabled[configs[i].reward] == false) {
-        isRewardEnabled[configs[i].reward] = true;
+      if (rewardEnabled[configs[i].reward] == false) {
+        rewardEnabled[configs[i].reward] = true;
         rewardList.push(configs[i].reward);
       }
 

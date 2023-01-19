@@ -26,7 +26,8 @@ contract RewardsControllerTest is Test {
   Market internal marketUSDC;
   Market internal marketWETH;
   Market internal marketWBTC;
-  MockERC20 internal rewardsAsset;
+  MockERC20 internal opRewardAsset;
+  MockERC20 internal exaRewardAsset;
   MockInterestRateModel internal irm;
 
   function setUp() external {
@@ -34,7 +35,8 @@ contract RewardsControllerTest is Test {
     MockERC20 usdc = new MockERC20("USD Coin", "USDC", 6);
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     MockERC20 wbtc = new MockERC20("WBTC", "WBTC", 18);
-    rewardsAsset = new MockERC20("OP", "OP", 18);
+    opRewardAsset = new MockERC20("OP", "OP", 18);
+    exaRewardAsset = new MockERC20("Exa Reward", "EXA", 18);
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
@@ -86,10 +88,10 @@ contract RewardsControllerTest is Test {
     rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController(auditor)), "")));
     rewardsController.initialize();
     vm.label(address(rewardsController), "RewardsController");
-    RewardsController.Config[] memory configs = new RewardsController.Config[](2);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](3);
     configs[0] = RewardsController.Config({
       market: marketUSDC,
-      reward: address(rewardsAsset),
+      reward: address(opRewardAsset),
       targetDebt: 20_000 ether,
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
@@ -102,7 +104,7 @@ contract RewardsControllerTest is Test {
     });
     configs[1] = RewardsController.Config({
       market: marketWETH,
-      reward: address(rewardsAsset),
+      reward: address(opRewardAsset),
       targetDebt: 20_000 ether,
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
@@ -113,10 +115,25 @@ contract RewardsControllerTest is Test {
       depositConstantReward: 0.02e18,
       depositConstantRewardHighU: 0.01e18
     });
+    configs[2] = RewardsController.Config({
+      market: marketUSDC,
+      reward: address(exaRewardAsset),
+      targetDebt: 20_000 ether,
+      totalDistribution: 2_000 ether,
+      distributionPeriod: 3 weeks,
+      undistributedFactor: 0.3e18,
+      decaySpeed: 3,
+      compensationFactor: 0.4e18,
+      borrowConstantReward: 0,
+      depositConstantReward: 0.025e18,
+      depositConstantRewardHighU: 0.01e18
+    });
+
     rewardsController.config(configs);
     marketUSDC.setRewardsController(rewardsController);
     marketWETH.setRewardsController(rewardsController);
-    rewardsAsset.mint(address(rewardsController), 4_000 ether);
+    opRewardAsset.mint(address(rewardsController), 4_000 ether);
+    exaRewardAsset.mint(address(rewardsController), 4_000 ether);
 
     usdc.mint(address(this), 100 ether);
     usdc.mint(ALICE, 100 ether);
@@ -138,18 +155,30 @@ contract RewardsControllerTest is Test {
 
     vm.warp(3 days);
     assertEq(
-      rewardsController.claimable(address(this), address(rewardsAsset)),
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      rewardsController.claimable(address(this), address(opRewardAsset)),
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
+    );
+    assertEq(
+      rewardsController.claimable(address(this), address(exaRewardAsset)),
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
     );
     vm.warp(3 days + 20 minutes);
     assertEq(
-      rewardsController.claimable(address(this), address(rewardsAsset)),
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      rewardsController.claimable(address(this), address(opRewardAsset)),
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
+    );
+    assertEq(
+      rewardsController.claimable(address(this), address(exaRewardAsset)),
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
     );
     vm.warp(7 days);
     assertEq(
-      rewardsController.claimable(address(this), address(rewardsAsset)),
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      rewardsController.claimable(address(this), address(opRewardAsset)),
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
+    );
+    assertEq(
+      rewardsController.claimable(address(this), address(exaRewardAsset)),
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
     );
   }
 
@@ -158,19 +187,30 @@ contract RewardsControllerTest is Test {
     marketUSDC.borrow(30e6, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 accruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 accruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
+    );
+    uint256 accruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      accruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
     );
 
     vm.warp(7 days);
-    uint256 newAccruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 newAccruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       newAccruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
+    uint256 newAccruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
     assertGt(newAccruedRewards, accruedRewards);
+    assertEq(
+      newAccruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+    assertGt(newAccruedExaRewards, accruedExaRewards);
   }
 
   function testClaimableUSDCWithTransfer() external {
@@ -181,22 +221,38 @@ contract RewardsControllerTest is Test {
     marketUSDC.deposit(100e6, address(this));
 
     vm.warp(3 days);
-    uint256 accruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 bobAccruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
-      accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      bobAccruedRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
+    uint256 bobAccruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      bobAccruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+
     marketUSDC.transfer(ALICE, marketUSDC.balanceOf(address(this)));
 
     vm.warp(7 days);
     assertEq(
-      accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      bobAccruedRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
     assertEq(
-      rewardsController.claimable(ALICE, address(rewardsAsset)),
-      claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(rewardsAsset))
+      bobAccruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
     );
+    assertEq(
+      rewardsController.claimable(ALICE, address(opRewardAsset)),
+      claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(opRewardAsset))
+    );
+    assertEq(
+      rewardsController.claimable(ALICE, address(exaRewardAsset)),
+      claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(exaRewardAsset))
+    );
+    assertGt(rewardsController.claimable(ALICE, address(opRewardAsset)), bobAccruedRewards);
+    assertGt(rewardsController.claimable(ALICE, address(exaRewardAsset)), bobAccruedExaRewards);
   }
 
   function testClaimableUSDCWithTransferFrom() external {
@@ -207,22 +263,36 @@ contract RewardsControllerTest is Test {
     marketUSDC.deposit(100e6, address(this));
 
     vm.warp(3 days);
-    uint256 accruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 accruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
+    uint256 accruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      accruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+
     marketUSDC.approve(address(this), type(uint256).max);
     marketUSDC.transferFrom(address(this), ALICE, marketUSDC.balanceOf(address(this)));
 
     vm.warp(7 days);
     assertEq(
       accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
     assertEq(
-      rewardsController.claimable(ALICE, address(rewardsAsset)),
-      claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(rewardsAsset))
+      accruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+    assertEq(
+      rewardsController.claimable(ALICE, address(opRewardAsset)),
+      claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(opRewardAsset))
+    );
+    assertEq(
+      rewardsController.claimable(ALICE, address(exaRewardAsset)),
+      claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(exaRewardAsset))
     );
   }
 
@@ -234,15 +304,22 @@ contract RewardsControllerTest is Test {
     marketUSDC.deposit(100e6, address(this));
 
     vm.warp(3 days);
-    uint256 accruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 accruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
+    uint256 accruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      accruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+
     marketUSDC.withdraw(marketUSDC.convertToAssets(marketUSDC.balanceOf(address(this))), address(this), address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.claimable(address(this), address(rewardsAsset)), accruedRewards);
+    assertEq(rewardsController.claimable(address(this), address(opRewardAsset)), accruedRewards);
+    assertEq(rewardsController.claimable(address(this), address(exaRewardAsset)), accruedExaRewards);
   }
 
   function testClaimableUSDCWithRedeem() external {
@@ -253,15 +330,22 @@ contract RewardsControllerTest is Test {
     marketUSDC.deposit(100e6, address(this));
 
     vm.warp(3 days);
-    uint256 accruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 accruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
+    uint256 accruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      accruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+
     marketUSDC.redeem(marketUSDC.balanceOf(address(this)), address(this), address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.claimable(address(this), address(rewardsAsset)), accruedRewards);
+    assertEq(rewardsController.claimable(address(this), address(opRewardAsset)), accruedRewards);
+    assertEq(rewardsController.claimable(address(this), address(exaRewardAsset)), accruedExaRewards);
   }
 
   function testClaimableUSDCWithFloatingBorrow() external {
@@ -273,19 +357,30 @@ contract RewardsControllerTest is Test {
     marketUSDC.borrow(50e6, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 accruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 accruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
+    );
+    uint256 accruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      accruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
     );
 
     vm.warp(7 days);
-    uint256 newAccruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 newAccruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       newAccruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
     assertGt(newAccruedRewards, accruedRewards);
+    uint256 newAccruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      newAccruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+    assertGt(newAccruedExaRewards, accruedExaRewards);
   }
 
   function testClaimableUSDCWithFloatingRefund() external {
@@ -297,15 +392,22 @@ contract RewardsControllerTest is Test {
     marketUSDC.borrow(50e6, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 accruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 accruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
+    uint256 accruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      accruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+
     marketUSDC.refund(50 ether, address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.claimable(address(this), address(rewardsAsset)), accruedRewards);
+    assertEq(rewardsController.claimable(address(this), address(opRewardAsset)), accruedRewards);
+    assertEq(rewardsController.claimable(address(this), address(exaRewardAsset)), accruedExaRewards);
   }
 
   function testClaimableUSDCWithFloatingRepay() external {
@@ -317,15 +419,22 @@ contract RewardsControllerTest is Test {
     marketUSDC.borrow(50e6, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 accruedRewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 accruedRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
       accruedRewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
+    uint256 accruedExaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      accruedExaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
+    );
+
     marketUSDC.repay(marketUSDC.previewRefund(50 ether), address(this));
 
     vm.warp(7 days);
-    assertEq(rewardsController.claimable(address(this), address(rewardsAsset)), accruedRewards);
+    assertEq(rewardsController.claimable(address(this), address(opRewardAsset)), accruedRewards);
+    assertEq(rewardsController.claimable(address(this), address(exaRewardAsset)), accruedExaRewards);
   }
 
   function testClaimableUSDCWithAnotherAccountInPool() external {
@@ -340,18 +449,35 @@ contract RewardsControllerTest is Test {
     vm.prank(BOB);
     marketUSDC.borrow(20e6, BOB, BOB);
 
-    uint256 aliceFirstRewards = rewardsController.claimable(ALICE, address(rewardsAsset));
-    assertEq(aliceFirstRewards, claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(rewardsAsset)));
-    assertEq(rewardsController.claimable(BOB, address(rewardsAsset)), 0);
+    uint256 aliceFirstRewards = rewardsController.claimable(ALICE, address(opRewardAsset));
+    assertEq(
+      aliceFirstRewards,
+      claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(opRewardAsset))
+    );
+    assertEq(rewardsController.claimable(BOB, address(opRewardAsset)), 0);
+    uint256 aliceFirstExaRewards = rewardsController.claimable(ALICE, address(exaRewardAsset));
+    assertEq(
+      aliceFirstExaRewards,
+      claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(exaRewardAsset))
+    );
+    assertEq(rewardsController.claimable(BOB, address(exaRewardAsset)), 0);
 
     vm.warp(3 days);
-    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(marketUSDC);
-    uint256 aliceRewards = rewardsController.claimable(ALICE, address(rewardsAsset));
-    uint256 bobRewards = rewardsController.claimable(BOB, address(rewardsAsset));
+    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(marketUSDC, address(opRewardAsset));
+    uint256 aliceRewards = rewardsController.claimable(ALICE, address(opRewardAsset));
+    uint256 bobRewards = rewardsController.claimable(BOB, address(opRewardAsset));
 
-    assertEq(aliceRewards, claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(rewardsAsset)));
+    assertEq(aliceRewards, claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(opRewardAsset)));
     assertEq(bobRewards, aliceRewards - aliceFirstRewards);
     assertEq(depositRewards + borrowRewards, (aliceRewards - aliceFirstRewards) + bobRewards);
+
+    (depositRewards, borrowRewards) = previewRewards(marketUSDC, address(exaRewardAsset));
+    aliceRewards = rewardsController.claimable(ALICE, address(exaRewardAsset));
+    bobRewards = rewardsController.claimable(BOB, address(exaRewardAsset));
+
+    assertEq(aliceRewards, claimable(rewardsController.allAccountOperations(ALICE), ALICE, address(exaRewardAsset)));
+    assertEq(bobRewards, aliceRewards - aliceFirstExaRewards);
+    assertEq(depositRewards + borrowRewards, (aliceRewards - aliceFirstExaRewards) + bobRewards);
   }
 
   function testClaimableWithMaturedFixedPool() external {
@@ -360,10 +486,13 @@ contract RewardsControllerTest is Test {
     marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 10e6, 20e6, address(this), address(this));
 
     vm.warp(FixedLib.INTERVAL - 1 seconds);
-    uint256 rewardsBefMaturity = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 opRewardsPreMaturity = rewardsController.claimable(address(this), address(opRewardAsset));
+    uint256 exaRewardsPreMaturity = rewardsController.claimable(address(this), address(exaRewardAsset));
     vm.warp(FixedLib.INTERVAL);
-    uint256 rewardsAftMaturity = rewardsController.claimable(address(this), address(rewardsAsset));
-    assertGt(rewardsAftMaturity, rewardsBefMaturity);
+    uint256 opRewardsPostMaturity = rewardsController.claimable(address(this), address(opRewardAsset));
+    uint256 exaRewardsPostMaturity = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertGt(opRewardsPostMaturity, opRewardsPreMaturity);
+    assertGt(exaRewardsPostMaturity, exaRewardsPreMaturity);
   }
 
   function testWithTwelveFixedPools() external {
@@ -386,29 +515,29 @@ contract RewardsControllerTest is Test {
 
     vm.warp(1 days);
     rewardsController.claimAll(address(this));
-    uint256 rewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 opRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     (uint256 lastUpdate, , , , uint256 lastUndistributed) = rewardsController.rewardsData(
       marketUSDC,
-      address(rewardsAsset)
+      address(opRewardAsset)
     );
     (uint256 floatingBorrowIndex, uint256 floatingDepositIndex) = rewardsController.rewardIndexes(
       marketUSDC,
-      address(rewardsAsset)
+      address(opRewardAsset)
     );
-    assertEq(rewards, 0);
+    assertEq(opRewards, 0);
 
     marketUSDC.deposit(10 ether, address(this));
     marketUSDC.borrow(2 ether, address(this), address(this));
     (uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
       marketUSDC,
-      address(rewardsAsset)
+      address(opRewardAsset)
     );
     (uint256 newFloatingBorrowIndex, uint256 newFloatingDepositIndex) = rewardsController.rewardIndexes(
       marketUSDC,
-      address(rewardsAsset)
+      address(opRewardAsset)
     );
 
-    assertEq(rewardsController.claimable(address(this), address(rewardsAsset)), rewards);
+    assertEq(rewardsController.claimable(address(this), address(opRewardAsset)), opRewards);
     assertEq(newLastUpdate, lastUpdate);
     assertEq(newLastUndistributed, lastUndistributed);
     assertEq(floatingBorrowIndex, newFloatingBorrowIndex);
@@ -428,16 +557,16 @@ contract RewardsControllerTest is Test {
 
   function testUpdateWithTotalDebtZeroShouldNotUpdateLastUndistributed() external {
     marketUSDC.deposit(10 ether, address(this));
-    (, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, address(rewardsAsset));
+    (, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, address(opRewardAsset));
 
     vm.warp(1 days);
-    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(marketUSDC);
+    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(marketUSDC, address(opRewardAsset));
     assertEq(depositRewards, 0);
     assertEq(borrowRewards, 0);
     marketUSDC.deposit(10 ether, address(this));
     (uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
       marketUSDC,
-      address(rewardsAsset)
+      address(opRewardAsset)
     );
 
     assertEq(newLastUndistributed, lastUndistributed);
@@ -449,30 +578,37 @@ contract RewardsControllerTest is Test {
     marketWETH.borrow(1 ether, address(this), address(this));
 
     vm.warp(3 days);
-    uint256 rewards = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 opRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     assertEq(
-      rewards,
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      opRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
+    );
+    uint256 exaRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
+    assertEq(
+      exaRewards,
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(exaRewardAsset))
     );
 
     vm.warp(3 days + 20 minutes);
     assertEq(
-      rewardsController.claimable(address(this), address(rewardsAsset)),
-      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(rewardsAsset))
+      rewardsController.claimable(address(this), address(opRewardAsset)),
+      claimable(rewardsController.allAccountOperations(address(this)), address(this), address(opRewardAsset))
     );
+    assertEq(rewardsController.claimable(address(this), address(exaRewardAsset)), 0);
 
     vm.warp(7 days);
-    uint256 newRewards = rewardsController.claimable(address(this), address(rewardsAsset));
-    assertEq(rewardsController.claimable(address(this), address(rewardsAsset)), newRewards);
-    assertGt(newRewards, rewards);
+    uint256 newOpRewards = rewardsController.claimable(address(this), address(opRewardAsset));
+    assertEq(rewardsController.claimable(address(this), address(opRewardAsset)), newOpRewards);
+    assertGt(newOpRewards, opRewards);
   }
 
+  // FIXME: failing test when adding one more reward asset
   function testClaim() external {
     marketUSDC.deposit(100e6, address(this));
     marketUSDC.borrow(10e6, address(this), address(this));
 
     vm.warp(4 days + 20 minutes);
-    uint256 rewardsToBeClaimed = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 opClaimableRewards = rewardsController.claimable(address(this), address(opRewardAsset));
     RewardsController.Operation[] memory ops = new RewardsController.Operation[](2);
     ops[0] = RewardsController.Operation.Deposit;
     ops[1] = RewardsController.Operation.Borrow;
@@ -480,8 +616,8 @@ contract RewardsControllerTest is Test {
     marketOps[0] = RewardsController.MarketOperation({ market: marketUSDC, operations: ops });
     rewardsController.claim(marketOps, address(this));
 
-    assertEq(rewardsAsset.balanceOf(address(this)), rewardsToBeClaimed);
-    assertEq(rewardsController.claimable(address(this), address(rewardsAsset)), 0);
+    assertEq(opRewardAsset.balanceOf(address(this)), opClaimableRewards);
+    assertEq(rewardsController.claimable(address(this), address(opRewardAsset)), 0);
   }
 
   function testClaimAll() external {
@@ -491,11 +627,14 @@ contract RewardsControllerTest is Test {
     marketWETH.borrow(10 ether, address(this), address(this));
 
     vm.warp(4 days + 20 minutes);
-    uint256 rewardsToBeClaimed = rewardsController.claimable(address(this), address(rewardsAsset));
+    uint256 opClaimableRewards = rewardsController.claimable(address(this), address(opRewardAsset));
+    uint256 exaClaimableRewards = rewardsController.claimable(address(this), address(exaRewardAsset));
     rewardsController.claimAll(address(this));
 
-    assertEq(rewardsAsset.balanceOf(address(this)), rewardsToBeClaimed);
-    assertEq(rewardsController.claimable(address(this), address(rewardsAsset)), 0);
+    assertEq(opRewardAsset.balanceOf(address(this)), opClaimableRewards);
+    assertEq(rewardsController.claimable(address(this), address(opRewardAsset)), 0);
+    assertEq(exaRewardAsset.balanceOf(address(this)), exaClaimableRewards);
+    assertEq(rewardsController.claimable(address(this), address(exaRewardAsset)), 0);
   }
 
   function testSetDistributionOperationShouldUpdateIndex() external {
@@ -503,7 +642,7 @@ contract RewardsControllerTest is Test {
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
     configs[0] = RewardsController.Config({
       market: marketUSDC,
-      reward: address(rewardsAsset),
+      reward: address(opRewardAsset),
       targetDebt: 1_000 ether,
       totalDistribution: 100_000 ether,
       distributionPeriod: 10 days,
@@ -516,7 +655,7 @@ contract RewardsControllerTest is Test {
     });
     rewardsController.config(configs);
 
-    (uint256 lastUpdate, , , , ) = rewardsController.rewardsData(marketUSDC, address(rewardsAsset));
+    (uint256 lastUpdate, , , , ) = rewardsController.rewardsData(marketUSDC, address(opRewardAsset));
     assertEq(lastUpdate, 2 days);
   }
 
@@ -545,7 +684,7 @@ contract RewardsControllerTest is Test {
   function claimable(
     RewardsController.MarketOperation[] memory marketOps,
     address account,
-    address reward
+    address rewardAsset
   ) internal view returns (uint256 unclaimedRewards) {
     for (uint256 i = 0; i < marketOps.length; ++i) {
       if (rewardsController.availableRewardsCount(marketOps[i].market) == 0) continue;
@@ -560,13 +699,13 @@ contract RewardsControllerTest is Test {
           account,
           marketOps[i].market,
           ops[o].operation,
-          reward
+          rewardAsset
         );
         unclaimedRewards += accrued;
       }
       unclaimedRewards += pendingRewards(
         account,
-        reward,
+        rewardAsset,
         RewardsController.AccountMarketOperation({ market: marketOps[i].market, accountOperations: ops })
       );
     }
@@ -574,12 +713,12 @@ contract RewardsControllerTest is Test {
 
   function pendingRewards(
     address account,
-    address reward,
+    address rewardAsset,
     RewardsController.AccountMarketOperation memory ops
   ) internal view returns (uint256 rewards) {
     uint256 baseUnit = 10 ** rewardsController.decimals(ops.market);
-    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(ops.market);
-    (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(ops.market, reward);
+    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(ops.market, rewardAsset);
+    (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(ops.market, rewardAsset);
     depositIndex += ops.market.totalSupply() > 0 ? depositRewards.mulDivDown(baseUnit, ops.market.totalSupply()) : 0;
     borrowIndex += ops.market.totalFloatingBorrowShares() + totalFixedBorrowShares(ops.market) > 0
       ? borrowRewards.mulDivDown(baseUnit, ops.market.totalFloatingBorrowShares() + totalFixedBorrowShares(ops.market))
@@ -589,7 +728,7 @@ contract RewardsControllerTest is Test {
         account,
         ops.market,
         ops.accountOperations[o].operation,
-        reward
+        rewardAsset
       );
       uint256 nextIndex;
       if (ops.accountOperations[o].operation == RewardsController.Operation.Borrow) {
@@ -602,10 +741,13 @@ contract RewardsControllerTest is Test {
     }
   }
 
-  function previewRewards(Market market) internal view returns (uint256 depositRewards, uint256 borrowRewards) {
+  function previewRewards(
+    Market market,
+    address rewardAsset
+  ) internal view returns (uint256 depositRewards, uint256 borrowRewards) {
     RewardsData memory r;
     (r.lastUpdate, r.targetDebt, r.mintingRate, r.undistributedFactor, r.lastUndistributed) = rewardsController
-      .rewardsData(market, address(rewardsAsset));
+      .rewardsData(market, rewardAsset);
     uint256 totalDebt = market.totalFloatingBorrowAssets();
     uint256 totalDeposits = market.totalAssets();
     {
@@ -622,16 +764,19 @@ contract RewardsControllerTest is Test {
     uint256 target = totalDebt < r.targetDebt ? totalDebt.divWadDown(r.targetDebt) : 1e18;
     uint256 distributionFactor = r.undistributedFactor.mulWadDown(target);
     if (distributionFactor > 0) {
-      uint256 deltaTime = block.timestamp - r.lastUpdate;
-      uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
-      uint256 newUndistributed = r.lastUndistributed +
-        r.mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
-        r.lastUndistributed.mulWadDown(1e18 - exponential);
-      uint256 rewards = r.targetDebt.mulWadDown(
-        uint256(int256(r.mintingRate * deltaTime) - (int256(newUndistributed) - int256(r.lastUndistributed)))
-      );
+      uint256 rewards;
+      {
+        uint256 deltaTime = block.timestamp - r.lastUpdate;
+        uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
+        uint256 newUndistributed = r.lastUndistributed +
+          r.mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
+          r.lastUndistributed.mulWadDown(1e18 - exponential);
+        rewards = r.targetDebt.mulWadDown(
+          uint256(int256(r.mintingRate * deltaTime) - (int256(newUndistributed) - int256(r.lastUndistributed)))
+        );
+      }
       // reusing vars due to stack too deep
-      (totalDebt, totalDeposits) = allocationFactors(market, totalDebt, totalDeposits, target);
+      (totalDebt, totalDeposits) = allocationFactors(market, totalDebt, totalDeposits, target, rewardAsset);
       borrowRewards = rewards.mulWadDown(totalDebt);
       depositRewards = rewards.mulWadDown(totalDeposits);
     }
@@ -641,7 +786,8 @@ contract RewardsControllerTest is Test {
     Market market,
     uint256 totalDebt,
     uint256 totalDeposits,
-    uint256 target
+    uint256 target,
+    address rewardAsset
   ) internal view returns (uint256, uint256) {
     RewardsController.AllocationVars memory v;
     AllocationParams memory p;
@@ -651,7 +797,7 @@ contract RewardsControllerTest is Test {
       p.borrowConstantReward,
       p.depositConstantReward,
       p.depositConstantRewardHighU
-    ) = rewardsController.rewardAllocationParams(market, address(rewardsAsset));
+    ) = rewardsController.rewardAllocationParams(market, rewardAsset);
     v.utilization = totalDeposits > 0 ? totalDebt.divWadDown(totalDeposits) : 0;
     v.adjustFactor = rewardsController.auditor().adjustFactor(market);
     v.sigmoid = v.utilization > 0
