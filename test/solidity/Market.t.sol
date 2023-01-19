@@ -90,15 +90,6 @@ contract MarketTest is Test {
     asset.approve(address(market), type(uint256).max);
   }
 
-  function testRefreshSymbol() external {
-    vm.store(address(market), bytes32(uint256(202)), bytes32("eDAI") | bytes32(uint256(8)));
-    assertEq(market.symbol(), "eDAI");
-
-    market.refreshSymbol();
-
-    assertEq(market.symbol(), "exaDAI");
-  }
-
   function testDepositToSmartPool() external {
     vm.expectEmit(true, true, true, true, address(market));
     emit Deposit(address(this), address(this), 1 ether, 1 ether);

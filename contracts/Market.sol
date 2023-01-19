@@ -123,10 +123,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     setDampSpeed(dampSpeedUp_, dampSpeedDown_);
   }
 
-  function refreshSymbol() external {
-    symbol = string.concat("exa", asset.symbol());
-  }
-
   /// @notice Borrows a certain amount from the floating pool.
   /// @param assets amount to be sent to receiver and repaid by borrower.
   /// @param receiver address that will receive the borrowed assets.
