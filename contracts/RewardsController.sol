@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
@@ -9,12 +10,12 @@ import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
 import { Market } from "./Market.sol";
 
-contract RewardsController is AccessControl {
+contract RewardsController is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for int256;
   using SafeTransferLib for ERC20;
 
-  /// @custom:oz-upgrades-unsafe-allow  state-variable-immutable
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
   // Map of rewarded operations and their distribution data
   mapping(Market => Distribution) internal distribution;
@@ -28,6 +29,14 @@ contract RewardsController is AccessControl {
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_) {
     auditor = auditor_;
+
+    _disableInitializers();
+  }
+
+  /// @notice Initializes the contract.
+  /// @dev Can only be called once.
+  function initialize() external initializer {
+    __AccessControl_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }

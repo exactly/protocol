@@ -79,7 +79,8 @@ contract RewardsControllerTest is Test {
     );
     auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18, 18);
 
-    rewardsController = new RewardsController(auditor);
+    rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController(auditor)), "")));
+    rewardsController.initialize();
     RewardsController.Config[] memory configs = new RewardsController.Config[](2);
     configs[0] = RewardsController.Config({
       market: marketUSDC,

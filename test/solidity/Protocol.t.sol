@@ -85,7 +85,9 @@ contract ProtocolTest is Test {
       markets.push(market);
       underlyingAssets.push(asset);
     }
-    rewardsController = new RewardsController(auditor);
+
+    rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController(auditor)), "")));
+    rewardsController.initialize();
     rewardsAsset = new MockERC20("OP", "OP", 18);
     rewardsAsset.mint(address(rewardsController), 2_000 ether);
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
