@@ -23,6 +23,7 @@ jobs:
       - uses: changesets/action@v1
         with:
           title: 🔖 new release
+          publish: npx changeset publish
           setupGitUser: false
         env:
           GITHUB_TOKEN: ${{ secrets.PR_GITHUB_TOKEN }}
