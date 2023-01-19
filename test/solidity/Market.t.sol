@@ -48,11 +48,13 @@ contract MarketTest is Test {
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    vm.label(address(auditor), "Auditor");
 
     irm = new MockInterestRateModel(0.1e18);
 
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
     market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
+    vm.label(address(market), "MarketDAI");
     daiPriceFeed = new MockPriceFeed(18, 1e18);
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
@@ -66,9 +68,8 @@ contract MarketTest is Test {
       0.0046e18,
       0.42e18
     );
-
-    vm.label(address(market), "MarketDAI");
     vm.label(address(marketWETH), "MarketWETH");
+
     auditor.enableMarket(market, daiPriceFeed, 0.8e18, 18);
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18, 18);
     auditor.enterMarket(marketWETH);

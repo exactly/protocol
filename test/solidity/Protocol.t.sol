@@ -59,6 +59,7 @@ contract ProtocolTest is Test {
   function setUp() external {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    vm.label(address(auditor), "Auditor");
     InterestRateModel irm = new InterestRateModel(0.023e18, -0.0025e18, 1.02e18, 0.023e18, -0.0025e18, 1.02e18);
 
     accounts.push(BOB);
@@ -88,6 +89,7 @@ contract ProtocolTest is Test {
 
     rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController(auditor)), "")));
     rewardsController.initialize();
+    vm.label(address(rewardsController), "RewardsController");
     rewardsAsset = new MockERC20("OP", "OP", 18);
     rewardsAsset.mint(address(rewardsController), 2_000 ether);
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);

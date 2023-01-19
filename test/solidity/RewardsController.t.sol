@@ -38,6 +38,7 @@ contract RewardsControllerTest is Test {
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    vm.label(address(auditor), "Auditor");
     irm = new MockInterestRateModel(0.1e18);
 
     marketUSDC = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
@@ -51,6 +52,7 @@ contract RewardsControllerTest is Test {
       0.0046e18,
       0.42e18
     );
+    vm.label(address(marketUSDC), "MarketUSDC");
     auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.8e18, 18);
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
@@ -64,6 +66,7 @@ contract RewardsControllerTest is Test {
       0.0046e18,
       0.42e18
     );
+    vm.label(address(marketWETH), "MarketWETH");
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18, 18);
 
     marketWBTC = Market(address(new ERC1967Proxy(address(new Market(wbtc, auditor)), "")));
@@ -77,10 +80,12 @@ contract RewardsControllerTest is Test {
       0.0046e18,
       0.42e18
     );
+    vm.label(address(marketWBTC), "MarketWBTC");
     auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18, 18);
 
     rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController(auditor)), "")));
     rewardsController.initialize();
+    vm.label(address(rewardsController), "RewardsController");
     RewardsController.Config[] memory configs = new RewardsController.Config[](2);
     configs[0] = RewardsController.Config({
       market: marketUSDC,

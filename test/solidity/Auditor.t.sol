@@ -33,6 +33,7 @@ contract AuditorTest is Test {
   function setUp() external {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
+    vm.label(address(auditor), "Auditor");
     market = new MockMarket(auditor);
     priceFeed = new MockPriceFeed(18, 1e18);
     vm.label(BOB, "bob");
