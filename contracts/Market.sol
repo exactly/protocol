@@ -987,9 +987,12 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   }
 
   /// @notice Sets the interest rate model to be used to calculate rates.
+  /// @dev The floating debt update is disabled due to interest rate model interface changes/incompatibility.
+  /// Should be re-enabled before the next interest rate model update.
   /// @param interestRateModel_ new interest rate model.
   function setInterestRateModel(InterestRateModel interestRateModel_) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    if (address(interestRateModel) != address(0)) depositToTreasury(updateFloatingDebt());
+    // if (address(interestRateModel) != address(0)) depositToTreasury(updateFloatingDebt());
+
     interestRateModel = interestRateModel_;
     emitMarketUpdate();
     emit InterestRateModelSet(interestRateModel_);
