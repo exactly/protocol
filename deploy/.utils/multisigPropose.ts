@@ -1,6 +1,6 @@
-import Safe from "@gnosis.pm/safe-core-sdk";
-import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
-import SafeServiceClient from "@gnosis.pm/safe-service-client";
+import Safe from "@safe-global/safe-core-sdk";
+import EthersAdapter from "@safe-global/safe-ethers-lib";
+import SafeServiceClient from "@safe-global/safe-service-client";
 import { ethers, network, getNamedAccounts } from "hardhat";
 import { getAddress } from "ethers/lib/utils";
 import type { Contract } from "ethers";
