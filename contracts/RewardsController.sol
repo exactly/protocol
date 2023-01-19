@@ -113,12 +113,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function rewardAllocationParams(
     Market market,
     address reward
-  ) external view returns (uint256, uint256, uint256, uint256) {
+  ) external view returns (uint256, uint256, uint256, uint256, uint256) {
     return (
       distribution[market].rewards[reward].decaySpeed,
       distribution[market].rewards[reward].compensationFactor,
       distribution[market].rewards[reward].borrowConstantReward,
-      distribution[market].rewards[reward].depositConstantReward
+      distribution[market].rewards[reward].depositConstantReward,
+      distribution[market].rewards[reward].depositConstantRewardHighU
     );
   }
 
@@ -359,10 +360,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           .mulWadDown(1e18 - v.sigmoid);
         v.depositRewardRule =
           rewardData.depositConstantReward +
-          (v.adjustFactor.mulWadDown(v.adjustFactor))
-            .divWadDown(1e18 - v.adjustFactor.mulWadDown(v.adjustFactor))
-            .mulWadDown(rewardData.borrowConstantReward)
-            .mulWadDown(v.sigmoid);
+          rewardData.depositConstantRewardHighU.mulWadDown(rewardData.borrowConstantReward).mulWadDown(v.sigmoid);
         v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
         v.depositAllocation = 1e18 - v.borrowAllocation;
         {
@@ -449,6 +447,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardConfig.compensationFactor = configs[i].compensationFactor;
       rewardConfig.borrowConstantReward = configs[i].borrowConstantReward;
       rewardConfig.depositConstantReward = configs[i].depositConstantReward;
+      rewardConfig.depositConstantRewardHighU = configs[i].depositConstantRewardHighU;
       rewardConfig.mintingRate = configs[i].totalDistribution.divWadDown(configs[i].targetDebt).mulWadDown(
         uint256(1e18) / configs[i].distributionPeriod
       );
@@ -505,6 +504,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 compensationFactor;
     uint256 borrowConstantReward;
     uint256 depositConstantReward;
+    uint256 depositConstantRewardHighU;
   }
 
   struct RewardData {
@@ -519,6 +519,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 compensationFactor;
     uint256 borrowConstantReward;
     uint256 depositConstantReward;
+    uint256 depositConstantRewardHighU;
     // Liquidity index of the reward distribution
     uint256 floatingBorrowIndex;
     uint256 floatingDepositIndex;

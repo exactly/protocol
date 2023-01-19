@@ -103,7 +103,8 @@ contract ProtocolTest is Test {
       decaySpeed: 2,
       compensationFactor: 0.85e18,
       borrowConstantReward: 0,
-      depositConstantReward: 0.02e18
+      depositConstantReward: 0.02e18,
+      depositConstantRewardHighU: 0.01e18
     });
     rewardsController.config(configs);
     markets[0].setRewardsController(rewardsController);
