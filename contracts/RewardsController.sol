@@ -20,9 +20,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   // Map of rewarded operations and their distribution data
   mapping(Market => Distribution) internal distribution;
   // Map of reward assets
-  mapping(address => bool) internal rewardEnabled;
+  mapping(ERC20 => bool) internal rewardEnabled;
   // Rewards list
-  address[] internal rewardList;
+  ERC20[] internal rewardList;
   // Map of operations by account
   mapping(address => mapping(Market => Operation[])) public accountOperations;
   mapping(address => mapping(Market => mapping(Operation => bool))) public accountOperationEnabled;
@@ -58,15 +58,15 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     update(account, Market(msg.sender), ops);
   }
 
-  function claimAll(address to) external returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
+  function claimAll(address to) external returns (ERC20[] memory rewardsList, uint256[] memory claimedAmounts) {
     return claim(allAccountOperations(msg.sender), to);
   }
 
   function claim(
     MarketOperation[] memory operations,
     address to
-  ) public returns (address[] memory rewardsList, uint256[] memory claimedAmounts) {
-    rewardsList = new address[](rewardList.length);
+  ) public returns (ERC20[] memory rewardsList, uint256[] memory claimedAmounts) {
+    rewardsList = new ERC20[](rewardList.length);
     claimedAmounts = new uint256[](rewardList.length);
 
     for (uint256 i = 0; i < operations.length; ++i) {
@@ -76,7 +76,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         accountBalanceOperations(operations[i].market, operations[i].operations, msg.sender)
       );
       for (uint256 r = 0; r < rewardList.length; ++r) {
-        if (rewardsList[r] == address(0)) rewardsList[r] = rewardList[r];
+        if (address(rewardsList[r]) == address(0)) rewardsList[r] = rewardList[r];
 
         for (uint256 o = 0; o < operations[i].operations.length; ++o) {
           uint256 rewardAmount = distribution[operations[i].market]
@@ -92,7 +92,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
     }
     for (uint256 r = 0; r < rewardsList.length; ++r) {
-      ERC20(rewardsList[r]).safeTransfer(to, claimedAmounts[r]);
+      rewardsList[r].safeTransfer(to, claimedAmounts[r]);
       emit Claim(msg.sender, rewardsList[r], to, claimedAmounts[r]);
     }
     return (rewardsList, claimedAmounts);
@@ -100,7 +100,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   function rewardsData(
     Market market,
-    address reward
+    ERC20 reward
   ) external view returns (uint256, uint256, uint256, uint256, uint256) {
     return (
       distribution[market].rewards[reward].lastUpdate,
@@ -113,7 +113,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   function rewardAllocationParams(
     Market market,
-    address reward
+    ERC20 reward
   ) external view returns (uint256, uint256, uint256, uint256, uint256) {
     return (
       distribution[market].rewards[reward].decaySpeed,
@@ -132,7 +132,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return distribution[market].availableRewardsCount;
   }
 
-  function allRewards() external view returns (address[] memory) {
+  function allRewards() external view returns (ERC20[] memory) {
     return rewardList;
   }
 
@@ -149,7 +149,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     address account,
     Market market,
     Operation operation,
-    address reward
+    ERC20 reward
   ) external view returns (uint256, uint256) {
     return (
       distribution[market].rewards[reward].accounts[account][operation].accrued,
@@ -157,7 +157,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     );
   }
 
-  function claimable(address account, address reward) external view returns (uint256 unclaimedRewards) {
+  function claimable(address account, ERC20 reward) external view returns (uint256 unclaimedRewards) {
     MarketOperation[] memory marketOps = allAccountOperations(account);
     for (uint256 i = 0; i < marketOps.length; ++i) {
       if (distribution[marketOps[i].market].availableRewardsCount == 0) continue;
@@ -188,7 +188,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
     if (distribution[market].availableRewardsCount == 0) return;
     for (uint128 r = 0; r < distribution[market].availableRewardsCount; ++r) {
-      address reward = distribution[market].availableRewards[r];
+      ERC20 reward = distribution[market].availableRewards[r];
       RewardData storage rewardData = distribution[market].rewards[reward];
       {
         (uint256 depositIndex, uint256 borrowIndex, uint256 newUndistributed) = previewAllocation(rewardData, market);
@@ -250,7 +250,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     fixedDebt = market.previewRepay(fixedDebt);
   }
 
-  function rewardIndexes(Market market, address reward) external view returns (uint256, uint256) {
+  function rewardIndexes(Market market, ERC20 reward) external view returns (uint256, uint256) {
     return (
       distribution[market].rewards[reward].floatingBorrowIndex,
       distribution[market].rewards[reward].floatingDepositIndex
@@ -264,7 +264,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @return rewards The pending rewards for the account since the last account action
   function pendingRewards(
     address account,
-    address reward,
+    ERC20 reward,
     AccountMarketOperation memory ops
   ) internal view returns (uint256 rewards) {
     RewardData storage rewardData = distribution[ops.market].rewards[reward];
@@ -496,7 +496,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   struct Config {
     Market market;
-    address reward;
+    ERC20 reward;
     uint256 targetDebt;
     uint256 totalDistribution;
     uint256 distributionPeriod;
@@ -530,9 +530,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   struct Distribution {
     // Map of reward token addresses and their data (rewardTokenAddress => rewardData)
-    mapping(address => RewardData) rewards;
+    mapping(ERC20 => RewardData) rewards;
     // List of reward asset addresses for the operation
-    mapping(uint128 => address) availableRewards;
+    mapping(uint128 => ERC20) availableRewards;
     // Count of reward tokens for the operation
     uint128 availableRewardsCount;
     // Number of decimals of the operation's asset
@@ -542,12 +542,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   event Accrue(
     Market indexed market,
-    address indexed reward,
+    ERC20 indexed reward,
     address indexed account,
     uint256 operationIndex,
     uint256 accountIndex,
     uint256 rewardsAccrued
   );
-  event Claim(address indexed account, address indexed reward, address indexed to, uint256 amount);
-  event DistributionSet(Market indexed market, address indexed reward, uint256 operationIndex);
+  event Claim(address indexed account, ERC20 indexed reward, address indexed to, uint256 amount);
+  event DistributionSet(Market indexed market, ERC20 indexed reward, uint256 operationIndex);
 }

@@ -95,7 +95,7 @@ contract ProtocolTest is Test {
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
     configs[0] = RewardsController.Config({
       market: markets[0],
-      reward: address(rewardsAsset),
+      reward: rewardsAsset,
       targetDebt: 20_000 ether,
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
@@ -344,7 +344,7 @@ contract ProtocolTest is Test {
 
   function claim(uint256 i) internal {
     address account = accounts[i % accounts.length];
-    uint256 accumulatedRewards = rewardsController.claimable(account, address(rewardsAsset));
+    uint256 accumulatedRewards = rewardsController.claimable(account, rewardsAsset);
     uint256 balanceBefore = rewardsAsset.balanceOf(account);
     rewardsController.allAccountOperations(account);
     vm.prank(account);
