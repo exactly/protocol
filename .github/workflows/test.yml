@@ -4,7 +4,9 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: fuzzer
+    environment: fuzzer
     steps:
       - uses: actions/checkout@v3
         with:
