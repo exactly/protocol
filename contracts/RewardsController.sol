@@ -22,7 +22,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   // Map of reward assets
   mapping(ERC20 => bool) internal rewardEnabled;
   // Rewards list
-  ERC20[] internal rewardList;
+  ERC20[] public rewardList;
   // Map of operations by account
   mapping(address => mapping(Market => Operation[])) public accountOperations;
   mapping(address => mapping(Market => mapping(Operation => bool))) public accountOperationEnabled;
@@ -134,10 +134,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   function availableRewardsCount(Market market) external view returns (uint256) {
     return distribution[market].availableRewardsCount;
-  }
-
-  function allRewards() external view returns (ERC20[] memory) {
-    return rewardList;
   }
 
   function allAccountOperations(address account) public view returns (MarketOperation[] memory marketOps) {
