@@ -92,7 +92,7 @@ contract RewardsControllerTest is Test {
     configs[0] = RewardsController.Config({
       market: marketUSDC,
       reward: opRewardAsset,
-      targetDebt: 20_000 ether,
+      targetDebt: 20_000e6,
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.5e18,
@@ -118,7 +118,7 @@ contract RewardsControllerTest is Test {
     configs[2] = RewardsController.Config({
       market: marketUSDC,
       reward: exaRewardAsset,
-      targetDebt: 20_000 ether,
+      targetDebt: 20_000e6,
       totalDistribution: 2_000 ether,
       distributionPeriod: 3 weeks,
       undistributedFactor: 0.3e18,

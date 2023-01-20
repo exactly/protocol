@@ -259,7 +259,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     AccountMarketOperation memory ops
   ) internal view returns (uint256 rewards) {
     RewardData storage rewardData = distribution[ops.market].rewards[reward];
-    uint256 baseUnit = 10 ** distribution[ops.market].decimals;
+    uint256 baseUnit;
+    unchecked {
+      baseUnit = 10 ** distribution[ops.market].decimals;
+    }
     (uint256 depositIndex, uint256 borrowIndex, ) = previewAllocation(rewardData, ops.market);
     for (uint256 o = 0; o < ops.accountOperations.length; ++o) {
       uint256 nextIndex;
@@ -367,19 +370,21 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         {
           uint256 totalDepositSupply = market.totalSupply();
           uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + fixedBorrowShares;
+          uint256 baseUnit;
+          unchecked {
+            baseUnit = 10 ** distribution[market].decimals;
+          }
           depositIndex =
             rewardData.floatingDepositIndex +
             (
               totalDepositSupply > 0
-                ? rewards.mulWadDown(v.depositAllocation).mulDivDown(10 ** market.decimals(), totalDepositSupply)
+                ? rewards.mulWadDown(v.depositAllocation).mulDivDown(baseUnit, totalDepositSupply)
                 : 0
             );
           borrowIndex =
             rewardData.floatingBorrowIndex +
             (
-              totalBorrowSupply > 0
-                ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(10 ** market.decimals(), totalBorrowSupply)
-                : 0
+              totalBorrowSupply > 0 ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(baseUnit, totalBorrowSupply) : 0
             );
         }
       }
