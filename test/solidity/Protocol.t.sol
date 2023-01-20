@@ -122,43 +122,43 @@ contract ProtocolTest is Test {
       if (values[i * K + 0] % 2 == 0) enterMarket(i);
       if (values[i * K + 0] % 2 == 1) exitMarket(i);
 
-      if (timing[i * K + 0] > 0) vm.warp(block.timestamp + timing[i * K + 0]);
-      if (values[i * K + 0] > 0) deposit(i, values[i * K + 0]);
+      vm.warp(block.timestamp + timing[i * K + 0]);
+      deposit(i, values[i * K + 0]);
 
-      if (timing[i * K + 1] > 0) vm.warp(block.timestamp + timing[i * K + 1]);
-      if (values[i * K + 1] > 0) mint(i, values[i * K + 1]);
+      vm.warp(block.timestamp + timing[i * K + 1]);
+      mint(i, values[i * K + 1]);
 
-      if (timing[i * K + 2] > 0) vm.warp(block.timestamp + timing[i * K + 2]);
-      if (values[i * K + 2] > 0) borrow(i, values[i * K + 2]);
+      vm.warp(block.timestamp + timing[i * K + 2]);
+      borrow(i, values[i * K + 2]);
 
-      if (timing[i * K + 3] > 0) vm.warp(block.timestamp + timing[i * K + 3]);
-      if (values[i * K + 3] > 0) repay(i, values[i * K + 3]);
+      vm.warp(block.timestamp + timing[i * K + 3]);
+      repay(i, values[i * K + 3]);
 
-      if (timing[i * K + 4] > 0) vm.warp(block.timestamp + timing[i * K + 4]);
-      if (values[i * K + 4] > 0) refund(i, values[i * K + 4]);
+      vm.warp(block.timestamp + timing[i * K + 4]);
+      refund(i, values[i * K + 4]);
 
-      if (timing[i * K + 5] > 0) vm.warp(block.timestamp + timing[i * K + 5]);
-      if (values[i * K + 5] > 0) withdraw(i, values[i * K + 5]);
+      vm.warp(block.timestamp + timing[i * K + 5]);
+      withdraw(i, values[i * K + 5]);
 
-      if (timing[i * K + 6] > 0) vm.warp(block.timestamp + timing[i * K + 6]);
-      if (values[i * K + 6] > 0) redeem(i, values[i * K + 6]);
+      vm.warp(block.timestamp + timing[i * K + 6]);
+      redeem(i, values[i * K + 6]);
 
-      if (timing[i * K + 7] > 0) vm.warp(block.timestamp + timing[i * K + 7]);
-      if (values[i * K + 7] > 0) transfer(i, values[i * K + 7]);
+      vm.warp(block.timestamp + timing[i * K + 7]);
+      transfer(i, values[i * K + 7]);
 
-      if (timing[i * K + 8] > 0) vm.warp(block.timestamp + timing[i * K + 8]);
+      vm.warp(block.timestamp + timing[i * K + 8]);
       depositAtMaturity(i, values[i * K + 8]);
 
-      if (timing[i * K + 9] > 0) vm.warp(block.timestamp + timing[i * K + 9]);
+      vm.warp(block.timestamp + timing[i * K + 9]);
       withdrawAtMaturity(i, values[i * K + 9]);
 
-      if (timing[i * K + 10] > 0) vm.warp(block.timestamp + timing[i * K + 10]);
+      vm.warp(block.timestamp + timing[i * K + 10]);
       borrowAtMaturity(i, values[i * K + 10]);
 
-      if (timing[i * K + 11] > 0) vm.warp(block.timestamp + timing[i * K + 11]);
+      vm.warp(block.timestamp + timing[i * K + 11]);
       repayAtMaturity(i, values[i * K + 11]);
 
-      if (timing[i * K + 12] > 0) vm.warp(block.timestamp + timing[i * K + 12]);
+      vm.warp(block.timestamp + timing[i * K + 12]);
       if (values[i * K + 12] % 2 == 0) claim(i);
 
       for (uint256 j = 0; j < MARKET_COUNT; j++) {
@@ -493,7 +493,9 @@ contract ProtocolTest is Test {
     (uint256 collateral, uint256 debt) = accountLiquidity(account, market, 0, expectedAssets);
     uint256 earnings = previewAccumulatedEarnings(market);
 
-    if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
+    if (expectedAssets == 0 && ((auditor.accountMarkets(account) & (1 << index)) == 0 || collateral >= debt)) {
+      vm.expectRevert(bytes(""));
+    } else if ((auditor.accountMarkets(account) & (1 << index)) != 0 && debt > collateral) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
     } else if (market.totalSupply() > 0 && market.totalAssets() == 0) {
       vm.expectRevert(bytes(""));
@@ -857,10 +859,8 @@ contract ProtocolTest is Test {
 
     uint256 marketMap = auditor.accountMarkets(account);
     // if simulating a borrow, add the market to the account's map
-    if (borrowAssets > 0) {
-      (, , uint256 index, , ) = auditor.markets(marketToSimulate);
-      if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
-    }
+    (, , uint256 index, , ) = auditor.markets(marketToSimulate);
+    if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
     for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
