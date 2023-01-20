@@ -260,9 +260,8 @@ describe("Liquidations", function () {
           it("WHEN trying to liquidate, THEN it reverts with a ERC20 transfer error", async () => {
             // expect liquidation to fail because trying to liquidate
             // and repay with an amount that the contract doesn't have enough allowance for bob
-            await expect(
-              marketDAI.connect(bob).liquidate(alice.address, parseUnits("15000"), marketETH.address),
-            ).to.be.revertedWith("TRANSFER_FROM_FAILED");
+            await expect(marketDAI.connect(bob).liquidate(alice.address, parseUnits("15000"), marketETH.address)).to.be
+              .reverted;
           });
         });
 

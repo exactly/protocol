@@ -387,21 +387,21 @@ describe("Market", function () {
 
   describe("simple validations:", () => {
     it("WHEN calling setMaxFuturePools from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketDAI.setMaxFuturePools(12)).to.be.revertedWith("AccessControl");
+      await expect(marketDAI.setMaxFuturePools(12)).to.be.reverted;
     });
     it("WHEN calling setMaxFuturePools, THEN the maxFuturePools should be updated", async () => {
       await timelockExecute(owner, marketDAI, "setMaxFuturePools", [15]);
       expect(await marketDAI.maxFuturePools()).to.be.equal(15);
     });
     it("WHEN calling setEarningsAccumulatorSmoothFactor from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketDAI.setEarningsAccumulatorSmoothFactor(parseUnits("2"))).to.be.revertedWith("AccessControl");
+      await expect(marketDAI.setEarningsAccumulatorSmoothFactor(parseUnits("2"))).to.be.reverted;
     });
     it("WHEN calling setEarningsAccumulatorSmoothFactor, THEN the earningsAccumulatorSmoothFactor should be updated", async () => {
       await timelockExecute(owner, marketDAI, "setEarningsAccumulatorSmoothFactor", [parseUnits("2")]);
       expect(await marketDAI.earningsAccumulatorSmoothFactor()).to.be.equal(parseUnits("2"));
     });
     it("WHEN calling setTreasury from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketDAI.setTreasury(maria.address, 0)).to.be.revertedWith("AccessControl");
+      await expect(marketDAI.setTreasury(maria.address, 0)).to.be.reverted;
     });
     it("WHEN calling setTreasury, THEN the treasury address and treasury fee should be updated", async () => {
       await timelockExecute(owner, marketDAI, "setTreasury", [maria.address, parseUnits("0.1")]);
@@ -577,11 +577,11 @@ describe("Market", function () {
             maria.address,
             maria.address,
           ),
-        ).to.be.revertedWith("UtilizationExceeded");
+        ).to.be.revertedWith("UtilizationExceeded()");
       });
       it("WHEN Maria tries to borrow 2500 DAI from the smart pool, THEN it fails with InsufficientProtocolLiquidity", async () => {
         await expect(marketDAI.borrow(parseUnits("2500"), maria.address, maria.address)).to.be.revertedWith(
-          "InsufficientProtocolLiquidity",
+          "InsufficientProtocolLiquidity()",
         );
       });
       it("WHEN Maria tries to borrow 150 DAI from a maturity, THEN it succeeds", async () => {

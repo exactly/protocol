@@ -608,7 +608,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
           to: routerETH.address,
           value: parseUnits("1"),
         }),
-      ).to.be.revertedWith("NotFromWETH");
+      ).to.be.revertedWith("NotFromWETH()");
     });
   });
 

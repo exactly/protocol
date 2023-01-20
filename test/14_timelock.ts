@@ -59,9 +59,7 @@ describe("Timelock - AccessControl", function () {
             await timelockController.schedule(auditor.address, 0, calldata, HashZero, HashZero, 3);
           });
           it("THEN it should revert when executing before delay time", async () => {
-            await expect(
-              timelockController.execute(auditor.address, 0, calldata, HashZero, HashZero),
-            ).to.be.revertedWith("TimelockController: operation is not ready");
+            await expect(timelockController.execute(auditor.address, 0, calldata, HashZero, HashZero)).to.be.reverted;
           });
           it("THEN it should not revert when executing after delay time", async () => {
             await provider.send("evm_mine", []);
@@ -72,16 +70,15 @@ describe("Timelock - AccessControl", function () {
         });
         it("AND WHEN account tries to schedule a set of new asset sources through the Timelock, THEN it should revert", async () => {
           const data = auditor.interface.encodeFunctionData("setPriceFeed", [AddressZero, AddressZero]);
-          await expect(
-            timelockController.connect(account).schedule(auditor.address, 0, data, HashZero, HashZero, 3),
-          ).to.be.revertedWith("AccessControl");
+          await expect(timelockController.connect(account).schedule(auditor.address, 0, data, HashZero, HashZero, 3)).to
+            .be.reverted;
         });
         describe("AND WHEN the owner revokes his ADMIN role", () => {
           beforeEach(async () => {
             await auditor.revokeRole(await auditor.DEFAULT_ADMIN_ROLE(), owner.address);
           });
           it("THEN it should revert when trying to set new asset sources with owner address", async () => {
-            await expect(auditor.setPriceFeed(marketDAI, priceFeed)).to.be.revertedWith("AccessControl");
+            await expect(auditor.setPriceFeed(marketDAI, priceFeed)).to.be.reverted;
           });
         });
         describe("AND WHEN the owner address grants another account PROPOSER and EXECUTOR roles for Timelock contract", () => {
@@ -109,10 +106,10 @@ describe("Timelock - AccessControl", function () {
           it("THEN it should revert when account tries to grant another address PROPOSER and EXECUTOR roles for Timelock contract", async () => {
             // Only addresses with TIMELOCK_ADMIN_ROLE can grant these roles
             await expect(timelockController.connect(account).grantRole(PROPOSER_ROLE, AddressZero)).to.be.revertedWith(
-              "AccessControl",
+              "",
             );
             await expect(timelockController.connect(account).grantRole(EXECUTOR_ROLE, AddressZero)).to.be.revertedWith(
-              "AccessControl",
+              "",
             );
           });
         });

@@ -225,7 +225,7 @@ contract ProtocolTest is Test {
           : positionAssets
       ) > market.asset().balanceOf(address(market))
     ) {
-      vm.expectRevert("TRANSFER_FAILED");
+      vm.expectRevert(bytes(""));
     } else {
       vm.expectEmit(true, true, true, false, address(market));
       emit WithdrawAtMaturity(maturity, account, account, account, assets, 0);
@@ -293,7 +293,7 @@ contract ProtocolTest is Test {
       if (collateral < debt) {
         vm.expectRevert(InsufficientAccountLiquidity.selector);
       } else if (assets > market.asset().balanceOf(address(market))) {
-        vm.expectRevert("TRANSFER_FAILED");
+        vm.expectRevert(bytes(""));
       } else {
         vm.expectEmit(true, true, true, true, address(market));
         emit BorrowAtMaturity(maturity, account, account, account, assets, fees);
@@ -313,7 +313,7 @@ contract ProtocolTest is Test {
     }
     uint256 expectedShares = market.convertToShares(assets);
 
-    if (expectedShares == 0) vm.expectRevert("ZERO_SHARES");
+    if (expectedShares == 0) vm.expectRevert(bytes(""));
     else {
       vm.expectEmit(true, true, true, true, address(market));
       emit Deposit(account, account, assets, expectedShares);
@@ -401,7 +401,7 @@ contract ProtocolTest is Test {
     } else if (debt > collateral) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
     } else if (assets > market.asset().balanceOf(address(market))) {
-      vm.expectRevert("TRANSFER_FAILED");
+      vm.expectRevert(bytes(""));
     } else {
       vm.expectEmit(true, true, true, true, address(market));
       emit Borrow(account, account, account, assets, expectedShares);
@@ -472,7 +472,7 @@ contract ProtocolTest is Test {
     } else if (expectedShares > market.balanceOf(account)) {
       vm.expectRevert(stdError.arithmeticError);
     } else if (assets > market.asset().balanceOf(address(market))) {
-      vm.expectRevert("TRANSFER_FAILED");
+      vm.expectRevert(bytes(""));
     } else {
       vm.expectEmit(true, true, true, true, address(market));
       emit Withdraw(account, account, account, assets, expectedShares);
@@ -505,7 +505,7 @@ contract ProtocolTest is Test {
     } else if (shares > market.balanceOf(account)) {
       vm.expectRevert(stdError.arithmeticError);
     } else if (expectedAssets > market.asset().balanceOf(address(market))) {
-      vm.expectRevert("TRANSFER_FAILED");
+      vm.expectRevert(bytes(""));
     } else {
       vm.expectEmit(true, true, true, true, address(market));
       emit Withdraw(account, account, account, expectedAssets, shares);
@@ -573,7 +573,7 @@ contract ProtocolTest is Test {
       ) {
         vm.expectRevert(InsufficientProtocolLiquidity.selector);
       } else if (seizeAssets > collateralMarket.asset().balanceOf(address(collateralMarket))) {
-        vm.expectRevert("TRANSFER_FAILED");
+        vm.expectRevert(bytes(""));
       } else {
         vm.expectEmit(true, true, true, false, address(market));
         emit Liquidate(ALICE, BOB, 0, 0, collateralMarket, 0);

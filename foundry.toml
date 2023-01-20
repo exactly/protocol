@@ -1,7 +1,8 @@
 [profile.default]
-solc = '0.8.17'
+solc = "0.8.17"
 optimizer = true
 optimizer_runs = 200
+revert_strings = "strip"
 
 ffi = true
 src = "test/solidity"
