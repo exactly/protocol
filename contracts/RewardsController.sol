@@ -128,6 +128,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return distribution[market].decimals;
   }
 
+  function distributionStart(Market market) external view returns (uint256) {
+    return distribution[market].start;
+  }
+
   function availableRewardsCount(Market market) external view returns (uint256) {
     return distribution[market].availableRewardsCount;
   }
@@ -223,22 +227,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  function totalFixedBorrowShares(Market market) internal view returns (uint256 fixedDebt) {
-    uint256 distributionStart = distribution[market].start;
-    uint256 firstMaturity = distributionStart - (distributionStart % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-    uint256 maxMaturity = block.timestamp -
-      (block.timestamp % FixedLib.INTERVAL) +
-      (FixedLib.INTERVAL * market.maxFuturePools());
-
-    for (uint256 maturity = firstMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
-      fixedDebt += market.fixedPoolBorrowed(maturity);
-    }
-    fixedDebt = market.previewRepay(fixedDebt);
-  }
-
   function accountFixedBorrowShares(Market market, address account) internal view returns (uint256 fixedDebt) {
-    uint256 distributionStart = distribution[market].start;
-    uint256 firstMaturity = distributionStart - (distributionStart % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 start = distribution[market].start;
+    uint256 firstMaturity = start - (start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     uint256 maxMaturity = block.timestamp -
       (block.timestamp % FixedLib.INTERVAL) +
       (FixedLib.INTERVAL * market.maxFuturePools());
@@ -306,22 +297,29 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     RewardData storage rewardData,
     Market market
   ) internal view returns (uint256 depositIndex, uint256 borrowIndex, uint256 newUndistributed) {
-    uint256 totalDebt = market.totalFloatingBorrowAssets();
-    uint256 totalDeposits = market.totalAssets();
+    TotalMarketBalance memory m;
+    m.supply = market.totalAssets();
+    m.debt = market.totalFloatingBorrowAssets();
+    uint256 fixedBorrowShares;
     {
-      uint256 memMaxFuturePools = market.maxFuturePools();
-      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
-      uint256 maxMaturity = latestMaturity + memMaxFuturePools * FixedLib.INTERVAL;
-      for (uint256 m = latestMaturity; m <= maxMaturity; m += FixedLib.INTERVAL) {
-        (uint256 supplied, uint256 borrowed) = market.fixedPoolBalance(m);
-        totalDeposits += supplied;
-        totalDebt += borrowed;
+      uint256 start = distribution[market].start;
+      uint256 firstMaturity = start - (start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+      uint256 maxMaturity = block.timestamp -
+        (block.timestamp % FixedLib.INTERVAL) +
+        (FixedLib.INTERVAL * market.maxFuturePools());
+      uint256 fixedDebt;
+      for (uint256 maturity = firstMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+        (uint256 supplied, uint256 borrowed) = market.fixedPoolBalance(maturity);
+        m.supply += supplied;
+        fixedDebt += borrowed;
       }
+      m.debt += fixedDebt;
+      fixedBorrowShares = market.previewRepay(fixedDebt);
     }
     uint256 target;
     {
       uint256 targetDebt = rewardData.targetDebt;
-      target = totalDebt < targetDebt ? totalDebt.divWadDown(targetDebt) : 1e18;
+      target = m.debt < targetDebt ? m.debt.divWadDown(targetDebt) : 1e18;
     }
     uint256 distributionFactor = rewardData.undistributedFactor.mulWadDown(target);
     if (distributionFactor > 0) {
@@ -341,7 +339,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
       {
         AllocationVars memory v;
-        v.utilization = totalDeposits > 0 ? totalDebt.divWadDown(totalDeposits) : 0;
+        v.utilization = m.supply > 0 ? m.debt.divWadDown(m.supply) : 0;
         v.adjustFactor = auditor.adjustFactor(market);
         v.sigmoid = v.utilization > 0
           ? uint256(1e18).divWadDown(
@@ -368,7 +366,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         v.depositAllocation = 1e18 - v.borrowAllocation;
         {
           uint256 totalDepositSupply = market.totalSupply();
-          uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + totalFixedBorrowShares(market);
+          uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + fixedBorrowShares;
           depositIndex =
             rewardData.floatingDepositIndex +
             (
@@ -460,6 +458,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   enum Operation {
     Deposit,
     Borrow
+  }
+
+  struct TotalMarketBalance {
+    uint256 supply;
+    uint256 debt;
   }
 
   struct AllocationVars {
