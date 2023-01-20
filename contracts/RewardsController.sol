@@ -17,14 +17,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
-  // Map of rewarded operations and their distribution data
-  mapping(Market => Distribution) internal distribution;
-  // Map of reward assets
+  /// @notice Tracks the reward distribution data for a given market.
+  mapping(Market => Distribution) public distribution;
+  /// @notice Tracks enabled asset rewards.
   mapping(ERC20 => bool) internal rewardEnabled;
-  // Rewards list
+  /// @notice Stores registered asset rewards.
   ERC20[] public rewardList;
-  // Map of operations by account
+
+  /// @notice Tracks the operations for a given account on a given market.
   mapping(address => mapping(Market => Operation[])) public accountOperations;
+  /// @notice Tracks enabled operations for a given account on a given market.
   mapping(address => mapping(Market => mapping(Operation => bool))) public accountOperationEnabled;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
@@ -42,12 +44,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
+  /// @notice Handles the deposit operation for a given account.
+  /// @param account The account to handle the deposit operation for.
   function handleDeposit(address account) external {
     AccountOperation[] memory ops = new AccountOperation[](1);
     ops[0] = AccountOperation({ operation: Operation.Deposit, balance: Market(msg.sender).balanceOf(account) });
     update(account, Market(msg.sender), ops);
   }
 
+  /// @notice Handles the borrow operation for a given account.
+  /// @param account The account to handle the borrow operation for.
   function handleBorrow(address account) external {
     AccountOperation[] memory ops = new AccountOperation[](1);
     (, , uint256 floatingBorrowShares) = Market(msg.sender).accounts(account);
@@ -58,10 +64,19 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     update(account, Market(msg.sender), ops);
   }
 
+  /// @notice Gets all account operations of msg.sender and transfers rewards to a given account.
+  /// @param to The address to send the rewards to.
+  /// @return rewardsList The list of rewards assets.
+  /// @return claimedAmounts The list of claimed amounts.
   function claimAll(address to) external returns (ERC20[] memory rewardsList, uint256[] memory claimedAmounts) {
     return claim(allAccountOperations(msg.sender), to);
   }
 
+  /// @notice Claims msg.sender's rewards for the given operations to a given account.
+  /// @param operations The operations to claim rewards for.
+  /// @param to The address to send the rewards to.
+  /// @return rewardsList The list of rewards assets.
+  /// @return claimedAmounts The list of claimed amounts.
   function claim(
     MarketOperation[] memory operations,
     address to
@@ -98,6 +113,14 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return (rewardsList, claimedAmounts);
   }
 
+  /// @notice Gets the data of the rewards' distribution model for a given market and reward asset.
+  /// @param market The market to get the distribution model for.
+  /// @param reward The reward asset to get the distribution model for.
+  /// @return lastUpdate The last time the rewardsData was updated.
+  /// @return targetDebt The target debt.
+  /// @return mintingRate The minting rate.
+  /// @return undistributedFactor The undistributed factor.
+  /// @return lastUndistributed The last undistributed amount.
   function rewardsData(
     Market market,
     ERC20 reward
@@ -111,6 +134,14 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     );
   }
 
+  /// @notice Gets the data of the rewards' allocation model for a given market and reward asset.
+  /// @param market The market to get the allocation model for.
+  /// @param reward The reward asset to get the allocation model for.
+  /// @return decaySpeed The decay speed.
+  /// @return compensationFactor The compensation factor.
+  /// @return borrowConstantReward The borrow constant reward.
+  /// @return depositConstantReward The deposit constant reward.
+  /// @return depositConstantRewardHighU The deposit constant reward for high utilization.
   function rewardAllocationParams(
     Market market,
     ERC20 reward
@@ -124,18 +155,30 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     );
   }
 
+  /// @notice Gets the decimals of a given market.
+  /// @param market The market to get the decimals for.
+  /// @return decimals The decimals of the market.
   function decimals(Market market) external view returns (uint8) {
     return distribution[market].decimals;
   }
 
+  /// @notice Gets the distribution start time of a given market.
+  /// @param market The market to get the distribution start time for.
+  /// @return start The distribution start time.
   function distributionStart(Market market) external view returns (uint256) {
     return distribution[market].start;
   }
 
+  /// @notice Gets the amount of available rewards for a given market.
+  /// @param market The market to get the available rewards for.
+  /// @return availableRewardsCount The amount of available rewards.
   function availableRewardsCount(Market market) external view returns (uint256) {
     return distribution[market].availableRewardsCount;
   }
 
+  /// @notice Gets all operations for a given account.
+  /// @param account The account to get the operations for.
+  /// @return marketOps The list of market operations.
   function allAccountOperations(address account) public view returns (MarketOperation[] memory marketOps) {
     Market[] memory marketList = auditor.allMarkets();
     marketOps = new MarketOperation[](marketList.length);
@@ -145,6 +188,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Gets the operation data for a given account, market, operation and reward asset.
+  /// @param account The account to get the operation data for.
+  /// @param market The market to get the operation data for.
+  /// @param operation The operation to get the operation data for.
+  /// @param reward The reward asset to get the operation data for.
+  /// @return accrued The accrued amount.
+  /// @return index The account index.
   function accountOperation(
     address account,
     Market market,
@@ -157,6 +207,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     );
   }
 
+  /// @notice Gets the claimable amount of rewards for a given account and reward asset.
+  /// @param account The account to get the claimable amount for.
+  /// @param reward The reward asset to get the claimable amount for.
+  /// @return unclaimedRewards The claimable amount for the given reward asset.
   function claimable(address account, ERC20 reward) external view returns (uint256 unclaimedRewards) {
     MarketOperation[] memory marketOps = allAccountOperations(account);
     for (uint256 i = 0; i < marketOps.length; ++i) {
@@ -176,10 +230,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  /// @notice Iterates and accrues all the rewards for the operations of the specific account
-  /// @param account The account address
-  /// @param market The market address
-  /// @param ops The account's balance in the operation's pool
+  /// @notice Iterates and accrues all the rewards for the operations of the given account in the given market.
+  /// @param account The account to accrue the rewards for.
+  /// @param market The market to accrue the rewards for.
+  /// @param ops The operations to accrue the rewards for.
   function update(address account, Market market, AccountOperation[] memory ops) internal {
     uint256 baseUnit;
     unchecked {
@@ -237,6 +291,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     fixedDebt = market.previewRepay(fixedDebt);
   }
 
+  /// @notice Gets the reward indexes for a given market and reward asset.
+  /// @param market The market to get the reward indexes for.
+  /// @param reward The reward asset to get the reward indexes for.
+  /// @return floatingBorrowIndex The index for the floating borrow operation.
+  /// @return floatingDepositIndex The index for the floating deposit operation.
   function rewardIndexes(Market market, ERC20 reward) external view returns (uint256, uint256) {
     return (
       distribution[market].rewards[reward].floatingBorrowIndex,
@@ -244,11 +303,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     );
   }
 
-  /// @notice Calculates the pending (not yet accrued) rewards since the last account action
-  /// @param account The address of the account
-  /// @param reward The address of the reward token
-  /// @param ops Struct with the account balance and total balance of the operation's pool
-  /// @return rewards The pending rewards for the account since the last account action
+  /// @notice Calculates the rewards not accrued yet for the given operations of a given account and reward asset.
+  /// @param account The account to get the pending rewards for.
+  /// @param reward The reward asset to get the pending rewards for.
+  /// @param ops The operations to get the pending rewards for.
+  /// @return rewards The pending rewards for the given operations.
   function pendingRewards(
     address account,
     ERC20 reward,
@@ -292,6 +351,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return balance.mulDivDown(reserveIndex - accountIndex, baseUnit);
   }
 
+  /// @notice Internal function for the calculation of the distribution's indexes.
+  /// @param rewardData The distribution's data.
+  /// @param market The market to calculate the indexes for.
+  /// @return depositIndex The index for the deposit operation.
+  /// @return borrowIndex The index for the borrow operation.
+  /// @return newUndistributed The undistributed rewards for the distribution
   function previewAllocation(
     RewardData storage rewardData,
     Market market
@@ -417,6 +482,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Updates the RewardData with the given configs
+  /// @param configs The config to update the RewardData with
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; ++i) {
       RewardData storage rewardConfig = distribution[configs[i].market].rewards[configs[i].reward];
