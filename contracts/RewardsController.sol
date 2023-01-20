@@ -164,9 +164,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   /// @notice Gets the distribution start time of a given market.
   /// @param market The market to get the distribution start time for.
-  /// @return start The distribution start time.
-  function distributionStart(Market market) external view returns (uint256) {
-    return distribution[market].start;
+  /// @return The distribution start and end time.
+  function distributionTime(Market market) external view returns (uint256, uint256) {
+    return (distribution[market].start, distribution[market].end);
   }
 
   /// @notice Gets the amount of available rewards for a given market.
@@ -390,16 +390,38 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       uint256 rewards;
       {
         uint256 lastUndistributed = rewardData.lastUndistributed;
-        uint256 mintingRate = rewardData.mintingRate;
-        uint256 deltaTime = block.timestamp - rewardData.lastUpdate;
-        uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
-        newUndistributed =
-          lastUndistributed +
-          mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
-          lastUndistributed.mulWadDown(1e18 - exponential);
-        rewards = rewardData.targetDebt.mulWadDown(
-          uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
-        );
+        if (block.timestamp <= distribution[market].end) {
+          uint256 mintingRate = rewardData.mintingRate;
+          uint256 deltaTime = block.timestamp - rewardData.lastUpdate;
+          uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
+          newUndistributed =
+            lastUndistributed +
+            mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
+            lastUndistributed.mulWadDown(1e18 - exponential);
+          rewards = rewardData.targetDebt.mulWadDown(
+            uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
+          );
+        } else if (rewardData.lastUpdate > distribution[market].end) {
+          newUndistributed =
+            lastUndistributed -
+            lastUndistributed.mulWadDown(
+              1e18 - uint256((-int256(distributionFactor * (block.timestamp - rewardData.lastUpdate))).expWad())
+            );
+          rewards = rewardData.targetDebt.mulWadDown(uint256(-(int256(newUndistributed) - int256(lastUndistributed))));
+        } else {
+          uint256 mintingRate = rewardData.mintingRate;
+          uint256 deltaTime = distribution[market].end - rewardData.lastUpdate;
+          uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
+          newUndistributed =
+            lastUndistributed +
+            mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
+            lastUndistributed.mulWadDown(1e18 - exponential);
+          exponential = uint256((-int256(distributionFactor * (block.timestamp - distribution[market].end))).expWad());
+          newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
+          rewards = rewardData.targetDebt.mulWadDown(
+            uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
+          );
+        }
       }
       {
         AllocationVars memory v;
@@ -500,6 +522,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       if (distribution[configs[i].market].start == 0) {
         distribution[configs[i].market].start = uint32(block.timestamp);
       }
+      distribution[configs[i].market].end = uint32(block.timestamp + configs[i].distributionPeriod);
 
       // Add reward address to global rewards list if still not enabled
       if (rewardEnabled[configs[i].reward] == false) {
@@ -609,6 +632,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     // Number of decimals of the operation's asset
     uint8 decimals;
     uint32 start;
+    uint32 end;
   }
 
   event Accrue(

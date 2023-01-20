@@ -479,14 +479,17 @@ contract RewardsControllerTest is Test {
     vm.warp(10_000 seconds);
     marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 10e6, 20e6, address(this), address(this));
 
-    vm.warp(FixedLib.INTERVAL - 1 seconds);
+    vm.warp(FixedLib.INTERVAL - 1 days);
     uint256 opRewardsPreMaturity = rewardsController.claimable(address(this), opRewardAsset);
     uint256 exaRewardsPreMaturity = rewardsController.claimable(address(this), exaRewardAsset);
     vm.warp(FixedLib.INTERVAL);
     uint256 opRewardsPostMaturity = rewardsController.claimable(address(this), opRewardAsset);
     uint256 exaRewardsPostMaturity = rewardsController.claimable(address(this), exaRewardAsset);
-    assertGt(opRewardsPostMaturity, opRewardsPreMaturity);
-    assertGt(exaRewardsPostMaturity, exaRewardsPreMaturity);
+    assertApproxEqAbs(opRewardsPostMaturity, opRewardsPreMaturity, 1e2);
+    assertApproxEqAbs(exaRewardsPostMaturity, exaRewardsPreMaturity, 1e2);
+
+    vm.warp(FixedLib.INTERVAL + 1 days);
+    assertApproxEqAbs(rewardsController.claimable(address(this), exaRewardAsset), exaRewardsPostMaturity, 1e2);
   }
 
   function testWithTwelveFixedPools() external {
@@ -590,7 +593,26 @@ contract RewardsControllerTest is Test {
     assertGt(newOpRewards, opRewards);
   }
 
-  // FIXME: failing test when adding one more reward asset
+  function testAfterDistributionPeriodEnd() external {
+    uint256 totalDistribution = 2_000 ether;
+    marketWETH.deposit(10 ether, address(this));
+    marketWETH.borrow(1 ether, address(this), address(this));
+
+    (, uint256 distributionEnd) = rewardsController.distributionTime(marketWETH);
+    vm.warp(distributionEnd);
+    uint256 opRewards = rewardsController.claimable(address(this), opRewardAsset);
+    vm.warp(distributionEnd + 1);
+    assertGt(rewardsController.claimable(address(this), opRewardAsset), opRewards);
+    // move in time far away from end of distribution, still rewards are lower than total distribution
+    vm.warp(distributionEnd * 4);
+    opRewards = rewardsController.claimable(address(this), opRewardAsset);
+    assertGt(totalDistribution, opRewards);
+    assertApproxEqAbs(totalDistribution, opRewards, 1e12);
+
+    rewardsController.claimAll(address(this));
+    assertEq(opRewardAsset.balanceOf(address(this)), opRewards);
+  }
+
   function testClaim() external {
     marketUSDC.deposit(100e6, address(this));
     marketUSDC.borrow(10e6, address(this), address(this));
@@ -742,7 +764,7 @@ contract RewardsControllerTest is Test {
     m.supply = market.totalAssets();
     m.debt = market.totalFloatingBorrowAssets();
     {
-      uint256 distributionStart = rewardsController.distributionStart(market);
+      (uint256 distributionStart, ) = rewardsController.distributionTime(market);
       uint256 firstMaturity = distributionStart - (distributionStart % FixedLib.INTERVAL) + FixedLib.INTERVAL;
       uint256 maxMaturity = block.timestamp -
         (block.timestamp % FixedLib.INTERVAL) +
@@ -759,15 +781,36 @@ contract RewardsControllerTest is Test {
     if (distributionFactor > 0) {
       uint256 rewards;
       {
-        uint256 deltaTime = block.timestamp - r.lastUpdate;
-        uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
-        uint256 newUndistributed = r.lastUndistributed +
-          r.mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
-          r.lastUndistributed.mulWadDown(1e18 - exponential);
-        rewards = r.targetDebt.mulWadDown(
-          uint256(int256(r.mintingRate * deltaTime) - (int256(newUndistributed) - int256(r.lastUndistributed)))
-        );
+        (, uint256 distributionEnd) = rewardsController.distributionTime(market);
+        if (block.timestamp <= distributionEnd) {
+          uint256 deltaTime = block.timestamp - r.lastUpdate;
+          uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
+          uint256 newUndistributed = r.lastUndistributed +
+            r.mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
+            r.lastUndistributed.mulWadDown(1e18 - exponential);
+          rewards = r.targetDebt.mulWadDown(
+            uint256(int256(r.mintingRate * deltaTime) - (int256(newUndistributed) - int256(r.lastUndistributed)))
+          );
+        } else if (r.lastUpdate > distributionEnd) {
+          uint256 newUndistributed = r.lastUndistributed -
+            r.lastUndistributed.mulWadDown(
+              1e18 - uint256((-int256(distributionFactor * (block.timestamp - r.lastUpdate))).expWad())
+            );
+          rewards = r.targetDebt.mulWadDown(uint256(-(int256(newUndistributed) - int256(r.lastUndistributed))));
+        } else {
+          uint256 deltaTime = distributionEnd - r.lastUpdate;
+          uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
+          uint256 newUndistributed = r.lastUndistributed +
+            r.mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
+            r.lastUndistributed.mulWadDown(1e18 - exponential);
+          exponential = uint256((-int256(distributionFactor * (block.timestamp - distributionEnd))).expWad());
+          newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
+          rewards = r.targetDebt.mulWadDown(
+            uint256(int256(r.mintingRate * deltaTime) - (int256(newUndistributed) - int256(r.lastUndistributed)))
+          );
+        }
       }
+
       // reusing vars due to stack too deep
       (m.debt, m.supply) = allocationFactors(market, m.debt, m.supply, target, rewardAsset);
       borrowRewards = rewards.mulWadDown(m.debt);
