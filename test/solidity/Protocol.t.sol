@@ -98,7 +98,7 @@ contract ProtocolTest is Test {
       reward: rewardsAsset,
       targetDebt: 20_000 ether,
       totalDistribution: 2_000 ether,
-      distributionPeriod: 12 weeks,
+      distributionPeriod: (N * K * type(uint16).max) / 2,
       undistributedFactor: 0.5e18,
       decaySpeed: 2,
       compensationFactor: 0.85e18,
