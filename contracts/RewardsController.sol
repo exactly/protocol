@@ -453,7 +453,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardConfig.depositConstantReward = configs[i].depositConstantReward;
       rewardConfig.depositConstantRewardHighU = configs[i].depositConstantRewardHighU;
       rewardConfig.mintingRate = configs[i].totalDistribution.divWadDown(configs[i].targetDebt).mulWadDown(
-        uint256(1e18) / configs[i].distributionPeriod
+        1e18 / configs[i].distributionPeriod
       );
 
       emit DistributionSet(configs[i].market, configs[i].reward, 0);
