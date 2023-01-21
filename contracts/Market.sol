@@ -251,7 +251,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       account.fixedDeposits = account.fixedDeposits.setMaturity(maturity);
     }
 
-    // update account's position
     position.principal += assets;
     position.fee += fee;
 
@@ -298,7 +297,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     spendAllowance(borrower, assetsOwed);
 
-    FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
     {
       uint256 backupDebtAddition = pool.borrow(assets);
       if (backupDebtAddition > 0) {
@@ -313,6 +311,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     {
       // if account doesn't have a current position, add it to the list
+      FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
       if (position.principal == 0) {
         Account storage account = accounts[borrower];
         account.fixedBorrows = account.fixedBorrows.setMaturity(maturity);
