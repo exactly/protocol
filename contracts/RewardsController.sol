@@ -20,7 +20,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @notice Tracks the reward distribution data for a given market.
   mapping(Market => Distribution) public distribution;
   /// @notice Tracks enabled asset rewards.
-  mapping(ERC20 => bool) internal rewardEnabled;
+  mapping(ERC20 => bool) public rewardEnabled;
   /// @notice Stores registered asset rewards.
   ERC20[] public rewardList;
 
@@ -84,16 +84,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     rewardsList = new ERC20[](rewardList.length);
     claimedAmounts = new uint256[](rewardList.length);
 
-    for (uint256 i = 0; i < operations.length; ++i) {
+    for (uint256 i = 0; i < operations.length; ) {
       update(
         msg.sender,
         operations[i].market,
         accountBalanceOperations(operations[i].market, operations[i].operations, msg.sender)
       );
-      for (uint256 r = 0; r < rewardList.length; ++r) {
+      for (uint256 r = 0; r < rewardList.length; ) {
         if (address(rewardsList[r]) == address(0)) rewardsList[r] = rewardList[r];
 
-        for (uint256 o = 0; o < operations[i].operations.length; ++o) {
+        for (uint256 o = 0; o < operations[i].operations.length; ) {
           uint256 rewardAmount = distribution[operations[i].market]
           .rewards[rewardsList[r]]
           .accounts[msg.sender][operations[i].operations[o]].accrued;
@@ -103,12 +103,24 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
             .rewards[rewardsList[r]]
             .accounts[msg.sender][operations[i].operations[o]].accrued = 0;
           }
+          unchecked {
+            ++o;
+          }
+        }
+        unchecked {
+          ++r;
         }
       }
+      unchecked {
+        ++i;
+      }
     }
-    for (uint256 r = 0; r < rewardsList.length; ++r) {
+    for (uint256 r = 0; r < rewardsList.length; ) {
       rewardsList[r].safeTransfer(to, claimedAmounts[r]);
       emit Claim(msg.sender, rewardsList[r], to, claimedAmounts[r]);
+      unchecked {
+        ++r;
+      }
     }
     return (rewardsList, claimedAmounts);
   }
@@ -184,9 +196,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function allAccountOperations(address account) public view returns (MarketOperation[] memory marketOps) {
     Market[] memory marketList = auditor.allMarkets();
     marketOps = new MarketOperation[](marketList.length);
-    for (uint256 i = 0; i < marketList.length; ++i) {
+    for (uint256 i = 0; i < marketList.length; ) {
       Operation[] memory ops = accountOperations[account][marketList[i]];
       marketOps[i] = MarketOperation({ market: marketList[i], operations: ops });
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -215,20 +230,31 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @return unclaimedRewards The claimable amount for the given reward asset.
   function claimable(address account, ERC20 reward) external view returns (uint256 unclaimedRewards) {
     MarketOperation[] memory marketOps = allAccountOperations(account);
-    for (uint256 i = 0; i < marketOps.length; ++i) {
-      if (distribution[marketOps[i].market].availableRewardsCount == 0) continue;
+    for (uint256 i = 0; i < marketOps.length; ) {
+      if (distribution[marketOps[i].market].availableRewardsCount == 0) {
+        unchecked {
+          ++i;
+        }
+        continue;
+      }
 
       AccountOperation[] memory ops = accountBalanceOperations(marketOps[i].market, marketOps[i].operations, account);
-      for (uint256 o = 0; o < ops.length; ++o) {
+      for (uint256 o = 0; o < ops.length; ) {
         unclaimedRewards += distribution[marketOps[i].market]
         .rewards[reward]
         .accounts[account][ops[o].operation].accrued;
+        unchecked {
+          ++o;
+        }
       }
       unclaimedRewards += pendingRewards(
         account,
         reward,
         AccountMarketOperation({ market: marketOps[i].market, accountOperations: ops })
       );
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -243,7 +269,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
 
     if (distribution[market].availableRewardsCount == 0) return;
-    for (uint128 r = 0; r < distribution[market].availableRewardsCount; ++r) {
+    for (uint128 r = 0; r < distribution[market].availableRewardsCount; ) {
       ERC20 reward = distribution[market].availableRewards[r];
       RewardData storage rewardData = distribution[market].rewards[reward];
       {
@@ -254,7 +280,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewardData.floatingBorrowIndex = borrowIndex;
       }
 
-      for (uint256 i = 0; i < ops.length; ++i) {
+      for (uint256 i = 0; i < ops.length; ) {
         uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
         uint256 newAccountIndex;
 
@@ -275,6 +301,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
             emit Accrue(market, reward, account, newAccountIndex, newAccountIndex, rewardsAccrued);
           }
         }
+        unchecked {
+          ++i;
+        }
+      }
+      unchecked {
+        ++r;
       }
     }
   }
@@ -286,9 +318,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       (block.timestamp % FixedLib.INTERVAL) +
       (FixedLib.INTERVAL * market.maxFuturePools());
 
-    for (uint256 maturity = firstMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+    for (uint256 maturity = firstMaturity; maturity <= maxMaturity; ) {
       (uint256 principal, ) = market.fixedBorrowPositions(maturity, account);
       fixedDebt += principal;
+      unchecked {
+        maturity += FixedLib.INTERVAL;
+      }
     }
     fixedDebt = market.previewRepay(fixedDebt);
   }
@@ -321,7 +356,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       baseUnit = 10 ** distribution[ops.market].decimals;
     }
     (uint256 depositIndex, uint256 borrowIndex, ) = previewAllocation(rewardData, ops.market);
-    for (uint256 o = 0; o < ops.accountOperations.length; ++o) {
+    for (uint256 o = 0; o < ops.accountOperations.length; ) {
       uint256 nextIndex;
       if (ops.accountOperations[o].operation == Operation.Borrow) {
         nextIndex = borrowIndex;
@@ -335,6 +370,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewardData.accounts[account][ops.accountOperations[o].operation].index,
         baseUnit
       );
+      unchecked {
+        ++o;
+      }
     }
   }
 
@@ -374,10 +412,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         (block.timestamp % FixedLib.INTERVAL) +
         (FixedLib.INTERVAL * market.maxFuturePools());
       uint256 fixedDebt;
-      for (uint256 maturity = firstMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+      for (uint256 maturity = firstMaturity; maturity <= maxMaturity; ) {
         (uint256 supplied, uint256 borrowed) = market.fixedPoolBalance(maturity);
         m.supply += supplied;
         fixedDebt += borrowed;
+        unchecked {
+          maturity += FixedLib.INTERVAL;
+        }
       }
       m.debt += fixedDebt;
       fixedBorrowShares = market.previewRepay(fixedDebt);
@@ -497,7 +538,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     address account
   ) internal view returns (AccountOperation[] memory accountMaturityOps) {
     accountMaturityOps = new AccountOperation[](ops.length);
-    for (uint256 i = 0; i < ops.length; ++i) {
+    for (uint256 i = 0; i < ops.length; ) {
       if (ops[i] == Operation.Deposit) {
         accountMaturityOps[i] = AccountOperation({ operation: ops[i], balance: market.balanceOf(account) });
       } else if (ops[i] == Operation.Borrow) {
@@ -507,13 +548,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           balance: floatingBorrowShares + accountFixedBorrowShares(market, account)
         });
       }
+      unchecked {
+        ++i;
+      }
     }
   }
 
   /// @notice Updates the RewardData with the given configs
   /// @param configs The config to update the RewardData with
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    for (uint256 i = 0; i < configs.length; ++i) {
+    for (uint256 i = 0; i < configs.length; ) {
       RewardData storage rewardConfig = distribution[configs[i].market].rewards[configs[i].reward];
 
       // Add reward address to distribution data's available rewards if latestUpdateTimestamp is zero
@@ -550,6 +594,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       );
 
       emit DistributionSet(configs[i].market, configs[i].reward, 0);
+      unchecked {
+        ++i;
+      }
     }
   }
 
