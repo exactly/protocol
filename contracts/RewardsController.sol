@@ -56,10 +56,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param account The account to handle the borrow operation for.
   function handleBorrow(address account) external {
     AccountOperation[] memory ops = new AccountOperation[](1);
-    (, , uint256 floatingBorrowShares) = Market(msg.sender).accounts(account);
+    (, , uint256 accountFloatingBorrowShares) = Market(msg.sender).accounts(account);
     ops[0] = AccountOperation({
       operation: Operation.Borrow,
-      balance: floatingBorrowShares + accountFixedBorrowShares(Market(msg.sender), account)
+      balance: accountFloatingBorrowShares + accountFixedBorrowShares(Market(msg.sender), account)
     });
     update(account, Market(msg.sender), ops);
   }
@@ -273,11 +273,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       ERC20 reward = distribution[market].availableRewards[r];
       RewardData storage rewardData = distribution[market].rewards[reward];
       {
-        (uint256 depositIndex, uint256 borrowIndex, uint256 newUndistributed) = previewAllocation(rewardData, market);
+        (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(rewardData, market);
         rewardData.lastUpdate = uint32(block.timestamp);
         rewardData.lastUndistributed = newUndistributed;
-        rewardData.floatingDepositIndex = depositIndex;
-        rewardData.floatingBorrowIndex = borrowIndex;
+        rewardData.borrowIndex = borrowIndex;
+        rewardData.depositIndex = depositIndex;
       }
 
       for (uint256 i = 0; i < ops.length; ) {
@@ -288,10 +288,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           accountOperations[account][market].push(ops[i].operation);
           accountOperationEnabled[account][market][ops[i].operation] = true;
         }
-        if (ops[i].operation == Operation.Deposit) {
-          newAccountIndex = rewardData.floatingDepositIndex;
-        } else if (ops[i].operation == Operation.Borrow) {
-          newAccountIndex = rewardData.floatingBorrowIndex;
+        if (ops[i].operation == Operation.Borrow) {
+          newAccountIndex = rewardData.borrowIndex;
+        } else {
+          newAccountIndex = rewardData.depositIndex;
         }
         if (accountIndex != newAccountIndex) {
           rewardData.accounts[account][ops[i].operation].index = uint104(newAccountIndex);
@@ -331,13 +331,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @notice Gets the reward indexes for a given market and reward asset.
   /// @param market The market to get the reward indexes for.
   /// @param reward The reward asset to get the reward indexes for.
-  /// @return floatingBorrowIndex The index for the floating borrow operation.
-  /// @return floatingDepositIndex The index for the floating deposit operation.
+  /// @return borrowIndex The index for the floating borrow operation.
+  /// @return depositIndex The index for the floating deposit operation.
   function rewardIndexes(Market market, ERC20 reward) external view returns (uint256, uint256) {
-    return (
-      distribution[market].rewards[reward].floatingBorrowIndex,
-      distribution[market].rewards[reward].floatingDepositIndex
-    );
+    return (distribution[market].rewards[reward].borrowIndex, distribution[market].rewards[reward].depositIndex);
   }
 
   /// @notice Calculates the rewards not accrued yet for the given operations of a given account and reward asset.
@@ -355,12 +352,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     unchecked {
       baseUnit = 10 ** distribution[ops.market].decimals;
     }
-    (uint256 depositIndex, uint256 borrowIndex, ) = previewAllocation(rewardData, ops.market);
+    (uint256 borrowIndex, uint256 depositIndex, ) = previewAllocation(rewardData, ops.market);
     for (uint256 o = 0; o < ops.accountOperations.length; ) {
       uint256 nextIndex;
       if (ops.accountOperations[o].operation == Operation.Borrow) {
         nextIndex = borrowIndex;
-      } else if (ops.accountOperations[o].operation == Operation.Deposit) {
+      } else {
         nextIndex = depositIndex;
       }
 
@@ -394,16 +391,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @notice Internal function for the calculation of the distribution's indexes.
   /// @param rewardData The distribution's data.
   /// @param market The market to calculate the indexes for.
-  /// @return depositIndex The index for the deposit operation.
   /// @return borrowIndex The index for the borrow operation.
+  /// @return depositIndex The index for the deposit operation.
   /// @return newUndistributed The undistributed rewards for the distribution
   function previewAllocation(
     RewardData storage rewardData,
     Market market
-  ) internal view returns (uint256 depositIndex, uint256 borrowIndex, uint256 newUndistributed) {
+  ) internal view returns (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) {
     TotalMarketBalance memory m;
-    m.supply = market.totalAssets();
     m.debt = market.totalFloatingBorrowAssets();
+    m.supply = market.totalAssets();
     uint256 fixedBorrowShares;
     {
       uint256 start = distribution[market].start;
@@ -413,9 +410,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         (FixedLib.INTERVAL * market.maxFuturePools());
       uint256 fixedDebt;
       for (uint256 maturity = firstMaturity; maturity <= maxMaturity; ) {
-        (uint256 supplied, uint256 borrowed) = market.fixedPoolBalance(maturity);
-        m.supply += supplied;
+        (uint256 borrowed, uint256 supplied) = market.fixedPoolBalance(maturity);
         fixedDebt += borrowed;
+        m.supply += supplied;
         unchecked {
           maturity += FixedLib.INTERVAL;
         }
@@ -504,23 +501,23 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           unchecked {
             baseUnit = 10 ** distribution[market].decimals;
           }
+          borrowIndex =
+            rewardData.borrowIndex +
+            (
+              totalBorrowSupply > 0 ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(baseUnit, totalBorrowSupply) : 0
+            );
           depositIndex =
-            rewardData.floatingDepositIndex +
+            rewardData.depositIndex +
             (
               totalDepositSupply > 0
                 ? rewards.mulWadDown(v.depositAllocation).mulDivDown(baseUnit, totalDepositSupply)
                 : 0
             );
-          borrowIndex =
-            rewardData.floatingBorrowIndex +
-            (
-              totalBorrowSupply > 0 ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(baseUnit, totalBorrowSupply) : 0
-            );
         }
       }
     } else {
-      depositIndex = rewardData.floatingDepositIndex;
-      borrowIndex = rewardData.floatingBorrowIndex;
+      borrowIndex = rewardData.borrowIndex;
+      depositIndex = rewardData.depositIndex;
       newUndistributed = rewardData.lastUndistributed;
     }
   }
@@ -539,14 +536,14 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   ) internal view returns (AccountOperation[] memory accountMaturityOps) {
     accountMaturityOps = new AccountOperation[](ops.length);
     for (uint256 i = 0; i < ops.length; ) {
-      if (ops[i] == Operation.Deposit) {
-        accountMaturityOps[i] = AccountOperation({ operation: ops[i], balance: market.balanceOf(account) });
-      } else if (ops[i] == Operation.Borrow) {
+      if (ops[i] == Operation.Borrow) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
         accountMaturityOps[i] = AccountOperation({
           operation: ops[i],
           balance: floatingBorrowShares + accountFixedBorrowShares(market, account)
         });
+      } else {
+        accountMaturityOps[i] = AccountOperation({ operation: ops[i], balance: market.balanceOf(account) });
       }
       unchecked {
         ++i;
@@ -601,13 +598,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   enum Operation {
-    Deposit,
-    Borrow
+    Borrow,
+    Deposit
   }
 
   struct TotalMarketBalance {
-    uint256 supply;
     uint256 debt;
+    uint256 supply;
   }
 
   struct AllocationVars {
@@ -674,8 +671,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 depositConstantReward;
     uint256 depositConstantRewardHighU;
     // Liquidity index of the reward distribution
-    uint256 floatingBorrowIndex;
-    uint256 floatingDepositIndex;
+    uint256 borrowIndex;
+    uint256 depositIndex;
     // Map of account addresses and their rewards data (accountAddress => accounts)
     mapping(address => mapping(Operation => Account)) accounts;
   }

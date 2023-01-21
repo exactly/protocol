@@ -517,10 +517,7 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     uint256 opRewards = rewardsController.claimable(address(this), opRewardAsset);
     (uint256 lastUpdate, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
-    (uint256 floatingBorrowIndex, uint256 floatingDepositIndex) = rewardsController.rewardIndexes(
-      marketUSDC,
-      opRewardAsset
-    );
+    (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
     assertEq(opRewards, 0);
 
     marketUSDC.deposit(10 ether, address(this));
@@ -529,16 +526,13 @@ contract RewardsControllerTest is Test {
       marketUSDC,
       opRewardAsset
     );
-    (uint256 newFloatingBorrowIndex, uint256 newFloatingDepositIndex) = rewardsController.rewardIndexes(
-      marketUSDC,
-      opRewardAsset
-    );
+    (uint256 newBorrowIndex, uint256 newDepositIndex) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
 
     assertEq(rewardsController.claimable(address(this), opRewardAsset), opRewards);
     assertEq(newLastUpdate, lastUpdate);
     assertEq(newLastUndistributed, lastUndistributed);
-    assertEq(floatingBorrowIndex, newFloatingBorrowIndex);
-    assertEq(floatingDepositIndex, newFloatingDepositIndex);
+    assertEq(borrowIndex, newBorrowIndex);
+    assertEq(depositIndex, newDepositIndex);
   }
 
   function testOperationsArrayShouldNotPushSameOperationTwice() external {
@@ -680,16 +674,16 @@ contract RewardsControllerTest is Test {
   ) internal view returns (RewardsController.AccountOperation[] memory accountMaturityOps) {
     accountMaturityOps = new RewardsController.AccountOperation[](ops.length);
     for (uint256 i = 0; i < ops.length; i++) {
-      if (ops[i] == RewardsController.Operation.Deposit) {
-        accountMaturityOps[i] = RewardsController.AccountOperation({
-          operation: ops[i],
-          balance: market.balanceOf(account)
-        });
-      } else if (ops[i] == RewardsController.Operation.Borrow) {
+      if (ops[i] == RewardsController.Operation.Borrow) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
         accountMaturityOps[i] = RewardsController.AccountOperation({
           operation: ops[i],
           balance: floatingBorrowShares + accountFixedBorrowShares(market, account)
+        });
+      } else {
+        accountMaturityOps[i] = RewardsController.AccountOperation({
+          operation: ops[i],
+          balance: market.balanceOf(account)
         });
       }
     }
@@ -731,13 +725,13 @@ contract RewardsControllerTest is Test {
     RewardsController.AccountMarketOperation memory ops
   ) internal view returns (uint256 rewards) {
     uint256 baseUnit = 10 ** rewardsController.decimals(ops.market);
-    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(ops.market, rewardAsset);
+    (uint256 borrowRewards, uint256 depositRewards) = previewRewards(ops.market, rewardAsset);
     (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(ops.market, rewardAsset);
     {
-      uint256 totalSupply = ops.market.totalSupply();
       uint256 totalDebt = ops.market.totalFloatingBorrowShares() + totalFixedBorrowShares(ops.market);
-      depositIndex += totalSupply > 0 ? depositRewards.mulDivDown(baseUnit, totalSupply) : 0;
+      uint256 totalSupply = ops.market.totalSupply();
       borrowIndex += totalDebt > 0 ? borrowRewards.mulDivDown(baseUnit, totalDebt) : 0;
+      depositIndex += totalSupply > 0 ? depositRewards.mulDivDown(baseUnit, totalSupply) : 0;
     }
     for (uint256 o = 0; o < ops.accountOperations.length; ++o) {
       (, uint256 accountIndex) = rewardsController.accountOperation(
@@ -760,13 +754,13 @@ contract RewardsControllerTest is Test {
   function previewRewards(
     Market market,
     ERC20 rewardAsset
-  ) internal view returns (uint256 depositRewards, uint256 borrowRewards) {
+  ) internal view returns (uint256 borrowRewards, uint256 depositRewards) {
     RewardsData memory r;
     (r.lastUpdate, r.targetDebt, r.mintingRate, r.undistributedFactor, r.lastUndistributed) = rewardsController
       .rewardsData(market, rewardAsset);
     RewardsController.TotalMarketBalance memory m;
-    m.supply = market.totalAssets();
     m.debt = market.totalFloatingBorrowAssets();
+    m.supply = market.totalAssets();
     {
       (uint256 distributionStart, ) = rewardsController.distributionTime(market);
       uint256 firstMaturity = distributionStart - (distributionStart % FixedLib.INTERVAL) + FixedLib.INTERVAL;
@@ -774,9 +768,9 @@ contract RewardsControllerTest is Test {
         (block.timestamp % FixedLib.INTERVAL) +
         (FixedLib.INTERVAL * market.maxFuturePools());
       for (uint256 maturity = firstMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
-        (uint256 supplied, uint256 borrowed) = market.fixedPoolBalance(maturity);
-        m.supply += supplied;
+        (uint256 borrowed, uint256 supplied) = market.fixedPoolBalance(maturity);
         m.debt += borrowed;
+        m.supply += supplied;
       }
     }
 

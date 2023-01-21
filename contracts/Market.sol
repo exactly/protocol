@@ -962,12 +962,18 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     }
   }
 
+  /// @notice Retrieves a fixed pool's borrowed amount.
+  /// @param maturity maturity date of the fixed pool.
+  /// @return borrowed amount of the fixed pool.
   function fixedPoolBorrowed(uint256 maturity) external view returns (uint256) {
     return fixedPools[maturity].borrowed;
   }
 
+  /// @notice Retrieves a fixed pool's borrowed and supplied amount.
+  /// @param maturity maturity date of the fixed pool.
+  /// @return borrowed and supplied amount of the fixed pool.
   function fixedPoolBalance(uint256 maturity) external view returns (uint256, uint256) {
-    return (fixedPools[maturity].supplied, fixedPools[maturity].borrowed);
+    return (fixedPools[maturity].borrowed, fixedPools[maturity].supplied);
   }
 
   /// @notice Emits MarketUpdate event.
@@ -1030,6 +1036,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit InterestRateModelSet(interestRateModel_);
   }
 
+  /// @notice Sets the rewards controller to update account rewards when operating with the Market.
+  /// @param rewardsController_ new rewards controller.
   function setRewardsController(RewardsController rewardsController_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     rewardsController = rewardsController_;
   }
