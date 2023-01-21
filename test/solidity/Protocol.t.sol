@@ -100,8 +100,9 @@ contract ProtocolTest is Test {
       totalDistribution: 2_000 ether,
       distributionPeriod: (N * K * type(uint16).max) / 2,
       undistributedFactor: 0.5e18,
-      decaySpeed: 2,
+      flipSpeed: 2,
       compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
       borrowConstantReward: 0,
       depositConstantReward: 0.02e18,
       depositConstantRewardHighU: 0.01e18
