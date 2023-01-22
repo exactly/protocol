@@ -345,7 +345,7 @@ contract ProtocolTest is Test {
 
   function claim(uint256 i) internal {
     address account = accounts[i % accounts.length];
-    uint256 accumulatedRewards = rewardsController.claimable(account, rewardsAsset);
+    uint256 accumulatedRewards = rewardsController.allClaimable(account, rewardsAsset);
     uint256 balanceBefore = rewardsAsset.balanceOf(account);
     rewardsController.allAccountOperations(account);
     vm.prank(account);

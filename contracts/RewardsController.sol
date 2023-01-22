@@ -228,8 +228,20 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param account The account to get the claimable amount for.
   /// @param reward The reward asset to get the claimable amount for.
   /// @return unclaimedRewards The claimable amount for the given reward asset.
-  function claimable(address account, ERC20 reward) external view returns (uint256 unclaimedRewards) {
-    MarketOperation[] memory marketOps = allAccountOperations(account);
+  function allClaimable(address account, ERC20 reward) external view returns (uint256 unclaimedRewards) {
+    return claimable(allAccountOperations(account), account, reward);
+  }
+
+  /// @notice Gets the claimable amount of rewards for a given account, market operations and reward asset.
+  /// @param marketOps The list of market operations to search for accrued and pending rewards.
+  /// @param account The account to get the claimable amount for.
+  /// @param reward The reward asset to get the claimable amount for.
+  /// @return unclaimedRewards The claimable amount for the given reward asset.
+  function claimable(
+    MarketOperation[] memory marketOps,
+    address account,
+    ERC20 reward
+  ) public view returns (uint256 unclaimedRewards) {
     for (uint256 i = 0; i < marketOps.length; ) {
       if (distribution[marketOps[i].market].availableRewardsCount == 0) {
         unchecked {
@@ -379,17 +391,17 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   /// @notice Internal function for the calculation of account's rewards on a distribution
   /// @param balance The account's balance in the operation's pool
-  /// @param reserveIndex Current index of the distribution
+  /// @param globalIndex Current index of the distribution
   /// @param accountIndex Index stored for the account, representation his staking moment
   /// @param baseUnit One unit of the market's asset (10**decimals)
   /// @return The rewards
   function accountRewards(
     uint256 balance,
-    uint256 reserveIndex,
+    uint256 globalIndex,
     uint256 accountIndex,
     uint256 baseUnit
   ) internal pure returns (uint256) {
-    return balance.mulDivDown(reserveIndex - accountIndex, baseUnit);
+    return balance.mulDivDown(globalIndex - accountIndex, baseUnit);
   }
 
   /// @notice Internal function for the calculation of the distribution's indexes.
