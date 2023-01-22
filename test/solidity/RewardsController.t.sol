@@ -96,7 +96,7 @@ contract RewardsControllerTest is Test {
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.5e18,
-      flipSpeed: 2,
+      flipSpeed: 2e18,
       compensationFactor: 0.85e18,
       transitionFactor: 0.64e18,
       borrowConstantReward: 0,
@@ -110,7 +110,7 @@ contract RewardsControllerTest is Test {
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.5e18,
-      flipSpeed: 2,
+      flipSpeed: 2e18,
       compensationFactor: 0.85e18,
       transitionFactor: 0.81e18,
       borrowConstantReward: 0,
@@ -124,7 +124,7 @@ contract RewardsControllerTest is Test {
       totalDistribution: 2_000 ether,
       distributionPeriod: 3 weeks,
       undistributedFactor: 0.3e18,
-      flipSpeed: 3,
+      flipSpeed: 3e18,
       compensationFactor: 0.4e18,
       transitionFactor: 0.64e18,
       borrowConstantReward: 0,
@@ -654,7 +654,7 @@ contract RewardsControllerTest is Test {
       totalDistribution: 100_000 ether,
       distributionPeriod: 10 days,
       undistributedFactor: 0.5e18,
-      flipSpeed: 2,
+      flipSpeed: 2e18,
       compensationFactor: 0.5e18,
       transitionFactor: 0.64e18,
       borrowConstantReward: 0,
@@ -837,13 +837,11 @@ contract RewardsControllerTest is Test {
     v.sigmoid = v.utilization > 0
       ? uint256(1e18).divWadDown(
         1e18 +
-          (
-            p.transitionFactor.mulWadDown(1e18 - v.utilization).divWadDown(
-              v.utilization.mulWadDown(1e18 - p.transitionFactor)
-            )
-          ) **
-            p.flipSpeed /
-          1e18 ** (p.flipSpeed - 1)
+          uint256(
+            (-(p.flipSpeed *
+              (int256(v.utilization.divWadDown(1e18 - v.utilization)).lnWad() -
+                int256(p.transitionFactor.divWadDown(1e18 - p.transitionFactor)).lnWad())) / 1e18).expWad()
+          )
       )
       : 0;
     v.borrowRewardRule = p
@@ -884,7 +882,7 @@ contract RewardsControllerTest is Test {
   }
 
   struct AllocationParams {
-    uint256 flipSpeed;
+    int256 flipSpeed;
     uint256 compensationFactor;
     uint256 transitionFactor;
     uint256 borrowConstantReward;

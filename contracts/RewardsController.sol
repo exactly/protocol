@@ -158,7 +158,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function rewardAllocationParams(
     Market market,
     ERC20 reward
-  ) external view returns (uint256, uint256, uint256, uint256, uint256, uint256) {
+  ) external view returns (int256, uint256, uint256, uint256, uint256, uint256) {
     return (
       distribution[market].rewards[reward].flipSpeed,
       distribution[market].rewards[reward].compensationFactor,
@@ -472,13 +472,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         v.sigmoid = v.utilization > 0
           ? uint256(1e18).divWadDown(
             1e18 +
-              (
-                v.transitionFactor.mulWadDown(1e18 - v.utilization).divWadDown(
-                  v.utilization.mulWadDown(1e18 - v.transitionFactor)
-                )
-              ) **
-                v.flipSpeed /
-              1e18 ** (v.flipSpeed - 1)
+              uint256(
+                (-(v.flipSpeed *
+                  (int256(v.utilization.divWadDown(1e18 - v.utilization)).lnWad() -
+                    int256(v.transitionFactor.divWadDown(1e18 - v.transitionFactor)).lnWad())) / 1e18).expWad()
+              )
           )
           : 0;
         v.borrowRewardRule = rewardData
@@ -615,7 +613,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 borrowAllocation;
     uint256 depositAllocation;
     uint256 transitionFactor;
-    uint256 flipSpeed;
+    int256 flipSpeed;
     uint256 borrowConstantReward;
   }
 
@@ -648,7 +646,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 totalDistribution;
     uint256 distributionPeriod;
     uint256 undistributedFactor;
-    uint256 flipSpeed;
+    int256 flipSpeed;
     uint256 compensationFactor;
     uint256 transitionFactor;
     uint256 borrowConstantReward;
@@ -664,7 +662,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 lastUndistributed;
     uint32 lastUpdate;
     // allocation model
-    uint256 flipSpeed;
+    int256 flipSpeed;
     uint256 compensationFactor;
     uint256 transitionFactor;
     uint256 borrowConstantReward;
