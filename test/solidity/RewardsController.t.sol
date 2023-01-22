@@ -610,6 +610,47 @@ contract RewardsControllerTest is Test {
     assertEq(opRewardAsset.balanceOf(address(this)), opRewards);
   }
 
+  function testUpdateConfig() external {
+    vm.warp(1 days);
+    marketWETH.deposit(10 ether, address(this));
+    marketWETH.borrow(1 ether, address(this), address(this));
+    (uint256 preBorrowIndex, uint256 preDepositIndex) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
+
+    vm.warp(3 days);
+    uint256 claimableRewards = rewardsController.claimable(address(this), opRewardAsset);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: marketWETH,
+      reward: opRewardAsset,
+      targetDebt: 10_000 ether,
+      totalDistribution: 1_500 ether,
+      distributionPeriod: 10 weeks,
+      undistributedFactor: 0.6e18,
+      flipSpeed: 1e18,
+      compensationFactor: 0.65e18,
+      transitionFactor: 0.71e18,
+      borrowConstantReward: 0,
+      depositConstantReward: 0.02e18,
+      depositConstantRewardHighU: 0.01e18
+    });
+    rewardsController.config(configs);
+
+    (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
+    assertGt(borrowIndex, preBorrowIndex);
+    assertGt(depositIndex, preDepositIndex);
+
+    (uint256 lastUpdate, uint256 targetDebt, , uint256 undistributedFactor, ) = rewardsController.rewardsData(
+      marketWETH,
+      opRewardAsset
+    );
+    assertEq(lastUpdate, block.timestamp);
+    assertEq(targetDebt, 10_000 ether);
+    assertEq(undistributedFactor, 0.6e18);
+
+    rewardsController.claimAll(address(this));
+    assertEq(opRewardAsset.balanceOf(address(this)), claimableRewards);
+  }
+
   function testClaim() external {
     marketUSDC.deposit(100e6, address(this));
     marketUSDC.borrow(10e6, address(this), address(this));

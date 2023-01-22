@@ -311,6 +311,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Gets the equivalent of borrow shares from fixed pool principal borrows of an account.
+  /// @param market The market to get the fixed borrows from.
+  /// @param account The account that borrowed from fixed pools.
+  /// @return fixedDebt The fixed borrow shares.
   function accountFixedBorrowShares(Market market, address account) internal view returns (uint256 fixedDebt) {
     uint256 start = distribution[market].start;
     uint256 firstMaturity = start - (start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
@@ -555,7 +559,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     for (uint256 i = 0; i < configs.length; ) {
       RewardData storage rewardConfig = distribution[configs[i].market].rewards[configs[i].reward];
 
-      // Add reward address to distribution data's available rewards if latestUpdateTimestamp is zero
+      // add reward address to distribution data's available rewards if lastUpdate is zero
       if (rewardConfig.lastUpdate == 0) {
         distribution[configs[i].market].availableRewards[
           distribution[configs[i].market].availableRewardsCount
@@ -563,19 +567,30 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         distribution[configs[i].market].availableRewardsCount++;
         distribution[configs[i].market].decimals = configs[i].market.decimals();
         rewardConfig.lastUpdate = uint32(block.timestamp);
+      } else {
+        // update global indexes before setting new config
+        Market[] memory marketList = auditor.allMarkets();
+        for (uint256 m = 0; m < marketList.length; ) {
+          Operation[] memory ops = new Operation[](1);
+          ops[0] = Operation.Borrow;
+          update(address(0), marketList[m], accountBalanceOperations(marketList[m], ops, address(0)));
+          unchecked {
+            ++m;
+          }
+        }
       }
       if (distribution[configs[i].market].start == 0) {
         distribution[configs[i].market].start = uint32(block.timestamp);
       }
       distribution[configs[i].market].end = uint32(block.timestamp + configs[i].distributionPeriod);
 
-      // Add reward address to global rewards list if still not enabled
+      // add reward address to global rewards list if still not enabled
       if (rewardEnabled[configs[i].reward] == false) {
         rewardEnabled[configs[i].reward] = true;
         rewardList.push(configs[i].reward);
       }
 
-      // Configure emission and distribution end of the reward per operation
+      // set emission and distribution parameters
       rewardConfig.targetDebt = configs[i].targetDebt;
       rewardConfig.undistributedFactor = configs[i].undistributedFactor;
       rewardConfig.flipSpeed = configs[i].flipSpeed;
@@ -588,7 +603,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         1e18 / configs[i].distributionPeriod
       );
 
-      emit DistributionSet(configs[i].market, configs[i].reward, 0);
+      emit DistributionSet(configs[i].market, configs[i].reward);
       unchecked {
         ++i;
       }
@@ -633,9 +648,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   struct Account {
-    // Liquidity index of the reward distribution for the account
+    // liquidity index of the reward distribution for the account
     uint104 index;
-    // Amount of accrued rewards for the account since last account index update
+    // amount of accrued rewards for the account since last account index update
     uint128 accrued;
   }
 
@@ -668,22 +683,23 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 borrowConstantReward;
     uint256 depositConstantReward;
     uint256 depositConstantRewardHighU;
-    // Liquidity index of the reward distribution
+    // liquidity indexes of the reward distribution
     uint256 borrowIndex;
     uint256 depositIndex;
-    // Map of account addresses and their rewards data (accountAddress => accounts)
+    // account addresses and their rewards data (index & accrued)
     mapping(address => mapping(Operation => Account)) accounts;
   }
 
   struct Distribution {
-    // Map of reward token addresses and their data (rewardTokenAddress => rewardData)
+    // reward assets and their data
     mapping(ERC20 => RewardData) rewards;
-    // List of reward asset addresses for the operation
+    // list of reward asset addresses for the market
     mapping(uint128 => ERC20) availableRewards;
-    // Count of reward tokens for the operation
+    // count of reward tokens for the market
     uint128 availableRewardsCount;
-    // Number of decimals of the operation's asset
+    // number of decimals of the market
     uint8 decimals;
+    // distribution start & end timestamps
     uint32 start;
     uint32 end;
   }
@@ -697,5 +713,5 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 rewardsAccrued
   );
   event Claim(address indexed account, ERC20 indexed reward, address indexed to, uint256 amount);
-  event DistributionSet(Market indexed market, ERC20 indexed reward, uint256 operationIndex);
+  event DistributionSet(Market indexed market, ERC20 indexed reward);
 }
