@@ -103,9 +103,9 @@ contract ProtocolTest is Test {
       flipSpeed: 2e18,
       compensationFactor: 0.85e18,
       transitionFactor: 0.64e18,
-      borrowConstantReward: 0,
-      depositConstantReward: 0.02e18,
-      depositConstantRewardHighU: 0.01e18
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
     markets[0].setRewardsController(rewardsController);

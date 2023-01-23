@@ -99,9 +99,9 @@ contract RewardsControllerTest is Test {
       flipSpeed: 2e18,
       compensationFactor: 0.85e18,
       transitionFactor: 0.64e18,
-      borrowConstantReward: 0,
-      depositConstantReward: 0.02e18,
-      depositConstantRewardHighU: 0.01e18
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
     });
     configs[1] = RewardsController.Config({
       market: marketWETH,
@@ -113,9 +113,9 @@ contract RewardsControllerTest is Test {
       flipSpeed: 2e18,
       compensationFactor: 0.85e18,
       transitionFactor: 0.81e18,
-      borrowConstantReward: 0,
-      depositConstantReward: 0.02e18,
-      depositConstantRewardHighU: 0.01e18
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
     });
     configs[2] = RewardsController.Config({
       market: marketUSDC,
@@ -127,9 +127,9 @@ contract RewardsControllerTest is Test {
       flipSpeed: 3e18,
       compensationFactor: 0.4e18,
       transitionFactor: 0.64e18,
-      borrowConstantReward: 0,
-      depositConstantReward: 0.025e18,
-      depositConstantRewardHighU: 0.01e18
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.025e18,
+      depositAllocationWeightFactor: 0.01e18
     });
 
     rewardsController.config(configs);
@@ -627,9 +627,9 @@ contract RewardsControllerTest is Test {
       flipSpeed: 1e18,
       compensationFactor: 0.65e18,
       transitionFactor: 0.71e18,
-      borrowConstantReward: 0,
-      depositConstantReward: 0.02e18,
-      depositConstantRewardHighU: 0.01e18
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
     marketWBTC.setRewardsController(rewardsController);
@@ -666,9 +666,9 @@ contract RewardsControllerTest is Test {
       flipSpeed: 1e18,
       compensationFactor: 0.65e18,
       transitionFactor: 0.71e18,
-      borrowConstantReward: 0,
-      depositConstantReward: 0.02e18,
-      depositConstantRewardHighU: 0.01e18
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
     });
     rewardsController.config(configs);
 
@@ -735,9 +735,9 @@ contract RewardsControllerTest is Test {
       flipSpeed: 2e18,
       compensationFactor: 0.5e18,
       transitionFactor: 0.64e18,
-      borrowConstantReward: 0,
-      depositConstantReward: 0,
-      depositConstantRewardHighU: 0
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0,
+      depositAllocationWeightFactor: 0
     });
     rewardsController.config(configs);
 
@@ -907,9 +907,9 @@ contract RewardsControllerTest is Test {
       p.flipSpeed,
       p.compensationFactor,
       p.transitionFactor,
-      p.borrowConstantReward,
-      p.depositConstantReward,
-      p.depositConstantRewardHighU
+      p.borrowAllocationWeightFactor,
+      p.depositAllocationWeightAddend,
+      p.depositAllocationWeightFactor
     ) = rewardsController.rewardAllocationParams(market, rewardAsset);
     v.utilization = totalDeposits > 0 ? totalDebt.divWadDown(totalDeposits) : 0;
     v.sigmoid = v.utilization > 0
@@ -927,12 +927,12 @@ contract RewardsControllerTest is Test {
       .mulWadDown(
         market.interestRateModel().floatingRate(v.utilization).mulWadDown(
           1e18 - v.utilization.mulWadDown(1e18 - target)
-        ) + p.borrowConstantReward
+        ) + p.borrowAllocationWeightFactor
       )
       .mulWadDown(1e18 - v.sigmoid);
     v.depositRewardRule =
-      p.depositConstantReward.mulWadDown(1e18 - v.sigmoid) +
-      p.depositConstantRewardHighU.mulWadDown(p.borrowConstantReward).mulWadDown(v.sigmoid);
+      p.depositAllocationWeightAddend.mulWadDown(1e18 - v.sigmoid) +
+      p.depositAllocationWeightFactor.mulWadDown(p.borrowAllocationWeightFactor).mulWadDown(v.sigmoid);
     v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
     v.depositAllocation = 1e18 - v.borrowAllocation;
     return (v.borrowAllocation, v.depositAllocation);
@@ -963,9 +963,9 @@ contract RewardsControllerTest is Test {
     int256 flipSpeed;
     uint256 compensationFactor;
     uint256 transitionFactor;
-    uint256 borrowConstantReward;
-    uint256 depositConstantReward;
-    uint256 depositConstantRewardHighU;
+    uint256 borrowAllocationWeightFactor;
+    uint256 depositAllocationWeightAddend;
+    uint256 depositAllocationWeightFactor;
   }
 
   struct RewardsData {

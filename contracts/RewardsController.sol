@@ -152,9 +152,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @return flipSpeed The flip speed.
   /// @return compensationFactor The compensation factor.
   /// @return transitionFactor The transition factor.
-  /// @return borrowConstantReward The borrow constant reward.
-  /// @return depositConstantReward The deposit constant reward.
-  /// @return depositConstantRewardHighU The deposit constant reward for high utilization.
+  /// @return borrowAllocationWeightFactor The borrow allocation weight factor (`μ1`).
+  /// @return depositAllocationWeightAddend The deposit allocation weight addend (`μ2`).
+  /// @return depositAllocationWeightFactor The deposit allocation weight factor (`μ3`).
   function rewardAllocationParams(
     Market market,
     ERC20 reward
@@ -163,9 +163,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       distribution[market].rewards[reward].flipSpeed,
       distribution[market].rewards[reward].compensationFactor,
       distribution[market].rewards[reward].transitionFactor,
-      distribution[market].rewards[reward].borrowConstantReward,
-      distribution[market].rewards[reward].depositConstantReward,
-      distribution[market].rewards[reward].depositConstantRewardHighU
+      distribution[market].rewards[reward].borrowAllocationWeightFactor,
+      distribution[market].rewards[reward].depositAllocationWeightAddend,
+      distribution[market].rewards[reward].depositAllocationWeightFactor
     );
   }
 
@@ -484,7 +484,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         v.utilization = m.supply > 0 ? m.debt.divWadDown(m.supply) : 0;
         v.transitionFactor = rewardData.transitionFactor;
         v.flipSpeed = rewardData.flipSpeed;
-        v.borrowConstantReward = rewardData.borrowConstantReward;
+        v.borrowAllocationWeightFactor = rewardData.borrowAllocationWeightFactor;
         v.sigmoid = v.utilization > 0
           ? uint256(1e18).divWadDown(
             1e18 +
@@ -500,12 +500,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           .mulWadDown(
             market.interestRateModel().floatingRate(v.utilization).mulWadDown(
               1e18 - v.utilization.mulWadDown(1e18 - target)
-            ) + v.borrowConstantReward
+            ) + v.borrowAllocationWeightFactor
           )
           .mulWadDown(1e18 - v.sigmoid);
         v.depositRewardRule =
-          rewardData.depositConstantReward.mulWadDown(1e18 - v.sigmoid) +
-          rewardData.depositConstantRewardHighU.mulWadDown(v.borrowConstantReward).mulWadDown(v.sigmoid);
+          rewardData.depositAllocationWeightAddend.mulWadDown(1e18 - v.sigmoid) +
+          rewardData.depositAllocationWeightFactor.mulWadDown(v.borrowAllocationWeightFactor).mulWadDown(v.sigmoid);
         v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
         v.depositAllocation = 1e18 - v.borrowAllocation;
         {
@@ -608,9 +608,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardConfig.flipSpeed = configs[i].flipSpeed;
       rewardConfig.compensationFactor = configs[i].compensationFactor;
       rewardConfig.transitionFactor = configs[i].transitionFactor;
-      rewardConfig.borrowConstantReward = configs[i].borrowConstantReward;
-      rewardConfig.depositConstantReward = configs[i].depositConstantReward;
-      rewardConfig.depositConstantRewardHighU = configs[i].depositConstantRewardHighU;
+      rewardConfig.borrowAllocationWeightFactor = configs[i].borrowAllocationWeightFactor;
+      rewardConfig.depositAllocationWeightAddend = configs[i].depositAllocationWeightAddend;
+      rewardConfig.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;
       rewardConfig.mintingRate = configs[i].totalDistribution.divWadDown(configs[i].targetDebt).mulWadDown(
         1e18 / configs[i].distributionPeriod
       );
@@ -641,7 +641,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 depositAllocation;
     uint256 transitionFactor;
     int256 flipSpeed;
-    uint256 borrowConstantReward;
+    uint256 borrowAllocationWeightFactor;
   }
 
   struct AccountOperation {
@@ -676,9 +676,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     int256 flipSpeed;
     uint256 compensationFactor;
     uint256 transitionFactor;
-    uint256 borrowConstantReward;
-    uint256 depositConstantReward;
-    uint256 depositConstantRewardHighU;
+    uint256 borrowAllocationWeightFactor;
+    uint256 depositAllocationWeightAddend;
+    uint256 depositAllocationWeightFactor;
   }
 
   struct RewardData {
@@ -692,9 +692,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     int256 flipSpeed;
     uint256 compensationFactor;
     uint256 transitionFactor;
-    uint256 borrowConstantReward;
-    uint256 depositConstantReward;
-    uint256 depositConstantRewardHighU;
+    uint256 borrowAllocationWeightFactor;
+    uint256 depositAllocationWeightAddend;
+    uint256 depositAllocationWeightFactor;
     // liquidity indexes of the reward distribution
     uint256 borrowIndex;
     uint256 depositIndex;
