@@ -109,7 +109,7 @@ contract RewardsControllerTest is Test {
       targetDebt: 20_000 ether,
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
-      undistributedFactor: 0.5e18,
+      undistributedFactor: 0.0005e18,
       flipSpeed: 2e18,
       compensationFactor: 0.85e18,
       transitionFactor: 0.81e18,
@@ -463,7 +463,7 @@ contract RewardsControllerTest is Test {
     assertEq(depositIndex, newDepositIndex);
   }
 
-  function testUpdateWithTotalDebtZeroShouldNotUpdateLastUndistributed() external {
+  function testUpdateWithTotalDebtZeroShouldUpdateLastUndistributed() external {
     marketUSDC.deposit(10 ether, address(this));
     (, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
 
@@ -477,8 +477,20 @@ contract RewardsControllerTest is Test {
       opRewardAsset
     );
 
-    assertEq(newLastUndistributed, lastUndistributed);
+    assertGt(newLastUndistributed, lastUndistributed);
     assertEq(newLastUpdate, block.timestamp);
+  }
+
+  function testAccrueRewardsForWholeDistributionPeriod() external {
+    marketWETH.deposit(200 ether, address(this));
+    marketWETH.borrow(5 ether, address(this), address(this));
+
+    vm.warp(12 weeks);
+    uint256 distributedRewards = rewardsController.allClaimable(address(this), opRewardAsset);
+    rewardsController.claimAll(address(this));
+    (, uint256 targetDebt, , , uint256 lastUndistributed) = rewardsController.rewardsData(marketWETH, opRewardAsset);
+    assertApproxEqAbs(distributedRewards, 700 ether, 3e18);
+    assertApproxEqAbs(lastUndistributed.mulWadDown(targetDebt), 1_300 ether, 3e18);
   }
 
   function testAllClaimableWETH() external {
@@ -518,7 +530,6 @@ contract RewardsControllerTest is Test {
     vm.warp(distributionEnd * 4);
     opRewards = rewardsController.allClaimable(address(this), opRewardAsset);
     assertGt(totalDistribution, opRewards);
-    assertApproxEqAbs(totalDistribution, opRewards, 1e12);
 
     rewardsController.claimAll(address(this));
     assertEq(opRewardAsset.balanceOf(address(this)), opRewards);

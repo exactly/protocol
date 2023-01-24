@@ -435,97 +435,99 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       target = m.debt < targetDebt ? m.debt.divWadDown(targetDebt) : 1e18;
     }
     uint256 distributionFactor = rewardData.undistributedFactor.mulWadDown(target);
-    if (distributionFactor > 0) {
-      uint256 rewards;
-      {
-        uint256 lastUndistributed = rewardData.lastUndistributed;
-        if (block.timestamp <= distribution[market].end) {
-          uint256 mintingRate = rewardData.mintingRate;
-          uint256 deltaTime = block.timestamp - rewardData.lastUpdate;
+    uint256 rewards;
+    {
+      uint256 lastUndistributed = rewardData.lastUndistributed;
+      if (block.timestamp <= distribution[market].end) {
+        uint256 mintingRate = rewardData.mintingRate;
+        uint256 deltaTime = block.timestamp - rewardData.lastUpdate;
+        if (distributionFactor > 0) {
           uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
             lastUndistributed +
             mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
             lastUndistributed.mulWadDown(1e18 - exponential);
-          rewards = rewardData.targetDebt.mulWadDown(
-            uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
-          );
-        } else if (rewardData.lastUpdate > distribution[market].end) {
-          newUndistributed =
-            lastUndistributed -
-            lastUndistributed.mulWadDown(
-              1e18 - uint256((-int256(distributionFactor * (block.timestamp - rewardData.lastUpdate))).expWad())
-            );
-          rewards = rewardData.targetDebt.mulWadDown(uint256(-(int256(newUndistributed) - int256(lastUndistributed))));
         } else {
-          uint256 mintingRate = rewardData.mintingRate;
-          uint256 deltaTime = distribution[market].end - rewardData.lastUpdate;
-          uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
+          newUndistributed = lastUndistributed + mintingRate.mulWadDown(1e18 - target) * deltaTime;
+        }
+        rewards = rewardData.targetDebt.mulWadDown(
+          uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
+        );
+      } else if (rewardData.lastUpdate > distribution[market].end) {
+        newUndistributed =
+          lastUndistributed -
+          lastUndistributed.mulWadDown(
+            1e18 - uint256((-int256(distributionFactor * (block.timestamp - rewardData.lastUpdate))).expWad())
+          );
+        rewards = rewardData.targetDebt.mulWadDown(uint256(-(int256(newUndistributed) - int256(lastUndistributed))));
+      } else {
+        uint256 mintingRate = rewardData.mintingRate;
+        uint256 deltaTime = distribution[market].end - rewardData.lastUpdate;
+        uint256 exponential;
+        if (distributionFactor > 0) {
+          exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
             lastUndistributed +
             mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
             lastUndistributed.mulWadDown(1e18 - exponential);
-          exponential = uint256((-int256(distributionFactor * (block.timestamp - distribution[market].end))).expWad());
-          newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
-          rewards = rewardData.targetDebt.mulWadDown(
-            uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
-          );
+        } else {
+          newUndistributed = lastUndistributed + mintingRate.mulWadDown(1e18 - target) * deltaTime;
         }
+        exponential = uint256((-int256(distributionFactor * (block.timestamp - distribution[market].end))).expWad());
+        newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
+        rewards = rewardData.targetDebt.mulWadDown(
+          uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
+        );
       }
+      if (rewards == 0) return (rewardData.borrowIndex, rewardData.depositIndex, newUndistributed);
+    }
+    {
+      AllocationVars memory v;
+      v.utilization = m.supply > 0 ? m.debt.divWadDown(m.supply) : 0;
+      v.transitionFactor = rewardData.transitionFactor;
+      v.flipSpeed = rewardData.flipSpeed;
+      v.borrowAllocationWeightFactor = rewardData.borrowAllocationWeightFactor;
+      v.sigmoid = v.utilization > 0
+        ? uint256(1e18).divWadDown(
+          1e18 +
+            uint256(
+              (-(v.flipSpeed *
+                (int256(v.utilization.divWadDown(1e18 - v.utilization)).lnWad() -
+                  int256(v.transitionFactor.divWadDown(1e18 - v.transitionFactor)).lnWad())) / 1e18).expWad()
+            )
+        )
+        : 0;
+      v.borrowRewardRule = rewardData
+        .compensationFactor
+        .mulWadDown(
+          market.interestRateModel().floatingRate(v.utilization).mulWadDown(
+            1e18 - v.utilization.mulWadDown(1e18 - target)
+          ) + v.borrowAllocationWeightFactor
+        )
+        .mulWadDown(1e18 - v.sigmoid);
+      v.depositRewardRule =
+        rewardData.depositAllocationWeightAddend.mulWadDown(1e18 - v.sigmoid) +
+        rewardData.depositAllocationWeightFactor.mulWadDown(v.borrowAllocationWeightFactor).mulWadDown(v.sigmoid);
+      v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
+      v.depositAllocation = 1e18 - v.borrowAllocation;
       {
-        AllocationVars memory v;
-        v.utilization = m.supply > 0 ? m.debt.divWadDown(m.supply) : 0;
-        v.transitionFactor = rewardData.transitionFactor;
-        v.flipSpeed = rewardData.flipSpeed;
-        v.borrowAllocationWeightFactor = rewardData.borrowAllocationWeightFactor;
-        v.sigmoid = v.utilization > 0
-          ? uint256(1e18).divWadDown(
-            1e18 +
-              uint256(
-                (-(v.flipSpeed *
-                  (int256(v.utilization.divWadDown(1e18 - v.utilization)).lnWad() -
-                    int256(v.transitionFactor.divWadDown(1e18 - v.transitionFactor)).lnWad())) / 1e18).expWad()
-              )
-          )
-          : 0;
-        v.borrowRewardRule = rewardData
-          .compensationFactor
-          .mulWadDown(
-            market.interestRateModel().floatingRate(v.utilization).mulWadDown(
-              1e18 - v.utilization.mulWadDown(1e18 - target)
-            ) + v.borrowAllocationWeightFactor
-          )
-          .mulWadDown(1e18 - v.sigmoid);
-        v.depositRewardRule =
-          rewardData.depositAllocationWeightAddend.mulWadDown(1e18 - v.sigmoid) +
-          rewardData.depositAllocationWeightFactor.mulWadDown(v.borrowAllocationWeightFactor).mulWadDown(v.sigmoid);
-        v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
-        v.depositAllocation = 1e18 - v.borrowAllocation;
-        {
-          uint256 totalDepositSupply = market.totalSupply();
-          uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + fixedBorrowShares;
-          uint256 baseUnit;
-          unchecked {
-            baseUnit = 10 ** distribution[market].decimals;
-          }
-          borrowIndex =
-            rewardData.borrowIndex +
-            (
-              totalBorrowSupply > 0 ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(baseUnit, totalBorrowSupply) : 0
-            );
-          depositIndex =
-            rewardData.depositIndex +
-            (
-              totalDepositSupply > 0
-                ? rewards.mulWadDown(v.depositAllocation).mulDivDown(baseUnit, totalDepositSupply)
-                : 0
-            );
+        uint256 totalDepositSupply = market.totalSupply();
+        uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + fixedBorrowShares;
+        uint256 baseUnit;
+        unchecked {
+          baseUnit = 10 ** distribution[market].decimals;
         }
+        borrowIndex =
+          rewardData.borrowIndex +
+          (totalBorrowSupply > 0 ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(baseUnit, totalBorrowSupply) : 0);
+        depositIndex =
+          rewardData.depositIndex +
+          (
+            totalDepositSupply > 0
+              ? rewards.mulWadDown(v.depositAllocation).mulDivDown(baseUnit, totalDepositSupply)
+              : 0
+          );
       }
-    } else {
-      borrowIndex = rewardData.borrowIndex;
-      depositIndex = rewardData.depositIndex;
-      newUndistributed = rewardData.lastUndistributed;
     }
   }
 
