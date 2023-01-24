@@ -15,24 +15,17 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for int256;
   using SafeTransferLib for ERC20;
 
-  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-  Auditor public immutable auditor;
   /// @notice Tracks the reward distribution data for a given market.
   mapping(Market => Distribution) public distribution;
   /// @notice Tracks enabled asset rewards.
   mapping(ERC20 => bool) public rewardEnabled;
   /// @notice Stores registered asset rewards.
   ERC20[] public rewardList;
-
-  /// @notice Tracks the operations for a given account on a given market.
-  mapping(address => mapping(Market => Operation[])) public accountOperations;
-  /// @notice Tracks enabled operations for a given account on a given market.
-  mapping(address => mapping(Market => mapping(Operation => bool))) public accountOperationEnabled;
+  /// @notice Stores Markets with distributions set.
+  Market[] public marketList;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(Auditor auditor_) {
-    auditor = auditor_;
-
+  constructor() {
     _disableInitializers();
   }
 
@@ -69,7 +62,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @return rewardsList The list of rewards assets.
   /// @return claimedAmounts The list of claimed amounts.
   function claimAll(address to) external returns (ERC20[] memory rewardsList, uint256[] memory claimedAmounts) {
-    return claim(allAccountOperations(msg.sender), to);
+    return claim(allMarketsOperations(), to);
   }
 
   /// @notice Claims msg.sender's rewards for the given operations to a given account.
@@ -190,17 +183,18 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return distribution[market].availableRewardsCount;
   }
 
-  /// @notice Gets all operations for a given account.
-  /// @param account The account to get the operations for.
+  /// @notice Gets all market and operations.
   /// @return marketOps The list of market operations.
-  function allAccountOperations(address account) public view returns (MarketOperation[] memory marketOps) {
-    Market[] memory marketList = auditor.allMarkets();
-    marketOps = new MarketOperation[](marketList.length);
-    for (uint256 i = 0; i < marketList.length; ) {
-      Operation[] memory ops = accountOperations[account][marketList[i]];
-      marketOps[i] = MarketOperation({ market: marketList[i], operations: ops });
+  function allMarketsOperations() public view returns (MarketOperation[] memory marketOps) {
+    Market[] memory markets = marketList;
+    marketOps = new MarketOperation[](markets.length);
+    for (uint256 m = 0; m < markets.length; ) {
+      Operation[] memory ops = new Operation[](2);
+      ops[0] = Operation.Borrow;
+      ops[1] = Operation.Deposit;
+      marketOps[m] = MarketOperation({ market: markets[m], operations: ops });
       unchecked {
-        ++i;
+        ++m;
       }
     }
   }
@@ -229,7 +223,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param reward The reward asset to get the claimable amount for.
   /// @return unclaimedRewards The claimable amount for the given reward asset.
   function allClaimable(address account, ERC20 reward) external view returns (uint256 unclaimedRewards) {
-    return claimable(allAccountOperations(account), account, reward);
+    return claimable(allMarketsOperations(), account, reward);
   }
 
   /// @notice Gets the claimable amount of rewards for a given account, market operations and reward asset.
@@ -251,19 +245,23 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
 
       AccountOperation[] memory ops = accountBalanceOperations(marketOps[i].market, marketOps[i].operations, account);
+      uint256 balance;
       for (uint256 o = 0; o < ops.length; ) {
         unclaimedRewards += distribution[marketOps[i].market]
         .rewards[reward]
         .accounts[account][ops[o].operation].accrued;
+        balance += ops[o].balance;
         unchecked {
           ++o;
         }
       }
-      unclaimedRewards += pendingRewards(
-        account,
-        reward,
-        AccountMarketOperation({ market: marketOps[i].market, accountOperations: ops })
-      );
+      if (balance > 0) {
+        unclaimedRewards += pendingRewards(
+          account,
+          reward,
+          AccountMarketOperation({ market: marketOps[i].market, accountOperations: ops })
+        );
+      }
       unchecked {
         ++i;
       }
@@ -295,11 +293,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       for (uint256 i = 0; i < ops.length; ) {
         uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
         uint256 newAccountIndex;
-
-        if (!accountOperationEnabled[account][market][ops[i].operation]) {
-          accountOperations[account][market].push(ops[i].operation);
-          accountOperationEnabled[account][market][ops[i].operation] = true;
-        }
         if (ops[i].operation == Operation.Borrow) {
           newAccountIndex = rewardData.borrowIndex;
         } else {
@@ -541,23 +534,23 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param market The address of the market
   /// @param ops List of operations to retrieve account balance and total supply
   /// @param account Address of the account
-  /// @return accountMaturityOps contains a list of structs with account balance and total amount of the
+  /// @return accountBalanceOps contains a list of structs with account balance and total amount of the
   /// operation's pool
   function accountBalanceOperations(
     Market market,
     Operation[] memory ops,
     address account
-  ) internal view returns (AccountOperation[] memory accountMaturityOps) {
-    accountMaturityOps = new AccountOperation[](ops.length);
+  ) internal view returns (AccountOperation[] memory accountBalanceOps) {
+    accountBalanceOps = new AccountOperation[](ops.length);
     for (uint256 i = 0; i < ops.length; ) {
       if (ops[i] == Operation.Borrow) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
-        accountMaturityOps[i] = AccountOperation({
+        accountBalanceOps[i] = AccountOperation({
           operation: ops[i],
           balance: floatingBorrowShares + accountFixedBorrowShares(market, account)
         });
       } else {
-        accountMaturityOps[i] = AccountOperation({ operation: ops[i], balance: market.balanceOf(account) });
+        accountBalanceOps[i] = AccountOperation({ operation: ops[i], balance: market.balanceOf(account) });
       }
       unchecked {
         ++i;
@@ -569,6 +562,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param configs The config to update the RewardData with
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; ) {
+      if (distribution[configs[i].market].decimals == 0) {
+        // never initialized before, adding to the list of markets
+        marketList.push(configs[i].market);
+      }
       RewardData storage rewardConfig = distribution[configs[i].market].rewards[configs[i].reward];
 
       // add reward address to distribution data's available rewards if lastUpdate is zero
@@ -581,7 +578,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewardConfig.lastUpdate = uint32(block.timestamp);
       } else {
         // update global indexes before setting new config
-        Market[] memory marketList = auditor.allMarkets();
         for (uint256 m = 0; m < marketList.length; ) {
           Operation[] memory ops = new Operation[](1);
           ops[0] = Operation.Borrow;

@@ -87,7 +87,7 @@ contract ProtocolTest is Test {
       underlyingAssets.push(asset);
     }
 
-    rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController(auditor)), "")));
+    rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController()), "")));
     rewardsController.initialize();
     vm.label(address(rewardsController), "RewardsController");
     rewardsAsset = new MockERC20("OP", "OP", 18);
@@ -347,7 +347,6 @@ contract ProtocolTest is Test {
     address account = accounts[i % accounts.length];
     uint256 accumulatedRewards = rewardsController.allClaimable(account, rewardsAsset);
     uint256 balanceBefore = rewardsAsset.balanceOf(account);
-    rewardsController.allAccountOperations(account);
     vm.prank(account);
     rewardsController.claimAll(account);
     assertEq(rewardsAsset.balanceOf(account), balanceBefore + accumulatedRewards);
@@ -646,22 +645,6 @@ contract ProtocolTest is Test {
           }
           packedMaturities >>= 1;
           maturity += FixedLib.INTERVAL;
-        }
-      }
-      RewardsController.MarketOperation[] memory marketOps = rewardsController.allAccountOperations((address(this)));
-      for (uint256 m = 0; m < marketOps.length; ++m) {
-        bool hasDepositOperation;
-        bool hasBorrowOperation;
-        for (uint256 j = 0; j < marketOps[m].operations.length; ++j) {
-          if (marketOps[m].operations[j] == RewardsController.Operation.Deposit) {
-            assertTrue(!hasDepositOperation, "already has floating deposit operation");
-            hasDepositOperation = true;
-          } else if (marketOps[m].operations[j] == RewardsController.Operation.Borrow) {
-            assertTrue(!hasBorrowOperation, "already has floating borrow operation");
-            hasBorrowOperation = true;
-          } else {
-            revert("invalid operation");
-          }
         }
       }
     }
