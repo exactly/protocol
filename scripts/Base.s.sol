@@ -13,11 +13,9 @@ abstract contract BaseScript is Script {
   }
 
   function deployment(string memory name) internal returns (address addr) {
-    string memory network;
-    if (block.chainid == 1) network = "mainnet";
-    else if (block.chainid == 5) network = "goerli";
-
-    addr = vm.readFile(string.concat("deployments/", network, "/", name, ".json")).readAddress(".address");
+    addr = vm
+      .readFile(string.concat("deployments/", getChain(block.chainid).chainAlias, "/", name, ".json"))
+      .readAddress(".address");
     vm.label(addr, name);
   }
 }
