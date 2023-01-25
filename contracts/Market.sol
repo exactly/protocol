@@ -105,7 +105,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint128 reserveFactor_,
     uint256 dampSpeedUp_,
     uint256 dampSpeedDown_
-  ) external initializer {
+  ) public virtual initializer {
     __AccessControl_init();
     __Pausable_init();
 
@@ -158,7 +158,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emitMarketUpdate();
 
     auditor.checkBorrow(this, borrower);
-    asset.safeTransfer(receiver, assets);
+    transferAssetOut(receiver, assets);
   }
 
   /// @notice Repays a certain amount of assets to the floating pool.
@@ -172,7 +172,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   ) external whenNotPaused returns (uint256 actualRepay, uint256 borrowShares) {
     (actualRepay, borrowShares) = noTransferRefund(previewRepay(assets), borrower);
     emitMarketUpdate();
-    asset.safeTransferFrom(msg.sender, address(this), actualRepay);
+    transferAssetIn(msg.sender, actualRepay);
   }
 
   /// @notice Repays a certain amount of shares to the floating pool.
@@ -186,7 +186,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   ) external whenNotPaused returns (uint256 assets, uint256 actualShares) {
     (assets, actualShares) = noTransferRefund(borrowShares, borrower);
     emitMarketUpdate();
-    asset.safeTransferFrom(msg.sender, address(this), assets);
+    transferAssetIn(msg.sender, assets);
   }
 
   /// @notice Allows to (partially) repay a floating borrow. It does not transfer assets.
@@ -260,7 +260,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
 
-    asset.safeTransferFrom(msg.sender, address(this), assets);
+    transferAssetIn(msg.sender, assets);
   }
 
   /// @notice Borrows a certain amount from a maturity.
@@ -335,7 +335,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emitFixedEarningsUpdate(maturity);
 
     auditor.checkBorrow(this, borrower);
-    asset.safeTransfer(receiver, assets);
+    transferAssetOut(receiver, assets);
   }
 
   /// @notice Withdraws a certain amount from a maturity.
@@ -420,7 +420,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emitMarketUpdate();
     emitFixedEarningsUpdate(maturity);
 
-    asset.safeTransfer(receiver, assetsDiscounted);
+    transferAssetOut(receiver, assetsDiscounted);
   }
 
   /// @notice Repays a certain amount to a maturity.
@@ -441,7 +441,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     actualRepayAssets = noTransferRepayAtMaturity(maturity, positionAssets, maxAssets, borrower, true);
     emitMarketUpdate();
 
-    asset.safeTransferFrom(msg.sender, address(this), actualRepayAssets);
+    transferAssetIn(msg.sender, actualRepayAssets);
   }
 
   /// @notice Allows to (partially) repay a fixed rate position. It does not transfer assets.
@@ -597,7 +597,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
     auditor.handleBadDebt(borrower);
 
-    asset.safeTransferFrom(msg.sender, address(this), repaidAssets + lendersAssets);
+    transferAssetIn(msg.sender, repaidAssets + lendersAssets);
   }
 
   /// @notice Clears floating and fixed debt for an account spreading the losses to the `earningsAccumulator`.
@@ -673,13 +673,13 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     emit Seize(liquidator, borrower, assets);
     emitMarketUpdate();
 
-    asset.safeTransfer(liquidator, assets);
+    transferAssetOut(liquidator, assets);
   }
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @dev It's expected that this function can't be paused to prevent freezing account funds.
   /// @param assets amount of assets to be withdrawn from the floating pool.
-  function beforeWithdraw(uint256 assets, uint256) internal override {
+  function beforeWithdraw(uint256 assets, uint256) internal virtual override {
     updateFloatingAssetsAverage();
     depositToTreasury(updateFloatingDebt());
     uint256 earnings = accrueAccumulatedEarnings();
@@ -691,7 +691,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
 
   /// @notice Hook to update the floating pool average, floating pool balance and distribute earnings from accumulator.
   /// @param assets amount of assets to be deposited to the floating pool.
-  function afterDeposit(uint256 assets, uint256) internal override whenNotPaused {
+  function afterDeposit(uint256 assets, uint256) internal virtual override whenNotPaused {
     updateFloatingAssetsAverage();
     uint256 treasuryFee = updateFloatingDebt();
     uint256 earnings = accrueAccumulatedEarnings();
@@ -758,6 +758,14 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       if (from != to) rewardsController.handleDeposit(to);
     }
     return super.transferFrom(from, to, shares);
+  }
+
+  function transferAssetOut(address to, uint256 amount) internal virtual {
+    asset.safeTransfer(to, amount);
+  }
+
+  function transferAssetIn(address from, uint256 amount) internal virtual {
+    asset.safeTransferFrom(from, address(this), amount);
   }
 
   /// @notice Gets current snapshot for an account across all maturities.
@@ -897,7 +905,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Calculates the floating pool balance plus earnings to be accrued at current timestamp
   /// from maturities and accumulator.
   /// @return actual floatingAssets plus earnings to be accrued at current timestamp.
-  function totalAssets() public view override returns (uint256) {
+  function totalAssets() public view virtual override returns (uint256) {
     unchecked {
       uint256 memMaxFuturePools = maxFuturePools;
       uint256 backupEarnings = 0;
