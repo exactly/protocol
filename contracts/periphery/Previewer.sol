@@ -3,7 +3,9 @@ pragma solidity 0.8.17;
 
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { InterestRateModel as IRM, AlreadyMatured } from "../InterestRateModel.sol";
+import { RewardsController } from "../RewardsController.sol";
 import { FixedLib } from "../utils/FixedLib.sol";
 import { Auditor, IPriceFeed } from "../Auditor.sol";
 import { Market } from "../Market.sol";
@@ -36,6 +38,7 @@ contract Previewer {
     uint256 adjustFactor;
     uint8 maxFuturePools;
     FixedPool[] fixedPools;
+    RewardRate[] rewardRates;
     uint256 floatingBorrowRate;
     uint256 floatingUtilization;
     uint256 floatingBackupBorrowed;
@@ -53,6 +56,19 @@ contract Previewer {
     uint256 floatingDepositAssets;
     FixedPosition[] fixedDepositPositions;
     FixedPosition[] fixedBorrowPositions;
+    ClaimableReward[] claimableRewards;
+  }
+
+  struct RewardRate {
+    ERC20 asset;
+    uint256 borrow;
+    uint256 floatingDeposit;
+    uint256[] maturities;
+  }
+
+  struct ClaimableReward {
+    ERC20 asset;
+    uint256 amount;
   }
 
   struct InterestRateModel {
@@ -134,6 +150,7 @@ contract Previewer {
         adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
         fixedPools: fixedPools(market),
+        rewardRates: rewardRates(market),
         floatingBorrowRate: irm.floatingRate(
           market.floatingAssets() > 0 ? Math.min(market.floatingDebt().divWadUp(market.floatingAssets()), 1e18) : 0
         ),
@@ -170,7 +187,8 @@ contract Previewer {
           a.fixedBorrows,
           market.fixedBorrowPositions,
           this.previewRepayAtMaturity
-        )
+        ),
+        claimableRewards: claimableRewards(market, account)
       });
     }
   }
@@ -383,6 +401,86 @@ contract Previewer {
     }
   }
 
+  function rewardRates(Market market) internal view returns (RewardRate[] memory rewards) {
+    RewardsVars memory r;
+    r.controller = market.rewardsController();
+    if (address(r.controller) != address(0)) {
+      (, r.underlyingDecimals, , , r.underlyingPriceFeed) = auditor.markets(market);
+      unchecked {
+        r.underlyingBaseUnit = 10 ** r.underlyingDecimals;
+      }
+      r.rewardList = r.controller.allRewards();
+      rewards = new RewardRate[](r.rewardList.length);
+      for (r.i = 0; r.i < r.rewardList.length; ++r.i) {
+        (r.rewardPriceFeed, r.lastUpdate, , , , ) = r.controller.rewardsData(market, r.rewardList[r.i]);
+        (r.borrowIndex, r.depositIndex) = r.controller.rewardIndexes(market, r.rewardList[r.i]);
+        (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(market, r.rewardList[r.i]);
+        (r.start, ) = r.controller.distributionTime(market);
+        r.firstMaturity = r.start - (r.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+        r.maxMaturity =
+          block.timestamp -
+          (block.timestamp % FixedLib.INTERVAL) +
+          (FixedLib.INTERVAL * market.maxFuturePools());
+        r.maturities = new uint256[](r.maxMaturity / r.firstMaturity);
+        r.start = 0;
+        for (r.maturity = r.firstMaturity; r.maturity <= r.maxMaturity; ) {
+          r.maturities[r.start] = r.maturity;
+          unchecked {
+            r.maturity += FixedLib.INTERVAL;
+            ++r.start;
+          }
+        }
+        rewards[r.i] = RewardRate({
+          asset: r.rewardList[r.i],
+          borrow: (r.projectedBorrowIndex - r.borrowIndex)
+            .mulDivDown(market.totalFloatingBorrowShares(), r.underlyingBaseUnit)
+            .mulDivDown(auditor.assetPrice(r.rewardPriceFeed), 10 ** r.rewardPriceFeed.decimals())
+            .mulDivDown(
+              1e18,
+              market.totalFloatingBorrowAssets().mulDivDown(
+                auditor.assetPrice(r.underlyingPriceFeed),
+                10 ** r.underlyingPriceFeed.decimals()
+              )
+            )
+            .mulDivDown(365 days, block.timestamp - r.lastUpdate),
+          floatingDeposit: (r.projectedDepositIndex - r.depositIndex)
+            .mulDivDown(market.totalSupply(), r.underlyingBaseUnit)
+            .mulDivDown(auditor.assetPrice(r.rewardPriceFeed), 10 ** r.rewardPriceFeed.decimals())
+            .mulDivDown(
+              1e18,
+              market.totalAssets().mulDivDown(
+                auditor.assetPrice(r.underlyingPriceFeed),
+                10 ** r.underlyingPriceFeed.decimals()
+              )
+            )
+            .mulDivDown(365 days, block.timestamp - r.lastUpdate),
+          maturities: r.maturities
+        });
+      }
+    }
+  }
+
+  function claimableRewards(Market market, address account) internal view returns (ClaimableReward[] memory rewards) {
+    RewardsController rewardsController = market.rewardsController();
+    if (address(rewardsController) != address(0)) {
+      ERC20[] memory rewardList = rewardsController.allRewards();
+
+      rewards = new ClaimableReward[](rewardList.length);
+      RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
+      RewardsController.Operation[] memory ops = new RewardsController.Operation[](2);
+      ops[0] = RewardsController.Operation.Borrow;
+      ops[1] = RewardsController.Operation.Deposit;
+      marketOps[0] = RewardsController.MarketOperation({ market: market, operations: ops });
+
+      for (uint256 i = 0; i < rewardList.length; ++i) {
+        rewards[i] = ClaimableReward({
+          asset: rewardList[i],
+          amount: rewardsController.claimable(marketOps, account, rewardList[i])
+        });
+      }
+    }
+  }
+
   function floatingAvailableAssets(Market market) internal view returns (uint256) {
     uint256 freshFloatingDebt = newFloatingDebt(market);
     uint256 maxAssets = (market.floatingAssets() + freshFloatingDebt).mulWadDown(1e18 - market.reserveFactor());
@@ -453,4 +551,26 @@ contract Previewer {
         )
       );
   }
+
+  struct RewardsVars {
+    RewardsController controller;
+    uint256 lastUpdate;
+    uint256 depositIndex;
+    uint256 borrowIndex;
+    uint256 projectedDepositIndex;
+    uint256 projectedBorrowIndex;
+    uint256 underlyingBaseUnit;
+    uint256[] maturities;
+    IPriceFeed underlyingPriceFeed;
+    IPriceFeed rewardPriceFeed;
+    ERC20[] rewardList;
+    uint256 underlyingDecimals;
+    uint256 i;
+    uint256 start;
+    uint256 maturity;
+    uint256 firstMaturity;
+    uint256 maxMaturity;
+  }
 }
+
+error InvalidRewardsLength();

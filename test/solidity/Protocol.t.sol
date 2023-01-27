@@ -97,6 +97,7 @@ contract ProtocolTest is Test {
       market: markets[0],
       reward: rewardsAsset,
       targetDebt: 20_000 ether,
+      priceFeed: MockPriceFeed(address(0)),
       totalDistribution: 2_000 ether,
       distributionPeriod: (N * K * type(uint16).max) / 2,
       undistributedFactor: 0.5e18,

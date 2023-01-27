@@ -6,6 +6,7 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
+import { IPriceFeed } from "./utils/IPriceFeed.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
 import { Auditor } from "./Auditor.sol";
 import { Market } from "./Market.sol";
@@ -121,6 +122,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @notice Gets the data of the rewards' distribution model for a given market and reward asset.
   /// @param market The market to get the distribution model for.
   /// @param reward The reward asset to get the distribution model for.
+  /// @return priceFeed The price feed of the reward asset.
   /// @return lastUpdate The last time the rewardsData was updated.
   /// @return targetDebt The target debt.
   /// @return mintingRate The minting rate.
@@ -129,8 +131,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function rewardsData(
     Market market,
     ERC20 reward
-  ) external view returns (uint256, uint256, uint256, uint256, uint256) {
+  ) external view returns (IPriceFeed, uint256, uint256, uint256, uint256, uint256) {
     return (
+      distribution[market].rewards[reward].priceFeed,
       distribution[market].rewards[reward].lastUpdate,
       distribution[market].rewards[reward].targetDebt,
       distribution[market].rewards[reward].mintingRate,
@@ -181,6 +184,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @return availableRewardsCount The amount of available rewards.
   function availableRewardsCount(Market market) external view returns (uint256) {
     return distribution[market].availableRewardsCount;
+  }
+
+  /// @notice Retrieves all rewards addresses.
+  function allRewards() external view returns (ERC20[] memory) {
+    return rewardList;
   }
 
   /// @notice Gets all market and operations.
@@ -397,12 +405,25 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return balance.mulDivDown(globalIndex - accountIndex, baseUnit);
   }
 
+  /// @notice Retrieves updated distribution indexes.
+  /// @param market The market to calculate the indexes for.
+  /// @param reward The reward asset to calculate the indexes for.
+  /// @return borrowIndex The index for the borrow operation.
+  /// @return depositIndex The index for the deposit operation.
+  /// @return newUndistributed The undistributed rewards for the distribution.
+  function previewAllocation(
+    Market market,
+    ERC20 reward
+  ) external view returns (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) {
+    return previewAllocation(distribution[market].rewards[reward], market);
+  }
+
   /// @notice Internal function for the calculation of the distribution's indexes.
   /// @param rewardData The distribution's data.
   /// @param market The market to calculate the indexes for.
   /// @return borrowIndex The index for the borrow operation.
   /// @return depositIndex The index for the deposit operation.
-  /// @return newUndistributed The undistributed rewards for the distribution
+  /// @return newUndistributed The undistributed rewards for the distribution.
   function previewAllocation(
     RewardData storage rewardData,
     Market market
@@ -600,6 +621,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewardList.push(configs[i].reward);
       }
 
+      rewardConfig.priceFeed = configs[i].priceFeed;
       // set emission and distribution parameters
       rewardConfig.targetDebt = configs[i].targetDebt;
       rewardConfig.undistributedFactor = configs[i].undistributedFactor;
@@ -667,6 +689,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   struct Config {
     Market market;
     ERC20 reward;
+    IPriceFeed priceFeed;
     uint256 targetDebt;
     uint256 totalDistribution;
     uint256 distributionPeriod;
@@ -680,6 +703,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   struct RewardData {
+    IPriceFeed priceFeed;
     // distribution model
     uint256 targetDebt;
     uint256 mintingRate;

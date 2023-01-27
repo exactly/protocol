@@ -92,6 +92,7 @@ contract RewardsControllerTest is Test {
     configs[0] = RewardsController.Config({
       market: marketUSDC,
       reward: opRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
       targetDebt: 20_000e6,
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
@@ -106,6 +107,7 @@ contract RewardsControllerTest is Test {
     configs[1] = RewardsController.Config({
       market: marketWETH,
       reward: opRewardAsset,
+      priceFeed: IPriceFeed(address(0)),
       targetDebt: 20_000 ether,
       totalDistribution: 2_000 ether,
       distributionPeriod: 12 weeks,
@@ -120,6 +122,7 @@ contract RewardsControllerTest is Test {
     configs[2] = RewardsController.Config({
       market: marketUSDC,
       reward: exaRewardAsset,
+      priceFeed: IPriceFeed(address(0)),
       targetDebt: 20_000e6,
       totalDistribution: 2_000 ether,
       distributionPeriod: 3 weeks,
@@ -444,13 +447,13 @@ contract RewardsControllerTest is Test {
     vm.warp(1 days);
     rewardsController.claimAll(address(this));
     uint256 opRewards = rewardsController.allClaimable(address(this), opRewardAsset);
-    (uint256 lastUpdate, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
+    (, uint256 lastUpdate, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
     (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
     assertEq(opRewards, 0);
 
     marketUSDC.deposit(10 ether, address(this));
     marketUSDC.borrow(2 ether, address(this), address(this));
-    (uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
+    (, uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
       marketUSDC,
       opRewardAsset
     );
@@ -465,14 +468,14 @@ contract RewardsControllerTest is Test {
 
   function testUpdateWithTotalDebtZeroShouldUpdateLastUndistributed() external {
     marketUSDC.deposit(10 ether, address(this));
-    (, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
+    (, , , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
 
     vm.warp(1 days);
     (uint256 depositRewards, uint256 borrowRewards) = previewRewards(marketUSDC, opRewardAsset);
     assertEq(depositRewards, 0);
     assertEq(borrowRewards, 0);
     marketUSDC.deposit(10 ether, address(this));
-    (uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
+    (, uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
       marketUSDC,
       opRewardAsset
     );
@@ -488,7 +491,7 @@ contract RewardsControllerTest is Test {
     vm.warp(12 weeks);
     uint256 distributedRewards = rewardsController.allClaimable(address(this), opRewardAsset);
     rewardsController.claimAll(address(this));
-    (, uint256 targetDebt, , , uint256 lastUndistributed) = rewardsController.rewardsData(marketWETH, opRewardAsset);
+    (, , uint256 targetDebt, , , uint256 lastUndistributed) = rewardsController.rewardsData(marketWETH, opRewardAsset);
     assertApproxEqAbs(distributedRewards, 700 ether, 3e18);
     assertApproxEqAbs(lastUndistributed.mulWadDown(targetDebt), 1_300 ether, 3e18);
   }
@@ -545,6 +548,7 @@ contract RewardsControllerTest is Test {
     configs[0] = RewardsController.Config({
       market: marketWBTC,
       reward: opRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
       targetDebt: 10_000 ether,
       totalDistribution: 1_500 ether,
       distributionPeriod: 10 weeks,
@@ -584,6 +588,7 @@ contract RewardsControllerTest is Test {
     configs[0] = RewardsController.Config({
       market: marketWETH,
       reward: opRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
       targetDebt: 10_000 ether,
       totalDistribution: 1_500 ether,
       distributionPeriod: 10 weeks,
@@ -601,7 +606,7 @@ contract RewardsControllerTest is Test {
     assertGt(borrowIndex, preBorrowIndex);
     assertGt(depositIndex, preDepositIndex);
 
-    (uint256 lastUpdate, uint256 targetDebt, , uint256 undistributedFactor, ) = rewardsController.rewardsData(
+    (, uint256 lastUpdate, uint256 targetDebt, , uint256 undistributedFactor, ) = rewardsController.rewardsData(
       marketWETH,
       opRewardAsset
     );
@@ -653,6 +658,7 @@ contract RewardsControllerTest is Test {
     configs[0] = RewardsController.Config({
       market: marketUSDC,
       reward: opRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
       targetDebt: 1_000 ether,
       totalDistribution: 100_000 ether,
       distributionPeriod: 10 days,
@@ -666,7 +672,7 @@ contract RewardsControllerTest is Test {
     });
     rewardsController.config(configs);
 
-    (uint256 lastUpdate, , , , ) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
+    (, uint256 lastUpdate, , , , ) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
     assertEq(lastUpdate, 2 days);
   }
 
@@ -763,7 +769,7 @@ contract RewardsControllerTest is Test {
     ERC20 rewardAsset
   ) internal view returns (uint256 borrowRewards, uint256 depositRewards) {
     RewardsData memory r;
-    (r.lastUpdate, r.targetDebt, r.mintingRate, r.undistributedFactor, r.lastUndistributed) = rewardsController
+    (, r.lastUpdate, r.targetDebt, r.mintingRate, r.undistributedFactor, r.lastUndistributed) = rewardsController
       .rewardsData(market, rewardAsset);
     RewardsController.TotalMarketBalance memory m;
     m.debt = market.totalFloatingBorrowAssets();

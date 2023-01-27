@@ -4,12 +4,14 @@ pragma solidity 0.8.17;
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Market, InsufficientProtocolLiquidity } from "../../contracts/Market.sol";
 import { InterestRateModel, UtilizationExceeded, AlreadyMatured } from "../../contracts/InterestRateModel.sol";
 import { Auditor, InsufficientAccountLiquidity, IPriceFeed } from "../../contracts/Auditor.sol";
+import { RewardsController } from "../../contracts/RewardsController.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
 import { Previewer } from "../../contracts/periphery/Previewer.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
@@ -24,15 +26,19 @@ contract PreviewerTest is Test {
   Market internal market;
   Auditor internal auditor;
   MockERC20 internal asset;
+  MockERC20 internal rewardAsset;
   MockPriceFeed internal ethPriceFeed;
   MockPriceFeed internal daiPriceFeed;
+  MockPriceFeed internal opPriceFeed;
   Previewer internal previewer;
   InterestRateModel internal irm;
 
   function setUp() external {
     asset = new MockERC20("Dai Stablecoin", "DAI", 18);
+    rewardAsset = new MockERC20("OP", "OP", 18);
     ethPriceFeed = new MockPriceFeed(8, 1_000e8);
     daiPriceFeed = new MockPriceFeed(18, 1e18);
+    opPriceFeed = new MockPriceFeed(18, 2e18);
 
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
@@ -573,6 +579,73 @@ contract PreviewerTest is Test {
     vm.warp(block.timestamp + 3 hours + 4 minutes + 19 minutes);
     data = previewer.exactly(address(this));
     assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 1);
+  }
+
+  function testRewardsRate() external {
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    rewardAsset.mint(address(rewardsController), 500_000 ether);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+    uint256 depositAmount = 10_000 ether;
+    uint256 floatingBorrowAmount = 2_000 ether;
+    uint256 fixedBorrowAmount = 1_000 ether;
+    market.deposit(depositAmount, address(this));
+    market.borrow(floatingBorrowAmount, address(this), address(this));
+    vm.warp(block.timestamp + 10_000 seconds);
+    market.borrowAtMaturity(FixedLib.INTERVAL, fixedBorrowAmount, 2_000 ether, address(this), address(this));
+    vm.warp(block.timestamp + 1 weeks);
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].rewardRates.length, 1);
+    assertEq(address(data[0].rewardRates[0].asset), address(rewardAsset));
+
+    uint256 newDepositRewards = 4847611669910233865;
+    uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
+      uint256(opPriceFeed.latestAnswer()),
+      10 ** opPriceFeed.decimals()
+    );
+    uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, 1 weeks);
+    assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 2e14);
+
+    uint256 newFloatingBorrowRewards = 65684926764759166000;
+    uint256 newFloatingBorrowRewardsValue = newFloatingBorrowRewards.mulDivDown(
+      uint256(opPriceFeed.latestAnswer()),
+      10 ** opPriceFeed.decimals()
+    );
+    annualRewardValue = newFloatingBorrowRewardsValue.mulDivDown(365 days, 1 weeks);
+    assertApproxEqAbs(data[0].rewardRates[0].borrow, annualRewardValue.mulDivDown(1e18, floatingBorrowAmount), 4e16);
+
+    assertEq(data[0].rewardRates[0].maturities[0], FixedLib.INTERVAL);
+    assertEq(data[0].rewardRates[0].maturities.length, 12);
+    market.setMaxFuturePools(3);
+    data = previewer.exactly(address(this));
+    assertEq(data[0].rewardRates[0].maturities[0], FixedLib.INTERVAL);
+    assertEq(data[0].rewardRates[0].maturities[1], FixedLib.INTERVAL * 2);
+    assertEq(data[0].rewardRates[0].maturities[2], FixedLib.INTERVAL * 3);
+    assertEq(data[0].rewardRates[0].maturities.length, 3);
+
+    // claimable rewards
+    assertEq(data[0].claimableRewards.length, 1);
+    assertEq(address(data[0].claimableRewards[0].asset), address(rewardAsset));
+    assertEq(data[0].claimableRewards[0].amount, rewardsController.allClaimable(address(this), rewardAsset));
   }
 
   function testFloatingRateAndUtilization() external {
