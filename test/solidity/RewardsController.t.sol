@@ -34,7 +34,7 @@ contract RewardsControllerTest is Test {
     vm.warp(0);
     MockERC20 usdc = new MockERC20("USD Coin", "USDC", 6);
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
-    MockERC20 wbtc = new MockERC20("WBTC", "WBTC", 18);
+    MockERC20 wbtc = new MockERC20("WBTC", "WBTC", 8);
     opRewardAsset = new MockERC20("OP", "OP", 18);
     exaRewardAsset = new MockERC20("Exa Reward", "EXA", 18);
 
@@ -144,7 +144,7 @@ contract RewardsControllerTest is Test {
     usdc.mint(address(this), 100 ether);
     usdc.mint(ALICE, 100 ether);
     usdc.mint(BOB, 100 ether);
-    weth.mint(address(this), 1_000 ether);
+    weth.mint(address(this), 10_000 ether);
     weth.mint(ALICE, 1_000 ether);
     wbtc.mint(address(this), 1_000 ether);
     usdc.approve(address(marketUSDC), type(uint256).max);
@@ -313,7 +313,7 @@ contract RewardsControllerTest is Test {
     vm.prank(ALICE);
     marketUSDC.deposit(100e6, ALICE);
 
-    marketWBTC.deposit(1_000 ether, address(this));
+    marketWBTC.deposit(1_000e8, address(this));
     auditor.enterMarket(marketWBTC);
     marketUSDC.borrow(50e6, address(this), address(this));
 
@@ -336,7 +336,7 @@ contract RewardsControllerTest is Test {
     vm.prank(ALICE);
     marketUSDC.deposit(100e6, ALICE);
 
-    marketWBTC.deposit(1_000 ether, address(this));
+    marketWBTC.deposit(1_000e8, address(this));
     auditor.enterMarket(marketWBTC);
     marketUSDC.borrow(50e6, address(this), address(this));
 
@@ -357,7 +357,7 @@ contract RewardsControllerTest is Test {
     vm.prank(ALICE);
     marketUSDC.deposit(100e6, ALICE);
 
-    marketWBTC.deposit(1_000 ether, address(this));
+    marketWBTC.deposit(1_000e8, address(this));
     auditor.enterMarket(marketWBTC);
     marketUSDC.borrow(50e6, address(this), address(this));
 
@@ -526,7 +526,7 @@ contract RewardsControllerTest is Test {
     vm.prank(ALICE);
     marketWETH.deposit(100 ether, address(this));
 
-    marketWBTC.deposit(100 ether, address(this));
+    marketWBTC.deposit(100e8, address(this));
     auditor.enterMarket(marketWBTC);
     vm.warp(10_000 seconds);
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 20 ether, 40 ether, address(this), address(this));
@@ -561,10 +561,10 @@ contract RewardsControllerTest is Test {
 
   function testClaimMarketWithoutRewards() external {
     marketWETH.deposit(100 ether, address(this));
-    marketWBTC.deposit(100 ether, address(this));
+    marketWBTC.deposit(100e8, address(this));
     vm.warp(10_000 seconds);
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 20 ether, 40 ether, address(this), address(this));
-    marketWBTC.borrowAtMaturity(FixedLib.INTERVAL, 20 ether, 40 ether, address(this), address(this));
+    marketWBTC.borrowAtMaturity(FixedLib.INTERVAL, 20e8, 40e8, address(this), address(this));
 
     RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
     RewardsController.Operation[] memory ops = new RewardsController.Operation[](2);
@@ -596,8 +596,8 @@ contract RewardsControllerTest is Test {
 
   function testSetDistributionWithOnGoingMarketOperations() external {
     vm.warp(1 days);
-    marketWBTC.deposit(10 ether, address(this));
-    marketWBTC.borrow(1 ether, address(this), address(this));
+    marketWBTC.deposit(10e8, address(this));
+    marketWBTC.borrow(1e8, address(this), address(this));
 
     vm.warp(3 days);
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
@@ -605,7 +605,7 @@ contract RewardsControllerTest is Test {
       market: marketWBTC,
       reward: opRewardAsset,
       priceFeed: MockPriceFeed(address(0)),
-      targetDebt: 10_000 ether,
+      targetDebt: 10_000e8,
       totalDistribution: 1_500 ether,
       distributionPeriod: 10 weeks,
       undistributedFactor: 0.6e18,
@@ -723,6 +723,61 @@ contract RewardsControllerTest is Test {
 
     assertEq(opRewardAsset.balanceOf(address(this)), opRewardBalance);
     assertEq(opRewardAsset.balanceOf(address(rewardsController)), 0);
+  }
+
+  function testSetDistributionConfigWithDifferentDecimals() external {
+    MockERC20 rewardAsset = new MockERC20("Reward", "RWD", 10);
+    MockERC20 asset = new MockERC20("Asset", "AST", 6);
+    Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    market.initialize(3, 1e18, InterestRateModel(address(irm)), 0.02e18 / uint256(1 days), 1e17, 0, 0.0046e18, 0.42e18);
+    auditor.enableMarket(market, new MockPriceFeed(18, 1e18), 0.8e18);
+
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 20_000e6,
+      totalDistribution: 2_000e10,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.5e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    rewardAsset.mint(address(rewardsController), 2_000e10);
+    asset.mint(address(this), 10_000e6);
+    asset.approve(address(market), type(uint256).max);
+
+    market.deposit(10_000e6, address(this));
+    market.borrow(1_000e6, address(this), address(this));
+    marketUSDC.deposit(10_000e8, address(this));
+    marketUSDC.borrow(1_000e8, address(this), address(this));
+    marketWETH.deposit(10_000 ether, address(this));
+    marketWETH.borrow(1_000 ether, address(this), address(this));
+
+    vm.warp(6 weeks);
+    assertApproxEqAbs(
+      rewardsController.allClaimable(address(this), rewardAsset),
+      1_000 * 10 ** rewardAsset.decimals(),
+      1e9
+    );
+    assertApproxEqAbs(
+      rewardsController.allClaimable(address(this), opRewardAsset),
+      (2_000 * 10 ** opRewardAsset.decimals()) - 11e18,
+      1e18
+    );
+    uint256 mintingRate = 13778659611;
+    (, , , uint256 mintingRateWETH, , ) = rewardsController.rewardsData(marketWETH, opRewardAsset);
+    assertEq(mintingRateWETH, mintingRate * 10 ** (opRewardAsset.decimals() - marketWETH.decimals()));
+    (, , , uint256 mintingRateUSDC, , ) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
+    assertEq(mintingRateUSDC, mintingRate * 10 ** (opRewardAsset.decimals() - marketUSDC.decimals()) + 9e11);
+    (, , , uint256 mintingRateAsset, , ) = rewardsController.rewardsData(market, rewardAsset);
+    assertEq(mintingRateAsset, mintingRate * 10 ** (rewardAsset.decimals() - market.decimals()) + 9e3);
   }
 
   function testSetDistributionOperationShouldUpdateIndex() external {
