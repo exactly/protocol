@@ -334,10 +334,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         newAccountIndex = rewardData.depositIndex;
       }
       if (accountIndex != newAccountIndex) {
-        rewardData.accounts[account][ops[i].operation].index = uint104(newAccountIndex);
+        rewardData.accounts[account][ops[i].operation].index = newAccountIndex;
         if (ops[i].balance != 0) {
           uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
-          rewardData.accounts[account][ops[i].operation].accrued += uint128(rewardsAccrued);
+          rewardData.accounts[account][ops[i].operation].accrued += rewardsAccrued;
           emit Accrue(market, reward, account, newAccountIndex, newAccountIndex, rewardsAccrued);
         }
       }
@@ -709,9 +709,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   struct Account {
     // liquidity index of the reward distribution for the account
-    uint104 index;
+    uint256 index;
     // amount of accrued rewards for the account since last account index update
-    uint128 accrued;
+    uint256 accrued;
   }
 
   struct Config {
