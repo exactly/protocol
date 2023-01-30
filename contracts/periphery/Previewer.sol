@@ -415,7 +415,7 @@ contract Previewer {
         (r.rewardPriceFeed, r.lastUpdate, , , , ) = r.controller.rewardsData(market, r.rewardList[r.i]);
         (r.borrowIndex, r.depositIndex) = r.controller.rewardIndexes(market, r.rewardList[r.i]);
         (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(market, r.rewardList[r.i]);
-        (r.start, ) = r.controller.distributionTime(market);
+        (r.start, ) = r.controller.distributionTime(market, r.rewardList[r.i]);
         r.firstMaturity = r.start - (r.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
         r.maxMaturity =
           block.timestamp -

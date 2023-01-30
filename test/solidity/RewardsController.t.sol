@@ -145,12 +145,15 @@ contract RewardsControllerTest is Test {
     usdc.mint(ALICE, 100 ether);
     usdc.mint(BOB, 100 ether);
     weth.mint(address(this), 1_000 ether);
+    weth.mint(ALICE, 1_000 ether);
     wbtc.mint(address(this), 1_000 ether);
     usdc.approve(address(marketUSDC), type(uint256).max);
     weth.approve(address(marketWETH), type(uint256).max);
     wbtc.approve(address(marketWBTC), type(uint256).max);
     vm.prank(ALICE);
     usdc.approve(address(marketUSDC), type(uint256).max);
+    vm.prank(ALICE);
+    weth.approve(address(marketWETH), type(uint256).max);
     vm.prank(BOB);
     usdc.approve(address(marketUSDC), type(uint256).max);
   }
@@ -419,8 +422,8 @@ contract RewardsControllerTest is Test {
     vm.warp(FixedLib.INTERVAL);
     uint256 opRewardsPostMaturity = rewardsController.allClaimable(address(this), opRewardAsset);
     uint256 exaRewardsPostMaturity = rewardsController.allClaimable(address(this), exaRewardAsset);
-    assertApproxEqAbs(opRewardsPostMaturity, opRewardsPreMaturity, 1e2);
-    assertApproxEqAbs(exaRewardsPostMaturity, exaRewardsPreMaturity, 1e2);
+    assertGt(opRewardsPostMaturity, opRewardsPreMaturity);
+    assertGt(exaRewardsPostMaturity, exaRewardsPreMaturity);
 
     vm.warp(FixedLib.INTERVAL + 1 days);
     assertApproxEqAbs(rewardsController.allClaimable(address(this), exaRewardAsset), exaRewardsPostMaturity, 1e2);
@@ -519,12 +522,65 @@ contract RewardsControllerTest is Test {
     assertGt(newOpRewards, opRewards);
   }
 
+  function testDifferentDistributionTimeForDifferentRewards() external {
+    vm.prank(ALICE);
+    marketWETH.deposit(100 ether, address(this));
+
+    marketWBTC.deposit(100 ether, address(this));
+    auditor.enterMarket(marketWBTC);
+    vm.warp(10_000 seconds);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 20 ether, 40 ether, address(this), address(this));
+
+    vm.warp(FixedLib.INTERVAL * 2);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: marketWETH,
+      reward: exaRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 10_000 ether,
+      totalDistribution: 1_500 ether,
+      distributionPeriod: 10 weeks,
+      undistributedFactor: 0.6e18,
+      flipSpeed: 1e18,
+      compensationFactor: 0.65e18,
+      transitionFactor: 0.71e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    vm.warp(block.timestamp + 10 days);
+    // should not earn rewards from previous fixed pool borrow
+    assertEq(rewardsController.allClaimable(address(this), exaRewardAsset), 0);
+    assertGt(rewardsController.allClaimable(address(this), opRewardAsset), 0);
+
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 3, 20 ether, 40 ether, address(this), address(this));
+    vm.warp(block.timestamp + 10 days);
+    assertGt(rewardsController.allClaimable(address(this), exaRewardAsset), 0);
+  }
+
+  function testClaimMarketWithoutRewards() external {
+    marketWETH.deposit(100 ether, address(this));
+    marketWBTC.deposit(100 ether, address(this));
+    vm.warp(10_000 seconds);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 20 ether, 40 ether, address(this), address(this));
+    marketWBTC.borrowAtMaturity(FixedLib.INTERVAL, 20 ether, 40 ether, address(this), address(this));
+
+    RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
+    RewardsController.Operation[] memory ops = new RewardsController.Operation[](2);
+    ops[0] = RewardsController.Operation.Borrow;
+    ops[1] = RewardsController.Operation.Deposit;
+    marketOps[0] = RewardsController.MarketOperation({ market: marketWBTC, operations: ops });
+    rewardsController.claim(marketOps, address(this));
+    assertEq(opRewardAsset.balanceOf(address(this)), 0);
+  }
+
   function testAfterDistributionPeriodEnd() external {
     uint256 totalDistribution = 2_000 ether;
     marketWETH.deposit(10 ether, address(this));
     marketWETH.borrow(1 ether, address(this), address(this));
 
-    (, uint256 distributionEnd) = rewardsController.distributionTime(marketWETH);
+    (, uint256 distributionEnd) = rewardsController.distributionTime(marketWETH, opRewardAsset);
     vm.warp(distributionEnd);
     uint256 opRewards = rewardsController.allClaimable(address(this), opRewardAsset);
     vm.warp(distributionEnd + 1);
@@ -775,7 +831,7 @@ contract RewardsControllerTest is Test {
     m.debt = market.totalFloatingBorrowAssets();
     m.supply = market.totalAssets();
     {
-      (uint256 distributionStart, ) = rewardsController.distributionTime(market);
+      (uint256 distributionStart, ) = rewardsController.distributionTime(market, rewardAsset);
       uint256 firstMaturity = distributionStart - (distributionStart % FixedLib.INTERVAL) + FixedLib.INTERVAL;
       uint256 maxMaturity = block.timestamp -
         (block.timestamp % FixedLib.INTERVAL) +
@@ -792,7 +848,7 @@ contract RewardsControllerTest is Test {
     if (distributionFactor > 0) {
       uint256 rewards;
       {
-        (, uint256 distributionEnd) = rewardsController.distributionTime(market);
+        (, uint256 distributionEnd) = rewardsController.distributionTime(market, rewardAsset);
         if (block.timestamp <= distributionEnd) {
           uint256 deltaTime = block.timestamp - r.lastUpdate;
           uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());

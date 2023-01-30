@@ -41,21 +41,39 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @notice Handles the deposit operation for a given account.
   /// @param account The account to handle the deposit operation for.
   function handleDeposit(address account) external {
+    Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
-    ops[0] = AccountOperation({ operation: Operation.Deposit, balance: Market(msg.sender).balanceOf(account) });
-    update(account, Market(msg.sender), ops);
+    ops[0] = AccountOperation({ operation: Operation.Deposit, balance: market.balanceOf(account) });
+
+    uint256 rewardsCount = distribution[market].availableRewardsCount;
+    for (uint128 r = 0; r < rewardsCount; ) {
+      update(account, market, distribution[market].availableRewards[r], ops);
+      unchecked {
+        ++r;
+      }
+    }
   }
 
   /// @notice Handles the borrow operation for a given account.
   /// @param account The account to handle the borrow operation for.
   function handleBorrow(address account) external {
+    Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
-    (, , uint256 accountFloatingBorrowShares) = Market(msg.sender).accounts(account);
-    ops[0] = AccountOperation({
-      operation: Operation.Borrow,
-      balance: accountFloatingBorrowShares + accountFixedBorrowShares(Market(msg.sender), account)
-    });
-    update(account, Market(msg.sender), ops);
+    (, , uint256 accountFloatingBorrowShares) = market.accounts(account);
+
+    uint256 rewardsCount = distribution[market].availableRewardsCount;
+    for (uint128 r = 0; r < rewardsCount; ) {
+      ERC20 reward = distribution[market].availableRewards[r];
+      ops[0] = AccountOperation({
+        operation: Operation.Borrow,
+        balance: accountFloatingBorrowShares +
+          accountFixedBorrowShares(market, account, distribution[market].rewards[reward].start)
+      });
+      update(account, Market(msg.sender), reward, ops);
+      unchecked {
+        ++r;
+      }
+    }
   }
 
   /// @notice Gets all account operations of msg.sender and transfers rewards to a given account.
@@ -67,35 +85,43 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   /// @notice Claims msg.sender's rewards for the given operations to a given account.
-  /// @param operations The operations to claim rewards for.
+  /// @param marketOps The operations to claim rewards for.
   /// @param to The address to send the rewards to.
   /// @return rewardsList The list of rewards assets.
   /// @return claimedAmounts The list of claimed amounts.
   function claim(
-    MarketOperation[] memory operations,
+    MarketOperation[] memory marketOps,
     address to
   ) public returns (ERC20[] memory rewardsList, uint256[] memory claimedAmounts) {
     rewardsList = new ERC20[](rewardList.length);
     claimedAmounts = new uint256[](rewardList.length);
 
-    for (uint256 i = 0; i < operations.length; ) {
-      update(
-        msg.sender,
-        operations[i].market,
-        accountBalanceOperations(operations[i].market, operations[i].operations, msg.sender)
-      );
+    for (uint256 i = 0; i < marketOps.length; ) {
+      Distribution storage dist = distribution[marketOps[i].market];
+      for (uint128 r = 0; r < dist.availableRewardsCount; ) {
+        update(
+          msg.sender,
+          marketOps[i].market,
+          dist.availableRewards[r],
+          accountBalanceOperations(
+            marketOps[i].market,
+            marketOps[i].operations,
+            msg.sender,
+            dist.rewards[dist.availableRewards[r]].start
+          )
+        );
+        unchecked {
+          ++r;
+        }
+      }
+
       for (uint256 r = 0; r < rewardList.length; ) {
         if (address(rewardsList[r]) == address(0)) rewardsList[r] = rewardList[r];
-
-        for (uint256 o = 0; o < operations[i].operations.length; ) {
-          uint256 rewardAmount = distribution[operations[i].market]
-          .rewards[rewardsList[r]]
-          .accounts[msg.sender][operations[i].operations[o]].accrued;
+        for (uint256 o = 0; o < marketOps[i].operations.length; ) {
+          uint256 rewardAmount = dist.rewards[rewardsList[r]].accounts[msg.sender][marketOps[i].operations[o]].accrued;
           if (rewardAmount != 0) {
             claimedAmounts[r] += rewardAmount;
-            distribution[operations[i].market]
-            .rewards[rewardsList[r]]
-            .accounts[msg.sender][operations[i].operations[o]].accrued = 0;
+            dist.rewards[rewardsList[r]].accounts[msg.sender][marketOps[i].operations[o]].accrued = 0;
           }
           unchecked {
             ++o;
@@ -175,8 +201,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @notice Gets the distribution start time of a given market.
   /// @param market The market to get the distribution start time for.
   /// @return The distribution start and end time.
-  function distributionTime(Market market) external view returns (uint256, uint256) {
-    return (distribution[market].start, distribution[market].end);
+  function distributionTime(Market market, ERC20 reward) external view returns (uint32, uint32) {
+    return (distribution[market].rewards[reward].start, distribution[market].rewards[reward].end);
   }
 
   /// @notice Gets the amount of available rewards for a given market.
@@ -252,7 +278,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         continue;
       }
 
-      AccountOperation[] memory ops = accountBalanceOperations(marketOps[i].market, marketOps[i].operations, account);
+      AccountOperation[] memory ops = accountBalanceOperations(
+        marketOps[i].market,
+        marketOps[i].operations,
+        account,
+        distribution[marketOps[i].market].rewards[reward].start
+      );
       uint256 balance;
       for (uint256 o = 0; o < ops.length; ) {
         unclaimedRewards += distribution[marketOps[i].market]
@@ -280,46 +311,38 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param account The account to accrue the rewards for.
   /// @param market The market to accrue the rewards for.
   /// @param ops The operations to accrue the rewards for.
-  function update(address account, Market market, AccountOperation[] memory ops) internal {
+  function update(address account, Market market, ERC20 reward, AccountOperation[] memory ops) internal {
     uint256 baseUnit;
     unchecked {
       baseUnit = 10 ** distribution[market].decimals;
     }
+    RewardData storage rewardData = distribution[market].rewards[reward];
+    {
+      (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(rewardData, market);
+      rewardData.lastUpdate = uint32(block.timestamp);
+      rewardData.lastUndistributed = newUndistributed;
+      rewardData.borrowIndex = borrowIndex;
+      rewardData.depositIndex = depositIndex;
+    }
 
-    if (distribution[market].availableRewardsCount == 0) return;
-    for (uint128 r = 0; r < distribution[market].availableRewardsCount; ) {
-      ERC20 reward = distribution[market].availableRewards[r];
-      RewardData storage rewardData = distribution[market].rewards[reward];
-      {
-        (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(rewardData, market);
-        rewardData.lastUpdate = uint32(block.timestamp);
-        rewardData.lastUndistributed = newUndistributed;
-        rewardData.borrowIndex = borrowIndex;
-        rewardData.depositIndex = depositIndex;
+    for (uint256 i = 0; i < ops.length; ) {
+      uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
+      uint256 newAccountIndex;
+      if (ops[i].operation == Operation.Borrow) {
+        newAccountIndex = rewardData.borrowIndex;
+      } else {
+        newAccountIndex = rewardData.depositIndex;
       }
-
-      for (uint256 i = 0; i < ops.length; ) {
-        uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
-        uint256 newAccountIndex;
-        if (ops[i].operation == Operation.Borrow) {
-          newAccountIndex = rewardData.borrowIndex;
-        } else {
-          newAccountIndex = rewardData.depositIndex;
-        }
-        if (accountIndex != newAccountIndex) {
-          rewardData.accounts[account][ops[i].operation].index = uint104(newAccountIndex);
-          if (ops[i].balance != 0) {
-            uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
-            rewardData.accounts[account][ops[i].operation].accrued += uint128(rewardsAccrued);
-            emit Accrue(market, reward, account, newAccountIndex, newAccountIndex, rewardsAccrued);
-          }
-        }
-        unchecked {
-          ++i;
+      if (accountIndex != newAccountIndex) {
+        rewardData.accounts[account][ops[i].operation].index = uint104(newAccountIndex);
+        if (ops[i].balance != 0) {
+          uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
+          rewardData.accounts[account][ops[i].operation].accrued += uint128(rewardsAccrued);
+          emit Accrue(market, reward, account, newAccountIndex, newAccountIndex, rewardsAccrued);
         }
       }
       unchecked {
-        ++r;
+        ++i;
       }
     }
   }
@@ -328,8 +351,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param market The market to get the fixed borrows from.
   /// @param account The account that borrowed from fixed pools.
   /// @return fixedDebt The fixed borrow shares.
-  function accountFixedBorrowShares(Market market, address account) internal view returns (uint256 fixedDebt) {
-    uint256 start = distribution[market].start;
+  function accountFixedBorrowShares(
+    Market market,
+    address account,
+    uint32 start
+  ) internal view returns (uint256 fixedDebt) {
     uint256 firstMaturity = start - (start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     uint256 maxMaturity = block.timestamp -
       (block.timestamp % FixedLib.INTERVAL) +
@@ -433,7 +459,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     m.supply = market.totalAssets();
     uint256 fixedBorrowShares;
     {
-      uint256 start = distribution[market].start;
+      uint256 start = rewardData.start;
       uint256 firstMaturity = start - (start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
       uint256 maxMaturity = block.timestamp -
         (block.timestamp % FixedLib.INTERVAL) +
@@ -459,7 +485,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 rewards;
     {
       uint256 lastUndistributed = rewardData.lastUndistributed;
-      if (block.timestamp <= distribution[market].end) {
+      if (block.timestamp <= rewardData.end) {
         uint256 mintingRate = rewardData.mintingRate;
         uint256 deltaTime = block.timestamp - rewardData.lastUpdate;
         if (distributionFactor > 0) {
@@ -474,7 +500,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewards = rewardData.targetDebt.mulWadDown(
           uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
         );
-      } else if (rewardData.lastUpdate > distribution[market].end) {
+      } else if (rewardData.lastUpdate > rewardData.end) {
         newUndistributed =
           lastUndistributed -
           lastUndistributed.mulWadDown(
@@ -483,7 +509,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewards = rewardData.targetDebt.mulWadDown(uint256(-(int256(newUndistributed) - int256(lastUndistributed))));
       } else {
         uint256 mintingRate = rewardData.mintingRate;
-        uint256 deltaTime = distribution[market].end - rewardData.lastUpdate;
+        uint256 deltaTime = rewardData.end - rewardData.lastUpdate;
         uint256 exponential;
         if (distributionFactor > 0) {
           exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
@@ -494,7 +520,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         } else {
           newUndistributed = lastUndistributed + mintingRate.mulWadDown(1e18 - target) * deltaTime;
         }
-        exponential = uint256((-int256(distributionFactor * (block.timestamp - distribution[market].end))).expWad());
+        exponential = uint256((-int256(distributionFactor * (block.timestamp - rewardData.end))).expWad());
         newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
         rewards = rewardData.targetDebt.mulWadDown(
           uint256(int256(mintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)))
@@ -562,7 +588,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function accountBalanceOperations(
     Market market,
     Operation[] memory ops,
-    address account
+    address account,
+    uint32 distributionStart
   ) internal view returns (AccountOperation[] memory accountBalanceOps) {
     accountBalanceOps = new AccountOperation[](ops.length);
     for (uint256 i = 0; i < ops.length; ) {
@@ -570,7 +597,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
         accountBalanceOps[i] = AccountOperation({
           operation: ops[i],
-          balance: floatingBorrowShares + accountFixedBorrowShares(market, account)
+          balance: floatingBorrowShares + accountFixedBorrowShares(market, account, distributionStart)
         });
       } else {
         accountBalanceOps[i] = AccountOperation({ operation: ops[i], balance: market.balanceOf(account) });
@@ -601,26 +628,27 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewardConfig.lastUpdate = uint32(block.timestamp);
       } else {
         // update global indexes before setting new config
-        for (uint256 m = 0; m < marketList.length; ) {
-          Operation[] memory ops = new Operation[](1);
-          ops[0] = Operation.Borrow;
-          update(address(0), marketList[m], accountBalanceOperations(marketList[m], ops, address(0)));
-          unchecked {
-            ++m;
-          }
-        }
+        Operation[] memory ops = new Operation[](1);
+        ops[0] = Operation.Borrow;
+        update(
+          address(0),
+          configs[i].market,
+          configs[i].reward,
+          accountBalanceOperations(configs[i].market, ops, address(0), rewardConfig.start)
+        );
       }
-      if (distribution[configs[i].market].start == 0) {
-        distribution[configs[i].market].start = uint32(block.timestamp);
-      }
-      distribution[configs[i].market].end = uint32(block.timestamp + configs[i].distributionPeriod);
-
       // add reward address to global rewards list if still not enabled
       if (rewardEnabled[configs[i].reward] == false) {
         rewardEnabled[configs[i].reward] = true;
         rewardList.push(configs[i].reward);
       }
 
+      uint32 start = rewardConfig.start;
+      if (start == 0) {
+        start = uint32(block.timestamp);
+        rewardConfig.start = start;
+      }
+      rewardConfig.end = start + uint32(configs[i].distributionPeriod);
       rewardConfig.priceFeed = configs[i].priceFeed;
       // set emission and distribution parameters
       rewardConfig.targetDebt = configs[i].targetDebt;
@@ -720,6 +748,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     // liquidity indexes of the reward distribution
     uint256 borrowIndex;
     uint256 depositIndex;
+    // distribution start & end timestamps
+    uint32 start;
+    uint32 end;
     // account addresses and their rewards data (index & accrued)
     mapping(address => mapping(Operation => Account)) accounts;
   }
@@ -733,9 +764,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint128 availableRewardsCount;
     // number of decimals of the market
     uint8 decimals;
-    // distribution start & end timestamps
-    uint32 start;
-    uint32 end;
   }
 
   event Accrue(
