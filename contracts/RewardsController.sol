@@ -191,6 +191,26 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     );
   }
 
+  function rewardsConfig(Market market, ERC20 reward) external view returns (Config memory) {
+    RewardData storage rewardData = distribution[market].rewards[reward];
+    return
+      Config({
+        market: market,
+        reward: reward,
+        priceFeed: rewardData.priceFeed,
+        targetDebt: rewardData.targetDebt,
+        totalDistribution: rewardData.totalDistribution,
+        distributionPeriod: rewardData.end - rewardData.start,
+        undistributedFactor: rewardData.undistributedFactor,
+        flipSpeed: rewardData.flipSpeed,
+        compensationFactor: rewardData.compensationFactor,
+        transitionFactor: rewardData.transitionFactor,
+        borrowAllocationWeightFactor: rewardData.borrowAllocationWeightFactor,
+        depositAllocationWeightAddend: rewardData.depositAllocationWeightAddend,
+        depositAllocationWeightFactor: rewardData.depositAllocationWeightFactor
+      });
+  }
+
   /// @notice Gets the decimals of a given market.
   /// @param market The market to get the decimals for.
   /// @return decimals The decimals of the market.
@@ -666,6 +686,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardConfig.borrowAllocationWeightFactor = configs[i].borrowAllocationWeightFactor;
       rewardConfig.depositAllocationWeightAddend = configs[i].depositAllocationWeightAddend;
       rewardConfig.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;
+      rewardConfig.totalDistribution = configs[i].totalDistribution;
       rewardConfig.mintingRate = configs[i].totalDistribution.divWadDown(configs[i].targetDebt).mulWadDown(
         1e18 / configs[i].distributionPeriod
       );
@@ -742,6 +763,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     // distribution model
     uint256 targetDebt;
     uint256 mintingRate;
+    uint256 totalDistribution;
     uint256 undistributedFactor;
     uint256 lastUndistributed;
     uint32 lastUpdate;
