@@ -708,6 +708,23 @@ contract RewardsControllerTest is Test {
     assertEq(rewardsController.allClaimable(address(this), exaRewardAsset), 0);
   }
 
+  function testWithdrawOnlyAdminRole() external {
+    vm.expectRevert(bytes(""));
+    vm.prank(BOB);
+    rewardsController.withdraw(opRewardAsset, BOB);
+
+    // withdraw call from contract should not revert
+    rewardsController.withdraw(opRewardAsset, BOB);
+  }
+
+  function testWithdrawAllRewardBalance() external {
+    uint256 opRewardBalance = opRewardAsset.balanceOf(address(rewardsController));
+    rewardsController.withdraw(opRewardAsset, address(this));
+
+    assertEq(opRewardAsset.balanceOf(address(this)), opRewardBalance);
+    assertEq(opRewardAsset.balanceOf(address(rewardsController)), 0);
+  }
+
   function testSetDistributionOperationShouldUpdateIndex() external {
     vm.warp(2 days);
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);

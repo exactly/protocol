@@ -608,6 +608,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
+  /// @notice Withdraws the contract's balance of the given asset to the given address.
+  /// @param asset The asset to withdraw.
+  /// @param to The address to withdraw the asset to.
+  function withdraw(ERC20 asset, address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    asset.safeTransfer(to, asset.balanceOf(address(this)));
+  }
+
   /// @notice Updates the RewardData with the given configs
   /// @param configs The config to update the RewardData with
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
