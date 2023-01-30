@@ -72,7 +72,7 @@ contract ProtocolTest is Test {
       vm.label(address(market), string.concat("Market", i.toString()));
       MockPriceFeed priceFeed = new MockPriceFeed(18, 1e18);
       // market.setTreasury(address(this), 0.1e18);
-      auditor.enableMarket(market, priceFeed, 0.9e18, 18);
+      auditor.enableMarket(market, priceFeed, 0.9e18);
 
       asset.approve(address(market), type(uint256).max);
       for (uint256 j = 0; j < accounts.length; ++j) {

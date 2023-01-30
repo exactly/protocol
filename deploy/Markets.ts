@@ -147,12 +147,7 @@ const func: DeployFunction = async ({
     const { address: priceFeed } = await get(`${mockPrices[symbol] ? "Mock" : ""}PriceFeed${symbol}`);
     const adjustFactor = parseUnits(String(config.adjustFactor));
     if (!(await auditor.allMarkets()).includes(market.address)) {
-      await executeOrPropose(auditor, "enableMarket", [
-        market.address,
-        priceFeed,
-        adjustFactor,
-        await asset.decimals(),
-      ]);
+      await executeOrPropose(auditor, "enableMarket", [market.address, priceFeed, adjustFactor]);
     } else {
       if ((await auditor.markets(market.address)).priceFeed.toLowerCase() !== priceFeed.toLowerCase()) {
         await executeOrPropose(auditor, "setPriceFeed", [market.address, priceFeed]);

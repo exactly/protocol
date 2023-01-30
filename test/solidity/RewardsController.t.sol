@@ -55,7 +55,7 @@ contract RewardsControllerTest is Test {
       0.42e18
     );
     vm.label(address(marketUSDC), "MarketUSDC");
-    auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.8e18, 18);
+    auditor.enableMarket(marketUSDC, new MockPriceFeed(18, 1e18), 0.8e18);
 
     marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
     marketWETH.initialize(
@@ -69,7 +69,7 @@ contract RewardsControllerTest is Test {
       0.42e18
     );
     vm.label(address(marketWETH), "MarketWETH");
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18, 18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18);
 
     marketWBTC = Market(address(new ERC1967Proxy(address(new Market(wbtc, auditor)), "")));
     marketWBTC.initialize(
@@ -83,7 +83,7 @@ contract RewardsControllerTest is Test {
       0.42e18
     );
     vm.label(address(marketWBTC), "MarketWBTC");
-    auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18, 18);
+    auditor.enableMarket(marketWBTC, new MockPriceFeed(18, 20_000e18), 0.9e18);
 
     rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController()), "")));
     rewardsController.initialize();

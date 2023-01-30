@@ -50,8 +50,7 @@ describe("Auditor Admin", function () {
 
   describe("GIVEN a regular account", () => {
     it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0, await dai.decimals())).to.be
-        .reverted;
+      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0)).to.be.reverted;
     });
 
     it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
@@ -80,9 +79,9 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MarketAlreadyListed", async () => {
-      await expect(
-        auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0, await dai.decimals()),
-      ).to.be.revertedWith("MarketAlreadyListed()");
+      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0)).to.be.revertedWith(
+        "MarketAlreadyListed()",
+      );
     });
 
     it("WHEN trying to set a new market with a different auditor, THEN the transaction should revert with AuditorMismatch", async () => {
@@ -91,9 +90,9 @@ describe("Auditor Admin", function () {
         dai.address,
         newAuditor.address,
       );
-      await expect(
-        auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5"), await dai.decimals()),
-      ).to.be.revertedWith("AuditorMismatch()");
+      await expect(auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5"))).to.be.revertedWith(
+        "AuditorMismatch()",
+      );
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
@@ -109,7 +108,7 @@ describe("Auditor Admin", function () {
         dai.address,
         auditor.address,
       );
-      await expect(auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5"), 18))
+      await expect(auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5")))
         .to.emit(auditor, "MarketListed")
         .withArgs(market.address, 18);
     });

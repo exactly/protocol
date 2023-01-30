@@ -98,7 +98,7 @@ export class MarketEnv {
     const MockPriceFeed = (await getContractFactory("MockPriceFeed")) as MockPriceFeed__factory;
     const mockPriceFeed = await MockPriceFeed.deploy(8, parseUnits("1", 8));
     await mockPriceFeed.deployed();
-    await auditor.enableMarket(marketHarness.address, mockPriceFeed.address, parseUnits("0.9"), 18);
+    await auditor.enableMarket(marketHarness.address, mockPriceFeed.address, parseUnits("0.9"));
 
     return new MarketEnv(mockInterestRateModel, marketHarness, asset, owner);
   }

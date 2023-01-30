@@ -34,7 +34,7 @@ contract AuditorTest is Test {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     vm.label(address(auditor), "Auditor");
-    market = new MockMarket(auditor);
+    market = new MockMarket(auditor, 18);
     priceFeed = new MockPriceFeed(18, 1e18);
     vm.label(BOB, "bob");
   }
@@ -43,7 +43,7 @@ contract AuditorTest is Test {
     vm.expectEmit(true, true, true, true, address(auditor));
     emit MarketListed(Market(address(market)), 18);
 
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
 
     (uint256 adjustFactor, uint8 decimals, uint8 index, bool isListed, IPriceFeed oraclePriceFeed) = auditor.markets(
       Market(address(market))
@@ -61,12 +61,12 @@ contract AuditorTest is Test {
   function testEnableMarketShouldRevertWithInvalidPriceFeed() external {
     MockPriceFeed invalidPriceFeed = new MockPriceFeed(8, 1e8);
     vm.expectRevert(InvalidPriceFeed.selector);
-    auditor.enableMarket(Market(address(market)), invalidPriceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), invalidPriceFeed, 0.8e18);
   }
 
   function testEnterExitMarket() external {
     market.setCollateral(1 ether);
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
 
     vm.expectEmit(true, false, false, true, address(auditor));
     emit MarketEntered(Market(address(market)), address(this));
@@ -86,8 +86,8 @@ contract AuditorTest is Test {
   function testEnableEnterExitMultipleMarkets() external {
     Market[] memory markets = new Market[](4);
     for (uint8 i = 0; i < markets.length; i++) {
-      markets[i] = Market(address(new MockMarket(auditor)));
-      auditor.enableMarket(markets[i], priceFeed, 0.8e18, 18);
+      markets[i] = Market(address(new MockMarket(auditor, 18)));
+      auditor.enableMarket(markets[i], priceFeed, 0.8e18);
       auditor.enterMarket(markets[i]);
     }
 
@@ -99,7 +99,7 @@ contract AuditorTest is Test {
   }
 
   function testExitMarketOwning() external {
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
     vm.expectRevert(RemainingDebt.selector);
@@ -107,25 +107,25 @@ contract AuditorTest is Test {
   }
 
   function testEnableMarketAlreadyListed() external {
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
     vm.expectRevert(MarketAlreadyListed.selector);
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
   }
 
   function testEnableMarketAuditorMismatch() external {
     market.setAuditor(address(0));
     vm.expectRevert(AuditorMismatch.selector);
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
   }
 
   function testBorrowMPValidation() external {
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
     auditor.enterMarket(Market(address(market)));
     auditor.checkBorrow(Market(address(market)), address(this));
   }
 
   function testBorrowMPValidationRevert() external {
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
     vm.expectRevert(InsufficientAccountLiquidity.selector);
@@ -133,13 +133,13 @@ contract AuditorTest is Test {
   }
 
   function testAccountShortfall() external {
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
     auditor.enterMarket(Market(address(market)));
     auditor.checkShortfall(Market(address(market)), address(this), 1);
   }
 
   function testAccountShortfallRevert() external {
-    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18, 18);
+    auditor.enableMarket(Market(address(market)), priceFeed, 0.8e18);
     auditor.enterMarket(Market(address(market)));
     market.setDebt(1);
     vm.expectRevert(InsufficientAccountLiquidity.selector);
@@ -149,8 +149,8 @@ contract AuditorTest is Test {
   function testDynamicCloseFactor() external {
     Market[] memory markets = new Market[](4);
     for (uint8 i = 0; i < markets.length; i++) {
-      markets[i] = Market(address(new MockMarket(auditor)));
-      auditor.enableMarket(markets[i], priceFeed, 0.9e18 - (i * 0.1e18), 18 - (i * 3));
+      markets[i] = Market(address(new MockMarket(auditor, 18 - (i * 3))));
+      auditor.enableMarket(markets[i], priceFeed, 0.9e18 - (i * 0.1e18));
 
       vm.prank(BOB);
       auditor.enterMarket(markets[i]);
@@ -166,9 +166,11 @@ contract MockMarket {
   Auditor public auditor;
   uint256 internal collateral;
   uint256 internal debt;
+  uint8 public immutable decimals;
 
-  constructor(Auditor auditor_) {
+  constructor(Auditor auditor_, uint8 decimals_) {
     auditor = auditor_;
+    decimals = decimals_;
   }
 
   function setAuditor(address auditor_) external {

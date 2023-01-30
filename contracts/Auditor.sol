@@ -341,17 +341,16 @@ contract Auditor is Initializable, AccessControlUpgradeable {
   /// @param market market to add to the protocol.
   /// @param priceFeed address of Chainlink's Price Feed aggregator used to query the asset price in base.
   /// @param adjustFactor market's adjust factor for the underlying asset.
-  /// @param decimals decimals of the market's underlying asset.
   function enableMarket(
     Market market,
     IPriceFeed priceFeed,
-    uint128 adjustFactor,
-    uint8 decimals
+    uint128 adjustFactor
   ) external onlyRole(DEFAULT_ADMIN_ROLE) {
     if (market.auditor() != this) revert AuditorMismatch();
     if (markets[market].isListed) revert MarketAlreadyListed();
     if (address(priceFeed) != BASE_FEED && priceFeed.decimals() != priceDecimals) revert InvalidPriceFeed();
 
+    uint8 decimals = market.decimals();
     markets[market] = MarketData({
       isListed: true,
       adjustFactor: adjustFactor,

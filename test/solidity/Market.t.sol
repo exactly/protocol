@@ -70,8 +70,8 @@ contract MarketTest is Test {
     );
     vm.label(address(marketWETH), "MarketWETH");
 
-    auditor.enableMarket(market, daiPriceFeed, 0.8e18, 18);
-    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18, 18);
+    auditor.enableMarket(market, daiPriceFeed, 0.8e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.9e18);
     auditor.enterMarket(marketWETH);
 
     vm.label(BOB, "Bob");
@@ -534,7 +534,7 @@ contract MarketTest is Test {
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
     marketHarness.approve(BOB, 50_000 ether);
-    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18, 18);
+    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18);
 
     marketHarness.setFloatingAssets(500 ether);
     marketHarness.setSupply(2000 ether);
@@ -568,7 +568,7 @@ contract MarketTest is Test {
     uint256 maturity = FixedLib.INTERVAL * 2;
     asset.mint(address(this), 50_000 ether);
     asset.approve(address(marketHarness), 50_000 ether);
-    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18, 18);
+    auditor.enableMarket(marketHarness, daiPriceFeed, 0.8e18);
 
     marketHarness.setFloatingAssets(500 ether);
     marketHarness.setSupply(2000 ether);
@@ -2311,7 +2311,7 @@ contract MarketTest is Test {
       MockStETH.getPooledEthByShares.selector,
       1e18
     );
-    auditor.enableMarket(marketStETH, priceFeedWrapper, 0.8e18, 18);
+    auditor.enableMarket(marketStETH, priceFeedWrapper, 0.8e18);
 
     stETH.mint(address(this), 50_000 ether);
     stETH.approve(address(marketStETH), type(uint256).max);
@@ -2342,7 +2342,7 @@ contract MarketTest is Test {
       new MockPriceFeed(18, 14 ether),
       new MockPriceFeed(8, 99000000)
     );
-    auditor.enableMarket(marketWBTC, priceFeedDouble, 0.8e18, 8);
+    auditor.enableMarket(marketWBTC, priceFeedDouble, 0.8e18);
 
     wbtc.mint(address(this), 50_000e8);
     wbtc.approve(address(marketWBTC), type(uint256).max);
@@ -2375,7 +2375,7 @@ contract MarketTest is Test {
         0.42e18
       );
 
-      auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18, 18);
+      auditor.enableMarket(markets[i], daiPriceFeed, 0.8e18);
       asset.mint(BOB, 50_000 ether);
       asset.mint(address(this), 50_000 ether);
       vm.prank(BOB);
