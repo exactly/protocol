@@ -136,8 +136,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
     }
     for (uint256 r = 0; r < rewardsList.length; ) {
-      rewardsList[r].safeTransfer(to, claimedAmounts[r]);
-      emit Claim(msg.sender, rewardsList[r], to, claimedAmounts[r]);
+      if (claimedAmounts[r] > 0) {
+        rewardsList[r].safeTransfer(to, claimedAmounts[r]);
+        emit Claim(msg.sender, rewardsList[r], to, claimedAmounts[r]);
+      }
       unchecked {
         ++r;
       }
@@ -343,6 +345,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardData.lastUndistributed = newUndistributed;
       rewardData.borrowIndex = borrowIndex;
       rewardData.depositIndex = depositIndex;
+      emit IndexUpdate(market, reward, borrowIndex, depositIndex, newUndistributed, block.timestamp);
     }
 
     for (uint256 i = 0; i < ops.length; ) {
@@ -358,7 +361,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         if (ops[i].balance != 0) {
           uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
           rewardData.accounts[account][ops[i].operation].accrued += rewardsAccrued;
-          emit Accrue(market, reward, account, newAccountIndex, newAccountIndex, rewardsAccrued);
+          emit Accrue(market, reward, account, ops[i].operation, accountIndex, newAccountIndex, rewardsAccrued);
         }
       }
       unchecked {
@@ -691,7 +694,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         1e18 / configs[i].distributionPeriod
       );
 
-      emit DistributionSet(configs[i].market, configs[i].reward);
+      emit DistributionSet(configs[i].market, configs[i].reward, configs[i]);
       unchecked {
         ++i;
       }
@@ -799,10 +802,19 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     Market indexed market,
     ERC20 indexed reward,
     address indexed account,
-    uint256 operationIndex,
+    Operation operation,
     uint256 accountIndex,
+    uint256 operationIndex,
     uint256 rewardsAccrued
   );
   event Claim(address indexed account, ERC20 indexed reward, address indexed to, uint256 amount);
-  event DistributionSet(Market indexed market, ERC20 indexed reward);
+  event DistributionSet(Market indexed market, ERC20 indexed reward, Config config);
+  event IndexUpdate(
+    Market indexed market,
+    ERC20 indexed reward,
+    uint256 borrowIndex,
+    uint256 depositIndex,
+    uint256 newUndistributed,
+    uint256 lastUpdate
+  );
 }

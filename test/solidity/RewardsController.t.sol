@@ -725,6 +725,111 @@ contract RewardsControllerTest is Test {
     assertEq(opRewardAsset.balanceOf(address(rewardsController)), 0);
   }
 
+  function testEmitClaimRewards() external {
+    marketWETH.deposit(100 ether, address(this));
+    marketWETH.borrow(20 ether, address(this), address(this));
+
+    vm.warp(1 days);
+    uint256 rewards = rewardsController.allClaimable(address(this), opRewardAsset);
+    vm.expectEmit(true, true, true, true, address(rewardsController));
+    emit Claim(address(this), opRewardAsset, address(this), rewards);
+    rewardsController.claimAll(address(this));
+  }
+
+  function testEmitAccrue() external {
+    marketWETH.deposit(100 ether, address(this));
+    marketWETH.borrow(20 ether, address(this), address(this));
+
+    vm.warp(1 days);
+    (uint256 borrowIndex, uint256 depositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset);
+    vm.expectEmit(true, true, true, true, address(rewardsController));
+    emit Accrue(
+      marketWETH,
+      opRewardAsset,
+      address(this),
+      RewardsController.Operation.Borrow,
+      0,
+      borrowIndex,
+      409876612891463680
+    );
+    rewardsController.claimAll(address(this));
+
+    vm.warp(2 days);
+    (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset);
+    vm.expectEmit(true, true, true, true, address(rewardsController));
+    emit Accrue(
+      marketWETH,
+      opRewardAsset,
+      address(this),
+      RewardsController.Operation.Deposit,
+      depositIndex,
+      newDepositIndex,
+      344353723509616000
+    );
+    marketWETH.deposit(10 ether, address(this));
+  }
+
+  function testEmitIndexUpdate() external {
+    marketWETH.deposit(100 ether, address(this));
+    marketWETH.borrow(20 ether, address(this), address(this));
+
+    vm.warp(1 days);
+    (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = rewardsController.previewAllocation(
+      marketWETH,
+      opRewardAsset
+    );
+    vm.expectEmit(true, true, true, true, address(rewardsController));
+    emit IndexUpdate(marketWETH, opRewardAsset, borrowIndex, depositIndex, newUndistributed, block.timestamp);
+    rewardsController.claimAll(address(this));
+
+    vm.warp(2 days);
+    (borrowIndex, depositIndex, newUndistributed) = rewardsController.previewAllocation(marketWETH, opRewardAsset);
+    vm.expectEmit(true, true, true, true, address(rewardsController));
+    emit IndexUpdate(marketWETH, opRewardAsset, borrowIndex, depositIndex, newUndistributed, block.timestamp);
+    rewardsController.claimAll(address(this));
+  }
+
+  function testEmitConfigUpdate() external {
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: marketUSDC,
+      reward: opRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 20_000e6,
+      totalDistribution: 2_000 ether,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.5e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    vm.expectEmit(true, true, true, true, address(rewardsController));
+    emit DistributionSet(configs[0].market, configs[0].reward, configs[0]);
+    rewardsController.config(configs);
+
+    configs[0] = RewardsController.Config({
+      market: marketWBTC,
+      reward: opRewardAsset,
+      priceFeed: IPriceFeed(address(0)),
+      targetDebt: 20_000e8,
+      totalDistribution: 2_000 ether,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.0005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.81e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    vm.expectEmit(true, true, true, true, address(rewardsController));
+    emit DistributionSet(configs[0].market, configs[0].reward, configs[0]);
+    rewardsController.config(configs);
+  }
+
   function testSetDistributionConfigWithDifferentDecimals() external {
     MockERC20 rewardAsset = new MockERC20("Reward", "RWD", 10);
     MockERC20 asset = new MockERC20("Asset", "AST", 6);
@@ -1038,4 +1143,24 @@ contract RewardsControllerTest is Test {
     uint256 undistributedFactor;
     uint256 lastUndistributed;
   }
+
+  event Accrue(
+    Market indexed market,
+    ERC20 indexed reward,
+    address indexed account,
+    RewardsController.Operation operation,
+    uint256 accountIndex,
+    uint256 operationIndex,
+    uint256 rewardsAccrued
+  );
+  event Claim(address indexed account, ERC20 indexed reward, address indexed to, uint256 amount);
+  event DistributionSet(Market indexed market, ERC20 indexed reward, RewardsController.Config config);
+  event IndexUpdate(
+    Market indexed market,
+    ERC20 indexed reward,
+    uint256 borrowIndex,
+    uint256 depositIndex,
+    uint256 newUndistributed,
+    uint256 lastUpdate
+  );
 }
