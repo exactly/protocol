@@ -340,7 +340,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
     RewardData storage rewardData = distribution[market].rewards[reward];
     {
-      (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(rewardData, market);
+      (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(
+        rewardData,
+        market,
+        block.timestamp - rewardData.lastUpdate
+      );
       rewardData.lastUpdate = uint32(block.timestamp);
       rewardData.lastUndistributed = newUndistributed;
       rewardData.borrowIndex = borrowIndex;
@@ -418,7 +422,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     unchecked {
       baseUnit = 10 ** distribution[ops.market].decimals;
     }
-    (uint256 borrowIndex, uint256 depositIndex, ) = previewAllocation(rewardData, ops.market);
+    (uint256 borrowIndex, uint256 depositIndex, ) = previewAllocation(
+      rewardData,
+      ops.market,
+      block.timestamp - rewardData.lastUpdate
+    );
     for (uint256 o = 0; o < ops.accountOperations.length; ) {
       uint256 nextIndex;
       if (ops.accountOperations[o].operation == Operation.Borrow) {
@@ -457,25 +465,29 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @notice Retrieves updated distribution indexes.
   /// @param market The market to calculate the indexes for.
   /// @param reward The reward asset to calculate the indexes for.
+  /// @param deltaTime The elapsed time since the last update.
   /// @return borrowIndex The index for the borrow operation.
   /// @return depositIndex The index for the deposit operation.
   /// @return newUndistributed The undistributed rewards for the distribution.
   function previewAllocation(
     Market market,
-    ERC20 reward
+    ERC20 reward,
+    uint256 deltaTime
   ) external view returns (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) {
-    return previewAllocation(distribution[market].rewards[reward], market);
+    return previewAllocation(distribution[market].rewards[reward], market, deltaTime);
   }
 
   /// @notice Internal function for the calculation of the distribution's indexes.
   /// @param rewardData The distribution's data.
   /// @param market The market to calculate the indexes for.
+  /// @param deltaTime The elapsed time since the last update.
   /// @return borrowIndex The index for the borrow operation.
   /// @return depositIndex The index for the deposit operation.
   /// @return newUndistributed The undistributed rewards for the distribution.
   function previewAllocation(
     RewardData storage rewardData,
-    Market market
+    Market market,
+    uint256 deltaTime
   ) internal view returns (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) {
     TotalMarketBalance memory m;
     m.debt = market.totalFloatingBorrowAssets();
@@ -504,13 +516,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       uint256 targetDebt = rewardData.targetDebt;
       target = m.debt < targetDebt ? m.debt.divWadDown(targetDebt) : 1e18;
     }
-    uint256 distributionFactor = rewardData.undistributedFactor.mulWadDown(target);
     uint256 rewards;
     {
       uint256 lastUndistributed = rewardData.lastUndistributed;
+      uint256 distributionFactor = rewardData.undistributedFactor.mulWadDown(target);
       if (block.timestamp <= rewardData.end) {
         uint256 mintingRate = rewardData.mintingRate;
-        uint256 deltaTime = block.timestamp - rewardData.lastUpdate;
         if (distributionFactor > 0) {
           uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
@@ -531,9 +542,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           );
         rewards = rewardData.targetDebt.mulWadDown(uint256(-(int256(newUndistributed) - int256(lastUndistributed))));
       } else {
-        uint256 mintingRate = rewardData.mintingRate;
-        uint256 deltaTime = rewardData.end - rewardData.lastUpdate;
         uint256 exponential;
+        uint256 mintingRate = rewardData.mintingRate;
+        deltaTime = rewardData.end - rewardData.lastUpdate;
         if (distributionFactor > 0) {
           exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =

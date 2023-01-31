@@ -61,6 +61,7 @@ contract Previewer {
 
   struct RewardRate {
     ERC20 asset;
+    uint256 usdPrice;
     uint256 borrow;
     uint256 floatingDeposit;
     uint256[] maturities;
@@ -150,7 +151,7 @@ contract Previewer {
         adjustFactor: m.adjustFactor,
         maxFuturePools: market.maxFuturePools(),
         fixedPools: fixedPools(market),
-        rewardRates: rewardRates(market),
+        rewardRates: rewardRates(market, basePrice),
         floatingBorrowRate: irm.floatingRate(
           market.floatingAssets() > 0 ? Math.min(market.floatingDebt().divWadUp(market.floatingAssets()), 1e18) : 0
         ),
@@ -401,7 +402,7 @@ contract Previewer {
     }
   }
 
-  function rewardRates(Market market) internal view returns (RewardRate[] memory rewards) {
+  function rewardRates(Market market, uint256 basePrice) internal view returns (RewardRate[] memory rewards) {
     RewardsVars memory r;
     r.controller = market.rewardsController();
     if (address(r.controller) != address(0)) {
@@ -409,12 +410,17 @@ contract Previewer {
       unchecked {
         r.underlyingBaseUnit = 10 ** r.underlyingDecimals;
       }
+      r.deltaTime = 1 hours;
       r.rewardList = r.controller.allRewards();
       rewards = new RewardRate[](r.rewardList.length);
       for (r.i = 0; r.i < r.rewardList.length; ++r.i) {
-        (r.rewardPriceFeed, r.lastUpdate, , , , ) = r.controller.rewardsData(market, r.rewardList[r.i]);
+        (r.rewardPriceFeed, , , , , ) = r.controller.rewardsData(market, r.rewardList[r.i]);
         (r.borrowIndex, r.depositIndex) = r.controller.rewardIndexes(market, r.rewardList[r.i]);
-        (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(market, r.rewardList[r.i]);
+        (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(
+          market,
+          r.rewardList[r.i],
+          r.deltaTime
+        );
         (r.start, ) = r.controller.distributionTime(market, r.rewardList[r.i]);
         r.firstMaturity = r.start - (r.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
         r.maxMaturity =
@@ -432,28 +438,33 @@ contract Previewer {
         }
         rewards[r.i] = RewardRate({
           asset: r.rewardList[r.i],
-          borrow: (r.projectedBorrowIndex - r.borrowIndex)
-            .mulDivDown(market.totalFloatingBorrowShares(), r.underlyingBaseUnit)
-            .mulDivDown(auditor.assetPrice(r.rewardPriceFeed), 10 ** r.rewardPriceFeed.decimals())
-            .mulDivDown(
-              1e18,
-              market.totalFloatingBorrowAssets().mulDivDown(
-                auditor.assetPrice(r.underlyingPriceFeed),
-                10 ** r.underlyingPriceFeed.decimals()
+          usdPrice: auditor.assetPrice(r.rewardPriceFeed).mulWadDown(basePrice),
+          borrow: market.totalFloatingBorrowAssets() > 0
+            ? (r.projectedBorrowIndex - r.borrowIndex)
+              .mulDivDown(market.totalFloatingBorrowShares(), r.underlyingBaseUnit)
+              .mulDivDown(auditor.assetPrice(r.rewardPriceFeed), 10 ** r.rewardPriceFeed.decimals())
+              .mulDivDown(
+                1e18,
+                market.totalFloatingBorrowAssets().mulDivDown(
+                  auditor.assetPrice(r.underlyingPriceFeed),
+                  10 ** r.underlyingPriceFeed.decimals()
+                )
               )
-            )
-            .mulDivDown(365 days, block.timestamp - r.lastUpdate),
-          floatingDeposit: (r.projectedDepositIndex - r.depositIndex)
-            .mulDivDown(market.totalSupply(), r.underlyingBaseUnit)
-            .mulDivDown(auditor.assetPrice(r.rewardPriceFeed), 10 ** r.rewardPriceFeed.decimals())
-            .mulDivDown(
-              1e18,
-              market.totalAssets().mulDivDown(
-                auditor.assetPrice(r.underlyingPriceFeed),
-                10 ** r.underlyingPriceFeed.decimals()
+              .mulDivDown(365 days, r.deltaTime)
+            : 0,
+          floatingDeposit: market.totalAssets() > 0
+            ? (r.projectedDepositIndex - r.depositIndex)
+              .mulDivDown(market.totalSupply(), r.underlyingBaseUnit)
+              .mulDivDown(auditor.assetPrice(r.rewardPriceFeed), 10 ** r.rewardPriceFeed.decimals())
+              .mulDivDown(
+                1e18,
+                market.totalAssets().mulDivDown(
+                  auditor.assetPrice(r.underlyingPriceFeed),
+                  10 ** r.underlyingPriceFeed.decimals()
+                )
               )
-            )
-            .mulDivDown(365 days, block.timestamp - r.lastUpdate),
+              .mulDivDown(365 days, r.deltaTime)
+            : 0,
           maturities: r.maturities
         });
       }
@@ -565,6 +576,7 @@ contract Previewer {
     IPriceFeed rewardPriceFeed;
     ERC20[] rewardList;
     uint256 underlyingDecimals;
+    uint256 deltaTime;
     uint256 i;
     uint256 start;
     uint256 maturity;

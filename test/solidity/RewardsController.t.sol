@@ -741,7 +741,11 @@ contract RewardsControllerTest is Test {
     marketWETH.borrow(20 ether, address(this), address(this));
 
     vm.warp(1 days);
-    (uint256 borrowIndex, uint256 depositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset);
+    (uint256 borrowIndex, uint256 depositIndex, ) = rewardsController.previewAllocation(
+      marketWETH,
+      opRewardAsset,
+      1 days
+    );
     vm.expectEmit(true, true, true, true, address(rewardsController));
     emit Accrue(
       marketWETH,
@@ -755,7 +759,7 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
 
     vm.warp(2 days);
-    (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset);
+    (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset, 1 days);
     vm.expectEmit(true, true, true, true, address(rewardsController));
     emit Accrue(
       marketWETH,
@@ -776,14 +780,19 @@ contract RewardsControllerTest is Test {
     vm.warp(1 days);
     (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = rewardsController.previewAllocation(
       marketWETH,
-      opRewardAsset
+      opRewardAsset,
+      1 days
     );
     vm.expectEmit(true, true, true, true, address(rewardsController));
     emit IndexUpdate(marketWETH, opRewardAsset, borrowIndex, depositIndex, newUndistributed, block.timestamp);
     rewardsController.claimAll(address(this));
 
     vm.warp(2 days);
-    (borrowIndex, depositIndex, newUndistributed) = rewardsController.previewAllocation(marketWETH, opRewardAsset);
+    (borrowIndex, depositIndex, newUndistributed) = rewardsController.previewAllocation(
+      marketWETH,
+      opRewardAsset,
+      1 days
+    );
     vm.expectEmit(true, true, true, true, address(rewardsController));
     emit IndexUpdate(marketWETH, opRewardAsset, borrowIndex, depositIndex, newUndistributed, block.timestamp);
     rewardsController.claimAll(address(this));

@@ -605,6 +605,7 @@ contract PreviewerTest is Test {
     });
     rewardsController.config(configs);
     market.setRewardsController(rewardsController);
+    uint256 deltaTime = 1 hours;
     uint256 depositAmount = 10_000 ether;
     uint256 floatingBorrowAmount = 2_000 ether;
     uint256 fixedBorrowAmount = 1_000 ether;
@@ -617,20 +618,20 @@ contract PreviewerTest is Test {
     assertEq(data[0].rewardRates.length, 1);
     assertEq(address(data[0].rewardRates[0].asset), address(rewardAsset));
 
-    uint256 newDepositRewards = 4847611669910233865;
+    uint256 newDepositRewards = 2803234799168158;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
     );
-    uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, 1 weeks);
+    uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, deltaTime);
     assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 2e14);
 
-    uint256 newFloatingBorrowRewards = 65684926764759166000;
+    uint256 newFloatingBorrowRewards = 37983709303842000;
     uint256 newFloatingBorrowRewardsValue = newFloatingBorrowRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
     );
-    annualRewardValue = newFloatingBorrowRewardsValue.mulDivDown(365 days, 1 weeks);
+    annualRewardValue = newFloatingBorrowRewardsValue.mulDivDown(365 days, deltaTime);
     assertApproxEqAbs(data[0].rewardRates[0].borrow, annualRewardValue.mulDivDown(1e18, floatingBorrowAmount), 4e16);
 
     assertEq(data[0].rewardRates[0].maturities[0], FixedLib.INTERVAL);
@@ -646,6 +647,76 @@ contract PreviewerTest is Test {
     assertEq(data[0].claimableRewards.length, 1);
     assertEq(address(data[0].claimableRewards[0].asset), address(rewardAsset));
     assertEq(data[0].claimableRewards[0].amount, rewardsController.allClaimable(address(this), rewardAsset));
+  }
+
+  function testJustUpdatedRewardRatesShouldStillReturnRate() external {
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    rewardAsset.mint(address(rewardsController), 500_000 ether);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+    market.deposit(10_000 ether, address(this));
+    market.borrow(2_000 ether, address(this), address(this));
+    vm.warp(block.timestamp + 1 weeks);
+    market.borrow(0, address(this), address(this));
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].rewardRates.length, 1);
+    assertEq(data[0].rewardRates[0].maturities.length, 12);
+    assertGt(data[0].rewardRates[0].borrow, 0);
+  }
+
+  function testReturnRewardAssetUsdPrice() external {
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    opPriceFeed = new MockPriceFeed(18, 0.002e18);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].rewardRates.length, 1);
+    assertEq(data[0].rewardRates[0].maturities.length, 12);
+    assertEq(data[0].rewardRates[0].floatingDeposit, 0);
+    assertEq(data[0].rewardRates[0].borrow, 0);
+    assertEq(data[0].rewardRates[0].usdPrice, 2e18);
+
+    opPriceFeed.setPrice(0.005e18);
+    data = previewer.exactly(address(this));
+    assertEq(data[0].rewardRates[0].usdPrice, 5e18);
   }
 
   function testFloatingRateAndUtilization() external {
