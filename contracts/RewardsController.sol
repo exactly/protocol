@@ -147,53 +147,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return (rewardsList, claimedAmounts);
   }
 
-  /// @notice Gets the data of the rewards' distribution model for a given market and reward asset.
-  /// @param market The market to get the distribution model for.
-  /// @param reward The reward asset to get the distribution model for.
-  /// @return priceFeed The price feed of the reward asset.
-  /// @return lastUpdate The last time the rewardsData was updated.
-  /// @return targetDebt The target debt.
-  /// @return mintingRate The minting rate.
-  /// @return undistributedFactor The undistributed factor.
-  /// @return lastUndistributed The last undistributed amount.
-  function rewardsData(
-    Market market,
-    ERC20 reward
-  ) external view returns (IPriceFeed, uint256, uint256, uint256, uint256, uint256) {
-    return (
-      distribution[market].rewards[reward].priceFeed,
-      distribution[market].rewards[reward].lastUpdate,
-      distribution[market].rewards[reward].targetDebt,
-      distribution[market].rewards[reward].mintingRate,
-      distribution[market].rewards[reward].undistributedFactor,
-      distribution[market].rewards[reward].lastUndistributed
-    );
-  }
-
-  /// @notice Gets the data of the rewards' allocation model for a given market and reward asset.
-  /// @param market The market to get the allocation model for.
-  /// @param reward The reward asset to get the allocation model for.
-  /// @return flipSpeed The flip speed.
-  /// @return compensationFactor The compensation factor.
-  /// @return transitionFactor The transition factor.
-  /// @return borrowAllocationWeightFactor The borrow allocation weight factor (`μ1`).
-  /// @return depositAllocationWeightAddend The deposit allocation weight addend (`μ2`).
-  /// @return depositAllocationWeightFactor The deposit allocation weight factor (`μ3`).
-  function rewardAllocationParams(
-    Market market,
-    ERC20 reward
-  ) external view returns (int256, uint256, uint256, uint256, uint256, uint256) {
-    return (
-      distribution[market].rewards[reward].flipSpeed,
-      distribution[market].rewards[reward].compensationFactor,
-      distribution[market].rewards[reward].transitionFactor,
-      distribution[market].rewards[reward].borrowAllocationWeightFactor,
-      distribution[market].rewards[reward].depositAllocationWeightAddend,
-      distribution[market].rewards[reward].depositAllocationWeightFactor
-    );
-  }
-
-  function rewardsConfig(Market market, ERC20 reward) external view returns (Config memory) {
+  /// @notice Gets the configuration of a given distribution.
+  /// @param market The market to get the distribution configuration for.
+  /// @param reward The reward asset to get the distribution configuration for.
+  /// @return The distribution configuration.
+  function rewardConfig(Market market, ERC20 reward) external view returns (Config memory) {
     RewardData storage rewardData = distribution[market].rewards[reward];
     return
       Config({
@@ -213,6 +171,32 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       });
   }
 
+  /// @notice Gets the amount of available rewards for a given market.
+  /// @param market The market to get the available rewards for.
+  /// @return availableRewardsCount The amount of available rewards.
+  function availableRewardsCount(Market market) external view returns (uint256) {
+    return distribution[market].availableRewardsCount;
+  }
+
+  /// @notice Gets the operation data for a given account, market, operation and reward asset.
+  /// @param account The account to get the operation data for.
+  /// @param market The market to get the operation data for.
+  /// @param operation The operation to get the operation data for.
+  /// @param reward The reward asset to get the operation data for.
+  /// @return accrued The accrued amount.
+  /// @return index The account index.
+  function accountOperation(
+    address account,
+    Market market,
+    Operation operation,
+    ERC20 reward
+  ) external view returns (uint256, uint256) {
+    return (
+      distribution[market].rewards[reward].accounts[account][operation].accrued,
+      distribution[market].rewards[reward].accounts[account][operation].index
+    );
+  }
+
   /// @notice Gets the decimals of a given market.
   /// @param market The market to get the decimals for.
   /// @return decimals The decimals of the market.
@@ -220,18 +204,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return distribution[market].decimals;
   }
 
-  /// @notice Gets the distribution start time of a given market.
-  /// @param market The market to get the distribution start time for.
-  /// @return The distribution start and end time.
-  function distributionTime(Market market, ERC20 reward) external view returns (uint32, uint32) {
-    return (distribution[market].rewards[reward].start, distribution[market].rewards[reward].end);
-  }
-
-  /// @notice Gets the amount of available rewards for a given market.
-  /// @param market The market to get the available rewards for.
-  /// @return availableRewardsCount The amount of available rewards.
-  function availableRewardsCount(Market market) external view returns (uint256) {
-    return distribution[market].availableRewardsCount;
+  /// @notice Gets the distribution start, end, lastUpdate and lastUndistributed value of a given market and reward.
+  /// @param market The market to get the distribution times and lastUndistributed for.
+  /// @return The distribution start, end, lastUpdate time and lastUndistributed value.
+  function distributionTime(Market market, ERC20 reward) external view returns (uint32, uint32, uint32, uint256) {
+    return (
+      distribution[market].rewards[reward].start,
+      distribution[market].rewards[reward].end,
+      distribution[market].rewards[reward].lastUpdate,
+      distribution[market].rewards[reward].lastUndistributed
+    );
   }
 
   /// @notice Retrieves all rewards addresses.
@@ -253,25 +235,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         ++m;
       }
     }
-  }
-
-  /// @notice Gets the operation data for a given account, market, operation and reward asset.
-  /// @param account The account to get the operation data for.
-  /// @param market The market to get the operation data for.
-  /// @param operation The operation to get the operation data for.
-  /// @param reward The reward asset to get the operation data for.
-  /// @return accrued The accrued amount.
-  /// @return index The account index.
-  function accountOperation(
-    address account,
-    Market market,
-    Operation operation,
-    ERC20 reward
-  ) external view returns (uint256, uint256) {
-    return (
-      distribution[market].rewards[reward].accounts[account][operation].accrued,
-      distribution[market].rewards[reward].accounts[account][operation].index
-    );
   }
 
   /// @notice Gets the claimable amount of rewards for a given account and reward asset.
@@ -657,16 +620,16 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         // never initialized before, adding to the list of markets
         marketList.push(configs[i].market);
       }
-      RewardData storage rewardConfig = distribution[configs[i].market].rewards[configs[i].reward];
+      RewardData storage rewardData = distribution[configs[i].market].rewards[configs[i].reward];
 
       // add reward address to distribution data's available rewards if lastUpdate is zero
-      if (rewardConfig.lastUpdate == 0) {
+      if (rewardData.lastUpdate == 0) {
         distribution[configs[i].market].availableRewards[
           distribution[configs[i].market].availableRewardsCount
         ] = configs[i].reward;
         distribution[configs[i].market].availableRewardsCount++;
         distribution[configs[i].market].decimals = configs[i].market.decimals();
-        rewardConfig.lastUpdate = uint32(block.timestamp);
+        rewardData.lastUpdate = uint32(block.timestamp);
       } else {
         // update global indexes before setting new config
         Operation[] memory ops = new Operation[](1);
@@ -675,7 +638,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           address(0),
           configs[i].market,
           configs[i].reward,
-          accountBalanceOperations(configs[i].market, ops, address(0), rewardConfig.start)
+          accountBalanceOperations(configs[i].market, ops, address(0), rewardData.start)
         );
       }
       // add reward address to global rewards list if still not enabled
@@ -684,24 +647,24 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewardList.push(configs[i].reward);
       }
 
-      uint32 start = rewardConfig.start;
+      uint32 start = rewardData.start;
       if (start == 0) {
         start = uint32(block.timestamp);
-        rewardConfig.start = start;
+        rewardData.start = start;
       }
-      rewardConfig.end = start + uint32(configs[i].distributionPeriod);
-      rewardConfig.priceFeed = configs[i].priceFeed;
+      rewardData.end = start + uint32(configs[i].distributionPeriod);
+      rewardData.priceFeed = configs[i].priceFeed;
       // set emission and distribution parameters
-      rewardConfig.targetDebt = configs[i].targetDebt;
-      rewardConfig.undistributedFactor = configs[i].undistributedFactor;
-      rewardConfig.flipSpeed = configs[i].flipSpeed;
-      rewardConfig.compensationFactor = configs[i].compensationFactor;
-      rewardConfig.transitionFactor = configs[i].transitionFactor;
-      rewardConfig.borrowAllocationWeightFactor = configs[i].borrowAllocationWeightFactor;
-      rewardConfig.depositAllocationWeightAddend = configs[i].depositAllocationWeightAddend;
-      rewardConfig.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;
-      rewardConfig.totalDistribution = configs[i].totalDistribution;
-      rewardConfig.mintingRate = configs[i].totalDistribution.divWadDown(configs[i].targetDebt).mulWadDown(
+      rewardData.targetDebt = configs[i].targetDebt;
+      rewardData.undistributedFactor = configs[i].undistributedFactor;
+      rewardData.flipSpeed = configs[i].flipSpeed;
+      rewardData.compensationFactor = configs[i].compensationFactor;
+      rewardData.transitionFactor = configs[i].transitionFactor;
+      rewardData.borrowAllocationWeightFactor = configs[i].borrowAllocationWeightFactor;
+      rewardData.depositAllocationWeightAddend = configs[i].depositAllocationWeightAddend;
+      rewardData.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;
+      rewardData.totalDistribution = configs[i].totalDistribution;
+      rewardData.mintingRate = configs[i].totalDistribution.divWadDown(configs[i].targetDebt).mulWadDown(
         1e18 / configs[i].distributionPeriod
       );
 

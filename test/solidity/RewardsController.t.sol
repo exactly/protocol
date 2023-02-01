@@ -394,7 +394,17 @@ contract RewardsControllerTest is Test {
     assertEq(rewardsController.allClaimable(BOB, exaRewardAsset), 0);
 
     vm.warp(3 days);
-    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(marketUSDC, opRewardAsset);
+    (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
+    (uint256 projectedBorrowIndex, uint256 projectedDepositIndex, ) = rewardsController.previewAllocation(
+      marketUSDC,
+      opRewardAsset,
+      1 days
+    );
+    uint256 borrowRewards = (projectedBorrowIndex - borrowIndex).mulDivDown(
+      marketUSDC.totalFloatingBorrowShares(),
+      1e6
+    );
+    uint256 depositRewards = (projectedDepositIndex - depositIndex).mulDivDown(marketUSDC.totalAssets(), 1e6);
     uint256 aliceRewards = rewardsController.allClaimable(ALICE, opRewardAsset);
     uint256 bobRewards = rewardsController.allClaimable(BOB, opRewardAsset);
 
@@ -402,7 +412,14 @@ contract RewardsControllerTest is Test {
     assertEq(bobRewards, aliceRewards - aliceFirstRewards);
     assertEq(depositRewards + borrowRewards, (aliceRewards - aliceFirstRewards) + bobRewards);
 
-    (depositRewards, borrowRewards) = previewRewards(marketUSDC, exaRewardAsset);
+    (borrowIndex, depositIndex) = rewardsController.rewardIndexes(marketUSDC, exaRewardAsset);
+    (projectedBorrowIndex, projectedDepositIndex, ) = rewardsController.previewAllocation(
+      marketUSDC,
+      exaRewardAsset,
+      1 days
+    );
+    borrowRewards = (projectedBorrowIndex - borrowIndex).mulDivDown(marketUSDC.totalFloatingBorrowShares(), 1e6);
+    depositRewards = (projectedDepositIndex - depositIndex).mulDivDown(marketUSDC.totalAssets(), 1e6);
     aliceRewards = rewardsController.allClaimable(ALICE, exaRewardAsset);
     bobRewards = rewardsController.allClaimable(BOB, exaRewardAsset);
 
@@ -450,13 +467,13 @@ contract RewardsControllerTest is Test {
     vm.warp(1 days);
     rewardsController.claimAll(address(this));
     uint256 opRewards = rewardsController.allClaimable(address(this), opRewardAsset);
-    (, uint256 lastUpdate, , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
+    (, , uint32 lastUpdate, uint256 lastUndistributed) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
     (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
     assertEq(opRewards, 0);
 
     marketUSDC.deposit(10 ether, address(this));
     marketUSDC.borrow(2 ether, address(this), address(this));
-    (, uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
+    (, , uint32 newLastUpdate, uint256 newLastUndistributed) = rewardsController.distributionTime(
       marketUSDC,
       opRewardAsset
     );
@@ -471,14 +488,24 @@ contract RewardsControllerTest is Test {
 
   function testUpdateWithTotalDebtZeroShouldUpdateLastUndistributed() external {
     marketUSDC.deposit(10 ether, address(this));
-    (, , , , , uint256 lastUndistributed) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
+    (, , , uint256 lastUndistributed) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
 
     vm.warp(1 days);
-    (uint256 depositRewards, uint256 borrowRewards) = previewRewards(marketUSDC, opRewardAsset);
+    (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
+    (uint256 projectedBorrowIndex, uint256 projectedDepositIndex, ) = rewardsController.previewAllocation(
+      marketUSDC,
+      opRewardAsset,
+      1 days
+    );
+    uint256 borrowRewards = (projectedBorrowIndex - borrowIndex).mulDivDown(
+      marketUSDC.totalFloatingBorrowShares(),
+      1e8
+    );
+    uint256 depositRewards = (projectedDepositIndex - depositIndex).mulDivDown(marketUSDC.totalAssets(), 1e8);
     assertEq(depositRewards, 0);
     assertEq(borrowRewards, 0);
     marketUSDC.deposit(10 ether, address(this));
-    (, uint256 newLastUpdate, , , , uint256 newLastUndistributed) = rewardsController.rewardsData(
+    (, , uint32 newLastUpdate, uint256 newLastUndistributed) = rewardsController.distributionTime(
       marketUSDC,
       opRewardAsset
     );
@@ -494,9 +521,10 @@ contract RewardsControllerTest is Test {
     vm.warp(12 weeks);
     uint256 distributedRewards = rewardsController.allClaimable(address(this), opRewardAsset);
     rewardsController.claimAll(address(this));
-    (, , uint256 targetDebt, , , uint256 lastUndistributed) = rewardsController.rewardsData(marketWETH, opRewardAsset);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    (, , , uint256 lastUndistributed) = rewardsController.distributionTime(marketWETH, opRewardAsset);
     assertApproxEqAbs(distributedRewards, 700 ether, 3e18);
-    assertApproxEqAbs(lastUndistributed.mulWadDown(targetDebt), 1_300 ether, 3e18);
+    assertApproxEqAbs(lastUndistributed.mulWadDown(config.targetDebt), 1_300 ether, 3e18);
   }
 
   function testAllClaimableWETH() external {
@@ -580,7 +608,7 @@ contract RewardsControllerTest is Test {
     marketWETH.deposit(10 ether, address(this));
     marketWETH.borrow(1 ether, address(this), address(this));
 
-    (, uint256 distributionEnd) = rewardsController.distributionTime(marketWETH, opRewardAsset);
+    (, uint256 distributionEnd, , ) = rewardsController.distributionTime(marketWETH, opRewardAsset);
     vm.warp(distributionEnd);
     uint256 opRewards = rewardsController.allClaimable(address(this), opRewardAsset);
     vm.warp(distributionEnd + 1);
@@ -662,13 +690,11 @@ contract RewardsControllerTest is Test {
     assertGt(borrowIndex, preBorrowIndex);
     assertGt(depositIndex, preDepositIndex);
 
-    (, uint256 lastUpdate, uint256 targetDebt, , uint256 undistributedFactor, ) = rewardsController.rewardsData(
-      marketWETH,
-      opRewardAsset
-    );
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    (, , uint32 lastUpdate, ) = rewardsController.distributionTime(marketWETH, opRewardAsset);
     assertEq(lastUpdate, block.timestamp);
-    assertEq(targetDebt, 10_000 ether);
-    assertEq(undistributedFactor, 0.6e18);
+    assertEq(config.targetDebt, 10_000 ether);
+    assertEq(config.undistributedFactor, 0.6e18);
 
     rewardsController.claimAll(address(this));
     assertEq(opRewardAsset.balanceOf(address(this)), claimableRewards);
@@ -886,11 +912,22 @@ contract RewardsControllerTest is Test {
       1e18
     );
     uint256 mintingRate = 13778659611;
-    (, , , uint256 mintingRateWETH, , ) = rewardsController.rewardsData(marketWETH, opRewardAsset);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    uint256 mintingRateWETH = config.totalDistribution.divWadDown(config.targetDebt).mulWadDown(
+      1e18 / config.distributionPeriod
+    );
     assertEq(mintingRateWETH, mintingRate * 10 ** (opRewardAsset.decimals() - marketWETH.decimals()));
-    (, , , uint256 mintingRateUSDC, , ) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
+
+    config = rewardsController.rewardConfig(marketUSDC, opRewardAsset);
+    uint256 mintingRateUSDC = config.totalDistribution.divWadDown(config.targetDebt).mulWadDown(
+      1e18 / config.distributionPeriod
+    );
     assertEq(mintingRateUSDC, mintingRate * 10 ** (opRewardAsset.decimals() - marketUSDC.decimals()) + 9e11);
-    (, , , uint256 mintingRateAsset, , ) = rewardsController.rewardsData(market, rewardAsset);
+
+    config = rewardsController.rewardConfig(market, rewardAsset);
+    uint256 mintingRateAsset = config.totalDistribution.divWadDown(config.targetDebt).mulWadDown(
+      1e18 / config.distributionPeriod
+    );
     assertEq(mintingRateAsset, mintingRate * 10 ** (rewardAsset.decimals() - market.decimals()) + 9e3);
   }
 
@@ -914,7 +951,7 @@ contract RewardsControllerTest is Test {
     });
     rewardsController.config(configs);
 
-    (, uint256 lastUpdate, , , , ) = rewardsController.rewardsData(marketUSDC, opRewardAsset);
+    (, , uint256 lastUpdate, ) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
     assertEq(lastUpdate, 2 days);
   }
 
@@ -980,14 +1017,12 @@ contract RewardsControllerTest is Test {
     RewardsController.AccountMarketOperation memory ops
   ) internal view returns (uint256 rewards) {
     uint256 baseUnit = 10 ** rewardsController.decimals(ops.market);
-    (uint256 borrowRewards, uint256 depositRewards) = previewRewards(ops.market, rewardAsset);
-    (uint256 borrowIndex, uint256 depositIndex) = rewardsController.rewardIndexes(ops.market, rewardAsset);
-    {
-      uint256 totalDebt = ops.market.totalFloatingBorrowShares() + totalFixedBorrowShares(ops.market);
-      uint256 totalSupply = ops.market.totalSupply();
-      borrowIndex += totalDebt > 0 ? borrowRewards.mulDivDown(baseUnit, totalDebt) : 0;
-      depositIndex += totalSupply > 0 ? depositRewards.mulDivDown(baseUnit, totalSupply) : 0;
-    }
+    (, , uint32 lastUpdate, ) = rewardsController.distributionTime(ops.market, rewardAsset);
+    (uint256 borrowIndex, uint256 depositIndex, ) = rewardsController.previewAllocation(
+      ops.market,
+      rewardAsset,
+      block.timestamp - lastUpdate
+    );
     for (uint256 o = 0; o < ops.accountOperations.length; ++o) {
       (, uint256 accountIndex) = rewardsController.accountOperation(
         account,
@@ -1006,125 +1041,6 @@ contract RewardsControllerTest is Test {
     }
   }
 
-  function previewRewards(
-    Market market,
-    ERC20 rewardAsset
-  ) internal view returns (uint256 borrowRewards, uint256 depositRewards) {
-    RewardsData memory r;
-    (, r.lastUpdate, r.targetDebt, r.mintingRate, r.undistributedFactor, r.lastUndistributed) = rewardsController
-      .rewardsData(market, rewardAsset);
-    RewardsController.TotalMarketBalance memory m;
-    m.debt = market.totalFloatingBorrowAssets();
-    m.supply = market.totalAssets();
-    {
-      (uint256 distributionStart, ) = rewardsController.distributionTime(market, rewardAsset);
-      uint256 firstMaturity = distributionStart - (distributionStart % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-      uint256 maxMaturity = block.timestamp -
-        (block.timestamp % FixedLib.INTERVAL) +
-        (FixedLib.INTERVAL * market.maxFuturePools());
-      for (uint256 maturity = firstMaturity; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
-        (uint256 borrowed, uint256 supplied) = market.fixedPoolBalance(maturity);
-        m.debt += borrowed;
-        m.supply += supplied;
-      }
-    }
-
-    uint256 target = m.debt < r.targetDebt ? m.debt.divWadDown(r.targetDebt) : 1e18;
-    uint256 distributionFactor = r.undistributedFactor.mulWadDown(target);
-    if (distributionFactor > 0) {
-      uint256 rewards;
-      {
-        (, uint256 distributionEnd) = rewardsController.distributionTime(market, rewardAsset);
-        if (block.timestamp <= distributionEnd) {
-          uint256 deltaTime = block.timestamp - r.lastUpdate;
-          uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
-          uint256 newUndistributed = r.lastUndistributed +
-            r.mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
-            r.lastUndistributed.mulWadDown(1e18 - exponential);
-          rewards = r.targetDebt.mulWadDown(
-            uint256(int256(r.mintingRate * deltaTime) - (int256(newUndistributed) - int256(r.lastUndistributed)))
-          );
-        } else if (r.lastUpdate > distributionEnd) {
-          uint256 newUndistributed = r.lastUndistributed -
-            r.lastUndistributed.mulWadDown(
-              1e18 - uint256((-int256(distributionFactor * (block.timestamp - r.lastUpdate))).expWad())
-            );
-          rewards = r.targetDebt.mulWadDown(uint256(-(int256(newUndistributed) - int256(r.lastUndistributed))));
-        } else {
-          uint256 deltaTime = distributionEnd - r.lastUpdate;
-          uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
-          uint256 newUndistributed = r.lastUndistributed +
-            r.mintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
-            r.lastUndistributed.mulWadDown(1e18 - exponential);
-          exponential = uint256((-int256(distributionFactor * (block.timestamp - distributionEnd))).expWad());
-          newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
-          rewards = r.targetDebt.mulWadDown(
-            uint256(int256(r.mintingRate * deltaTime) - (int256(newUndistributed) - int256(r.lastUndistributed)))
-          );
-        }
-      }
-
-      // reusing vars due to stack too deep
-      (m.debt, m.supply) = allocationFactors(market, m.debt, m.supply, target, rewardAsset);
-      borrowRewards = rewards.mulWadDown(m.debt);
-      depositRewards = rewards.mulWadDown(m.supply);
-    }
-  }
-
-  function allocationFactors(
-    Market market,
-    uint256 totalDebt,
-    uint256 totalDeposits,
-    uint256 target,
-    ERC20 rewardAsset
-  ) internal view returns (uint256, uint256) {
-    RewardsController.AllocationVars memory v;
-    AllocationParams memory p;
-    (
-      p.flipSpeed,
-      p.compensationFactor,
-      p.transitionFactor,
-      p.borrowAllocationWeightFactor,
-      p.depositAllocationWeightAddend,
-      p.depositAllocationWeightFactor
-    ) = rewardsController.rewardAllocationParams(market, rewardAsset);
-    v.utilization = totalDeposits > 0 ? totalDebt.divWadDown(totalDeposits) : 0;
-    v.sigmoid = v.utilization > 0
-      ? uint256(1e18).divWadDown(
-        1e18 +
-          uint256(
-            (-(p.flipSpeed *
-              (int256(v.utilization.divWadDown(1e18 - v.utilization)).lnWad() -
-                int256(p.transitionFactor.divWadDown(1e18 - p.transitionFactor)).lnWad())) / 1e18).expWad()
-          )
-      )
-      : 0;
-    v.borrowRewardRule = p
-      .compensationFactor
-      .mulWadDown(
-        market.interestRateModel().floatingRate(v.utilization).mulWadDown(
-          1e18 - v.utilization.mulWadDown(1e18 - target)
-        ) + p.borrowAllocationWeightFactor
-      )
-      .mulWadDown(1e18 - v.sigmoid);
-    v.depositRewardRule =
-      p.depositAllocationWeightAddend.mulWadDown(1e18 - v.sigmoid) +
-      p.depositAllocationWeightFactor.mulWadDown(p.borrowAllocationWeightFactor).mulWadDown(v.sigmoid);
-    v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
-    v.depositAllocation = 1e18 - v.borrowAllocation;
-    return (v.borrowAllocation, v.depositAllocation);
-  }
-
-  function totalFixedBorrowShares(Market market) internal view returns (uint256 fixedDebt) {
-    for (uint256 i = 0; i < market.maxFuturePools(); i++) {
-      (uint256 borrowed, , , ) = market.fixedPools(
-        block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL * (i + 1)
-      );
-      fixedDebt += borrowed;
-    }
-    fixedDebt = market.previewRepay(fixedDebt);
-  }
-
   function accountFixedBorrowShares(Market market, address account) internal view returns (uint256 fixedDebt) {
     for (uint256 i = 0; i < market.maxFuturePools(); i++) {
       (uint256 principal, ) = market.fixedBorrowPositions(
@@ -1134,23 +1050,6 @@ contract RewardsControllerTest is Test {
       fixedDebt += principal;
     }
     fixedDebt = market.previewRepay(fixedDebt);
-  }
-
-  struct AllocationParams {
-    int256 flipSpeed;
-    uint256 compensationFactor;
-    uint256 transitionFactor;
-    uint256 borrowAllocationWeightFactor;
-    uint256 depositAllocationWeightAddend;
-    uint256 depositAllocationWeightFactor;
-  }
-
-  struct RewardsData {
-    uint256 lastUpdate;
-    uint256 targetDebt;
-    uint256 mintingRate;
-    uint256 undistributedFactor;
-    uint256 lastUndistributed;
   }
 
   event Accrue(
