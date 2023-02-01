@@ -478,9 +478,9 @@ contract Previewer {
 
       rewards = new ClaimableReward[](rewardList.length);
       RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
-      RewardsController.Operation[] memory ops = new RewardsController.Operation[](2);
-      ops[0] = RewardsController.Operation.Borrow;
-      ops[1] = RewardsController.Operation.Deposit;
+      bool[] memory ops = new bool[](2);
+      ops[0] = true;
+      ops[1] = false;
       marketOps[0] = RewardsController.MarketOperation({ market: market, operations: ops });
 
       for (uint256 i = 0; i < rewardList.length; ++i) {

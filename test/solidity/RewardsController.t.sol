@@ -595,9 +595,9 @@ contract RewardsControllerTest is Test {
     marketWBTC.borrowAtMaturity(FixedLib.INTERVAL, 20e8, 40e8, address(this), address(this));
 
     RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
-    RewardsController.Operation[] memory ops = new RewardsController.Operation[](2);
-    ops[0] = RewardsController.Operation.Borrow;
-    ops[1] = RewardsController.Operation.Deposit;
+    bool[] memory ops = new bool[](2);
+    ops[0] = true;
+    ops[1] = false;
     marketOps[0] = RewardsController.MarketOperation({ market: marketWBTC, operations: ops });
     rewardsController.claim(marketOps, address(this));
     assertEq(opRewardAsset.balanceOf(address(this)), 0);
@@ -647,9 +647,9 @@ contract RewardsControllerTest is Test {
     rewardsController.config(configs);
     marketWBTC.setRewardsController(rewardsController);
     RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
-    RewardsController.Operation[] memory ops = new RewardsController.Operation[](2);
-    ops[0] = RewardsController.Operation.Borrow;
-    ops[1] = RewardsController.Operation.Deposit;
+    bool[] memory ops = new bool[](2);
+    ops[0] = true;
+    ops[1] = false;
     marketOps[0] = RewardsController.MarketOperation({ market: marketWBTC, operations: ops });
     uint256 claimableRewards = rewardsController.claimable(marketOps, address(this), opRewardAsset);
     assertEq(claimableRewards, 0);
@@ -706,9 +706,9 @@ contract RewardsControllerTest is Test {
 
     vm.warp(4 days + 20 minutes);
     uint256 opClaimableRewards = rewardsController.allClaimable(address(this), opRewardAsset);
-    RewardsController.Operation[] memory ops = new RewardsController.Operation[](2);
-    ops[0] = RewardsController.Operation.Deposit;
-    ops[1] = RewardsController.Operation.Borrow;
+    bool[] memory ops = new bool[](2);
+    ops[0] = false;
+    ops[1] = true;
     RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
     marketOps[0] = RewardsController.MarketOperation({ market: marketUSDC, operations: ops });
     rewardsController.claim(marketOps, address(this));
@@ -773,29 +773,13 @@ contract RewardsControllerTest is Test {
       1 days
     );
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(
-      marketWETH,
-      opRewardAsset,
-      address(this),
-      RewardsController.Operation.Borrow,
-      0,
-      borrowIndex,
-      409876612891463680
-    );
+    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 409876612891463680);
     rewardsController.claimAll(address(this));
 
     vm.warp(2 days);
     (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset, 1 days);
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(
-      marketWETH,
-      opRewardAsset,
-      address(this),
-      RewardsController.Operation.Deposit,
-      depositIndex,
-      newDepositIndex,
-      344353723509616000
-    );
+    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 344353723509616000);
     marketWETH.deposit(10 ether, address(this));
   }
 
@@ -957,12 +941,12 @@ contract RewardsControllerTest is Test {
 
   function accountBalanceOperations(
     Market market,
-    RewardsController.Operation[] memory ops,
+    bool[] memory ops,
     address account
   ) internal view returns (RewardsController.AccountOperation[] memory accountBalanceOps) {
     accountBalanceOps = new RewardsController.AccountOperation[](ops.length);
     for (uint256 i = 0; i < ops.length; i++) {
-      if (ops[i] == RewardsController.Operation.Borrow) {
+      if (ops[i]) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
         accountBalanceOps[i] = RewardsController.AccountOperation({
           operation: ops[i],
@@ -1031,9 +1015,9 @@ contract RewardsControllerTest is Test {
         rewardAsset
       );
       uint256 nextIndex;
-      if (ops.accountOperations[o].operation == RewardsController.Operation.Borrow) {
+      if (ops.accountOperations[o].operation) {
         nextIndex = borrowIndex;
-      } else if (ops.accountOperations[o].operation == RewardsController.Operation.Deposit) {
+      } else {
         nextIndex = depositIndex;
       }
 
@@ -1056,7 +1040,7 @@ contract RewardsControllerTest is Test {
     Market indexed market,
     ERC20 indexed reward,
     address indexed account,
-    RewardsController.Operation operation,
+    bool operation,
     uint256 accountIndex,
     uint256 operationIndex,
     uint256 rewardsAccrued

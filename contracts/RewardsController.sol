@@ -43,7 +43,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function handleDeposit(address account) external {
     Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
-    ops[0] = AccountOperation({ operation: Operation.Deposit, balance: market.balanceOf(account) });
+    ops[0] = AccountOperation({ operation: false, balance: market.balanceOf(account) });
 
     uint256 rewardsCount = distribution[market].availableRewardsCount;
     for (uint128 r = 0; r < rewardsCount; ) {
@@ -65,7 +65,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     for (uint128 r = 0; r < rewardsCount; ) {
       ERC20 reward = distribution[market].availableRewards[r];
       ops[0] = AccountOperation({
-        operation: Operation.Borrow,
+        operation: true,
         balance: accountFloatingBorrowShares +
           accountFixedBorrowShares(market, account, distribution[market].rewards[reward].start)
       });
@@ -188,7 +188,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function accountOperation(
     address account,
     Market market,
-    Operation operation,
+    bool operation,
     ERC20 reward
   ) external view returns (uint256, uint256) {
     return (
@@ -227,9 +227,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     Market[] memory markets = marketList;
     marketOps = new MarketOperation[](markets.length);
     for (uint256 m = 0; m < markets.length; ) {
-      Operation[] memory ops = new Operation[](2);
-      ops[0] = Operation.Borrow;
-      ops[1] = Operation.Deposit;
+      bool[] memory ops = new bool[](2);
+      ops[0] = true;
+      ops[1] = false;
       marketOps[m] = MarketOperation({ market: markets[m], operations: ops });
       unchecked {
         ++m;
@@ -318,7 +318,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     for (uint256 i = 0; i < ops.length; ) {
       uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
       uint256 newAccountIndex;
-      if (ops[i].operation == Operation.Borrow) {
+      if (ops[i].operation) {
         newAccountIndex = rewardData.borrowIndex;
       } else {
         newAccountIndex = rewardData.depositIndex;
@@ -392,7 +392,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     );
     for (uint256 o = 0; o < ops.accountOperations.length; ) {
       uint256 nextIndex;
-      if (ops.accountOperations[o].operation == Operation.Borrow) {
+      if (ops.accountOperations[o].operation) {
         nextIndex = borrowIndex;
       } else {
         nextIndex = depositIndex;
@@ -584,13 +584,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// operation's pool
   function accountBalanceOperations(
     Market market,
-    Operation[] memory ops,
+    bool[] memory ops,
     address account,
     uint32 distributionStart
   ) internal view returns (AccountOperation[] memory accountBalanceOps) {
     accountBalanceOps = new AccountOperation[](ops.length);
     for (uint256 i = 0; i < ops.length; ) {
-      if (ops[i] == Operation.Borrow) {
+      if (ops[i]) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
         accountBalanceOps[i] = AccountOperation({
           operation: ops[i],
@@ -632,8 +632,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewardData.lastUpdate = uint32(block.timestamp);
       } else {
         // update global indexes before setting new config
-        Operation[] memory ops = new Operation[](1);
-        ops[0] = Operation.Borrow;
+        bool[] memory ops = new bool[](1);
+        ops[0] = true;
         update(
           address(0),
           configs[i].market,
@@ -675,11 +675,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  enum Operation {
-    Borrow,
-    Deposit
-  }
-
   struct TotalMarketBalance {
     uint256 debt;
     uint256 supply;
@@ -698,13 +693,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   struct AccountOperation {
-    Operation operation;
+    bool operation;
     uint256 balance;
   }
 
   struct MarketOperation {
     Market market;
-    Operation[] operations;
+    bool[] operations;
   }
 
   struct AccountMarketOperation {
@@ -758,7 +753,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint32 start;
     uint32 end;
     // account addresses and their rewards data (index & accrued)
-    mapping(address => mapping(Operation => Account)) accounts;
+    mapping(address => mapping(bool => Account)) accounts;
   }
 
   struct Distribution {
@@ -776,7 +771,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     Market indexed market,
     ERC20 indexed reward,
     address indexed account,
-    Operation operation,
+    bool operation,
     uint256 accountIndex,
     uint256 operationIndex,
     uint256 rewardsAccrued
