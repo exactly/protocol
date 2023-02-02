@@ -599,7 +599,10 @@ contract RewardsControllerTest is Test {
     ops[0] = true;
     ops[1] = false;
     marketOps[0] = RewardsController.MarketOperation({ market: marketWBTC, operations: ops });
-    rewardsController.claim(marketOps, address(this));
+    ERC20[] memory rewardList = new ERC20[](2);
+    rewardList[0] = opRewardAsset;
+    rewardList[1] = exaRewardAsset;
+    rewardsController.claim(marketOps, address(this), rewardList);
     assertEq(opRewardAsset.balanceOf(address(this)), 0);
   }
 
@@ -656,7 +659,10 @@ contract RewardsControllerTest is Test {
 
     vm.warp(7 days);
     claimableRewards = rewardsController.claimable(marketOps, address(this), opRewardAsset);
-    rewardsController.claim(marketOps, address(this));
+    ERC20[] memory rewardList = new ERC20[](2);
+    rewardList[0] = opRewardAsset;
+    rewardList[1] = exaRewardAsset;
+    rewardsController.claim(marketOps, address(this), rewardList);
     assertEq(claimableRewards, opRewardAsset.balanceOf(address(this)));
   }
 
@@ -711,10 +717,34 @@ contract RewardsControllerTest is Test {
     ops[1] = true;
     RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
     marketOps[0] = RewardsController.MarketOperation({ market: marketUSDC, operations: ops });
-    rewardsController.claim(marketOps, address(this));
+    ERC20[] memory rewardList = new ERC20[](2);
+    rewardList[0] = opRewardAsset;
+    rewardList[1] = exaRewardAsset;
+    rewardsController.claim(marketOps, address(this), rewardList);
 
     assertEq(opRewardAsset.balanceOf(address(this)), opClaimableRewards);
     assertEq(rewardsController.allClaimable(address(this), opRewardAsset), 0);
+  }
+
+  function testClaimWithNotEnabledRewardAsset() external {
+    marketUSDC.deposit(100e6, address(this));
+    marketUSDC.borrow(10e6, address(this), address(this));
+
+    vm.warp(4 days + 20 minutes);
+    uint256 opClaimableRewards = rewardsController.allClaimable(address(this), opRewardAsset);
+    bool[] memory ops = new bool[](2);
+    ops[0] = false;
+    ops[1] = true;
+    RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
+    marketOps[0] = RewardsController.MarketOperation({ market: marketUSDC, operations: ops });
+    ERC20[] memory rewardList = new ERC20[](2);
+    rewardList[0] = marketUSDC.asset();
+    rewardList[1] = opRewardAsset;
+    rewardsController.claim(marketOps, address(this), rewardList);
+
+    assertEq(opRewardAsset.balanceOf(address(this)), opClaimableRewards);
+    assertEq(rewardsController.allClaimable(address(this), opRewardAsset), 0);
+    assertGt(rewardsController.allClaimable(address(this), exaRewardAsset), 0);
   }
 
   function testClaimAll() external {

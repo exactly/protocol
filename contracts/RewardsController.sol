@@ -81,21 +81,22 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @return rewardsList The list of rewards assets.
   /// @return claimedAmounts The list of claimed amounts.
   function claimAll(address to) external returns (ERC20[] memory rewardsList, uint256[] memory claimedAmounts) {
-    return claim(allMarketsOperations(), to);
+    return claim(allMarketsOperations(), to, rewardList);
   }
 
-  /// @notice Claims msg.sender's rewards for the given operations to a given account.
+  /// @notice Claims msg.sender's specified rewards for the given operations to a given account.
   /// @param marketOps The operations to claim rewards for.
   /// @param to The address to send the rewards to.
+  /// @param rewardsList The list of rewards assets to claim.
   /// @return rewardsList The list of rewards assets.
   /// @return claimedAmounts The list of claimed amounts.
   function claim(
     MarketOperation[] memory marketOps,
-    address to
-  ) public returns (ERC20[] memory rewardsList, uint256[] memory claimedAmounts) {
-    rewardsList = new ERC20[](rewardList.length);
-    claimedAmounts = new uint256[](rewardList.length);
-
+    address to,
+    ERC20[] memory rewardsList
+  ) public returns (ERC20[] memory, uint256[] memory claimedAmounts) {
+    uint256 rewardsCount = rewardsList.length;
+    claimedAmounts = new uint256[](rewardsCount);
     for (uint256 i = 0; i < marketOps.length; ) {
       Distribution storage dist = distribution[marketOps[i].market];
       for (uint128 r = 0; r < dist.availableRewardsCount; ) {
@@ -114,9 +115,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           ++r;
         }
       }
-
-      for (uint256 r = 0; r < rewardList.length; ) {
-        if (address(rewardsList[r]) == address(0)) rewardsList[r] = rewardList[r];
+      for (uint256 r = 0; r < rewardsCount; ) {
         for (uint256 o = 0; o < marketOps[i].operations.length; ) {
           uint256 rewardAmount = dist.rewards[rewardsList[r]].accounts[msg.sender][marketOps[i].operations[o]].accrued;
           if (rewardAmount != 0) {
