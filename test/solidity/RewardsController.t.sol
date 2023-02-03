@@ -909,40 +909,45 @@ contract RewardsControllerTest is Test {
 
     market.deposit(10_000e6, address(this));
     market.borrow(1_000e6, address(this), address(this));
-    marketUSDC.deposit(10_000e8, address(this));
-    marketUSDC.borrow(1_000e8, address(this), address(this));
+    marketUSDC.deposit(10_000e6, address(this));
+    marketUSDC.borrow(1_000e6, address(this), address(this));
     marketWETH.deposit(10_000 ether, address(this));
     marketWETH.borrow(1_000 ether, address(this), address(this));
 
     vm.warp(6 weeks);
-    assertApproxEqAbs(
-      rewardsController.allClaimable(address(this), rewardAsset),
-      1_000 * 10 ** rewardAsset.decimals(),
-      1e9
-    );
+
+    assertApproxEqAbs(rewardsController.allClaimable(address(this), rewardAsset), 1_000e10, 6e10);
+
     assertApproxEqAbs(
       rewardsController.allClaimable(address(this), opRewardAsset),
-      (2_000 * 10 ** opRewardAsset.decimals()) - 11e18,
-      1e18
+      (2_000 * 10 ** opRewardAsset.decimals()),
+      11e18
     );
-    uint256 mintingRate = 13778659611;
+
+    uint256 mintingRate = 13778659611; // mock value with 18 decimals
     RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
     uint256 mintingRateWETH = config.totalDistribution.divWadDown(config.targetDebt).mulWadDown(
       1e18 / config.distributionPeriod
     );
-    assertEq(mintingRateWETH, mintingRate * 10 ** (opRewardAsset.decimals() - marketWETH.decimals()));
+    assertEq(mintingRateWETH, mintingRate);
 
     config = rewardsController.rewardConfig(marketUSDC, opRewardAsset);
-    uint256 mintingRateUSDC = config.totalDistribution.divWadDown(config.targetDebt).mulWadDown(
-      1e18 / config.distributionPeriod
-    );
-    assertEq(mintingRateUSDC, mintingRate * 10 ** (opRewardAsset.decimals() - marketUSDC.decimals()) + 9e11);
+    uint256 mintingRateUSDC = config
+      .totalDistribution
+      .mulDivDown(10 ** marketUSDC.decimals(), config.targetDebt)
+      .mulWadDown(1e18 / config.distributionPeriod);
+    assertEq(mintingRateUSDC, mintingRate);
 
     config = rewardsController.rewardConfig(market, rewardAsset);
-    uint256 mintingRateAsset = config.totalDistribution.divWadDown(config.targetDebt).mulWadDown(
-      1e18 / config.distributionPeriod
-    );
-    assertEq(mintingRateAsset, mintingRate * 10 ** (rewardAsset.decimals() - market.decimals()) + 9e3);
+    uint256 mintingRateAsset = config
+      .totalDistribution
+      .mulDivDown(10 ** market.decimals(), config.targetDebt)
+      .mulWadDown(1e18 / config.distributionPeriod);
+
+    assertEq(mintingRateAsset, mintingRate / 10 ** (18 - rewardAsset.decimals()));
+
+    vm.warp(block.timestamp + 6 weeks);
+    assertApproxEqAbs(rewardsController.allClaimable(address(this), rewardAsset), 2_000e10, 20e10);
   }
 
   function testSetDistributionOperationShouldUpdateIndex() external {
@@ -1030,7 +1035,7 @@ contract RewardsControllerTest is Test {
     ERC20 rewardAsset,
     RewardsController.AccountMarketOperation memory ops
   ) internal view returns (uint256 rewards) {
-    uint256 baseUnit = 10 ** rewardsController.decimals(ops.market);
+    uint256 baseUnit = 10 ** ops.market.decimals();
     (, , uint32 lastUpdate, ) = rewardsController.distributionTime(ops.market, rewardAsset);
     (uint256 borrowIndex, uint256 depositIndex, ) = rewardsController.previewAllocation(
       ops.market,
