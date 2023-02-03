@@ -13,6 +13,7 @@ import { Market } from "./Market.sol";
 
 contract RewardsController is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for uint256;
+  using FixedPointMathLib for uint64;
   using FixedPointMathLib for int256;
   using SafeTransferLib for ERC20;
 
@@ -307,10 +308,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         market,
         block.timestamp - rewardData.lastUpdate
       );
+      if (borrowIndex > type(uint128).max || depositIndex > type(uint128).max) revert IndexOverflow();
+      rewardData.borrowIndex = uint128(borrowIndex);
+      rewardData.depositIndex = uint128(depositIndex);
       rewardData.lastUpdate = uint32(block.timestamp);
       rewardData.lastUndistributed = newUndistributed;
-      rewardData.borrowIndex = borrowIndex;
-      rewardData.depositIndex = depositIndex;
       emit IndexUpdate(market, reward, borrowIndex, depositIndex, newUndistributed, block.timestamp);
     }
 
@@ -323,10 +325,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         newAccountIndex = rewardData.depositIndex;
       }
       if (accountIndex != newAccountIndex) {
-        rewardData.accounts[account][ops[i].operation].index = newAccountIndex;
+        rewardData.accounts[account][ops[i].operation].index = uint128(newAccountIndex);
         if (ops[i].balance != 0) {
           uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
-          rewardData.accounts[account][ops[i].operation].accrued += rewardsAccrued;
+          rewardData.accounts[account][ops[i].operation].accrued += uint128(rewardsAccrued);
           emit Accrue(market, reward, account, ops[i].operation, accountIndex, newAccountIndex, rewardsAccrued);
         }
       }
@@ -708,9 +710,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   struct Account {
     // liquidity index of the reward distribution for the account
-    uint256 index;
+    uint128 index;
     // amount of accrued rewards for the account since last account index update
-    uint256 accrued;
+    uint128 accrued;
   }
 
   struct Config {
@@ -721,36 +723,37 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 totalDistribution;
     uint256 distributionPeriod;
     uint256 undistributedFactor;
-    int256 flipSpeed;
-    uint256 compensationFactor;
-    uint256 transitionFactor;
-    uint256 borrowAllocationWeightFactor;
-    uint256 depositAllocationWeightAddend;
-    uint256 depositAllocationWeightFactor;
+    int128 flipSpeed;
+    uint64 compensationFactor;
+    uint64 transitionFactor;
+    uint64 borrowAllocationWeightFactor;
+    uint64 depositAllocationWeightAddend;
+    uint64 depositAllocationWeightFactor;
   }
 
   struct RewardData {
-    IPriceFeed priceFeed;
     // distribution model
     uint256 targetDebt;
     uint256 mintingRate;
     uint256 totalDistribution;
     uint256 undistributedFactor;
     uint256 lastUndistributed;
-    uint32 lastUpdate;
     // allocation model
-    int256 flipSpeed;
-    uint256 compensationFactor;
-    uint256 transitionFactor;
-    uint256 borrowAllocationWeightFactor;
-    uint256 depositAllocationWeightAddend;
-    uint256 depositAllocationWeightFactor;
+    int128 flipSpeed;
+    uint64 compensationFactor;
+    uint64 transitionFactor;
+    uint64 borrowAllocationWeightFactor;
+    uint64 depositAllocationWeightAddend;
+    uint64 depositAllocationWeightFactor;
     // liquidity indexes of the reward distribution
-    uint256 borrowIndex;
-    uint256 depositIndex;
-    // distribution start & end timestamps
+    uint128 borrowIndex;
+    uint128 depositIndex;
+    // distribution timestamps
     uint32 start;
     uint32 end;
+    uint32 lastUpdate;
+    // price feed
+    IPriceFeed priceFeed;
     // account addresses and their rewards data (index & accrued)
     mapping(address => mapping(bool => Account)) accounts;
   }
@@ -761,7 +764,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     // list of reward asset addresses for the market
     mapping(uint128 => ERC20) availableRewards;
     // count of reward tokens for the market
-    uint128 availableRewardsCount;
+    uint8 availableRewardsCount;
     // number of decimals of the market
     uint8 decimals;
   }
@@ -786,3 +789,5 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 lastUpdate
   );
 }
+
+error IndexOverflow();
