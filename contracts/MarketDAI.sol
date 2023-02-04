@@ -70,7 +70,7 @@ contract MarketDAI is Market {
     uint256 chi = block.timestamp > memPot.rho() ? memPot.drip() : memPot.chi();
     floatingAssets += memPot.pie(address(this)).mulDivDown(chi - lastChi, 1e27);
 
-    memPot.exit(amount.mulDivUp(1e27, chi));
+    memPot.exit(amount.mulDivDown(1e27, chi));
     daiJoin.exit(address(this), amount);
 
     lastChi = chi;

@@ -404,7 +404,7 @@ contract Previewer {
 
   function rewardRates(Market market, uint256 basePrice) internal view returns (RewardRate[] memory rewards) {
     RewardsVars memory r;
-    r.controller = market.rewardsController();
+    r.controller = RewardsController(address(0)); // market.rewardsController();
     if (address(r.controller) != address(0)) {
       (, r.underlyingDecimals, , , r.underlyingPriceFeed) = auditor.markets(market);
       unchecked {
@@ -472,7 +472,7 @@ contract Previewer {
   }
 
   function claimableRewards(Market market, address account) internal view returns (ClaimableReward[] memory rewards) {
-    RewardsController rewardsController = market.rewardsController();
+    RewardsController rewardsController = RewardsController(address(0)); // market.rewardsController();
     if (address(rewardsController) != address(0)) {
       ERC20[] memory rewardList = rewardsController.allRewards();
 
