@@ -53,7 +53,7 @@ contract ProtocolTest is Test {
   Market[] internal markets;
   MockERC20[] internal underlyingAssets;
   mapping(Market => MockPriceFeed) internal priceFeeds;
-  MockERC20 internal rewardsAsset;
+  MockERC20 internal rewardAsset;
   RewardsController internal rewardsController;
 
   function setUp() external {
@@ -90,12 +90,12 @@ contract ProtocolTest is Test {
     rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController()), "")));
     rewardsController.initialize();
     vm.label(address(rewardsController), "RewardsController");
-    rewardsAsset = new MockERC20("OP", "OP", 18);
-    rewardsAsset.mint(address(rewardsController), 2_000 ether);
+    rewardAsset = new MockERC20("OP", "OP", 18);
+    rewardAsset.mint(address(rewardsController), 2_000 ether);
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
     configs[0] = RewardsController.Config({
       market: markets[0],
-      reward: rewardsAsset,
+      reward: rewardAsset,
       targetDebt: 20_000 ether,
       priceFeed: MockPriceFeed(address(0)),
       totalDistribution: 2_000 ether,
@@ -346,11 +346,11 @@ contract ProtocolTest is Test {
 
   function claim(uint256 i) internal {
     address account = accounts[i % accounts.length];
-    uint256 accumulatedRewards = rewardsController.allClaimable(account, rewardsAsset);
-    uint256 balanceBefore = rewardsAsset.balanceOf(account);
+    uint256 accumulatedRewards = rewardsController.allClaimable(account, rewardAsset);
+    uint256 balanceBefore = rewardAsset.balanceOf(account);
     vm.prank(account);
     rewardsController.claimAll(account);
-    assertEq(rewardsAsset.balanceOf(account), balanceBefore + accumulatedRewards);
+    assertEq(rewardAsset.balanceOf(account), balanceBefore + accumulatedRewards);
   }
 
   function enterMarket(uint256 i) internal {
@@ -615,6 +615,7 @@ contract ProtocolTest is Test {
   }
 
   function checkInvariants() internal {
+    uint256 claimedRewards;
     for (uint256 i = 0; i < accounts.length; ++i) {
       address account = accounts[i];
       if (auditor.accountMarkets(account) == 0) {
@@ -648,6 +649,7 @@ contract ProtocolTest is Test {
           maturity += FixedLib.INTERVAL;
         }
       }
+      claimedRewards += rewardAsset.balanceOf(account);
     }
     for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
       Market market = auditor.marketList(i);
@@ -715,6 +717,27 @@ contract ProtocolTest is Test {
       assertEq(totalAssets, market.totalAssets(), "should match totalAssets()");
       assertEq(assets, market.asset().balanceOf(address(market)), "should match underlying balance");
     }
+    (uint256 start, uint256 end, uint256 lastUpdate, uint256 lastUndistributed) = rewardsController.distributionTime(
+      markets[0],
+      rewardAsset
+    );
+    RewardsController.Config memory config = rewardsController.rewardConfig(markets[0], rewardAsset);
+    uint256 baseUnit = 10 ** markets[0].decimals();
+    uint256 mintingRate = config.totalDistribution.mulDivDown(baseUnit, config.targetDebt).mulWadDown(
+      1e18 / config.distributionPeriod
+    );
+    assertApproxEqAbs(
+      claimedRewards + lastUndistributed.mulDivDown(config.targetDebt, baseUnit),
+      config.targetDebt.mulDivDown(mintingRate, baseUnit) * Math.min(lastUpdate - start, config.distributionPeriod),
+      1e14
+    );
+    assertApproxEqAbs(
+      lastUndistributed.mulDivDown(config.targetDebt, baseUnit) +
+        config.targetDebt.mulDivDown(mintingRate, baseUnit) *
+        (end - Math.min(lastUpdate, end)),
+      config.totalDistribution - claimedRewards,
+      1e14
+    );
   }
 
   function forceEarningsToAccumulator(Market market, Market otherMarket) internal {
