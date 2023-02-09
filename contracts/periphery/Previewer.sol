@@ -427,7 +427,7 @@ contract Previewer {
           block.timestamp -
           (block.timestamp % FixedLib.INTERVAL) +
           (FixedLib.INTERVAL * market.maxFuturePools());
-        r.maturities = new uint256[](r.maxMaturity / r.firstMaturity);
+        r.maturities = new uint256[]((r.maxMaturity - r.firstMaturity) / FixedLib.INTERVAL + 1);
         r.start = 0;
         for (r.maturity = r.firstMaturity; r.maturity <= r.maxMaturity; ) {
           r.maturities[r.start] = r.maturity;

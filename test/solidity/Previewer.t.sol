@@ -649,6 +649,35 @@ contract PreviewerTest is Test {
     assertEq(data[0].claimableRewards[0].amount, rewardsController.allClaimable(address(this), rewardAsset));
   }
 
+  function testEmptyExactly() external {
+    vm.warp(365 days);
+    market.setMaxFuturePools(3);
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    rewardAsset.mint(address(rewardsController), 500_000 ether);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      distributionPeriod: 24 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+    previewer.exactly(address(this));
+  }
+
   function testJustUpdatedRewardRatesShouldStillReturnRate() external {
     RewardsController rewardsController = RewardsController(
       address(new ERC1967Proxy(address(new RewardsController()), ""))
