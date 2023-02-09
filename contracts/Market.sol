@@ -85,6 +85,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @notice Rate to be charged by the treasury to floating and fixed borrows.
   uint256 public treasuryFeeRate;
 
+  /// @notice Address of the rewards controller that will accrue rewards for accounts operating with the Market.
   RewardsController public rewardsController;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
@@ -149,7 +150,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (floatingBackupBorrowed + newFloatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
       revert InsufficientProtocolLiquidity();
     }
-    if (address(rewardsController) != address(0)) rewardsController.handleBorrow(borrower);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
 
     totalFloatingBorrowShares += borrowShares;
     accounts[borrower].floatingBorrowShares += borrowShares;
@@ -205,7 +207,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     assets = previewRefund(actualShares);
 
     if (assets == 0) revert ZeroRepay();
-    if (address(rewardsController) != address(0)) rewardsController.handleBorrow(borrower);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
 
     floatingDebt -= assets;
     account.floatingBorrowShares = accountBorrowShares - actualShares;
@@ -293,7 +296,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     // validate that the account is not taking arbitrary fees
     if (assetsOwed > maxAssets) revert Disagreement();
 
-    if (address(rewardsController) != address(0)) rewardsController.handleBorrow(borrower);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
 
     spendAllowance(borrower, assetsOwed);
 
@@ -473,7 +477,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
       .scaleProportionally(debtCovered)
       .principal;
 
-    if (address(rewardsController) != address(0)) rewardsController.handleBorrow(borrower);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
 
     // early repayment allows a discount from the unassigned earnings
     if (block.timestamp < maturity) {
@@ -708,7 +713,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @return shares amount of shares redeemed for underlying asset.
   function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {
     auditor.checkShortfall(this, owner, assets);
-    if (address(rewardsController) != address(0)) rewardsController.handleDeposit(owner);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleDeposit(owner);
     shares = super.withdraw(assets, receiver, owner);
     emitMarketUpdate();
   }
@@ -721,13 +727,15 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @return assets amount of underlying asset that was withdrawn.
   function redeem(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {
     auditor.checkShortfall(this, owner, previewRedeem(shares));
-    if (address(rewardsController) != address(0)) rewardsController.handleDeposit(owner);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleDeposit(owner);
     assets = super.redeem(shares, receiver, owner);
     emitMarketUpdate();
   }
 
   function _mint(address to, uint256 amount) internal override {
-    if (address(rewardsController) != address(0)) rewardsController.handleDeposit(to);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleDeposit(to);
     super._mint(to, amount);
   }
 
@@ -738,9 +746,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param shares amount of shares to be transferred.
   function transfer(address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, msg.sender, previewRedeem(shares));
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleDeposit(msg.sender);
-      if (msg.sender != to) rewardsController.handleDeposit(to);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) {
+      memRewardsController.handleDeposit(msg.sender);
+      if (msg.sender != to) memRewardsController.handleDeposit(to);
     }
     return super.transfer(to, shares);
   }
@@ -753,9 +762,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param shares amount of shares to be transferred.
   function transferFrom(address from, address to, uint256 shares) public override returns (bool) {
     auditor.checkShortfall(this, from, previewRedeem(shares));
-    if (address(rewardsController) != address(0)) {
-      rewardsController.handleDeposit(from);
-      if (from != to) rewardsController.handleDeposit(to);
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) {
+      memRewardsController.handleDeposit(from);
+      if (from != to) memRewardsController.handleDeposit(to);
     }
     return super.transferFrom(from, to, shares);
   }
