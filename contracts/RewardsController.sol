@@ -542,13 +542,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         .compensationFactor
         .mulWadDown(
           market.interestRateModel().floatingRate(v.utilization).mulWadDown(
-            1e18 - v.utilization.mulWadDown(1e18 - target)
+            1e18 - v.utilization.mulWadDown(1e18 - market.treasuryFeeRate())
           ) + v.borrowAllocationWeightFactor
         )
         .mulWadDown(1e18 - v.sigmoid);
       v.depositRewardRule =
         rewardData.depositAllocationWeightAddend.mulWadDown(1e18 - v.sigmoid) +
-        rewardData.depositAllocationWeightFactor.mulWadDown(v.borrowAllocationWeightFactor).mulWadDown(v.sigmoid);
+        rewardData.depositAllocationWeightFactor.mulWadDown(v.sigmoid);
       v.borrowAllocation = v.borrowRewardRule.divWadDown(v.borrowRewardRule + v.depositRewardRule);
       v.depositAllocation = 1e18 - v.borrowAllocation;
       {

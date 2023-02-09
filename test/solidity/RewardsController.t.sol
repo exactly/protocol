@@ -429,9 +429,9 @@ contract RewardsControllerTest is Test {
   }
 
   function testAllClaimableWithMaturedFixedPool() external {
-    marketUSDC.deposit(100e6, address(this));
+    marketUSDC.deposit(1_000e6, address(this));
     vm.warp(10_000 seconds);
-    marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 10e6, 20e6, address(this), address(this));
+    marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 500e6, 1_000e6, address(this), address(this));
 
     vm.warp(FixedLib.INTERVAL - 1 days);
     uint256 opRewardsPreMaturity = rewardsController.allClaimable(address(this), opRewardAsset);
@@ -803,13 +803,13 @@ contract RewardsControllerTest is Test {
       1 days
     );
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 409876612891463680);
+    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 409693121322912140);
     rewardsController.claimAll(address(this));
 
     vm.warp(2 days);
     (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset, 1 days);
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 344353723509616000);
+    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 344878245757177500);
     marketWETH.deposit(10 ether, address(this));
   }
 
