@@ -119,7 +119,10 @@ const config: Config = {
           b: -0.3417,
           maxUtilization: 1.0003,
         },
-        priceFeed: "double",
+        overrides: {
+          mainnet: { priceFeed: "double" },
+          goerli: { priceFeed: "double" },
+        },
       },
       wstETH: {
         adjustFactor: 0.82,
@@ -162,8 +165,14 @@ task(
 
 extendConfig((hardhatConfig, { finance: { markets } }) => {
   for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
+    const live = !["hardhat", "localhost"].includes(networkName);
     networkConfig.markets = Object.fromEntries(
-      Object.entries(markets).filter(([, { networks }]) => !networks || networks.find((name) => name === networkName)),
+      Object.entries(markets)
+        .filter(([, { networks }]) => !networks || networks.includes(networkName))
+        .map(([name, { networks, overrides, ...marketConfig }]) => [
+          name,
+          { ...marketConfig, ...overrides?.[live ? networkName : Object.keys(overrides)[0]] },
+        ]),
     );
   }
 });
@@ -198,6 +207,7 @@ declare module "hardhat/types/config" {
 
   export interface MarketUserConfig extends MarketConfig {
     networks?: string[];
+    overrides?: { [network: string]: Partial<MarketConfig> };
   }
 
   export interface Curve {
