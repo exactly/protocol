@@ -1,6 +1,6 @@
 import { env } from "process";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, Market } from "../types";
+import type { Auditor, ERC20, Market, RewardsController } from "../types";
 import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
@@ -18,13 +18,15 @@ const func: DeployFunction = async ({
   ethers: {
     constants: { AddressZero },
     utils: { parseUnits },
+    getContractOrNull,
     getContract,
     getSigner,
   },
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [auditor, { address: timelock }, { deployer, multisig, treasury = AddressZero }] = await Promise.all([
+  const [rewards, auditor, { address: timelock }, { deployer, multisig, treasury = AddressZero }] = await Promise.all([
+    getContractOrNull<RewardsController>("RewardsController"),
     getContract<Auditor>("Auditor"),
     get("TimelockController"),
     getNamedAccounts(),
@@ -157,15 +159,75 @@ const func: DeployFunction = async ({
       }
     }
 
+    const configRewards = (config.rewards && rewards?.address) || AddressZero;
+    if ((await market.rewardsController()).toLowerCase() !== configRewards.toLowerCase()) {
+      await executeOrPropose(market, "setRewardsController", [configRewards]);
+    }
+
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
 
     await transferOwnership(market, deployer, timelock);
+  }
+
+  if (rewards) {
+    const newRewards = (
+      await Promise.all(
+        Object.entries(markets).map(async ([symbol, { rewards: marketRewards }]) => {
+          if (!marketRewards) return;
+
+          const { address: market } = await get(`Market${symbol}`);
+          return Promise.all(
+            marketRewards.map(async (cfg) => {
+              const [{ address: reward }, { address: priceFeed }] = await Promise.all([
+                get(cfg.asset),
+                get(`PriceFeed${cfg.asset}`),
+              ]);
+              const current = await rewards.rewardConfig(market, reward);
+              if (
+                current.priceFeed.toLowerCase() !== priceFeed.toLowerCase() ||
+                !current.targetDebt.eq(cfg.targetDebt) ||
+                !current.totalDistribution.eq(cfg.totalDistribution) ||
+                !current.distributionPeriod.eq(cfg.distributionPeriod) ||
+                !current.undistributedFactor.eq(parseUnits(String(cfg.undistributedFactor))) ||
+                !current.flipSpeed.eq(parseUnits(String(cfg.flipSpeed))) ||
+                !current.compensationFactor.eq(parseUnits(String(cfg.compensationFactor))) ||
+                !current.transitionFactor.eq(parseUnits(String(cfg.transitionFactor))) ||
+                !current.borrowAllocationWeightFactor.eq(parseUnits(String(cfg.borrowAllocationWeightFactor))) ||
+                !current.depositAllocationWeightAddend.eq(parseUnits(String(cfg.depositAllocationWeightAddend))) ||
+                !current.depositAllocationWeightFactor.eq(parseUnits(String(cfg.depositAllocationWeightFactor)))
+              ) {
+                return {
+                  market,
+                  reward,
+                  priceFeed,
+                  targetDebt: cfg.targetDebt,
+                  totalDistribution: cfg.totalDistribution,
+                  distributionPeriod: cfg.distributionPeriod,
+                  undistributedFactor: parseUnits(String(cfg.undistributedFactor)),
+                  flipSpeed: parseUnits(String(cfg.flipSpeed)),
+                  compensationFactor: parseUnits(String(cfg.compensationFactor)),
+                  transitionFactor: parseUnits(String(cfg.transitionFactor)),
+                  borrowAllocationWeightFactor: parseUnits(String(cfg.borrowAllocationWeightFactor)),
+                  depositAllocationWeightAddend: parseUnits(String(cfg.depositAllocationWeightAddend)),
+                  depositAllocationWeightFactor: parseUnits(String(cfg.depositAllocationWeightFactor)),
+                };
+              }
+            }),
+          );
+        }),
+      )
+    )
+      .flat()
+      .filter(Boolean);
+    if (newRewards.length) await executeOrPropose(rewards, "config", [newRewards]);
+
+    await transferOwnership(rewards, deployer, timelock);
   }
 
   await transferOwnership(auditor, deployer, timelock);
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ProxyAdmin", "TimelockController", "Assets", "PriceFeeds"];
+func.dependencies = ["Auditor", "ProxyAdmin", "TimelockController", "Assets", "PriceFeeds", "RewardsController"];
 
 export default func;

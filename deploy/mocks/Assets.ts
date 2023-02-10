@@ -1,5 +1,6 @@
 import { env } from "process";
 import { ethers, network } from "hardhat";
+import type { MarketConfig } from "hardhat/types/config";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { MockPriceFeed } from "../../types";
 
@@ -22,7 +23,12 @@ export const mockPrices = Object.fromEntries(
 const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
   const signer = await getSigner(deployer);
-  for (const [symbol, { priceFeed }] of Object.entries(markets)) {
+  for (const [symbol, { priceFeed }] of [
+    ...Object.entries(markets),
+    ...[...new Set(Object.values(markets).flatMap((m) => m.rewards && Object.values(m.rewards).map((r) => r.asset)))]
+      .filter((asset) => asset && !markets[asset])
+      .map((asset) => [asset, {}] as [string, MarketConfig]),
+  ]) {
     const decimals = { USDC: 6, WBTC: 8 }[symbol] ?? 18;
     await deploy(symbol, {
       skipIfAlreadyDeployed: true,
@@ -53,7 +59,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
     await deploy(`PriceFeed${symbol}${priceFeed ? (priceFeed === "double" ? "One" : "Main") : ""}`, {
       skipIfAlreadyDeployed: true,
       contract: "MockPriceFeed",
-      args: [priceDecimals, parseUnits({ WBTC: "63000", WETH: "1000" }[symbol] ?? "1", priceDecimals)],
+      args: [priceDecimals, parseUnits({ WBTC: "63000", WETH: "1000", OP: "3" }[symbol] ?? "1", priceDecimals)],
       from: deployer,
       log: true,
     });

@@ -1,3 +1,4 @@
+import { inspect } from "util";
 import { BigNumber } from "ethers";
 import { deployments, ethers, getNamedAccounts } from "hardhat";
 
@@ -6,6 +7,8 @@ const {
   Contract,
   provider,
 } = ethers;
+
+inspect.defaultOptions.depth = null;
 
 const format = async (v: unknown) => {
   if (v instanceof BigNumber) return v.toBigInt();

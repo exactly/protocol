@@ -203,6 +203,19 @@ declare module "hardhat/types/config" {
     fixedCurve: Curve;
     floatingCurve: Curve;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
+    rewards?: {
+      asset: string;
+      targetDebt: bigint;
+      totalDistribution: bigint;
+      distributionPeriod: number;
+      undistributedFactor: number;
+      flipSpeed: number;
+      compensationFactor: number;
+      transitionFactor: number;
+      borrowAllocationWeightFactor: number;
+      depositAllocationWeightAddend: number;
+      depositAllocationWeightFactor: number;
+    }[];
   }
 
   export interface MarketUserConfig extends MarketConfig {
