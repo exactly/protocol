@@ -60,7 +60,9 @@ contract Previewer {
   }
 
   struct RewardRate {
-    ERC20 asset;
+    address asset;
+    string assetName;
+    string assetSymbol;
     uint256 usdPrice;
     uint256 borrow;
     uint256 floatingDeposit;
@@ -68,7 +70,9 @@ contract Previewer {
   }
 
   struct ClaimableReward {
-    ERC20 asset;
+    address asset;
+    string assetName;
+    string assetSymbol;
     uint256 amount;
   }
 
@@ -437,7 +441,9 @@ contract Previewer {
           }
         }
         rewards[r.i] = RewardRate({
-          asset: r.rewardList[r.i],
+          asset: address(r.rewardList[r.i]),
+          assetName: r.rewardList[r.i].name(),
+          assetSymbol: r.rewardList[r.i].symbol(),
           usdPrice: auditor.assetPrice(r.config.priceFeed).mulWadDown(basePrice),
           borrow: market.totalFloatingBorrowAssets() > 0
             ? (r.projectedBorrowIndex - r.borrowIndex)
@@ -485,7 +491,9 @@ contract Previewer {
 
       for (uint256 i = 0; i < rewardList.length; ++i) {
         rewards[i] = ClaimableReward({
-          asset: rewardList[i],
+          asset: address(rewardList[i]),
+          assetName: rewardList[i].name(),
+          assetSymbol: rewardList[i].symbol(),
           amount: rewardsController.claimable(marketOps, account, rewardList[i])
         });
       }

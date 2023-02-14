@@ -616,7 +616,9 @@ contract PreviewerTest is Test {
     vm.warp(block.timestamp + 1 weeks);
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].rewardRates.length, 1);
-    assertEq(address(data[0].rewardRates[0].asset), address(rewardAsset));
+    assertEq(data[0].rewardRates[0].asset, address(rewardAsset));
+    assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
+    assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
     uint256 newDepositRewards = 2803234799168158;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
@@ -645,7 +647,9 @@ contract PreviewerTest is Test {
 
     // claimable rewards
     assertEq(data[0].claimableRewards.length, 1);
-    assertEq(address(data[0].claimableRewards[0].asset), address(rewardAsset));
+    assertEq(data[0].claimableRewards[0].asset, address(rewardAsset));
+    assertEq(data[0].claimableRewards[0].assetName, rewardAsset.name());
+    assertEq(data[0].claimableRewards[0].assetSymbol, rewardAsset.symbol());
     assertEq(data[0].claimableRewards[0].amount, rewardsController.allClaimable(address(this), rewardAsset));
   }
 
