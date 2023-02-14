@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
@@ -17,6 +18,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for int256;
   using SafeTransferLib for ERC20;
 
+  /// @notice Max utilization supported by the sigmoid function not to cause a division by zero.
+  uint256 public constant UTILIZATION_CAP = 1e18 - 1;
   /// @notice Tracks the reward distribution data for a given market.
   mapping(Market => Distribution) public distribution;
   /// @notice Tracks enabled asset rewards.
@@ -524,7 +527,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
     {
       AllocationVars memory v;
-      v.utilization = m.supply > 0 ? m.debt.divWadDown(m.supply) : 0;
+      v.utilization = m.supply > 0 ? Math.min(m.debt.divWadDown(m.supply), UTILIZATION_CAP) : 0;
       v.transitionFactor = rewardData.transitionFactor;
       v.flipSpeed = rewardData.flipSpeed;
       v.borrowAllocationWeightFactor = rewardData.borrowAllocationWeightFactor;
@@ -657,12 +660,14 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardData.transitionFactor = configs[i].transitionFactor;
       rewardData.borrowAllocationWeightFactor = configs[i].borrowAllocationWeightFactor;
       rewardData.depositAllocationWeightAddend = configs[i].depositAllocationWeightAddend;
-      rewardData.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;
       rewardData.totalDistribution = configs[i].totalDistribution;
       rewardData.mintingRate = configs[i]
         .totalDistribution
         .mulDivDown(distribution[configs[i].market].baseUnit, configs[i].targetDebt)
         .mulWadDown(1e18 / configs[i].distributionPeriod);
+      // depositAllocationWeightFactor cannot be zero to avoid division by zero when sigmoid equals 1e18
+      if (configs[i].depositAllocationWeightFactor == 0) revert InvalidAllocationFactor();
+      rewardData.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;
 
       emit DistributionSet(configs[i].market, configs[i].reward, configs[i]);
       unchecked {
@@ -788,3 +793,4 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 }
 
 error IndexOverflow();
+error InvalidAllocationFactor();

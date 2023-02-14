@@ -11,7 +11,7 @@ import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor, IPriceFeed } from "../../contracts/Auditor.sol";
 import { Market } from "../../contracts/Market.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
-import { ERC20, RewardsController } from "../../contracts/RewardsController.sol";
+import { ERC20, RewardsController, InvalidAllocationFactor } from "../../contracts/RewardsController.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
 contract RewardsControllerTest is Test {
@@ -512,6 +512,55 @@ contract RewardsControllerTest is Test {
 
     assertGt(newLastUndistributed, lastUndistributed);
     assertEq(newLastUpdate, block.timestamp);
+  }
+
+  function testUpdateIndexesWithUtilizationEqualToOne() external {
+    marketWBTC.deposit(1_000 ether, address(this));
+    auditor.enterMarket(marketWBTC);
+
+    vm.warp(1 days);
+    marketWETH.deposit(200 ether, address(this));
+    marketWETH.borrow(200 ether, address(this), address(this));
+
+    vm.warp(2 days);
+    // should not fail
+    rewardsController.claimAll(address(this));
+  }
+
+  function testUpdateIndexesWithUtilizationHigherThanOne() external {
+    marketWBTC.deposit(1_000 ether, address(this));
+    auditor.enterMarket(marketWBTC);
+
+    vm.warp(1 days);
+    marketWETH.deposit(200 ether, address(this));
+    marketWETH.borrow(200 ether, address(this), address(this));
+    marketWETH.setTreasury(address(this), 0.1e18);
+
+    vm.warp(2 days);
+    // should not fail
+    rewardsController.claimAll(address(this));
+  }
+
+  function testConfigWithZeroDepositAllocationWeightFactorShouldRevert() external {
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: marketWETH,
+      reward: exaRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 10_000 ether,
+      totalDistribution: 1_500 ether,
+      distributionPeriod: 10 weeks,
+      undistributedFactor: 0.6e18,
+      flipSpeed: 1e18,
+      compensationFactor: 0.65e18,
+      transitionFactor: 0.71e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0
+    });
+
+    vm.expectRevert(InvalidAllocationFactor.selector);
+    rewardsController.config(configs);
   }
 
   function testAccrueRewardsForWholeDistributionPeriod() external {
@@ -1019,7 +1068,7 @@ contract RewardsControllerTest is Test {
       transitionFactor: 0.64e18,
       borrowAllocationWeightFactor: 0,
       depositAllocationWeightAddend: 0,
-      depositAllocationWeightFactor: 0
+      depositAllocationWeightFactor: 1
     });
     rewardsController.config(configs);
 
