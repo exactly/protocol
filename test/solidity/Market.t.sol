@@ -708,6 +708,47 @@ contract MarketTest is Test {
     market.liquidate(address(this), 3000 ether, market);
   }
 
+  function testNotEnteredMarketShouldNotBeSeized() external {
+    // set up new market that account will not enter
+    MockERC20 usdc = new MockERC20("USD Coin", "USDC", 6);
+    Market marketUSDC = Market(address(new ERC1967Proxy(address(new Market(usdc, auditor)), "")));
+    marketUSDC.initialize(
+      3,
+      1e18,
+      InterestRateModel(address(irm)),
+      0.02e18 / uint256(1 days),
+      1e17,
+      0,
+      0.0046e18,
+      0.42e18
+    );
+    vm.label(address(marketUSDC), "MarketUSDC");
+    MockPriceFeed usdcPriceFeed = new MockPriceFeed(18, 1e18);
+    auditor.enableMarket(marketUSDC, usdcPriceFeed, 0.8e18);
+    usdc.mint(address(this), 1_000_000e6);
+    usdc.approve(address(marketUSDC), type(uint256).max);
+    marketUSDC.deposit(10_000e6, address(this));
+    // deposit 1 ether to use as collateral
+    marketWETH.deposit(1 ether, address(this));
+    auditor.enterMarket(marketWETH);
+
+    // BOB adds liquidity to dai market
+    vm.prank(BOB);
+    market.deposit(10_000 ether, BOB);
+
+    daiPriceFeed.setPrice(0.0001e18);
+    market.borrow(5_000 ether, address(this), address(this));
+    // pump borrowed asset
+    daiPriceFeed.setPrice(0.0002e18);
+
+    vm.expectRevert(ZeroRepay.selector);
+    vm.prank(BOB);
+    market.liquidate(address(this), type(uint256).max, marketUSDC);
+
+    vm.prank(BOB);
+    market.liquidate(address(this), type(uint256).max, marketWETH);
+  }
+
   function testLiquidateLeavingDustAsCollateral() external {
     vm.prank(ALICE);
     marketWETH.approve(address(this), type(uint256).max);
