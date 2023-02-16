@@ -722,19 +722,14 @@ contract ProtocolTest is Test {
       rewardAsset
     );
     RewardsController.Config memory config = rewardsController.rewardConfig(markets[0], rewardAsset);
-    uint256 baseUnit = 10 ** markets[0].decimals();
-    uint256 mintingRate = config.totalDistribution.mulDivDown(baseUnit, config.targetDebt).mulWadDown(
-      1e18 / config.distributionPeriod
-    );
+    uint256 mintingRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
     assertApproxEqAbs(
-      claimedRewards + lastUndistributed.mulDivDown(config.targetDebt, baseUnit),
-      config.targetDebt.mulDivDown(mintingRate, baseUnit) * Math.min(lastUpdate - start, config.distributionPeriod),
+      claimedRewards + lastUndistributed,
+      mintingRate * Math.min(lastUpdate - start, config.distributionPeriod),
       1e14
     );
     assertApproxEqAbs(
-      lastUndistributed.mulDivDown(config.targetDebt, baseUnit) +
-        config.targetDebt.mulDivDown(mintingRate, baseUnit) *
-        (end - Math.min(lastUpdate, end)),
+      lastUndistributed + mintingRate * (end - Math.min(lastUpdate, end)),
       config.totalDistribution - claimedRewards,
       1e14
     );

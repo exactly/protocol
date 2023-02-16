@@ -446,7 +446,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     TotalMarketBalance memory m;
     m.debt = market.totalFloatingBorrowAssets();
     m.supply = market.totalAssets();
-    m.baseUnit = distribution[market].baseUnit;
     uint256 fixedBorrowShares;
     {
       uint256 start = rewardData.start;
@@ -473,7 +472,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
     uint256 rewards;
     {
-      m.rewardMintingRate = rewardData.mintingRate;
+      uint256 rewardMintingRate = rewardData.mintingRate;
       uint256 lastUndistributed = rewardData.lastUndistributed;
       uint256 distributionFactor = rewardData.undistributedFactor.mulWadDown(target);
       if (block.timestamp <= rewardData.end) {
@@ -481,16 +480,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
             lastUndistributed +
-            m.rewardMintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(
-              1e18 - exponential
-            ) -
+            rewardMintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
             lastUndistributed.mulWadDown(1e18 - exponential);
         } else {
-          newUndistributed = lastUndistributed + m.rewardMintingRate.mulWadDown(1e18 - target) * deltaTime;
+          newUndistributed = lastUndistributed + rewardMintingRate.mulWadDown(1e18 - target) * deltaTime;
         }
-        rewards = rewardData.targetDebt.mulDivDown(
-          uint256(int256(m.rewardMintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed))),
-          m.baseUnit
+        rewards = uint256(
+          int256(rewardMintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed))
         );
       } else if (rewardData.lastUpdate > rewardData.end) {
         newUndistributed =
@@ -498,29 +494,24 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           lastUndistributed.mulWadDown(
             1e18 - uint256((-int256(distributionFactor * (block.timestamp - rewardData.lastUpdate))).expWad())
           );
-        rewards = rewardData.targetDebt.mulDivDown(
-          uint256(-(int256(newUndistributed) - int256(lastUndistributed))),
-          m.baseUnit
-        );
+        rewards = uint256(-(int256(newUndistributed) - int256(lastUndistributed)));
       } else {
         uint256 exponential;
-        deltaTime = rewardData.end - rewardData.lastUpdate;
+        uint256 end = rewardData.end;
+        deltaTime = end - rewardData.lastUpdate;
         if (distributionFactor > 0) {
           exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
             lastUndistributed +
-            m.rewardMintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(
-              1e18 - exponential
-            ) -
+            rewardMintingRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
             lastUndistributed.mulWadDown(1e18 - exponential);
         } else {
-          newUndistributed = lastUndistributed + m.rewardMintingRate.mulWadDown(1e18 - target) * deltaTime;
+          newUndistributed = lastUndistributed + rewardMintingRate.mulWadDown(1e18 - target) * deltaTime;
         }
-        exponential = uint256((-int256(distributionFactor * (block.timestamp - rewardData.end))).expWad());
+        exponential = uint256((-int256(distributionFactor * (block.timestamp - end))).expWad());
         newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
-        rewards = rewardData.targetDebt.mulDivDown(
-          uint256(int256(m.rewardMintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed))),
-          m.baseUnit
+        rewards = uint256(
+          int256(rewardMintingRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed))
         );
       }
       if (rewards == 0) return (rewardData.borrowIndex, rewardData.depositIndex, newUndistributed);
@@ -557,16 +548,15 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       {
         uint256 totalDepositSupply = market.totalSupply();
         uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + fixedBorrowShares;
+        uint256 baseUnit = distribution[market].baseUnit;
         borrowIndex =
           rewardData.borrowIndex +
-          (
-            totalBorrowSupply > 0 ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(m.baseUnit, totalBorrowSupply) : 0
-          );
+          (totalBorrowSupply > 0 ? rewards.mulWadDown(v.borrowAllocation).mulDivDown(baseUnit, totalBorrowSupply) : 0);
         depositIndex =
           rewardData.depositIndex +
           (
             totalDepositSupply > 0
-              ? rewards.mulWadDown(v.depositAllocation).mulDivDown(m.baseUnit, totalDepositSupply)
+              ? rewards.mulWadDown(v.depositAllocation).mulDivDown(baseUnit, totalDepositSupply)
               : 0
           );
       }
@@ -661,10 +651,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardData.borrowAllocationWeightFactor = configs[i].borrowAllocationWeightFactor;
       rewardData.depositAllocationWeightAddend = configs[i].depositAllocationWeightAddend;
       rewardData.totalDistribution = configs[i].totalDistribution;
-      rewardData.mintingRate = configs[i]
-        .totalDistribution
-        .mulDivDown(distribution[configs[i].market].baseUnit, configs[i].targetDebt)
-        .mulWadDown(1e18 / configs[i].distributionPeriod);
+      rewardData.mintingRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
       // depositAllocationWeightFactor cannot be zero to avoid division by zero when sigmoid equals 1e18
       if (configs[i].depositAllocationWeightFactor == 0) revert InvalidAllocationFactor();
       rewardData.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;
@@ -679,8 +666,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   struct TotalMarketBalance {
     uint256 debt;
     uint256 supply;
-    uint256 baseUnit;
-    uint256 rewardMintingRate;
   }
 
   struct AllocationVars {

@@ -440,7 +440,7 @@ contract RewardsControllerTest is Test {
     uint256 opRewardsPostMaturity = rewardsController.allClaimable(address(this), opRewardAsset);
     uint256 exaRewardsPostMaturity = rewardsController.allClaimable(address(this), exaRewardAsset);
     assertGt(opRewardsPostMaturity, opRewardsPreMaturity);
-    assertGt(exaRewardsPostMaturity, exaRewardsPreMaturity);
+    assertEq(exaRewardsPostMaturity, exaRewardsPreMaturity);
 
     vm.warp(FixedLib.INTERVAL + 1 days);
     assertApproxEqAbs(rewardsController.allClaimable(address(this), exaRewardAsset), exaRewardsPostMaturity, 1e2);
@@ -570,10 +570,9 @@ contract RewardsControllerTest is Test {
     vm.warp(12 weeks);
     uint256 distributedRewards = rewardsController.allClaimable(address(this), opRewardAsset);
     rewardsController.claimAll(address(this));
-    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
     (, , , uint256 lastUndistributed) = rewardsController.distributionTime(marketWETH, opRewardAsset);
     assertApproxEqAbs(distributedRewards, 700 ether, 3e18);
-    assertApproxEqAbs(lastUndistributed.mulWadDown(config.targetDebt), 1_300 ether, 3e18);
+    assertApproxEqAbs(lastUndistributed, 1_300 ether, 3e18);
   }
 
   function testAllClaimableWETH() external {
@@ -715,6 +714,49 @@ contract RewardsControllerTest is Test {
     assertEq(claimableRewards, opRewardAsset.balanceOf(address(this)));
   }
 
+  function testSetNewTreasuryFeeShouldImpactAllocation() external {
+    marketWETH.deposit(10_000 ether, address(this));
+    marketWETH.borrow(5_000 ether, address(this), address(this));
+
+    (uint256 borrowIndex, uint256 depositIndex, ) = rewardsController.previewAllocation(
+      marketWETH,
+      opRewardAsset,
+      1 days
+    );
+    marketWETH.setTreasury(address(this), 0.1e18);
+    (uint256 newBorrowIndex, uint256 newDepositIndex, ) = rewardsController.previewAllocation(
+      marketWETH,
+      opRewardAsset,
+      1 days
+    );
+
+    assertGt(newBorrowIndex, borrowIndex);
+    assertGt(depositIndex, newDepositIndex);
+  }
+
+  function testSetNewTargetDebt() external {
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    marketWETH.deposit(10_000 ether, address(this));
+    marketWETH.borrow(5_000 ether, address(this), address(this));
+
+    vm.warp(6 weeks);
+    rewardsController.claimAll(address(this));
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    config.targetDebt = 40_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(12 weeks);
+    rewardsController.claimAll(address(this));
+    (, , , uint256 lastUndistributed) = rewardsController.distributionTime(marketWETH, opRewardAsset);
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    uint256 releaseOne = config.totalDistribution.mulDivDown(6 weeks, config.distributionPeriod);
+    uint256 releaseTwo = config.totalDistribution.mulDivDown(6 weeks, config.distributionPeriod);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, releaseOne + releaseTwo, 1e14);
+    assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
+  }
+
   function testUpdateConfig() external {
     vm.warp(1 days);
     marketWETH.deposit(10 ether, address(this));
@@ -852,13 +894,13 @@ contract RewardsControllerTest is Test {
       1 days
     );
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 409693121322912140);
+    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 409693120809176800);
     rewardsController.claimAll(address(this));
 
     vm.warp(2 days);
     (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset, 1 days);
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 344878245757177500);
+    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 344878245617661000);
     marketWETH.deposit(10 ether, address(this));
   }
 
@@ -936,20 +978,14 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , , uint256 lastUndistributed) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
     RewardsController.Config memory config = rewardsController.rewardConfig(marketUSDC, opRewardAsset);
-    uint256 mintingRate = config.totalDistribution.mulDivDown(1e6, config.targetDebt).mulWadDown(
-      1e18 / config.distributionPeriod
-    );
-    assertApproxEqAbs(
-      opRewardAsset.balanceOf(address(this)) + lastUndistributed.mulDivDown(config.targetDebt, 1e6),
-      config.targetDebt.mulDivDown(mintingRate, 1e6) * 6 weeks,
-      1e6
-    );
+    uint256 mintingRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, mintingRate * 6 weeks, 1e6);
 
     vm.warp(8 weeks);
     rewardsController.claimAll(address(this));
     (, , , lastUndistributed) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
     assertApproxEqAbs(
-      lastUndistributed.mulDivDown(config.targetDebt, 1e6) + config.targetDebt.mulDivDown(mintingRate, 1e6) * 4 weeks,
+      lastUndistributed + mintingRate * 4 weeks,
       config.totalDistribution - opRewardAsset.balanceOf(address(this)),
       1e12
     );
@@ -957,11 +993,7 @@ contract RewardsControllerTest is Test {
     vm.warp(12 weeks);
     rewardsController.claimAll(address(this));
     (, , , lastUndistributed) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
-    assertApproxEqAbs(
-      opRewardAsset.balanceOf(address(this)) + lastUndistributed.mulDivDown(config.targetDebt, 1e6),
-      config.targetDebt.mulDivDown(mintingRate, 1e6) * 12 weeks,
-      1e6
-    );
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, mintingRate * 12 weeks, 1e6);
   }
 
   function testSetDistributionConfigWithDifferentDecimals() external {
@@ -1007,39 +1039,25 @@ contract RewardsControllerTest is Test {
       11e18
     );
 
-    uint256 mintingRate = 13778659611; // mock value with 18 decimals
+    uint256 mintingRate = 275573192238000; // mock value with 18 decimals
     RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
-    uint256 mintingRateWETH = config.totalDistribution.divWadDown(config.targetDebt).mulWadDown(
-      1e18 / config.distributionPeriod
-    );
+    uint256 mintingRateWETH = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
     assertEq(mintingRateWETH, mintingRate);
 
     config = rewardsController.rewardConfig(marketUSDC, opRewardAsset);
-    uint256 mintingRateUSDC = config
-      .totalDistribution
-      .mulDivDown(10 ** marketUSDC.decimals(), config.targetDebt)
-      .mulWadDown(1e18 / config.distributionPeriod);
+    uint256 mintingRateUSDC = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
     assertEq(mintingRateUSDC, mintingRate);
 
     config = rewardsController.rewardConfig(market, rewardAsset);
-    uint256 mintingRateAsset = config
-      .totalDistribution
-      .mulDivDown(10 ** market.decimals(), config.targetDebt)
-      .mulWadDown(1e18 / config.distributionPeriod);
+    uint256 mintingRateAsset = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
 
     assertEq(mintingRateAsset, mintingRate / 10 ** (18 - rewardAsset.decimals()));
 
     rewardsController.claimAll(address(this));
     (, , , uint256 lastUndistributed) = rewardsController.distributionTime(market, rewardAsset);
+    assertApproxEqAbs(rewardAsset.balanceOf(address(this)) + lastUndistributed, mintingRateAsset * 6 weeks, 1e6);
     assertApproxEqAbs(
-      rewardAsset.balanceOf(address(this)) + lastUndistributed.mulDivDown(config.targetDebt, 1e6),
-      config.targetDebt.mulDivDown(mintingRateAsset, 1e6) * 6 weeks,
-      1e6
-    );
-    assertApproxEqAbs(
-      lastUndistributed.mulDivDown(config.targetDebt, 1e6) +
-        config.targetDebt.mulDivDown(mintingRateAsset, 1e6) *
-        6 weeks,
+      lastUndistributed + mintingRateAsset * 6 weeks,
       config.totalDistribution - rewardAsset.balanceOf(address(this)),
       1e12
     );
