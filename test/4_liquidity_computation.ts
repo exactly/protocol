@@ -119,7 +119,7 @@ describe("Liquidity computations", function () {
               laura.address,
               laura.address,
             ),
-          ).to.be.revertedWith("InsufficientAccountLiquidity()");
+          ).to.be.revertedWithCustomError(auditor, "InsufficientAccountLiquidity");
         });
       });
 
@@ -146,7 +146,7 @@ describe("Liquidity computations", function () {
           expect(borrowed).to.equal(parseUnits("640"));
         });
         it("AND WHEN laura tries to exit her collateral DAI market it reverts since there's unpaid debt", async () => {
-          await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWith("RemainingDebt()");
+          await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWithCustomError(auditor, "RemainingDebt");
         });
         it("AND WHEN laura repays her debt THEN it does not revert when she tries to exit her collateral DAI market", async () => {
           await marketDAI.repayAtMaturity(futurePools(1)[0], parseUnits("640"), parseUnits("640"), laura.address);
@@ -161,7 +161,7 @@ describe("Liquidity computations", function () {
             await expect(auditor.exitMarket(marketWETH.address)).to.not.be.reverted;
           });
           it("THEN it reverts when she tries to exit her collateral DAI market since it's the same that she borrowed from", async () => {
-            await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWith("RemainingDebt()");
+            await expect(auditor.exitMarket(marketDAI.address)).to.be.revertedWithCustomError(auditor, "RemainingDebt");
           });
         });
       });
@@ -248,7 +248,7 @@ describe("Liquidity computations", function () {
           // expect liquidity to equal zero
           await expect(
             marketUSDC.connect(bob).borrowAtMaturity(futurePools(1)[0], "400", "400", bob.address, bob.address),
-          ).to.be.revertedWith("InsufficientAccountLiquidity()");
+          ).to.be.revertedWithCustomError(auditor, "InsufficientAccountLiquidity");
         });
         describe("AND WHEN he takes a 3*10^14 USDC loan", () => {
           beforeEach(async () => {
@@ -278,7 +278,7 @@ describe("Liquidity computations", function () {
             marketWBTC
               .connect(bob)
               .borrowAtMaturity(futurePools(1)[0], parseUnits("1", 8), parseUnits("1", 8), bob.address, bob.address),
-          ).to.be.revertedWith("InsufficientAccountLiquidity()");
+          ).to.be.revertedWithCustomError(auditor, "InsufficientAccountLiquidity");
         });
       });
 
@@ -305,9 +305,9 @@ describe("Liquidity computations", function () {
           // collateral to withdraw is passed as the supplyAmount
           it("WHEN he tries to withdraw the usdc (6 decimals) collateral, THEN it reverts ()", async () => {
             // expect liquidity to equal zero
-            await expect(marketUSDC.withdraw(parseUnits("40000", 6), bob.address, bob.address)).to.be.revertedWith(
-              "InsufficientAccountLiquidity()",
-            );
+            await expect(
+              marketUSDC.withdraw(parseUnits("40000", 6), bob.address, bob.address),
+            ).to.be.revertedWithCustomError(auditor, "InsufficientAccountLiquidity");
           });
         });
       });

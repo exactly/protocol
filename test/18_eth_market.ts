@@ -608,7 +608,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
           to: routerETH.address,
           value: parseUnits("1"),
         }),
-      ).to.be.revertedWith("NotFromWETH()");
+      ).to.be.revertedWithCustomError(routerETH, "NotFromWETH");
     });
   });
 
@@ -622,7 +622,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         tx = routerETH.depositAtMaturity(futurePools(1)[0], parseUnits("10"), { value: parseUnits("5") });
       });
       it("THEN the tx should revert with Disagreement", async () => {
-        await expect(tx).to.be.revertedWith("Disagreement()");
+        await expect(tx).to.be.revertedWithCustomError(marketWETH, "Disagreement");
       });
     });
     describe("WHEN trying to borrow with a low rate amount expected", () => {
@@ -633,7 +633,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         tx = routerETH.borrowAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("5"));
       });
       it("THEN the tx should revert with Disagreement", async () => {
-        await expect(tx).to.be.revertedWith("Disagreement()");
+        await expect(tx).to.be.revertedWithCustomError(marketWETH, "Disagreement");
       });
     });
     describe("WHEN trying to withdraw with a high rate amount expected", () => {
@@ -642,7 +642,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         tx = routerETH.withdrawAtMaturity(futurePools(1)[0], parseUnits("5"), parseUnits("10"));
       });
       it("THEN the tx should revert with Disagreement", async () => {
-        await expect(tx).to.be.revertedWith("Disagreement()");
+        await expect(tx).to.be.revertedWithCustomError(marketWETH, "Disagreement");
       });
     });
     describe("WHEN trying to repay with a low rate amount expected", () => {
@@ -654,7 +654,7 @@ describe("ETHMarket - receive bare ETH instead of WETH", function () {
         tx = routerETH.repayAtMaturity(futurePools(1)[0], parseUnits("5"), { value: parseUnits("4") });
       });
       it("THEN the tx should revert with Disagreement", async () => {
-        await expect(tx).to.be.revertedWith("Disagreement()");
+        await expect(tx).to.be.revertedWithCustomError(marketWETH, "Disagreement");
       });
     });
   });

@@ -661,9 +661,9 @@ describe("Fixed Pool Management Library", () => {
               });
               describe("AND GIVEN the 28 days maturity is removed again from the userBorrows", () => {
                 it("THEN it should revert", async () => {
-                  await expect(poolEnv.clearMaturity(userBorrowsWith56And84DayMaturity, INTERVAL)).to.be.revertedWith(
-                    "0x11",
-                  );
+                  await expect(
+                    poolEnv.clearMaturity(userBorrowsWith56And84DayMaturity, INTERVAL),
+                  ).to.be.revertedWithPanic(0x11);
                 });
               });
               describe("AND GIVEN the 86 days maturity is removed from the userBorrows", () => {

@@ -241,16 +241,16 @@ describe("Liquidations", function () {
         it("AND trying to repay an amount of zero fails", async () => {
           // try to get all the WETH available
           // expect trying to repay zero to fail
-          await expect(marketDAI.connect(bob).liquidate(alice.address, 0, marketETH.address)).to.be.revertedWith(
-            "ZeroRepay()",
-          );
+          await expect(
+            marketDAI.connect(bob).liquidate(alice.address, 0, marketETH.address),
+          ).to.be.revertedWithCustomError(marketDAI, "ZeroRepay");
         });
 
         it("AND the position cant be liquidated by the borrower", async () => {
           // expect self liquidation to fail
-          await expect(marketDAI.liquidate(alice.address, parseUnits("15000"), marketETH.address)).to.be.revertedWith(
-            "SelfLiquidation()",
-          );
+          await expect(
+            marketDAI.liquidate(alice.address, parseUnits("15000"), marketETH.address),
+          ).to.be.revertedWithCustomError(marketDAI, "SelfLiquidation");
         });
 
         describe("GIVEN an insufficient allowance on the liquidator", () => {
@@ -260,8 +260,9 @@ describe("Liquidations", function () {
           it("WHEN trying to liquidate, THEN it reverts with a ERC20 transfer error", async () => {
             // expect liquidation to fail because trying to liquidate
             // and repay with an amount that the contract doesn't have enough allowance for bob
-            await expect(marketDAI.connect(bob).liquidate(alice.address, parseUnits("15000"), marketETH.address)).to.be
-              .reverted;
+            await expect(
+              marketDAI.connect(bob).liquidate(alice.address, parseUnits("15000"), marketETH.address),
+            ).to.be.revertedWithoutReason();
           });
         });
 
@@ -336,7 +337,7 @@ describe("Liquidations", function () {
 
           await expect(
             marketETH.connect(john).liquidate(alice.address, parseUnits("1"), marketDAI.address),
-          ).to.be.revertedWith("InsufficientProtocolLiquidity()");
+          ).to.be.revertedWithCustomError(marketETH, "InsufficientProtocolLiquidity");
         });
         describe("AND GIVEN a DAI liquidity deposit to the smart pool", () => {
           beforeEach(async () => {
@@ -350,8 +351,9 @@ describe("Liquidations", function () {
               .reverted;
           });
           it("AND WHEN trying to liquidate in a market where alice doesn't have borrows THEN it reverts", async () => {
-            await expect(marketWBTC.connect(john).liquidate(alice.address, parseUnits("0.5"), marketDAI.address)).to.be
-              .reverted;
+            await expect(
+              marketWBTC.connect(john).liquidate(alice.address, parseUnits("0.5"), marketDAI.address),
+            ).to.be.revertedWithoutReason();
           });
         });
       });

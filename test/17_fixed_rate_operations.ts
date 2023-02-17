@@ -58,7 +58,7 @@ describe("Fixed Rate Operations", () => {
         .withArgs(penaltyRate);
     });
     it("WHEN calling setPenaltyRate from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketHarness.connect(laura).setPenaltyRate(parseUnits("0.04"))).to.be.reverted;
+      await expect(marketHarness.connect(laura).setPenaltyRate(parseUnits("0.04"))).to.be.revertedWithoutReason();
     });
   });
   describe("setSmartPoolRate", () => {
@@ -72,7 +72,7 @@ describe("Fixed Rate Operations", () => {
         .withArgs(parseUnits("0.2"));
     });
     it("WHEN calling setBackupFeeRate from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketHarness.connect(laura).setBackupFeeRate(parseUnits("0.2"))).to.be.reverted;
+      await expect(marketHarness.connect(laura).setBackupFeeRate(parseUnits("0.2"))).to.be.revertedWithoutReason();
     });
   });
   describe("setReserveFactor", () => {
@@ -86,7 +86,7 @@ describe("Fixed Rate Operations", () => {
         .withArgs(parseUnits("0.04"));
     });
     it("WHEN calling setReserveFactor from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketHarness.connect(laura).setReserveFactor(parseUnits("0.04"))).to.be.reverted;
+      await expect(marketHarness.connect(laura).setReserveFactor(parseUnits("0.04"))).to.be.revertedWithoutReason();
     });
   });
   describe("setInterestRateModel", () => {
@@ -118,9 +118,9 @@ describe("Fixed Rate Operations", () => {
         .withArgs(newInterestRateModel.address);
     });
     it("WHEN calling setInterestRateModel from a regular (non-admin) account, THEN it reverts with an AccessControl error", async () => {
-      await expect(marketHarness.connect(laura).setInterestRateModel(newInterestRateModel.address)).to.be.revertedWith(
-        "",
-      );
+      await expect(
+        marketHarness.connect(laura).setInterestRateModel(newInterestRateModel.address),
+      ).to.be.revertedWithoutReason();
     });
   });
 
@@ -492,7 +492,7 @@ describe("Fixed Rate Operations", () => {
                     parseUnits((repayAmount - 126).toString()),
                     laura.address,
                   ),
-              ).to.be.reverted;
+              ).to.be.revertedWithoutReason();
             });
           });
 
@@ -1604,7 +1604,7 @@ describe("Fixed Rate Operations", () => {
                 laura.address,
                 laura.address,
               ),
-          ).to.be.reverted;
+          ).to.be.revertedWithoutReason();
         });
       });
 

@@ -75,13 +75,13 @@ describe("Auditor from Account Space", function () {
     await priceFeedDAI.setPrice(0);
     await expect(
       marketDAI.borrowAtMaturity(futurePools(1)[0], 1, 1, account.address, account.address),
-    ).to.be.revertedWith("InvalidPrice()");
+    ).to.be.revertedWithCustomError(auditor, "InvalidPrice");
   });
 
   it("checkLiquidation should revert with INSUFFICIENT_SHORTFALL if account has no shortfall", async () => {
     await expect(
       auditor.checkLiquidation(marketDAI.address, marketDAI.address, account.address, MaxUint256),
-    ).to.be.revertedWith("InsufficientShortfall()"); // Any failure except MARKET_NOT_LISTED
+    ).to.be.revertedWithCustomError(auditor, "InsufficientShortfall"); // Any failure except MARKET_NOT_LISTED
   });
 
   it("Auto-adding a market should only be allowed from a market", async () => {
@@ -90,14 +90,17 @@ describe("Auditor from Account Space", function () {
     await marketDAI.deposit(100, account.address);
 
     // make it count as collateral (DAI)
-    await expect(auditor.checkBorrow(marketDAI.address, owner.address)).to.be.revertedWith("NotMarket()");
+    await expect(auditor.checkBorrow(marketDAI.address, owner.address)).to.be.revertedWithCustomError(
+      auditor,
+      "NotMarket",
+    );
   });
 
   it("CalculateSeize should fail when oracle is acting weird", async () => {
     await priceFeedDAI.setPrice(0);
-    await expect(auditor.calculateSeize(marketDAI.address, marketDAI.address, account.address, 100)).to.be.revertedWith(
-      "0x00bfc921",
-    );
+    await expect(
+      auditor.calculateSeize(marketDAI.address, marketDAI.address, account.address, 100),
+    ).to.be.revertedWithCustomError(auditor, "InvalidPrice");
   });
 
   it("deposits dai & eth to the protocol and uses them both for collateral to take a loan", async () => {
@@ -139,7 +142,10 @@ describe("Auditor from Account Space", function () {
     // make it count as collateral (DAI)
     await auditor.enterMarket(marketDAI.address);
     await priceFeedDAI.setPrice(0);
-    await expect(auditor.accountLiquidity(account.address, AddressZero, 0)).to.revertedWith("0x00bfc921");
+    await expect(auditor.accountLiquidity(account.address, AddressZero, 0)).to.revertedWithCustomError(
+      auditor,
+      "InvalidPrice",
+    );
   });
 
   it("Get data from correct market", async () => {

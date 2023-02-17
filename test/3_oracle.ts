@@ -37,16 +37,16 @@ describe("auditor", function () {
 
   it("GetAssetPrice should fail when price value is zero", async () => {
     await priceFeedDAI.setPrice(0);
-    await expect(auditor.assetPrice(priceFeedDAI.address)).to.be.revertedWith("InvalidPrice()");
+    await expect(auditor.assetPrice(priceFeedDAI.address)).to.be.revertedWithCustomError(auditor, "InvalidPrice");
   });
 
   it("GetAssetPrice should fail when price value is lower than zero", async () => {
     await priceFeedDAI.setPrice(-10);
-    await expect(auditor.assetPrice(priceFeedDAI.address)).to.be.revertedWith("InvalidPrice()");
+    await expect(auditor.assetPrice(priceFeedDAI.address)).to.be.revertedWithCustomError(auditor, "InvalidPrice");
   });
 
   it("GetAssetPrice should fail when asset address is invalid", async () => {
-    await expect(auditor.assetPrice(account.address)).to.be.revertedWith("0x");
+    await expect(auditor.assetPrice(account.address)).to.be.revertedWithoutReason();
   });
 
   it("SetPriceFeed should set the address source of an asset", async () => {

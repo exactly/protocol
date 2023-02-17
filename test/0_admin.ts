@@ -50,7 +50,7 @@ describe("Auditor Admin", function () {
 
   describe("GIVEN a regular account", () => {
     it("WHEN trying to enable a market, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0)).to.be.reverted;
+      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0)).to.be.revertedWithoutReason();
     });
 
     it("WHEN trying to set liquidation incentive, THEN the transaction should revert with Access Control", async () => {
@@ -59,11 +59,11 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to set a new price feed, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setPriceFeed(marketDAI.address, priceFeedDAI.address)).to.be.reverted;
+      await expect(auditor.setPriceFeed(marketDAI.address, priceFeedDAI.address)).to.be.revertedWithoutReason();
     });
 
     it("WHEN trying to set adjust factor, THEN the transaction should revert with Access Control", async () => {
-      await expect(auditor.setAdjustFactor(marketDAI.address, 1)).to.be.reverted;
+      await expect(auditor.setAdjustFactor(marketDAI.address, 1)).to.be.revertedWithoutReason();
     });
   });
 
@@ -79,8 +79,9 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to enable a market for the second time, THEN the transaction should revert with MarketAlreadyListed", async () => {
-      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0)).to.be.revertedWith(
-        "MarketAlreadyListed()",
+      await expect(auditor.enableMarket(marketDAI.address, priceFeedDAI.address, 0)).to.be.revertedWithCustomError(
+        auditor,
+        "MarketAlreadyListed",
       );
     });
 
@@ -90,9 +91,9 @@ describe("Auditor Admin", function () {
         dai.address,
         newAuditor.address,
       );
-      await expect(auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5"))).to.be.revertedWith(
-        "AuditorMismatch()",
-      );
+      await expect(
+        auditor.enableMarket(market.address, priceFeedDAI.address, parseUnits("0.5")),
+      ).to.be.revertedWithCustomError(auditor, "AuditorMismatch");
     });
 
     it("WHEN trying to retrieve all markets, THEN the addresses should match the ones passed on deploy", async () => {
@@ -139,25 +140,23 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN trying to initialize implementation, THEN the transaction should revert with Initializable", async () => {
-      await expect(newAuditor.initialize({ liquidator: 0, lenders: 0 })).to.be.reverted;
+      await expect(newAuditor.initialize({ liquidator: 0, lenders: 0 })).to.be.revertedWithoutReason();
     });
 
     it("WHEN regular user tries to upgrade, THEN the transaction should revert with not found", async () => {
-      await expect(proxy.upgradeTo(newAuditor.address)).to.be.revertedWith(
-        "function selector was not recognized and there's no fallback function",
-      );
-      await expect(proxy.connect(multisig).upgradeTo(newAuditor.address)).to.be.revertedWith(
-        "function selector was not recognized and there's no fallback function",
-      );
+      await expect(proxy.upgradeTo(newAuditor.address)).to.be.revertedWithoutReason();
+      await expect(proxy.connect(multisig).upgradeTo(newAuditor.address)).to.be.revertedWithoutReason();
     });
 
     it("WHEN regular user tries to upgrade through proxy admin, THEN the transaction should revert with Ownable", async () => {
-      await expect(proxyAdmin.upgrade(proxy.address, newAuditor.address)).to.be.reverted;
-      await expect(proxyAdmin.connect(multisig).upgrade(proxy.address, newAuditor.address)).to.be.reverted;
+      await expect(proxyAdmin.upgrade(proxy.address, newAuditor.address)).to.be.revertedWithoutReason();
+      await expect(
+        proxyAdmin.connect(multisig).upgrade(proxy.address, newAuditor.address),
+      ).to.be.revertedWithoutReason();
     });
 
     it("WHEN timelock tries to upgrade directly, THEN the transaction should revert with not found", async () => {
-      await expect(timelockExecute(multisig, auditor, "upgradeTo", [newAuditor.address])).to.be.reverted;
+      await expect(timelockExecute(multisig, auditor, "upgradeTo", [newAuditor.address])).to.be.revertedWithoutReason();
     });
 
     it("WHEN timelock tries to upgrade through proxy admin, THEN the proxy should emit Upgraded event", async () => {
