@@ -78,6 +78,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   uint256 public totalFloatingBorrowShares;
 
   /// @dev gap from deprecated state.
+  /// @custom:oz-renamed-from floatingUtilization
   uint256 private __gap;
 
   /// @notice Address of the treasury that will receive the allocated earnings.
