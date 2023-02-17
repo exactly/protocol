@@ -657,9 +657,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardData.undistributedFactor = configs[i].undistributedFactor;
       rewardData.flipSpeed = configs[i].flipSpeed;
       rewardData.compensationFactor = configs[i].compensationFactor;
-      rewardData.transitionFactor = configs[i].transitionFactor;
       rewardData.borrowAllocationWeightFactor = configs[i].borrowAllocationWeightFactor;
       rewardData.depositAllocationWeightAddend = configs[i].depositAllocationWeightAddend;
+
+      // transitionFactor cannot be eq or higher than 1e18 to avoid division by zero or underflow
+      if (configs[i].transitionFactor >= 1e18) revert InvalidConfig();
+      rewardData.transitionFactor = configs[i].transitionFactor;
+
       // depositAllocationWeightFactor cannot be zero to avoid division by zero when sigmoid equals 1e18
       if (configs[i].depositAllocationWeightFactor == 0) revert InvalidConfig();
       rewardData.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;

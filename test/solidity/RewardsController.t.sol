@@ -543,22 +543,24 @@ contract RewardsControllerTest is Test {
 
   function testConfigWithZeroDepositAllocationWeightFactorShouldRevert() external {
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
-    configs[0] = RewardsController.Config({
-      market: marketWETH,
-      reward: exaRewardAsset,
-      priceFeed: MockPriceFeed(address(0)),
-      targetDebt: 10_000 ether,
-      totalDistribution: 1_500 ether,
-      distributionPeriod: 10 weeks,
-      undistributedFactor: 0.6e18,
-      flipSpeed: 1e18,
-      compensationFactor: 0.65e18,
-      transitionFactor: 0.71e18,
-      borrowAllocationWeightFactor: 0,
-      depositAllocationWeightAddend: 0.02e18,
-      depositAllocationWeightFactor: 0
-    });
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.depositAllocationWeightFactor = 0;
+    configs[0] = config;
 
+    vm.expectRevert(InvalidConfig.selector);
+    rewardsController.config(configs);
+  }
+
+  function testConfigWithTransitionFactorHigherOrEqThanCap() external {
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.transitionFactor = 1e18;
+    configs[0] = config;
+    vm.expectRevert(InvalidConfig.selector);
+    rewardsController.config(configs);
+
+    config.transitionFactor = 1e18 + 1;
+    configs[0] = config;
     vm.expectRevert(InvalidConfig.selector);
     rewardsController.config(configs);
   }
