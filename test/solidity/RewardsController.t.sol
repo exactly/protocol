@@ -825,7 +825,7 @@ contract RewardsControllerTest is Test {
     rewardsController.config(configs);
   }
 
-  function testSetLowerAndEqualTotalDistributionThanMintedShouldRevert() external {
+  function testSetLowerAndEqualTotalDistributionThanReleasedShouldRevert() external {
     vm.warp(1);
     marketWETH.deposit(50_000 ether, address(this));
     marketWETH.borrow(20_000 ether, address(this), address(this));
@@ -1188,14 +1188,14 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , , uint256 lastUndistributed) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
     RewardsController.Config memory config = rewardsController.rewardConfig(marketUSDC, opRewardAsset);
-    uint256 mintingRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, mintingRate * 6 weeks, 1e6);
+    uint256 releaseRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, releaseRate * 6 weeks, 1e6);
 
     vm.warp(8 weeks);
     rewardsController.claimAll(address(this));
     (, , , lastUndistributed) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
     assertApproxEqAbs(
-      lastUndistributed + mintingRate * 4 weeks,
+      lastUndistributed + releaseRate * 4 weeks,
       config.totalDistribution - opRewardAsset.balanceOf(address(this)),
       1e12
     );
@@ -1203,7 +1203,7 @@ contract RewardsControllerTest is Test {
     vm.warp(12 weeks);
     rewardsController.claimAll(address(this));
     (, , , lastUndistributed) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, mintingRate * 12 weeks, 1e6);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, releaseRate * 12 weeks, 1e6);
   }
 
   function testSetDistributionConfigWithDifferentDecimals() external {
@@ -1249,25 +1249,25 @@ contract RewardsControllerTest is Test {
       11e18
     );
 
-    uint256 mintingRate = 275573192238000; // mock value with 18 decimals
+    uint256 releaseRate = 275573192238000; // mock value with 18 decimals
     RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
-    uint256 mintingRateWETH = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
-    assertEq(mintingRateWETH, mintingRate);
+    uint256 releaseRateWETH = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
+    assertEq(releaseRateWETH, releaseRate);
 
     config = rewardsController.rewardConfig(marketUSDC, opRewardAsset);
-    uint256 mintingRateUSDC = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
-    assertEq(mintingRateUSDC, mintingRate);
+    uint256 releaseRateUSDC = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
+    assertEq(releaseRateUSDC, releaseRate);
 
     config = rewardsController.rewardConfig(market, rewardAsset);
-    uint256 mintingRateAsset = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
+    uint256 releaseRateAsset = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
 
-    assertEq(mintingRateAsset, mintingRate / 10 ** (18 - rewardAsset.decimals()));
+    assertEq(releaseRateAsset, releaseRate / 10 ** (18 - rewardAsset.decimals()));
 
     rewardsController.claimAll(address(this));
     (, , , uint256 lastUndistributed) = rewardsController.distributionTime(market, rewardAsset);
-    assertApproxEqAbs(rewardAsset.balanceOf(address(this)) + lastUndistributed, mintingRateAsset * 6 weeks, 1e6);
+    assertApproxEqAbs(rewardAsset.balanceOf(address(this)) + lastUndistributed, releaseRateAsset * 6 weeks, 1e6);
     assertApproxEqAbs(
-      lastUndistributed + mintingRateAsset * 6 weeks,
+      lastUndistributed + releaseRateAsset * 6 weeks,
       config.totalDistribution - rewardAsset.balanceOf(address(this)),
       1e12
     );
