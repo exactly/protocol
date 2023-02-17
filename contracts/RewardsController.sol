@@ -604,22 +604,27 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param configs The config to update the RewardData with
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; ) {
+      RewardData storage rewardData = distribution[configs[i].market].rewards[configs[i].reward];
+      uint32 start = rewardData.start;
+
       if (distribution[configs[i].market].baseUnit == 0) {
         // never initialized before, adding to the list of markets
         marketList.push(configs[i].market);
       }
-      RewardData storage rewardData = distribution[configs[i].market].rewards[configs[i].reward];
-
-      // add reward address to distribution data's available rewards if lastUpdate is zero
       if (rewardData.lastUpdate == 0) {
+        // add reward address to distribution data's available rewards if distribution is new
         distribution[configs[i].market].availableRewards[
           distribution[configs[i].market].availableRewardsCount
         ] = configs[i].reward;
         distribution[configs[i].market].availableRewardsCount++;
         distribution[configs[i].market].baseUnit = 10 ** configs[i].market.decimals();
+        // set initial parameters if distribution is new
         rewardData.lastUpdate = uint32(block.timestamp);
+        rewardData.totalDistribution = configs[i].totalDistribution;
+        rewardData.mintingRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
+        rewardData.start = start = uint32(block.timestamp);
       } else {
-        // update global indexes before setting new config
+        // update global indexes before updating distribution values
         bool[] memory ops = new bool[](1);
         ops[0] = true;
         update(
@@ -628,18 +633,23 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           configs[i].reward,
           accountBalanceOperations(configs[i].market, ops, address(0), rewardData.start)
         );
+        // properly update minting rate and total distribution
+        uint256 elapsed = block.timestamp - start;
+        uint256 minted = rewardData.mintingRate * elapsed;
+        if (configs[i].distributionPeriod <= elapsed) revert InvalidConfig();
+        if (configs[i].totalDistribution <= minted) revert InvalidConfig();
+
+        rewardData.mintingRate = (configs[i].totalDistribution - minted).mulWadDown(
+          1e18 / (configs[i].distributionPeriod - elapsed)
+        );
+        rewardData.totalDistribution = configs[i].totalDistribution;
       }
-      // add reward address to global rewards list if still not enabled
       if (rewardEnabled[configs[i].reward] == false) {
+        // add reward address to global rewards list if still not enabled
         rewardEnabled[configs[i].reward] = true;
         rewardList.push(configs[i].reward);
       }
 
-      uint32 start = rewardData.start;
-      if (start == 0) {
-        start = uint32(block.timestamp);
-        rewardData.start = start;
-      }
       rewardData.end = start + uint32(configs[i].distributionPeriod);
       rewardData.priceFeed = configs[i].priceFeed;
       // set emission and distribution parameters
@@ -650,10 +660,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewardData.transitionFactor = configs[i].transitionFactor;
       rewardData.borrowAllocationWeightFactor = configs[i].borrowAllocationWeightFactor;
       rewardData.depositAllocationWeightAddend = configs[i].depositAllocationWeightAddend;
-      rewardData.totalDistribution = configs[i].totalDistribution;
-      rewardData.mintingRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
       // depositAllocationWeightFactor cannot be zero to avoid division by zero when sigmoid equals 1e18
-      if (configs[i].depositAllocationWeightFactor == 0) revert InvalidAllocationFactor();
+      if (configs[i].depositAllocationWeightFactor == 0) revert InvalidConfig();
       rewardData.depositAllocationWeightFactor = configs[i].depositAllocationWeightFactor;
 
       emit DistributionSet(configs[i].market, configs[i].reward, configs[i]);
@@ -778,4 +786,4 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 }
 
 error IndexOverflow();
-error InvalidAllocationFactor();
+error InvalidConfig();
