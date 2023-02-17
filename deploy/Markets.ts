@@ -159,9 +159,12 @@ const func: DeployFunction = async ({
       }
     }
 
-    const configRewards = (config.rewards && rewards?.address) || AddressZero;
-    if ((await market.rewardsController()).toLowerCase() !== configRewards.toLowerCase()) {
-      await executeOrPropose(market, "setRewardsController", [configRewards]);
+    const marketRewards = await market.rewardsController?.().catch(() => undefined);
+    if (marketRewards) {
+      const configRewards = (config.rewards && rewards?.address) || AddressZero;
+      if (marketRewards.toLowerCase() !== configRewards.toLowerCase()) {
+        await executeOrPropose(market, "setRewardsController", [configRewards]);
+      }
     }
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
