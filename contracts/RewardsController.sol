@@ -202,13 +202,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   /// @notice Gets the distribution start, end, lastUpdate and lastUndistributed value of a given market and reward.
   /// @param market The market to get the distribution times and lastUndistributed for.
-  /// @return The distribution start, end, lastUpdate time and lastUndistributed value.
-  function distributionTime(Market market, ERC20 reward) external view returns (uint32, uint32, uint32, uint256) {
+  /// @return The distribution start, end and lastUpdate time.
+  function distributionTime(Market market, ERC20 reward) external view returns (uint32, uint32, uint32) {
     return (
       distribution[market].rewards[reward].start,
       distribution[market].rewards[reward].end,
-      distribution[market].rewards[reward].lastUpdate,
-      distribution[market].rewards[reward].lastUndistributed
+      distribution[market].rewards[reward].lastUpdate
     );
   }
 
@@ -360,8 +359,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param reward The reward asset to get the reward indexes for.
   /// @return borrowIndex The index for the floating borrow operation.
   /// @return depositIndex The index for the floating deposit operation.
-  function rewardIndexes(Market market, ERC20 reward) external view returns (uint256, uint256) {
-    return (distribution[market].rewards[reward].borrowIndex, distribution[market].rewards[reward].depositIndex);
+  /// @return lastUndistributed The last undistributed value.
+  function rewardIndexes(Market market, ERC20 reward) external view returns (uint256, uint256, uint256) {
+    return (
+      distribution[market].rewards[reward].borrowIndex,
+      distribution[market].rewards[reward].depositIndex,
+      distribution[market].rewards[reward].lastUndistributed
+    );
   }
 
   /// @notice Calculates the rewards not accrued yet for the given operations of a given account and reward asset.

@@ -717,19 +717,17 @@ contract ProtocolTest is Test {
       assertEq(totalAssets, market.totalAssets(), "should match totalAssets()");
       assertEq(assets, market.asset().balanceOf(address(market)), "should match underlying balance");
     }
-    (uint256 start, uint256 end, uint256 lastUpdate, uint256 lastUndistributed) = rewardsController.distributionTime(
-      markets[0],
-      rewardAsset
-    );
+    (uint256 start, uint256 end, uint256 lastUpdate) = rewardsController.distributionTime(markets[0], rewardAsset);
+    (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(markets[0], rewardAsset);
     RewardsController.Config memory config = rewardsController.rewardConfig(markets[0], rewardAsset);
-    uint256 mintingRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
+    uint256 releaseRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
     assertApproxEqAbs(
       claimedRewards + lastUndistributed,
-      mintingRate * Math.min(lastUpdate - start, config.distributionPeriod),
+      releaseRate * Math.min(lastUpdate - start, config.distributionPeriod),
       1e14
     );
     assertApproxEqAbs(
-      lastUndistributed + mintingRate * (end - Math.min(lastUpdate, end)),
+      lastUndistributed + releaseRate * (end - Math.min(lastUpdate, end)),
       config.totalDistribution - claimedRewards,
       1e14
     );
