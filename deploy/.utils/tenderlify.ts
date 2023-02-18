@@ -9,12 +9,12 @@ export default async (name: string, deployment: Deployment) => {
   if (!metadata) throw new Error("missing metadata");
 
   const {
-    settings: { optimizer },
+    settings: { optimizer, debug },
     compiler,
     sources,
   } = JSON.parse(metadata) as {
     compiler: { version: string };
-    settings: { optimizer: { enabled: boolean; runs: number } };
+    settings: { optimizer: { enabled: boolean; runs: number }; debug?: { revertStrings?: string } };
     sources: { [key: string]: { content: string } };
   };
 
@@ -32,7 +32,12 @@ export default async (name: string, deployment: Deployment) => {
         compiler: { name: "solc", version },
       };
     }),
-    config: { compiler_version: version, optimizations_used: optimizer.enabled, optimizations_count: optimizer.runs },
+    config: {
+      compiler_version: version,
+      optimizations_used: optimizer.enabled,
+      optimizations_count: optimizer.runs,
+      debug,
+    },
   });
 
   return deployment;
