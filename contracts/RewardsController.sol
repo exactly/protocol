@@ -638,15 +638,27 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           accountBalanceOperations(configs[i].market, ops, address(0), rewardData.start)
         );
         // properly update release rate
-        uint256 elapsed = block.timestamp - start;
-        uint256 released = rewardData.releaseRate * elapsed;
-        if (configs[i].distributionPeriod <= elapsed) revert InvalidConfig();
-        if (configs[i].totalDistribution <= released) revert InvalidConfig();
+        uint256 end = rewardData.end;
+        if (block.timestamp < end) {
+          uint256 released = rewardData.lastConfigReleased +
+            rewardData.releaseRate *
+            (block.timestamp - rewardData.lastConfig);
+          uint256 elapsed = block.timestamp - start;
+          if (configs[i].totalDistribution <= released || configs[i].distributionPeriod <= elapsed) {
+            revert InvalidConfig();
+          }
 
-        rewardData.releaseRate = (configs[i].totalDistribution - released).mulWadDown(
-          1e18 / (configs[i].distributionPeriod - elapsed)
-        );
+          rewardData.releaseRate = (configs[i].totalDistribution - released).mulWadDown(
+            1e18 / (configs[i].distributionPeriod - elapsed)
+          );
+          rewardData.lastConfigReleased = released;
+        } else if (configs[i].distributionPeriod != end - start) {
+          rewardData.start = start = uint32(block.timestamp);
+          rewardData.releaseRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
+          rewardData.lastConfigReleased = 0;
+        }
       }
+      rewardData.lastConfig = uint32(block.timestamp);
       rewardData.end = start + uint32(configs[i].distributionPeriod);
       rewardData.priceFeed = configs[i].priceFeed;
       // set emission and distribution parameters
@@ -749,6 +761,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint32 start;
     uint32 end;
     uint32 lastUpdate;
+    // config helpers
+    uint32 lastConfig;
+    uint256 lastConfigReleased;
     // price feed
     IPriceFeed priceFeed;
     // account addresses and their rewards data (index & accrued)

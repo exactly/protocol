@@ -954,6 +954,156 @@ contract RewardsControllerTest is Test {
     assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
   }
 
+  function testSetTargetDebtMultipleTimes() external {
+    vm.warp(1);
+    marketWETH.deposit(10_000 ether, address(this));
+    marketWETH.borrow(5_000 ether, address(this), address(this));
+
+    vm.warp(4 weeks);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.targetDebt = 10_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(8 weeks);
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.targetDebt = 15_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(10 weeks);
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.targetDebt = 20_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(12 weeks);
+    rewardsController.claimAll(address(this));
+    (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
+    assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e18);
+  }
+
+  function testSetTargetDebtMultipleTimesAfterEnd() external {
+    vm.warp(1);
+    marketWETH.deposit(10_000 ether, address(this));
+    marketWETH.borrow(5_000 ether, address(this), address(this));
+
+    vm.warp(12 weeks);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.targetDebt = 10_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(14 weeks);
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.targetDebt = 15_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(15 weeks);
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.targetDebt = 20_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(17 weeks);
+    rewardsController.claimAll(address(this));
+    (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
+    assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e18);
+  }
+
+  function testSetTotalDistributionMultipleTimes() external {
+    vm.warp(1);
+    marketWETH.deposit(50_000 ether, address(this));
+    marketWETH.borrow(20_000 ether, address(this), address(this));
+
+    vm.warp(4 weeks);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.totalDistribution = 2_500 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(8 weeks);
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.totalDistribution = 3_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(10 weeks);
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.totalDistribution = 3_500 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    vm.warp(12 weeks);
+    rewardsController.claimAll(address(this));
+    (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
+    assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+  }
+
+  function testSetNewTargetDebtAfterDistributionEnds() external {
+    vm.warp(1);
+    marketWETH.deposit(5_000 ether, address(this));
+    marketWETH.borrow(1_000 ether, address(this), address(this));
+
+    vm.warp(13 weeks);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.targetDebt = 30_000 ether;
+    configs[0] = config;
+    rewardsController.config(configs);
+    rewardsController.claimAll(address(this));
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    assertEq(config.targetDebt, 30_000 ether);
+    uint256 rewardsBefore = opRewardAsset.balanceOf(address(this));
+
+    vm.warp(14 weeks);
+    rewardsController.claimAll(address(this));
+    assertGt(opRewardAsset.balanceOf(address(this)), rewardsBefore);
+  }
+
+  function testSetNewDistributionPeriodAfterDistributionEnds() external {
+    vm.warp(1);
+    marketWETH.deposit(10_000 ether, address(this));
+    marketWETH.borrow(5_000 ether, address(this), address(this));
+
+    vm.warp(13 weeks);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    uint256 previousTotalDistribution = config.totalDistribution;
+    config.distributionPeriod = 6 weeks;
+    config.totalDistribution = 1_000 ether;
+    configs[0] = config;
+    opRewardAsset.mint(address(rewardsController), 1_000 ether);
+    rewardsController.config(configs);
+    (uint256 start, uint256 end, uint256 lastUpdate) = rewardsController.distributionTime(marketWETH, opRewardAsset);
+    (, , uint256 lastUndistributed) = rewardsController.distributionTime(marketWETH, opRewardAsset);
+    assertEq(start, block.timestamp);
+    assertEq(lastUpdate, block.timestamp);
+    assertEq(end, block.timestamp + 6 weeks);
+    assertGt(lastUndistributed, 0);
+
+    vm.warp(19 weeks);
+    rewardsController.claimAll(address(this));
+    (, , lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
+    assertApproxEqAbs(
+      lastUndistributed,
+      config.totalDistribution + previousTotalDistribution - opRewardAsset.balanceOf(address(this)),
+      1e14
+    );
+    assertApproxEqAbs(
+      opRewardAsset.balanceOf(address(this)),
+      config.totalDistribution + previousTotalDistribution,
+      2e18
+    );
+  }
+
   function testReleaseRewardsAfterDistributionPeriod() external {
     marketWETH.deposit(5_000 ether, address(this));
     marketWETH.borrow(2_000 ether, address(this), address(this));
