@@ -611,6 +611,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         // never initialized before, adding to the list of markets
         marketList.push(configs[i].market);
       }
+      if (rewardEnabled[configs[i].reward] == false) {
+        // add reward address to global rewards list if still not enabled
+        rewardEnabled[configs[i].reward] = true;
+        rewardList.push(configs[i].reward);
+      }
       if (rewardData.lastUpdate == 0) {
         // add reward address to distribution data's available rewards if distribution is new
         distribution[configs[i].market].availableRewards[
@@ -619,10 +624,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         distribution[configs[i].market].availableRewardsCount++;
         distribution[configs[i].market].baseUnit = 10 ** configs[i].market.decimals();
         // set initial parameters if distribution is new
-        rewardData.lastUpdate = uint32(block.timestamp);
-        rewardData.totalDistribution = configs[i].totalDistribution;
-        rewardData.releaseRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
         rewardData.start = start = uint32(block.timestamp);
+        rewardData.lastUpdate = start;
+        rewardData.releaseRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
       } else {
         // update global indexes before updating distribution values
         bool[] memory ops = new bool[](1);
@@ -633,7 +637,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           configs[i].reward,
           accountBalanceOperations(configs[i].market, ops, address(0), rewardData.start)
         );
-        // properly update release rate and total distribution
+        // properly update release rate
         uint256 elapsed = block.timestamp - start;
         uint256 released = rewardData.releaseRate * elapsed;
         if (configs[i].distributionPeriod <= elapsed) revert InvalidConfig();
@@ -642,17 +646,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewardData.releaseRate = (configs[i].totalDistribution - released).mulWadDown(
           1e18 / (configs[i].distributionPeriod - elapsed)
         );
-        rewardData.totalDistribution = configs[i].totalDistribution;
       }
-      if (rewardEnabled[configs[i].reward] == false) {
-        // add reward address to global rewards list if still not enabled
-        rewardEnabled[configs[i].reward] = true;
-        rewardList.push(configs[i].reward);
-      }
-
       rewardData.end = start + uint32(configs[i].distributionPeriod);
       rewardData.priceFeed = configs[i].priceFeed;
       // set emission and distribution parameters
+      rewardData.totalDistribution = configs[i].totalDistribution;
       rewardData.targetDebt = configs[i].targetDebt;
       rewardData.undistributedFactor = configs[i].undistributedFactor;
       rewardData.flipSpeed = configs[i].flipSpeed;
