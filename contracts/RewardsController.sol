@@ -42,8 +42,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
-  /// @notice Handles the deposit operation for a given account.
-  /// @param account The account to handle the deposit operation for.
+  /// @notice Hook to be called by the Market to update the index of the account that made a rewarded deposit.
+  /// @param account The account to which the index is updated.
   function handleDeposit(address account) external {
     Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
@@ -58,8 +58,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  /// @notice Handles the borrow operation for a given account.
-  /// @param account The account to handle the borrow operation for.
+  /// @notice Hook to be called by the Market to update the index of the account that made a rewarded borrow.
+  /// @param account The account to which the index is updated.
   function handleBorrow(address account) external {
     Market market = Market(msg.sender);
     AccountOperation[] memory ops = new AccountOperation[](1);
@@ -80,7 +80,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  /// @notice Gets all account operations of msg.sender and transfers rewards to a given account.
+  /// @notice Claims all `msg.sender` rewards to the given account.
   /// @param to The address to send the rewards to.
   /// @return rewardsList The list of rewards assets.
   /// @return claimedAmounts The list of claimed amounts.
@@ -88,7 +88,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return claim(allMarketsOperations(), to, rewardList);
   }
 
-  /// @notice Claims msg.sender's specified rewards for the given operations to a given account.
+  /// @notice Claims `msg.sender` rewards for the given operations and reward assets to the given account.
   /// @param marketOps The operations to claim rewards for.
   /// @param to The address to send the rewards to.
   /// @param rewardsList The list of rewards assets to claim.
@@ -152,7 +152,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   /// @notice Gets the configuration of a given distribution.
   /// @param market The market to get the distribution configuration for.
-  /// @param reward The reward asset to get the distribution configuration for.
+  /// @param reward The reward asset.
   /// @return The distribution configuration.
   function rewardConfig(Market market, ERC20 reward) external view returns (Config memory) {
     RewardData storage rewardData = distribution[market].rewards[reward];
@@ -174,18 +174,18 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       });
   }
 
-  /// @notice Gets the amount of available rewards for a given market.
-  /// @param market The market to get the available rewards for.
-  /// @return availableRewardsCount The amount of available rewards.
+  /// @notice Gets the amount of reward assets that are being distributed for a Market.
+  /// @param market Market to get the number of available rewards to distribute.
+  /// @return The amount reward assets set to a Market.
   function availableRewardsCount(Market market) external view returns (uint256) {
     return distribution[market].availableRewardsCount;
   }
 
-  /// @notice Gets the operation data for a given account, market, operation and reward asset.
-  /// @param account The account to get the operation data for.
-  /// @param market The market to get the operation data for.
-  /// @param operation The operation to get the operation data for.
-  /// @param reward The reward asset to get the operation data for.
+  /// @notice Gets the account data of a given account, Market, operation and reward asset.
+  /// @param account The account to get the operation data from.
+  /// @param market The market in which the operation was made.
+  /// @param operation True if the operation was a borrow, false if it was a deposit.
+  /// @param reward The reward asset.
   /// @return accrued The accrued amount.
   /// @return index The account index.
   function accountOperation(
@@ -200,9 +200,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     );
   }
 
-  /// @notice Gets the distribution start, end, lastUpdate and lastUndistributed value of a given market and reward.
-  /// @param market The market to get the distribution times and lastUndistributed for.
-  /// @return The distribution start, end and lastUpdate time.
+  /// @notice Gets the distribution `start`, `end` and `lastUpdate` value of a given market and reward.
+  /// @param market The market to get the distribution times.
+  /// @param reward The reward asset.
+  /// @return The distribution `start`, `end` and `lastUpdate` time.
   function distributionTime(Market market, ERC20 reward) external view returns (uint32, uint32, uint32) {
     return (
       distribution[market].rewards[reward].start,
@@ -234,17 +235,17 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
   /// @notice Gets the claimable amount of rewards for a given account and reward asset.
   /// @param account The account to get the claimable amount for.
-  /// @param reward The reward asset to get the claimable amount for.
-  /// @return unclaimedRewards The claimable amount for the given reward asset.
+  /// @param reward The reward asset.
+  /// @return unclaimedRewards The claimable amount for the given account.
   function allClaimable(address account, ERC20 reward) external view returns (uint256 unclaimedRewards) {
     return claimable(allMarketsOperations(), account, reward);
   }
 
-  /// @notice Gets the claimable amount of rewards for a given account, market operations and reward asset.
-  /// @param marketOps The list of market operations to search for accrued and pending rewards.
+  /// @notice Gets the claimable amount of rewards for a given account, Market operations and reward asset.
+  /// @param marketOps The list of Market operations to get the accrued and pending rewards from.
   /// @param account The account to get the claimable amount for.
-  /// @param reward The reward asset to get the claimable amount for.
-  /// @return unclaimedRewards The claimable amount for the given reward asset.
+  /// @param reward The reward asset.
+  /// @return unclaimedRewards The claimable amount for the given account.
   function claimable(
     MarketOperation[] memory marketOps,
     address account,
@@ -287,9 +288,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  /// @notice Iterates and accrues all the rewards for the operations of the given account in the given market.
+  /// @notice Iterates and accrues all rewards for the operations of the given account in the given market.
   /// @param account The account to accrue the rewards for.
-  /// @param market The market to accrue the rewards for.
+  /// @param market The Market in which the operations where made.
+  /// @param reward The reward asset.
   /// @param ops The operations to accrue the rewards for.
   function update(address account, Market market, ERC20 reward, AccountOperation[] memory ops) internal {
     uint256 baseUnit = distribution[market].baseUnit;
@@ -331,7 +333,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   /// @notice Gets the equivalent of borrow shares from fixed pool principal borrows of an account.
-  /// @param market The market to get the fixed borrows from.
+  /// @param market The Market to get the fixed borrows from.
   /// @param account The account that borrowed from fixed pools.
   /// @return fixedDebt The fixed borrow shares.
   function accountFixedBorrowShares(
@@ -354,12 +356,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     fixedDebt = market.previewRepay(fixedDebt);
   }
 
-  /// @notice Gets the reward indexes for a given market and reward asset.
+  /// @notice Gets the reward indexes and last amount of undistributed rewards for a given market and reward asset.
   /// @param market The market to get the reward indexes for.
   /// @param reward The reward asset to get the reward indexes for.
-  /// @return borrowIndex The index for the floating borrow operation.
+  /// @return borrowIndex The index for the floating and fixed borrow operation.
   /// @return depositIndex The index for the floating deposit operation.
-  /// @return lastUndistributed The last undistributed value.
+  /// @return lastUndistributed The last amount of undistributed rewards.
   function rewardIndexes(Market market, ERC20 reward) external view returns (uint256, uint256, uint256) {
     return (
       distribution[market].rewards[reward].borrowIndex,
@@ -405,12 +407,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  /// @notice Internal function for the calculation of account's rewards on a distribution
-  /// @param balance The account's balance in the operation's pool
-  /// @param globalIndex Current index of the distribution
-  /// @param accountIndex Index stored for the account, representation his staking moment
-  /// @param baseUnit One unit of the market's asset (10**decimals)
-  /// @return The rewards
+  /// @notice Calculates and returns the new amount of rewards given by the difference between the `accountIndex` and
+  /// the `globalIndex`.
+  /// @param balance The account's balance in the operation's pool.
+  /// @param globalIndex Current index of the distribution.
+  /// @param accountIndex Last index stored for the account.
+  /// @param baseUnit One unit of the Market's asset (10**decimals).
+  /// @return The amount of new rewards to be accrued by the account.
   function accountRewards(
     uint256 balance,
     uint256 globalIndex,
@@ -420,13 +423,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return balance.mulDivDown(globalIndex - accountIndex, baseUnit);
   }
 
-  /// @notice Retrieves updated distribution indexes.
+  /// @notice Retrieves projected distribution indexes and new undistributed amount for a given `deltaTime`.
   /// @param market The market to calculate the indexes for.
   /// @param reward The reward asset to calculate the indexes for.
   /// @param deltaTime The elapsed time since the last update.
   /// @return borrowIndex The index for the borrow operation.
   /// @return depositIndex The index for the deposit operation.
-  /// @return newUndistributed The undistributed rewards for the distribution.
+  /// @return newUndistributed The new undistributed rewards of the distribution.
   function previewAllocation(
     Market market,
     ERC20 reward,
@@ -435,13 +438,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     return previewAllocation(distribution[market].rewards[reward], market, deltaTime);
   }
 
-  /// @notice Internal function for the calculation of the distribution's indexes.
+  /// @notice Calculates and returns the distribution indexes and new undistributed tokens for a given `rewardData`.
   /// @param rewardData The distribution's data.
   /// @param market The market to calculate the indexes for.
   /// @param deltaTime The elapsed time since the last update.
   /// @return borrowIndex The index for the borrow operation.
   /// @return depositIndex The index for the deposit operation.
-  /// @return newUndistributed The undistributed rewards for the distribution.
+  /// @return newUndistributed The new undistributed rewards of the distribution.
   function previewAllocation(
     RewardData storage rewardData,
     Market market,
@@ -563,13 +566,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
-  /// @notice Get account balances and total supply of all the operations specified by the markets and operations
-  /// parameters
-  /// @param market The address of the market
-  /// @param ops List of operations to retrieve account balance and total supply
-  /// @param account Address of the account
-  /// @return accountBalanceOps contains a list of structs with account balance and total amount of the
-  /// operation's pool
+  /// @notice Get account balances of the given Market operations.
+  /// @param market The address of the Market.
+  /// @param ops List of operations to retrieve account balance.
+  /// @param account Account to get the balance from.
+  /// @param distributionStart Timestamp of the start of the distribution to correctly get the rewarded fixed pools.
+  /// @return accountBalanceOps contains a list with account balance per each operation.
   function accountBalanceOperations(
     Market market,
     bool[] memory ops,
@@ -600,8 +602,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     asset.safeTransfer(to, asset.balanceOf(address(this)));
   }
 
-  /// @notice Updates the RewardData with the given configs
-  /// @param configs The config to update the RewardData with
+  /// @notice Enables or updates the reward distribution for the given markets and rewards.
+  /// @param configs The configurations to update each RewardData with.
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; ) {
       RewardData storage rewardData = distribution[configs[i].market].rewards[configs[i].reward];
@@ -781,6 +783,14 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 baseUnit;
   }
 
+  /// @notice Emitted when rewards are accrued by an account.
+  /// @param market Market where the operation was made.
+  /// @param reward reward asset.
+  /// @param account account that accrued the rewards.
+  /// @param operation true if the operation was a borrow, false if it was a deposit.
+  /// @param accountIndex previous account index.
+  /// @param operationIndex new operation index that is assigned to the `accountIndex`.
+  /// @param rewardsAccrued amount of rewards accrued.
   event Accrue(
     Market indexed market,
     ERC20 indexed reward,
@@ -790,8 +800,27 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 operationIndex,
     uint256 rewardsAccrued
   );
+
+  /// @notice Emitted when rewards are claimed by an account.
+  /// @param account account that claimed the rewards.
+  /// @param reward reward asset.
+  /// @param to account that received the rewards.
+  /// @param amount amount of rewards claimed.
   event Claim(address indexed account, ERC20 indexed reward, address indexed to, uint256 amount);
+
+  /// @notice Emitted when a distribution is set.
+  /// @param market Market whose distribution was set.
+  /// @param reward reward asset to be distributed when operating with the Market.
+  /// @param config configuration struct containing the distribution parameters.
   event DistributionSet(Market indexed market, ERC20 indexed reward, Config config);
+
+  /// @notice Emitted when the distribution indexes are updated.
+  /// @param market Market of the distribution.
+  /// @param reward reward asset.
+  /// @param borrowIndex index of the borrow operations of a distribution.
+  /// @param depositIndex index of the deposit operations of a distribution.
+  /// @param newUndistributed amount of undistributed rewards.
+  /// @param lastUpdate current timestamp.
   event IndexUpdate(
     Market indexed market,
     ERC20 indexed reward,
