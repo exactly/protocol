@@ -448,26 +448,20 @@ contract Previewer {
           borrow: market.totalFloatingBorrowAssets() > 0
             ? (r.projectedBorrowIndex - r.borrowIndex)
               .mulDivDown(market.totalFloatingBorrowShares(), r.underlyingBaseUnit)
-              .mulDivDown(auditor.assetPrice(r.config.priceFeed), 10 ** r.config.priceFeed.decimals())
+              .mulWadDown(auditor.assetPrice(r.config.priceFeed))
               .mulDivDown(
-                1e18,
-                market.totalFloatingBorrowAssets().mulDivDown(
-                  auditor.assetPrice(r.underlyingPriceFeed),
-                  10 ** r.underlyingPriceFeed.decimals()
-                )
+                r.underlyingBaseUnit,
+                market.totalFloatingBorrowAssets().mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0,
           floatingDeposit: market.totalAssets() > 0
             ? (r.projectedDepositIndex - r.depositIndex)
               .mulDivDown(market.totalSupply(), r.underlyingBaseUnit)
-              .mulDivDown(auditor.assetPrice(r.config.priceFeed), 10 ** r.config.priceFeed.decimals())
+              .mulWadDown(auditor.assetPrice(r.config.priceFeed))
               .mulDivDown(
-                1e18,
-                market.totalAssets().mulDivDown(
-                  auditor.assetPrice(r.underlyingPriceFeed),
-                  10 ** r.underlyingPriceFeed.decimals()
-                )
+                r.underlyingBaseUnit,
+                market.totalAssets().mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0,

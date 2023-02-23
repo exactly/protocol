@@ -653,6 +653,93 @@ contract PreviewerTest is Test {
     assertEq(data[0].claimableRewards[0].amount, rewardsController.allClaimable(address(this), rewardAsset));
   }
 
+  function testRewardsRateWithMarketWithDifferentDecimals() external {
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    ethPriceFeed = new MockPriceFeed(18, 1_000e18);
+    auditor.enableMarket(marketWETH, ethPriceFeed, 0.7e18);
+    weth.mint(address(this), 50_000 ether);
+    weth.approve(address(marketWETH), 50_000 ether);
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    rewardAsset.mint(address(rewardsController), 500_000 ether);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: marketWETH,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    marketWETH.setRewardsController(rewardsController);
+    uint256 deltaTime = 1 hours;
+    uint256 depositAmount = 100 ether;
+    uint256 floatingBorrowAmount = 20 ether;
+    uint256 fixedBorrowAmount = 1 ether;
+    marketWETH.deposit(depositAmount, address(this));
+    marketWETH.borrow(floatingBorrowAmount, address(this), address(this));
+    vm.warp(block.timestamp + 10_000 seconds);
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, fixedBorrowAmount, 2_000 ether, address(this), address(this));
+    vm.warp(block.timestamp + 1 weeks);
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[1].rewardRates.length, 1);
+    assertEq(data[1].rewardRates[0].asset, address(rewardAsset));
+    assertEq(data[1].rewardRates[0].assetName, rewardAsset.name());
+    assertEq(data[1].rewardRates[0].assetSymbol, rewardAsset.symbol());
+
+    uint256 newDepositRewards = 20354615714200;
+    uint256 newDepositRewardsValue = newDepositRewards.mulWadDown(uint256(opPriceFeed.latestAnswer()));
+    uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, deltaTime);
+    assertApproxEqAbs(
+      data[1].rewardRates[0].floatingDeposit,
+      annualRewardValue.mulDivDown(
+        10 ** marketWETH.decimals(),
+        depositAmount.mulWadDown(uint256(ethPriceFeed.latestAnswer()))
+      ),
+      2e14
+    );
+
+    uint256 newFloatingBorrowRewards = 379410543666460;
+    uint256 newFloatingBorrowRewardsValue = newFloatingBorrowRewards.mulWadDown(uint256(opPriceFeed.latestAnswer()));
+    annualRewardValue = newFloatingBorrowRewardsValue.mulDivDown(365 days, deltaTime);
+    assertApproxEqAbs(
+      data[1].rewardRates[0].borrow,
+      annualRewardValue.mulDivDown(
+        10 ** marketWETH.decimals(),
+        floatingBorrowAmount.mulWadDown(uint256(ethPriceFeed.latestAnswer()))
+      ),
+      4e16
+    );
+
+    assertEq(data[1].rewardRates[0].maturities[0], FixedLib.INTERVAL);
+    assertEq(data[1].rewardRates[0].maturities.length, 12);
+    marketWETH.setMaxFuturePools(3);
+    data = previewer.exactly(address(this));
+    assertEq(data[1].rewardRates[0].maturities[0], FixedLib.INTERVAL);
+    assertEq(data[1].rewardRates[0].maturities[1], FixedLib.INTERVAL * 2);
+    assertEq(data[1].rewardRates[0].maturities[2], FixedLib.INTERVAL * 3);
+    assertEq(data[1].rewardRates[0].maturities.length, 3);
+
+    // claimable rewards
+    assertEq(data[1].claimableRewards.length, 1);
+    assertEq(data[1].claimableRewards[0].asset, address(rewardAsset));
+    assertEq(data[1].claimableRewards[0].assetName, rewardAsset.name());
+    assertEq(data[1].claimableRewards[0].assetSymbol, rewardAsset.symbol());
+    assertEq(data[1].claimableRewards[0].amount, rewardsController.allClaimable(address(this), rewardAsset));
+  }
+
   function testEmptyExactly() external {
     vm.warp(365 days);
     market.setMaxFuturePools(3);
