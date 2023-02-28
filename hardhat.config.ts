@@ -207,6 +207,7 @@ declare module "hardhat/types/config" {
       asset: string;
       targetDebt: bigint;
       totalDistribution: bigint;
+      start: Date;
       distributionPeriod: number;
       undistributedFactor: number;
       flipSpeed: number;

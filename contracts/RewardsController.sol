@@ -161,9 +161,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         market: market,
         reward: reward,
         priceFeed: rewardData.priceFeed,
+        start: rewardData.start,
+        distributionPeriod: rewardData.end - rewardData.start,
         targetDebt: rewardData.targetDebt,
         totalDistribution: rewardData.totalDistribution,
-        distributionPeriod: rewardData.end - rewardData.start,
         undistributedFactor: rewardData.undistributedFactor,
         flipSpeed: rewardData.flipSpeed,
         compensationFactor: rewardData.compensationFactor,
@@ -297,17 +298,20 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 baseUnit = distribution[market].baseUnit;
     RewardData storage rewardData = distribution[market].rewards[reward];
     {
-      (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(
-        rewardData,
-        market,
-        block.timestamp - rewardData.lastUpdate
-      );
-      if (borrowIndex > type(uint128).max || depositIndex > type(uint128).max) revert IndexOverflow();
-      rewardData.borrowIndex = uint128(borrowIndex);
-      rewardData.depositIndex = uint128(depositIndex);
-      rewardData.lastUpdate = uint32(block.timestamp);
-      rewardData.lastUndistributed = newUndistributed;
-      emit IndexUpdate(market, reward, borrowIndex, depositIndex, newUndistributed, block.timestamp);
+      uint256 lastUpdate = rewardData.lastUpdate;
+      if (block.timestamp > lastUpdate) {
+        (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(
+          rewardData,
+          market,
+          block.timestamp - lastUpdate
+        );
+        if (borrowIndex > type(uint128).max || depositIndex > type(uint128).max) revert IndexOverflow();
+        rewardData.borrowIndex = uint128(borrowIndex);
+        rewardData.depositIndex = uint128(depositIndex);
+        rewardData.lastUpdate = uint32(block.timestamp);
+        rewardData.lastUndistributed = newUndistributed;
+        emit IndexUpdate(market, reward, borrowIndex, depositIndex, newUndistributed, block.timestamp);
+      }
     }
 
     for (uint256 i = 0; i < ops.length; ) {
@@ -382,10 +386,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   ) internal view returns (uint256 rewards) {
     RewardData storage rewardData = distribution[ops.market].rewards[reward];
     uint256 baseUnit = distribution[ops.market].baseUnit;
+    uint256 lastUpdate = rewardData.lastUpdate;
     (uint256 borrowIndex, uint256 depositIndex, ) = previewAllocation(
       rewardData,
       ops.market,
-      block.timestamp - rewardData.lastUpdate
+      block.timestamp > lastUpdate ? block.timestamp - lastUpdate : 0
     );
     for (uint256 o = 0; o < ops.accountOperations.length; ) {
       uint256 nextIndex;
@@ -607,7 +612,6 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; ) {
       RewardData storage rewardData = distribution[configs[i].market].rewards[configs[i].reward];
-      uint32 start = rewardData.start;
 
       if (distribution[configs[i].market].baseUnit == 0) {
         // never initialized before, adding to the list of markets
@@ -626,10 +630,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         distribution[configs[i].market].availableRewardsCount++;
         distribution[configs[i].market].baseUnit = 10 ** configs[i].market.decimals();
         // set initial parameters if distribution is new
-        rewardData.start = start = uint32(block.timestamp);
-        rewardData.lastUpdate = start;
+        rewardData.start = configs[i].start;
+        rewardData.lastUpdate = configs[i].start;
         rewardData.releaseRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
       } else {
+        uint32 start = rewardData.start;
+        uint32 end = rewardData.end;
         // update global indexes before updating distribution values
         bool[] memory ops = new bool[](1);
         ops[0] = true;
@@ -637,31 +643,36 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           address(0),
           configs[i].market,
           configs[i].reward,
-          accountBalanceOperations(configs[i].market, ops, address(0), rewardData.start)
+          accountBalanceOperations(configs[i].market, ops, address(0), start)
         );
         // properly update release rate
-        uint256 end = rewardData.end;
         if (block.timestamp < end) {
-          uint256 released = rewardData.lastConfigReleased +
-            rewardData.releaseRate *
-            (block.timestamp - rewardData.lastConfig);
-          uint256 elapsed = block.timestamp - start;
-          if (configs[i].totalDistribution <= released || configs[i].distributionPeriod <= elapsed) {
-            revert InvalidConfig();
+          uint256 released = 0;
+          uint256 elapsed = 0;
+          if (block.timestamp > start) {
+            released =
+              rewardData.lastConfigReleased +
+              rewardData.releaseRate *
+              (block.timestamp - rewardData.lastConfig);
+            elapsed = block.timestamp - start;
+            if (configs[i].totalDistribution <= released || configs[i].distributionPeriod <= elapsed) {
+              revert InvalidConfig();
+            }
+            rewardData.lastConfigReleased = released;
           }
 
           rewardData.releaseRate = (configs[i].totalDistribution - released).mulWadDown(
             1e18 / (configs[i].distributionPeriod - elapsed)
           );
-          rewardData.lastConfigReleased = released;
-        } else if (configs[i].distributionPeriod != end - start) {
-          rewardData.start = start = uint32(block.timestamp);
+        } else if (rewardData.start != configs[i].start) {
+          rewardData.start = configs[i].start;
+          rewardData.lastUpdate = configs[i].start;
           rewardData.releaseRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
           rewardData.lastConfigReleased = 0;
         }
       }
       rewardData.lastConfig = uint32(block.timestamp);
-      rewardData.end = start + uint32(configs[i].distributionPeriod);
+      rewardData.end = rewardData.start + uint32(configs[i].distributionPeriod);
       rewardData.priceFeed = configs[i].priceFeed;
       // set emission and distribution parameters
       rewardData.totalDistribution = configs[i].totalDistribution;
@@ -730,9 +741,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     Market market;
     ERC20 reward;
     IPriceFeed priceFeed;
+    uint32 start;
+    uint256 distributionPeriod;
     uint256 targetDebt;
     uint256 totalDistribution;
-    uint256 distributionPeriod;
     uint256 undistributedFactor;
     int128 flipSpeed;
     uint64 compensationFactor;

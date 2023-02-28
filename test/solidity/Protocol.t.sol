@@ -99,6 +99,7 @@ contract ProtocolTest is Test {
       targetDebt: 20_000 ether,
       priceFeed: MockPriceFeed(address(0)),
       totalDistribution: 2_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: (N * K * type(uint16).max) / 2,
       undistributedFactor: 0.5e18,
       flipSpeed: 2e18,

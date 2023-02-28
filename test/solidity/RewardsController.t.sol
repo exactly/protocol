@@ -95,6 +95,7 @@ contract RewardsControllerTest is Test {
       priceFeed: MockPriceFeed(address(0)),
       targetDebt: 20_000e6,
       totalDistribution: 2_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.5e18,
       flipSpeed: 2e18,
@@ -110,6 +111,7 @@ contract RewardsControllerTest is Test {
       priceFeed: IPriceFeed(address(0)),
       targetDebt: 20_000 ether,
       totalDistribution: 2_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.0005e18,
       flipSpeed: 2e18,
@@ -125,6 +127,7 @@ contract RewardsControllerTest is Test {
       priceFeed: IPriceFeed(address(0)),
       targetDebt: 20_000e6,
       totalDistribution: 2_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 3 weeks,
       undistributedFactor: 0.3e18,
       flipSpeed: 3e18,
@@ -542,6 +545,79 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
   }
 
+  function testOperationsBeforeDistributionStart() external {
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: marketWETH,
+      reward: exaRewardAsset,
+      priceFeed: IPriceFeed(address(0)),
+      targetDebt: 20_000 ether,
+      totalDistribution: 2_000 ether,
+      start: 30 days,
+      distributionPeriod: 3 weeks,
+      undistributedFactor: 0.3e18,
+      flipSpeed: 3e18,
+      compensationFactor: 0.4e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.025e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+
+    vm.warp(1 days);
+    marketWETH.deposit(100 ether, address(this));
+    marketWETH.borrow(10 ether, address(this), address(this));
+
+    vm.warp(10 days);
+    marketWETH.deposit(30 ether, address(this));
+
+    vm.warp(20 days);
+    assertEq(rewardsController.allClaimable(address(this), exaRewardAsset), 0);
+    rewardsController.claimAll(address(this));
+    assertEq(exaRewardAsset.balanceOf(address(this)), 0);
+  }
+
+  function testConfigSettingNewStartWithOnGoingDistributionShouldNotUpdate() external {
+    vm.warp(1);
+    marketWETH.deposit(100 ether, address(this));
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.start = 1 days;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    assertEq(config.start, 0);
+  }
+
+  function testConfigWithDistributionNotYetStartedShouldNotFail() external {
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: marketWBTC,
+      reward: opRewardAsset,
+      priceFeed: MockPriceFeed(address(0)),
+      targetDebt: 10_000e8,
+      totalDistribution: 1_500 ether,
+      start: 2 days,
+      distributionPeriod: 10 weeks,
+      undistributedFactor: 0.6e18,
+      flipSpeed: 1e18,
+      compensationFactor: 0.65e18,
+      transitionFactor: 0.71e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+
+    vm.warp(0.5 days);
+    marketWBTC.deposit(100e8, address(this));
+
+    vm.warp(1 days);
+    rewardsController.config(configs);
+  }
+
   function testConfigWithZeroDepositAllocationWeightFactorShouldRevert() external {
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
     RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
@@ -618,6 +694,7 @@ contract RewardsControllerTest is Test {
       priceFeed: MockPriceFeed(address(0)),
       targetDebt: 10_000 ether,
       totalDistribution: 1_500 ether,
+      start: uint32(FixedLib.INTERVAL * 2),
       distributionPeriod: 10 weeks,
       undistributedFactor: 0.6e18,
       flipSpeed: 1e18,
@@ -689,6 +766,7 @@ contract RewardsControllerTest is Test {
       priceFeed: MockPriceFeed(address(0)),
       targetDebt: 10_000e8,
       totalDistribution: 1_500 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 10 weeks,
       undistributedFactor: 0.6e18,
       flipSpeed: 1e18,
@@ -1077,6 +1155,7 @@ contract RewardsControllerTest is Test {
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
     RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
     uint256 previousTotalDistribution = config.totalDistribution;
+    config.start = 13 weeks;
     config.distributionPeriod = 6 weeks;
     config.totalDistribution = 1_000 ether;
     configs[0] = config;
@@ -1133,6 +1212,7 @@ contract RewardsControllerTest is Test {
       priceFeed: MockPriceFeed(address(0)),
       targetDebt: 10_000 ether,
       totalDistribution: 1_500 ether,
+      start: 0,
       distributionPeriod: 10 weeks,
       undistributedFactor: 0.6e18,
       flipSpeed: 1e18,
@@ -1298,6 +1378,7 @@ contract RewardsControllerTest is Test {
       priceFeed: MockPriceFeed(address(0)),
       targetDebt: 20_000e6,
       totalDistribution: 2_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.5e18,
       flipSpeed: 2e18,
@@ -1317,6 +1398,7 @@ contract RewardsControllerTest is Test {
       priceFeed: IPriceFeed(address(0)),
       targetDebt: 20_000e8,
       totalDistribution: 2_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.0005e18,
       flipSpeed: 2e18,
@@ -1371,6 +1453,7 @@ contract RewardsControllerTest is Test {
       priceFeed: MockPriceFeed(address(0)),
       targetDebt: 20_000e6,
       totalDistribution: 2_000e10,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.5e18,
       flipSpeed: 2e18,
@@ -1440,6 +1523,7 @@ contract RewardsControllerTest is Test {
       priceFeed: MockPriceFeed(address(0)),
       targetDebt: 1_000 ether,
       totalDistribution: 100_000 ether,
+      start: 1,
       distributionPeriod: 10 days,
       undistributedFactor: 0.5e18,
       flipSpeed: 2e18,
@@ -1452,7 +1536,7 @@ contract RewardsControllerTest is Test {
     rewardsController.config(configs);
 
     (, , uint256 lastUpdate) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
-    assertEq(lastUpdate, 2 days);
+    assertEq(lastUpdate, 1);
   }
 
   function accountBalanceOperations(

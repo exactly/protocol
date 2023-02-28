@@ -594,6 +594,7 @@ contract PreviewerTest is Test {
       priceFeed: opPriceFeed,
       targetDebt: 2_000_000 ether,
       totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.00005e18,
       flipSpeed: 2e18,
@@ -673,6 +674,7 @@ contract PreviewerTest is Test {
       priceFeed: opPriceFeed,
       targetDebt: 2_000_000 ether,
       totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.00005e18,
       flipSpeed: 2e18,
@@ -755,6 +757,7 @@ contract PreviewerTest is Test {
       priceFeed: opPriceFeed,
       targetDebt: 2_000_000 ether,
       totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 24 weeks,
       undistributedFactor: 0.00005e18,
       flipSpeed: 2e18,
@@ -782,6 +785,7 @@ contract PreviewerTest is Test {
       priceFeed: opPriceFeed,
       targetDebt: 2_000_000 ether,
       totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.00005e18,
       flipSpeed: 2e18,
@@ -816,6 +820,7 @@ contract PreviewerTest is Test {
       priceFeed: opPriceFeed,
       targetDebt: 2_000_000 ether,
       totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
       undistributedFactor: 0.00005e18,
       flipSpeed: 2e18,
@@ -830,6 +835,49 @@ contract PreviewerTest is Test {
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].rewardRates.length, 1);
     assertEq(data[0].rewardRates[0].maturities.length, 12);
+    assertEq(data[0].rewardRates[0].floatingDeposit, 0);
+    assertEq(data[0].rewardRates[0].borrow, 0);
+    assertEq(data[0].rewardRates[0].usdPrice, 2e18);
+
+    opPriceFeed.setPrice(0.005e18);
+    data = previewer.exactly(address(this));
+    assertEq(data[0].rewardRates[0].usdPrice, 5e18);
+  }
+
+  function testActualTimeBeforeStartDistributionRewards() external {
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    opPriceFeed = new MockPriceFeed(18, 0.002e18);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      start: 30 days,
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+
+    vm.warp(1 days);
+    market.deposit(100 ether, address(this));
+    market.borrow(10 ether, address(this), address(this));
+
+    vm.warp(5 days);
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].rewardRates.length, 1);
+    assertEq(data[0].rewardRates[0].maturities.length, 11);
     assertEq(data[0].rewardRates[0].floatingDeposit, 0);
     assertEq(data[0].rewardRates[0].borrow, 0);
     assertEq(data[0].rewardRates[0].usdPrice, 2e18);

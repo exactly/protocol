@@ -423,7 +423,7 @@ contract Previewer {
         (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(
           market,
           r.rewardList[r.i],
-          r.deltaTime
+          block.timestamp > r.config.start ? r.deltaTime : 0
         );
         (r.start, , ) = r.controller.distributionTime(market, r.rewardList[r.i]);
         r.firstMaturity = r.start - (r.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
