@@ -71,40 +71,40 @@ const config: Config = {
       WETH: {
         adjustFactor: 0.84,
         floatingCurve: {
-          a: 0.02,
-          b: -0.0123,
-          maxUtilization: 1.0132,
+          a: 0.0137,
+          b: 0.004,
+          maxUtilization: 1.0091,
         },
         fixedCurve: {
-          a: 0.3508,
-          b: -0.344,
-          maxUtilization: 1.0052,
+          a: 0.3143,
+          b: -0.3008,
+          maxUtilization: 1.0033,
         },
       },
       DAI: {
         adjustFactor: 0.9,
         floatingCurve: {
-          a: 0.0263,
-          b: -0.0228,
-          maxUtilization: 1.0172,
+          a: 0.0085,
+          b: 0.0066,
+          maxUtilization: 1.0081,
         },
         fixedCurve: {
-          a: 0.3617,
-          b: -0.3591,
-          maxUtilization: 1.0015,
+          a: 0.3758,
+          b: -0.3582,
+          maxUtilization: 1.0072,
         },
       },
       USDC: {
         adjustFactor: 0.91,
         floatingCurve: {
-          a: 0.0236,
-          b: -0.0207,
-          maxUtilization: 1.0194,
+          a: 0.009,
+          b: 0.006,
+          maxUtilization: 1.006,
         },
         fixedCurve: {
-          a: 0.3681,
-          b: -0.3643,
-          maxUtilization: 1.0064,
+          a: 0.3023,
+          b: -0.2864,
+          maxUtilization: 1.0027,
         },
       },
       WBTC: {
@@ -115,9 +115,9 @@ const config: Config = {
           maxUtilization: 1.0173,
         },
         fixedCurve: {
-          a: 0.3468,
-          b: -0.3417,
-          maxUtilization: 1.0003,
+          a: 0.3236,
+          b: -0.3136,
+          maxUtilization: 1.0002,
         },
         overrides: {
           mainnet: { priceFeed: "double" },
@@ -127,14 +127,14 @@ const config: Config = {
       wstETH: {
         adjustFactor: 0.82,
         floatingCurve: {
-          a: 0.0249,
-          b: -0.0145,
-          maxUtilization: 1.0165,
+          a: 0.02,
+          b: -0.0023,
+          maxUtilization: 1.0133,
         },
         fixedCurve: {
-          a: 0.3508,
-          b: -0.344,
-          maxUtilization: 1.0052,
+          a: 0.3143,
+          b: -0.3008,
+          maxUtilization: 1.0033,
         },
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
       },
