@@ -1,5 +1,11 @@
 # @exactly-protocol/protocol
 
+## 0.2.7
+
+### Patch Changes
+
+- 82c0b95: 🚀 optimism: deploy protocol
+
 ## 0.2.6
 
 ### Patch Changes
