@@ -34,6 +34,13 @@ const config: Config = {
       url: env.MAINNET_NODE ?? "https://mainnet.infura.io/",
       ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
     },
+    optimism: {
+      priceDecimals: 8,
+      timelockDelay: 12 * 3_600,
+      safeTxService: "https://safe-transaction-optimism.safe.global",
+      url: env.OPTIMISM_NODE ?? "https://optimism.infura.io/",
+      ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
+    },
     goerli: {
       priceDecimals: 8,
       safeTxService: "https://safe-transaction-goerli.safe.global",
@@ -45,11 +52,13 @@ const config: Config = {
     deployer: {
       default: 0,
       mainnet: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
+      optimism: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       goerli: "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     multisig: {
       default: 0,
       mainnet: "0x7A65824d74B0C20730B6eE4929ABcc41Cbe843Aa",
+      optimism: "0xC0d6Bc5d052d1e74523AD79dD5A954276c9286D3",
       goerli: "0x1801f5EAeAbA3fD02cBF4b7ED1A7b58AD84C0705",
     },
   },
@@ -82,6 +91,7 @@ const config: Config = {
         },
       },
       DAI: {
+        networks: ["mainnet", "goerli"],
         adjustFactor: 0.9,
         floatingCurve: {
           a: 0.0085,
@@ -108,6 +118,7 @@ const config: Config = {
         },
       },
       WBTC: {
+        networks: ["mainnet", "goerli"],
         adjustFactor: 0.85,
         floatingCurve: {
           a: 0.0438,
@@ -125,6 +136,7 @@ const config: Config = {
         },
       },
       wstETH: {
+        networks: ["mainnet", "goerli"],
         adjustFactor: 0.82,
         floatingCurve: {
           a: 0.02,
@@ -137,6 +149,20 @@ const config: Config = {
           maxUtilization: 1.0033,
         },
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
+      },
+      OP: {
+        networks: ["optimism"],
+        adjustFactor: 0.35,
+        floatingCurve: {
+          a: 0.02,
+          b: -0.0023,
+          maxUtilization: 1.0133,
+        },
+        fixedCurve: {
+          a: 0.3143,
+          b: -0.3008,
+          maxUtilization: 1.0033,
+        },
       },
     },
   },
