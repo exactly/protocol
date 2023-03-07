@@ -194,7 +194,7 @@ extendConfig((hardhatConfig, { finance: { markets } }) => {
     const live = !["hardhat", "localhost"].includes(networkName);
     networkConfig.markets = Object.fromEntries(
       Object.entries(markets)
-        .filter(([, { networks }]) => !networks || networks.includes(networkName))
+        .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
         .map(([name, { networks, overrides, ...marketConfig }]) => [
           name,
           { ...marketConfig, ...overrides?.[live ? networkName : Object.keys(overrides)[0]] },
