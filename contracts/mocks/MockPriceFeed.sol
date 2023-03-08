@@ -19,5 +19,8 @@ contract MockPriceFeed is IPriceFeed {
 
   function setPrice(int256 price_) public {
     price = price_;
+    emit AnswerUpdated(price_, 0, block.timestamp);
   }
+
+  event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 timestamp);
 }
