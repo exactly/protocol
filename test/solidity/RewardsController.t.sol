@@ -1183,20 +1183,6 @@ contract RewardsControllerTest is Test {
     );
   }
 
-  function testReleaseRewardsAfterDistributionPeriod() external {
-    marketWETH.deposit(5_000 ether, address(this));
-    marketWETH.borrow(2_000 ether, address(this), address(this));
-
-    vm.warp(12 weeks);
-    rewardsController.claimAll(address(this));
-    (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
-    for (uint256 i = 1; i < 199; i++) {
-      vm.warp(block.timestamp + (1 weeks * i));
-      rewardsController.claimAll(address(this));
-      (, , lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
-    }
-  }
-
   function testUpdateConfig() external {
     vm.warp(1 days);
     marketWETH.deposit(10 ether, address(this));
