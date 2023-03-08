@@ -12,41 +12,21 @@ import { env } from "process";
 import { setup } from "@tenderly/hardhat-tenderly";
 import { boolean, string } from "hardhat/internal/core/params/argumentTypes";
 import { task, extendConfig } from "hardhat/config";
+import { defaultHdAccountsConfigParams } from "hardhat/internal/core/config/default-config";
 import type { HardhatUserConfig as Config } from "hardhat/types";
 
 setup({ automaticVerifications: false });
 
-const config: Config = {
+export default {
   solidity: {
     version: "0.8.17",
     settings: { optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
-    hardhat: {
-      accounts: { accountsBalance: (10n ** 32n).toString() },
-      priceDecimals: 8,
-      allowUnlimitedContractSize: true,
-    },
-    mainnet: {
-      priceDecimals: 18,
-      timelockDelay: 12 * 3_600,
-      safeTxService: "https://safe-transaction-mainnet.safe.global",
-      url: env.MAINNET_NODE ?? "https://mainnet.infura.io/",
-      ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
-    },
-    optimism: {
-      priceDecimals: 8,
-      timelockDelay: 12 * 3_600,
-      safeTxService: "https://safe-transaction-optimism.safe.global",
-      url: env.OPTIMISM_NODE ?? "https://optimism.infura.io/",
-      ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
-    },
-    goerli: {
-      priceDecimals: 8,
-      safeTxService: "https://safe-transaction-goerli.safe.global",
-      url: env.GOERLI_NODE ?? "https://goerli.infura.io/",
-      ...(env.MNEMONIC && { accounts: { mnemonic: env.MNEMONIC } }),
-    },
+    hardhat: { priceDecimals: 8, allowUnlimitedContractSize: true },
+    mainnet: { priceDecimals: 18, timelockDelay: 12 * 3_600, url: env.MAINNET_NODE ?? "" },
+    optimism: { priceDecimals: 8, timelockDelay: 12 * 3_600, url: env.OPTIMISM_NODE ?? "" },
+    goerli: { priceDecimals: 8, url: env.GOERLI_NODE ?? "" },
   },
   namedAccounts: {
     deployer: {
@@ -63,73 +43,35 @@ const config: Config = {
     },
   },
   finance: {
-    liquidationIncentive: {
-      liquidator: 0.05,
-      lenders: 0.0025,
-    },
+    liquidationIncentive: { liquidator: 0.05, lenders: 0.0025 },
     penaltyRatePerDay: 0.02,
     backupFeeRate: 0.1,
     reserveFactor: 0.1,
-    dampSpeed: {
-      up: 0.0046,
-      down: 0.4,
-    },
+    dampSpeed: { up: 0.0046, down: 0.4 },
     maxFuturePools: 3,
     earningsAccumulatorSmoothFactor: 2,
     markets: {
       WETH: {
         adjustFactor: 0.84,
-        floatingCurve: {
-          a: 0.0137,
-          b: 0.004,
-          maxUtilization: 1.0091,
-        },
-        fixedCurve: {
-          a: 0.3143,
-          b: -0.3008,
-          maxUtilization: 1.0033,
-        },
+        floatingCurve: { a: 0.0137, b: 0.004, maxUtilization: 1.0091 },
+        fixedCurve: { a: 0.3143, b: -0.3008, maxUtilization: 1.0033 },
       },
       DAI: {
         networks: ["mainnet", "goerli"],
         adjustFactor: 0.9,
-        floatingCurve: {
-          a: 0.0085,
-          b: 0.0066,
-          maxUtilization: 1.0081,
-        },
-        fixedCurve: {
-          a: 0.3758,
-          b: -0.3582,
-          maxUtilization: 1.0072,
-        },
+        floatingCurve: { a: 0.0085, b: 0.0066, maxUtilization: 1.0081 },
+        fixedCurve: { a: 0.3758, b: -0.3582, maxUtilization: 1.0072 },
       },
       USDC: {
         adjustFactor: 0.91,
-        floatingCurve: {
-          a: 0.009,
-          b: 0.006,
-          maxUtilization: 1.006,
-        },
-        fixedCurve: {
-          a: 0.3023,
-          b: -0.2864,
-          maxUtilization: 1.0027,
-        },
+        floatingCurve: { a: 0.009, b: 0.006, maxUtilization: 1.006 },
+        fixedCurve: { a: 0.3023, b: -0.2864, maxUtilization: 1.0027 },
       },
       WBTC: {
         networks: ["mainnet", "goerli"],
         adjustFactor: 0.85,
-        floatingCurve: {
-          a: 0.0438,
-          b: -0.033,
-          maxUtilization: 1.0173,
-        },
-        fixedCurve: {
-          a: 0.3236,
-          b: -0.3136,
-          maxUtilization: 1.0002,
-        },
+        floatingCurve: { a: 0.0438, b: -0.033, maxUtilization: 1.0173 },
+        fixedCurve: { a: 0.3236, b: -0.3136, maxUtilization: 1.0002 },
         overrides: {
           mainnet: { priceFeed: "double" },
           goerli: { priceFeed: "double" },
@@ -138,31 +80,15 @@ const config: Config = {
       wstETH: {
         networks: ["mainnet", "goerli"],
         adjustFactor: 0.82,
-        floatingCurve: {
-          a: 0.02,
-          b: -0.0023,
-          maxUtilization: 1.0133,
-        },
-        fixedCurve: {
-          a: 0.3143,
-          b: -0.3008,
-          maxUtilization: 1.0033,
-        },
+        floatingCurve: { a: 0.02, b: -0.0023, maxUtilization: 1.0133 },
+        fixedCurve: { a: 0.3143, b: -0.3008, maxUtilization: 1.0033 },
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
       },
       OP: {
         networks: ["optimism"],
         adjustFactor: 0.35,
-        floatingCurve: {
-          a: 0.02,
-          b: -0.0023,
-          maxUtilization: 1.0133,
-        },
-        fixedCurve: {
-          a: 0.3143,
-          b: -0.3008,
-          maxUtilization: 1.0033,
-        },
+        floatingCurve: { a: 0.02, b: -0.0023, maxUtilization: 1.0133 },
+        fixedCurve: { a: 0.3143, b: -0.3008, maxUtilization: 1.0033 },
       },
     },
   },
@@ -170,12 +96,8 @@ const config: Config = {
   tenderly: { project: "exactly", username: "exactly", privateVerification: false },
   typechain: { outDir: "types", target: "ethers-v5" },
   contractSizer: { runOnCompile: true, only: ["^contracts/"], except: ["mocks"] },
-  gasReporter: {
-    currency: "USD",
-    gasPrice: 100,
-    enabled: !!JSON.parse(env.REPORT_GAS ?? "false"),
-  },
-};
+  gasReporter: { currency: "USD", gasPrice: 100, enabled: !!JSON.parse(env.REPORT_GAS ?? "false") },
+} as Config;
 
 task(
   "pause",
@@ -192,6 +114,10 @@ task(
 extendConfig((hardhatConfig, { finance: { markets } }) => {
   for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
     const live = !["hardhat", "localhost"].includes(networkName);
+    if (live) {
+      networkConfig.safeTxService = `https://safe-transaction-${networkName}.safe.global`;
+      if (env.MNEMONIC) networkConfig.accounts = { ...defaultHdAccountsConfigParams, mnemonic: env.MNEMONIC };
+    }
     networkConfig.markets = Object.fromEntries(
       Object.entries(markets)
         .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
@@ -203,8 +129,6 @@ extendConfig((hardhatConfig, { finance: { markets } }) => {
   }
 });
 
-export default config;
-
 declare module "hardhat/types/config" {
   export interface FinanceConfig {
     liquidationIncentive: { liquidator: number; lenders: number };
@@ -212,10 +136,7 @@ declare module "hardhat/types/config" {
     treasuryFeeRate?: number;
     backupFeeRate: number;
     reserveFactor: number;
-    dampSpeed: {
-      up: number;
-      down: number;
-    };
+    dampSpeed: { up: number; down: number };
     maxFuturePools: number;
     earningsAccumulatorSmoothFactor: number;
   }
@@ -256,12 +177,6 @@ declare module "hardhat/types/config" {
     maxUtilization: number;
   }
 
-  export interface NetworksUserConfig {
-    hardhat?: HardhatNetworkUserConfig;
-    mainnet?: HttpNetworkUserConfig;
-    goerli?: HttpNetworkUserConfig;
-  }
-
   export interface HardhatUserConfig {
     finance: FinanceUserConfig;
   }
@@ -277,7 +192,6 @@ declare module "hardhat/types/config" {
   export interface HttpNetworkUserConfig {
     priceDecimals: number;
     timelockDelay?: number;
-    safeTxService: string;
   }
 
   export interface HardhatNetworkConfig {
