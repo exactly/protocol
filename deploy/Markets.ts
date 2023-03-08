@@ -178,18 +178,22 @@ const func: DeployFunction = async ({
         Object.entries(markets).map(async ([symbol, { rewards: marketRewards }]) => {
           if (!marketRewards) return;
 
-          const { address: market } = await get(`Market${symbol}`);
+          const market = await getContract<Market>(`Market${symbol}`);
           return Promise.all(
             marketRewards.map(async (cfg) => {
-              const [{ address: reward }, { address: priceFeed }] = await Promise.all([
-                get(cfg.asset),
+              const [reward, { address: priceFeed }] = await Promise.all([
+                getContract<ERC20>(cfg.asset),
                 get(`PriceFeed${cfg.asset}`),
               ]);
-              const current = await rewards.rewardConfig(market, reward);
+              const [current, marketDecimals, rewardDecimals] = await Promise.all([
+                rewards.rewardConfig(market.address, reward.address),
+                market.decimals(),
+                reward.decimals(),
+              ]);
               if (
                 current.priceFeed.toLowerCase() !== priceFeed.toLowerCase() ||
-                !current.targetDebt.eq(cfg.targetDebt) ||
-                !current.totalDistribution.eq(cfg.totalDistribution) ||
+                !current.targetDebt.eq(parseUnits(String(cfg.targetDebt), marketDecimals)) ||
+                !current.totalDistribution.eq(parseUnits(String(cfg.totalDistribution), rewardDecimals)) ||
                 current.start !== Math.floor(cfg.start.getTime() / 1_000) ||
                 !current.distributionPeriod.eq(cfg.distributionPeriod) ||
                 !current.undistributedFactor.eq(parseUnits(String(cfg.undistributedFactor))) ||
@@ -201,11 +205,11 @@ const func: DeployFunction = async ({
                 !current.depositAllocationWeightFactor.eq(parseUnits(String(cfg.depositAllocationWeightFactor)))
               ) {
                 return {
-                  market,
-                  reward,
+                  market: market.address,
+                  reward: reward.address,
                   priceFeed,
-                  targetDebt: cfg.targetDebt,
-                  totalDistribution: cfg.totalDistribution,
+                  targetDebt: parseUnits(String(cfg.targetDebt), marketDecimals),
+                  totalDistribution: parseUnits(String(cfg.totalDistribution), rewardDecimals),
                   start: cfg.start,
                   distributionPeriod: cfg.distributionPeriod,
                   undistributedFactor: parseUnits(String(cfg.undistributedFactor)),

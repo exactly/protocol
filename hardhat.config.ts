@@ -231,8 +231,8 @@ declare module "hardhat/types/config" {
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
     rewards?: {
       asset: string;
-      targetDebt: bigint;
-      totalDistribution: bigint;
+      targetDebt: number;
+      totalDistribution: number;
       start: Date;
       distributionPeriod: number;
       undistributedFactor: number;
