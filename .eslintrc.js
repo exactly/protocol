@@ -27,6 +27,7 @@ module.exports = {
     "node/no-unsupported-features/es-syntax": ["error", { ignores: ["modules", "dynamicImport"] }],
   },
   overrides: [
+    { files: ["scripts/**/*"], rules: { "no-console": "off" } },
     {
       files: ["test/**/*"],
       extends: ["plugin:mocha/recommended", "plugin:chai-expect/recommended", "plugin:chai-friendly/recommended"],
