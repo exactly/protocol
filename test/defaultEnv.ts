@@ -127,18 +127,17 @@ export class DefaultEnv {
     // enable all the Markets in the auditor
     await Promise.all(
       Object.entries(mockAssets).map(async ([symbol, { decimals, adjustFactor, usdPrice }]) => {
-        const totalSupply = parseUnits("100000000000", decimals);
         let asset: MockERC20 | WETH;
         if (symbol === "WETH") {
           const Weth = (await getContractFactory("WETH")) as WETH__factory;
           asset = await Weth.deploy();
           await asset.deployed();
-          await asset.deposit({ value: totalSupply });
+          await asset.deposit({ value: parseUnits("100", decimals) });
         } else {
           const MockERC20 = (await getContractFactory("MockERC20")) as MockERC20__factory;
           asset = await MockERC20.deploy("Fake " + symbol, "F" + symbol, decimals);
           await asset.deployed();
-          await asset.mint(owner.address, totalSupply);
+          await asset.mint(owner.address, parseUnits("100000000000", decimals));
         }
 
         const Market = (await getContractFactory("Market")) as Market__factory;
