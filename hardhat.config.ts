@@ -64,6 +64,11 @@ export default {
         adjustFactor: 0.84,
         floatingCurve: { a: 0.0137, b: 0.004, maxUtilization: 1.0091 },
         fixedCurve: { a: 0.3143, b: -0.3008, maxUtilization: 1.0033 },
+        overrides: {
+          goerli: {
+            rewards: [{ asset: "OP", total: 30_000, debt: 16_000, start: "2023-03-09", period: 4 * 7 * 86_400 }],
+          },
+        },
       },
       DAI: {
         networks: ["mainnet", "goerli"],
@@ -75,6 +80,11 @@ export default {
         adjustFactor: 0.91,
         floatingCurve: { a: 0.009, b: 0.006, maxUtilization: 1.006 },
         fixedCurve: { a: 0.3023, b: -0.2864, maxUtilization: 1.0027 },
+        overrides: {
+          goerli: {
+            rewards: [{ asset: "OP", total: 70_000, debt: 25_000_000, start: "2023-03-09", period: 4 * 7 * 86_400 }],
+          },
+        },
       },
       WBTC: {
         networks: ["mainnet", "goerli"],
