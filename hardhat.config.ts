@@ -50,6 +50,15 @@ export default {
     dampSpeed: { up: 0.0046, down: 0.4 },
     maxFuturePools: 3,
     earningsAccumulatorSmoothFactor: 2,
+    rewards: {
+      undistributedFactor: 0.0005,
+      flipSpeed: 2,
+      compensationFactor: 0.85,
+      transitionFactor: 0.64,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02,
+      depositAllocationWeightFactor: 0.01,
+    },
     markets: {
       WETH: {
         adjustFactor: 0.84,
@@ -111,7 +120,7 @@ task(
   .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)
   .addOptionalParam("account", "signer's account name", "deployer", string);
 
-extendConfig((hardhatConfig, { finance: { markets } }) => {
+extendConfig((hardhatConfig, { finance: { rewards, markets } }) => {
   for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
     const live = !["hardhat", "localhost"].includes(networkName);
     if (live) {
@@ -121,10 +130,11 @@ extendConfig((hardhatConfig, { finance: { markets } }) => {
     networkConfig.markets = Object.fromEntries(
       Object.entries(markets)
         .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
-        .map(([name, { networks, overrides, ...marketConfig }]) => [
-          name,
-          { ...marketConfig, ...overrides?.[live ? networkName : Object.keys(overrides)[0]] },
-        ]),
+        .map(([name, { networks, overrides, ...marketConfig }]) => {
+          const config = { ...marketConfig, ...overrides?.[live ? networkName : Object.keys(overrides)[0]] };
+          if (config.rewards) config.rewards = config.rewards.map((r) => ({ ...rewards, ...r }));
+          return [name, config];
+        }),
     );
   }
 });
@@ -139,10 +149,21 @@ declare module "hardhat/types/config" {
     dampSpeed: { up: number; down: number };
     maxFuturePools: number;
     earningsAccumulatorSmoothFactor: number;
+    rewards: RewardsParameters;
   }
 
   export interface FinanceUserConfig extends FinanceConfig {
     markets: { [asset: string]: MarketUserConfig };
+  }
+
+  export interface RewardsParameters {
+    undistributedFactor: number;
+    flipSpeed: number;
+    compensationFactor: number;
+    transitionFactor: number;
+    borrowAllocationWeightFactor: number;
+    depositAllocationWeightAddend: number;
+    depositAllocationWeightFactor: number;
   }
 
   export interface MarketConfig {
@@ -150,20 +171,13 @@ declare module "hardhat/types/config" {
     fixedCurve: Curve;
     floatingCurve: Curve;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
-    rewards?: {
+    rewards?: ({
       asset: string;
-      targetDebt: number;
-      totalDistribution: number;
+      total: number;
+      debt: number;
       start: string;
-      distributionPeriod: number;
-      undistributedFactor: number;
-      flipSpeed: number;
-      compensationFactor: number;
-      transitionFactor: number;
-      borrowAllocationWeightFactor: number;
-      depositAllocationWeightAddend: number;
-      depositAllocationWeightFactor: number;
-    }[];
+      period: number;
+    } & Partial<RewardsParameters>)[];
   }
 
   export interface MarketUserConfig extends MarketConfig {
