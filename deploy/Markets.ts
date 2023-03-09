@@ -194,7 +194,7 @@ const func: DeployFunction = async ({
                 current.priceFeed.toLowerCase() !== priceFeed.toLowerCase() ||
                 !current.targetDebt.eq(parseUnits(String(cfg.targetDebt), marketDecimals)) ||
                 !current.totalDistribution.eq(parseUnits(String(cfg.totalDistribution), rewardDecimals)) ||
-                current.start !== Math.floor(cfg.start.getTime() / 1_000) ||
+                current.start !== Math.floor(new Date(cfg.start).getTime() / 1_000) ||
                 !current.distributionPeriod.eq(cfg.distributionPeriod) ||
                 !current.undistributedFactor.eq(parseUnits(String(cfg.undistributedFactor))) ||
                 !current.flipSpeed.eq(parseUnits(String(cfg.flipSpeed))) ||
@@ -210,7 +210,7 @@ const func: DeployFunction = async ({
                   priceFeed,
                   targetDebt: parseUnits(String(cfg.targetDebt), marketDecimals),
                   totalDistribution: parseUnits(String(cfg.totalDistribution), rewardDecimals),
-                  start: cfg.start,
+                  start: Math.floor(new Date(cfg.start).getTime() / 1_000),
                   distributionPeriod: cfg.distributionPeriod,
                   undistributedFactor: parseUnits(String(cfg.undistributedFactor)),
                   flipSpeed: parseUnits(String(cfg.flipSpeed)),
