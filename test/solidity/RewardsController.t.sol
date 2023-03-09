@@ -335,6 +335,27 @@ contract RewardsControllerTest is Test {
     assertGt(newAccruedExaRewards, accruedExaRewards);
   }
 
+  function testOperationAfterDistributionEnded() external {
+    vm.warp(13 weeks);
+    marketWETH.deposit(100 ether, address(this));
+    marketWETH.borrow(10 ether, address(this), address(this));
+    vm.warp(14 weeks);
+    assertGt(rewardsController.allClaimable(address(this), opRewardAsset), 0);
+  }
+
+  function testUtilizationEqualZero() external {
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    RewardsController.Config memory config = rewardsController.rewardConfig(marketWETH, opRewardAsset);
+    config.targetDebt = 1000;
+    configs[0] = config;
+    rewardsController.config(configs);
+
+    marketWETH.deposit(100 ether, address(this));
+    marketWETH.borrow(1, address(this), address(this));
+    vm.warp(1 days);
+    marketWETH.deposit(100 ether, address(this));
+  }
+
   function testAllClaimableUSDCWithFloatingRefund() external {
     vm.prank(ALICE);
     marketUSDC.deposit(100e6, ALICE);
