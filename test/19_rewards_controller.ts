@@ -62,6 +62,10 @@ describe("RewardsController", function () {
       expect(claimableBalance).to.be.eq(0);
       expect(claimedBalance).to.be.eq(0);
     });
+    it("AND calling allClaimable with invalid reward asset THEN the claimable amount is 0", async () => {
+      const claimableBalance = await rewardsController.allClaimable(alice.address, alice.address);
+      expect(claimableBalance).to.be.eq(0);
+    });
   });
 
   describe("GIVEN a zero utilization level", () => {

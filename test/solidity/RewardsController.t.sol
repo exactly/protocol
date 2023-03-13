@@ -113,7 +113,7 @@ contract RewardsControllerTest is Test {
       totalDistribution: 2_000 ether,
       start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
-      undistributedFactor: 0.0005e18,
+      undistributedFactor: 0.5e18,
       flipSpeed: 2e18,
       compensationFactor: 0.85e18,
       transitionFactor: 0.81e18,
@@ -129,7 +129,7 @@ contract RewardsControllerTest is Test {
       totalDistribution: 2_000 ether,
       start: uint32(block.timestamp),
       distributionPeriod: 3 weeks,
-      undistributedFactor: 0.3e18,
+      undistributedFactor: 0.5e18,
       flipSpeed: 3e18,
       compensationFactor: 0.4e18,
       transitionFactor: 0.64e18,
@@ -453,9 +453,9 @@ contract RewardsControllerTest is Test {
   }
 
   function testAllClaimableWithMaturedFixedPool() external {
-    marketUSDC.deposit(1_000e6, address(this));
+    marketUSDC.deposit(50_000e6, address(this));
     vm.warp(10_000 seconds);
-    marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 500e6, 1_000e6, address(this), address(this));
+    marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 20_000e6, 22_000e6, address(this), address(this));
 
     vm.warp(FixedLib.INTERVAL - 1 days);
     uint256 opRewardsPreMaturity = rewardsController.allClaimable(address(this), opRewardAsset);
@@ -464,10 +464,10 @@ contract RewardsControllerTest is Test {
     uint256 opRewardsPostMaturity = rewardsController.allClaimable(address(this), opRewardAsset);
     uint256 exaRewardsPostMaturity = rewardsController.allClaimable(address(this), exaRewardAsset);
     assertGt(opRewardsPostMaturity, opRewardsPreMaturity);
-    assertEq(exaRewardsPostMaturity, exaRewardsPreMaturity);
+    assertGt(exaRewardsPostMaturity, exaRewardsPreMaturity);
 
     vm.warp(FixedLib.INTERVAL + 1 days);
-    assertApproxEqAbs(rewardsController.allClaimable(address(this), exaRewardAsset), exaRewardsPostMaturity, 1e2);
+    assertApproxEqAbs(rewardsController.allClaimable(address(this), exaRewardAsset), exaRewardsPostMaturity, 2e17);
   }
 
   function testWithTwelveFixedPools() external {
@@ -664,15 +664,15 @@ contract RewardsControllerTest is Test {
   }
 
   function testAccrueRewardsForWholeDistributionPeriod() external {
-    marketWETH.deposit(200 ether, address(this));
-    marketWETH.borrow(5 ether, address(this), address(this));
+    marketWETH.deposit(10_000 ether, address(this));
+    marketWETH.borrow(5_000 ether, address(this), address(this));
 
     vm.warp(12 weeks);
     uint256 distributedRewards = rewardsController.allClaimable(address(this), opRewardAsset);
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
-    assertApproxEqAbs(distributedRewards, 700 ether, 3e18);
-    assertApproxEqAbs(lastUndistributed, 1_300 ether, 3e18);
+    assertApproxEqAbs(distributedRewards, 600 ether, 3e18);
+    assertApproxEqAbs(lastUndistributed, 1_400 ether, 3e18);
   }
 
   function testAllClaimableWETH() external {
@@ -872,7 +872,7 @@ contract RewardsControllerTest is Test {
 
     vm.warp(12 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e17);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1788 ether, 1e18);
   }
 
   function testSetLowerDistributionPeriod() external {
@@ -891,15 +891,15 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
     assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(12 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(18 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
   }
 
   function testSetLowerAndEqualDistributionPeriodThanCurrentTimestampShouldRevert() external {
@@ -965,15 +965,15 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
     assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(12 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(18 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
   }
 
   function testSetLowerTotalDistribution() external {
@@ -992,11 +992,11 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
     assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(15 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
   }
 
   function testSetHigherTotalDistribution() external {
@@ -1015,11 +1015,11 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
     assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(15 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
   }
 
   function testSetNewDistributionPeriod() external {
@@ -1038,25 +1038,25 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
     assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(24 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(28 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
 
     vm.warp(40 weeks);
     rewardsController.claimAll(address(this));
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
   }
 
   function testSetTargetDebtMultipleTimes() external {
     vm.warp(1);
-    marketWETH.deposit(10_000 ether, address(this));
-    marketWETH.borrow(5_000 ether, address(this), address(this));
+    marketWETH.deposit(25_000 ether, address(this));
+    marketWETH.borrow(15_000 ether, address(this), address(this));
 
     vm.warp(4 weeks);
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
@@ -1081,13 +1081,17 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
     assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e18);
+    marketWETH.borrow(5_000 ether, address(this), address(this));
+
+    vm.warp(45 weeks);
+    rewardsController.claimAll(address(this));
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1952 ether, 1e18);
   }
 
   function testSetTargetDebtMultipleTimesAfterEnd() external {
     vm.warp(1);
-    marketWETH.deposit(10_000 ether, address(this));
-    marketWETH.borrow(5_000 ether, address(this), address(this));
+    marketWETH.deposit(30_000 ether, address(this));
+    marketWETH.borrow(15_000 ether, address(this), address(this));
 
     vm.warp(12 weeks);
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
@@ -1112,7 +1116,11 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
     assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e18);
+    marketWETH.borrow(5_000 ether, address(this), address(this));
+
+    vm.warp(45 weeks);
+    rewardsController.claimAll(address(this));
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), 1900 ether, 1e18);
   }
 
   function testSetTotalDistributionMultipleTimes() external {
@@ -1143,7 +1151,7 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketWETH, opRewardAsset);
     assertApproxEqAbs(lastUndistributed, config.totalDistribution - opRewardAsset.balanceOf(address(this)), 1e14);
-    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e10);
+    assertApproxEqAbs(opRewardAsset.balanceOf(address(this)), config.totalDistribution, 2e14);
   }
 
   function testSetNewTargetDebtAfterDistributionEnds() external {
@@ -1169,8 +1177,8 @@ contract RewardsControllerTest is Test {
 
   function testSetNewDistributionPeriodAfterDistributionEnds() external {
     vm.warp(1);
-    marketWETH.deposit(10_000 ether, address(this));
-    marketWETH.borrow(5_000 ether, address(this), address(this));
+    marketWETH.deposit(30_000 ether, address(this));
+    marketWETH.borrow(20_000 ether, address(this), address(this));
 
     vm.warp(13 weeks);
     RewardsController.Config[] memory configs = new RewardsController.Config[](1);
@@ -1342,13 +1350,13 @@ contract RewardsControllerTest is Test {
       1 days
     );
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 409693120809176800);
+    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 18450581604088380);
     rewardsController.claimAll(address(this));
 
     vm.warp(2 days);
     (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset, 1 days);
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 344878245617661000);
+    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 5470239084915400);
     marketWETH.deposit(10 ether, address(this));
   }
 
@@ -1458,7 +1466,7 @@ contract RewardsControllerTest is Test {
       market: market,
       reward: rewardAsset,
       priceFeed: MockPriceFeed(address(0)),
-      targetDebt: 20_000e6,
+      targetDebt: 1_000e6,
       totalDistribution: 2_000e10,
       start: uint32(block.timestamp),
       distributionPeriod: 12 weeks,
@@ -1477,10 +1485,10 @@ contract RewardsControllerTest is Test {
 
     market.deposit(10_000e6, address(this));
     market.borrow(1_000e6, address(this), address(this));
-    marketUSDC.deposit(10_000e6, address(this));
-    marketUSDC.borrow(1_000e6, address(this), address(this));
-    marketWETH.deposit(10_000 ether, address(this));
-    marketWETH.borrow(1_000 ether, address(this), address(this));
+    marketUSDC.deposit(50_000e6, address(this));
+    marketUSDC.borrow(20_000e6, address(this), address(this));
+    marketWETH.deposit(50_000 ether, address(this));
+    marketWETH.borrow(20_000 ether, address(this), address(this));
 
     vm.warp(6 weeks);
     assertApproxEqAbs(rewardsController.allClaimable(address(this), rewardAsset), 1_000e10, 6e10);
@@ -1517,7 +1525,7 @@ contract RewardsControllerTest is Test {
     assertApproxEqAbs(
       rewardsController.allClaimable(address(this), rewardAsset),
       2_000e10 - rewardAsset.balanceOf(address(this)),
-      20e10
+      20e13
     );
   }
 

@@ -458,10 +458,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     TotalMarketBalance memory m;
     m.debt = market.totalFloatingBorrowAssets();
     m.supply = market.totalAssets();
-    uint256 fixedBorrowShares;
+    TimeVars memory t;
+    t.start = rewardData.start;
+    t.end = rewardData.end;
     {
-      uint256 start = rewardData.start;
-      uint256 firstMaturity = start - (start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+      uint256 firstMaturity = t.start - (t.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
       uint256 maxMaturity = block.timestamp -
         (block.timestamp % FixedLib.INTERVAL) +
         (FixedLib.INTERVAL * market.maxFuturePools());
@@ -475,7 +476,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         }
       }
       m.debt += fixedDebt;
-      fixedBorrowShares = market.previewRepay(fixedDebt);
+      m.fixedBorrowShares = market.previewRepay(fixedDebt);
     }
     uint256 target;
     {
@@ -486,8 +487,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     {
       uint256 releaseRate = rewardData.releaseRate;
       uint256 lastUndistributed = rewardData.lastUndistributed;
-      uint256 distributionFactor = rewardData.undistributedFactor.mulWadDown(target);
-      if (block.timestamp <= rewardData.end) {
+      t.period = t.end - t.start;
+      uint256 distributionFactor = t.period > 0 ? rewardData.undistributedFactor.mulWadDown(target) / t.period : 0;
+      if (block.timestamp <= t.end) {
         if (distributionFactor > 0) {
           uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
@@ -498,7 +500,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           newUndistributed = lastUndistributed + releaseRate.mulWadDown(1e18 - target) * deltaTime;
         }
         rewards = uint256(int256(releaseRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)));
-      } else if (rewardData.lastUpdate > rewardData.end) {
+      } else if (rewardData.lastUpdate > t.end) {
         newUndistributed =
           lastUndistributed -
           lastUndistributed.mulWadDown(
@@ -507,8 +509,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         rewards = uint256(-(int256(newUndistributed) - int256(lastUndistributed)));
       } else {
         uint256 exponential;
-        uint256 end = rewardData.end;
-        deltaTime = end - rewardData.lastUpdate;
+        deltaTime = t.end - rewardData.lastUpdate;
         if (distributionFactor > 0) {
           exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
@@ -518,7 +519,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         } else {
           newUndistributed = lastUndistributed + releaseRate.mulWadDown(1e18 - target) * deltaTime;
         }
-        exponential = uint256((-int256(distributionFactor * (block.timestamp - end))).expWad());
+        exponential = uint256((-int256(distributionFactor * (block.timestamp - t.end))).expWad());
         newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
         rewards = uint256(int256(releaseRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)));
       }
@@ -555,7 +556,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       v.depositAllocation = 1e18 - v.borrowAllocation;
       {
         uint256 totalDepositSupply = market.totalSupply();
-        uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + fixedBorrowShares;
+        uint256 totalBorrowSupply = market.totalFloatingBorrowShares() + m.fixedBorrowShares;
         uint256 baseUnit = distribution[market].baseUnit;
         borrowIndex =
           rewardData.borrowIndex +
@@ -701,6 +702,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   struct TotalMarketBalance {
     uint256 debt;
     uint256 supply;
+    uint256 fixedBorrowShares;
+  }
+
+  struct TimeVars {
+    uint256 start;
+    uint256 end;
+    uint256 period;
   }
 
   struct AllocationVars {

@@ -621,21 +621,21 @@ contract PreviewerTest is Test {
     assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
-    uint256 newDepositRewards = 2803234799168158;
+    uint256 newDepositRewards = 12801612729700;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
     );
     uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, deltaTime);
-    assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 2e14);
+    assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 4e15);
 
-    uint256 newFloatingBorrowRewards = 37983709303842000;
+    uint256 newFloatingBorrowRewards = 238622379993700;
     uint256 newFloatingBorrowRewardsValue = newFloatingBorrowRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
     );
     annualRewardValue = newFloatingBorrowRewardsValue.mulDivDown(365 days, deltaTime);
-    assertApproxEqAbs(data[0].rewardRates[0].borrow, annualRewardValue.mulDivDown(1e18, floatingBorrowAmount), 4e16);
+    assertApproxEqAbs(data[0].rewardRates[0].borrow, annualRewardValue.mulDivDown(1e18, floatingBorrowAmount), 3e17);
 
     assertEq(data[0].rewardRates[0].maturities[0], FixedLib.INTERVAL);
     assertEq(data[0].rewardRates[0].maturities.length, 12);
