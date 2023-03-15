@@ -503,9 +503,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       } else if (rewardData.lastUpdate > t.end) {
         newUndistributed =
           lastUndistributed -
-          lastUndistributed.mulWadDown(
-            1e18 - uint256((-int256(distributionFactor * (block.timestamp - rewardData.lastUpdate))).expWad())
-          );
+          lastUndistributed.mulWadDown(1e18 - uint256((-int256(distributionFactor * deltaTime)).expWad()));
         rewards = uint256(-(int256(newUndistributed) - int256(lastUndistributed)));
       } else {
         uint256 exponential;
