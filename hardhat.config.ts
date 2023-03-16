@@ -66,7 +66,7 @@ export default {
         fixedCurve: { a: 0.3143, b: -0.3008, maxUtilization: 1.0033 },
         overrides: {
           goerli: {
-            rewards: [{ asset: "OP", total: 30_000, debt: 16_000, start: "2023-03-09", period: 4 * 7 * 86_400 }],
+            rewards: { OP: { total: 30_000, debt: 16_000, start: "2023-03-09", period: 4 * 7 * 86_400 } },
           },
         },
       },
@@ -82,7 +82,7 @@ export default {
         fixedCurve: { a: 0.3023, b: -0.2864, maxUtilization: 1.0027 },
         overrides: {
           goerli: {
-            rewards: [{ asset: "OP", total: 70_000, debt: 25_000_000, start: "2023-03-09", period: 4 * 7 * 86_400 }],
+            rewards: { OP: { total: 70_000, debt: 25_000_000, start: "2023-03-09", period: 4 * 7 * 86_400 } },
           },
         },
       },
@@ -142,7 +142,11 @@ extendConfig((hardhatConfig, { finance: { rewards, markets } }) => {
         .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
         .map(([name, { networks, overrides, ...marketConfig }]) => {
           const config = { ...marketConfig, ...overrides?.[live ? networkName : Object.keys(overrides)[0]] };
-          if (config.rewards) config.rewards = config.rewards.map((r) => ({ ...rewards, ...r }));
+          if (config.rewards) {
+            config.rewards = Object.fromEntries(
+              Object.entries(config.rewards).map(([asset, rewardsConfig]) => [asset, { ...rewards, ...rewardsConfig }]),
+            );
+          }
           return [name, config];
         }),
     );
@@ -181,13 +185,14 @@ declare module "hardhat/types/config" {
     fixedCurve: Curve;
     floatingCurve: Curve;
     priceFeed?: "double" | { wrapper: string; fn: string; baseUnit: bigint };
-    rewards?: ({
-      asset: string;
-      total: number;
-      debt: number;
-      start: string;
-      period: number;
-    } & Partial<RewardsParameters>)[];
+    rewards?: {
+      [asset: string]: {
+        total: number;
+        debt: number;
+        start: string;
+        period: number;
+      } & Partial<RewardsParameters>;
+    };
   }
 
   export interface MarketUserConfig extends MarketConfig {

@@ -180,10 +180,10 @@ const func: DeployFunction = async ({
 
           const market = await getContract<Market>(`Market${symbol}`);
           return Promise.all(
-            marketRewards.map(async (cfg) => {
+            Object.entries(marketRewards).map(async ([asset, cfg]) => {
               const [reward, { address: priceFeed }] = await Promise.all([
-                getContract<ERC20>(cfg.asset),
-                get(`PriceFeed${cfg.asset}`),
+                getContract<ERC20>(asset),
+                get(`PriceFeed${asset}`),
               ]);
               const [current, marketDecimals, rewardDecimals] = await Promise.all([
                 rewards.rewardConfig(market.address, reward.address),

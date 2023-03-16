@@ -25,7 +25,7 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
   const signer = await getSigner(deployer);
   for (const [symbol, { priceFeed }] of [
     ...Object.entries(markets),
-    ...[...new Set(Object.values(markets).flatMap((m) => m.rewards && Object.values(m.rewards).map((r) => r.asset)))]
+    ...[...new Set(Object.values(markets).flatMap((m) => m.rewards && Object.keys(m.rewards)))]
       .filter((asset) => asset && !markets[asset])
       .map((asset) => [asset, {}] as [string, MarketConfig]),
   ]) {
