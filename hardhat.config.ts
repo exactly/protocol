@@ -51,7 +51,7 @@ export default {
     maxFuturePools: 3,
     earningsAccumulatorSmoothFactor: 2,
     rewards: {
-      undistributedFactor: 0.0005,
+      undistributedFactor: 0.5,
       flipSpeed: 2,
       compensationFactor: 0.85,
       transitionFactor: 0.64,
