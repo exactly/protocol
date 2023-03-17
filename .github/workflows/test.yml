@@ -5,6 +5,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      OPTIMISM_NODE: ${{ secrets.OPTIMISM_NODE }}
     steps:
       - uses: actions/checkout@v3
         with:
