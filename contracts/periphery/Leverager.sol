@@ -4,7 +4,8 @@ pragma solidity 0.8.17;
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { Auditor, Market } from "../Market.sol";
+import { Auditor, MarketNotListed } from "../Auditor.sol";
+import { Market } from "../Market.sol";
 
 contract Leverager {
   using FixedPointMathLib for uint256;
@@ -18,9 +19,11 @@ contract Leverager {
     balancerVault = balancerVault_;
   }
 
-  function leverage(Market market, uint256 principal, uint256 targetHealthFactor) external {
+  function leverage(Market market, uint256 principal, uint256 targetHealthFactor, bool deposit) external {
     ERC20 asset = market.asset();
-    asset.safeTransferFrom(msg.sender, address(this), principal);
+    if (deposit) {
+      asset.safeTransferFrom(msg.sender, address(this), principal);
+    }
 
     (uint256 adjustedFactor, , , , ) = auditor.markets(market);
     uint256 factor = adjustedFactor.mulWadDown(adjustedFactor).divWadDown(targetHealthFactor);
@@ -33,7 +36,15 @@ contract Leverager {
       address(this),
       tokens,
       amounts,
-      abi.encode(FlashloanCallback({ market: market, account: msg.sender, principal: principal, leverage: true }))
+      abi.encode(
+        FlashloanCallback({
+          market: market,
+          account: msg.sender,
+          principal: principal,
+          leverage: true,
+          deposit: deposit
+        })
+      )
     );
   }
 
@@ -48,22 +59,27 @@ contract Leverager {
       address(this),
       tokens,
       amounts,
-      abi.encode(FlashloanCallback({ market: market, account: msg.sender, principal: 0, leverage: false }))
+      abi.encode(
+        FlashloanCallback({ market: market, account: msg.sender, principal: 0, leverage: false, deposit: false })
+      )
     );
   }
 
   function receiveFlashLoan(
     ERC20[] memory,
     uint256[] memory amounts,
-    uint256[] memory feeAmounts,
+    uint256[] memory,
     bytes memory userData
   ) external {
-    require(msg.sender == address(balancerVault));
-    require(feeAmounts[0] == 0);
+    if (msg.sender != address(balancerVault)) revert NotBalancerVault();
 
     FlashloanCallback memory f = abi.decode(userData, (FlashloanCallback));
     if (f.leverage) {
-      f.market.deposit(amounts[0] + f.principal, f.account);
+      if (f.deposit) {
+        f.market.deposit(amounts[0] + f.principal, f.account);
+      } else {
+        f.market.deposit(amounts[0], f.account);
+      }
       f.market.borrow(amounts[0], address(balancerVault), f.account);
     } else {
       f.market.repay(amounts[0], f.account);
@@ -73,17 +89,20 @@ contract Leverager {
 
   function approve(Market market) external {
     (, , , bool isListed, ) = auditor.markets(market);
-    require(isListed);
+    if (!isListed) revert MarketNotListed();
 
     market.asset().approve(address(market), type(uint256).max);
   }
 }
+
+error NotBalancerVault();
 
 struct FlashloanCallback {
   Market market;
   address account;
   uint256 principal;
   bool leverage;
+  bool deposit;
 }
 
 interface IBalancerVault {
