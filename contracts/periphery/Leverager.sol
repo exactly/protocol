@@ -7,11 +7,15 @@ import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
 import { Market } from "../Market.sol";
 
+/// @title Leverager
+/// @notice Contract that leverages and deleverages the floating position of accounts interacting with Exactly Protocol.
 contract Leverager {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
 
+  /// @notice Balancer's vault contract that is used to take flash loans.
   IBalancerVault public immutable balancerVault;
+  /// @notice Auditor contract that lists the markets that can be leveraged.
   Auditor public immutable auditor;
 
   constructor(Auditor auditor_, IBalancerVault balancerVault_) {
@@ -19,6 +23,12 @@ contract Leverager {
     balancerVault = balancerVault_;
   }
 
+  /// @notice Leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// from Balancer's vault.
+  /// @param market The Market to leverage the position in.
+  /// @param principal The amount of assets to deposit or deposited.
+  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  /// @param deposit True if the principal is being deposited, false if the principal is already deposited.
   function leverage(Market market, uint256 principal, uint256 targetHealthFactor, bool deposit) external {
     ERC20 asset = market.asset();
     if (deposit) {
@@ -48,6 +58,10 @@ contract Leverager {
     );
   }
 
+  /// @notice Deleverages the floating position of `msg.sender` a certain `percentage` by taking a flash loan
+  /// from Balancer's vault to repay the borrow.
+  /// @param market The Market to deleverage the position out.
+  /// @param percentage The percentage of the borrow that will be repaid, represented with 18 decimals.
   function deleverage(Market market, uint256 percentage) external {
     (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
 
@@ -65,6 +79,10 @@ contract Leverager {
     );
   }
 
+  /// @notice Callback function called by the Balancer Vault contract when a flash loan is initiated.
+  /// @dev Only the Balancer Vault contract is allowed to call this function.
+  /// @param amounts The amounts of the assets' tokens being borrowed.
+  /// @param userData Additional data provided by the borrower for the flash loan.
   function receiveFlashLoan(
     ERC20[] memory,
     uint256[] memory amounts,
@@ -87,6 +105,9 @@ contract Leverager {
     }
   }
 
+  /// @notice Approves the Market to spend the contract's balance of the underlying asset.
+  /// @dev The Market must be listed by the Auditor in order to be valid for approval.
+  /// @param market The Market to spend the contract's balance.
   function approve(Market market) external {
     (, , , bool isListed, ) = auditor.markets(market);
     if (!isListed) revert MarketNotListed();
