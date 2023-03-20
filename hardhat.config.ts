@@ -62,8 +62,8 @@ export default {
     markets: {
       WETH: {
         adjustFactor: 0.84,
-        floatingCurve: { a: 0.0137, b: 0.004, maxUtilization: 1.0091 },
-        fixedCurve: { a: 0.3143, b: -0.3008, maxUtilization: 1.0033 },
+        floatingCurve: { a: 1.9362e-2, b: -1.787e-3, maxUtilization: 1.003870947 },
+        fixedCurve: { a: 3.8126e-1, b: -3.6375e-1, maxUtilization: 1.000010695 },
         overrides: {
           goerli: {
             rewards: { OP: { total: 30_000, debt: 16_000, start: "2023-03-09", period: 4 * 7 * 86_400 } },
@@ -73,13 +73,13 @@ export default {
       DAI: {
         networks: ["mainnet", "goerli"],
         adjustFactor: 0.9,
-        floatingCurve: { a: 0.0085, b: 0.0066, maxUtilization: 1.0081 },
-        fixedCurve: { a: 0.3758, b: -0.3582, maxUtilization: 1.0072 },
+        floatingCurve: { a: 1.7852e-2, b: -2.789e-3, maxUtilization: 1.003568501 },
+        fixedCurve: { a: 3.9281e-1, b: -3.7781e-1, maxUtilization: 1.000014451 },
       },
       USDC: {
         adjustFactor: 0.91,
-        floatingCurve: { a: 0.009, b: 0.006, maxUtilization: 1.006 },
-        fixedCurve: { a: 0.3023, b: -0.2864, maxUtilization: 1.0027 },
+        floatingCurve: { a: 1.4844e-2, b: 1.9964e-4, maxUtilization: 1.002968978 },
+        fixedCurve: { a: 3.9281e-1, b: -3.7781e-1, maxUtilization: 1.000014451 },
         overrides: {
           goerli: {
             rewards: { OP: { total: 70_000, debt: 25_000_000, start: "2023-03-09", period: 4 * 7 * 86_400 } },
@@ -89,8 +89,8 @@ export default {
       WBTC: {
         networks: ["mainnet", "goerli"],
         adjustFactor: 0.85,
-        floatingCurve: { a: 0.0438, b: -0.033, maxUtilization: 1.0173 },
-        fixedCurve: { a: 0.3236, b: -0.3136, maxUtilization: 1.0002 },
+        floatingCurve: { a: 3.6184e-2, b: -1.5925e-2, maxUtilization: 1.007213882 },
+        fixedCurve: { a: 3.697e-1, b: -3.497e-1, maxUtilization: 1.000007768 },
         overrides: {
           mainnet: { priceFeed: "double" },
           goerli: { priceFeed: "double" },
@@ -99,15 +99,15 @@ export default {
       wstETH: {
         networks: ["mainnet", "goerli"],
         adjustFactor: 0.82,
-        floatingCurve: { a: 0.02, b: -0.0023, maxUtilization: 1.0133 },
-        fixedCurve: { a: 0.3143, b: -0.3008, maxUtilization: 1.0033 },
+        floatingCurve: { a: 1.9362e-2, b: -1.787e-3, maxUtilization: 1.003870947 },
+        fixedCurve: { a: 3.8126e-1, b: -3.6375e-1, maxUtilization: 1.000010695 },
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
       },
       OP: {
         networks: ["optimism"],
         adjustFactor: 0.35,
-        floatingCurve: { a: 0.02, b: -0.0023, maxUtilization: 1.0133 },
-        fixedCurve: { a: 0.3143, b: -0.3008, maxUtilization: 1.0033 },
+        floatingCurve: { a: 2.8487e-2, b: -5.8259e-3, maxUtilization: 1.005690787 },
+        fixedCurve: { a: 3.5815e-1, b: -3.3564e-1, maxUtilization: 1.000005527 },
       },
     },
   },
