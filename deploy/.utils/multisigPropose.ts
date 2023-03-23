@@ -24,7 +24,7 @@ export default async (account: string, contract: Contract, functionName: string,
     const safeSdk = await Safe.create({ ethAdapter, safeAddress });
     if (!(await safeSdk.isOwner(senderAddress))) {
       // eslint-disable-next-line no-console
-      console.log("multisig: manual proposal", { address: contract.address, calldata });
+      console.log("multisig: manual proposal", { to: contract.address, data: calldata, value: "0" });
       return;
     }
     const safeTransaction = await safeSdk.createTransaction({
