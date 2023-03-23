@@ -105,7 +105,7 @@ export default {
       },
       OP: {
         networks: ["optimism"],
-        adjustFactor: 0.35,
+        adjustFactor: 0.58,
         floatingCurve: { a: 2.8487e-2, b: -5.8259e-3, maxUtilization: 1.005690787 },
         fixedCurve: { a: 3.5815e-1, b: -3.3564e-1, maxUtilization: 1.000005527 },
       },
