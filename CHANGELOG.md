@@ -1,5 +1,11 @@
 # @exactly-protocol/protocol
 
+## 0.2.8
+
+### Patch Changes
+
+- 78471e6: 🐛 rewards: fix distributionFactor calculation
+
 ## 0.2.7
 
 ### Patch Changes
