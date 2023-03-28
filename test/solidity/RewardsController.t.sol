@@ -149,7 +149,8 @@ contract RewardsControllerTest is Test {
     usdc.mint(BOB, 100 ether);
     weth.mint(address(this), 50_000 ether);
     weth.mint(ALICE, 1_000 ether);
-    wbtc.mint(address(this), 1_000 ether);
+    wbtc.mint(address(this), 1_000e8);
+    wbtc.mint(BOB, 1_000e8);
     usdc.approve(address(marketUSDC), type(uint256).max);
     weth.approve(address(marketWETH), type(uint256).max);
     wbtc.approve(address(marketWBTC), type(uint256).max);
@@ -159,6 +160,8 @@ contract RewardsControllerTest is Test {
     weth.approve(address(marketWETH), type(uint256).max);
     vm.prank(BOB);
     usdc.approve(address(marketUSDC), type(uint256).max);
+    vm.prank(BOB);
+    wbtc.approve(address(marketWBTC), type(uint256).max);
   }
 
   function testAllClaimableUSDCWithDeposit() external {
@@ -540,7 +543,7 @@ contract RewardsControllerTest is Test {
   }
 
   function testUpdateIndexesWithUtilizationEqualToOne() external {
-    marketWBTC.deposit(1_000 ether, address(this));
+    marketWBTC.deposit(1_000e8, address(this));
     auditor.enterMarket(marketWBTC);
 
     vm.warp(1 days);
@@ -553,7 +556,7 @@ contract RewardsControllerTest is Test {
   }
 
   function testUpdateIndexesWithUtilizationHigherThanOne() external {
-    marketWBTC.deposit(1_000 ether, address(this));
+    marketWBTC.deposit(1_000e8, address(this));
     auditor.enterMarket(marketWBTC);
 
     vm.warp(1 days);
@@ -1552,6 +1555,92 @@ contract RewardsControllerTest is Test {
 
     (, , uint256 lastUpdate) = rewardsController.distributionTime(marketUSDC, opRewardAsset);
     assertEq(lastUpdate, 1);
+  }
+
+  function testAccrueRewardsWithSeizeOfAllDepositShares() external {
+    vm.prank(BOB);
+    marketUSDC.approve(address(this), type(uint256).max);
+
+    marketUSDC.deposit(1_000_000e6, address(this));
+    marketUSDC.deposit(1_000_000e6, BOB);
+    marketUSDC.borrow(500_000e6, BOB, BOB);
+
+    marketWBTC.deposit(100e8, BOB);
+    auditor.enterMarket(marketUSDC);
+    marketWBTC.borrow(20e8, address(this), address(this));
+    (, , , , IPriceFeed wbtcPriceFeed) = auditor.markets(marketWBTC);
+    MockPriceFeed(address(wbtcPriceFeed)).setPrice(50_000e18);
+
+    vm.warp(4 weeks);
+    vm.prank(BOB);
+    marketWBTC.liquidate(address(this), type(uint256).max, marketUSDC);
+    assertGt(rewardsController.allClaimable(address(this), opRewardAsset), 0);
+  }
+
+  function testAccrueRewardsWithBadDebtClearingOfFixedBorrow() external {
+    vm.prank(BOB);
+    marketUSDC.approve(address(this), type(uint256).max);
+
+    marketWBTC.deposit(40e8, address(this));
+    auditor.enterMarket(marketWBTC);
+
+    marketUSDC.deposit(1_000_000e6, BOB);
+    marketWETH.deposit(1 ether, BOB);
+    vm.warp(10_000 seconds);
+    marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 10_000e6, 30_000e6, address(this), address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 0.1 ether, 0.2 ether, address(this), address(this));
+
+    // distribute earnings to accumulator so it can cover bad debt
+    marketUSDC.setBackupFeeRate(1e18);
+    irm.setBorrowRate(1e18);
+    marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 30_000e6, 60_000e6, BOB, BOB);
+    marketUSDC.depositAtMaturity(FixedLib.INTERVAL, 30_000e6, 30_000e6, BOB);
+
+    vm.warp(4 weeks);
+    (, , , , IPriceFeed wbtcPriceFeed) = auditor.markets(marketWBTC);
+    MockPriceFeed(address(wbtcPriceFeed)).setPrice(10);
+    vm.prank(ALICE);
+    marketWETH.liquidate(address(this), type(uint256).max, marketWBTC);
+    auditor.handleBadDebt(address(this));
+
+    RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
+    bool[] memory ops = new bool[](1);
+    ops[0] = true;
+    marketOps[0] = RewardsController.MarketOperation({ market: marketUSDC, operations: ops });
+    assertGt(rewardsController.claimable(marketOps, address(this), opRewardAsset), 0);
+  }
+
+  function testAccrueRewardsWithRepayOfBorrowBalance() external {
+    marketWBTC.deposit(100e8, address(this));
+    auditor.enterMarket(marketWBTC);
+    marketUSDC.deposit(1_000_000e6, BOB);
+    marketUSDC.borrow(500_000e6, address(this), address(this));
+
+    vm.warp(4 weeks);
+    (, , , , IPriceFeed wbtcPriceFeed) = auditor.markets(marketWBTC);
+    MockPriceFeed(address(wbtcPriceFeed)).setPrice(100e18);
+    vm.prank(ALICE);
+    marketUSDC.liquidate(address(this), type(uint256).max, marketWBTC);
+    // if reward position had not been updated when repaying the floating borrow
+    // then rewards would be way less than 400 ether
+    assertGt(rewardsController.allClaimable(address(this), opRewardAsset), 400 ether);
+  }
+
+  function testAccrueRewardsWithRepayOfFixedBorrowBalance() external {
+    marketWBTC.deposit(100e8, address(this));
+    auditor.enterMarket(marketWBTC);
+    marketUSDC.deposit(1_000_000e6, BOB);
+    vm.warp(10_000 seconds);
+    marketUSDC.borrowAtMaturity(FixedLib.INTERVAL, 100_000e6, 200_000e6, address(this), address(this));
+
+    vm.warp(4 weeks);
+    (, , , , IPriceFeed wbtcPriceFeed) = auditor.markets(marketWBTC);
+    MockPriceFeed(address(wbtcPriceFeed)).setPrice(100e18);
+    vm.prank(ALICE);
+    marketUSDC.liquidate(address(this), type(uint256).max, marketWBTC);
+    // if reward position had not been updated when repaying the fixed borrow
+    // then rewards would be way less than 400 ether
+    assertGt(rewardsController.allClaimable(address(this), opRewardAsset), 500 ether);
   }
 
   function accountBalanceOperations(

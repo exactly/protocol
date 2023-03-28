@@ -624,6 +624,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
         FixedLib.Position storage position = fixedBorrowPositions[maturity][borrower];
         uint256 badDebt = position.principal + position.fee;
         if (accumulator >= badDebt) {
+          RewardsController memRewardsController = rewardsController;
+          if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
           accumulator -= badDebt;
           totalBadDebt += badDebt;
           floatingBackupBorrowed -= fixedPools[maturity].repay(position.principal);
@@ -672,6 +674,8 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     // reverts on failure
     auditor.checkSeize(seizeMarket, this);
 
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleDeposit(borrower);
     uint256 shares = previewWithdraw(assets);
     beforeWithdraw(assets, shares);
     _burn(borrower, shares);
