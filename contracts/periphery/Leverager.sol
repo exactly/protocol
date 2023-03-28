@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
+import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
 import { Market } from "../Market.sol";
 
@@ -21,6 +21,10 @@ contract Leverager {
   constructor(Auditor auditor_, IBalancerVault balancerVault_) {
     auditor = auditor_;
     balancerVault = balancerVault_;
+    Market[] memory markets = auditor_.allMarkets();
+    for (uint256 i = 0; i < markets.length; i++) {
+      markets[i].asset().safeApprove(address(markets[i]), type(uint256).max);
+    }
   }
 
   /// @notice Leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
@@ -31,12 +35,10 @@ contract Leverager {
   /// @param deposit True if the principal is being deposited, false if the principal is already deposited.
   function leverage(Market market, uint256 principal, uint256 targetHealthFactor, bool deposit) external {
     ERC20 asset = market.asset();
-    if (deposit) {
-      asset.safeTransferFrom(msg.sender, address(this), principal);
-    }
+    if (deposit) asset.safeTransferFrom(msg.sender, address(this), principal);
 
-    (uint256 adjustedFactor, , , , ) = auditor.markets(market);
-    uint256 factor = adjustedFactor.mulWadDown(adjustedFactor).divWadDown(targetHealthFactor);
+    (uint256 adjustFactor, , , , ) = auditor.markets(market);
+    uint256 factor = adjustFactor.mulWadDown(adjustFactor).divWadDown(targetHealthFactor);
 
     ERC20[] memory tokens = new ERC20[](1);
     tokens[0] = asset;
@@ -93,11 +95,7 @@ contract Leverager {
 
     FlashloanCallback memory f = abi.decode(userData, (FlashloanCallback));
     if (f.leverage) {
-      if (f.deposit) {
-        f.market.deposit(amounts[0] + f.principal, f.account);
-      } else {
-        f.market.deposit(amounts[0], f.account);
-      }
+      f.market.deposit(amounts[0] + (f.deposit ? f.principal : 0), f.account);
       f.market.borrow(amounts[0], address(balancerVault), f.account);
     } else {
       f.market.repay(amounts[0], f.account);
@@ -112,7 +110,7 @@ contract Leverager {
     (, , , bool isListed, ) = auditor.markets(market);
     if (!isListed) revert MarketNotListed();
 
-    market.asset().approve(address(market), type(uint256).max);
+    market.asset().safeApprove(address(market), type(uint256).max);
   }
 }
 

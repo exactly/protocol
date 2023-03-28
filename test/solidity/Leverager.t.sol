@@ -2,7 +2,14 @@
 pragma solidity 0.8.17;
 
 import { Test, stdJson } from "forge-std/Test.sol";
-import { Leverager, Market, ERC20, IBalancerVault, NotBalancerVault } from "../../contracts/periphery/Leverager.sol";
+import {
+  ERC20,
+  Market,
+  Leverager,
+  IBalancerVault,
+  NotBalancerVault,
+  FlashloanCallback
+} from "../../contracts/periphery/Leverager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
 
 contract LeveragerTest is Test {
@@ -12,20 +19,19 @@ contract LeveragerTest is Test {
   Market internal marketUSDC;
   ERC20 internal usdc;
 
-  function setUp() public {
-    vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 78444171);
+  function setUp() external {
+    vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 84_666_000);
 
-    usdc = ERC20(getAddress("USDC"));
-    marketUSDC = Market(getAddress("MarketUSDC"));
-    leverager = new Leverager(Auditor(getAddress("Auditor")), IBalancerVault(getAddress("BalancerVault")));
+    usdc = ERC20(deployment("USDC"));
+    marketUSDC = Market(deployment("MarketUSDC"));
+    leverager = new Leverager(Auditor(deployment("Auditor")), IBalancerVault(deployment("BalancerVault")));
 
     deal(address(usdc), address(this), 100_000e6);
     marketUSDC.approve(address(leverager), type(uint256).max);
     usdc.approve(address(leverager), type(uint256).max);
-    leverager.approve(marketUSDC);
   }
 
-  function testLeverage() public {
+  function testLeverage() external {
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -33,17 +39,17 @@ contract LeveragerTest is Test {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 410153541355);
   }
 
-  function testLeverageWithAlreadyDepositedAmount() public {
+  function testLeverageWithAlreadyDepositedAmount() external {
     usdc.approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(100_000e6, address(this));
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, false);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
-    assertEq(marketUSDC.maxWithdraw(address(this)), 510153541353);
+    assertEq(marketUSDC.maxWithdraw(address(this)), 510153541352);
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 410153541355);
   }
 
-  function testLeverageShouldFailWhenHealthFactorNearOne() public {
+  function testLeverageShouldFailWhenHealthFactorNearOne() external {
     vm.expectRevert(InsufficientAccountLiquidity.selector);
     leverager.leverage(marketUSDC, 100_000e6, 1.000000000001e18, true);
 
@@ -53,7 +59,7 @@ contract LeveragerTest is Test {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 481733565998);
   }
 
-  function testDeleverage() public {
+  function testDeleverage() external {
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
     leverager.deleverage(marketUSDC, 1e18);
 
@@ -63,7 +69,7 @@ contract LeveragerTest is Test {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
   }
 
-  function testDeleverageHalfBorrowPosition() public {
+  function testDeleverageHalfBorrowPosition() external {
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 leveragedDeposit = 510153541353;
@@ -73,19 +79,34 @@ contract LeveragerTest is Test {
 
     leverager.deleverage(marketUSDC, 0.5e18);
     (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
-    uint256 deleveragedDeposit = 305076770675;
-    uint256 deleveragedBorrow = 205076770677;
+    uint256 deleveragedDeposit = 305076770676;
+    uint256 deleveragedBorrow = 205076770678;
     assertEq(marketUSDC.maxWithdraw(address(this)), deleveragedDeposit);
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), deleveragedBorrow);
     assertEq(leveragedDeposit - deleveragedDeposit, leveragedBorrow - deleveragedBorrow);
   }
 
-  function testApproveMaliciousMarket() public {
+  function testFlashloanFeeGreaterThanZero() external {
+    vm.prank(0xacAaC3e6D6Df918Bf3c809DFC7d42de0e4a72d4C);
+    ProtocolFeesCollector(0xce88686553686DA562CE7Cea497CE749DA109f9F).setFlashLoanFeePercentage(1e15);
+
+    vm.expectRevert("BAL#602");
+    leverager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
+  }
+
+  function testApproveMarket() external {
+    vm.expectEmit(true, true, true, true);
+    emit Approval(address(leverager), address(marketUSDC), type(uint256).max);
+    leverager.approve(marketUSDC);
+    assertEq(usdc.allowance(address(leverager), address(marketUSDC)), type(uint256).max);
+  }
+
+  function testApproveMaliciousMarket() external {
     vm.expectRevert(MarketNotListed.selector);
     leverager.approve(Market(address(this)));
   }
 
-  function testCallReceiveFlashLoanFromAnyAddress() public {
+  function testCallReceiveFlashLoanFromAnyAddress() external {
     uint256[] memory amounts = new uint256[](1);
     uint256[] memory feeAmounts = new uint256[](1);
     ERC20[] memory assets = new ERC20[](1);
@@ -94,16 +115,20 @@ contract LeveragerTest is Test {
     leverager.receiveFlashLoan(assets, amounts, feeAmounts, "");
   }
 
-  function testLeverageWithInvalidBalancerVault() public {
+  function testLeverageWithInvalidBalancerVault() external {
     Leverager lev = new Leverager(marketUSDC.auditor(), IBalancerVault(address(this)));
-    lev.approve(marketUSDC);
-
-    vm.expectRevert();
+    vm.expectRevert(bytes(""));
     lev.leverage(marketUSDC, 100_000e6, 1.03e18, true);
   }
 
-  function getAddress(string memory name) internal returns (address addr) {
+  function deployment(string memory name) internal returns (address addr) {
     addr = vm.readFile(string.concat("deployments/optimism/", name, ".json")).readAddress(".address");
     vm.label(addr, name);
   }
+
+  event Approval(address indexed owner, address indexed spender, uint256 amount);
+}
+
+interface ProtocolFeesCollector {
+  function setFlashLoanFeePercentage(uint256) external;
 }
