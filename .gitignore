@@ -1,15 +1,13 @@
 /artifacts/
 /broadcast/
-/coverage/
-/coverage.json
 /docs/
-/lcov.info
 /types/
 
 .openzeppelin/unknown-*
 .vscode/
 cache/
 node_modules/
+lcov.info
 .DS_Store
 .env
 *.log
