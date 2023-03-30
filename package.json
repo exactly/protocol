@@ -19,7 +19,6 @@
     "coverage:foundry:snapshot": "forge snapshot --no-match-test testFuzz --check",
     "coverage:foundry": "forge coverage --report lcov",
     "coverage:hardhat": "run-s test:hardhat",
-    "coverage:foundry:fuzzer": "FOUNDRY_PROFILE=production forge test --match-test testFuzz",
     "deploy:mainnet": "hardhat --network mainnet deploy",
     "deploy:goerli": "hardhat --network goerli deploy",
     "postinstall": "run-s --continue-on-error postinstall:** || cd .",
