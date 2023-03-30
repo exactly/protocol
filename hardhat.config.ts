@@ -23,9 +23,8 @@ export default {
     settings: { optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
-    hardhat: { priceDecimals: 8, allowUnlimitedContractSize: true },
     mainnet: { priceDecimals: 18, timelockDelay: 12 * 3_600, url: env.MAINNET_NODE ?? "" },
-    optimism: { priceDecimals: 8, timelockDelay: 12 * 3_600, url: env.OPTIMISM_NODE ?? "" },
+    optimism: { priceDecimals: 8, timelockDelay: 12 * 3_600, url: env.OPTIMISM_NODE ?? "", leverager: true },
     goerli: { priceDecimals: 8, url: env.GOERLI_NODE ?? "" },
   },
   namedAccounts: {
@@ -136,7 +135,7 @@ extendConfig((hardhatConfig, { finance: { rewards, markets } }) => {
     if (live) {
       networkConfig.safeTxService = `https://safe-transaction-${networkName}.safe.global`;
       if (env.MNEMONIC) networkConfig.accounts = { ...defaultHdAccountsConfigParams, mnemonic: env.MNEMONIC };
-    }
+    } else Object.assign(networkConfig, { priceDecimals: 8, allowUnlimitedContractSize: true, leverager: true });
     networkConfig.markets = Object.fromEntries(
       Object.entries(markets)
         .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
@@ -214,18 +213,16 @@ declare module "hardhat/types/config" {
     finance: FinanceConfig;
   }
 
-  export interface HardhatNetworkUserConfig {
-    priceDecimals: number;
-  }
-
   export interface HttpNetworkUserConfig {
     priceDecimals: number;
     timelockDelay?: number;
+    leverager?: boolean;
   }
 
   export interface HardhatNetworkConfig {
     priceDecimals: number;
     timelockDelay: undefined;
+    leverager: boolean;
     safeTxService: undefined;
     markets: { [asset: string]: MarketConfig };
   }
@@ -233,6 +230,7 @@ declare module "hardhat/types/config" {
   export interface HttpNetworkConfig {
     priceDecimals: number;
     timelockDelay?: number;
+    leverager?: boolean;
     safeTxService: string;
     markets: { [asset: string]: MarketConfig };
   }

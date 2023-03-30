@@ -1,6 +1,6 @@
 import { env } from "process";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, Market, RewardsController } from "../types";
+import type { Auditor, ERC20, Leverager, Market, RewardsController } from "../types";
 import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
@@ -25,12 +25,14 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [rewards, auditor, { address: timelock }, { deployer, multisig, treasury = AddressZero }] = await Promise.all([
-    getContractOrNull<RewardsController>("RewardsController"),
-    getContract<Auditor>("Auditor"),
-    get("TimelockController"),
-    getNamedAccounts(),
-  ]);
+  const [rewards, leverager, auditor, { address: timelock }, { deployer, multisig, treasury = AddressZero }] =
+    await Promise.all([
+      getContractOrNull<RewardsController>("RewardsController"),
+      getContractOrNull<Leverager>("Leverager"),
+      getContract<Auditor>("Auditor"),
+      get("TimelockController"),
+      getNamedAccounts(),
+    ]);
 
   const earningsAccumulatorSmoothFactor = parseUnits(String(finance.earningsAccumulatorSmoothFactor));
   const penaltyRate = parseUnits(String(finance.penaltyRatePerDay)).div(86_400);
@@ -165,6 +167,14 @@ const func: DeployFunction = async ({
       if (marketRewards.toLowerCase() !== configRewards.toLowerCase()) {
         await executeOrPropose(market, "setRewardsController", [configRewards]);
       }
+    }
+
+    if (
+      leverager &&
+      (await auditor.allMarkets()).includes(market.address) &&
+      (await asset.allowance(leverager.address, market.address)).isZero()
+    ) {
+      await (await leverager.approve(market.address)).wait();
     }
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);
