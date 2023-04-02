@@ -53,7 +53,7 @@ export default {
       undistributedFactor: 0.5,
       flipSpeed: 2,
       compensationFactor: 0.85,
-      transitionFactor: 0.64,
+      transitionFactor: 0.83,
       borrowAllocationWeightFactor: 0,
       depositAllocationWeightAddend: 0.02,
       depositAllocationWeightFactor: 0.01,
@@ -66,6 +66,20 @@ export default {
         overrides: {
           goerli: {
             rewards: { OP: { total: 30_000, debt: 16_000, start: "2023-03-09", period: 4 * 7 * 86_400 } },
+          },
+          optimism: {
+            rewards: {
+              OP: {
+                total: 30_000,
+                debt: 1_666,
+                start: "2023-04-03T14:00Z",
+                period: 4 * 7 * 86_400,
+                undistributedFactor: 0.3,
+                compensationFactor: 0.7,
+                transitionFactor: 0.7056,
+                depositAllocationWeightAddend: 0.03,
+              },
+            },
           },
         },
       },
@@ -82,6 +96,9 @@ export default {
         overrides: {
           goerli: {
             rewards: { OP: { total: 70_000, debt: 25_000_000, start: "2023-03-09", period: 4 * 7 * 86_400 } },
+          },
+          optimism: {
+            rewards: { OP: { total: 70_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 4 * 7 * 86_400 } },
           },
         },
       },
