@@ -183,6 +183,8 @@ const func: DeployFunction = async ({
   }
 
   if (rewards) {
+    await transferOwnership(rewards, deployer, timelock);
+
     const newRewards = (
       await Promise.all(
         Object.entries(markets).map(async ([symbol, { rewards: marketRewards }]) => {
@@ -239,8 +241,6 @@ const func: DeployFunction = async ({
       .flat()
       .filter(Boolean);
     if (newRewards.length) await executeOrPropose(rewards, "config", [newRewards]);
-
-    await transferOwnership(rewards, deployer, timelock);
   }
 
   await transferOwnership(auditor, deployer, timelock);
