@@ -1,5 +1,13 @@
 # @exactly-protocol/protocol
 
+## 0.2.9
+
+### Patch Changes
+
+- 51eb498: ✨ leverager: add leverage & deleverage functions
+- 411e663: 🚀 optimism: deploy rewards system
+- 783b0c3: 🐛 market: add missing reward hook calls
+
 ## 0.2.8
 
 ### Patch Changes
