@@ -434,6 +434,8 @@ contract Previewer {
         r.maturities = new uint256[]((r.maxMaturity - r.firstMaturity) / FixedLib.INTERVAL + 1);
         r.start = 0;
         for (r.maturity = r.firstMaturity; r.maturity <= r.maxMaturity; ) {
+          (uint256 borrowed, ) = market.fixedPoolBalance(r.maturity);
+          r.fixedDebt += borrowed;
           r.maturities[r.start] = r.maturity;
           unchecked {
             r.maturity += FixedLib.INTERVAL;
@@ -445,13 +447,13 @@ contract Previewer {
           assetName: r.rewardList[r.i].name(),
           assetSymbol: r.rewardList[r.i].symbol(),
           usdPrice: auditor.assetPrice(r.config.priceFeed).mulWadDown(basePrice),
-          borrow: market.totalFloatingBorrowAssets() > 0
+          borrow: (market.totalFloatingBorrowAssets() + r.fixedDebt) > 0
             ? (r.projectedBorrowIndex - r.borrowIndex)
-              .mulDivDown(market.totalFloatingBorrowShares(), r.underlyingBaseUnit)
+              .mulDivDown(market.totalFloatingBorrowShares() + market.previewRepay(r.fixedDebt), r.underlyingBaseUnit)
               .mulWadDown(auditor.assetPrice(r.config.priceFeed))
               .mulDivDown(
                 r.underlyingBaseUnit,
-                market.totalFloatingBorrowAssets().mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
+                (market.totalFloatingBorrowAssets() + r.fixedDebt).mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0,
@@ -582,8 +584,9 @@ contract Previewer {
     uint256 i;
     uint256 start;
     uint256 maturity;
-    uint256 firstMaturity;
+    uint256 fixedDebt;
     uint256 maxMaturity;
+    uint256 firstMaturity;
   }
 }
 

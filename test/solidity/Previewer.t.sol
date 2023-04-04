@@ -691,6 +691,39 @@ contract PreviewerTest is Test {
     assertGt(data[0].rewardRates[0].borrow, 0);
   }
 
+  function testRewardsRateOnlyWithFixedBorrows() external {
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+    market.deposit(200 ether, address(this));
+    vm.warp(block.timestamp + 10_000 seconds);
+    market.borrowAtMaturity(FixedLib.INTERVAL, 50 ether, 100 ether, address(this), address(this));
+
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertGt(data[0].rewardRates[0].floatingDeposit, 0);
+    assertGt(data[0].rewardRates[0].borrow, 0);
+  }
+
   function testRewardsRateWithMarketWithDifferentDecimals() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
