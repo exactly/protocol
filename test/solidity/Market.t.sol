@@ -2003,6 +2003,12 @@ contract MarketTest is Test {
     assertEq(floatingBorrowShares, 0);
   }
 
+  function testUpdateFloatingDebtBeforeSettingTreasury() external {
+    vm.warp(3 days);
+    market.setTreasury(BOB, 0.1e18);
+    assertEq(market.lastFloatingDebtUpdate(), 3 days);
+  }
+
   function testFlexibleBorrowChargingDebtToTreasury() external {
     vm.warp(0);
     market.setTreasury(BOB, 0.1e18);

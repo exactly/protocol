@@ -1081,6 +1081,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param treasury_ address of the treasury that will receive the minted eTokens.
   /// @param treasuryFeeRate_ represented with 18 decimals.
   function setTreasury(address treasury_, uint256 treasuryFeeRate_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    depositToTreasury(updateFloatingDebt());
     treasury = treasury_;
     treasuryFeeRate = treasuryFeeRate_;
     emit TreasurySet(treasury_, treasuryFeeRate_);
