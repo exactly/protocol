@@ -96,7 +96,6 @@ describe("Smart Pool Earnings Distribution", function () {
     });
     describe("AND GIVEN 7 days go by and bob repays late", () => {
       beforeEach(async () => {
-        // 7 * 0,02 -> 14% late repayments (154)
         await provider.send("evm_setNextBlockTimestamp", [futurePools(1)[0].toNumber() + INTERVAL + 86_400 * 7 + 1]);
         await marketDAI.repayAtMaturity(
           futurePools(1)[0].add(INTERVAL),
@@ -106,8 +105,14 @@ describe("Smart Pool Earnings Distribution", function () {
         );
       });
       it("THEN the smart pool earnings accumulator has balance", async () => {
-        expect(await marketDAI.earningsAccumulator()).to.be.gt(parseUnits("154"));
-        expect(await marketDAI.earningsAccumulator()).to.be.lt(parseUnits("154.1"));
+        let penaltyRate = await marketDAI.penaltyRate();
+        penaltyRate = penaltyRate.mul(86400).mul(7);
+        expect(await marketDAI.earningsAccumulator()).to.be.gt(
+          parseUnits("1100").mul(penaltyRate).div(parseUnits("1")),
+        );
+        expect(await marketDAI.earningsAccumulator()).to.be.lt(
+          parseUnits("1100.01").mul(penaltyRate).div(parseUnits("1")),
+        );
       });
       it("THEN preview deposit returned is less than previous deposits since depositing will first accrue earnings", async () => {
         expect(await marketDAI.previewDeposit(parseUnits("10000"))).to.be.lt(parseUnits("9950.24875621"));
