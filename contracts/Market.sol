@@ -141,6 +141,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   ) external whenNotPaused returns (uint256 borrowShares) {
     spendAllowance(borrower, assets);
 
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
+
     depositToTreasury(updateFloatingDebt());
 
     borrowShares = previewBorrow(assets);
@@ -151,8 +154,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     if (floatingBackupBorrowed + newFloatingDebt > floatingAssets.mulWadDown(1e18 - reserveFactor)) {
       revert InsufficientProtocolLiquidity();
     }
-    RewardsController memRewardsController = rewardsController;
-    if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
 
     totalFloatingBorrowShares += borrowShares;
     accounts[borrower].floatingBorrowShares += borrowShares;

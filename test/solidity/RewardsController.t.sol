@@ -164,6 +164,26 @@ contract RewardsControllerTest is Test {
     wbtc.approve(address(marketWBTC), type(uint256).max);
   }
 
+  function testTriggerHandleBorrowHookBeforeUpdatingFloatingDebt() external {
+    marketWBTC.deposit(1e8, address(this));
+    marketWBTC.deposit(1e8, ALICE);
+    auditor.enterMarket(marketWBTC);
+    vm.prank(ALICE);
+    auditor.enterMarket(marketWBTC);
+
+    marketWETH.deposit(65_000, ALICE);
+    vm.warp(10_000);
+    marketWETH.depositAtMaturity(FixedLib.INTERVAL, 20_000, 20_000, address(this));
+    marketWETH.borrowAtMaturity(FixedLib.INTERVAL, 20_000, 40_000, address(this), address(this));
+
+    vm.warp(2694383);
+    uint256 rewards = rewardsController.allClaimable(address(this), opRewardAsset);
+    vm.warp(2694384);
+    vm.prank(ALICE);
+    marketWETH.borrow(60_008, ALICE, ALICE);
+    assertGe(rewardsController.allClaimable(address(this), opRewardAsset), rewards);
+  }
+
   function testAllClaimableUSDCWithDeposit() external {
     marketUSDC.deposit(100e6, address(this));
     marketUSDC.borrow(30e6, address(this), address(this));
