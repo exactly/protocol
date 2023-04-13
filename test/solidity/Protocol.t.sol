@@ -116,6 +116,7 @@ contract ProtocolTest is Test {
     vm.label(ALICE, "alice");
   }
 
+  /// @custom:fuzz-runs 420
   function testFuzzMarketOperations(
     uint16[N * 2 * K] calldata timing,
     uint16[N * 2 * K] calldata values,
