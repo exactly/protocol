@@ -202,6 +202,9 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     uint256 borrowShares,
     address borrower
   ) internal returns (uint256 assets, uint256 actualShares) {
+    RewardsController memRewardsController = rewardsController;
+    if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
+
     depositToTreasury(updateFloatingDebt());
     Account storage account = accounts[borrower];
     uint256 accountBorrowShares = account.floatingBorrowShares;
@@ -209,8 +212,6 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     assets = previewRefund(actualShares);
 
     if (assets == 0) revert ZeroRepay();
-    RewardsController memRewardsController = rewardsController;
-    if (address(memRewardsController) != address(0)) memRewardsController.handleBorrow(borrower);
 
     floatingDebt -= assets;
     account.floatingBorrowShares = accountBorrowShares - actualShares;
