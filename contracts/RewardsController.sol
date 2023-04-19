@@ -49,9 +49,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     AccountOperation[] memory ops = new AccountOperation[](1);
     ops[0] = AccountOperation({ operation: false, balance: market.balanceOf(account) });
 
-    uint256 rewardsCount = distribution[market].availableRewardsCount;
-    for (uint128 r = 0; r < rewardsCount; ) {
-      update(account, market, distribution[market].availableRewards[r], ops);
+    Distribution storage dist = distribution[market];
+    uint256 available = dist.availableRewardsCount;
+    for (uint128 r = 0; r < available; ) {
+      update(account, market, dist.availableRewards[r], ops);
       unchecked {
         ++r;
       }
@@ -65,13 +66,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     AccountOperation[] memory ops = new AccountOperation[](1);
     (, , uint256 accountFloatingBorrowShares) = market.accounts(account);
 
-    uint256 rewardsCount = distribution[market].availableRewardsCount;
-    for (uint128 r = 0; r < rewardsCount; ) {
-      ERC20 reward = distribution[market].availableRewards[r];
+    Distribution storage dist = distribution[market];
+    uint256 available = dist.availableRewardsCount;
+    for (uint128 r = 0; r < available; ) {
+      ERC20 reward = dist.availableRewards[r];
       ops[0] = AccountOperation({
         operation: true,
-        balance: accountFloatingBorrowShares +
-          accountFixedBorrowShares(market, account, distribution[market].rewards[reward].start)
+        balance: accountFloatingBorrowShares + accountFixedBorrowShares(market, account, dist.rewards[reward].start)
       });
       update(account, Market(msg.sender), reward, ops);
       unchecked {
@@ -103,7 +104,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     claimedAmounts = new uint256[](rewardsCount);
     for (uint256 i = 0; i < marketOps.length; ) {
       Distribution storage dist = distribution[marketOps[i].market];
-      for (uint128 r = 0; r < dist.availableRewardsCount; ) {
+      uint256 availableRewards = dist.availableRewardsCount;
+      for (uint128 r = 0; r < availableRewards; ) {
         update(
           msg.sender,
           marketOps[i].market,
@@ -120,11 +122,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         }
       }
       for (uint256 r = 0; r < rewardsCount; ) {
+        RewardData storage rewardData = dist.rewards[rewardsList[r]];
         for (uint256 o = 0; o < marketOps[i].operations.length; ) {
-          uint256 rewardAmount = dist.rewards[rewardsList[r]].accounts[msg.sender][marketOps[i].operations[o]].accrued;
+          uint256 rewardAmount = rewardData.accounts[msg.sender][marketOps[i].operations[o]].accrued;
           if (rewardAmount != 0) {
             claimedAmounts[r] += rewardAmount;
-            dist.rewards[rewardsList[r]].accounts[msg.sender][marketOps[i].operations[o]].accrued = 0;
+            rewardData.accounts[msg.sender][marketOps[i].operations[o]].accrued = 0;
           }
           unchecked {
             ++o;
@@ -195,10 +198,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     bool operation,
     ERC20 reward
   ) external view returns (uint256, uint256) {
-    return (
-      distribution[market].rewards[reward].accounts[account][operation].accrued,
-      distribution[market].rewards[reward].accounts[account][operation].index
-    );
+    Account storage operationAccount = distribution[market].rewards[reward].accounts[account][operation];
+    return (operationAccount.accrued, operationAccount.index);
   }
 
   /// @notice Gets the distribution `start`, `end` and `lastUpdate` value of a given market and reward.
@@ -206,11 +207,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param reward The reward asset.
   /// @return The distribution `start`, `end` and `lastUpdate` time.
   function distributionTime(Market market, ERC20 reward) external view returns (uint32, uint32, uint32) {
-    return (
-      distribution[market].rewards[reward].start,
-      distribution[market].rewards[reward].end,
-      distribution[market].rewards[reward].lastUpdate
-    );
+    RewardData storage rewardData = distribution[market].rewards[reward];
+    return (rewardData.start, rewardData.end, rewardData.lastUpdate);
   }
 
   /// @notice Retrieves all rewards addresses.
@@ -253,7 +251,9 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     ERC20 reward
   ) public view returns (uint256 unclaimedRewards) {
     for (uint256 i = 0; i < marketOps.length; ) {
-      if (distribution[marketOps[i].market].availableRewardsCount == 0) {
+      Distribution storage dist = distribution[marketOps[i].market];
+      RewardData storage rewardData = dist.rewards[reward];
+      if (dist.availableRewardsCount == 0) {
         unchecked {
           ++i;
         }
@@ -264,13 +264,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         marketOps[i].market,
         marketOps[i].operations,
         account,
-        distribution[marketOps[i].market].rewards[reward].start
+        rewardData.start
       );
       uint256 balance;
       for (uint256 o = 0; o < ops.length; ) {
-        unclaimedRewards += distribution[marketOps[i].market]
-        .rewards[reward]
-        .accounts[account][ops[o].operation].accrued;
+        unclaimedRewards += rewardData.accounts[account][ops[o].operation].accrued;
         balance += ops[o].balance;
         unchecked {
           ++o;
@@ -314,8 +312,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
     }
 
+    mapping(bool => Account) storage operationAccount = rewardData.accounts[account];
     for (uint256 i = 0; i < ops.length; ) {
-      uint256 accountIndex = rewardData.accounts[account][ops[i].operation].index;
+      Account storage accountData = operationAccount[ops[i].operation];
+      uint256 accountIndex = accountData.index;
       uint256 newAccountIndex;
       if (ops[i].operation) {
         newAccountIndex = rewardData.borrowIndex;
@@ -323,10 +323,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         newAccountIndex = rewardData.depositIndex;
       }
       if (accountIndex != newAccountIndex) {
-        rewardData.accounts[account][ops[i].operation].index = uint128(newAccountIndex);
+        accountData.index = uint128(newAccountIndex);
         if (ops[i].balance != 0) {
           uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
-          rewardData.accounts[account][ops[i].operation].accrued += uint128(rewardsAccrued);
+          accountData.accrued += uint128(rewardsAccrued);
           emit Accrue(market, reward, account, ops[i].operation, accountIndex, newAccountIndex, rewardsAccrued);
         }
       }
@@ -367,11 +367,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @return depositIndex The index for the floating deposit operation.
   /// @return lastUndistributed The last amount of undistributed rewards.
   function rewardIndexes(Market market, ERC20 reward) external view returns (uint256, uint256, uint256) {
-    return (
-      distribution[market].rewards[reward].borrowIndex,
-      distribution[market].rewards[reward].depositIndex,
-      distribution[market].rewards[reward].lastUndistributed
-    );
+    RewardData storage rewardData = distribution[market].rewards[reward];
+    return (rewardData.borrowIndex, rewardData.depositIndex, rewardData.lastUndistributed);
   }
 
   /// @notice Calculates the rewards not accrued yet for the given operations of a given account and reward asset.
@@ -392,6 +389,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       ops.market,
       block.timestamp > lastUpdate ? block.timestamp - lastUpdate : 0
     );
+    mapping(bool => Account) storage operationAccount = rewardData.accounts[account];
     for (uint256 o = 0; o < ops.accountOperations.length; ) {
       uint256 nextIndex;
       if (ops.accountOperations[o].operation) {
@@ -403,7 +401,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       rewards += accountRewards(
         ops.accountOperations[o].balance,
         nextIndex,
-        rewardData.accounts[account][ops.accountOperations[o].operation].index,
+        operationAccount[ops.accountOperations[o].operation].index,
         baseUnit
       );
       unchecked {
@@ -610,24 +608,23 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   /// @param configs The configurations to update each RewardData with.
   function config(Config[] memory configs) external onlyRole(DEFAULT_ADMIN_ROLE) {
     for (uint256 i = 0; i < configs.length; ) {
-      RewardData storage rewardData = distribution[configs[i].market].rewards[configs[i].reward];
+      Distribution storage dist = distribution[configs[i].market];
+      RewardData storage rewardData = dist.rewards[configs[i].reward];
 
-      if (distribution[configs[i].market].baseUnit == 0) {
+      if (dist.baseUnit == 0) {
         // never initialized before, adding to the list of markets
         marketList.push(configs[i].market);
       }
-      if (rewardEnabled[configs[i].reward] == false) {
+      if (!rewardEnabled[configs[i].reward]) {
         // add reward address to global rewards list if still not enabled
         rewardEnabled[configs[i].reward] = true;
         rewardList.push(configs[i].reward);
       }
       if (rewardData.lastUpdate == 0) {
         // add reward address to distribution data's available rewards if distribution is new
-        distribution[configs[i].market].availableRewards[
-          distribution[configs[i].market].availableRewardsCount
-        ] = configs[i].reward;
-        distribution[configs[i].market].availableRewardsCount++;
-        distribution[configs[i].market].baseUnit = 10 ** configs[i].market.decimals();
+        dist.availableRewards[dist.availableRewardsCount] = configs[i].reward;
+        dist.availableRewardsCount++;
+        dist.baseUnit = 10 ** configs[i].market.decimals();
         // set initial parameters if distribution is new
         rewardData.start = configs[i].start;
         rewardData.lastUpdate = configs[i].start;
