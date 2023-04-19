@@ -18,7 +18,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   using FixedPointMathLib for int256;
   using SafeTransferLib for ERC20;
 
-  /// @notice Max utilization supported by the sigmoid function not to cause a division by zero.
+  /// @notice Max utilization supported by the sigmoid function not to cause a division by zero (1e18 = WAD).
   uint256 public constant UTILIZATION_CAP = 1e18 - 1;
   /// @notice Tracks the reward distribution data for a given market.
   mapping(Market => Distribution) public distribution;
@@ -43,6 +43,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   /// @notice Hook to be called by the Market to update the index of the account that made a rewarded deposit.
+  /// @dev There's no need to check that `msg.sender` is a valid Market as it won't have available rewards if it's not.
   /// @param account The account to which the index is updated.
   function handleDeposit(address account) external {
     Market market = Market(msg.sender);
@@ -60,6 +61,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
   }
 
   /// @notice Hook to be called by the Market to update the index of the account that made a rewarded borrow.
+  /// @dev There's no need to check that `msg.sender` is a valid Market as it won't have available rewards if it's not.
   /// @param account The account to which the index is updated.
   function handleBorrow(address account) external {
     Market market = Market(msg.sender);
@@ -297,6 +299,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     RewardData storage rewardData = distribution[market].rewards[reward];
     {
       uint256 lastUpdate = rewardData.lastUpdate;
+      // `lastUpdate` can be greater than `block.timestamp` if distribution is set to start on a future date
       if (block.timestamp > lastUpdate) {
         (uint256 borrowIndex, uint256 depositIndex, uint256 newUndistributed) = previewAllocation(
           rewardData,

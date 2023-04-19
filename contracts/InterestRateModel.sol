@@ -74,12 +74,13 @@ contract InterestRateModel {
     return fixedRate(utilizationBefore, utilizationAfter).mulDivDown(maturity - block.timestamp, 365 days);
   }
 
-  /// @notice Gets the current annualized fixed rate to borrow with supply/demand values in the fixed rate pool and
+  /// @notice Returns the current annualized fixed rate to borrow with supply/demand values in the fixed rate pool and
   /// assets from the backup supplier.
   /// @param borrowed amount borrowed from the fixed rate pool.
   /// @param supplied deposits in the fixed rate pool.
   /// @param backupAssets backup supplier assets.
-  /// @return rate of the fee that the borrower will have to pay and current utilization.
+  /// @return rate of the fee that the borrower will have to pay, with 18 decimals precision.
+  /// @return utilization current utilization rate, with 18 decimals precision.
   function minFixedRate(
     uint256 borrowed,
     uint256 supplied,

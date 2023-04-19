@@ -871,7 +871,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     lastAverageUpdate = uint32(block.timestamp);
   }
 
-  /// @notice Gets the current `floatingAssetsAverage` without updating the storage variable.
+  /// @notice Returns the current `floatingAssetsAverage` without updating the storage variable.
   /// @return projected `floatingAssetsAverage`.
   function previewFloatingAssetsAverage() public view returns (uint256) {
     uint256 memFloatingAssets = floatingAssets;
