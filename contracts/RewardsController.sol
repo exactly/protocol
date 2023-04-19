@@ -105,16 +105,17 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     uint256 rewardsCount = rewardsList.length;
     claimedAmounts = new uint256[](rewardsCount);
     for (uint256 i = 0; i < marketOps.length; ) {
-      Distribution storage dist = distribution[marketOps[i].market];
+      MarketOperation memory marketOperation = marketOps[i];
+      Distribution storage dist = distribution[marketOperation.market];
       uint256 availableRewards = dist.availableRewardsCount;
       for (uint128 r = 0; r < availableRewards; ) {
         update(
           msg.sender,
-          marketOps[i].market,
+          marketOperation.market,
           dist.availableRewards[r],
           accountBalanceOperations(
-            marketOps[i].market,
-            marketOps[i].operations,
+            marketOperation.market,
+            marketOperation.operations,
             msg.sender,
             dist.rewards[dist.availableRewards[r]].start
           )
@@ -125,11 +126,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
       for (uint256 r = 0; r < rewardsCount; ) {
         RewardData storage rewardData = dist.rewards[rewardsList[r]];
-        for (uint256 o = 0; o < marketOps[i].operations.length; ) {
-          uint256 rewardAmount = rewardData.accounts[msg.sender][marketOps[i].operations[o]].accrued;
+        for (uint256 o = 0; o < marketOperation.operations.length; ) {
+          uint256 rewardAmount = rewardData.accounts[msg.sender][marketOperation.operations[o]].accrued;
           if (rewardAmount != 0) {
             claimedAmounts[r] += rewardAmount;
-            rewardData.accounts[msg.sender][marketOps[i].operations[o]].accrued = 0;
+            rewardData.accounts[msg.sender][marketOperation.operations[o]].accrued = 0;
           }
           unchecked {
             ++o;
@@ -144,9 +145,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
     }
     for (uint256 r = 0; r < rewardsList.length; ) {
-      if (claimedAmounts[r] > 0) {
-        rewardsList[r].safeTransfer(to, claimedAmounts[r]);
-        emit Claim(msg.sender, rewardsList[r], to, claimedAmounts[r]);
+      uint256 claimedAmount = claimedAmounts[r];
+      if (claimedAmount > 0) {
+        rewardsList[r].safeTransfer(to, claimedAmount);
+        emit Claim(msg.sender, rewardsList[r], to, claimedAmount);
       }
       unchecked {
         ++r;
@@ -253,7 +255,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     ERC20 reward
   ) public view returns (uint256 unclaimedRewards) {
     for (uint256 i = 0; i < marketOps.length; ) {
-      Distribution storage dist = distribution[marketOps[i].market];
+      MarketOperation memory marketOperation = marketOps[i];
+      Distribution storage dist = distribution[marketOperation.market];
       RewardData storage rewardData = dist.rewards[reward];
       if (dist.availableRewardsCount == 0) {
         unchecked {
@@ -263,8 +266,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
 
       AccountOperation[] memory ops = accountBalanceOperations(
-        marketOps[i].market,
-        marketOps[i].operations,
+        marketOperation.market,
+        marketOperation.operations,
         account,
         rewardData.start
       );
@@ -280,7 +283,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         unclaimedRewards += pendingRewards(
           account,
           reward,
-          AccountMarketOperation({ market: marketOps[i].market, accountOperations: ops })
+          AccountMarketOperation({ market: marketOperation.market, accountOperations: ops })
         );
       }
       unchecked {
@@ -317,20 +320,21 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
     mapping(bool => Account) storage operationAccount = rewardData.accounts[account];
     for (uint256 i = 0; i < ops.length; ) {
-      Account storage accountData = operationAccount[ops[i].operation];
+      AccountOperation memory op = ops[i];
+      Account storage accountData = operationAccount[op.operation];
       uint256 accountIndex = accountData.index;
       uint256 newAccountIndex;
-      if (ops[i].operation) {
+      if (op.operation) {
         newAccountIndex = rewardData.borrowIndex;
       } else {
         newAccountIndex = rewardData.depositIndex;
       }
       if (accountIndex != newAccountIndex) {
         accountData.index = uint128(newAccountIndex);
-        if (ops[i].balance != 0) {
-          uint256 rewardsAccrued = accountRewards(ops[i].balance, newAccountIndex, accountIndex, baseUnit);
+        if (op.balance != 0) {
+          uint256 rewardsAccrued = accountRewards(op.balance, newAccountIndex, accountIndex, baseUnit);
           accountData.accrued += uint128(rewardsAccrued);
-          emit Accrue(market, reward, account, ops[i].operation, accountIndex, newAccountIndex, rewardsAccrued);
+          emit Accrue(market, reward, account, op.operation, accountIndex, newAccountIndex, rewardsAccrued);
         }
       }
       unchecked {
