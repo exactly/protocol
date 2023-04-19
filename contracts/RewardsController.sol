@@ -592,11 +592,11 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       if (ops[i]) {
         (, , uint256 floatingBorrowShares) = market.accounts(account);
         accountBalanceOps[i] = AccountOperation({
-          operation: ops[i],
+          operation: true,
           balance: floatingBorrowShares + accountFixedBorrowShares(market, account, distributionStart)
         });
       } else {
-        accountBalanceOps[i] = AccountOperation({ operation: ops[i], balance: market.balanceOf(account) });
+        accountBalanceOps[i] = AccountOperation({ operation: false, balance: market.balanceOf(account) });
       }
       unchecked {
         ++i;
