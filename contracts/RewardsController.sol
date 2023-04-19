@@ -493,13 +493,15 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       uint256 releaseRate = rewardData.releaseRate;
       uint256 lastUndistributed = rewardData.lastUndistributed;
       t.period = t.end - t.start;
-      uint256 distributionFactor = t.period > 0 ? rewardData.undistributedFactor.mulWadDown(target) / t.period : 0;
+      uint256 distributionFactor = t.period > 0
+        ? rewardData.undistributedFactor.mulDivDown(target, t.period * 1e18)
+        : 0;
       if (block.timestamp <= t.end) {
         if (distributionFactor > 0) {
           uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
             lastUndistributed.mulWadDown(exponential) +
-            releaseRate.mulDivDown(1e18 - target, distributionFactor).mulWadDown(1e18 - exponential);
+            releaseRate.mulDivDown(1e18 - target, distributionFactor).mulWadUp(1e18 - exponential);
         } else {
           newUndistributed = lastUndistributed + releaseRate.mulWadDown(1e18 - target) * deltaTime;
         }
@@ -507,7 +509,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       } else if (rewardData.lastUpdate > t.end) {
         newUndistributed =
           lastUndistributed -
-          lastUndistributed.mulWadDown(1e18 - uint256((-int256(distributionFactor * deltaTime)).expWad()));
+          lastUndistributed.mulWadUp(1e18 - uint256((-int256(distributionFactor * deltaTime)).expWad()));
         rewards = uint256(-(int256(newUndistributed) - int256(lastUndistributed)));
       } else {
         uint256 exponential;
@@ -516,12 +518,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
           exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
             lastUndistributed.mulWadDown(exponential) +
-            releaseRate.mulDivDown(1e18 - target, distributionFactor).mulWadDown(1e18 - exponential);
+            releaseRate.mulDivDown(1e18 - target, distributionFactor).mulWadUp(1e18 - exponential);
         } else {
           newUndistributed = lastUndistributed + releaseRate.mulWadDown(1e18 - target) * deltaTime;
         }
         exponential = uint256((-int256(distributionFactor * (block.timestamp - t.end))).expWad());
-        newUndistributed = newUndistributed - newUndistributed.mulWadDown(1e18 - exponential);
+        newUndistributed = newUndistributed - newUndistributed.mulWadUp(1e18 - exponential);
         rewards = uint256(int256(releaseRate * deltaTime) - (int256(newUndistributed) - int256(lastUndistributed)));
       }
       if (rewards == 0) return (rewardData.borrowIndex, rewardData.depositIndex, newUndistributed);
@@ -546,7 +548,7 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         .compensationFactor
         .mulWadDown(
           market.interestRateModel().floatingRate(v.utilization).mulWadDown(
-            1e18 - v.utilization.mulWadDown(1e18 - market.treasuryFeeRate())
+            1e18 - v.utilization.mulWadUp(1e18 - market.treasuryFeeRate())
           ) + v.borrowAllocationWeightFactor
         )
         .mulWadDown(1e18 - v.sigmoid);
