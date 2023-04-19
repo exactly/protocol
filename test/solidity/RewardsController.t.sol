@@ -961,12 +961,12 @@ contract RewardsControllerTest is Test {
     vm.expectRevert(InvalidConfig.selector);
     rewardsController.config(configs);
 
-    config.totalDistribution = 999999999993254400000;
+    config.totalDistribution = 999999999999996710400;
     configs[0] = config;
     vm.expectRevert(InvalidConfig.selector);
     rewardsController.config(configs);
 
-    config.totalDistribution = 999999999993254400000 + 1;
+    config.totalDistribution = 999999999999996710400 + 1;
     configs[0] = config;
     rewardsController.config(configs);
   }
@@ -1373,13 +1373,13 @@ contract RewardsControllerTest is Test {
       1 days
     );
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 18450581604088380);
+    emit Accrue(marketWETH, opRewardAsset, address(this), true, 0, borrowIndex, 18450581604194260);
     rewardsController.claimAll(address(this));
 
     vm.warp(2 days);
     (, uint256 newDepositIndex, ) = rewardsController.previewAllocation(marketWETH, opRewardAsset, 1 days);
     vm.expectEmit(true, true, true, true, address(rewardsController));
-    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 5470239084915400);
+    emit Accrue(marketWETH, opRewardAsset, address(this), false, depositIndex, newDepositIndex, 5470239084941400);
     marketWETH.deposit(10 ether, address(this));
   }
 
@@ -1459,7 +1459,7 @@ contract RewardsControllerTest is Test {
     rewardsController.claimAll(address(this));
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(marketUSDC, opRewardAsset);
     RewardsController.Config memory config = rewardsController.rewardConfig(marketUSDC, opRewardAsset);
-    uint256 releaseRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
+    uint256 releaseRate = config.totalDistribution / config.distributionPeriod;
     assertApproxEqAbs(opRewardAsset.balanceOf(address(this)) + lastUndistributed, releaseRate * 6 weeks, 1e6);
 
     vm.warp(8 weeks);

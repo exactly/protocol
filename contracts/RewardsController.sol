@@ -498,9 +498,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         if (distributionFactor > 0) {
           uint256 exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
-            lastUndistributed +
-            releaseRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
-            lastUndistributed.mulWadDown(1e18 - exponential);
+            lastUndistributed.mulWadDown(exponential) +
+            releaseRate.mulDivDown(1e18 - target, distributionFactor).mulWadDown(1e18 - exponential);
         } else {
           newUndistributed = lastUndistributed + releaseRate.mulWadDown(1e18 - target) * deltaTime;
         }
@@ -516,9 +515,8 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
         if (distributionFactor > 0) {
           exponential = uint256((-int256(distributionFactor * deltaTime)).expWad());
           newUndistributed =
-            lastUndistributed +
-            releaseRate.mulWadDown(1e18 - target).divWadDown(distributionFactor).mulWadDown(1e18 - exponential) -
-            lastUndistributed.mulWadDown(1e18 - exponential);
+            lastUndistributed.mulWadDown(exponential) +
+            releaseRate.mulDivDown(1e18 - target, distributionFactor).mulWadDown(1e18 - exponential);
         } else {
           newUndistributed = lastUndistributed + releaseRate.mulWadDown(1e18 - target) * deltaTime;
         }
@@ -634,13 +632,12 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       }
       if (rewardData.lastUpdate == 0) {
         // add reward address to distribution data's available rewards if distribution is new
-        dist.availableRewards[dist.availableRewardsCount] = configs[i].reward;
-        dist.availableRewardsCount++;
+        dist.availableRewards[dist.availableRewardsCount++] = configs[i].reward;
         dist.baseUnit = 10 ** configs[i].market.decimals();
         // set initial parameters if distribution is new
         rewardData.start = configs[i].start;
         rewardData.lastUpdate = configs[i].start;
-        rewardData.releaseRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
+        rewardData.releaseRate = configs[i].totalDistribution / configs[i].distributionPeriod;
       } else {
         uint32 start = rewardData.start;
         uint32 end = rewardData.end;
@@ -669,13 +666,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
             rewardData.lastConfigReleased = released;
           }
 
-          rewardData.releaseRate = (configs[i].totalDistribution - released).mulWadDown(
-            1e18 / (configs[i].distributionPeriod - elapsed)
-          );
+          rewardData.releaseRate =
+            (configs[i].totalDistribution - released) /
+            (configs[i].distributionPeriod - elapsed);
         } else if (rewardData.start != configs[i].start) {
           rewardData.start = configs[i].start;
           rewardData.lastUpdate = configs[i].start;
-          rewardData.releaseRate = configs[i].totalDistribution.mulWadDown(1e18 / configs[i].distributionPeriod);
+          rewardData.releaseRate = configs[i].totalDistribution / configs[i].distributionPeriod;
           rewardData.lastConfigReleased = 0;
         }
       }
