@@ -1055,6 +1055,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param rewardsController_ new rewards controller.
   function setRewardsController(RewardsController rewardsController_) public onlyRole(DEFAULT_ADMIN_ROLE) {
     rewardsController = rewardsController_;
+    emit RewardsControllerSet(rewardsController_);
   }
 
   /// @notice Sets the protocol's max future pools for fixed borrowing and lending.
@@ -1241,6 +1242,10 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
   /// @param treasury address of the treasury that will receive the minted eTokens.
   /// @param treasuryFeeRate represented with 18 decimals.
   event TreasurySet(address indexed treasury, uint256 treasuryFeeRate);
+
+  /// @notice Emitted when the rewardsController is changed by admin.
+  /// @param rewardsController new rewards controller to update account rewards when operating with the Market.
+  event RewardsControllerSet(RewardsController indexed rewardsController);
 
   /// @notice Emitted when market state is updated.
   /// @param timestamp current timestamp.
