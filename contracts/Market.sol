@@ -756,7 +756,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     RewardsController memRewardsController = rewardsController;
     if (address(memRewardsController) != address(0)) {
       memRewardsController.handleDeposit(msg.sender);
-      if (msg.sender != to) memRewardsController.handleDeposit(to);
+      memRewardsController.handleDeposit(to);
     }
     return super.transfer(to, shares);
   }
@@ -772,7 +772,7 @@ contract Market is Initializable, AccessControlUpgradeable, PausableUpgradeable,
     RewardsController memRewardsController = rewardsController;
     if (address(memRewardsController) != address(0)) {
       memRewardsController.handleDeposit(from);
-      if (from != to) memRewardsController.handleDeposit(to);
+      memRewardsController.handleDeposit(to);
     }
     return super.transferFrom(from, to, shares);
   }
