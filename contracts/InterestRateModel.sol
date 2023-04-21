@@ -34,6 +34,9 @@ contract InterestRateModel {
     int256 floatingCurveB_,
     uint256 floatingMaxUtilization_
   ) {
+    assert(fixedMaxUtilization_ > 1e18);
+    assert(floatingMaxUtilization_ > 1e18);
+
     fixedCurveA = fixedCurveA_;
     fixedCurveB = fixedCurveB_;
     fixedMaxUtilization = fixedMaxUtilization_;

@@ -37,6 +37,16 @@ contract InterestRateModelTest is Test {
     assertEq(rate, 41730769230769230);
   }
 
+  function testRevertFixedMaxUtilizationLowerThanWad() external {
+    vm.expectRevert();
+    new InterestRateModelHarness(0.023e18, -0.0025e18, 1e18 - 1, 0.023e18, -0.0025e18, 1.02e18);
+  }
+
+  function testRevertFloatingMaxUtilizationLowerThanWad() external {
+    vm.expectRevert();
+    new InterestRateModelHarness(0.023e18, -0.0025e18, 1.02e18, 0.023e18, -0.0025e18, 1e18 - 1);
+  }
+
   function testFuzzReferenceRate(uint256 v0, uint64 delta) external {
     (uint256 rate, uint256 refRate) = irm.fixedRate(v0, delta);
     assertApproxEqAbs(rate, refRate, 3e3);
