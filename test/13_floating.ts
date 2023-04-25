@@ -125,14 +125,15 @@ describe("Smart Pool", function () {
       expect(await marketWBTC.balanceOf(bob.address)).to.equal(parseUnits("1", 8));
     });
     it("AND WHEN bob transfers his eWBTC THEN it does not fail", async () => {
-      await expect(marketWBTC.connect(bob).transfer(john.address, marketWBTC.balanceOf(bob.address))).to.not.be
+      await expect(marketWBTC.connect(bob).transfer(john.address, await marketWBTC.balanceOf(bob.address))).to.not.be
         .reverted;
       expect(await marketWBTC.balanceOf(bob.address)).to.be.equal(0);
       expect(await marketWBTC.balanceOf(john.address)).to.be.equal(parseUnits("1", 8));
     });
     it("AND WHEN john calls transferFrom to transfer bob's eWBTC THEN it does not fail", async () => {
-      await expect(marketWBTC.connect(john).transferFrom(bob.address, john.address, marketWBTC.balanceOf(bob.address)))
-        .to.not.be.reverted;
+      await expect(
+        marketWBTC.connect(john).transferFrom(bob.address, john.address, await marketWBTC.balanceOf(bob.address)),
+      ).to.not.be.reverted;
       expect(await marketWBTC.balanceOf(bob.address)).to.be.equal(0);
       expect(await marketWBTC.balanceOf(john.address)).to.be.equal(parseUnits("1", 8));
     });
@@ -143,12 +144,12 @@ describe("Smart Pool", function () {
       });
       it("WHEN bob tries to transfer his eWBTC THEN it fails with InsufficientAccountLiquidity error", async () => {
         await expect(
-          marketWBTC.connect(bob).transfer(john.address, marketWBTC.balanceOf(bob.address)),
+          marketWBTC.connect(bob).transfer(john.address, await marketWBTC.balanceOf(bob.address)),
         ).to.be.revertedWithCustomError(exactlyEnv.auditor, "InsufficientAccountLiquidity");
       });
       it("AND WHEN john calls transferFrom to transfer bob's eWBTC THEN it fails with InsufficientAccountLiquidity error", async () => {
         await expect(
-          marketWBTC.connect(john).transferFrom(bob.address, john.address, marketWBTC.balanceOf(bob.address)),
+          marketWBTC.connect(john).transferFrom(bob.address, john.address, await marketWBTC.balanceOf(bob.address)),
         ).to.be.revertedWithCustomError(exactlyEnv.auditor, "InsufficientAccountLiquidity");
       });
       it("AND WHEN bob tries to transfer a small amount of eWBTC THEN it does not fail", async () => {

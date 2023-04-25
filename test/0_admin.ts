@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import { ethers, deployments, network } from "hardhat";
-import type { Contract } from "ethers";
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import type {
   Auditor,
@@ -10,7 +9,7 @@ import type {
   MockERC20,
   MockPriceFeed,
   ProxyAdmin,
-  TransparentUpgradeableProxy,
+  ITransparentUpgradeableProxy,
 } from "../types";
 import timelockExecute from "./utils/timelockExecute";
 
@@ -18,6 +17,7 @@ const {
   utils: { parseUnits },
   getContractFactory,
   getNamedSigner,
+  getContractAt,
   getContract,
 } = ethers;
 
@@ -129,12 +129,12 @@ describe("Auditor Admin", function () {
   });
 
   describe("Upgradeable", () => {
-    let proxy: TransparentUpgradeableProxy;
+    let proxy: ITransparentUpgradeableProxy;
     let proxyAdmin: ProxyAdmin;
     let newAuditor: Auditor;
 
     beforeEach(async () => {
-      proxy = auditor as Contract as TransparentUpgradeableProxy;
+      proxy = await getContractAt<ITransparentUpgradeableProxy>("ITransparentUpgradeableProxy", auditor.address);
       proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", deployer);
       newAuditor = await ((await getContractFactory("Auditor")) as Auditor__factory).deploy(8);
     });
@@ -156,7 +156,7 @@ describe("Auditor Admin", function () {
     });
 
     it("WHEN timelock tries to upgrade directly, THEN the transaction should revert with not found", async () => {
-      await expect(timelockExecute(multisig, auditor, "upgradeTo", [newAuditor.address])).to.be.revertedWithoutReason();
+      await expect(timelockExecute(multisig, proxy, "upgradeTo", [newAuditor.address])).to.be.revertedWithoutReason();
     });
 
     it("WHEN timelock tries to upgrade through proxy admin, THEN the proxy should emit Upgraded event", async () => {

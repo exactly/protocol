@@ -52,42 +52,46 @@ test = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "crytic-compile"
-version = "0.3.0"
+version = "0.3.1"
 description = "Util to facilitate smart contracts compilation."
 category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "crytic-compile-0.3.0.tar.gz", hash = "sha256:4f672921124931137abfb48359bba66d85e8c71cda9ea780380f62bbc7a20e7d"},
-    {file = "crytic_compile-0.3.0-py3-none-any.whl", hash = "sha256:6a58ec0c32b7ebfe207331406844f9382c9887d5b370bd5d308a6270fad94eb1"},
+    {file = "crytic-compile-0.3.1.tar.gz", hash = "sha256:2f0030315b297d1852353b03ace8a484fb0415e07b16ff6172173fbb51313590"},
+    {file = "crytic_compile-0.3.1-py3-none-any.whl", hash = "sha256:2180ce6338ff9034077cd721f5ba1dca2ef05355f689f822cd640b7146313228"},
 ]
 
 [package.dependencies]
 cbor2 = "*"
 pycryptodome = ">=3.4.6"
+solc-select = ">=v1.0.2"
+
+[package.extras]
+dev = ["black (==22.3.0)", "darglint (==1.8.0)", "mypy (==0.942)", "pylint (==2.13.4)"]
 
 [[package]]
 name = "packaging"
-version = "23.0"
+version = "23.1"
 description = "Core utilities for Python packages"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "packaging-23.0-py3-none-any.whl", hash = "sha256:714ac14496c3e68c99c29b00845f7a2b85f3bb6f1078fd9f72fd20f0570002b2"},
-    {file = "packaging-23.0.tar.gz", hash = "sha256:b6ad297f8907de0fa2fe1ccbd26fdaf387f5f47c7275fedf8cce89f99446cf97"},
+    {file = "packaging-23.1-py3-none-any.whl", hash = "sha256:994793af429502c4ea2ebf6bf664629d07c1a9fe974af92966e4b8d2df7edc61"},
+    {file = "packaging-23.1.tar.gz", hash = "sha256:a392980d2b6cffa644431898be54b0045151319d1e7ec34f0cfed48767dd334f"},
 ]
 
 [[package]]
 name = "prettytable"
-version = "3.6.0"
+version = "3.7.0"
 description = "A simple Python library for easily displaying tabular data in a visually appealing ASCII table format"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "prettytable-3.6.0-py3-none-any.whl", hash = "sha256:3b767129491767a3a5108e6f305cbaa650f8020a7db5dfe994a2df7ef7bad0fe"},
-    {file = "prettytable-3.6.0.tar.gz", hash = "sha256:2e0026af955b4ea67b22122f310b90eae890738c08cb0458693a49b6221530ac"},
+    {file = "prettytable-3.7.0-py3-none-any.whl", hash = "sha256:f4aaf2ed6e6062a82fd2e6e5289bbbe705ec2788fe401a3a1f62a1cea55526d2"},
+    {file = "prettytable-3.7.0.tar.gz", hash = "sha256:ef8334ee40b7ec721651fc4d37ecc7bb2ef55fde5098d994438f0dfdaa385c0c"},
 ]
 
 [package.dependencies]
@@ -191,4 +195,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "6042d559b63674b56d05e7fcb65b41b52bd63472c37e905e94edd0487b4eabf5"
+content-hash = "3e2b084696cb68ccaadd74d1295530e960e414f07295c02a8ffc2c6e2468a739"
