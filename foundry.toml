@@ -9,11 +9,23 @@ src = "test/solidity"
 out = "artifacts/.foundry"
 script = "scripts"
 cache_path = "cache/.foundry"
-fs_permissions = [{ access = "read", path = "./deployments" }]
+fs_permissions = [
+  { access = "read", path = "./deployments" },
+  { access = "read-write", path = "./cache/.foundry" },
+]
 verbosity = 3
+
+[profile.default.invariant]
+fail_on_revert = true
 
 [profile.production.fuzz]
 runs = 66_666
 
+[profile.production.invariant]
+runs = 66_666
+
 [profile.overkill.fuzz]
+runs = 6_666_666
+
+[profile.overkill.invariant]
 runs = 6_666_666
