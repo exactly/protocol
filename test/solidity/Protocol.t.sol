@@ -46,6 +46,7 @@ contract ProtocolTest is Test {
 
   MockERC20 internal rewardAsset;
   uint256 internal claimedRewards;
+  mapping(Market => uint256) internal shareValues;
 
   function setUp() external {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
@@ -243,6 +244,12 @@ contract ProtocolTest is Test {
     );
   }
 
+  function invariantShareValue() external {
+    for (uint256 i = 0; i < markets.length; ++i) {
+      if (markets[i].totalSupply() > 0) assertGe(markets[i].previewMint(1e18), shareValues[markets[i]]);
+    }
+  }
+
   function depositAtMaturity(uint8 seed, uint96 assets) external context(seed, assets) {
     if (assets == 0) {
       vm.expectRevert(ZeroDeposit.selector);
@@ -362,7 +369,6 @@ contract ProtocolTest is Test {
   }
 
   function deposit(uint8 seed, uint96 assets) external context(seed, assets) {
-    uint256 shareValue = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     uint256 expectedShares = _market.convertToShares(assets);
 
     if (expectedShares == 0) {
@@ -372,18 +378,15 @@ contract ProtocolTest is Test {
       emit Deposit(msg.sender, msg.sender, assets, expectedShares);
     }
     _market.deposit(assets, msg.sender);
-    if (_market.totalSupply() > 0) assertGe(_market.previewMint(1e18), shareValue);
   }
 
   function mint(uint8 seed, uint96 shares) external context(seed, 0) {
-    uint256 shareValue = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     uint256 expectedAssets = _market.previewMint(shares);
     _asset.mint(msg.sender, expectedAssets);
 
     vm.expectEmit(true, true, true, true, address(_market));
     emit Deposit(msg.sender, msg.sender, expectedAssets, shares);
     _market.mint(shares, msg.sender);
-    if (_market.totalSupply() > 0) assertGe(_market.previewMint(1e18), shareValue);
   }
 
   function claimRewards(uint8 seed) external context(seed, 0) {
@@ -425,7 +428,6 @@ contract ProtocolTest is Test {
   }
 
   function borrow(uint8 seed, uint96 assets) external context(seed, 0) {
-    uint256 shareValue = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     uint256 expectedShares = _market.previewBorrow(assets);
     (uint256 collateral, uint256 debt) = previewAccountLiquidity(msg.sender, _market, assets, expectedShares);
 
@@ -443,11 +445,9 @@ contract ProtocolTest is Test {
       emit Borrow(msg.sender, msg.sender, msg.sender, assets, expectedShares);
     }
     _market.borrow(assets, msg.sender, msg.sender);
-    if (_market.totalSupply() > 0) assertGe(_market.previewMint(1e18), shareValue);
   }
 
   function repay(uint8 seed, uint96 assets) external context(seed, assets) {
-    uint256 shareValue = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(_market.previewRepay(assets), floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -459,11 +459,9 @@ contract ProtocolTest is Test {
       emit Repay(msg.sender, msg.sender, refundAssets, borrowShares);
     }
     _market.repay(assets, msg.sender);
-    if (_market.totalSupply() > 0) assertGe(_market.previewMint(1e18), shareValue);
   }
 
   function refund(uint8 seed, uint96 shares) external context(seed, 0) {
-    uint256 shareValue = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(shares, floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -476,11 +474,9 @@ contract ProtocolTest is Test {
       emit Repay(msg.sender, msg.sender, refundAssets, borrowShares);
     }
     _market.refund(shares, msg.sender);
-    if (_market.totalSupply() > 0) assertGe(_market.previewMint(1e18), shareValue);
   }
 
   function withdraw(uint8 seed, uint96 assets) external context(seed, 0) {
-    uint256 shareValue = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedShares = _market.totalAssets() != 0 ? _market.previewWithdraw(assets) : 0;
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, assets);
@@ -506,11 +502,9 @@ contract ProtocolTest is Test {
       emit Withdraw(msg.sender, msg.sender, msg.sender, assets, expectedShares);
     }
     _market.withdraw(assets, msg.sender, msg.sender);
-    if (_market.totalSupply() > 0) assertGe(_market.previewMint(1e18), shareValue);
   }
 
   function redeem(uint8 seed, uint96 shares) external context(seed, 0) {
-    uint256 shareValue = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedAssets = _market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, expectedAssets);
@@ -538,11 +532,9 @@ contract ProtocolTest is Test {
       emit Withdraw(msg.sender, msg.sender, msg.sender, expectedAssets, shares);
     }
     _market.redeem(shares, msg.sender, msg.sender);
-    if (_market.totalSupply() > 0) assertGe(_market.previewMint(1e18), shareValue);
   }
 
   function transfer(uint8 seed, uint96 shares) external context(seed, 0) {
-    uint256 shareValue = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 withdrawAssets = _market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, withdrawAssets);
@@ -556,7 +548,6 @@ contract ProtocolTest is Test {
       emit Transfer(msg.sender, _counterparty, shares);
     }
     _market.transfer(_counterparty, shares);
-    if (_market.totalSupply() > 0) assertGe(_market.previewMint(1e18), shareValue);
   }
 
   function setPrice(uint8 seed, uint96 price) external context(seed, 0) {
@@ -568,7 +559,6 @@ contract ProtocolTest is Test {
     Market collateralMarket = markets[
       _bound(uint256(keccak256(abi.encode(seed, "collateral"))), 0, markets.length - 1)
     ];
-    uint256 shareValue = collateralMarket.totalSupply() > 0 ? collateralMarket.previewMint(1e18) : 0;
     (, , uint256 index, , ) = auditor.markets(_market);
     (, , uint256 collateralIndex, , ) = auditor.markets(collateralMarket);
     (uint256 collateral, uint256 debt) = accountLiquidity(_counterparty, Market(address(0)), 0, 0);
@@ -612,9 +602,6 @@ contract ProtocolTest is Test {
     }
     uint256 repaidAssets = _market.liquidate(_counterparty, type(uint256).max, collateralMarket);
     _asset.burn(msg.sender, _asset.balanceOf(msg.sender));
-
-    // TODO move to invariants
-    if (collateralMarket.totalSupply() > 0) assertGe(collateralMarket.previewMint(1e18), shareValue);
 
     // TODO migrate this
     // if (repaidAssets > 0) {
@@ -672,6 +659,7 @@ contract ProtocolTest is Test {
     _asset = MockERC20(address(_market.asset()));
     _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     _counterparty = accounts[_bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 1)];
+    shareValues[_market] = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     if (assets != 0) _asset.mint(msg.sender, assets);
     vm.startPrank(msg.sender);
     _;
