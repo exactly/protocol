@@ -265,6 +265,7 @@ contract ProtocolTest is Test {
     (uint256 principal, uint256 fee) = _market.fixedDepositPositions(_maturity, msg.sender);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
     uint256 backupAssets = previewFloatingAssetsAverage(_market);
+    uint256 assetsDiscounted;
 
     if (assets == 0) {
       vm.expectRevert(ZeroWithdraw.selector);
@@ -287,45 +288,49 @@ contract ProtocolTest is Test {
       _market.floatingAssets() + previewNewFloatingDebt(_market)
     ) {
       vm.expectRevert(InsufficientProtocolLiquidity.selector);
-    } else if (
-      (
-        block.timestamp < _maturity
-          ? positionAssets.divWadDown(
-            1e18 +
-              _market.interestRateModel().fixedBorrowRate(_maturity, positionAssets, borrowed, supplied, backupAssets)
-          )
-          : positionAssets
-      ) > _asset.balanceOf(address(_market))
-    ) {
-      vm.expectRevert(bytes(""));
     } else {
-      // TODO check last event field
-      vm.expectEmit(true, true, true, false, address(_market));
-      emit WithdrawAtMaturity(_maturity, msg.sender, msg.sender, msg.sender, assets, 0);
+      assetsDiscounted = block.timestamp < _maturity
+        ? positionAssets.divWadDown(
+          1e18 +
+            _market.interestRateModel().fixedBorrowRate(_maturity, positionAssets, borrowed, supplied, backupAssets)
+        )
+        : positionAssets;
+      if (assetsDiscounted > _asset.balanceOf(address(_market))) {
+        vm.expectRevert(bytes(""));
+      } else {
+        vm.expectEmit(true, true, true, true, address(_market));
+        emit WithdrawAtMaturity(_maturity, msg.sender, msg.sender, msg.sender, positionAssets, assetsDiscounted);
+      }
     }
-    _market.withdrawAtMaturity(_maturity, assets, 0, msg.sender, msg.sender);
+    assetsDiscounted = _market.withdrawAtMaturity(_maturity, assets, 0, msg.sender, msg.sender);
+    if (assetsDiscounted > 0) _asset.burn(msg.sender, assetsDiscounted);
   }
 
   function repayAtMaturity(uint8 seed, uint96 assets) external context(seed, 0) {
     (uint256 principal, uint256 fee) = _market.fixedBorrowPositions(_maturity, msg.sender);
-    _asset.mint(msg.sender, fee);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
 
     if (positionAssets == 0) {
       vm.expectRevert(ZeroRepay.selector);
-    } else if (
-      positionAssets <
-      previewDepositYield(
-        _market,
-        _maturity,
-        FixedLib.Position(principal, fee).scaleProportionally(positionAssets).principal
-      )
-    ) {
-      vm.expectRevert(stdError.arithmeticError);
     } else {
-      // TODO check last event field
-      vm.expectEmit(true, true, true, false, address(_market));
-      emit RepayAtMaturity(_maturity, msg.sender, msg.sender, 0, 0);
+      uint256 yield = block.timestamp < _maturity
+        ? previewDepositYield(
+          _market,
+          _maturity,
+          FixedLib.Position(principal, fee).scaleProportionally(positionAssets).principal
+        )
+        : 0;
+      if (positionAssets < yield) {
+        vm.expectRevert(stdError.arithmeticError);
+      } else {
+        uint256 actualRepayAssets = block.timestamp < _maturity
+          ? positionAssets - yield
+          : (positionAssets + positionAssets.mulWadDown((block.timestamp - _maturity) * _market.penaltyRate()));
+        _asset.mint(msg.sender, actualRepayAssets);
+
+        vm.expectEmit(true, true, true, true, address(_market));
+        emit RepayAtMaturity(_maturity, msg.sender, msg.sender, actualRepayAssets, positionAssets);
+      }
     }
     _market.repayAtMaturity(_maturity, positionAssets, type(uint256).max, msg.sender);
   }
@@ -365,7 +370,8 @@ contract ProtocolTest is Test {
         emit BorrowAtMaturity(_maturity, msg.sender, msg.sender, msg.sender, assets, fees);
       }
     }
-    _market.borrowAtMaturity(_maturity, assets, type(uint256).max, msg.sender, msg.sender);
+    uint256 assetsOwed = _market.borrowAtMaturity(_maturity, assets, type(uint256).max, msg.sender, msg.sender);
+    if (assetsOwed > 0) _asset.burn(msg.sender, assets);
   }
 
   function deposit(uint8 seed, uint96 assets) external context(seed, assets) {
@@ -444,10 +450,11 @@ contract ProtocolTest is Test {
       vm.expectEmit(true, true, true, true, address(_market));
       emit Borrow(msg.sender, msg.sender, msg.sender, assets, expectedShares);
     }
-    _market.borrow(assets, msg.sender, msg.sender);
+    uint256 borrowShares = _market.borrow(assets, msg.sender, msg.sender);
+    if (borrowShares > 0) _asset.burn(msg.sender, assets);
   }
 
-  function repay(uint8 seed, uint96 assets) external context(seed, assets) {
+  function repay(uint8 seed, uint96 assets) external context(seed, 0) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(_market.previewRepay(assets), floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -455,6 +462,7 @@ contract ProtocolTest is Test {
     if (refundAssets == 0) {
       vm.expectRevert(ZeroRepay.selector);
     } else {
+      _asset.mint(msg.sender, refundAssets);
       vm.expectEmit(true, true, true, true, address(_market));
       emit Repay(msg.sender, msg.sender, refundAssets, borrowShares);
     }
@@ -465,11 +473,11 @@ contract ProtocolTest is Test {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(shares, floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
-    _asset.mint(msg.sender, refundAssets);
 
     if (refundAssets == 0) {
       vm.expectRevert(ZeroRepay.selector);
     } else {
+      _asset.mint(msg.sender, refundAssets);
       vm.expectEmit(true, true, true, true, address(_market));
       emit Repay(msg.sender, msg.sender, refundAssets, borrowShares);
     }
@@ -501,7 +509,8 @@ contract ProtocolTest is Test {
       vm.expectEmit(true, true, true, true, address(_market));
       emit Withdraw(msg.sender, msg.sender, msg.sender, assets, expectedShares);
     }
-    _market.withdraw(assets, msg.sender, msg.sender);
+    uint256 withdrawShares = _market.withdraw(assets, msg.sender, msg.sender);
+    if (withdrawShares > 0) _asset.burn(msg.sender, assets);
   }
 
   function redeem(uint8 seed, uint96 shares) external context(seed, 0) {
@@ -531,7 +540,8 @@ contract ProtocolTest is Test {
       vm.expectEmit(true, true, true, true, address(_market));
       emit Withdraw(msg.sender, msg.sender, msg.sender, expectedAssets, shares);
     }
-    _market.redeem(shares, msg.sender, msg.sender);
+    expectedAssets = _market.redeem(shares, msg.sender, msg.sender);
+    if (expectedAssets > 0) _asset.burn(msg.sender, expectedAssets);
   }
 
   function transfer(uint8 seed, uint96 shares) external context(seed, 0) {
@@ -555,7 +565,7 @@ contract ProtocolTest is Test {
     MockPriceFeed(address(priceFeed)).setPrice(int256(uint256(_bound(price, 1, type(uint96).max))));
   }
 
-  function liquidate(uint8 seed) external context(seed, type(uint128).max) {
+  function liquidate(uint8 seed) external context(seed, 0) {
     Market collateralMarket = markets[
       _bound(uint256(keccak256(abi.encode(seed, "collateral"))), 0, markets.length - 1)
     ];
@@ -596,6 +606,7 @@ contract ProtocolTest is Test {
       } else if (seizeAssets > collateralMarket.asset().balanceOf(address(collateralMarket))) {
         vm.expectRevert(bytes(""));
       } else {
+        _asset.mint(msg.sender, type(uint128).max);
         vm.expectEmit(true, true, true, true, address(_market));
         emit Liquidate(msg.sender, _counterparty, 0, 0, collateralMarket, 0);
       }
