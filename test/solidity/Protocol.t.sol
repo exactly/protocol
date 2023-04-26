@@ -678,6 +678,7 @@ contract ProtocolTest is Test {
     assert(address(_market) == address(0));
     _market = markets[_bound(uint256(keccak256(abi.encode(seed, "market"))), 0, markets.length - 1)];
     _asset = MockERC20(address(_market.asset()));
+    assert(_asset.balanceOf(msg.sender) == 0);
     _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     _counterparty = accounts[_bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 1)];
     shareValues[_market] = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
@@ -686,6 +687,7 @@ contract ProtocolTest is Test {
     _;
     vm.stopPrank();
     _market = Market(address(0));
+    assert(_asset.balanceOf(msg.sender) == 0);
   }
 
   function previewSeizeAssets(Market market, Market collateralMarket) internal view returns (uint256 seizeAssets) {
