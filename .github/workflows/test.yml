@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 18
           cache: yarn
-      - run: export FOUNDRY_DIR=$HOME/.local && curl -L https://foundry.paradigm.xyz | bash && foundryup
+      - run: export FOUNDRY_DIR=$HOME/.local && curl -L https://foundry.paradigm.xyz | bash && foundryup -r exactly/foundry -b invariant-coverage
       - run: yarn
       - run: yarn lint
       - run: yarn coverage
