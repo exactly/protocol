@@ -603,50 +603,60 @@ contract ProtocolTest is Test {
     uint256 repaidAssets = _market.liquidate(_counterparty, type(uint256).max, collateralMarket);
     _asset.burn(msg.sender, _asset.balanceOf(msg.sender));
 
-    // TODO migrate this
-    // if (repaidAssets > 0) {
-    //   BadDebtVars memory b;
-    //   Auditor.MarketData memory md;
-    //   (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_market);
-    //   (b.balance, b.repayMarketDebt) = _market.accountSnapshot(_counterparty);
-    //   b.adjustedCollateral = b.balance.mulDivDown(uint256(priceFeed.latestAnswer()), 10 ** b.decimals).mulWadDown(
-    //     b.adjustFactor
-    //   );
-    //   (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(collateralMarket);
-    //   (b.balance, b.collateralMarketDebt) = collateralMarket.accountSnapshot(BOB);
-    //   b.adjustedCollateral += b.balance.mulDivDown(uint256(priceFeed.latestAnswer()), 10 ** b.decimals).mulWadDown(
-    //     b.adjustFactor
-    //   );
+    // bad debt cleared check
+    if (repaidAssets > 0) {
+      BadDebtVars memory b;
+      Auditor.MarketData memory md;
+      (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(_market);
+      (b.balance, b.repayMarketDebt) = _market.accountSnapshot(_counterparty);
+      b.adjustedCollateral = b.balance.mulDivDown(uint256(md.priceFeed.latestAnswer()), 10 ** md.decimals).mulWadDown(
+        md.adjustFactor
+      );
+      (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(collateralMarket);
+      (b.balance, b.collateralMarketDebt) = collateralMarket.accountSnapshot(_counterparty);
+      b.adjustedCollateral += b.balance.mulDivDown(uint256(md.priceFeed.latestAnswer()), 10 ** md.decimals).mulWadDown(
+        md.adjustFactor
+      );
 
-    //   // if collateral is 0 then debt should be 0
-    //   if (b.adjustedCollateral == 0) {
-    //     if (_market.earningsAccumulator() >= b.repayMarketDebt) {
-    //       assertEq(b.repayMarketDebt, 0, "should have cleared debt");
-    //     }
-    //     if (collateralMarket.earningsAccumulator() >= b.collateralMarketDebt) {
-    //       assertEq(b.collateralMarketDebt, 0, "should have cleared debt");
-    //     }
-    //   }
-    // }
+      // if collateral is 0 then debt should be 0
+      if (b.adjustedCollateral == 0) {
+        if (_market.earningsAccumulator() >= b.repayMarketDebt) {
+          assertEq(b.repayMarketDebt, 0, "should have cleared debt");
+        }
+        if (collateralMarket.earningsAccumulator() >= b.collateralMarketDebt) {
+          assertEq(b.collateralMarketDebt, 0, "should have cleared debt");
+        }
+      }
+    }
 
-    // TODO migrate this
-    // if (_market.totalSupply() > 0 && _market.totalAssets() == 0) {
-    // MockERC20 asset = MockERC20(address(market.asset()));
-    // MockERC20 otherAsset = MockERC20(address(otherMarket.asset()));
-    // vm.startPrank(MARIA);
-    // asset.mint(MARIA, type(uint96).max);
-    // asset.approve(address(market), type(uint256).max);
-    // otherAsset.mint(MARIA, type(uint96).max);
-    // otherAsset.approve(address(otherMarket), type(uint256).max);
-    // otherMarket.deposit(type(uint96).max, MARIA);
-    // auditor.enterMarket(otherMarket);
-    // FixedLib.Pool memory pool;
-    // (pool.borrowed, pool.supplied, , ) = market.fixedPools(_maturity);
-    // market.depositAtMaturity(_maturity, pool.borrowed - Math.min(pool.borrowed, pool.supplied) + 1_000_000, 0, MRIA);
-    // market.borrowAtMaturity(_maturity, 1_000_000, type(uint256).max, MARIA, MARIA);
-    // vm.warp(block.timestamp + 1 days);
-    // vm.stopPrank();
-    // }
+    for (uint256 i = 0; i < markets.length; ++i) {
+      Market market = markets[i];
+      // force earnings to accumulator if assets are 0 and shares positive
+      if (market.totalSupply() > 0 && market.totalAssets() == 0) {
+        Market otherMarket = markets[i == 0 ? i + 1 : i - 1];
+        MockERC20 asset = MockERC20(address(market.asset()));
+        MockERC20 otherAsset = MockERC20(address(otherMarket.asset()));
+        address account = address(0x420);
+        vm.startPrank(account);
+        asset.mint(account, type(uint96).max);
+        asset.approve(address(market), type(uint256).max);
+        otherAsset.mint(account, type(uint96).max);
+        otherAsset.approve(address(otherMarket), type(uint256).max);
+        otherMarket.deposit(type(uint96).max, account);
+        auditor.enterMarket(otherMarket);
+        FixedLib.Pool memory pool;
+        (pool.borrowed, pool.supplied, , ) = market.fixedPools(_maturity);
+        market.depositAtMaturity(
+          _maturity,
+          pool.borrowed - Math.min(pool.borrowed, pool.supplied) + 1_000_000,
+          0,
+          account
+        );
+        market.borrowAtMaturity(_maturity, 1_000_000, type(uint256).max, account, account);
+        vm.warp(block.timestamp + 1 days);
+        vm.stopPrank();
+      }
+    }
   }
 
   Market internal _market;
@@ -747,7 +757,7 @@ contract ProtocolTest is Test {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
         Auditor.MarketData memory md;
-        (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(market);
+        (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(market);
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
         vars.price = uint256(md.priceFeed.latestAnswer());
         sumCollateral += vars.balance.mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
