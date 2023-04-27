@@ -254,17 +254,18 @@ contract ProtocolTest is Test {
     }
   }
 
-  function depositAtMaturity(uint8 seed, uint96 assets) external context(seed, assets) {
+  function depositAtMaturity(uint8 seed, uint96 assets) external context(seed) {
     if (assets == 0) {
       vm.expectRevert(ZeroDeposit.selector);
     } else {
+      _asset.mint(msg.sender, assets);
       vm.expectEmit(true, true, true, true, address(_market));
       emit DepositAtMaturity(_maturity, msg.sender, msg.sender, assets, 0);
     }
     _market.depositAtMaturity(_maturity, assets, 0, msg.sender);
   }
 
-  function withdrawAtMaturity(uint8 seed, uint96 assets) external context(seed, 0) {
+  function withdrawAtMaturity(uint8 seed, uint96 assets) external context(seed) {
     (uint256 borrowed, uint256 supplied, , ) = _market.fixedPools(_maturity);
     (uint256 principal, uint256 fee) = _market.fixedDepositPositions(_maturity, msg.sender);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
@@ -310,7 +311,7 @@ contract ProtocolTest is Test {
     if (assetsDiscounted > 0) _asset.burn(msg.sender, assetsDiscounted);
   }
 
-  function repayAtMaturity(uint8 seed, uint96 assets) external context(seed, 0) {
+  function repayAtMaturity(uint8 seed, uint96 assets) external context(seed) {
     (uint256 principal, uint256 fee) = _market.fixedBorrowPositions(_maturity, msg.sender);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
 
@@ -339,7 +340,7 @@ contract ProtocolTest is Test {
     _market.repayAtMaturity(_maturity, positionAssets, type(uint256).max, msg.sender);
   }
 
-  function borrowAtMaturity(uint8 seed, uint96 assets) external context(seed, 0) {
+  function borrowAtMaturity(uint8 seed, uint96 assets) external context(seed) {
     (uint256 borrowed, uint256 supplied, , ) = _market.fixedPools(_maturity);
     uint256 backupAssets = previewFloatingAssetsAverage(_market);
     uint256 backupDebtAddition;
@@ -378,19 +379,20 @@ contract ProtocolTest is Test {
     if (assetsOwed > 0) _asset.burn(msg.sender, assets);
   }
 
-  function deposit(uint8 seed, uint96 assets) external context(seed, assets) {
+  function deposit(uint8 seed, uint96 assets) external context(seed) {
     uint256 expectedShares = _market.convertToShares(assets);
 
     if (expectedShares == 0) {
       vm.expectRevert(bytes(""));
     } else {
+      _asset.mint(msg.sender, assets);
       vm.expectEmit(true, true, true, true, address(_market));
       emit Deposit(msg.sender, msg.sender, assets, expectedShares);
     }
     _market.deposit(assets, msg.sender);
   }
 
-  function mint(uint8 seed, uint96 shares) external context(seed, 0) {
+  function mint(uint8 seed, uint96 shares) external context(seed) {
     uint256 expectedAssets = _market.previewMint(shares);
     _asset.mint(msg.sender, expectedAssets);
 
@@ -399,7 +401,7 @@ contract ProtocolTest is Test {
     _market.mint(shares, msg.sender);
   }
 
-  function claimRewards(uint8 seed) external context(seed, 0) {
+  function claimRewards(uint8 seed) external context(seed) {
     uint256 accumulatedRewards = rewardsController.allClaimable(msg.sender, rewardAsset);
     uint256 balanceBefore = rewardAsset.balanceOf(msg.sender);
     rewardsController.claimAll(msg.sender);
@@ -407,7 +409,7 @@ contract ProtocolTest is Test {
     claimedRewards += accumulatedRewards;
   }
 
-  function enterMarket(uint8 seed) external context(seed, 0) {
+  function enterMarket(uint8 seed) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
 
     if ((auditor.accountMarkets(msg.sender) & (1 << index)) == 0) {
@@ -417,7 +419,7 @@ contract ProtocolTest is Test {
     auditor.enterMarket(_market);
   }
 
-  function exitMarket(uint8 seed) external context(seed, 0) {
+  function exitMarket(uint8 seed) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     (uint256 balance, uint256 debt) = _market.accountSnapshot(msg.sender);
     (uint256 adjustedCollateral, uint256 adjustedDebt) = accountLiquidity(msg.sender, _market, 0, balance);
@@ -437,7 +439,7 @@ contract ProtocolTest is Test {
     if ((marketMap & (1 << index)) == 0) assertEq(marketMap, auditor.accountMarkets(msg.sender));
   }
 
-  function borrow(uint8 seed, uint96 assets) external context(seed, 0) {
+  function borrow(uint8 seed, uint96 assets) external context(seed) {
     uint256 expectedShares = _market.previewBorrow(assets);
     (uint256 collateral, uint256 debt) = previewAccountLiquidity(msg.sender, _market, assets, expectedShares);
 
@@ -458,7 +460,7 @@ contract ProtocolTest is Test {
     if (borrowShares > 0) _asset.burn(msg.sender, assets);
   }
 
-  function repay(uint8 seed, uint96 assets) external context(seed, 0) {
+  function repay(uint8 seed, uint96 assets) external context(seed) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(_market.previewRepay(assets), floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -473,7 +475,7 @@ contract ProtocolTest is Test {
     _market.repay(assets, msg.sender);
   }
 
-  function refund(uint8 seed, uint96 shares) external context(seed, 0) {
+  function refund(uint8 seed, uint96 shares) external context(seed) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(shares, floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -488,7 +490,7 @@ contract ProtocolTest is Test {
     _market.refund(shares, msg.sender);
   }
 
-  function withdraw(uint8 seed, uint96 assets) external context(seed, 0) {
+  function withdraw(uint8 seed, uint96 assets) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedShares = _market.totalAssets() != 0 ? _market.previewWithdraw(assets) : 0;
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, assets);
@@ -517,7 +519,7 @@ contract ProtocolTest is Test {
     if (withdrawShares > 0) _asset.burn(msg.sender, assets);
   }
 
-  function redeem(uint8 seed, uint96 shares) external context(seed, 0) {
+  function redeem(uint8 seed, uint96 shares) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedAssets = _market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, expectedAssets);
@@ -548,7 +550,7 @@ contract ProtocolTest is Test {
     if (expectedAssets > 0) _asset.burn(msg.sender, expectedAssets);
   }
 
-  function transfer(uint8 seed, uint96 shares) external context(seed, 0) {
+  function transfer(uint8 seed, uint96 shares) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 withdrawAssets = _market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, withdrawAssets);
@@ -564,12 +566,12 @@ contract ProtocolTest is Test {
     _market.transfer(_counterparty, shares);
   }
 
-  function setPrice(uint8 seed, uint96 price) external context(seed, 0) {
+  function setPrice(uint8 seed, uint96 price) external context(seed) {
     (, , , , IPriceFeed priceFeed) = auditor.markets(_market);
     MockPriceFeed(address(priceFeed)).setPrice(int256(uint256(_bound(price, 1, type(uint96).max))));
   }
 
-  function liquidate(uint8 seed, uint128 liquidationSeed) external context(seed, 0) {
+  function liquidate(uint8 seed, uint128 liquidationSeed) external context(seed) {
     _counterparty = accounts[
       (uint8(bytes1(bytes20(msg.sender))) + _bound(seed, 0, accounts.length - 2)) % accounts.length
     ];
@@ -697,14 +699,13 @@ contract ProtocolTest is Test {
   MockERC20 internal _asset;
   uint256 internal _maturity;
   address internal _counterparty;
-  modifier context(uint8 seed, uint256 assets) {
+  modifier context(uint8 seed) {
     assert(address(_market) == address(0));
     _market = markets[_bound(uint256(keccak256(abi.encode(seed, "market"))), 0, markets.length - 1)];
     _asset = MockERC20(address(_market.asset()));
     assert(_asset.balanceOf(msg.sender) == 0);
     _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     _counterparty = accounts[_bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 1)];
-    if (assets != 0) _asset.mint(msg.sender, assets);
     vm.startPrank(msg.sender);
     _;
     vm.stopPrank();
