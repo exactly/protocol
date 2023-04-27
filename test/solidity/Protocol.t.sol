@@ -246,7 +246,11 @@ contract ProtocolTest is Test {
 
   function invariantShareValue() external {
     for (uint256 i = 0; i < markets.length; ++i) {
-      if (markets[i].totalSupply() > 0) assertGe(markets[i].previewMint(1e18), shareValues[markets[i]]);
+      Market market = markets[i];
+      if (market.totalSupply() > 0) {
+        assertGe(market.previewMint(1e18), shareValues[market]);
+        shareValues[market] = market.previewMint(1e18);
+      }
     }
   }
 
@@ -681,7 +685,6 @@ contract ProtocolTest is Test {
     assert(_asset.balanceOf(msg.sender) == 0);
     _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     _counterparty = accounts[_bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 1)];
-    shareValues[_market] = _market.totalSupply() > 0 ? _market.previewMint(1e18) : 0;
     if (assets != 0) _asset.mint(msg.sender, assets);
     vm.startPrank(msg.sender);
     _;
