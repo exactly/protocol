@@ -569,13 +569,29 @@ contract ProtocolTest is Test {
     MockPriceFeed(address(priceFeed)).setPrice(int256(uint256(_bound(price, 1, type(uint96).max))));
   }
 
-  function liquidate(uint8 seed) external context(seed, 0) {
-    Market collateralMarket = markets[
-      _bound(uint256(keccak256(abi.encode(seed, "collateral"))), 0, markets.length - 1)
-    ];
+  function liquidate(uint8 seed, uint128 liquidationSeed) external context(seed, 0) {
+    Market collateralMarket = _market;
     (, , uint256 index, , ) = auditor.markets(_market);
     (, , uint256 collateralIndex, , ) = auditor.markets(collateralMarket);
     (uint256 collateral, uint256 debt) = accountLiquidity(_counterparty, Market(address(0)), 0, 0);
+    {
+      address sender = msg.sender;
+      vm.stopPrank();
+      vm.startPrank(address(this));
+      uint256 counterpartyMarkets = auditor.accountMarkets(_counterparty);
+      for (uint256 i = 0; counterpartyMarkets != 0; counterpartyMarkets >>= 1) {
+        if (counterpartyMarkets & 1 != 0) {
+          Market market = auditor.marketList(i);
+          (uint256 adjustFactor, , , , ) = auditor.markets(market);
+          uint256 multiplier = _bound(liquidationSeed, 0, 0.5e18);
+          auditor.setAdjustFactor(market, uint128(adjustFactor.mulWadDown(multiplier)));
+          if (market.previewDebt(_counterparty) > 0) _market = market;
+          if (market.balanceOf(_counterparty) > 0) collateralMarket = market;
+        }
+      }
+      vm.stopPrank();
+      vm.startPrank(sender);
+    }
 
     if (msg.sender == _counterparty) {
       vm.expectRevert(SelfLiquidation.selector);
