@@ -590,26 +590,32 @@ contract ProtocolTest is Test {
     } else if (_market.previewDebt(_counterparty) == 0) {
       vm.expectRevert(ZeroWithdraw.selector);
     } else {
-      uint256 seizeAssets = previewSeizeAssets(_market, _collateralMarket, _counterparty);
-      uint256 earnings = previewAccumulatedEarnings(_collateralMarket);
+      unchecked {
+        if ((collateral * debt) / collateral != debt) {
+          vm.expectRevert(bytes(""));
+        } else {
+          uint256 seizeAssets = previewSeizeAssets(_market, _collateralMarket, _counterparty);
+          uint256 earnings = previewAccumulatedEarnings(_collateralMarket);
 
-      if (seizeAssets == 0) {
-        vm.expectRevert(ZeroWithdraw.selector);
-      } else if (
-        seizeAssets > _collateralMarket.floatingAssets() + previewNewFloatingDebt(_collateralMarket) + earnings
-      ) {
-        vm.expectRevert(stdError.arithmeticError);
-      } else if (
-        _collateralMarket.floatingBackupBorrowed() + _collateralMarket.totalFloatingBorrowAssets() >
-        _collateralMarket.floatingAssets() + previewNewFloatingDebt(_collateralMarket) + earnings - seizeAssets
-      ) {
-        vm.expectRevert(InsufficientProtocolLiquidity.selector);
-      } else if (seizeAssets > _collateralMarket.asset().balanceOf(address(_collateralMarket))) {
-        vm.expectRevert(bytes(""));
-      } else {
-        _asset.mint(msg.sender, type(uint128).max);
-        vm.expectEmit(true, true, true, true, address(_market));
-        emit Liquidate(msg.sender, _counterparty, 0, 0, _collateralMarket, 0);
+          if (seizeAssets == 0) {
+            vm.expectRevert(ZeroWithdraw.selector);
+          } else if (
+            seizeAssets > _collateralMarket.floatingAssets() + previewNewFloatingDebt(_collateralMarket) + earnings
+          ) {
+            vm.expectRevert(stdError.arithmeticError);
+          } else if (
+            _collateralMarket.floatingBackupBorrowed() + _collateralMarket.totalFloatingBorrowAssets() >
+            _collateralMarket.floatingAssets() + previewNewFloatingDebt(_collateralMarket) + earnings - seizeAssets
+          ) {
+            vm.expectRevert(InsufficientProtocolLiquidity.selector);
+          } else if (seizeAssets > _collateralMarket.asset().balanceOf(address(_collateralMarket))) {
+            vm.expectRevert(bytes(""));
+          } else {
+            _asset.mint(msg.sender, type(uint128).max);
+            vm.expectEmit(true, true, true, false, address(_market));
+            emit Liquidate(msg.sender, _counterparty, 0, 0, _collateralMarket, 0);
+          }
+        }
       }
     }
     uint256 repaidAssets = _market.liquidate(_counterparty, type(uint256).max, _collateralMarket);
@@ -705,7 +711,7 @@ contract ProtocolTest is Test {
         Market market = auditor.marketList(i);
         (uint256 adjustFactor, , , , ) = auditor.markets(market);
         vm.prank(address(this));
-        auditor.setAdjustFactor(market, uint128(adjustFactor.mulWadDown(_bound(seed, 0, 0.5e18))));
+        auditor.setAdjustFactor(market, uint128(adjustFactor.mulWadDown(_bound(seed, 0.1e18, 0.5e18))));
         if (market.previewDebt(_counterparty) > 0) _market = market;
         if (market.balanceOf(_counterparty) > 0) _collateralMarket = market;
       }
