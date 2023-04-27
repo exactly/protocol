@@ -668,13 +668,14 @@ contract ProtocolTest is Test {
         Market otherMarket = markets[i == 0 ? i + 1 : i - 1];
         MockERC20 asset = MockERC20(address(market.asset()));
         MockERC20 otherAsset = MockERC20(address(otherMarket.asset()));
-        address account = address(0x420);
-        vm.startPrank(account);
-        asset.mint(account, type(uint96).max);
+        address sender = msg.sender;
+        vm.stopPrank();
+        vm.startPrank(address(0x420));
+        asset.mint(msg.sender, type(uint96).max);
         asset.approve(address(market), type(uint256).max);
-        otherAsset.mint(account, type(uint96).max);
+        otherAsset.mint(msg.sender, type(uint96).max);
         otherAsset.approve(address(otherMarket), type(uint256).max);
-        otherMarket.deposit(type(uint96).max, account);
+        otherMarket.deposit(type(uint96).max, msg.sender);
         auditor.enterMarket(otherMarket);
         FixedLib.Pool memory pool;
         (pool.borrowed, pool.supplied, , ) = market.fixedPools(_maturity);
@@ -682,11 +683,12 @@ contract ProtocolTest is Test {
           _maturity,
           pool.borrowed - Math.min(pool.borrowed, pool.supplied) + 1_000_000,
           0,
-          account
+          msg.sender
         );
-        market.borrowAtMaturity(_maturity, 1_000_000, type(uint256).max, account, account);
+        market.borrowAtMaturity(_maturity, 1_000_000, type(uint256).max, msg.sender, msg.sender);
         vm.warp(block.timestamp + 1 days);
         vm.stopPrank();
+        vm.startPrank(sender);
       }
     }
   }
