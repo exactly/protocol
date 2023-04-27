@@ -570,6 +570,9 @@ contract ProtocolTest is Test {
   }
 
   function liquidate(uint8 seed, uint128 liquidationSeed) external context(seed, 0) {
+    _counterparty = accounts[
+      (uint8(bytes1(bytes20(msg.sender))) + _bound(seed, 0, accounts.length - 2)) % accounts.length
+    ];
     Market collateralMarket = _market;
     (, , uint256 index, , ) = auditor.markets(_market);
     (, , uint256 collateralIndex, , ) = auditor.markets(collateralMarket);
@@ -593,9 +596,7 @@ contract ProtocolTest is Test {
       vm.startPrank(sender);
     }
 
-    if (msg.sender == _counterparty) {
-      vm.expectRevert(SelfLiquidation.selector);
-    } else if (collateral >= debt) {
+    if (collateral >= debt) {
       vm.expectRevert(InsufficientShortfall.selector);
     } else if (rawCollateral(_counterparty) == 0) {
       vm.expectRevert(bytes(""));
