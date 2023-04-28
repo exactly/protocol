@@ -48,7 +48,7 @@ contract ProtocolTest is Test {
   mapping(Market => uint256) internal shareValues;
   mapping(Market => uint256) internal newAccumulatedEarnings;
 
-  function setUp() external {
+  function setUp() external _setUp {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     vm.label(address(auditor), "Auditor");
@@ -88,7 +88,7 @@ contract ProtocolTest is Test {
     rewardAsset.mint(address(rewardsController), 2_000 ether);
 
     targetContract(address(this));
-    bytes4[] memory selectors = new bytes4[](18);
+    bytes4[] memory selectors = new bytes4[](19);
     selectors[0] = this.enterMarket.selector;
     selectors[1] = this.exitMarket.selector;
     selectors[2] = this.deposit.selector;
@@ -107,6 +107,7 @@ contract ProtocolTest is Test {
     selectors[15] = this.setPrice.selector;
     selectors[16] = this.liquidate.selector;
     selectors[17] = this.enableRewards.selector;
+    selectors[18] = this.warp.selector;
     targetSelector(FuzzSelector(address(this), selectors));
   }
 
@@ -723,13 +724,20 @@ contract ProtocolTest is Test {
     changePrank(sender);
   }
 
+  function warp(uint32 time) external {
+    skip(_bound(time, 1, type(uint32).max));
+    _lastTimestamp = block.timestamp;
+  }
+
   Market internal _market;
   MockERC20 internal _asset;
   uint256 internal _maturity;
   address internal _counterparty;
   Market internal _collateralMarket;
+  uint256 internal _lastTimestamp;
   modifier context(bytes32 seed) {
     assert(address(_market) == address(0));
+    vm.warp(_lastTimestamp);
     _market = markets[_bound(uint256(keccak256(abi.encode(seed, "market"))), 0, markets.length - 1)];
     _asset = MockERC20(address(_market.asset()));
     _counterparty = accounts[_bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 1)];
@@ -742,7 +750,13 @@ contract ProtocolTest is Test {
     vm.startPrank(msg.sender);
     _;
     vm.stopPrank();
+    _lastTimestamp = block.timestamp;
     _market = Market(address(0));
+  }
+
+  modifier _setUp() {
+    _;
+    _lastTimestamp = block.timestamp;
   }
 
   modifier _uniqueAccounts(bytes32 seed) {
