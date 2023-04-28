@@ -23,8 +23,8 @@ export default {
     settings: { optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
-    mainnet: { priceDecimals: 18, timelockDelay: 12 * 3_600, url: env.MAINNET_NODE ?? "" },
-    optimism: { priceDecimals: 8, timelockDelay: 12 * 3_600, url: env.OPTIMISM_NODE ?? "", leverager: true },
+    mainnet: { priceDecimals: 18, timelockDelay: 24 * 3_600, url: env.MAINNET_NODE ?? "" },
+    optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "", leverager: true },
     goerli: { priceDecimals: 8, url: env.GOERLI_NODE ?? "" },
   },
   namedAccounts: {
