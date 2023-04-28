@@ -23,7 +23,7 @@ export default {
     settings: { optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
-    mainnet: { priceDecimals: 18, timelockDelay: 24 * 3_600, url: env.MAINNET_NODE ?? "" },
+    mainnet: { priceDecimals: 18, timelockDelay: 24 * 3_600, url: env.MAINNET_NODE ?? "", finance: { futurePools: 3 } },
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "", leverager: true },
     goerli: { priceDecimals: 8, url: env.GOERLI_NODE ?? "" },
   },
@@ -47,7 +47,7 @@ export default {
     backupFeeRate: 0.1,
     reserveFactor: 0.1,
     dampSpeed: { up: 0.0046, down: 0.4 },
-    futurePools: 3,
+    futurePools: 6,
     earningsAccumulatorSmoothFactor: 2,
     rewards: {
       undistributedFactor: 0.5,
