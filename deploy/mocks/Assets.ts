@@ -10,12 +10,12 @@ const {
   getSigner,
 } = ethers;
 const {
-  config: { priceDecimals, markets },
+  config: { priceDecimals, finance },
   live,
 } = network;
 
 export const mockPrices = Object.fromEntries(
-  Object.keys(markets)
+  Object.keys(finance.markets)
     .filter((symbol) => live && env[`${symbol}_PRICE`])
     .map((symbol) => [symbol, parseUnits(env[`${symbol}_PRICE`] as string, priceDecimals)]),
 );
@@ -24,9 +24,9 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
   const { deployer } = await getNamedAccounts();
   const signer = await getSigner(deployer);
   for (const [symbol, { priceFeed }] of [
-    ...Object.entries(markets),
-    ...[...new Set(Object.values(markets).flatMap((m) => m.rewards && Object.keys(m.rewards)))]
-      .filter((asset) => asset && !markets[asset])
+    ...Object.entries(finance.markets),
+    ...[...new Set(Object.values(finance.markets).flatMap((m) => m.rewards && Object.keys(m.rewards)))]
+      .filter((asset) => asset && !finance.markets[asset])
       .map((asset) => [asset, {}] as [string, MarketConfig]),
   ]) {
     const decimals = { USDC: 6, WBTC: 8 }[symbol] ?? 18;

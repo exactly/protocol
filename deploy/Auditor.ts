@@ -5,11 +5,11 @@ import validateUpgrade from "./.utils/validateUpgrade";
 
 const func: DeployFunction = async ({
   network: {
-    config: { priceDecimals },
-  },
-  config: {
-    finance: {
-      liquidationIncentive: { liquidator: liquidatorIncentive, lenders: lendersIncentive },
+    config: {
+      priceDecimals,
+      finance: {
+        liquidationIncentive: { liquidator: liquidatorIncentive, lenders: lendersIncentive },
+      },
     },
   },
   ethers: {

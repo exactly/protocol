@@ -10,10 +10,7 @@ import grantRole from "./.utils/grantRole";
 
 const func: DeployFunction = async ({
   network: {
-    config: { markets },
-  },
-  config: {
-    finance: { maxFuturePools, ...finance },
+    config: { finance },
   },
   ethers: {
     constants: { AddressZero },
@@ -42,7 +39,7 @@ const func: DeployFunction = async ({
   const dampSpeedDown = parseUnits(String(finance.dampSpeed.down));
   const treasuryFeeRate = parseUnits(String(finance.treasuryFeeRate ?? 0));
 
-  for (const [symbol, config] of Object.entries(markets)) {
+  for (const [symbol, config] of Object.entries(finance.markets)) {
     const { address: interestRateModel } = await tenderlify(
       "InterestRateModel",
       await deploy(`InterestRateModel${symbol}`, {
@@ -82,7 +79,7 @@ const func: DeployFunction = async ({
               init: {
                 methodName: "initialize",
                 args: [
-                  maxFuturePools,
+                  finance.futurePools,
                   earningsAccumulatorSmoothFactor,
                   interestRateModel,
                   penaltyRate,
@@ -119,8 +116,8 @@ const func: DeployFunction = async ({
       );
     }
 
-    if ((await market.maxFuturePools()) !== maxFuturePools) {
-      await executeOrPropose(market, "setMaxFuturePools", [maxFuturePools]);
+    if ((await market.maxFuturePools()) !== finance.futurePools) {
+      await executeOrPropose(market, "setMaxFuturePools", [finance.futurePools]);
     }
     if (!(await market.earningsAccumulatorSmoothFactor()).eq(earningsAccumulatorSmoothFactor)) {
       await executeOrPropose(market, "setEarningsAccumulatorSmoothFactor", [earningsAccumulatorSmoothFactor]);
@@ -187,7 +184,7 @@ const func: DeployFunction = async ({
 
     const newRewards = (
       await Promise.all(
-        Object.entries(markets).map(async ([symbol, { rewards: marketRewards }]) => {
+        Object.entries(finance.markets).map(async ([symbol, { rewards: marketRewards }]) => {
           if (!marketRewards) return;
 
           const market = await getContract<Market>(`Market${symbol}`);

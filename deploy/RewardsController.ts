@@ -23,6 +23,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 
 func.tags = ["RewardsController"];
 func.dependencies = ["ProxyAdmin", "TimelockController"];
-func.skip = async ({ network }) => !Object.values(network.config.markets).some(({ rewards }) => Boolean(rewards));
+func.skip = async ({ network }) =>
+  !Object.values(network.config.finance.markets).some(({ rewards }) => Boolean(rewards));
 
 export default func;

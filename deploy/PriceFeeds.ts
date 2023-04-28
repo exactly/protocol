@@ -7,7 +7,7 @@ import tenderlify from "./.utils/tenderlify";
 const func: DeployFunction = async ({ network, deployments: { deploy, get }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
 
-  for (const [symbol, { priceFeed }] of Object.entries(network.config.markets)) {
+  for (const [symbol, { priceFeed }] of Object.entries(network.config.finance.markets)) {
     if (!priceFeed) continue;
 
     const skipIfAlreadyDeployed = !JSON.parse(env[`DEPLOY_FEED_${symbol}`] ?? "false");

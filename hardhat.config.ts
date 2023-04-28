@@ -47,7 +47,7 @@ export default {
     backupFeeRate: 0.1,
     reserveFactor: 0.1,
     dampSpeed: { up: 0.0046, down: 0.4 },
-    maxFuturePools: 3,
+    futurePools: 3,
     earningsAccumulatorSmoothFactor: 2,
     rewards: {
       undistributedFactor: 0.5,
@@ -146,26 +146,31 @@ task(
   .addOptionalPositionalParam("pause", "whether to pause or unpause the market", true, boolean)
   .addOptionalParam("account", "signer's account name", "deployer", string);
 
-extendConfig((hardhatConfig, { finance: { rewards, markets } }) => {
+extendConfig((hardhatConfig, { finance }) => {
+  delete (hardhatConfig as any).finance; // eslint-disable-line @typescript-eslint/no-explicit-any
   for (const [networkName, networkConfig] of Object.entries(hardhatConfig.networks)) {
     const live = !["hardhat", "localhost"].includes(networkName);
     if (live) {
       networkConfig.safeTxService = `https://safe-transaction-${networkName}.safe.global`;
       if (env.MNEMONIC) networkConfig.accounts = { ...defaultHdAccountsConfigParams, mnemonic: env.MNEMONIC };
     } else Object.assign(networkConfig, { priceDecimals: 8, allowUnlimitedContractSize: true, leverager: true });
-    networkConfig.markets = Object.fromEntries(
-      Object.entries(markets)
-        .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
-        .map(([name, { networks, overrides, ...marketConfig }]) => {
-          const config = { ...marketConfig, ...overrides?.[live ? networkName : Object.keys(overrides)[0]] };
-          if (config.rewards) {
-            config.rewards = Object.fromEntries(
-              Object.entries(config.rewards).map(([asset, rewardsConfig]) => [asset, { ...rewards, ...rewardsConfig }]),
-            );
-          }
-          return [name, config];
-        }),
-    );
+    networkConfig.finance = {
+      ...finance,
+      ...networkConfig.finance,
+      markets: Object.fromEntries(
+        Object.entries(finance.markets)
+          .filter(([, { networks }]) => !live || !networks || networks.includes(networkName))
+          .map(([name, { networks, overrides, ...market }]) => {
+            const config = { ...market, ...overrides?.[live ? networkName : Object.keys(overrides)[0]] };
+            if (config.rewards) {
+              config.rewards = Object.fromEntries(
+                Object.entries(config.rewards).map(([asset, rewards]) => [asset, { ...finance.rewards, ...rewards }]),
+              );
+            }
+            return [name, config];
+          }),
+      ),
+    };
   }
 });
 
@@ -177,12 +182,9 @@ declare module "hardhat/types/config" {
     backupFeeRate: number;
     reserveFactor: number;
     dampSpeed: { up: number; down: number };
-    maxFuturePools: number;
+    futurePools: number;
     earningsAccumulatorSmoothFactor: number;
     rewards: RewardsParameters;
-  }
-
-  export interface FinanceUserConfig extends FinanceConfig {
     markets: { [asset: string]: MarketUserConfig };
   }
 
@@ -223,10 +225,6 @@ declare module "hardhat/types/config" {
   }
 
   export interface HardhatUserConfig {
-    finance: FinanceUserConfig;
-  }
-
-  export interface HardhatConfig {
     finance: FinanceConfig;
   }
 
@@ -234,6 +232,7 @@ declare module "hardhat/types/config" {
     priceDecimals: number;
     timelockDelay?: number;
     leverager?: boolean;
+    finance?: Partial<FinanceConfig>;
   }
 
   export interface HardhatNetworkConfig {
@@ -241,7 +240,7 @@ declare module "hardhat/types/config" {
     timelockDelay: undefined;
     leverager: boolean;
     safeTxService: undefined;
-    markets: { [asset: string]: MarketConfig };
+    finance: FinanceConfig;
   }
 
   export interface HttpNetworkConfig {
@@ -249,6 +248,6 @@ declare module "hardhat/types/config" {
     timelockDelay?: number;
     leverager?: boolean;
     safeTxService: string;
-    markets: { [asset: string]: MarketConfig };
+    finance: FinanceConfig;
   }
 }
