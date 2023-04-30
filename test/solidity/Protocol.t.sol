@@ -594,26 +594,30 @@ contract ProtocolTest is Test {
         if ((collateral * debt) / collateral != debt) {
           vm.expectRevert(bytes(""));
         } else {
-          uint256 seizeAssets = previewSeizeAssets(_market, _collateralMarket, _counterparty);
+          LiquidationVars memory lv = previewLiquidation(_market, _collateralMarket, _counterparty);
           uint256 earnings = previewAccumulatedEarnings(_collateralMarket);
 
-          if (seizeAssets == 0) {
+          if (lv.seizeAssets == 0) {
             vm.expectRevert(ZeroWithdraw.selector);
           } else if (
-            seizeAssets > _collateralMarket.floatingAssets() + previewNewFloatingDebt(_collateralMarket) + earnings
+            lv.seizeAssets > _collateralMarket.floatingAssets() + previewNewFloatingDebt(_collateralMarket) + earnings
           ) {
             vm.expectRevert(stdError.arithmeticError);
-          } else if (
-            _collateralMarket.floatingBackupBorrowed() + _collateralMarket.totalFloatingBorrowAssets() >
-            _collateralMarket.floatingAssets() + previewNewFloatingDebt(_collateralMarket) + earnings - seizeAssets
-          ) {
-            vm.expectRevert(InsufficientProtocolLiquidity.selector);
-          } else if (seizeAssets > _collateralMarket.asset().balanceOf(address(_collateralMarket))) {
-            vm.expectRevert(bytes(""));
           } else {
-            _asset.mint(msg.sender, type(uint128).max);
-            vm.expectEmit(true, true, true, false, address(_market));
-            emit Liquidate(msg.sender, _counterparty, 0, 0, _collateralMarket, 0);
+            if (
+              _collateralMarket.floatingBackupBorrowed() +
+                _collateralMarket.totalFloatingBorrowAssets() -
+                (address(_market) != address(_collateralMarket) ? 0 : lv.debtReduction) >
+              _collateralMarket.floatingAssets() + previewNewFloatingDebt(_collateralMarket) + earnings - lv.seizeAssets
+            ) {
+              vm.expectRevert(InsufficientProtocolLiquidity.selector);
+            } else if (lv.seizeAssets > _collateralMarket.asset().balanceOf(address(_collateralMarket))) {
+              vm.expectRevert(bytes(""));
+            } else {
+              _asset.mint(msg.sender, type(uint128).max);
+              vm.expectEmit(true, true, true, false, address(_market));
+              emit Liquidate(msg.sender, _counterparty, 0, 0, _collateralMarket, 0);
+            }
           }
         }
       }
@@ -726,11 +730,11 @@ contract ProtocolTest is Test {
     _market = Market(address(0));
   }
 
-  function previewSeizeAssets(
+  function previewLiquidation(
     Market market,
     Market collateralMarket,
     address account
-  ) internal view returns (uint256 seizeAssets) {
+  ) internal view returns (LiquidationVars memory lv) {
     uint256 floatingAssets;
     uint256 fixedAssets;
     uint256 maxAssets = auditor.checkLiquidation(market, collateralMarket, account, type(uint256).max);
@@ -746,12 +750,19 @@ contract ProtocolTest is Test {
         if (block.timestamp < maturity) {
           actualRepay = Math.min(maxAssets, p.principal + p.fee);
           maxAssets -= actualRepay;
+          lv.debtReduction += previewBackupDebtReduction(market, account, maturity, actualRepay);
         } else {
           uint256 position = p.principal + p.fee;
           uint256 debt = position + position.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
           actualRepay = debt > maxAssets ? maxAssets.mulDivDown(position, debt) : maxAssets;
           if (actualRepay == 0) maxAssets = 0;
           else {
+            lv.debtReduction += previewBackupDebtReduction(
+              market,
+              account,
+              maturity,
+              debt > maxAssets ? maxAssets.mulDivDown(position, debt) : Math.min(maxAssets, p.principal + p.fee)
+            );
             actualRepay =
               Math.min(actualRepay, position) +
               Math.min(actualRepay, position).mulWadDown((block.timestamp - maturity) * market.penaltyRate());
@@ -770,7 +781,30 @@ contract ProtocolTest is Test {
         floatingAssets += market.previewRefund(borrowShares);
       }
     }
-    (, seizeAssets) = auditor.calculateSeize(market, collateralMarket, account, fixedAssets + floatingAssets);
+    (lv.lendersAssets, lv.seizeAssets) = auditor.calculateSeize(
+      market,
+      collateralMarket,
+      account,
+      fixedAssets + floatingAssets
+    );
+    lv.repayAssets = fixedAssets + floatingAssets;
+    lv.debtReduction += floatingAssets;
+  }
+
+  function previewBackupDebtReduction(
+    Market market,
+    address account,
+    uint256 maturity,
+    uint256 debtCovered
+  ) internal view returns (uint256) {
+    FixedLib.Position memory position;
+    FixedLib.Pool memory pool;
+
+    (pool.borrowed, pool.supplied, , ) = market.fixedPools(maturity);
+    (position.principal, position.fee) = market.fixedBorrowPositions(maturity, account);
+    uint256 principalCovered = debtCovered.mulDivDown(position.principal, position.principal + position.fee);
+    pool.borrowed = pool.borrowed - principalCovered;
+    return Math.min(pool.borrowed - Math.min(pool.borrowed, pool.supplied), principalCovered);
   }
 
   function rawCollateral(address account) internal view returns (uint256 sumCollateral) {
@@ -995,6 +1029,13 @@ contract ProtocolTest is Test {
     uint256 repayMarketDebt;
     uint256 collateralMarketDebt;
     uint256 adjustedCollateral;
+  }
+
+  struct LiquidationVars {
+    uint256 repayAssets;
+    uint256 seizeAssets;
+    uint256 lendersAssets;
+    uint256 debtReduction;
   }
 
   event Transfer(address indexed from, address indexed to, uint256 amount);
