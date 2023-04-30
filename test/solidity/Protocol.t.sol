@@ -591,7 +591,7 @@ contract ProtocolTest is Test {
       vm.expectRevert(ZeroWithdraw.selector);
     } else {
       unchecked {
-        if ((collateral * debt) / collateral != debt) {
+        if (collateral > 0 && (collateral * debt) / collateral != debt) {
           vm.expectRevert(bytes(""));
         } else {
           LiquidationVars memory lv = previewLiquidation(_market, _collateralMarket, _counterparty);
