@@ -575,6 +575,7 @@ contract ProtocolTest is Test {
     (, , uint256 index, , ) = auditor.markets(_market);
     (, , uint256 collateralIndex, , ) = auditor.markets(_collateralMarket);
     (uint256 collateral, uint256 debt) = accountLiquidity(_counterparty, Market(address(0)), 0, 0);
+    LiquidationVars memory lv;
 
     if (collateral >= debt) {
       vm.expectRevert(InsufficientShortfall.selector);
@@ -594,7 +595,7 @@ contract ProtocolTest is Test {
         if (collateral > 0 && (collateral * debt) / collateral != debt) {
           vm.expectRevert(bytes(""));
         } else {
-          LiquidationVars memory lv = previewLiquidation(_market, _collateralMarket, _counterparty);
+          lv = previewLiquidation(_market, _collateralMarket, _counterparty);
           uint256 earnings = previewAccumulatedEarnings(_collateralMarket);
 
           if (lv.seizeAssets == 0) {
@@ -615,14 +616,22 @@ contract ProtocolTest is Test {
               vm.expectRevert(bytes(""));
             } else {
               _asset.mint(msg.sender, type(uint128).max);
-              vm.expectEmit(true, true, true, false, address(_market));
-              emit Liquidate(msg.sender, _counterparty, 0, 0, _collateralMarket, 0);
+              vm.expectEmit(true, true, true, true, address(_market));
+              emit Liquidate(
+                msg.sender,
+                _counterparty,
+                lv.repayAssets,
+                lv.lendersAssets,
+                _collateralMarket,
+                lv.seizeAssets
+              );
             }
           }
         }
       }
     }
-    _market.liquidate(_counterparty, type(uint256).max, _collateralMarket);
+    uint256 repaidAssets = _market.liquidate(_counterparty, type(uint256).max, _collateralMarket);
+    if (repaidAssets > 0) MockERC20(address(_collateralMarket.asset())).burn(msg.sender, lv.seizeAssets);
     _asset.burn(msg.sender, _asset.balanceOf(msg.sender));
   }
 
