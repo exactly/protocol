@@ -47,6 +47,7 @@ contract ProtocolTest is Test {
   MockERC20 internal rewardAsset;
   uint256 internal claimedRewards;
   mapping(Market => uint256) internal shareValues;
+  mapping(Market => uint256) internal newAccumulatedEarnings;
 
   function setUp() external {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
@@ -365,7 +366,12 @@ contract ProtocolTest is Test {
       uint256 fees = assets.mulWadDown(
         _market.interestRateModel().fixedBorrowRate(_maturity, assets, borrowed, supplied, backupAssets)
       );
+      newAccumulatedEarnings[_market] = fees.mulDivDown(
+        assets - Math.min(borrowed + assets - Math.min(borrowed + assets, supplied), assets),
+        assets
+      );
       (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, assets + fees, 0);
+      newAccumulatedEarnings[_market] = 0;
       if (collateral < debt) {
         vm.expectRevert(InsufficientAccountLiquidity.selector);
       } else if (assets > _asset.balanceOf(address(_market))) {
@@ -1013,8 +1019,8 @@ contract ProtocolTest is Test {
     uint256 elapsed = block.timestamp - market.lastAccumulatorAccrual();
     if (elapsed == 0) return 0;
     return
-      market.earningsAccumulator().mulDivDown(
-        elapsed,
+      elapsed.mulDivDown(
+        market.earningsAccumulator() + newAccumulatedEarnings[market],
         elapsed + market.earningsAccumulatorSmoothFactor().mulWadDown(market.maxFuturePools() * FixedLib.INTERVAL)
       );
   }
