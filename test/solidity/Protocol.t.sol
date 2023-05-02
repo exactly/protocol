@@ -255,6 +255,24 @@ contract ProtocolTest is Test {
     }
   }
 
+  function invariantTotalSupply() external {
+    for (uint i = 0; i < markets.length; i++) {
+      Market market = markets[i];
+      uint256 sum;
+      for (uint j = 0; j < accounts.length; j++) {
+        sum += market.balanceOf(accounts[j]);
+      }
+      assertEq(sum, market.totalSupply());
+    }
+  }
+
+  function invariantReserveFactor() external {
+    for (uint i = 0; i < markets.length; i++) {
+      Market market = markets[i];
+      assertLe(market.floatingDebt(), market.floatingAssets().mulWadDown(1e18 - market.reserveFactor()));
+    }
+  }
+
   function invariantAssetTransfer() external view {
     for (uint i = 0; i < accounts.length; i++) {
       for (uint j = 0; j < markets.length; j++) {
