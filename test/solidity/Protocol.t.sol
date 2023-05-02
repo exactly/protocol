@@ -255,6 +255,16 @@ contract ProtocolTest is Test {
     }
   }
 
+  function invariantAssetTransfer() external view {
+    for (uint i = 0; i < accounts.length; i++) {
+      for (uint j = 0; j < markets.length; j++) {
+        Market market = markets[j];
+        MockERC20 asset = MockERC20(address(market.asset()));
+        assert(asset.balanceOf(accounts[i]) == 0);
+      }
+    }
+  }
+
   function depositAtMaturity(uint8 seed, uint96 assets) external context(seed) {
     if (assets == 0) {
       vm.expectRevert(ZeroDeposit.selector);
@@ -649,13 +659,11 @@ contract ProtocolTest is Test {
     assert(address(_market) == address(0));
     _market = markets[_bound(uint256(keccak256(abi.encode(seed, "market"))), 0, markets.length - 1)];
     _asset = MockERC20(address(_market.asset()));
-    assert(_asset.balanceOf(msg.sender) == 0);
     _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     _counterparty = accounts[_bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 1)];
     vm.startPrank(msg.sender);
     _;
     vm.stopPrank();
-    assert(_asset.balanceOf(msg.sender) == 0);
     _market = Market(address(0));
   }
 
