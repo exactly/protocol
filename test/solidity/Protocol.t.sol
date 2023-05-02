@@ -39,9 +39,9 @@ contract ProtocolTest is Test {
   using LibString for uint256;
   using FixedLib for FixedLib.Position;
 
-  address[] internal accounts;
   Auditor internal auditor;
   Market[] internal markets;
+  address[] internal accounts;
   RewardsController internal rewardsController;
 
   MockERC20 internal rewardAsset;
@@ -131,11 +131,6 @@ contract ProtocolTest is Test {
   function invariants() external {
     for (uint256 i = 0; i < accounts.length; ++i) {
       address account = accounts[i];
-      if (auditor.accountMarkets(account) == 0) {
-        for (uint256 j = 0; j < markets.length; ++j) {
-          assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
-        }
-      }
       for (uint256 j = 0; j < markets.length; ++j) {
         (, uint256 packedMaturities, ) = markets[j].accounts(account);
         uint256 maturity = packedMaturities & ((1 << 32) - 1);
@@ -163,7 +158,7 @@ contract ProtocolTest is Test {
         }
       }
     }
-    for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
+    for (uint256 i = 0; i < markets.length; ++i) {
       Market market = auditor.marketList(i);
       uint256 fixedBorrows = 0;
       uint256 fixedDeposits = 0;
@@ -279,6 +274,17 @@ contract ProtocolTest is Test {
         Market market = markets[j];
         MockERC20 asset = MockERC20(address(market.asset()));
         assert(asset.balanceOf(accounts[i]) == 0);
+      }
+    }
+  }
+
+  function invariantNoCollateralNoDebt() external {
+    for (uint i = 0; i < accounts.length; i++) {
+    address account = accounts[i];
+      if (auditor.accountMarkets(account) == 0) {
+        for (uint256 j = 0; j < markets.length; ++j) {
+          assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
+        }
       }
     }
   }
@@ -849,7 +855,7 @@ contract ProtocolTest is Test {
 
   function rawCollateral(address account) internal view returns (uint256 sumCollateral) {
     uint256 marketMap = auditor.accountMarkets(account);
-    for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
+    for (uint256 i = 0; i < markets.length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
         (, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
@@ -880,7 +886,7 @@ contract ProtocolTest is Test {
       (, , uint256 index, , ) = auditor.markets(marketToSimulate);
       if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
     }
-    for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
+    for (uint256 i = 0; i < markets.length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
         Auditor.MarketData memory md;
@@ -911,7 +917,7 @@ contract ProtocolTest is Test {
     // if simulating a borrow, add the market to the account's map
     (, , uint256 index, , ) = auditor.markets(marketToSimulate);
     if ((marketMap & (1 << index)) == 0) marketMap = marketMap | (1 << index);
-    for (uint256 i = 0; i < auditor.allMarkets().length; ++i) {
+    for (uint256 i = 0; i < markets.length; ++i) {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
         (uint128 adjustFactor, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
