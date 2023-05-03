@@ -631,8 +631,12 @@ contract ProtocolTest is Test {
     } else if (_market.previewDebt(_counterparty) == 0) {
       vm.expectRevert(ZeroWithdraw.selector);
     } else {
+      (lv.totalCollateral, lv.totalDebt) = previewTotalLiquidity(_counterparty);
       unchecked {
-        if (collateral > 0 && (collateral * debt) / collateral != debt) {
+        if (
+          (collateral > 0 && (collateral * lv.totalDebt) / collateral != lv.totalDebt) ||
+          (debt > 0 && (debt * lv.totalCollateral) / debt != lv.totalCollateral)
+        ) {
           vm.expectRevert(bytes(""));
         } else {
           lv = previewLiquidation(_market, _collateralMarket, _counterparty);
@@ -774,6 +778,24 @@ contract ProtocolTest is Test {
     }
 
     _market = Market(address(0));
+  }
+
+  function previewTotalLiquidity(address account) internal view returns (uint256 totalCollateral, uint256 totalDebt) {
+    uint256 marketMap = auditor.accountMarkets(account);
+    for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
+      if (marketMap & 1 != 0) {
+        Market market = auditor.marketList(i);
+        (, uint8 decimals, , , IPriceFeed priceFeed) = auditor.markets(market);
+        (uint256 collateral, uint256 debt) = market.accountSnapshot(account);
+        uint256 assetPrice = auditor.assetPrice(priceFeed);
+
+        totalCollateral += collateral.mulDivDown(assetPrice, 10 ** decimals);
+        totalDebt += debt.mulDivUp(assetPrice, 10 ** decimals);
+      }
+      unchecked {
+        ++i;
+      }
+    }
   }
 
   function previewLiquidation(
@@ -1078,6 +1100,8 @@ contract ProtocolTest is Test {
   }
 
   struct LiquidationVars {
+    uint256 totalCollateral;
+    uint256 totalDebt;
     uint256 repayAssets;
     uint256 seizeAssets;
     uint256 lendersAssets;
