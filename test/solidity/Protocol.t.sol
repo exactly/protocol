@@ -34,8 +34,7 @@ contract ProtocolTest is Test {
   using FixedPointMathLib for int256;
   using FixedPointMathLib for uint256;
   using FixedPointMathLib for uint128;
-  using FixedPointMathLib for uint96;
-  using FixedPointMathLib for uint64;
+  using FixedPointMathLib for uint56;
   using LibString for uint256;
   using FixedLib for FixedLib.Position;
 
@@ -61,6 +60,7 @@ contract ProtocolTest is Test {
       targetSender(account);
       accounts.push(account);
     }
+    accounts.push(address(this));
 
     for (uint256 i = 0; i < 2; ++i) {
       string memory symbol = string(abi.encodePacked(uint8(i) + 65));
@@ -251,26 +251,24 @@ contract ProtocolTest is Test {
   }
 
   function invariantTotalSupply() external {
-    for (uint i = 0; i < markets.length; i++) {
+    for (uint i = 0; i < markets.length; ++i) {
       Market market = markets[i];
-      uint256 sum;
-      for (uint j = 0; j < accounts.length; j++) {
-        sum += market.balanceOf(accounts[j]);
-      }
+      uint256 sum = 0;
+      for (uint j = 0; j < accounts.length; ++j) sum += market.balanceOf(accounts[j]);
       assertEq(sum, market.totalSupply());
     }
   }
 
   function invariantReserveFactor() external {
-    for (uint i = 0; i < markets.length; i++) {
+    for (uint i = 0; i < markets.length; ++i) {
       Market market = markets[i];
       assertLe(market.floatingDebt(), market.floatingAssets().mulWadDown(1e18 - market.reserveFactor()));
     }
   }
 
   function invariantAssetTransfer() external view {
-    for (uint i = 0; i < accounts.length; i++) {
-      for (uint j = 0; j < markets.length; j++) {
+    for (uint i = 0; i < accounts.length; ++i) {
+      for (uint j = 0; j < markets.length; ++j) {
         Market market = markets[j];
         MockERC20 asset = MockERC20(address(market.asset()));
         assert(asset.balanceOf(accounts[i]) == 0);
@@ -279,8 +277,8 @@ contract ProtocolTest is Test {
   }
 
   function invariantNoCollateralNoDebt() external {
-    for (uint i = 0; i < accounts.length; i++) {
-    address account = accounts[i];
+    for (uint i = 0; i < accounts.length; ++i) {
+      address account = accounts[i];
       if (auditor.accountMarkets(account) == 0) {
         for (uint256 j = 0; j < markets.length; ++j) {
           assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
@@ -289,7 +287,7 @@ contract ProtocolTest is Test {
     }
   }
 
-  function depositAtMaturity(uint8 seed, uint96 assets) external context(seed) {
+  function depositAtMaturity(uint56 assets, bytes32 seed) external context(seed) {
     if (assets == 0) {
       vm.expectRevert(ZeroDeposit.selector);
     } else {
@@ -300,7 +298,7 @@ contract ProtocolTest is Test {
     _market.depositAtMaturity(_maturity, assets, 0, msg.sender);
   }
 
-  function withdrawAtMaturity(uint8 seed, uint96 assets) external context(seed) {
+  function withdrawAtMaturity(uint56 assets, bytes32 seed) external context(seed) {
     (uint256 borrowed, uint256 supplied, , ) = _market.fixedPools(_maturity);
     (uint256 principal, uint256 fee) = _market.fixedDepositPositions(_maturity, msg.sender);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
@@ -346,7 +344,7 @@ contract ProtocolTest is Test {
     if (assetsDiscounted > 0) _asset.burn(msg.sender, assetsDiscounted);
   }
 
-  function repayAtMaturity(uint8 seed, uint96 assets) external context(seed) {
+  function repayAtMaturity(uint56 assets, bytes32 seed) external context(seed) {
     (uint256 principal, uint256 fee) = _market.fixedBorrowPositions(_maturity, msg.sender);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
 
@@ -375,7 +373,7 @@ contract ProtocolTest is Test {
     _market.repayAtMaturity(_maturity, positionAssets, type(uint256).max, msg.sender);
   }
 
-  function borrowAtMaturity(uint8 seed, uint96 assets) external context(seed) {
+  function borrowAtMaturity(uint56 assets, bytes32 seed) external context(seed) {
     (uint256 borrowed, uint256 supplied, , ) = _market.fixedPools(_maturity);
     uint256 backupAssets = previewFloatingAssetsAverage(_market);
     uint256 backupDebtAddition;
@@ -419,7 +417,7 @@ contract ProtocolTest is Test {
     if (assetsOwed > 0) _asset.burn(msg.sender, assets);
   }
 
-  function deposit(uint8 seed, uint96 assets) external context(seed) {
+  function deposit(uint56 assets, bytes32 seed) external context(seed) {
     uint256 expectedShares = _market.convertToShares(assets);
 
     if (expectedShares == 0) {
@@ -432,7 +430,7 @@ contract ProtocolTest is Test {
     _market.deposit(assets, msg.sender);
   }
 
-  function mint(uint8 seed, uint96 shares) external context(seed) {
+  function mint(uint56 shares, bytes32 seed) external context(seed) {
     uint256 expectedAssets = _market.previewMint(shares);
     _asset.mint(msg.sender, expectedAssets);
 
@@ -441,7 +439,7 @@ contract ProtocolTest is Test {
     _market.mint(shares, msg.sender);
   }
 
-  function claimRewards(uint8 seed) external context(seed) {
+  function claimRewards(bytes32 seed) external context(seed) {
     uint256 accumulatedRewards = rewardsController.allClaimable(msg.sender, rewardAsset);
     uint256 balanceBefore = rewardAsset.balanceOf(msg.sender);
     rewardsController.claimAll(msg.sender);
@@ -449,7 +447,7 @@ contract ProtocolTest is Test {
     claimedRewards += accumulatedRewards;
   }
 
-  function enterMarket(uint8 seed) external context(seed) {
+  function enterMarket(bytes32 seed) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
 
     if ((auditor.accountMarkets(msg.sender) & (1 << index)) == 0) {
@@ -459,7 +457,7 @@ contract ProtocolTest is Test {
     auditor.enterMarket(_market);
   }
 
-  function exitMarket(uint8 seed) external context(seed) {
+  function exitMarket(bytes32 seed) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     (uint256 balance, uint256 debt) = _market.accountSnapshot(msg.sender);
     (uint256 adjustedCollateral, uint256 adjustedDebt) = accountLiquidity(msg.sender, _market, 0, balance);
@@ -479,7 +477,7 @@ contract ProtocolTest is Test {
     if ((marketMap & (1 << index)) == 0) assertEq(marketMap, auditor.accountMarkets(msg.sender));
   }
 
-  function borrow(uint8 seed, uint96 assets) external context(seed) {
+  function borrow(uint56 assets, bytes32 seed) external context(seed) {
     uint256 expectedShares = _market.previewBorrow(assets);
     (uint256 collateral, uint256 debt) = previewAccountLiquidity(msg.sender, _market, assets, expectedShares);
 
@@ -500,7 +498,7 @@ contract ProtocolTest is Test {
     if (borrowShares > 0) _asset.burn(msg.sender, assets);
   }
 
-  function repay(uint8 seed, uint96 assets) external context(seed) {
+  function repay(uint56 assets, bytes32 seed) external context(seed) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(_market.previewRepay(assets), floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -515,7 +513,7 @@ contract ProtocolTest is Test {
     _market.repay(assets, msg.sender);
   }
 
-  function refund(uint8 seed, uint96 shares) external context(seed) {
+  function refund(uint56 shares, bytes32 seed) external context(seed) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(shares, floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -530,7 +528,7 @@ contract ProtocolTest is Test {
     _market.refund(shares, msg.sender);
   }
 
-  function withdraw(uint8 seed, uint96 assets) external context(seed) {
+  function withdraw(uint56 assets, bytes32 seed) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedShares = _market.totalAssets() != 0 ? _market.previewWithdraw(assets) : 0;
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, assets);
@@ -559,7 +557,7 @@ contract ProtocolTest is Test {
     if (withdrawShares > 0) _asset.burn(msg.sender, assets);
   }
 
-  function redeem(uint8 seed, uint96 shares) external context(seed) {
+  function redeem(uint56 shares, bytes32 seed) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedAssets = _market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, expectedAssets);
@@ -590,7 +588,7 @@ contract ProtocolTest is Test {
     if (expectedAssets > 0) _asset.burn(msg.sender, expectedAssets);
   }
 
-  function transfer(uint8 seed, uint96 shares) external context(seed) {
+  function transfer(uint56 shares, bytes32 seed) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 withdrawAssets = _market.previewRedeem(shares);
     (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, withdrawAssets);
@@ -606,12 +604,12 @@ contract ProtocolTest is Test {
     _market.transfer(_counterparty, shares);
   }
 
-  function setPrice(uint8 seed, uint96 price) external context(seed) {
+  function setPrice(uint56 price, bytes32 seed) external context(seed) {
     (, , , , IPriceFeed priceFeed) = auditor.markets(_market);
-    MockPriceFeed(address(priceFeed)).setPrice(int256(uint256(_bound(price, 1, type(uint96).max))));
+    MockPriceFeed(address(priceFeed)).setPrice(int256(uint256(_bound(price, 1, type(uint56).max))));
   }
 
-  function liquidate(uint256 seed) external liquidationContext(seed) {
+  function liquidate(bytes32 seed) external liquidationContext(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     (, , uint256 collateralIndex, , ) = auditor.markets(_collateralMarket);
     (uint256 collateral, uint256 debt) = accountLiquidity(_counterparty, Market(address(0)), 0, 0);
@@ -683,54 +681,59 @@ contract ProtocolTest is Test {
   MockERC20 internal _asset;
   uint256 internal _maturity;
   address internal _counterparty;
-  modifier context(uint8 seed) {
+  Market internal _collateralMarket;
+  modifier context(bytes32 seed) {
     assert(address(_market) == address(0));
     _market = markets[_bound(uint256(keccak256(abi.encode(seed, "market"))), 0, markets.length - 1)];
     _asset = MockERC20(address(_market.asset()));
-    _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     _counterparty = accounts[_bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 1)];
+    _collateralMarket = markets[_bound(uint256(keccak256(abi.encode(seed, "collateral"))), 0, markets.length - 1)];
+    _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     vm.startPrank(msg.sender);
     _;
     vm.stopPrank();
     _market = Market(address(0));
   }
 
-  Market internal _collateralMarket;
-  modifier liquidationContext(uint256 seed) {
+  modifier liquidationContext(bytes32 seed) {
     assert(address(_market) == address(0));
     _counterparty = accounts[
-      (uint8(bytes1(bytes20(msg.sender))) + _bound(seed, 0, accounts.length - 2)) % accounts.length
+      (uint8(bytes1(bytes20(msg.sender))) +
+        _bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 2)) % accounts.length
     ];
     _market = markets[_bound(uint256(keccak256(abi.encode(seed, "market"))), 0, markets.length - 1)];
     _collateralMarket = _market;
-    uint256 counterpartyMarkets = auditor.accountMarkets(_counterparty);
-    for (uint256 i = 0; counterpartyMarkets != 0; counterpartyMarkets >>= 1) {
-      if (counterpartyMarkets & 1 != 0) {
-        Market market = auditor.marketList(i);
-        (uint256 adjustFactor, , , , ) = auditor.markets(market);
-        vm.prank(address(this));
-        auditor.setAdjustFactor(market, uint128(adjustFactor.mulWadDown(_bound(seed, 0.1e18, 0.5e18))));
-        if (market.previewDebt(_counterparty) > 0) _market = market;
-        if (market.balanceOf(_counterparty) > 0) _collateralMarket = market;
+    {
+      uint256 counterpartyMarkets = auditor.accountMarkets(_counterparty);
+      for (uint256 i = 0; counterpartyMarkets != 0; counterpartyMarkets >>= 1) {
+        if (counterpartyMarkets & 1 != 0) {
+          Market market = auditor.marketList(i);
+          (uint256 adjustFactor, , , , ) = auditor.markets(market);
+          vm.prank(address(this));
+          auditor.setAdjustFactor(
+            market,
+            uint128(adjustFactor.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "adjust", i))), 0.1e18, 0.5e18)))
+          );
+          if (market.previewDebt(_counterparty) > 0) _market = market;
+          if (market.balanceOf(_counterparty) > 0) _collateralMarket = market;
+        }
       }
     }
     _asset = MockERC20(address(_market.asset()));
-    assert(_asset.balanceOf(msg.sender) == 0);
     _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     vm.startPrank(msg.sender);
     _;
     vm.stopPrank();
-    assert(_asset.balanceOf(msg.sender) == 0);
 
     // bad debt cleared check
     BadDebtVars memory b;
     Auditor.MarketData memory md;
-    (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(_market);
+    (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_market);
     (b.balance, b.repayMarketDebt) = _market.accountSnapshot(_counterparty);
     b.adjustedCollateral = b.balance.mulDivDown(uint256(md.priceFeed.latestAnswer()), 10 ** md.decimals).mulWadDown(
       md.adjustFactor
     );
-    (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(_collateralMarket);
+    (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_collateralMarket);
     (b.balance, b.collateralMarketDebt) = _collateralMarket.accountSnapshot(_counterparty);
     b.adjustedCollateral += b.balance.mulDivDown(uint256(md.priceFeed.latestAnswer()), 10 ** md.decimals).mulWadDown(
       md.adjustFactor
@@ -754,8 +757,7 @@ contract ProtocolTest is Test {
         MockERC20 asset = MockERC20(address(market.asset()));
         MockERC20 otherAsset = MockERC20(address(otherMarket.asset()));
         address sender = msg.sender;
-        vm.stopPrank();
-        vm.startPrank(address(0x420));
+        changePrank(address(this));
         asset.mint(msg.sender, type(uint96).max);
         asset.approve(address(market), type(uint256).max);
         otherAsset.mint(msg.sender, type(uint96).max);
@@ -772,8 +774,7 @@ contract ProtocolTest is Test {
         );
         market.borrowAtMaturity(_maturity, 1_000_000, type(uint256).max, msg.sender, msg.sender);
         vm.warp(block.timestamp + 1 days);
-        vm.stopPrank();
-        vm.startPrank(sender);
+        changePrank(sender);
       }
     }
 
@@ -912,7 +913,7 @@ contract ProtocolTest is Test {
       Market market = auditor.marketList(i);
       if ((marketMap & (1 << i)) != 0) {
         Auditor.MarketData memory md;
-        (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(market);
+        (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(market);
         (vars.balance, vars.borrowBalance) = market.accountSnapshot(account);
         vars.price = uint256(md.priceFeed.latestAnswer());
         sumCollateral += vars.balance.mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
