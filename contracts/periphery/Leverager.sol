@@ -103,6 +103,17 @@ contract Leverager {
     }
   }
 
+  /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
+  function availableLiquidity() external view returns (AvailableAsset[] memory availableAssets) {
+    uint256 marketsCount = auditor.allMarkets().length;
+    availableAssets = new AvailableAsset[](marketsCount);
+
+    for (uint256 i = 0; i < marketsCount; i++) {
+      ERC20 asset = auditor.marketList(i).asset();
+      availableAssets[i] = AvailableAsset({ asset: asset, liquidity: asset.balanceOf(address(balancerVault)) });
+    }
+  }
+
   /// @notice Approves the Market to spend the contract's balance of the underlying asset.
   /// @dev The Market must be listed by the Auditor in order to be valid for approval.
   /// @param market The Market to spend the contract's balance.
@@ -111,6 +122,11 @@ contract Leverager {
     if (!isListed) revert MarketNotListed();
 
     market.asset().safeApprove(address(market), type(uint256).max);
+  }
+
+  struct AvailableAsset {
+    ERC20 asset;
+    uint256 liquidity;
   }
 }
 

@@ -114,6 +114,14 @@ contract LeveragerTest is Test {
     lev.leverage(marketUSDC, 100_000e6, 1.03e18, true);
   }
 
+  function testAvailableLiquidity() external {
+    Leverager.AvailableAsset[] memory availableAssets = leverager.availableLiquidity();
+    Market[] memory markets = marketUSDC.auditor().allMarkets();
+    assertEq(availableAssets.length, markets.length);
+    assertEq(address(availableAssets[1].asset), address(marketUSDC.asset()));
+    assertEq(availableAssets[1].liquidity, marketUSDC.asset().balanceOf(address(leverager.balancerVault())));
+  }
+
   function deployment(string memory name) internal returns (address addr) {
     addr = vm.readFile(string.concat("deployments/optimism/", name, ".json")).readAddress(".address");
     vm.label(addr, name);
