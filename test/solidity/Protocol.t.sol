@@ -129,35 +129,6 @@ contract ProtocolTest is Test {
   }
 
   function invariants() external {
-    for (uint256 i = 0; i < accounts.length; ++i) {
-      address account = accounts[i];
-      for (uint256 j = 0; j < markets.length; ++j) {
-        (, uint256 packedMaturities, ) = markets[j].accounts(account);
-        uint256 maturity = packedMaturities & ((1 << 32) - 1);
-        packedMaturities = packedMaturities >> 32;
-        while (packedMaturities != 0) {
-          if (packedMaturities & 1 != 0) {
-            FixedLib.Position memory p;
-            (p.principal, p.fee) = markets[j].fixedBorrowPositions(maturity, account);
-            assertGt(p.principal + p.fee, 0, "should contain debt");
-          }
-          packedMaturities >>= 1;
-          maturity += FixedLib.INTERVAL;
-        }
-        (packedMaturities, , ) = markets[j].accounts(account);
-        maturity = packedMaturities & ((1 << 32) - 1);
-        packedMaturities = packedMaturities >> 32;
-        while (packedMaturities != 0) {
-          if (packedMaturities & 1 != 0) {
-            FixedLib.Position memory p;
-            (p.principal, p.fee) = markets[j].fixedDepositPositions(maturity, account);
-            assertGt(p.principal + p.fee, 0, "should contain deposit");
-          }
-          packedMaturities >>= 1;
-          maturity += FixedLib.INTERVAL;
-        }
-      }
-    }
     for (uint256 i = 0; i < markets.length; ++i) {
       Market market = auditor.marketList(i);
       uint256 fixedBorrows = 0;
@@ -282,6 +253,48 @@ contract ProtocolTest is Test {
       if (auditor.accountMarkets(account) == 0) {
         for (uint256 j = 0; j < markets.length; ++j) {
           assertEq(markets[j].previewDebt(account), 0, "should contain no debt");
+        }
+      }
+    }
+  }
+
+  function invariantFixedBorrowPositions() external {
+    for (uint256 i = 0; i < accounts.length; ++i) {
+      address account = accounts[i];
+      for (uint256 j = 0; j < markets.length; ++j) {
+        Market market = markets[j];
+        (, uint256 packedMaturities, ) = market.accounts(account);
+        uint256 maturity = packedMaturities & ((1 << 32) - 1);
+        packedMaturities = packedMaturities >> 32;
+        while (packedMaturities != 0) {
+          if (packedMaturities & 1 != 0) {
+            FixedLib.Position memory p;
+            (p.principal, p.fee) = market.fixedBorrowPositions(maturity, account);
+            assertGt(p.principal + p.fee, 0, "should contain debt");
+          }
+          packedMaturities >>= 1;
+          maturity += FixedLib.INTERVAL;
+        }
+      }
+    }
+  }
+
+  function invariantFixedDepositPositions() external {
+    for (uint256 i = 0; i < accounts.length; ++i) {
+      address account = accounts[i];
+      for (uint256 j = 0; j < markets.length; ++j) {
+        Market market = markets[j];
+        (uint256 packedMaturities, , ) = market.accounts(account);
+        uint256 maturity = packedMaturities & ((1 << 32) - 1);
+        packedMaturities = packedMaturities >> 32;
+        while (packedMaturities != 0) {
+          if (packedMaturities & 1 != 0) {
+            FixedLib.Position memory p;
+            (p.principal, p.fee) = market.fixedDepositPositions(maturity, account);
+            assertGt(p.principal + p.fee, 0, "should contain deposit");
+          }
+          packedMaturities >>= 1;
+          maturity += FixedLib.INTERVAL;
         }
       }
     }
