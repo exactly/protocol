@@ -131,34 +131,6 @@ contract ProtocolTest is Test {
   function invariants() external {
     for (uint256 i = 0; i < markets.length; ++i) {
       Market market = auditor.marketList(i);
-      uint256 fixedBorrows = 0;
-      uint256 fixedDeposits = 0;
-      for (uint256 j = 0; j < accounts.length; ++j) {
-        address account = accounts[j];
-        (, uint256 packedMaturities, ) = market.accounts(account);
-        uint256 baseMaturity = packedMaturities % (1 << 32);
-        packedMaturities = packedMaturities >> 32;
-        for (uint256 k = 0; k < 224; ++k) {
-          if ((packedMaturities & (1 << k)) != 0) {
-            uint256 maturity = baseMaturity + (k * FixedLib.INTERVAL);
-            (uint256 principal, uint256 fee) = market.fixedBorrowPositions(maturity, account);
-            fixedBorrows += principal + fee;
-          }
-          if ((1 << k) > packedMaturities) break;
-        }
-        (packedMaturities, , ) = market.accounts(account);
-        baseMaturity = packedMaturities % (1 << 32);
-        packedMaturities = packedMaturities >> 32;
-        for (uint256 k = 0; k < 224; ++k) {
-          if ((packedMaturities & (1 << k)) != 0) {
-            uint256 maturity = baseMaturity + (k * FixedLib.INTERVAL);
-            (uint256 principal, uint256 fee) = market.fixedDepositPositions(maturity, account);
-            fixedDeposits += principal + fee;
-          }
-          if ((1 << k) > packedMaturities) break;
-        }
-      }
-      uint256 fixedUnassignedEarnings = 0;
       uint256 floatingBackupBorrowed = 0;
       uint256 backupEarnings = 0;
       uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
@@ -177,23 +149,15 @@ contract ProtocolTest is Test {
             ? unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual)
             : unassignedEarnings;
         }
-        fixedUnassignedEarnings += unassignedEarnings;
       }
       uint256 totalAssets = market.floatingAssets() +
         backupEarnings +
         previewAccumulatedEarnings(market) +
         market.totalFloatingBorrowAssets() -
         market.floatingDebt();
-      uint256 assets = market.floatingAssets() -
-        market.floatingDebt() +
-        market.earningsAccumulator() +
-        fixedUnassignedEarnings +
-        fixedDeposits -
-        fixedBorrows;
 
       assertEq(floatingBackupBorrowed, market.floatingBackupBorrowed(), "should match floatingBackupBorrowed");
       assertEq(totalAssets, market.totalAssets(), "should match totalAssets()");
-      assertEq(assets, market.asset().balanceOf(address(market)), "should match underlying balance");
     }
     (uint256 start, uint256 end, uint256 lastUpdate) = rewardsController.distributionTime(markets[0], rewardAsset);
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(markets[0], rewardAsset);
@@ -297,6 +261,22 @@ contract ProtocolTest is Test {
           maturity += FixedLib.INTERVAL;
         }
       }
+    }
+  }
+
+  function invariantMarketAssets() external {
+    for (uint256 i = 0; i < markets.length; ++i) {
+      Market market = auditor.marketList(i);
+      (uint256 fixedBorrows, uint256 fixedDeposits) = fixedPositionsTotals(market);
+      uint256 fixedUnassignedEarnings = sumFixedUnassignedEarnings(market);
+      uint256 assets = market.floatingAssets() -
+        market.floatingDebt() +
+        market.earningsAccumulator() +
+        fixedUnassignedEarnings +
+        fixedDeposits -
+        fixedBorrows;
+
+      assertEq(assets, market.asset().balanceOf(address(market)), "should match underlying balance");
     }
   }
 
@@ -958,6 +938,47 @@ contract ProtocolTest is Test {
         skip(1 days);
         changePrank(sender);
       }
+    }
+  }
+
+  function fixedPositionsTotals(Market market) internal view returns (uint256 fixedBorrows, uint256 fixedDeposits) {
+    for (uint256 i = 0; i < accounts.length; ++i) {
+      address account = accounts[i];
+      (, uint256 packedMaturities, ) = market.accounts(account);
+      fixedBorrows += sumFixedPositions(market, account, packedMaturities, true);
+      (packedMaturities, , ) = market.accounts(account);
+      fixedDeposits += sumFixedPositions(market, account, packedMaturities, false);
+    }
+  }
+
+  function sumFixedUnassignedEarnings(Market market) internal view returns (uint256 fixedUnassignedEarnings) {
+    uint256 maxMaturity = block.timestamp -
+      (block.timestamp % FixedLib.INTERVAL) +
+      market.maxFuturePools() *
+      FixedLib.INTERVAL;
+    for (uint256 maturity = 0; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+      (, , uint256 unassignedEarnings, ) = market.fixedPools(maturity);
+      fixedUnassignedEarnings += unassignedEarnings;
+    }
+  }
+
+  function sumFixedPositions(
+    Market market,
+    address account,
+    uint256 packedMaturities,
+    bool isBorrow
+  ) internal view returns (uint256 result) {
+    uint256 baseMaturity = packedMaturities % (1 << 32);
+    packedMaturities = packedMaturities >> 32;
+    for (uint256 i = 0; i < 224; ++i) {
+      if ((packedMaturities & (1 << i)) != 0) {
+        uint256 maturity = baseMaturity + (i * FixedLib.INTERVAL);
+        (uint256 principal, uint256 fee) = isBorrow
+          ? market.fixedBorrowPositions(maturity, account)
+          : market.fixedDepositPositions(maturity, account);
+        result += principal + fee;
+      }
+      if ((1 << i) > packedMaturities) break;
     }
   }
 
