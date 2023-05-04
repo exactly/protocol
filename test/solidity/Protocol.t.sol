@@ -298,8 +298,12 @@ contract ProtocolTest is Test {
     _market.depositAtMaturity(_maturity, assets, 0, msg.sender);
   }
 
-  function withdrawAtMaturity(uint56 assets, bytes32 seed) external context(seed) {
-    (uint256 borrowed, uint256 supplied, , ) = _market.fixedPools(_maturity);
+  function withdrawAtMaturity(
+    uint56 assets,
+    bytes32 seed
+  ) external context(seed) _depositAtMaturity(assets, msg.sender) {
+    Binary memory pool;
+    (pool.negative, pool.positive, , ) = _market.fixedPools(_maturity);
     (uint256 principal, uint256 fee) = _market.fixedDepositPositions(_maturity, msg.sender);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
     uint256 backupAssets = previewFloatingAssetsAverage(_market);
@@ -307,21 +311,25 @@ contract ProtocolTest is Test {
 
     if (assets == 0) {
       vm.expectRevert(ZeroWithdraw.selector);
-    } else if (block.timestamp < _maturity && supplied + backupAssets == 0) {
+    } else if (block.timestamp < _maturity && pool.positive + backupAssets == 0) {
       vm.expectRevert(bytes(""));
     } else if (
-      (block.timestamp < _maturity && positionAssets > backupAssets + supplied) ||
-      (borrowed + positionAssets).divWadUp(backupAssets + supplied) > 1e18
+      (block.timestamp < _maturity && positionAssets > backupAssets + pool.positive) ||
+      (pool.negative + positionAssets).divWadUp(backupAssets + pool.positive) > 1e18
     ) {
       vm.expectRevert(UtilizationExceeded.selector);
     } else if (
-      block.timestamp < _maturity && ((supplied + previewFloatingAssetsAverage(_market) == 0) || principal + fee == 0)
+      block.timestamp < _maturity &&
+      ((pool.positive + previewFloatingAssetsAverage(_market) == 0) || principal + fee == 0)
     ) {
       vm.expectRevert(bytes(""));
     } else if (
       _market.floatingBackupBorrowed() +
-        Math.min(supplied, borrowed) -
-        Math.min(supplied - FixedLib.Position(principal, fee).scaleProportionally(positionAssets).principal, borrowed) +
+        Math.min(pool.positive, pool.negative) -
+        Math.min(
+          pool.positive - FixedLib.Position(principal, fee).scaleProportionally(positionAssets).principal,
+          pool.negative
+        ) +
         _market.totalFloatingBorrowAssets() >
       _market.floatingAssets() + previewNewFloatingDebt(_market)
     ) {
@@ -330,7 +338,13 @@ contract ProtocolTest is Test {
       assetsDiscounted = block.timestamp < _maturity
         ? positionAssets.divWadDown(
           1e18 +
-            _market.interestRateModel().fixedBorrowRate(_maturity, positionAssets, borrowed, supplied, backupAssets)
+            _market.interestRateModel().fixedBorrowRate(
+              _maturity,
+              positionAssets,
+              pool.negative,
+              pool.positive,
+              backupAssets
+            )
         )
         : positionAssets;
       if (assetsDiscounted > _asset.balanceOf(address(_market))) {
@@ -373,20 +387,23 @@ contract ProtocolTest is Test {
     _market.repayAtMaturity(_maturity, positionAssets, type(uint256).max, msg.sender);
   }
 
-  function borrowAtMaturity(uint56 assets, bytes32 seed) external context(seed) {
-    (uint256 borrowed, uint256 supplied, , ) = _market.fixedPools(_maturity);
+  function borrowAtMaturity(uint56 assets, bytes32 seed) external context(seed) _collateral(assets, msg.sender) {
+    Binary memory pool;
+    (pool.negative, pool.positive, , ) = _market.fixedPools(_maturity);
     uint256 backupAssets = previewFloatingAssetsAverage(_market);
     uint256 backupDebtAddition;
     {
-      uint256 newBorrowed = borrowed + assets;
-      backupDebtAddition = newBorrowed - Math.min(Math.max(borrowed, supplied), newBorrowed);
+      uint256 newBorrowed = pool.negative + assets;
+      backupDebtAddition = newBorrowed - Math.min(Math.max(pool.negative, pool.positive), newBorrowed);
     }
 
     if (assets == 0) {
       vm.expectRevert(ZeroBorrow.selector);
-    } else if (supplied + backupAssets == 0) {
+    } else if (pool.positive + backupAssets == 0) {
       vm.expectRevert(bytes(""));
-    } else if (assets > backupAssets + supplied || (borrowed + assets).divWadUp(backupAssets + supplied) > 1e18) {
+    } else if (
+      assets > backupAssets + pool.positive || (pool.negative + assets).divWadUp(backupAssets + pool.positive) > 1e18
+    ) {
       vm.expectRevert(UtilizationExceeded.selector);
     } else if (
       backupDebtAddition > 0 &&
@@ -396,15 +413,16 @@ contract ProtocolTest is Test {
       vm.expectRevert(InsufficientProtocolLiquidity.selector);
     } else {
       uint256 fees = assets.mulWadDown(
-        _market.interestRateModel().fixedBorrowRate(_maturity, assets, borrowed, supplied, backupAssets)
+        _market.interestRateModel().fixedBorrowRate(_maturity, assets, pool.negative, pool.positive, backupAssets)
       );
       newAccumulatedEarnings[_market] = fees.mulDivDown(
-        assets - Math.min(borrowed + assets - Math.min(borrowed + assets, supplied), assets),
+        assets - Math.min(pool.negative + assets - Math.min(pool.negative + assets, pool.positive), assets),
         assets
       );
-      (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, assets + fees, 0);
+      Binary memory liquidity;
+      (liquidity.positive, liquidity.negative) = accountLiquidity(msg.sender, _market, assets + fees, 0);
       newAccumulatedEarnings[_market] = 0;
-      if (collateral < debt) {
+      if (liquidity.positive < liquidity.negative) {
         vm.expectRevert(InsufficientAccountLiquidity.selector);
       } else if (assets > _asset.balanceOf(address(_market))) {
         vm.expectRevert(bytes(""));
@@ -460,13 +478,14 @@ contract ProtocolTest is Test {
   function exitMarket(bytes32 seed) external context(seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     (uint256 balance, uint256 debt) = _market.accountSnapshot(msg.sender);
-    (uint256 adjustedCollateral, uint256 adjustedDebt) = accountLiquidity(msg.sender, _market, 0, balance);
+    Binary memory liquidity;
+    (liquidity.positive, liquidity.negative) = accountLiquidity(msg.sender, _market, 0, balance);
     uint256 marketMap = auditor.accountMarkets(msg.sender);
 
     if ((marketMap & (1 << index)) != 0) {
       if (debt > 0) {
         vm.expectRevert(RemainingDebt.selector);
-      } else if (adjustedCollateral < adjustedDebt) {
+      } else if (liquidity.positive < liquidity.negative) {
         vm.expectRevert(InsufficientAccountLiquidity.selector);
       } else {
         vm.expectEmit(true, true, true, true, address(auditor));
@@ -477,7 +496,10 @@ contract ProtocolTest is Test {
     if ((marketMap & (1 << index)) == 0) assertEq(marketMap, auditor.accountMarkets(msg.sender));
   }
 
-  function borrow(uint56 assets, bytes32 seed) external context(seed) {
+  function borrow(
+    uint56 assets,
+    bytes32 seed
+  ) external context(seed) _liquidity(assets) _collateral(assets, msg.sender) {
     uint256 expectedShares = _market.previewBorrow(assets);
     (uint256 collateral, uint256 debt) = previewAccountLiquidity(msg.sender, _market, assets, expectedShares);
 
@@ -498,7 +520,7 @@ contract ProtocolTest is Test {
     if (borrowShares > 0) _asset.burn(msg.sender, assets);
   }
 
-  function repay(uint56 assets, bytes32 seed) external context(seed) {
+  function repay(uint56 assets, bytes32 seed) external context(seed) _borrow(assets, msg.sender) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(_market.previewRepay(assets), floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -513,7 +535,10 @@ contract ProtocolTest is Test {
     _market.repay(assets, msg.sender);
   }
 
-  function refund(uint56 shares, bytes32 seed) external context(seed) {
+  function refund(
+    uint56 shares,
+    bytes32 seed
+  ) external context(seed) _borrow(_market.previewRefund(shares), msg.sender) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(shares, floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -528,13 +553,14 @@ contract ProtocolTest is Test {
     _market.refund(shares, msg.sender);
   }
 
-  function withdraw(uint56 assets, bytes32 seed) external context(seed) {
+  function withdraw(uint56 assets, bytes32 seed) external context(seed) _deposit(assets, msg.sender) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedShares = _market.totalAssets() != 0 ? _market.previewWithdraw(assets) : 0;
-    (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, assets);
+    Binary memory liquidity;
+    (liquidity.positive, liquidity.negative) = accountLiquidity(msg.sender, _market, 0, assets);
     uint256 earnings = previewAccumulatedEarnings(_market);
 
-    if ((auditor.accountMarkets(msg.sender) & (1 << index)) != 0 && debt > collateral) {
+    if ((auditor.accountMarkets(msg.sender) & (1 << index)) != 0 && liquidity.negative > liquidity.positive) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
     } else if (_market.totalSupply() > 0 && _market.totalAssets() == 0) {
       vm.expectRevert(bytes(""));
@@ -557,15 +583,22 @@ contract ProtocolTest is Test {
     if (withdrawShares > 0) _asset.burn(msg.sender, assets);
   }
 
-  function redeem(uint56 shares, bytes32 seed) external context(seed) {
+  function redeem(
+    uint56 shares,
+    bytes32 seed
+  ) external context(seed) _deposit(_market.previewMint(shares), msg.sender) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedAssets = _market.previewRedeem(shares);
-    (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, expectedAssets);
+    Binary memory liquidity;
+    (liquidity.positive, liquidity.negative) = accountLiquidity(msg.sender, _market, 0, expectedAssets);
     uint256 earnings = previewAccumulatedEarnings(_market);
 
-    if (expectedAssets == 0 && ((auditor.accountMarkets(msg.sender) & (1 << index)) == 0 || collateral >= debt)) {
+    if (
+      expectedAssets == 0 &&
+      ((auditor.accountMarkets(msg.sender) & (1 << index)) == 0 || liquidity.positive >= liquidity.negative)
+    ) {
       vm.expectRevert(bytes(""));
-    } else if ((auditor.accountMarkets(msg.sender) & (1 << index)) != 0 && debt > collateral) {
+    } else if ((auditor.accountMarkets(msg.sender) & (1 << index)) != 0 && liquidity.negative > liquidity.positive) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
     } else if (_market.totalSupply() > 0 && _market.totalAssets() == 0) {
       vm.expectRevert(bytes(""));
@@ -588,12 +621,16 @@ contract ProtocolTest is Test {
     if (expectedAssets > 0) _asset.burn(msg.sender, expectedAssets);
   }
 
-  function transfer(uint56 shares, bytes32 seed) external context(seed) {
+  function transfer(
+    uint56 shares,
+    bytes32 seed
+  ) external context(seed) _deposit(_market.previewMint(shares), msg.sender) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 withdrawAssets = _market.previewRedeem(shares);
-    (uint256 collateral, uint256 debt) = accountLiquidity(msg.sender, _market, 0, withdrawAssets);
+    Binary memory liquidity;
+    (liquidity.positive, liquidity.negative) = accountLiquidity(msg.sender, _market, 0, withdrawAssets);
 
-    if ((auditor.accountMarkets(msg.sender) & (1 << index)) != 0 && debt > collateral) {
+    if ((auditor.accountMarkets(msg.sender) & (1 << index)) != 0 && liquidity.negative > liquidity.positive) {
       vm.expectRevert(InsufficientAccountLiquidity.selector);
     } else if (shares > _market.balanceOf(msg.sender)) {
       vm.expectRevert(stdError.arithmeticError);
@@ -609,13 +646,24 @@ contract ProtocolTest is Test {
     MockPriceFeed(address(priceFeed)).setPrice(int256(uint256(_bound(price, 1, type(uint56).max))));
   }
 
-  function liquidate(bytes32 seed) external liquidationContext(seed) {
+  function liquidate(
+    uint56 assets,
+    bytes32 seed
+  )
+    external
+    context(seed)
+    _uniqueAccounts(seed)
+    _liquidity(assets)
+    _borrow(assets, _counterparty)
+    _checkBadDebt
+  {
     (, , uint256 index, , ) = auditor.markets(_market);
     (, , uint256 collateralIndex, , ) = auditor.markets(_collateralMarket);
-    (uint256 collateral, uint256 debt) = accountLiquidity(_counterparty, Market(address(0)), 0, 0);
+    Binary memory liquidity;
+    (liquidity.positive, liquidity.negative) = accountLiquidity(_counterparty, Market(address(0)), 0, 0);
     LiquidationVars memory lv;
 
-    if (collateral >= debt) {
+    if (liquidity.positive >= liquidity.negative) {
       vm.expectRevert(InsufficientShortfall.selector);
     } else if (rawCollateral(_counterparty) == 0) {
       vm.expectRevert(bytes(""));
@@ -632,8 +680,9 @@ contract ProtocolTest is Test {
       (lv.totalCollateral, lv.totalDebt) = previewTotalLiquidity(_counterparty);
       unchecked {
         if (
-          (collateral > 0 && (collateral * lv.totalDebt) / collateral != lv.totalDebt) ||
-          (debt > 0 && (debt * lv.totalCollateral) / debt != lv.totalCollateral)
+          (liquidity.positive > 0 && (liquidity.positive * lv.totalDebt) / liquidity.positive != lv.totalDebt) ||
+          (liquidity.negative > 0 &&
+            (liquidity.negative * lv.totalCollateral) / liquidity.negative != lv.totalCollateral)
         ) {
           vm.expectRevert(bytes(""));
         } else {
@@ -695,36 +744,156 @@ contract ProtocolTest is Test {
     _market = Market(address(0));
   }
 
-  modifier liquidationContext(bytes32 seed) {
-    assert(address(_market) == address(0));
+  modifier _uniqueAccounts(bytes32 seed) {
     _counterparty = accounts[
       (uint8(bytes1(bytes20(msg.sender))) +
         _bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 2)) % accounts.length
     ];
-    _market = markets[_bound(uint256(keccak256(abi.encode(seed, "market"))), 0, markets.length - 1)];
-    _collateralMarket = _market;
+    _;
+  }
+
+  modifier _liquidity(uint256 assets) {
     {
-      uint256 counterpartyMarkets = auditor.accountMarkets(_counterparty);
-      for (uint256 i = 0; counterpartyMarkets != 0; counterpartyMarkets >>= 1) {
-        if (counterpartyMarkets & 1 != 0) {
-          Market market = auditor.marketList(i);
-          (uint256 adjustFactor, , , , ) = auditor.markets(market);
-          vm.prank(address(this));
-          auditor.setAdjustFactor(
-            market,
-            uint128(adjustFactor.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "adjust", i))), 0.1e18, 0.5e18)))
-          );
-          if (market.previewDebt(_counterparty) > 0) _market = market;
-          if (market.balanceOf(_counterparty) > 0) _collateralMarket = market;
-        }
+      uint256 liquidity = assets.divWadUp(1e18 - _market.reserveFactor());
+      // if (_bound(uint256(keccak256(abi.encode(seed, "liquidity"))), 0, 9) == 0) {
+      //   liquidity = liquidity.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "liquidity--"))), 0, 1e18 - 1));
+      // }
+      if (liquidity != 0) {
+        address sender = msg.sender;
+        changePrank(address(this));
+        MockERC20(address(_market.asset())).mint(address(this), liquidity);
+        _market.deposit(liquidity, address(this));
+        changePrank(sender);
       }
     }
-    _asset = MockERC20(address(_market.asset()));
-    _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-    vm.startPrank(msg.sender);
     _;
-    vm.stopPrank();
+  }
 
+  modifier _deposit(uint256 assets, address account) {
+    if (assets != 0) {
+      address sender = msg.sender;
+      changePrank(account);
+      _asset.mint(account, assets);
+      _market.deposit(assets, account);
+      changePrank(sender);
+    }
+    _;
+  }
+
+  modifier _depositAtMaturity(uint256 assets, address account) {
+    if (assets != 0) {
+      address sender = msg.sender;
+      changePrank(account);
+      _asset.mint(account, assets);
+      _market.depositAtMaturity(_maturity, assets, 0, account);
+      changePrank(sender);
+    }
+    _;
+  }
+
+  modifier _collateral(uint256 assets, address account) {
+    {
+      Auditor.MarketData memory md;
+      Auditor.MarketData memory cd;
+      (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_market);
+      (cd.adjustFactor, cd.decimals, cd.index, cd.isListed, cd.priceFeed) = auditor.markets(_collateralMarket);
+      uint256 collateral = assets
+        .mulDivUp(auditor.assetPrice(md.priceFeed), 10 ** md.decimals)
+        .divWadUp(md.adjustFactor)
+        .divWadUp(cd.adjustFactor)
+        .mulDivUp(10 ** cd.decimals, auditor.assetPrice(cd.priceFeed));
+      if (collateral != 0) {
+        address sender = msg.sender;
+        changePrank(account);
+        MockERC20(address(_collateralMarket.asset())).mint(account, collateral);
+        _collateralMarket.deposit(collateral, account);
+        auditor.enterMarket(_collateralMarket);
+        changePrank(sender);
+      }
+    }
+    _;
+  }
+
+  modifier _borrow(uint256 assets, address account) {
+    if (assets != 0) {
+      address sender = msg.sender;
+      changePrank(address(this));
+      {
+        uint256 liquidity = assets.divWadUp(1e18 - _market.reserveFactor());
+        _asset.mint(address(this), liquidity);
+        _market.deposit(liquidity, address(this));
+      }
+      changePrank(account);
+      {
+        Binary memory liquidity;
+        (liquidity.positive, liquidity.negative) = auditor.accountLiquidity(account, Market(address(0)), 0);
+        Auditor.MarketData memory md;
+        (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_market);
+        uint256 adjustedCollateral = (
+          liquidity.negative > liquidity.positive ? liquidity.negative - liquidity.positive : 0
+        ) + assets.mulDivUp(auditor.assetPrice(md.priceFeed), 10 ** md.decimals).divWadUp(md.adjustFactor);
+        (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_collateralMarket);
+        uint256 collateral = adjustedCollateral.divWadUp(md.adjustFactor).mulDivUp(
+          10 ** md.decimals,
+          auditor.assetPrice(md.priceFeed)
+        );
+        MockERC20(address(_collateralMarket.asset())).mint(account, collateral);
+        _collateralMarket.deposit(collateral, account);
+        auditor.enterMarket(_collateralMarket);
+        _market.borrow(assets, account, account);
+        _asset.burn(account, assets);
+      }
+      changePrank(sender);
+    }
+    _;
+  }
+
+  modifier _borrowAtMaturity(uint256 assets, address account) {
+    if (assets != 0) {
+      address sender = msg.sender;
+      changePrank(address(this));
+      {
+        uint256 liquidity = assets.divWadUp(1e18 - _market.reserveFactor());
+        _asset.mint(address(this), liquidity);
+        _market.deposit(liquidity, address(this));
+        skip(10_000);
+      }
+      changePrank(account);
+      {
+        Binary memory liquidity;
+        (liquidity.positive, liquidity.negative) = auditor.accountLiquidity(account, Market(address(0)), 0);
+        Auditor.MarketData memory md;
+        (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_market);
+        Binary memory pool;
+        (pool.negative, pool.positive, , ) = _market.fixedPools(_maturity);
+        uint256 fee = _market.interestRateModel().fixedBorrowRate(
+          _maturity,
+          assets,
+          pool.negative,
+          pool.positive,
+          _market.previewFloatingAssetsAverage()
+        );
+        uint256 adjustedCollateral = (
+          liquidity.negative > liquidity.positive ? liquidity.negative - liquidity.positive : 0
+        ) + (assets + fee).mulDivUp(auditor.assetPrice(md.priceFeed), 10 ** md.decimals).divWadUp(md.adjustFactor);
+        (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_collateralMarket);
+        uint256 collateral = adjustedCollateral.divWadUp(md.adjustFactor).mulDivUp(
+          10 ** md.decimals,
+          auditor.assetPrice(md.priceFeed)
+        );
+        MockERC20(address(_collateralMarket.asset())).mint(account, collateral);
+        _collateralMarket.deposit(collateral, account);
+        auditor.enterMarket(_collateralMarket);
+        _market.borrowAtMaturity(_maturity, assets, type(uint256).max, account, account);
+        _asset.burn(account, assets);
+      }
+      changePrank(sender);
+    }
+    _;
+  }
+
+  modifier _checkBadDebt() {
+    _;
     // bad debt cleared check
     BadDebtVars memory b;
     Auditor.MarketData memory md;
@@ -773,12 +942,10 @@ contract ProtocolTest is Test {
           msg.sender
         );
         market.borrowAtMaturity(_maturity, 1_000_000, type(uint256).max, msg.sender, msg.sender);
-        vm.warp(block.timestamp + 1 days);
+        skip(1 days);
         changePrank(sender);
       }
     }
-
-    _market = Market(address(0));
   }
 
   function previewTotalLiquidity(address account) internal view returns (uint256 totalCollateral, uint256 totalDebt) {
@@ -1091,6 +1258,11 @@ contract ProtocolTest is Test {
     );
 
     return floatingAssetsAverage.mulWadDown(1e18 - averageFactor) + averageFactor.mulWadDown(floatingDepositAssets);
+  }
+
+  struct Binary {
+    uint256 positive;
+    uint256 negative;
   }
 
   struct BadDebtVars {
