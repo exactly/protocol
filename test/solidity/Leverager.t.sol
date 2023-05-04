@@ -2,14 +2,7 @@
 pragma solidity 0.8.17;
 
 import { Test, stdJson } from "forge-std/Test.sol";
-import {
-  ERC20,
-  Market,
-  Leverager,
-  IBalancerVault,
-  NotBalancerVault,
-  FlashloanCallback
-} from "../../contracts/periphery/Leverager.sol";
+import { ERC20, Market, Leverager, IBalancerVault, FlashloanCallback } from "../../contracts/periphery/Leverager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
 
 contract LeveragerTest is Test {
@@ -111,7 +104,7 @@ contract LeveragerTest is Test {
     uint256[] memory feeAmounts = new uint256[](1);
     ERC20[] memory assets = new ERC20[](1);
 
-    vm.expectRevert(NotBalancerVault.selector);
+    vm.expectRevert();
     leverager.receiveFlashLoan(assets, amounts, feeAmounts, "");
   }
 

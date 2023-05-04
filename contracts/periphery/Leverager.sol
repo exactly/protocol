@@ -91,7 +91,7 @@ contract Leverager {
     uint256[] memory,
     bytes memory userData
   ) external {
-    if (msg.sender != address(balancerVault)) revert NotBalancerVault();
+    assert(msg.sender == address(balancerVault));
 
     FlashloanCallback memory f = abi.decode(userData, (FlashloanCallback));
     if (f.leverage) {
@@ -113,8 +113,6 @@ contract Leverager {
     market.asset().safeApprove(address(market), type(uint256).max);
   }
 }
-
-error NotBalancerVault();
 
 struct FlashloanCallback {
   Market market;
