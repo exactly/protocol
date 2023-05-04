@@ -5,7 +5,7 @@ import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
-import { Market } from "../Market.sol";
+import { Market, ERC4626 } from "../Market.sol";
 
 /// @title Leverager
 /// @notice Contract that leverages and deleverages the floating position of accounts interacting with Exactly Protocol.
@@ -44,20 +44,11 @@ contract Leverager {
     tokens[0] = asset;
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = principal.mulWadDown(factor).divWadDown(1e18 - factor);
-    balancerVault.flashLoan(
-      address(this),
-      tokens,
-      amounts,
-      abi.encode(
-        FlashloanCallback({
-          market: market,
-          account: msg.sender,
-          principal: principal,
-          leverage: true,
-          deposit: deposit
-        })
-      )
-    );
+    bytes[] memory calls = new bytes[](2);
+    calls[0] = abi.encodeCall(ERC4626.deposit, (amounts[0] + (deposit ? principal : 0), msg.sender));
+    calls[1] = abi.encodeCall(Market.borrow, (amounts[0], address(balancerVault), msg.sender));
+
+    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
   }
 
   /// @notice Deleverages the floating position of `msg.sender` a certain `percentage` by taking a flash loan
@@ -71,35 +62,26 @@ contract Leverager {
     tokens[0] = market.asset();
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
-    balancerVault.flashLoan(
-      address(this),
-      tokens,
-      amounts,
-      abi.encode(
-        FlashloanCallback({ market: market, account: msg.sender, principal: 0, leverage: false, deposit: false })
-      )
-    );
+    bytes[] memory calls = new bytes[](2);
+    calls[0] = abi.encodeCall(Market.repay, (amounts[0], msg.sender));
+    calls[1] = abi.encodeCall(Market.withdraw, (amounts[0], address(balancerVault), msg.sender));
+
+    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
   }
 
   /// @notice Callback function called by the Balancer Vault contract when a flash loan is initiated.
   /// @dev Only the Balancer Vault contract is allowed to call this function.
-  /// @param amounts The amounts of the assets' tokens being borrowed.
   /// @param userData Additional data provided by the borrower for the flash loan.
-  function receiveFlashLoan(
-    ERC20[] memory,
-    uint256[] memory amounts,
-    uint256[] memory,
-    bytes memory userData
-  ) external {
+  function receiveFlashLoan(ERC20[] memory, uint256[] memory, uint256[] memory, bytes memory userData) external {
     assert(msg.sender == address(balancerVault));
 
-    FlashloanCallback memory f = abi.decode(userData, (FlashloanCallback));
-    if (f.leverage) {
-      f.market.deposit(amounts[0] + (f.deposit ? f.principal : 0), f.account);
-      f.market.borrow(amounts[0], address(balancerVault), f.account);
-    } else {
-      f.market.repay(amounts[0], f.account);
-      f.market.withdraw(amounts[0], address(balancerVault), f.account);
+    (Market market, bytes[] memory calls) = abi.decode(userData, (Market, bytes[]));
+    for (uint256 i = 0; i < calls.length; ) {
+      (bool success, bytes memory data) = address(market).call(calls[i]);
+      if (!success) revert CallError(i, data);
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -130,13 +112,7 @@ contract Leverager {
   }
 }
 
-struct FlashloanCallback {
-  Market market;
-  address account;
-  uint256 principal;
-  bool leverage;
-  bool deposit;
-}
+error CallError(uint256 callIndex, bytes revertData);
 
 interface IBalancerVault {
   function flashLoan(

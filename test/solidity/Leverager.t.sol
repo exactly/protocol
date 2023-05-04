@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import { Test, stdJson } from "forge-std/Test.sol";
-import { ERC20, Market, Leverager, IBalancerVault, FlashloanCallback } from "../../contracts/periphery/Leverager.sol";
+import { ERC20, Market, Leverager, IBalancerVault } from "../../contracts/periphery/Leverager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
 
 contract LeveragerTest is Test {
@@ -43,7 +43,7 @@ contract LeveragerTest is Test {
   }
 
   function testLeverageShouldFailWhenHealthFactorNearOne() external {
-    vm.expectRevert(InsufficientAccountLiquidity.selector);
+    vm.expectRevert();
     leverager.leverage(marketUSDC, 100_000e6, 1.000000000001e18, true);
 
     leverager.leverage(marketUSDC, 100_000e6, 1.00000000001e18, true);
