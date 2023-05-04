@@ -129,36 +129,6 @@ contract ProtocolTest is Test {
   }
 
   function invariants() external {
-    for (uint256 i = 0; i < markets.length; ++i) {
-      Market market = auditor.marketList(i);
-      uint256 floatingBackupBorrowed = 0;
-      uint256 backupEarnings = 0;
-      uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
-      uint256 maxMaturity = block.timestamp -
-        (block.timestamp % FixedLib.INTERVAL) +
-        market.maxFuturePools() *
-        FixedLib.INTERVAL;
-      for (uint256 maturity = 0; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
-        (uint256 borrowed, uint256 supplied, uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(
-          maturity
-        );
-        floatingBackupBorrowed += borrowed - Math.min(supplied, borrowed);
-        // check the totalAssets against the real totalAssets()
-        if (maturity > lastAccrual && maturity >= latestMaturity) {
-          backupEarnings += block.timestamp < maturity
-            ? unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual)
-            : unassignedEarnings;
-        }
-      }
-      uint256 totalAssets = market.floatingAssets() +
-        backupEarnings +
-        previewAccumulatedEarnings(market) +
-        market.totalFloatingBorrowAssets() -
-        market.floatingDebt();
-
-      assertEq(floatingBackupBorrowed, market.floatingBackupBorrowed(), "should match floatingBackupBorrowed");
-      assertEq(totalAssets, market.totalAssets(), "should match totalAssets()");
-    }
     (uint256 start, uint256 end, uint256 lastUpdate) = rewardsController.distributionTime(markets[0], rewardAsset);
     (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(markets[0], rewardAsset);
     RewardsController.Config memory config = rewardsController.rewardConfig(markets[0], rewardAsset);
@@ -277,6 +247,28 @@ contract ProtocolTest is Test {
         fixedBorrows;
 
       assertEq(assets, market.asset().balanceOf(address(market)), "should match underlying balance");
+    }
+  }
+
+  function invariantTotalAssets() external {
+    for (uint256 i = 0; i < markets.length; ++i) {
+      Market market = auditor.marketList(i);
+      (, uint256 backupEarnings) = floatingBackupBorrowedAndEarnings(market);
+      uint256 totalAssets = market.floatingAssets() +
+        backupEarnings +
+        previewAccumulatedEarnings(market) +
+        market.totalFloatingBorrowAssets() -
+        market.floatingDebt();
+
+      assertEq(totalAssets, market.totalAssets(), "should match totalAssets()");
+    }
+  }
+
+  function invariantFloatingBackupBorrowed() external {
+    for (uint256 i = 0; i < markets.length; ++i) {
+      Market market = auditor.marketList(i);
+      (uint256 floatingBackupBorrowed, ) = floatingBackupBorrowedAndEarnings(market);
+      assertEq(floatingBackupBorrowed, market.floatingBackupBorrowed(), "should match floatingBackupBorrowed");
     }
   }
 
@@ -979,6 +971,27 @@ contract ProtocolTest is Test {
         result += principal + fee;
       }
       if ((1 << i) > packedMaturities) break;
+    }
+  }
+
+  function floatingBackupBorrowedAndEarnings(
+    Market market
+  ) internal view returns (uint256 floatingBackupBorrowed, uint256 backupEarnings) {
+    uint256 latestMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
+    uint256 maxMaturity = block.timestamp -
+      (block.timestamp % FixedLib.INTERVAL) +
+      market.maxFuturePools() *
+      FixedLib.INTERVAL;
+    for (uint256 maturity = 0; maturity <= maxMaturity; maturity += FixedLib.INTERVAL) {
+      (uint256 borrowed, uint256 supplied, uint256 unassignedEarnings, uint256 lastAccrual) = market.fixedPools(
+        maturity
+      );
+      floatingBackupBorrowed += borrowed - Math.min(supplied, borrowed);
+      if (maturity > lastAccrual && maturity >= latestMaturity) {
+        backupEarnings += block.timestamp < maturity
+          ? unassignedEarnings.mulDivDown(block.timestamp - lastAccrual, maturity - lastAccrual)
+          : unassignedEarnings;
+      }
     }
   }
 
