@@ -58,7 +58,7 @@ contract LeveragerTest is Test {
 
   function testDeleverage() external _checkBalances {
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
-    leverager.deleverage(marketUSDC, 1e18);
+    leverager.deleverage(marketUSDC, 0, 0, 1e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     // precision loss (2)
@@ -74,13 +74,57 @@ contract LeveragerTest is Test {
     assertEq(marketUSDC.maxWithdraw(address(this)), leveragedDeposit);
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), leveragedBorrow);
 
-    leverager.deleverage(marketUSDC, 0.5e18);
+    leverager.deleverage(marketUSDC, 0, 0, 0.5e18);
     (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 deleveragedDeposit = 305076770676;
     uint256 deleveragedBorrow = 205076770678;
     assertEq(marketUSDC.maxWithdraw(address(this)), deleveragedDeposit);
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), deleveragedBorrow);
     assertEq(leveragedDeposit - deleveragedDeposit, leveragedBorrow - deleveragedBorrow);
+  }
+
+  function testFixedDeleverage() external _checkBalances {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 30_000e6, type(uint256).max, address(this), address(this));
+
+    leverager.deleverage(marketUSDC, maturity, type(uint256).max, 1e18);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    (uint256 balance, uint256 debt) = marketUSDC.accountSnapshot(address(this));
+    assertEq(principal, 0);
+    assertEq(debt, 0);
+    assertGt(balance, 69_997e6);
+    assertLt(balance, 70_000e6);
+  }
+
+  function testLateFixedDeleverage() external _checkBalances {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 30_000e6, type(uint256).max, address(this), address(this));
+
+    vm.warp(maturity + 3 days);
+    // we update accumulated earnings, etc...
+    marketUSDC.deposit(2, address(this));
+    (uint256 balance, uint256 debt) = marketUSDC.accountSnapshot(address(this));
+    leverager.deleverage(marketUSDC, maturity, type(uint256).max, 1e18);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    (uint256 newBalance, ) = marketUSDC.accountSnapshot(address(this));
+    assertEq(principal, 0);
+    assertEq(newBalance, balance - debt);
+  }
+
+  function testPartialFixedDeleverage() external _checkBalances {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 30_000e6, type(uint256).max, address(this), address(this));
+
+    leverager.deleverage(marketUSDC, maturity, type(uint256).max, 0.1e18);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    (uint256 balance, uint256 debt) = marketUSDC.accountSnapshot(address(this));
+    assertGt(debt, 0);
+    assertEq(principal, 27_000e6);
+    assertGt(balance, 96_999e6);
+    assertLt(balance, 97_000e6);
   }
 
   function testFlashloanFeeGreaterThanZero() external {
