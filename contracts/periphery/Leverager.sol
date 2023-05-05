@@ -5,13 +5,15 @@ import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
-import { Market, ERC4626 } from "../Market.sol";
+import { Market, ERC4626, FixedLib } from "../Market.sol";
 
 /// @title Leverager
 /// @notice Contract that leverages and deleverages the floating position of accounts interacting with Exactly Protocol.
 contract Leverager {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
+  using FixedLib for FixedLib.Pool;
+  using FixedLib for FixedLib.Position;
 
   /// @notice Balancer's vault contract that is used to take flash loans.
   IBalancerVault public immutable balancerVault;
@@ -65,6 +67,58 @@ contract Leverager {
     bytes[] memory calls = new bytes[](2);
     calls[0] = abi.encodeCall(Market.repay, (amounts[0], msg.sender));
     calls[1] = abi.encodeCall(Market.withdraw, (amounts[0], address(balancerVault), msg.sender));
+
+    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+  }
+
+  /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position or vice versa.
+  /// @param market The Market to roll the position in.
+  /// @param floatingToFixed `True` if the position is being rolled from floating to a fixed pool, `false` if opposite.
+  /// @param maturity The maturity of the fixed pool that the position is being rolled to or from.
+  /// @param maxAssets Max amount of debt that the sender is willing to accept.
+  /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
+  function floatingRoll(
+    Market market,
+    bool floatingToFixed,
+    uint256 maturity,
+    uint256 maxAssets,
+    uint256 percentage
+  ) external {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = market.asset();
+    uint256[] memory amounts = new uint256[](1);
+    bytes[] memory calls = new bytes[](2);
+
+    if (floatingToFixed) {
+      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+      amounts[0] = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
+      calls[0] = abi.encodeCall(Market.repay, (amounts[0], msg.sender));
+      calls[1] = abi.encodeCall(
+        Market.borrowAtMaturity,
+        (maturity, amounts[0], maxAssets, address(balancerVault), msg.sender)
+      );
+    } else {
+      FixedLib.Position memory position;
+      (position.principal, position.fee) = market.fixedBorrowPositions(maturity, msg.sender);
+      uint256 positionAssets = percentage.mulWadDown(position.principal + position.fee);
+      if (block.timestamp < maturity) {
+        FixedLib.Pool memory pool;
+        (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
+        pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
+          block.timestamp - pool.lastAccrual,
+          maturity - pool.lastAccrual
+        );
+        (uint256 yield, ) = pool.calculateDeposit(
+          position.scaleProportionally(positionAssets).principal,
+          market.backupFeeRate()
+        );
+        amounts[0] = positionAssets - yield;
+      } else {
+        amounts[0] = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
+      }
+      calls[0] = abi.encodeCall(Market.repayAtMaturity, (maturity, positionAssets, maxAssets, msg.sender));
+      calls[1] = abi.encodeCall(Market.borrow, (amounts[0], address(balancerVault), msg.sender));
+    }
 
     balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
   }
