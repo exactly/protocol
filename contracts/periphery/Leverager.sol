@@ -70,24 +70,8 @@ contract Leverager {
       amounts[0] = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
       calls[0] = abi.encodeCall(Market.repay, (amounts[0], msg.sender));
     } else {
-      FixedLib.Position memory position;
-      (position.principal, position.fee) = market.fixedBorrowPositions(maturity, msg.sender);
-      uint256 positionAssets = percentage.mulWadDown(position.principal + position.fee);
-      if (block.timestamp < maturity) {
-        FixedLib.Pool memory pool;
-        (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-        pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
-          block.timestamp - pool.lastAccrual,
-          maturity - pool.lastAccrual
-        );
-        (uint256 yield, ) = pool.calculateDeposit(
-          position.scaleProportionally(positionAssets).principal,
-          market.backupFeeRate()
-        );
-        amounts[0] = positionAssets - yield;
-      } else {
-        amounts[0] = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
-      }
+      uint256 positionAssets;
+      (amounts[0], positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
       calls[0] = abi.encodeCall(Market.repayAtMaturity, (maturity, positionAssets, maxAssets, msg.sender));
     }
     calls[1] = abi.encodeCall(Market.withdraw, (amounts[0], address(balancerVault), msg.sender));
@@ -122,24 +106,8 @@ contract Leverager {
         (maturity, amounts[0], maxAssets, address(balancerVault), msg.sender)
       );
     } else {
-      FixedLib.Position memory position;
-      (position.principal, position.fee) = market.fixedBorrowPositions(maturity, msg.sender);
-      uint256 positionAssets = percentage.mulWadDown(position.principal + position.fee);
-      if (block.timestamp < maturity) {
-        FixedLib.Pool memory pool;
-        (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
-        pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
-          block.timestamp - pool.lastAccrual,
-          maturity - pool.lastAccrual
-        );
-        (uint256 yield, ) = pool.calculateDeposit(
-          position.scaleProportionally(positionAssets).principal,
-          market.backupFeeRate()
-        );
-        amounts[0] = positionAssets - yield;
-      } else {
-        amounts[0] = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
-      }
+      uint256 positionAssets;
+      (amounts[0], positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
       calls[0] = abi.encodeCall(Market.repayAtMaturity, (maturity, positionAssets, maxAssets, msg.sender));
       calls[1] = abi.encodeCall(Market.borrow, (amounts[0], address(balancerVault), msg.sender));
     }
@@ -166,10 +134,32 @@ contract Leverager {
     ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls = new bytes[](2);
     tokens[0] = market.asset();
+    uint256 positionAssets;
 
+    (amounts[0], positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
+    calls[0] = abi.encodeCall(Market.repayAtMaturity, (maturity, positionAssets, maxRepayAssets, msg.sender));
+    calls[1] = abi.encodeCall(
+      Market.borrowAtMaturity,
+      (newMaturity, amounts[0], maxBorrowAssets, address(balancerVault), msg.sender)
+    );
+
+    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+  }
+
+  /// @notice Calculates the actual repay and position assets of a repay operation at maturity.
+  /// @param market The Market to calculate the actual repay and position assets.
+  /// @param maturity The maturity of the fixed pool in which the position is being repaid.
+  /// @param percentage The percentage of the position that will be repaid, represented with 18 decimals.
+  /// @return actualRepay The actual amount of assets that will be repaid.
+  /// @return positionAssets The amount of principal and fee to be covered.
+  function repayAtMaturityAssets(
+    Market market,
+    uint256 maturity,
+    uint256 percentage
+  ) internal view returns (uint256 actualRepay, uint256 positionAssets) {
     FixedLib.Position memory position;
     (position.principal, position.fee) = market.fixedBorrowPositions(maturity, msg.sender);
-    uint256 positionAssets = percentage.mulWadDown(position.principal + position.fee);
+    positionAssets = percentage.mulWadDown(position.principal + position.fee);
     if (block.timestamp < maturity) {
       FixedLib.Pool memory pool;
       (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
@@ -181,17 +171,10 @@ contract Leverager {
         position.scaleProportionally(positionAssets).principal,
         market.backupFeeRate()
       );
-      amounts[0] = positionAssets - yield;
+      actualRepay = positionAssets - yield;
     } else {
-      amounts[0] = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
+      actualRepay = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
     }
-    calls[0] = abi.encodeCall(Market.repayAtMaturity, (maturity, positionAssets, maxRepayAssets, msg.sender));
-    calls[1] = abi.encodeCall(
-      Market.borrowAtMaturity,
-      (newMaturity, amounts[0], maxBorrowAssets, address(balancerVault), msg.sender)
-    );
-
-    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
   }
 
   /// @notice Callback function called by the Balancer Vault contract when a flash loan is initiated.
