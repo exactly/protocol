@@ -84,30 +84,11 @@ contract ProtocolTest is Test {
     rewardsController = RewardsController(address(new ERC1967Proxy(address(new RewardsController()), "")));
     rewardsController.initialize();
     vm.label(address(rewardsController), "RewardsController");
-    rewardAsset = new MockERC20("OP", "OP", 18);
+    rewardAsset = new MockERC20("Optimism", "OP", 18);
     rewardAsset.mint(address(rewardsController), 2_000 ether);
-    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
-    configs[0] = RewardsController.Config({
-      market: markets[0],
-      reward: rewardAsset,
-      targetDebt: 20_000 ether,
-      priceFeed: MockPriceFeed(address(0)),
-      totalDistribution: 2_000 ether,
-      start: uint32(block.timestamp),
-      distributionPeriod: 4 weeks,
-      undistributedFactor: 0.5e18,
-      flipSpeed: 2e18,
-      compensationFactor: 0.85e18,
-      transitionFactor: 0.64e18,
-      borrowAllocationWeightFactor: 0,
-      depositAllocationWeightAddend: 0.02e18,
-      depositAllocationWeightFactor: 0.01e18
-    });
-    rewardsController.config(configs);
-    markets[0].setRewardsController(rewardsController);
 
     targetContract(address(this));
-    bytes4[] memory selectors = new bytes4[](17);
+    bytes4[] memory selectors = new bytes4[](18);
     selectors[0] = this.enterMarket.selector;
     selectors[1] = this.exitMarket.selector;
     selectors[2] = this.deposit.selector;
@@ -125,6 +106,7 @@ contract ProtocolTest is Test {
     selectors[14] = this.claimRewards.selector;
     selectors[15] = this.setPrice.selector;
     selectors[16] = this.liquidate.selector;
+    selectors[17] = this.enableRewards.selector;
     targetSelector(FuzzSelector(address(this), selectors));
   }
 
@@ -708,6 +690,31 @@ contract ProtocolTest is Test {
     uint256 repaidAssets = _market.liquidate(_counterparty, type(uint256).max, _collateralMarket);
     if (repaidAssets > 0) MockERC20(address(_collateralMarket.asset())).burn(msg.sender, lv.seizeAssets);
     _asset.burn(msg.sender, _asset.balanceOf(msg.sender));
+  }
+
+  function enableRewards(bytes32 seed) external context(seed) {
+    address sender = msg.sender;
+    changePrank(address(this));
+    RewardsController.Config[] memory configs = new RewardsController.Config[](1);
+    configs[0] = RewardsController.Config({
+      market: _market,
+      reward: rewardAsset,
+      targetDebt: 20_000 ether,
+      priceFeed: MockPriceFeed(address(0)),
+      totalDistribution: 2_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 4 weeks,
+      undistributedFactor: 0.5e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    _market.setRewardsController(rewardsController);
+    changePrank(sender);
   }
 
   Market internal _market;
