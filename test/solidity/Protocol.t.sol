@@ -128,23 +128,6 @@ contract ProtocolTest is Test {
     targetSelector(FuzzSelector(address(this), selectors));
   }
 
-  function invariants() external {
-    (uint256 start, uint256 end, uint256 lastUpdate) = rewardsController.distributionTime(markets[0], rewardAsset);
-    (, , uint256 lastUndistributed) = rewardsController.rewardIndexes(markets[0], rewardAsset);
-    RewardsController.Config memory config = rewardsController.rewardConfig(markets[0], rewardAsset);
-    uint256 releaseRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
-    assertApproxEqAbs(
-      claimedRewards + lastUndistributed,
-      releaseRate * Math.min(lastUpdate - start, config.distributionPeriod),
-      1e14
-    );
-    assertApproxEqAbs(
-      lastUndistributed + releaseRate * (end - Math.min(lastUpdate, end)),
-      config.totalDistribution - claimedRewards,
-      1e14
-    );
-  }
-
   function invariantShareValue() external {
     for (uint256 i = 0; i < markets.length; ++i) {
       Market market = markets[i];
@@ -269,6 +252,29 @@ contract ProtocolTest is Test {
       Market market = auditor.marketList(i);
       (uint256 floatingBackupBorrowed, ) = floatingBackupBorrowedAndEarnings(market);
       assertEq(floatingBackupBorrowed, market.floatingBackupBorrowed(), "should match floatingBackupBorrowed");
+    }
+  }
+
+  function invariantRewardsReleaseRate() external {
+    for (uint i = 0; i < markets.length; ++i) {
+      Market market = markets[i];
+      RewardsController rewardsControllerX = market.rewardsController();
+      if (address(rewardsControllerX) != address(0)) {
+        (uint256 start, uint256 end, uint256 lastUpdate) = rewardsControllerX.distributionTime(market, rewardAsset);
+        (, , uint256 lastUndistributed) = rewardsControllerX.rewardIndexes(market, rewardAsset);
+        RewardsController.Config memory config = rewardsControllerX.rewardConfig(market, rewardAsset);
+        uint256 releaseRate = config.totalDistribution.mulWadDown(1e18 / config.distributionPeriod);
+        assertApproxEqAbs(
+          claimedRewards + lastUndistributed,
+          releaseRate * Math.min(lastUpdate - start, config.distributionPeriod),
+          1e14
+        );
+        assertApproxEqAbs(
+          lastUndistributed + releaseRate * (end - Math.min(lastUpdate, end)),
+          config.totalDistribution - claimedRewards,
+          1e14
+        );
+      }
     }
   }
 
