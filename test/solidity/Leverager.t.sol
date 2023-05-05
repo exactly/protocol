@@ -220,6 +220,93 @@ contract LeveragerTest is Test {
     );
   }
 
+  function testFixedRoll() external _checkLeveragerBalance {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 newMaturity = maturity + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
+
+    leverager.fixedRoll(marketUSDC, maturity, newMaturity, type(uint256).max, type(uint256).max, 1e18);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    assertEq(principal, 0);
+    (principal, ) = marketUSDC.fixedBorrowPositions(newMaturity, address(this));
+    assertGt(principal, 50_000e6);
+  }
+
+  function testPartialFixedRoll() external _checkLeveragerBalance {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 newMaturity = maturity + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
+
+    leverager.fixedRoll(marketUSDC, maturity, newMaturity, type(uint256).max, type(uint256).max, 0.1e18);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    assertEq(principal, 45_000e6);
+    (principal, ) = marketUSDC.fixedBorrowPositions(newMaturity, address(this));
+    assertGt(principal, 5_000e6);
+    assertLt(principal, 5_100e6);
+  }
+
+  function testFixedRollWithAccurateRepaySlippage() external _checkLeveragerBalance {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 newMaturity = maturity + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
+    uint256 maxRepayAssets = 50_004_915_917;
+
+    vm.expectRevert();
+    leverager.fixedRoll(marketUSDC, maturity, newMaturity, maxRepayAssets, type(uint256).max, 1e18);
+
+    leverager.fixedRoll(marketUSDC, maturity, newMaturity, ++maxRepayAssets, type(uint256).max, 1e18);
+  }
+
+  function testFixedRollWithAccurateBorrowSlippage() external _checkLeveragerBalance {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 newMaturity = maturity + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
+    uint256 maxBorrowAssets = 50_128_835_188;
+
+    vm.expectRevert();
+    leverager.fixedRoll(marketUSDC, maturity, newMaturity, type(uint256).max, maxBorrowAssets, 1e18);
+
+    leverager.fixedRoll(marketUSDC, maturity, newMaturity, type(uint256).max, ++maxBorrowAssets, 1e18);
+  }
+
+  function testLateFixedRoll() external _checkLeveragerBalance {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 newMaturity = maturity + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
+    (uint256 repayPrincipal, uint256 repayFee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+
+    vm.warp(maturity + 1 days);
+    uint256 debt = marketUSDC.previewDebt(address(this));
+    leverager.fixedRoll(marketUSDC, maturity, newMaturity, type(uint256).max, type(uint256).max, 1e18);
+    assertGt(marketUSDC.previewDebt(address(this)), debt);
+    (uint256 newRepayPrincipal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    assertEq(newRepayPrincipal, 0);
+    (uint256 borrowPrincipal, ) = marketUSDC.fixedBorrowPositions(newMaturity, address(this));
+    assertGt(borrowPrincipal, (repayPrincipal + repayFee).mulWadDown(1 days * marketUSDC.penaltyRate()));
+  }
+
+  function testPartialLateFixedRoll() external _checkLeveragerBalance {
+    uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    uint256 newMaturity = maturity + FixedLib.INTERVAL;
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
+    (uint256 repayPrincipal, uint256 repayFee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+
+    vm.warp(maturity + 1 days);
+    uint256 debt = marketUSDC.previewDebt(address(this));
+    leverager.fixedRoll(marketUSDC, maturity, newMaturity, type(uint256).max, type(uint256).max, 0.5e18);
+    assertGt(marketUSDC.previewDebt(address(this)), debt);
+    (uint256 newRepayPrincipal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    assertEq(newRepayPrincipal, 25_000e6);
+    (uint256 borrowPrincipal, ) = marketUSDC.fixedBorrowPositions(newMaturity, address(this));
+    assertGt(borrowPrincipal, (repayPrincipal + repayFee).mulWadDown(1 days * marketUSDC.penaltyRate()) / 2);
+  }
+
   function testAvailableLiquidity() external {
     Leverager.AvailableAsset[] memory availableAssets = leverager.availableLiquidity();
     Market[] memory markets = marketUSDC.auditor().allMarkets();

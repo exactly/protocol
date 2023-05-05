@@ -123,6 +123,53 @@ contract Leverager {
     balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
   }
 
+  /// @notice Rolls a percentage of the fixed position of `msg.sender` to another fixed pool.
+  /// @param market The Market to roll the position in.
+  /// @param maturity The maturity of the fixed pool that the position is being rolled from.
+  /// @param newMaturity The maturity of the fixed pool that the position is being rolled to.
+  /// @param maxRepayAssets Max amount of debt that the account is willing to accept to be repaid.
+  /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
+  /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
+  function fixedRoll(
+    Market market,
+    uint256 maturity,
+    uint256 newMaturity,
+    uint256 maxRepayAssets,
+    uint256 maxBorrowAssets,
+    uint256 percentage
+  ) external {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = market.asset();
+    uint256[] memory amounts = new uint256[](1);
+    bytes[] memory calls = new bytes[](2);
+
+    FixedLib.Position memory position;
+    (position.principal, position.fee) = market.fixedBorrowPositions(maturity, msg.sender);
+    uint256 positionAssets = percentage.mulWadDown(position.principal + position.fee);
+    if (block.timestamp < maturity) {
+      FixedLib.Pool memory pool;
+      (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
+      pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
+        block.timestamp - pool.lastAccrual,
+        maturity - pool.lastAccrual
+      );
+      (uint256 yield, ) = pool.calculateDeposit(
+        position.scaleProportionally(positionAssets).principal,
+        market.backupFeeRate()
+      );
+      amounts[0] = positionAssets - yield;
+    } else {
+      amounts[0] = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
+    }
+    calls[0] = abi.encodeCall(Market.repayAtMaturity, (maturity, positionAssets, maxRepayAssets, msg.sender));
+    calls[1] = abi.encodeCall(
+      Market.borrowAtMaturity,
+      (newMaturity, amounts[0], maxBorrowAssets, address(balancerVault), msg.sender)
+    );
+
+    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+  }
+
   /// @notice Callback function called by the Balancer Vault contract when a flash loan is initiated.
   /// @dev Only the Balancer Vault contract is allowed to call this function.
   /// @param userData Additional data provided by the borrower for the flash loan.
