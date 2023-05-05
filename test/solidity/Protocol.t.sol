@@ -634,14 +634,7 @@ contract ProtocolTest is Test {
   function liquidate(
     uint56 assets,
     bytes32 seed
-  )
-    external
-    context(seed)
-    _uniqueAccounts(seed)
-    _liquidity(assets)
-    _borrow(assets, _counterparty)
-    _checkBadDebt
-  {
+  ) external context(seed) _uniqueAccounts(seed) _liquidity(assets) _borrow(assets, _counterparty) _checkBadDebt {
     (, , uint256 index, , ) = auditor.markets(_market);
     (, , uint256 collateralIndex, , ) = auditor.markets(_collateralMarket);
     Binary memory liquidity;
@@ -722,7 +715,11 @@ contract ProtocolTest is Test {
     _asset = MockERC20(address(_market.asset()));
     _counterparty = accounts[_bound(uint256(keccak256(abi.encode(seed, "counterparty"))), 0, accounts.length - 1)];
     _collateralMarket = markets[_bound(uint256(keccak256(abi.encode(seed, "collateral"))), 0, markets.length - 1)];
-    _maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+    _maturity =
+      block.timestamp -
+      (block.timestamp % FixedLib.INTERVAL) +
+      FixedLib.INTERVAL *
+      _bound(uint256(keccak256(abi.encode(seed, "maturity"))), 1, _market.maxFuturePools());
     vm.startPrank(msg.sender);
     _;
     vm.stopPrank();
