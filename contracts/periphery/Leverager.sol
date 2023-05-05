@@ -36,17 +36,17 @@ contract Leverager {
   /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
   /// @param deposit True if the principal is being deposited, false if the principal is already deposited.
   function leverage(Market market, uint256 principal, uint256 targetHealthFactor, bool deposit) external {
+    uint256[] memory amounts = new uint256[](1);
+    ERC20[] memory tokens = new ERC20[](1);
+    bytes[] memory calls = new bytes[](2);
     ERC20 asset = market.asset();
+
     if (deposit) asset.safeTransferFrom(msg.sender, address(this), principal);
 
     (uint256 adjustFactor, , , , ) = auditor.markets(market);
     uint256 factor = adjustFactor.mulWadDown(adjustFactor).divWadDown(targetHealthFactor);
-
-    ERC20[] memory tokens = new ERC20[](1);
     tokens[0] = asset;
-    uint256[] memory amounts = new uint256[](1);
     amounts[0] = principal.mulWadDown(factor).divWadDown(1e18 - factor);
-    bytes[] memory calls = new bytes[](2);
     calls[0] = abi.encodeCall(ERC4626.deposit, (amounts[0] + (deposit ? principal : 0), msg.sender));
     calls[1] = abi.encodeCall(Market.borrow, (amounts[0], address(balancerVault), msg.sender));
 
@@ -58,13 +58,13 @@ contract Leverager {
   /// @param market The Market to deleverage the position out.
   /// @param percentage The percentage of the borrow that will be repaid, represented with 18 decimals.
   function deleverage(Market market, uint256 percentage) external {
-    (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
-
-    ERC20[] memory tokens = new ERC20[](1);
-    tokens[0] = market.asset();
     uint256[] memory amounts = new uint256[](1);
-    amounts[0] = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
+    ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls = new bytes[](2);
+    tokens[0] = market.asset();
+
+    (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+    amounts[0] = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
     calls[0] = abi.encodeCall(Market.repay, (amounts[0], msg.sender));
     calls[1] = abi.encodeCall(Market.withdraw, (amounts[0], address(balancerVault), msg.sender));
 
@@ -84,10 +84,10 @@ contract Leverager {
     uint256 maxAssets,
     uint256 percentage
   ) external {
-    ERC20[] memory tokens = new ERC20[](1);
-    tokens[0] = market.asset();
     uint256[] memory amounts = new uint256[](1);
+    ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls = new bytes[](2);
+    tokens[0] = market.asset();
 
     if (floatingToFixed) {
       (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
@@ -138,10 +138,10 @@ contract Leverager {
     uint256 maxBorrowAssets,
     uint256 percentage
   ) external {
-    ERC20[] memory tokens = new ERC20[](1);
-    tokens[0] = market.asset();
     uint256[] memory amounts = new uint256[](1);
+    ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls = new bytes[](2);
+    tokens[0] = market.asset();
 
     FixedLib.Position memory position;
     (position.principal, position.fee) = market.fixedBorrowPositions(maturity, msg.sender);
