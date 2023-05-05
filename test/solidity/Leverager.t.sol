@@ -28,7 +28,7 @@ contract LeveragerTest is Test {
     usdc.approve(address(leverager), type(uint256).max);
   }
 
-  function testLeverage() external {
+  function testLeverage() external _checkLeveragerBalance {
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -36,7 +36,7 @@ contract LeveragerTest is Test {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 410153541355);
   }
 
-  function testLeverageWithAlreadyDepositedAmount() external {
+  function testLeverageWithAlreadyDepositedAmount() external _checkLeveragerBalance {
     usdc.approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(100_000e6, address(this));
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, false);
@@ -46,7 +46,7 @@ contract LeveragerTest is Test {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 410153541355);
   }
 
-  function testLeverageShouldFailWhenHealthFactorNearOne() external {
+  function testLeverageShouldFailWhenHealthFactorNearOne() external _checkLeveragerBalance {
     vm.expectRevert();
     leverager.leverage(marketUSDC, 100_000e6, 1.000000000001e18, true);
 
@@ -56,7 +56,7 @@ contract LeveragerTest is Test {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 481733565998);
   }
 
-  function testDeleverage() external {
+  function testDeleverage() external _checkLeveragerBalance {
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
     leverager.deleverage(marketUSDC, 1e18);
 
@@ -66,7 +66,7 @@ contract LeveragerTest is Test {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
   }
 
-  function testDeleverageHalfBorrowPosition() external {
+  function testDeleverageHalfBorrowPosition() external _checkLeveragerBalance {
     leverager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 leveragedDeposit = 510153541353;
@@ -103,7 +103,7 @@ contract LeveragerTest is Test {
     leverager.approve(Market(address(this)));
   }
 
-  function testCallReceiveFlashLoanFromAnyAddress() external {
+  function testCallReceiveFlashLoanFromAnyAddress() external _checkLeveragerBalance {
     uint256[] memory amounts = new uint256[](1);
     uint256[] memory feeAmounts = new uint256[](1);
     ERC20[] memory assets = new ERC20[](1);
@@ -118,7 +118,7 @@ contract LeveragerTest is Test {
     lev.leverage(marketUSDC, 100_000e6, 1.03e18, true);
   }
 
-  function testFloatingToFixedRoll() external {
+  function testFloatingToFixedRoll() external _checkLeveragerBalance {
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrow(50_000e6, address(this), address(this));
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
@@ -128,7 +128,7 @@ contract LeveragerTest is Test {
     assertEq(principal, 50_000e6 + 1);
   }
 
-  function testFloatingToFixedRollWithAccurateSlippage() external {
+  function testFloatingToFixedRollWithAccurateSlippage() external _checkLeveragerBalance {
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrow(50_000e6, address(this), address(this));
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
@@ -143,7 +143,7 @@ contract LeveragerTest is Test {
     assertEq(fee, maxFee - 1);
   }
 
-  function testFixedToFloatingRoll() external {
+  function testFixedToFloatingRoll() external _checkLeveragerBalance {
     marketUSDC.deposit(100_000e6, address(this));
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     marketUSDC.borrowAtMaturity(maturity, 10_000e6, type(uint256).max, address(this), address(this));
@@ -156,10 +156,10 @@ contract LeveragerTest is Test {
     uint256 floatingDebt = marketUSDC.previewRefund(floatingBorrowShares);
     assertGt(floatingDebt, 10_000e6);
     assertLt(floatingDebt, principal + fee);
-    assertEq(marketUSDC.asset().balanceOf(address(leverager)), 0);
+    assertEq(usdc.balanceOf(address(leverager)), 0);
   }
 
-  function testPartialFixedToFloatingRoll() external {
+  function testPartialFixedToFloatingRoll() external _checkLeveragerBalance {
     marketUSDC.deposit(100_000e6, address(this));
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     marketUSDC.borrowAtMaturity(maturity, 10_000e6, type(uint256).max, address(this), address(this));
@@ -170,7 +170,7 @@ contract LeveragerTest is Test {
     assertEq((newPrincipal + newFee) * 2, principal + fee + 1);
   }
 
-  function testFixedToFloatingRollWithAccurateSlippage() external {
+  function testFixedToFloatingRollWithAccurateSlippage() external _checkLeveragerBalance {
     marketUSDC.deposit(100_000e6, address(this));
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     marketUSDC.borrowAtMaturity(maturity, 10_000e6, type(uint256).max, address(this), address(this));
@@ -182,7 +182,7 @@ contract LeveragerTest is Test {
     leverager.floatingRoll(marketUSDC, false, maturity, ++maxAssets, 1e18);
   }
 
-  function testLateFixedToFloatingRoll() external {
+  function testLateFixedToFloatingRoll() external _checkLeveragerBalance {
     marketUSDC.deposit(100_000e6, address(this));
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     marketUSDC.borrowAtMaturity(maturity, 10_000e6, type(uint256).max, address(this), address(this));
@@ -201,7 +201,7 @@ contract LeveragerTest is Test {
     );
   }
 
-  function testPartialLateFixedToFloatingRoll() external {
+  function testPartialLateFixedToFloatingRoll() external _checkLeveragerBalance {
     marketUSDC.deposit(100_000e6, address(this));
     uint256 maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     marketUSDC.borrowAtMaturity(maturity, 10_000e6, type(uint256).max, address(this), address(this));
@@ -224,8 +224,13 @@ contract LeveragerTest is Test {
     Leverager.AvailableAsset[] memory availableAssets = leverager.availableLiquidity();
     Market[] memory markets = marketUSDC.auditor().allMarkets();
     assertEq(availableAssets.length, markets.length);
-    assertEq(address(availableAssets[1].asset), address(marketUSDC.asset()));
-    assertEq(availableAssets[1].liquidity, marketUSDC.asset().balanceOf(address(leverager.balancerVault())));
+    assertEq(address(availableAssets[1].asset), address(usdc));
+    assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(leverager.balancerVault())));
+  }
+
+  modifier _checkLeveragerBalance() {
+    _;
+    assertEq(usdc.balanceOf(address(leverager)), 0);
   }
 
   function deployment(string memory name) internal returns (address addr) {
