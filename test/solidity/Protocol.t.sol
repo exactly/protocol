@@ -266,7 +266,13 @@ contract ProtocolTest is Test {
     } else {
       _asset.mint(msg.sender, assets);
       vm.expectEmit(true, true, true, true, address(_market));
-      emit DepositAtMaturity(_maturity, msg.sender, msg.sender, assets, 0);
+      emit DepositAtMaturity(
+        _maturity,
+        msg.sender,
+        msg.sender,
+        assets,
+        previewDepositYield(_market, _maturity, assets)
+      );
     }
     _market.depositAtMaturity(_maturity, assets, 0, msg.sender);
   }
