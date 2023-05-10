@@ -8,6 +8,7 @@ import timelockExecute from "./utils/timelockExecute";
 import futurePools from "./utils/futurePools";
 
 const {
+  constants: { AddressZero },
   utils: { parseUnits },
   getUnnamedSigners,
   getNamedSigner,
@@ -45,7 +46,7 @@ describe("Market", function () {
     penaltyRate = await marketDAI.penaltyRate();
 
     await deploy("InterestRateModel", {
-      args: [0, 0, parseUnits("6"), 0, 0, parseUnits("6")],
+      args: [AddressZero, 0, 0, parseUnits("6"), parseUnits("0.7")],
       from: owner.address,
     });
     irm = await getContract<InterestRateModel>("InterestRateModel", maria);
@@ -415,7 +416,7 @@ describe("Market", function () {
   describe("GIVEN an interest rate of 2%", () => {
     beforeEach(async () => {
       const { address } = await deploy("InterestRateModel", {
-        args: [0, parseUnits("0.02"), parseUnits("6"), 0, parseUnits("0.02"), parseUnits("6")],
+        args: [AddressZero, 0, parseUnits("0.02"), parseUnits("6"), parseUnits("0.7")],
         from: owner.address,
       });
       await timelockExecute(owner, marketDAI, "setInterestRateModel", [address]);
@@ -452,7 +453,7 @@ describe("Market", function () {
       await auditor.enterMarket(marketWETH.address);
 
       const { address } = await deploy("InterestRateModel", {
-        args: [0, 0, parseUnits("1.1"), 0, 0, parseUnits("1.1")],
+        args: [AddressZero, 0, 0, parseUnits("1.1"), parseUnits("0.7")],
         from: owner.address,
       });
       await timelockExecute(owner, marketDAI, "setInterestRateModel", [address]);

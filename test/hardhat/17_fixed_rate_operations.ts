@@ -13,7 +13,10 @@ import type {
 import { MarketEnv, FixedPoolState } from "./marketEnv";
 import futurePools from "./utils/futurePools";
 
-const { provider } = ethers;
+const {
+  constants: { AddressZero },
+  provider,
+} = ethers;
 const anyValue = () => true;
 const nextPoolID = futurePools(3)[2].toNumber();
 
@@ -97,12 +100,14 @@ describe("Fixed Rate Operations", () => {
       )) as InterestRateModel__factory;
 
       newInterestRateModel = await InterestRateModelFactory.deploy(
+        AddressZero,
         parseUnits("0.75"),
         parseUnits("-0.105"),
         parseUnits("6"),
-        parseUnits("0.75"),
-        parseUnits("-0.105"),
-        parseUnits("6"),
+        parseUnits("0.7"),
+        parseUnits("2.5"),
+        parseUnits("2.5"),
+        parseUnits("10"),
       );
       await newInterestRateModel.deployed();
     });

@@ -9,6 +9,7 @@ import futurePools from "./utils/futurePools";
 const [nextPoolID, secondPoolID, thirdPoolID] = futurePools(3).map((bn) => bn.toNumber());
 
 const {
+  constants: { AddressZero },
   utils: { parseUnits },
   getContractFactory,
   getUnnamedSigners,
@@ -55,15 +56,26 @@ describe("InterestRateModel", () => {
       const a = parseUnits("0.092"); // A parameter for the curve
       const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
-      await expect(irmFactory.deploy(a, b, maxUtilization, parseUnits("0.72"), parseUnits("-0.22"), parseUnits("3"))).to
-        .be.reverted;
+      const naturalUtilization = parseUnits("0.7");
+      const sigmoidSpeed = parseUnits("2.5");
+      const growthSpeed = parseUnits("2.5");
+      const maxRate = parseUnits("10");
+
+      await expect(
+        irmFactory.deploy(AddressZero, a, b, maxUtilization, naturalUtilization, sigmoidSpeed, growthSpeed, maxRate),
+      ).to.be.reverted;
     });
     it("WHEN deploying a contract with A and B parameters yielding an invalid floating curve THEN it reverts", async () => {
       const a = parseUnits("0.092"); // A parameter for the curve
       const b = parseUnits("-0.086666666666666666"); // B parameter for the curve
       const maxUtilization = parseUnits("1.2"); // Maximum utilization rate
+      const naturalUtilization = parseUnits("0.7");
+      const sigmoidSpeed = parseUnits("2.5");
+      const growthSpeed = parseUnits("2.5");
+      const maxRate = parseUnits("10");
+
       await expect(
-        irmFactory.deploy(parseUnits("0.72"), parseUnits("-0.22"), parseUnits("3"), a, b, maxUtilization),
+        irmFactory.deploy(AddressZero, a, b, maxUtilization, naturalUtilization, sigmoidSpeed, growthSpeed, maxRate),
       ).to.be.revertedWithPanic(0x01);
     });
   });
@@ -92,7 +104,20 @@ describe("InterestRateModel", () => {
           const a = parseUnits("0.72"); // A parameter for the curve
           const b = parseUnits("-0.22"); // B parameter for the curve
           const maxUtilization = parseUnits("3"); // Maximum utilization rate
-          await exactlyEnv.setFixedParameters(a, b, maxUtilization);
+          const naturalUtilization = parseUnits("0.7");
+          const sigmoidSpeed = parseUnits("2.5");
+          const growthSpeed = parseUnits("2.5");
+          const maxRate = parseUnits("10");
+
+          await exactlyEnv.setIRMParameters(
+            a,
+            b,
+            maxUtilization,
+            naturalUtilization,
+            sigmoidSpeed,
+            growthSpeed,
+            maxRate,
+          );
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to 3.2, THEN it reverts because the utilization rate is too high", async () => {
@@ -128,7 +153,21 @@ describe("InterestRateModel", () => {
           const a = parseUnits("21.12"); // A parameter for the curve
           const b = parseUnits("-1.74"); // B parameter for the curve
           const maxUtilization = parseUnits("12"); // Maximum utilization rate
-          await exactlyEnv.setFixedParameters(a, b, maxUtilization);
+          const naturalUtilization = parseUnits("0.7");
+          const sigmoidSpeed = parseUnits("2.5");
+          const growthSpeed = parseUnits("2.5");
+          const maxRate = parseUnits("10");
+
+          await exactlyEnv.setIRMParameters(
+            a,
+            b,
+            maxUtilization,
+            naturalUtilization,
+            sigmoidSpeed,
+            growthSpeed,
+            maxRate,
+          );
+
           exactlyEnv.switchWallet(alice);
         });
         it("WHEN doing a borrow which pushes U to the full UR, THEN it does not revert", async () => {
@@ -191,7 +230,13 @@ describe("InterestRateModel", () => {
       const a = parseUnits("8360");
       const b = parseUnits("-418");
       const maxUtilization = parseUnits("20");
-      await exactlyEnv.setFixedParameters(a, b, maxUtilization);
+      const naturalUtilization = parseUnits("0.7");
+      const sigmoidSpeed = parseUnits("2.5");
+      const growthSpeed = parseUnits("2.5");
+      const maxRate = parseUnits("10");
+
+      await exactlyEnv.setIRMParameters(a, b, maxUtilization, naturalUtilization, sigmoidSpeed, growthSpeed, maxRate);
+
       await exactlyEnv.depositSP("WETH", "10");
       await exactlyEnv.enterMarket("WETH");
       await exactlyEnv.depositSP("DAI", "1200");
@@ -218,7 +263,12 @@ describe("InterestRateModel", () => {
       const a = parseUnits("0.0495"); // A parameter for the curve
       const b = parseUnits("-0.025"); // B parameter for the curve
       const maxUtilization = parseUnits("1.1"); // Maximum utilization rate
-      await exactlyEnv.setFixedParameters(a, b, maxUtilization);
+      const naturalUtilization = parseUnits("0.7");
+      const sigmoidSpeed = parseUnits("2.5");
+      const growthSpeed = parseUnits("2.5");
+      const maxRate = parseUnits("10");
+
+      await exactlyEnv.setIRMParameters(a, b, maxUtilization, naturalUtilization, sigmoidSpeed, growthSpeed, maxRate);
     });
     describe("GIVEN enough collateral", () => {
       beforeEach(async () => {

@@ -3,23 +3,23 @@ pragma solidity ^0.8.17;
 
 import { Test } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { InterestRateModel } from "../contracts/InterestRateModel.sol";
+import { Market, InterestRateModel, UtilizationExceeded } from "../contracts/InterestRateModel.sol";
 import { FixedLib } from "../contracts/utils/FixedLib.sol";
 
 contract InterestRateModelTest is Test {
   using FixedPointMathLib for uint256;
 
-  InterestRateModelHarness internal irm;
+  InterestRateModel internal irm;
 
   function setUp() external {
-    irm = new InterestRateModelHarness(0.023e18, -0.0025e18, 1.02e18, 0.023e18, -0.0025e18, 1.02e18);
+    irm = new InterestRateModel(Market(address(0)), 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 15_000e16);
   }
 
   function testMinFixedRate() external {
     uint256 borrowed = 10 ether;
     uint256 floatingAssetsAverage = 100 ether;
     (uint256 rate, uint256 utilization) = irm.minFixedRate(borrowed, 0, floatingAssetsAverage);
-    assertEq(rate, 0.0225 ether);
+    assertEq(rate, 0.031258 ether);
     assertEq(utilization, 0.1 ether);
   }
 
@@ -27,61 +27,50 @@ contract InterestRateModelTest is Test {
     uint256 assets = 10 ether;
     uint256 floatingAssetsAverage = 100 ether;
     uint256 rate = irm.fixedBorrowRate(FixedLib.INTERVAL, assets, 0, 0, floatingAssetsAverage);
-    assertEq(rate, 1628784207150172);
+    assertEq(rate, 2348120819583400);
   }
 
   function testFloatingBorrowRate() external {
-    uint256 floatingDebt = 50 ether;
-    uint256 floatingAssets = 100 ether;
-    uint256 rate = irm.floatingRate(floatingDebt.divWadDown(floatingAssets));
-    assertEq(rate, 41730769230769230);
+    uint256 rate = irm.floatingRate(0.5e18, 0.5e18);
+    assertEq(rate, 42772870834956443);
   }
 
-  function testRevertFixedMaxUtilizationLowerThanWad() external {
+  function testRevertMaxUtilizationLowerThanWad() external {
     vm.expectRevert();
-    new InterestRateModelHarness(0.023e18, -0.0025e18, 1e18 - 1, 0.023e18, -0.0025e18, 1.02e18);
+    new InterestRateModel(Market(address(0)), 0.023e18, -0.0025e18, 1e18 - 1, 7e17, 1.5e18, 1.5e18, 15_000e16);
   }
 
-  function testRevertFloatingMaxUtilizationLowerThanWad() external {
-    vm.expectRevert();
-    new InterestRateModelHarness(0.023e18, -0.0025e18, 1.02e18, 0.023e18, -0.0025e18, 1e18 - 1);
-  }
+  function testFuzzReferenceFloatingRate(uint64 uFloating, uint64 uGlobal) external {
+    uFloating = uint64(_bound(uFloating, 0, 1e18));
+    uGlobal = uint64(_bound(uGlobal, 0, 1e18));
 
-  function testFuzzReferenceRate(uint256 v0, uint64 delta) external {
-    (uint256 rate, uint256 refRate) = irm.fixedRate(v0, delta);
-    assertApproxEqAbs(rate, refRate, 3e3);
-  }
-}
+    uint256 refRate;
+    if (uFloating > uGlobal) {
+      vm.expectRevert(UtilizationExceeded.selector);
+    } else if (uGlobal >= 1e18) {
+      refRate = irm.maxRate();
+    } else {
+      string[] memory ffi = new string[](2);
+      ffi[0] = "scripts/irm-floating.sh";
+      ffi[1] = encodeHex(
+        abi.encode(
+          uFloating,
+          uGlobal,
+          irm.floatingNaturalUtilization(),
+          irm.floatingCurveA(),
+          irm.floatingCurveB(),
+          irm.floatingMaxUtilization(),
+          irm.sigmoidSpeed(),
+          irm.growthSpeed()
+        )
+      );
+      refRate = abi.decode(vm.ffi(ffi), (uint256));
+      if (refRate > irm.maxRate()) refRate = irm.maxRate();
+    }
+    uint256 rate = irm.floatingRate(uFloating, uGlobal);
 
-contract InterestRateModelHarness is InterestRateModel, Test {
-  constructor(
-    uint256 fixedCurveA_,
-    int256 fixedCurveB_,
-    uint256 fixedMaxUtilization_,
-    uint256 floatingCurveA_,
-    int256 floatingCurveB_,
-    uint256 floatingMaxUtilization_
-  )
-    InterestRateModel(
-      fixedCurveA_,
-      fixedCurveB_,
-      fixedMaxUtilization_,
-      floatingCurveA_,
-      floatingCurveB_,
-      floatingMaxUtilization_
-    )
-  {} // solhint-disable-line no-empty-blocks
-
-  function fixedRate(uint256 v0, uint64 delta) public returns (uint256 rate, uint256 refRate) {
-    uint256 u0 = v0 % 1e18;
-    uint256 u1 = u0 + (delta % (floatingMaxUtilization - u0));
-
-    rate = fixedRate(u0, u1);
-
-    string[] memory ffi = new string[](2);
-    ffi[0] = "scripts/irm.sh";
-    ffi[1] = encodeHex(abi.encode(u0, u1, floatingCurveA, floatingCurveB, floatingMaxUtilization));
-    refRate = abi.decode(vm.ffi(ffi), (uint256));
+    assertApproxEqRel(rate, refRate, 1e4, "rate != expected");
+    assertLe(rate, irm.maxRate(), "rate > maxRate");
   }
 
   function encodeHex(bytes memory raw) internal pure returns (string memory) {
