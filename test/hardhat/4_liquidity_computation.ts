@@ -65,7 +65,7 @@ describe("Liquidity computations", function () {
     }
 
     const { address: irm } = await deploy("InterestRateModel", {
-      args: [0, 0, parseUnits("6"), 0, 0, parseUnits("6")],
+      args: [AddressZero, 0, 0, parseUnits("6"), parseUnits("0.7")],
       from: bob.address,
     });
     await timelockExecute(multisig, marketDAI, "setInterestRateModel", [irm]);
@@ -100,7 +100,7 @@ describe("Liquidity computations", function () {
       describe("AND GIVEN a 1% borrow interest rate", () => {
         beforeEach(async () => {
           const { address: irm } = await deploy("InterestRateModel", {
-            args: [0, parseUnits("0.01"), parseUnits("6"), 0, parseUnits("0.01"), parseUnits("6")],
+            args: [AddressZero, 0, parseUnits("0.01"), parseUnits("6"), parseUnits("0.7")],
             from: bob.address,
           });
           await timelockExecute(multisig, marketDAI, "setInterestRateModel", [irm]);

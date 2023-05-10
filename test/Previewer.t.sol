@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
@@ -44,9 +43,8 @@ contract PreviewerTest is Test {
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     vm.label(address(auditor), "Auditor");
 
-    irm = new InterestRateModel(0.72e18, -0.22e18, 1.1e18, 0.72e18, -0.22e18, 1.1e18);
-
     market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+    irm = new InterestRateModel(market, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18);
     market.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
     vm.label(address(market), "MarketDAI");
     auditor.enableMarket(market, daiPriceFeed, 0.8e18);
@@ -444,7 +442,16 @@ contract PreviewerTest is Test {
     uint256 maxFuturePools = market.maxFuturePools();
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2800e18);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -511,7 +518,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 6452799156053692;
+    uint256 distributedEarnings = 217011602480424;
     // set the smart pool reserve in 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
@@ -533,7 +540,16 @@ contract PreviewerTest is Test {
   function testFixedPoolsRatesAndUtilizations() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(3, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2800e18);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -552,36 +568,36 @@ contract PreviewerTest is Test {
     marketWETH.borrowAtMaturity(FixedLib.INTERVAL * 2, 200 ether, 250 ether, address(this), address(this));
 
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
-    uint256 depositRate = 419609965132025088;
+    uint256 depositRate = 27548500288626052;
     // MarketDAI
     assertEq(data[0].fixedPools[0].optimalDeposit, 10 ether);
-    assertEq(data[0].fixedPools[0].minBorrowRate, 0.5 ether);
+    assertEq(data[0].fixedPools[0].minBorrowRate, 31258000000000000);
     assertEq(data[0].fixedPools[0].depositRate, depositRate);
     assertEq(data[0].fixedPools[0].utilization, 0.1 ether);
     assertEq(data[0].fixedPools[1].optimalDeposit, 0);
-    assertEq(data[0].fixedPools[1].minBorrowRate, 434545454545454545);
+    assertEq(data[0].fixedPools[1].minBorrowRate, 30000818181818181);
     assertEq(data[0].fixedPools[1].depositRate, 0);
     assertEq(data[0].fixedPools[1].utilization, 0);
     // MarketWETH
     assertEq(data[1].fixedPools[0].optimalDeposit, 0);
-    assertEq(data[1].fixedPools[0].minBorrowRate, 434545454545454545);
+    assertEq(data[1].fixedPools[0].minBorrowRate, 30000818181818181);
     assertEq(data[1].fixedPools[0].depositRate, 0);
     assertEq(data[1].fixedPools[0].utilization, 0);
     assertEq(data[1].fixedPools[1].optimalDeposit, 200 ether);
-    assertEq(data[1].fixedPools[1].minBorrowRate, 436934306569343065);
-    assertEq(data[1].fixedPools[1].depositRate, 392164587117173006);
+    assertEq(data[1].fixedPools[1].minBorrowRate, 30046700729927007);
+    assertEq(data[1].fixedPools[1].depositRate, 27021358437838027);
     assertEq(data[1].fixedPools[1].utilization, 0.004 ether);
 
     vm.warp(block.timestamp + 1 days);
     data = previewer.exactly(address(this));
-    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 1);
+    assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 10);
 
     vm.warp(block.timestamp + 3 hours + 4 minutes + 19 minutes);
     data = previewer.exactly(address(this));
     assertApproxEqAbs(data[0].fixedPools[0].depositRate, depositRate, 1);
   }
 
-  function testRewardsRate() external {
+  function testRewardsRateX() external {
     RewardsController rewardsController = RewardsController(
       address(new ERC1967Proxy(address(new RewardsController()), ""))
     );
@@ -621,13 +637,13 @@ contract PreviewerTest is Test {
     assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
-    uint256 newDepositRewards = 12801612729700;
+    uint256 newDepositRewards = 19062759563460000;
     uint256 newDepositRewardsValue = newDepositRewards.mulDivDown(
       uint256(opPriceFeed.latestAnswer()),
       10 ** opPriceFeed.decimals()
     );
     uint256 annualRewardValue = newDepositRewardsValue.mulDivDown(365 days, deltaTime);
-    assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 4e15);
+    assertApproxEqAbs(data[0].rewardRates[0].floatingDeposit, annualRewardValue.mulDivDown(1e18, depositAmount), 1e4);
 
     uint256 newFloatingBorrowRewards = 238622379993700;
     uint256 newFloatingBorrowRewardsValue = newFloatingBorrowRewards.mulDivDown(
@@ -659,7 +675,16 @@ contract PreviewerTest is Test {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     weth.mint(address(this), 1_000 ether);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     weth.approve(address(marketWETH), type(uint256).max);
 
@@ -808,7 +833,16 @@ contract PreviewerTest is Test {
   function testRewardsRateWithMarketWithDifferentDecimals() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     ethPriceFeed = new MockPriceFeed(18, 1_000e18);
     auditor.enableMarket(marketWETH, ethPriceFeed, 0.7e18);
     weth.mint(address(this), 50_000 ether);
@@ -1043,7 +1077,7 @@ contract PreviewerTest is Test {
     market.deposit(100 ether, address(this));
     market.borrow(64 ether, address(this), address(this));
     Previewer.MarketAccount[] memory exactly = previewer.exactly(address(this));
-    assertEq(exactly[0].floatingBorrowRate, 1345217391304347826);
+    assertEq(exactly[0].floatingBorrowRate, 60517219350981647);
     assertEq(exactly[0].floatingUtilization, 0.64e18);
   }
 
@@ -1118,7 +1152,16 @@ contract PreviewerTest is Test {
   function testFlexibleAvailableLiquidity() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1163,7 +1206,7 @@ contract PreviewerTest is Test {
 
     // supply 100 more to the smart pool
     market.deposit(100 ether, address(this));
-    uint256 distributedEarnings = 9951196284910;
+    uint256 distributedEarnings = 653322267121;
     // set the smart pool reserve to 10%
     // since smart pool supply is 200 then 10% is 20
     market.setReserveFactor(0.1e18);
@@ -1174,7 +1217,16 @@ contract PreviewerTest is Test {
   function testFloatingAvailableLiquidityProjectingNewFloatingDebt() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1202,7 +1254,16 @@ contract PreviewerTest is Test {
   function testFixedAvailableLiquidityProjectingNewFloatingDebt() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1242,7 +1303,16 @@ contract PreviewerTest is Test {
     uint256 maxFuturePools = market.maxFuturePools();
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_800e8);
     daiPriceFeed.setPrice(0.0003571428571e18);
@@ -1336,7 +1406,16 @@ contract PreviewerTest is Test {
   function testMaxBorrowAssetsCapacityForAccountWithShortfall() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(1_000e8);
     daiPriceFeed.setPrice(0.001e18);
@@ -1361,7 +1440,16 @@ contract PreviewerTest is Test {
   function testMaxBorrowAssetsCapacityPerMarket() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(1_000e8);
     daiPriceFeed.setPrice(0.001e18);
@@ -1658,7 +1746,16 @@ contract PreviewerTest is Test {
   function testOraclePriceReturningAccurateValues() external {
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_000e8);
     daiPriceFeed.setPrice(0.0005e18);
@@ -1672,7 +1769,16 @@ contract PreviewerTest is Test {
     // deploy a new asset for more liquidity combinations
     MockERC20 weth = new MockERC20("WETH", "WETH", 18);
     Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
-    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    marketWETH.initialize(
+      12,
+      1e18,
+      new InterestRateModel(marketWETH, 1.3829e16, 1.7429e16, 1.1e18, 7e17, 2.5e18, 1e18, 10e18),
+      0.02e18 / uint256(1 days),
+      0.1e18,
+      0,
+      0.0046e18,
+      0.42e18
+    );
     auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
     ethPriceFeed.setPrice(2_000e8);
     daiPriceFeed.setPrice(0.0005e18);

@@ -60,7 +60,6 @@ contract ProtocolTest is Test {
     auditor = Auditor(address(new ERC1967Proxy(address(new Auditor(18)), "")));
     auditor.initialize(Auditor.LiquidationIncentive(0.09e18, 0.01e18));
     vm.label(address(auditor), "Auditor");
-    InterestRateModel irm = new InterestRateModel(0.023e18, -0.0025e18, 1.02e18, 0.023e18, -0.0025e18, 1.02e18);
 
     accounts.push(BOB);
     accounts.push(ALICE);
@@ -68,6 +67,16 @@ contract ProtocolTest is Test {
     for (uint256 i = 0; i < MARKET_COUNT; ++i) {
       MockERC20 asset = new MockERC20("DAI", "DAI", 18);
       Market market = Market(address(new ERC1967Proxy(address(new Market(asset, auditor)), "")));
+      InterestRateModel irm = new InterestRateModel(
+        market,
+        0.023e18,
+        -0.0025e18,
+        1.02e18,
+        7e17,
+        1.5e18,
+        1.5e18,
+        15_000e16
+      );
       market.initialize(MAX_FUTURE_POOLS, 2e18, irm, PENALTY_RATE, 1e17, RESERVE_FACTOR, 0.0046e18, 0.42e18);
       vm.label(address(market), string.concat("Market", i.toString()));
       MockPriceFeed priceFeed = new MockPriceFeed(18, 1e18);
