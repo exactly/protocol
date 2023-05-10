@@ -1,5 +1,5 @@
 ---
-"@exactly-protocol/protocol": patch
+"@exactly/protocol": patch
 ---
 
 ⚡️ rewards: reusing memory pointers

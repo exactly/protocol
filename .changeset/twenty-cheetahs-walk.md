@@ -1,5 +1,5 @@
 ---
-"@exactly-protocol/protocol": patch
+"@exactly/protocol": patch
 ---
 
 👔 market: update floating debt before setting treasury

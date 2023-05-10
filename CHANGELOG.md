@@ -1,4 +1,4 @@
-# @exactly-protocol/protocol
+# @exactly/protocol
 
 ## 0.2.9
 

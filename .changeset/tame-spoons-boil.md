@@ -1,5 +1,5 @@
 ---
-"@exactly-protocol/protocol": patch
+"@exactly/protocol": patch
 ---
 
 🔊 market: emit `RewardsControllerSet` event
