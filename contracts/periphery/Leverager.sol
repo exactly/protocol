@@ -196,18 +196,50 @@ contract Leverager {
   ) external {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
-    bytes[] memory calls = new bytes[](2);
+    bytes[] memory calls;
+    RollVars memory r;
     tokens[0] = market.asset();
-    uint256 positionAssets;
 
-    (amounts[0], positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
-    calls[0] = abi.encodeCall(Market.repayAtMaturity, (maturity, positionAssets, maxRepayAssets, msg.sender));
-    calls[1] = abi.encodeCall(
-      Market.borrowAtMaturity,
-      (newMaturity, amounts[0], maxBorrowAssets, address(balancerVault), msg.sender)
-    );
+    (r.principal, r.fee) = market.fixedBorrowPositions(newMaturity, msg.sender);
+    (r.repayAssets, r.positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
+    {
+      uint256 available = tokens[0].balanceOf(address(balancerVault));
+      uint256 repayAssets = r.repayAssets;
+      uint256 loopCount;
+
+      assembly {
+        loopCount := mul(iszero(iszero(repayAssets)), add(div(sub(repayAssets, 1), available), 1))
+      }
+      r.loopCount = loopCount;
+    }
+    amounts[0] = r.repayAssets / r.loopCount;
+    r.positionAssets = r.positionAssets / r.loopCount;
+    calls = new bytes[](2 * r.loopCount);
+    for (r.i = 0; r.i < r.loopCount; ) {
+      calls[r.callIndex++] = abi.encodeCall(
+        Market.repayAtMaturity,
+        (maturity, r.positionAssets, type(uint256).max, msg.sender)
+      );
+      calls[r.callIndex++] = abi.encodeCall(
+        Market.borrowAtMaturity,
+        (
+          newMaturity,
+          amounts[0],
+          type(uint256).max,
+          r.i + 1 == r.loopCount ? address(balancerVault) : address(this),
+          msg.sender
+        )
+      );
+      unchecked {
+        ++r.i;
+      }
+    }
 
     balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(newMaturity, msg.sender);
+    if (principal + fee > r.principal + r.fee + maxBorrowAssets || principal > r.principal + maxRepayAssets) {
+      revert Disagreement();
+    }
   }
 
   /// @notice Calculates the actual repay and position assets of a repay operation at maturity.
@@ -287,6 +319,7 @@ contract Leverager {
 error CallError(uint256 callIndex, bytes revertData);
 
 struct RollVars {
+  uint256 positionAssets;
   uint256 repayAssets;
   uint256 callIndex;
   uint256 loopCount;
