@@ -38,6 +38,8 @@ contract ProtocolTest is Test {
   using LibString for uint256;
   using FixedLib for FixedLib.Position;
 
+  uint256 internal FULFIL_ODDS = 0.8e18;
+
   Auditor internal auditor;
   Market[] internal markets;
   address[] internal accounts;
@@ -281,7 +283,7 @@ contract ProtocolTest is Test {
   function withdrawAtMaturity(
     uint56 assets,
     bytes32 seed
-  ) external context(seed) _depositAtMaturity(assets, msg.sender) {
+  ) external context(seed) _depositAtMaturity(assets, msg.sender, seed) {
     Binary memory pool;
     (pool.negative, pool.positive, , ) = _market.fixedPools(_maturity);
     (uint256 principal, uint256 fee) = _market.fixedDepositPositions(_maturity, msg.sender);
@@ -338,7 +340,10 @@ contract ProtocolTest is Test {
     if (assetsDiscounted > 0) _asset.burn(msg.sender, assetsDiscounted);
   }
 
-  function repayAtMaturity(uint56 assets, bytes32 seed) external context(seed) {
+  function repayAtMaturity(
+    uint56 assets,
+    bytes32 seed
+  ) external context(seed) _borrowAtMaturity(assets, msg.sender, seed) {
     (uint256 principal, uint256 fee) = _market.fixedBorrowPositions(_maturity, msg.sender);
     uint256 positionAssets = assets > principal + fee ? principal + fee : assets;
 
@@ -367,7 +372,7 @@ contract ProtocolTest is Test {
     _market.repayAtMaturity(_maturity, positionAssets, type(uint256).max, msg.sender);
   }
 
-  function borrowAtMaturity(uint56 assets, bytes32 seed) external context(seed) _collateral(assets, msg.sender) {
+  function borrowAtMaturity(uint56 assets, bytes32 seed) external context(seed) _collateral(assets, msg.sender, seed) {
     Binary memory pool;
     (pool.negative, pool.positive, , ) = _market.fixedPools(_maturity);
     uint256 backupAssets = previewFloatingAssetsAverage(_market);
@@ -479,7 +484,7 @@ contract ProtocolTest is Test {
   function borrow(
     uint56 assets,
     bytes32 seed
-  ) external context(seed) _liquidity(assets) _collateral(assets, msg.sender) {
+  ) external context(seed) _liquidity(assets, seed) _collateral(assets, msg.sender, seed) {
     uint256 expectedShares = _market.previewBorrow(assets);
     (uint256 collateral, uint256 debt) = previewAccountLiquidity(msg.sender, _market, assets, expectedShares);
 
@@ -500,7 +505,7 @@ contract ProtocolTest is Test {
     if (borrowShares > 0) _asset.burn(msg.sender, assets);
   }
 
-  function repay(uint56 assets, bytes32 seed) external context(seed) _borrow(assets, msg.sender) {
+  function repay(uint56 assets, bytes32 seed) external context(seed) _borrow(assets, msg.sender, seed) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(_market.previewRepay(assets), floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -518,7 +523,7 @@ contract ProtocolTest is Test {
   function refund(
     uint56 shares,
     bytes32 seed
-  ) external context(seed) _borrow(_market.previewRefund(shares), msg.sender) {
+  ) external context(seed) _borrow(_market.previewRefund(shares), msg.sender, seed) {
     (, , uint256 floatingBorrowShares) = _market.accounts(msg.sender);
     uint256 borrowShares = Math.min(shares, floatingBorrowShares);
     uint256 refundAssets = _market.previewRefund(borrowShares);
@@ -533,7 +538,7 @@ contract ProtocolTest is Test {
     _market.refund(shares, msg.sender);
   }
 
-  function withdraw(uint56 assets, bytes32 seed) external context(seed) _deposit(assets, msg.sender) {
+  function withdraw(uint56 assets, bytes32 seed) external context(seed) _deposit(assets, msg.sender, seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedShares = _market.totalAssets() != 0 ? _market.previewWithdraw(assets) : 0;
     Binary memory liquidity;
@@ -566,7 +571,7 @@ contract ProtocolTest is Test {
   function redeem(
     uint56 shares,
     bytes32 seed
-  ) external context(seed) _deposit(_market.previewMint(shares), msg.sender) {
+  ) external context(seed) _deposit(_market.previewMint(shares), msg.sender, seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 expectedAssets = _market.previewRedeem(shares);
     Binary memory liquidity;
@@ -604,7 +609,7 @@ contract ProtocolTest is Test {
   function transfer(
     uint56 shares,
     bytes32 seed
-  ) external context(seed) _deposit(_market.previewMint(shares), msg.sender) {
+  ) external context(seed) _deposit(_market.previewMint(shares), msg.sender, seed) {
     (, , uint256 index, , ) = auditor.markets(_market);
     uint256 withdrawAssets = _market.previewRedeem(shares);
     Binary memory liquidity;
@@ -629,7 +634,14 @@ contract ProtocolTest is Test {
   function liquidate(
     uint56 assets,
     bytes32 seed
-  ) external context(seed) _uniqueAccounts(seed) _liquidity(assets) _borrow(assets, _counterparty) _checkBadDebt {
+  )
+    external
+    context(seed)
+    _uniqueAccounts(seed)
+    _liquidity(assets, seed)
+    _borrow(assets, _counterparty, seed)
+    _checkBadDebt
+  {
     (, , uint256 index, , ) = auditor.markets(_market);
     (, , uint256 collateralIndex, , ) = auditor.markets(_collateralMarket);
     Binary memory liquidity;
@@ -767,12 +779,12 @@ contract ProtocolTest is Test {
     _;
   }
 
-  modifier _liquidity(uint256 assets) {
+  modifier _liquidity(uint256 assets, bytes32 seed) {
     {
       uint256 liquidity = assets.divWadUp(1e18 - _market.reserveFactor());
-      // if (_bound(uint256(keccak256(abi.encode(seed, "liquidity"))), 0, 9) == 0) {
-      //   liquidity = liquidity.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "liquidity--"))), 0, 1e18 - 1));
-      // }
+      if (_bound(uint256(keccak256(abi.encode(seed, "liquidity"))), 0, 1e18) > FULFIL_ODDS) {
+        liquidity = liquidity.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "liquidity--"))), 0, 1e18 - 1));
+      }
       if (liquidity != 0) {
         address sender = msg.sender;
         changePrank(address(this));
@@ -784,7 +796,14 @@ contract ProtocolTest is Test {
     _;
   }
 
-  modifier _deposit(uint256 assets, address account) {
+  modifier _deposit(
+    uint256 assets,
+    address account,
+    bytes32 seed
+  ) {
+    if (_bound(uint256(keccak256(abi.encode(seed, "deposit"))), 0, 1e18) > FULFIL_ODDS) {
+      assets = assets.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "deposit--"))), 0, 1e18 - 1));
+    }
     if (assets != 0) {
       address sender = msg.sender;
       changePrank(account);
@@ -795,7 +814,14 @@ contract ProtocolTest is Test {
     _;
   }
 
-  modifier _depositAtMaturity(uint256 assets, address account) {
+  modifier _depositAtMaturity(
+    uint256 assets,
+    address account,
+    bytes32 seed
+  ) {
+    if (_bound(uint256(keccak256(abi.encode(seed, "depositAtMaturity"))), 0, 1e18) > FULFIL_ODDS) {
+      assets = assets.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "depositAtMaturity--"))), 0, 1e18 - 1));
+    }
     if (assets != 0) {
       address sender = msg.sender;
       changePrank(account);
@@ -806,8 +832,15 @@ contract ProtocolTest is Test {
     _;
   }
 
-  modifier _collateral(uint256 assets, address account) {
+  modifier _collateral(
+    uint256 assets,
+    address account,
+    bytes32 seed
+  ) {
     {
+      if (_bound(uint256(keccak256(abi.encode(seed, "collateral"))), 0, 1e18) > FULFIL_ODDS) {
+        assets = assets.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "collateral--"))), 0, 1e18 - 1));
+      }
       Auditor.MarketData memory md;
       Auditor.MarketData memory cd;
       (md.adjustFactor, md.decimals, md.index, md.isListed, md.priceFeed) = auditor.markets(_market);
@@ -829,7 +862,14 @@ contract ProtocolTest is Test {
     _;
   }
 
-  modifier _borrow(uint256 assets, address account) {
+  modifier _borrow(
+    uint256 assets,
+    address account,
+    bytes32 seed
+  ) {
+    if (_bound(uint256(keccak256(abi.encode(seed, "borrow"))), 0, 1e18) > FULFIL_ODDS) {
+      assets = assets.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "borrow--"))), 0, 1e18 - 1));
+    }
     if (assets != 0) {
       address sender = msg.sender;
       changePrank(address(this));
@@ -863,7 +903,14 @@ contract ProtocolTest is Test {
     _;
   }
 
-  modifier _borrowAtMaturity(uint256 assets, address account) {
+  modifier _borrowAtMaturity(
+    uint256 assets,
+    address account,
+    bytes32 seed
+  ) {
+    if (_bound(uint256(keccak256(abi.encode(seed, "borrowAtMaturity"))), 0, 1e18) > FULFIL_ODDS) {
+      assets = assets.mulWadDown(_bound(uint256(keccak256(abi.encode(seed, "borrowAtMaturity--"))), 0, 1e18 - 1));
+    }
     if (assets != 0) {
       address sender = msg.sender;
       changePrank(address(this));
