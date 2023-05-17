@@ -31,7 +31,7 @@ contract LeveragerTest is Test {
     marketUSDC = Market(deployment("MarketUSDC"));
     leverager = new Leverager(Auditor(deployment("Auditor")), IBalancerVault(deployment("BalancerVault")));
 
-    deal(address(usdc), address(this), 20_000_000e6);
+    deal(address(usdc), address(this), 22_000_000e6);
     marketUSDC.approve(address(leverager), type(uint256).max);
     usdc.approve(address(marketUSDC), type(uint256).max);
     usdc.approve(address(leverager), type(uint256).max);
@@ -46,6 +46,7 @@ contract LeveragerTest is Test {
     uint8[4] calldata times
   ) external _checkBalances {
     marketUSDC.deposit(20_000_000e6, address(this));
+    usdc.transfer(address(leverager), 1);
     vm.warp(block.timestamp + 10_000);
     uint256 pastMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
 
@@ -75,7 +76,7 @@ contract LeveragerTest is Test {
       (uint256 principal, uint256 fee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
       if (principal + fee == 0) vm.expectRevert(bytes(""));
       else {
-        uint256 repayAssets = previewActualRepay(marketUSDC, maturity, percentage);
+        uint256 repayAssets = previewActualRepay(maturity, percentage);
         if (repayAssets == 0) {
           vm.expectRevert(stdError.divisionError);
         } else if (operation == 2) {
@@ -89,7 +90,7 @@ contract LeveragerTest is Test {
         }
       }
     } else {
-      if (operation > 0 && previewActualRepay(marketUSDC, maturity, percentage) == 0) {
+      if (operation > 0 && previewActualRepay(maturity, percentage) == 0) {
         vm.expectRevert(stdError.divisionError);
       } else {
         (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -621,30 +622,26 @@ contract LeveragerTest is Test {
     assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(leverager.balancerVault())));
   }
 
-  function previewActualRepay(
-    Market market,
-    uint256 maturity,
-    uint256 percentage
-  ) internal view returns (uint256 actualRepay) {
+  function previewActualRepay(uint256 maturity, uint256 percentage) internal view returns (uint256 actualRepay) {
     FixedLib.Position memory position;
-    (position.principal, position.fee) = market.fixedBorrowPositions(maturity, address(this));
+    (position.principal, position.fee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     uint256 positionAssets = percentage < 1e18
       ? percentage.mulWadDown(position.principal + position.fee)
       : position.principal + position.fee;
     if (block.timestamp < maturity) {
       FixedLib.Pool memory pool;
-      (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = market.fixedPools(maturity);
+      (pool.borrowed, pool.supplied, pool.unassignedEarnings, pool.lastAccrual) = marketUSDC.fixedPools(maturity);
       pool.unassignedEarnings -= pool.unassignedEarnings.mulDivDown(
         block.timestamp - pool.lastAccrual,
         maturity - pool.lastAccrual
       );
       (uint256 yield, ) = pool.calculateDeposit(
         position.scaleProportionally(positionAssets).principal,
-        market.backupFeeRate()
+        marketUSDC.backupFeeRate()
       );
       actualRepay = positionAssets - yield;
     } else {
-      actualRepay = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * market.penaltyRate());
+      actualRepay = positionAssets + positionAssets.mulWadDown((block.timestamp - maturity) * marketUSDC.penaltyRate());
     }
   }
 
