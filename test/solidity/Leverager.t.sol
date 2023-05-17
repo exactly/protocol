@@ -133,7 +133,7 @@ contract LeveragerTest is Test {
 
   function testLeverageShouldFailWhenHealthFactorNearOne() external _checkBalances {
     vm.expectRevert(
-      abi.encodeWithSelector(CallError.selector, 1, abi.encodeWithSelector(InsufficientAccountLiquidity.selector))
+      abi.encodeWithSelector(CallError.selector, abi.encodeWithSelector(InsufficientAccountLiquidity.selector))
     );
     leverager.leverage(marketUSDC, 100_000e6, 1.000000000001e18, true);
 

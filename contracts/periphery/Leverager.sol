@@ -302,7 +302,7 @@ contract Leverager {
     (Market market, bytes[] memory calls) = abi.decode(userData, (Market, bytes[]));
     for (uint256 i = 0; i < calls.length; ) {
       (bool success, bytes memory data) = address(market).call(calls[i]);
-      if (!success) revert CallError(i, data);
+      if (!success) revert CallError(data);
       unchecked {
         ++i;
       }
@@ -337,7 +337,7 @@ contract Leverager {
 }
 
 error InvalidOperation();
-error CallError(uint256 callIndex, bytes revertData);
+error CallError(bytes revertData);
 
 struct RollVars {
   uint256 positionAssets;
