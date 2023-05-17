@@ -191,15 +191,15 @@ contract Leverager {
 
   /// @notice Rolls a percentage of the fixed position of `msg.sender` to another fixed pool.
   /// @param market The Market to roll the position in.
-  /// @param maturity The maturity of the fixed pool that the position is being rolled from.
-  /// @param newMaturity The maturity of the fixed pool that the position is being rolled to.
+  /// @param repayMaturity The maturity of the fixed pool that the position is being rolled from.
+  /// @param borrowMaturity The maturity of the fixed pool that the position is being rolled to.
   /// @param maxRepayAssets Max amount of debt that the account is willing to accept to be repaid.
   /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
   /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
   function fixedRoll(
     Market market,
-    uint256 maturity,
-    uint256 newMaturity,
+    uint256 repayMaturity,
+    uint256 borrowMaturity,
     uint256 maxRepayAssets,
     uint256 maxBorrowAssets,
     uint256 percentage
@@ -210,8 +210,8 @@ contract Leverager {
     RollVars memory r;
     tokens[0] = market.asset();
 
-    (r.principal, r.fee) = market.fixedBorrowPositions(newMaturity, msg.sender);
-    (r.repayAssets, r.positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
+    (r.principal, r.fee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
+    (r.repayAssets, r.positionAssets) = repayAtMaturityAssets(market, repayMaturity, percentage);
     {
       uint256 available = tokens[0].balanceOf(address(balancerVault));
       uint256 repayAssets = r.repayAssets;
@@ -224,7 +224,7 @@ contract Leverager {
       assembly {
         amount := mul(iszero(iszero(repayAssets)), add(div(sub(repayAssets, 1), loopCount), 1))
       }
-      if (loopCount > 1 && maturity == newMaturity) revert InvalidOperation();
+      if (loopCount > 1 && repayMaturity == borrowMaturity) revert InvalidOperation();
       r.loopCount = loopCount;
       amounts[0] = amount;
     }
@@ -233,12 +233,12 @@ contract Leverager {
     for (r.i = 0; r.i < r.loopCount; ) {
       calls[r.callIndex++] = abi.encodeCall(
         Market.repayAtMaturity,
-        (maturity, r.positionAssets, type(uint256).max, msg.sender)
+        (repayMaturity, r.positionAssets, type(uint256).max, msg.sender)
       );
       calls[r.callIndex++] = abi.encodeCall(
         Market.borrowAtMaturity,
         (
-          newMaturity,
+          borrowMaturity,
           amounts[0],
           type(uint256).max,
           r.i + 1 == r.loopCount ? address(balancerVault) : address(this),
@@ -251,7 +251,7 @@ contract Leverager {
     }
 
     balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(newMaturity, msg.sender);
+    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
     if (
       (maxBorrowAssets < type(uint256).max && principal + fee > r.principal + r.fee + maxBorrowAssets) ||
       (maxRepayAssets < type(uint256).max && principal > r.principal + maxRepayAssets)
