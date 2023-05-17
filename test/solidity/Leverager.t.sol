@@ -12,6 +12,7 @@ import {
   InvalidOperation
 } from "../../contracts/periphery/Leverager.sol";
 import { Auditor, Market, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
+import { MockBalancerVault } from "../../contracts/mocks/MockBalancerVault.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
 contract LeveragerTest is Test {
@@ -588,6 +589,22 @@ contract LeveragerTest is Test {
     assertEq(availableAssets.length, markets.length);
     assertEq(address(availableAssets[1].asset), address(usdc));
     assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(leverager.balancerVault())));
+  }
+
+  function testMockBalancerVault() external {
+    MockBalancerVault mockBalancerVault = new MockBalancerVault();
+    leverager = new Leverager(leverager.auditor(), IBalancerVault(address(mockBalancerVault)));
+    marketUSDC.approve(address(leverager), type(uint256).max);
+    marketUSDC.deposit(100_000e6, address(this));
+    marketUSDC.borrow(50_000e6, address(this), address(this));
+
+    vm.expectRevert(bytes(""));
+    leverager.floatingRoll(marketUSDC, true, maturity, type(uint256).max, 1e18);
+
+    deal(address(usdc), address(mockBalancerVault), 50000000001);
+    leverager.floatingRoll(marketUSDC, true, maturity, type(uint256).max, 1e18);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    assertEq(principal, 50_000e6 + 1);
   }
 
   function previewActualRepay(uint256 percentage) internal view returns (uint256 actualRepay) {
