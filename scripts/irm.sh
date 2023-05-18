@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-read -ra input <<< "$(cast --abi-decode "_()(uint256,uint256,uint256,int256,uint256)" "$1" | xargs)"
+read -ra input <<< "$(cast --abi-decode "_()(uint256,uint256,uint256,int256,uint256)" "$1" | sed 's/ .*//' | xargs)"
 
 rate=$(bc -l <<< "
   scale = 2 * 18
