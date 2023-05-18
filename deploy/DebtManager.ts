@@ -1,19 +1,25 @@
-import { env } from "process";
 import type { DeployFunction } from "hardhat-deploy/types";
-import tenderlify from "./.utils/tenderlify";
+import validateUpgrade from "./.utils/validateUpgrade";
 
 const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAccounts }) => {
-  const [{ address: auditor }, { address: balancerVault }, { deployer }] = await Promise.all([
-    get("Auditor"),
+  const [{ address: timelock }, { address: balancerVault }, { address: auditor }, { deployer }] = await Promise.all([
+    get("TimelockController"),
     get("BalancerVault"),
+    get("Auditor"),
     getNamedAccounts(),
   ]);
 
-  await tenderlify(
-    "DebtManager",
-    await deploy("DebtManager", {
-      skipIfAlreadyDeployed: !JSON.parse(env.DEPLOY_DEBT_MANAGER ?? "false"),
-      args: [auditor, balancerVault],
+  await validateUpgrade("DebtManager", { args: [auditor, balancerVault], envKey: "DEBT_MANAGER" }, async (name, opts) =>
+    deploy(name, {
+      ...opts,
+      proxy: {
+        owner: timelock,
+        viaAdminContract: "ProxyAdmin",
+        proxyContract: "TransparentUpgradeableProxy",
+        execute: {
+          init: { methodName: "initialize", args: [] },
+        },
+      },
       from: deployer,
       log: true,
     }),

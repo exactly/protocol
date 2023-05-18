@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import { Test, stdJson, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
   ERC20,
   DebtManager,
@@ -32,7 +33,14 @@ contract DebtManagerTest is Test {
 
     usdc = ERC20(deployment("USDC"));
     marketUSDC = Market(deployment("MarketUSDC"));
-    debtManager = new DebtManager(Auditor(deployment("Auditor")), IBalancerVault(deployment("BalancerVault")));
+    debtManager = DebtManager(
+      address(
+        new ERC1967Proxy(
+          address(new DebtManager(Auditor(deployment("Auditor")), IBalancerVault(deployment("BalancerVault")))),
+          abi.encodeCall(DebtManager.initialize, ())
+        )
+      )
+    );
     assertLt(usdc.balanceOf(address(debtManager.balancerVault())), 1_000_000e6);
 
     deal(address(usdc), address(this), 22_000_000e6);
@@ -593,7 +601,14 @@ contract DebtManagerTest is Test {
 
   function testMockBalancerVault() external {
     MockBalancerVault mockBalancerVault = new MockBalancerVault();
-    debtManager = new DebtManager(debtManager.auditor(), IBalancerVault(address(mockBalancerVault)));
+    debtManager = DebtManager(
+      address(
+        new ERC1967Proxy(
+          address(new DebtManager(debtManager.auditor(), IBalancerVault(address(mockBalancerVault)))),
+          abi.encodeCall(DebtManager.initialize, ())
+        )
+      )
+    );
     marketUSDC.approve(address(debtManager), type(uint256).max);
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrow(50_000e6, address(this), address(this));

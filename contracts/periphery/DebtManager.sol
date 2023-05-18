@@ -1,30 +1,40 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
-import { Market, ERC4626, FixedLib, Disagreement } from "../Market.sol";
+import { Market, ERC20, ERC4626, FixedLib, Disagreement } from "../Market.sol";
 
 /// @title DebtManager
 /// @notice Contract that leverages and deleverages the floating position of accounts interacting with Exactly Protocol.
-contract DebtManager {
+contract DebtManager is Initializable {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
   using FixedLib for FixedLib.Pool;
   using FixedLib for FixedLib.Position;
 
   /// @notice Balancer's vault contract that is used to take flash loans.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IBalancerVault public immutable balancerVault;
   /// @notice Auditor contract that lists the markets that can be leveraged.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
 
+  /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_, IBalancerVault balancerVault_) {
     auditor = auditor_;
     balancerVault = balancerVault_;
-    Market[] memory markets = auditor_.allMarkets();
+
+    _disableInitializers();
+  }
+
+  /// @notice Initializes the contract.
+  /// @dev can only be called once.
+  function initialize() external initializer {
+    Market[] memory markets = auditor.allMarkets();
     for (uint256 i = 0; i < markets.length; i++) {
       markets[i].asset().safeApprove(address(markets[i]), type(uint256).max);
     }
