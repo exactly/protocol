@@ -1,5 +1,24 @@
 # @exactly/protocol
 
+## 0.2.10
+
+### Patch Changes
+
+- 83a1615: 🦺 irm: add max config value checks
+- 10ed054: ⚡️ market: remove unnecessary checks
+- 1aceca2: 🐛 previewer: fix borrow reward rate calculation
+- 84850f9: ⚡️ rewards: perform check earlier
+- 4fe8a12: 🎨 market: trigger rewards before `floatingDebt` update
+- 7d787e7: ⚡️ rewards: reusing storage pointers
+- eef7f82: 🩹 rewards: adjust calculations' roundings
+- e17f162: ⚡️ rewards: reusing memory pointers
+- f8ab2a6: ⚡️ rewards: hardcode guaranteed boolean values
+- 58e498c: 🚀 optimism: deploy `wstETH` market
+- 8329997: 🔊 market: emit `RewardsControllerSet` event
+- 4b86c35: 👔 market: update floating debt before setting treasury
+- 953f33f: 🐛 market: trigger rewards before `floatingDebt` increase
+- a27082d: ♻️ rewards: simplify calculations
+
 ## 0.2.9
 
 ### Patch Changes
