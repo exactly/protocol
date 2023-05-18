@@ -8,9 +8,9 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
 import { Market, ERC4626, FixedLib, Disagreement } from "../Market.sol";
 
-/// @title Leverager
+/// @title DebtManager
 /// @notice Contract that leverages and deleverages the floating position of accounts interacting with Exactly Protocol.
-contract Leverager {
+contract DebtManager {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
   using FixedLib for FixedLib.Pool;

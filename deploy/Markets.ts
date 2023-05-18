@@ -1,6 +1,6 @@
 import { env } from "process";
 import type { DeployFunction } from "hardhat-deploy/types";
-import type { Auditor, ERC20, Leverager, Market, RewardsController } from "../types";
+import type { Auditor, ERC20, DebtManager, Market, RewardsController } from "../types";
 import { mockPrices } from "./mocks/Assets";
 import transferOwnership from "./.utils/transferOwnership";
 import executeOrPropose from "./.utils/executeOrPropose";
@@ -22,10 +22,10 @@ const func: DeployFunction = async ({
   deployments: { deploy, get },
   getNamedAccounts,
 }) => {
-  const [rewards, leverager, auditor, { address: timelock }, { deployer, multisig, treasury = AddressZero }] =
+  const [rewards, debtManager, auditor, { address: timelock }, { deployer, multisig, treasury = AddressZero }] =
     await Promise.all([
       getContractOrNull<RewardsController>("RewardsController"),
-      getContractOrNull<Leverager>("Leverager"),
+      getContractOrNull<DebtManager>("DebtManager"),
       getContract<Auditor>("Auditor"),
       get("TimelockController"),
       getNamedAccounts(),
@@ -167,11 +167,11 @@ const func: DeployFunction = async ({
     }
 
     if (
-      leverager &&
+      debtManager &&
       (await auditor.allMarkets()).includes(market.address) &&
-      (await asset.allowance(leverager.address, market.address)).isZero()
+      (await asset.allowance(debtManager.address, market.address)).isZero()
     ) {
-      await (await leverager.approve(market.address)).wait();
+      await (await debtManager.approve(market.address)).wait();
     }
 
     await grantRole(market, await market.PAUSER_ROLE(), multisig);

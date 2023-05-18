@@ -10,9 +10,9 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
   ]);
 
   await tenderlify(
-    "Leverager",
-    await deploy("Leverager", {
-      skipIfAlreadyDeployed: !JSON.parse(env.DEPLOY_LEVERAGER ?? "false"),
+    "DebtManager",
+    await deploy("DebtManager", {
+      skipIfAlreadyDeployed: !JSON.parse(env.DEPLOY_DEBT_MANAGER ?? "false"),
       args: [auditor, balancerVault],
       from: deployer,
       log: true,
@@ -20,8 +20,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
   );
 };
 
-func.tags = ["Leverager"];
+func.tags = ["DebtManager"];
 func.dependencies = ["Auditor", "Markets", "BalancerVault"];
-func.skip = async ({ network }) => !network.config.leverager;
 
 export default func;

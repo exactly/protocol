@@ -1,17 +1,15 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import Leverager from "../Leverager";
 
-const func: DeployFunction = async ({
-  ethers: {
-    constants: { AddressZero },
-  },
-  deployments: { getOrNull, save },
-  network: { live },
-}) => {
-  if (!(await getOrNull("BalancerVault")) && !live) await save("BalancerVault", { address: AddressZero, abi: [] });
+const func: DeployFunction = async ({ deployments: { deploy }, getNamedAccounts }) => {
+  const { deployer } = await getNamedAccounts();
+  await deploy("BalancerVault", {
+    skipIfAlreadyDeployed: true,
+    contract: "MockBalancerVault",
+    from: deployer,
+    log: true,
+  });
 };
 
 func.tags = ["BalancerVault"];
-func.skip = Leverager.skip;
 
 export default func;
