@@ -113,11 +113,13 @@ export default {
         },
       },
       wstETH: {
-        networks: ["mainnet", "goerli"],
         adjustFactor: 0.82,
         floatingCurve: { a: 1.9362e-2, b: -1.787e-3, maxUtilization: 1.003870947 },
         fixedCurve: { a: 3.8126e-1, b: -3.6375e-1, maxUtilization: 1.000010695 },
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
+        overrides: {
+          optimism: { adjustFactor: 0.8, priceFeed: undefined },
+        },
       },
       OP: {
         networks: ["optimism"],
