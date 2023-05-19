@@ -16,12 +16,12 @@ contract DebtManager is Initializable {
   using FixedLib for FixedLib.Pool;
   using FixedLib for FixedLib.Position;
 
-  /// @notice Balancer's vault contract that is used to take flash loans.
-  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-  IBalancerVault public immutable balancerVault;
   /// @notice Auditor contract that lists the markets that can be leveraged.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
+  /// @notice Balancer's vault contract that is used to take flash loans.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IBalancerVault public immutable balancerVault;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(Auditor auditor_, IBalancerVault balancerVault_) {
