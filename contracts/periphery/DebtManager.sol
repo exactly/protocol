@@ -188,14 +188,10 @@ contract DebtManager is Initializable {
     balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
     if (floatingToFixed) {
       (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(maturity, msg.sender);
-      if (maxAssets < type(uint256).max && newPrincipal + newFee > r.principal + r.fee + maxAssets) {
-        revert Disagreement();
-      }
+      if (maxAssets < newPrincipal + newFee - r.principal - r.fee) revert Disagreement();
     } else {
       (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
-      if (maxAssets < type(uint256).max && market.previewRefund(floatingBorrowShares) > r.principal + maxAssets) {
-        revert Disagreement();
-      }
+      if (maxAssets < market.previewRefund(floatingBorrowShares) - r.principal) revert Disagreement();
     }
   }
 
@@ -261,10 +257,16 @@ contract DebtManager is Initializable {
     }
 
     balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
-    (uint256 principal, uint256 fee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
+    (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
     if (
-      (maxBorrowAssets < type(uint256).max && principal + fee > r.principal + r.fee + maxBorrowAssets) ||
-      (maxRepayAssets < type(uint256).max && principal > r.principal + maxRepayAssets)
+      newPrincipal + newFee >
+      (
+        maxBorrowAssets < type(uint256).max - r.principal - r.fee
+          ? maxBorrowAssets + r.principal + r.fee
+          : type(uint256).max
+      ) ||
+      newPrincipal >
+      (maxRepayAssets < type(uint256).max - r.principal ? maxRepayAssets + r.principal : type(uint256).max)
     ) {
       revert Disagreement();
     }
