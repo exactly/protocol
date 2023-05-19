@@ -9,7 +9,7 @@ import { Auditor, MarketNotListed } from "../Auditor.sol";
 import { Market, ERC20, ERC4626, FixedLib, Disagreement } from "../Market.sol";
 
 /// @title DebtManager
-/// @notice Contract that leverages and deleverages the floating position of accounts interacting with Exactly Protocol.
+/// @notice Contract for efficient debt management of accounts interacting with Exactly Protocol.
 contract DebtManager is Initializable {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
