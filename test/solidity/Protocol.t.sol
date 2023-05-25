@@ -891,7 +891,7 @@ contract ProtocolTest is Test {
         uint256 collateral = adjustedCollateral.divWadUp(md.adjustFactor).mulDivUp(
           10 ** md.decimals,
           auditor.assetPrice(md.priceFeed)
-        );
+        ) + 666_666; // HACK
         MockERC20(address(_collateralMarket.asset())).mint(account, collateral);
         _collateralMarket.deposit(collateral, account);
         auditor.enterMarket(_collateralMarket);
@@ -942,7 +942,7 @@ contract ProtocolTest is Test {
         uint256 collateral = adjustedCollateral.divWadUp(md.adjustFactor).mulDivUp(
           10 ** md.decimals,
           auditor.assetPrice(md.priceFeed)
-        );
+        ) + 666_666; // HACK
         MockERC20(address(_collateralMarket.asset())).mint(account, collateral);
         _collateralMarket.deposit(collateral, account);
         auditor.enterMarket(_collateralMarket);

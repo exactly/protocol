@@ -17,6 +17,7 @@ verbosity = 3
 
 [profile.default.invariant]
 fail_on_revert = true
+seed = 0xdeadbeef
 
 [profile.production.fuzz]
 runs = 66_666
