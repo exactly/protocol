@@ -65,15 +65,15 @@ export default {
         fixedCurve: { a: 3.8126e-1, b: -3.6375e-1, maxUtilization: 1.000010695 },
         overrides: {
           goerli: {
-            rewards: { OP: { total: 60_000, debt: 16_000, start: "2023-03-09", period: 8 * 7 * 86_400 } },
+            rewards: { OP: { total: 90_000, debt: 16_000, start: "2023-03-09", period: 12 * 7 * 86_400 } },
           },
           optimism: {
             rewards: {
               OP: {
-                total: 60_000,
+                total: 90_000,
                 debt: 1_666,
                 start: "2023-04-03T14:00Z",
-                period: 8 * 7 * 86_400,
+                period: 12 * 7 * 86_400,
                 undistributedFactor: 0.3,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
@@ -95,10 +95,10 @@ export default {
         fixedCurve: { a: 3.9281e-1, b: -3.7781e-1, maxUtilization: 1.000014451 },
         overrides: {
           goerli: {
-            rewards: { OP: { total: 140_000, debt: 25_000_000, start: "2023-03-09", period: 8 * 7 * 86_400 } },
+            rewards: { OP: { total: 210_000, debt: 25_000_000, start: "2023-03-09", period: 12 * 7 * 86_400 } },
           },
           optimism: {
-            rewards: { OP: { total: 140_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 8 * 7 * 86_400 } },
+            rewards: { OP: { total: 210_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 12 * 7 * 86_400 } },
           },
         },
       },
