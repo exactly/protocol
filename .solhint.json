@@ -9,6 +9,7 @@
     "modifier-name-mixedcase": "error",
     "constructor-syntax": "error",
     "no-inline-assembly": "error",
+    "no-unused-import": "error",
     "not-rely-on-time": "off",
     "max-states-count": "off",
     "prettier/prettier": "error"
