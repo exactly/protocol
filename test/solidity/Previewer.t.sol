@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";

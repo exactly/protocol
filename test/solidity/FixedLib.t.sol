@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { Vm } from "forge-std/Vm.sol";
 import { Test, stdError } from "forge-std/Test.sol";
 import { FixedLib, MaturityOverflow } from "../../contracts/utils/FixedLib.sol";
 

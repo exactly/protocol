@@ -9,7 +9,6 @@ import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { IPriceFeed } from "./utils/IPriceFeed.sol";
 import { FixedLib } from "./utils/FixedLib.sol";
-import { Auditor } from "./Auditor.sol";
 import { Market } from "./Market.sol";
 
 contract RewardsController is Initializable, AccessControlUpgradeable {

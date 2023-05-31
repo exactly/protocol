@@ -8,7 +8,6 @@ import {
   Leverager,
   IBalancerVault,
   NotBalancerVault,
-  FlashloanCallback
 } from "../../contracts/periphery/Leverager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
 

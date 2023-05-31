@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { Vm } from "forge-std/Vm.sol";
 import { LibString } from "solmate/src/utils/LibString.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { Test, stdError } from "forge-std/Test.sol";
@@ -22,10 +21,8 @@ import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
   Auditor,
   RemainingDebt,
-  AuditorMismatch,
   InsufficientAccountLiquidity,
   InsufficientShortfall,
-  MarketAlreadyListed,
   RemainingDebt
 } from "../../contracts/Auditor.sol";
 import { RewardsController } from "../../contracts/RewardsController.sol";

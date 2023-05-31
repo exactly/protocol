@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { IPriceFeed } from "../utils/IPriceFeed.sol";
 
 contract MockPriceFeed is IPriceFeed {
