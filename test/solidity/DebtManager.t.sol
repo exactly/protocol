@@ -64,7 +64,9 @@ contract DebtManagerTest is Test {
     uint256 pastMaturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL);
 
     for (uint256 k = 0; k < 4; ++k) {
+      // solhint-disable-next-line reentrancy
       maturity = pastMaturity + FixedLib.INTERVAL * _bound(i[k], 1, marketUSDC.maxFuturePools());
+      // solhint-disable-next-line reentrancy
       targetMaturity = pastMaturity + FixedLib.INTERVAL * _bound(j[k], 1, marketUSDC.maxFuturePools());
       uint256 percentage = _bound(percentages[k], 0, 1.1e18);
 
