@@ -7,7 +7,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import {
   ERC20,
   DebtManager,
-  CallError,
   Disagreement,
   IBalancerVault,
   InvalidOperation
@@ -141,9 +140,7 @@ contract DebtManagerTest is Test {
   }
 
   function testLeverageShouldFailWhenHealthFactorNearOne() external _checkBalances {
-    vm.expectRevert(
-      abi.encodeWithSelector(CallError.selector, abi.encodeWithSelector(InsufficientAccountLiquidity.selector))
-    );
+    vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
     debtManager.leverage(marketUSDC, 100_000e6, 1.000000000001e18, true);
 
     debtManager.leverage(marketUSDC, 100_000e6, 1.00000000001e18, true);

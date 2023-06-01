@@ -4,17 +4,18 @@ pragma solidity 0.8.17;
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import { Auditor, MarketNotListed } from "../Auditor.sol";
+import { AddressUpgradeable as Address } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { Market, ERC20, ERC4626, FixedLib, Disagreement } from "../Market.sol";
+import { Auditor, MarketNotListed } from "../Auditor.sol";
 
 /// @title DebtManager
 /// @notice Contract for efficient debt management of accounts interacting with Exactly Protocol.
 contract DebtManager is Initializable {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
-  using FixedLib for FixedLib.Pool;
   using FixedLib for FixedLib.Position;
+  using FixedLib for FixedLib.Pool;
+  using Address for address;
 
   /// @notice Auditor contract that lists the markets that can be leveraged.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
@@ -313,8 +314,7 @@ contract DebtManager is Initializable {
 
     (Market market, bytes[] memory calls) = abi.decode(userData, (Market, bytes[]));
     for (uint256 i = 0; i < calls.length; ) {
-      (bool success, bytes memory data) = address(market).call(calls[i]);
-      if (!success) revert CallError(data);
+      address(market).functionCall(calls[i], "");
       unchecked {
         ++i;
       }
@@ -349,7 +349,6 @@ contract DebtManager is Initializable {
 }
 
 error InvalidOperation();
-error CallError(bytes revertData);
 
 struct RollVars {
   uint256 positionAssets;
