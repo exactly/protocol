@@ -112,25 +112,13 @@ contract DebtManager is Initializable {
 
     if (floatingToFixed) {
       (r.principal, r.fee) = market.fixedBorrowPositions(maturity, msg.sender);
-      {
-        (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
-        uint256 repayAssets = market.previewRefund(
-          percentage < 1e18 ? floatingBorrowShares.mulWadDown(percentage) : floatingBorrowShares
-        );
-        uint256 available = tokens[0].balanceOf(address(balancerVault));
-        uint256 loopCount;
-        uint256 amount;
+      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+      r.repayAssets = market.previewRefund(
+        percentage < 1e18 ? floatingBorrowShares.mulWadDown(percentage) : floatingBorrowShares
+      );
+      r.loopCount = r.repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
 
-        assembly {
-          loopCount := mul(iszero(iszero(repayAssets)), add(div(sub(repayAssets, 1), available), 1))
-        }
-        assembly {
-          amount := mul(iszero(iszero(repayAssets)), add(div(sub(repayAssets, 1), loopCount), 1))
-        }
-        r.loopCount = loopCount;
-        r.repayAssets = repayAssets;
-        amounts[0] = amount;
-      }
+      amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
       calls = new bytes[](2 * r.loopCount);
       for (r.i = 0; r.i < r.loopCount; ) {
         calls[r.callIndex++] = abi.encodeCall(
@@ -155,21 +143,10 @@ contract DebtManager is Initializable {
       (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
       r.principal = market.previewRefund(floatingBorrowShares);
       (uint256 repayAssets, uint256 positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
-      {
-        uint256 available = tokens[0].balanceOf(address(balancerVault));
-        uint256 loopCount;
-        uint256 amount;
-
-        assembly {
-          loopCount := mul(iszero(iszero(repayAssets)), add(div(sub(repayAssets, 1), available), 1))
-        }
-        assembly {
-          amount := mul(iszero(iszero(repayAssets)), add(div(sub(repayAssets, 1), loopCount), 1))
-        }
-        r.loopCount = loopCount;
-        amounts[0] = amount;
-      }
+      r.loopCount = repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
       positionAssets = positionAssets / r.loopCount;
+
+      amounts[0] = repayAssets.mulDivUp(1, r.loopCount);
       calls = new bytes[](2 * r.loopCount);
       for (r.i = 0; r.i < r.loopCount; ) {
         calls[r.callIndex++] = abi.encodeCall(
@@ -219,22 +196,11 @@ contract DebtManager is Initializable {
 
     (r.principal, r.fee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
     (r.repayAssets, r.positionAssets) = repayAtMaturityAssets(market, repayMaturity, percentage);
-    {
-      uint256 available = tokens[0].balanceOf(address(balancerVault));
-      uint256 repayAssets = r.repayAssets;
-      uint256 loopCount;
-      uint256 amount;
 
-      assembly {
-        loopCount := mul(iszero(iszero(repayAssets)), add(div(sub(repayAssets, 1), available), 1))
-      }
-      assembly {
-        amount := mul(iszero(iszero(repayAssets)), add(div(sub(repayAssets, 1), loopCount), 1))
-      }
-      if (loopCount > 1 && repayMaturity == borrowMaturity) revert InvalidOperation();
-      r.loopCount = loopCount;
-      amounts[0] = amount;
-    }
+    r.loopCount = r.repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+    if (r.loopCount > 1 && repayMaturity == borrowMaturity) revert InvalidOperation();
+
+    amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
     r.positionAssets = r.positionAssets / r.loopCount;
     calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
