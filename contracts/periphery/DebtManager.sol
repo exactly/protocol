@@ -91,17 +91,15 @@ contract DebtManager is Initializable {
     balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
   }
 
-  /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position or vice versa.
+  /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position.
   /// @param market The Market to roll the position in.
-  /// @param floatingToFixed `True` if the position is being rolled from floating to a fixed pool, `false` if opposite.
-  /// @param maturity The maturity of the fixed pool that the position is being rolled to or from.
-  /// @param maxAssets Max amount of debt that the sender is willing to accept.
+  /// @param borrowMaturity The maturity of the fixed pool that the position is being rolled to.
+  /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
   /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
-  function floatingRoll(
+  function rollFloatingToFixed(
     Market market,
-    bool floatingToFixed,
-    uint256 maturity,
-    uint256 maxAssets,
+    uint256 borrowMaturity,
+    uint256 maxBorrowAssets,
     uint256 percentage
   ) external {
     uint256[] memory amounts = new uint256[](1);
@@ -110,67 +108,81 @@ contract DebtManager is Initializable {
     RollVars memory r;
     tokens[0] = market.asset();
 
-    if (floatingToFixed) {
-      (r.principal, r.fee) = market.fixedBorrowPositions(maturity, msg.sender);
-      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
-      r.repayAssets = market.previewRefund(
-        percentage < 1e18 ? floatingBorrowShares.mulWadDown(percentage) : floatingBorrowShares
+    (r.principal, r.fee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
+    (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+    r.repayAssets = market.previewRefund(
+      percentage < 1e18 ? floatingBorrowShares.mulWadDown(percentage) : floatingBorrowShares
+    );
+    r.loopCount = r.repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+
+    amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
+    calls = new bytes[](2 * r.loopCount);
+    for (r.i = 0; r.i < r.loopCount; ) {
+      calls[r.callIndex++] = abi.encodeCall(
+        Market.repay,
+        (r.i == 0 ? amounts[0] : r.repayAssets / r.loopCount, msg.sender)
       );
-      r.loopCount = r.repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
-
-      amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
-      calls = new bytes[](2 * r.loopCount);
-      for (r.i = 0; r.i < r.loopCount; ) {
-        calls[r.callIndex++] = abi.encodeCall(
-          Market.repay,
-          (r.i == 0 ? amounts[0] : r.repayAssets / r.loopCount, msg.sender)
-        );
-        calls[r.callIndex++] = abi.encodeCall(
-          Market.borrowAtMaturity,
-          (
-            maturity,
-            r.i + 1 == r.loopCount ? amounts[0] : r.repayAssets / r.loopCount,
-            type(uint256).max,
-            r.i + 1 == r.loopCount ? address(balancerVault) : address(this),
-            msg.sender
-          )
-        );
-        unchecked {
-          ++r.i;
-        }
-      }
-    } else {
-      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
-      r.principal = market.previewRefund(floatingBorrowShares);
-      (uint256 repayAssets, uint256 positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
-      r.loopCount = repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
-      positionAssets = positionAssets / r.loopCount;
-
-      amounts[0] = repayAssets.mulDivUp(1, r.loopCount);
-      calls = new bytes[](2 * r.loopCount);
-      for (r.i = 0; r.i < r.loopCount; ) {
-        calls[r.callIndex++] = abi.encodeCall(
-          Market.repayAtMaturity,
-          (maturity, positionAssets, type(uint256).max, msg.sender)
-        );
-        calls[r.callIndex++] = abi.encodeCall(
-          Market.borrow,
-          (amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), msg.sender)
-        );
-        unchecked {
-          ++r.i;
-        }
+      calls[r.callIndex++] = abi.encodeCall(
+        Market.borrowAtMaturity,
+        (
+          borrowMaturity,
+          r.i + 1 == r.loopCount ? amounts[0] : r.repayAssets / r.loopCount,
+          type(uint256).max,
+          r.i + 1 == r.loopCount ? address(balancerVault) : address(this),
+          msg.sender
+        )
+      );
+      unchecked {
+        ++r.i;
       }
     }
 
     balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
-    if (floatingToFixed) {
-      (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(maturity, msg.sender);
-      if (maxAssets < newPrincipal + newFee - r.principal - r.fee) revert Disagreement();
-    } else {
-      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
-      if (maxAssets < market.previewRefund(floatingBorrowShares) - r.principal) revert Disagreement();
+    (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
+    if (maxBorrowAssets < newPrincipal + newFee - r.principal - r.fee) revert Disagreement();
+  }
+
+  /// @notice Rolls a percentage of the fixed position of `msg.sender` to a floating position.
+  /// @param market The Market to roll the position in.
+  /// @param repayMaturity The maturity of the fixed pool that the position is being rolled from.
+  /// @param maxRepayAssets Max amount of debt that the account is willing to accept to be repaid.
+  /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
+  function rollFixedToFloating(
+    Market market,
+    uint256 repayMaturity,
+    uint256 maxRepayAssets,
+    uint256 percentage
+  ) external {
+    uint256[] memory amounts = new uint256[](1);
+    ERC20[] memory tokens = new ERC20[](1);
+    bytes[] memory calls;
+    RollVars memory r;
+    tokens[0] = market.asset();
+
+    (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+    r.principal = market.previewRefund(floatingBorrowShares);
+    (uint256 repayAssets, uint256 positionAssets) = repayAtMaturityAssets(market, repayMaturity, percentage);
+    r.loopCount = repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+    positionAssets = positionAssets / r.loopCount;
+
+    amounts[0] = repayAssets.mulDivUp(1, r.loopCount);
+    calls = new bytes[](2 * r.loopCount);
+    for (r.i = 0; r.i < r.loopCount; ) {
+      calls[r.callIndex++] = abi.encodeCall(
+        Market.repayAtMaturity,
+        (repayMaturity, positionAssets, type(uint256).max, msg.sender)
+      );
+      calls[r.callIndex++] = abi.encodeCall(
+        Market.borrow,
+        (amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), msg.sender)
+      );
+      unchecked {
+        ++r.i;
+      }
     }
+    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+    (, , floatingBorrowShares) = market.accounts(msg.sender);
+    if (maxRepayAssets < market.previewRefund(floatingBorrowShares) - r.principal) revert Disagreement();
   }
 
   /// @notice Rolls a percentage of the fixed position of `msg.sender` to another fixed pool.

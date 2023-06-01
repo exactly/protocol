@@ -54,7 +54,6 @@ contract DebtManagerTest is Test {
   function testFuzzRolls(
     uint8[4] calldata i,
     uint8[4] calldata j,
-    bool[4] calldata floatingToFixed,
     uint256[4] calldata percentages,
     uint40[4] calldata amounts,
     uint8[4] calldata times
@@ -74,14 +73,11 @@ contract DebtManagerTest is Test {
         marketUSDC.borrowAtMaturity(maturity, amounts[k], type(uint256).max, address(this), address(this));
       }
 
-      checkRevert(percentage, floatingToFixed[k] ? Operation.FloatingToFixed : Operation.FixedToFloating);
-      debtManager.floatingRoll(
-        marketUSDC,
-        floatingToFixed[k],
-        floatingToFixed[k] ? targetMaturity : maturity,
-        type(uint256).max,
-        percentage
-      );
+      checkRevert(percentage, Operation.FloatingToFixed);
+      debtManager.rollFloatingToFixed(marketUSDC, targetMaturity, type(uint256).max, percentage);
+
+      checkRevert(percentage, Operation.FixedToFloating);
+      debtManager.rollFixedToFloating(marketUSDC, maturity, type(uint256).max, percentage);
 
       checkRevert(percentage, Operation.FixedToFixed);
       debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, percentage);
@@ -273,7 +269,7 @@ contract DebtManagerTest is Test {
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrow(50_000e6, address(this), address(this));
 
-    debtManager.floatingRoll(marketUSDC, true, maturity, type(uint256).max, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, type(uint256).max, 1e18);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(principal, 50_000e6 + 1);
   }
@@ -282,7 +278,7 @@ contract DebtManagerTest is Test {
     marketUSDC.deposit(2_000_000e6, address(this));
     marketUSDC.borrow(1_000_000e6, address(this), address(this));
 
-    debtManager.floatingRoll(marketUSDC, true, maturity, type(uint256).max, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, type(uint256).max, 1e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(floatingBorrowShares, 0);
@@ -297,9 +293,9 @@ contract DebtManagerTest is Test {
     uint256 fee = 8_855_280_712;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.floatingRoll(marketUSDC, true, maturity, 1_000_000e6 + fee, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 1_000_000e6 + fee, 1e18);
 
-    debtManager.floatingRoll(marketUSDC, true, maturity, 1_000_000e6 + ++fee, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 1_000_000e6 + ++fee, 1e18);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(principal, initialDebt);
@@ -313,16 +309,16 @@ contract DebtManagerTest is Test {
     uint256 fee = 10_504_723_368;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.floatingRoll(marketUSDC, true, maturity, 2_000_000e6 + fee, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 2_000_000e6 + fee, 1e18);
 
-    debtManager.floatingRoll(marketUSDC, true, maturity, 2_000_000e6 + ++fee, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 2_000_000e6 + ++fee, 1e18);
   }
 
   function testFixedToFloatingRollHigherThanAvailableLiquidity() external _checkBalances {
     marketUSDC.deposit(2_000_000e6, address(this));
     marketUSDC.borrowAtMaturity(maturity, 1_000_000e6, type(uint256).max, address(this), address(this));
 
-    debtManager.floatingRoll(marketUSDC, false, maturity, type(uint256).max, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, type(uint256).max, 1e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     (uint256 principal, uint256 fee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertGt(marketUSDC.previewRefund(floatingBorrowShares), 1_000_000e6);
@@ -335,9 +331,9 @@ contract DebtManagerTest is Test {
     uint256 fee = 893_502_174;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.floatingRoll(marketUSDC, false, maturity, 1_000_000e6 + fee, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, 1_000_000e6 + fee, 1e18);
 
-    debtManager.floatingRoll(marketUSDC, false, maturity, 1_000_000e6 + ++fee, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, 1_000_000e6 + ++fee, 1e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 1_000_000e6 + fee);
@@ -351,9 +347,9 @@ contract DebtManagerTest is Test {
     uint256 fee = 1_052_304_919;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.floatingRoll(marketUSDC, false, maturity, 2_000_000e6 + fee, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, 2_000_000e6 + fee, 1e18);
 
-    debtManager.floatingRoll(marketUSDC, false, maturity, 2_000_000e6 + ++fee, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, 2_000_000e6 + ++fee, 1e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 2_000_000e6 + fee);
@@ -368,7 +364,7 @@ contract DebtManagerTest is Test {
 
     vm.warp(maturity + 1 days);
     uint256 debt = marketUSDC.previewDebt(address(this));
-    debtManager.floatingRoll(marketUSDC, false, maturity, type(uint256).max, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, type(uint256).max, 1e18);
     assertEq(debt, marketUSDC.previewDebt(address(this)) - 3);
     (uint256 newPrincipal, uint256 newFee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(newPrincipal + newFee, 0);
@@ -385,9 +381,9 @@ contract DebtManagerTest is Test {
     uint256 maxFee = 41_656_859;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.floatingRoll(marketUSDC, true, maturity, 50_000e6 + maxFee, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 50_000e6 + maxFee, 1e18);
 
-    debtManager.floatingRoll(marketUSDC, true, maturity, 50_000e6 + ++maxFee, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 50_000e6 + ++maxFee, 1e18);
     (uint256 principal, uint256 fee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(principal, 50_000e6 + 1);
     assertEq(fee, maxFee - 1);
@@ -400,9 +396,9 @@ contract DebtManagerTest is Test {
     uint256 maxFee = 46_473_866;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.floatingRoll(marketUSDC, true, maturity, 50_000e6 + maxFee, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 50_000e6 + maxFee, 1e18);
 
-    debtManager.floatingRoll(marketUSDC, true, maturity, 50_000e6 + ++maxFee, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 50_000e6 + ++maxFee, 1e18);
   }
 
   function testFixedToFloatingRoll() external _checkBalances {
@@ -410,7 +406,7 @@ contract DebtManagerTest is Test {
     marketUSDC.borrowAtMaturity(maturity, 10_000e6, type(uint256).max, address(this), address(this));
     (uint256 principal, uint256 fee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
 
-    debtManager.floatingRoll(marketUSDC, false, maturity, type(uint256).max, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, type(uint256).max, 1e18);
     (uint256 newPrincipal, uint256 newFee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(newPrincipal + newFee, 0);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -425,7 +421,7 @@ contract DebtManagerTest is Test {
     marketUSDC.borrowAtMaturity(maturity, 10_000e6, type(uint256).max, address(this), address(this));
     (uint256 principal, uint256 fee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
 
-    debtManager.floatingRoll(marketUSDC, false, maturity, type(uint256).max, 0.5e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, type(uint256).max, 0.5e18);
     (uint256 newPrincipal, uint256 newFee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq((newPrincipal + newFee) * 2, principal + fee + 1);
   }
@@ -436,9 +432,9 @@ contract DebtManagerTest is Test {
     uint256 maxAssets = 10_001_221_724;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.floatingRoll(marketUSDC, false, maturity, maxAssets, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, maxAssets, 1e18);
 
-    debtManager.floatingRoll(marketUSDC, false, maturity, ++maxAssets, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, ++maxAssets, 1e18);
   }
 
   function testLateFixedToFloatingRoll() external _checkBalances {
@@ -448,7 +444,7 @@ contract DebtManagerTest is Test {
 
     vm.warp(maturity + 1 days);
     uint256 debt = marketUSDC.previewDebt(address(this));
-    debtManager.floatingRoll(marketUSDC, false, maturity, type(uint256).max, 1e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, type(uint256).max, 1e18);
     assertEq(debt, marketUSDC.previewDebt(address(this)) - 1);
     (uint256 newPrincipal, uint256 newFee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(newPrincipal + newFee, 0);
@@ -466,7 +462,7 @@ contract DebtManagerTest is Test {
 
     vm.warp(maturity + 1 days);
     uint256 debt = marketUSDC.previewDebt(address(this));
-    debtManager.floatingRoll(marketUSDC, false, maturity, type(uint256).max, 0.5e18);
+    debtManager.rollFixedToFloating(marketUSDC, maturity, type(uint256).max, 0.5e18);
     assertEq(debt, marketUSDC.previewDebt(address(this)));
     (uint256 newPrincipal, uint256 newFee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(newPrincipal + newFee - 1, (principal + fee) / 2);
@@ -628,10 +624,10 @@ contract DebtManagerTest is Test {
     marketUSDC.borrow(50_000e6, address(this), address(this));
 
     vm.expectRevert(bytes(""));
-    debtManager.floatingRoll(marketUSDC, true, maturity, type(uint256).max, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, type(uint256).max, 1e18);
 
     deal(address(usdc), address(mockBalancerVault), 50000000001);
-    debtManager.floatingRoll(marketUSDC, true, maturity, type(uint256).max, 1e18);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, type(uint256).max, 1e18);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(principal, 50_000e6 + 1);
   }
