@@ -1,5 +1,13 @@
 # @exactly/protocol
 
+## 0.2.11
+
+### Patch Changes
+
+- e7a1bb2: 🚚 debt-manager: rename leverager
+- 85b5248: 🚀 optimism: deploy debt manager
+- e7a1bb2: ✨ debt-manager: add rollover functions
+
 ## 0.2.10
 
 ### Patch Changes
