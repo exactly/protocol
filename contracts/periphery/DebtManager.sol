@@ -101,7 +101,7 @@ contract DebtManager is Initializable {
     uint256 borrowMaturity,
     uint256 maxBorrowAssets,
     uint256 percentage
-  ) external {
+  ) public {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls;
@@ -152,7 +152,7 @@ contract DebtManager is Initializable {
     uint256 repayMaturity,
     uint256 maxRepayAssets,
     uint256 percentage
-  ) external {
+  ) public {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls;
@@ -196,14 +196,14 @@ contract DebtManager is Initializable {
   /// @param maxRepayAssets Max amount of debt that the account is willing to accept to be repaid.
   /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
   /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
-  function fixedRoll(
+  function rollFixed(
     Market market,
     uint256 repayMaturity,
     uint256 borrowMaturity,
     uint256 maxRepayAssets,
     uint256 maxBorrowAssets,
     uint256 percentage
-  ) external {
+  ) public {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls;
@@ -316,6 +316,73 @@ contract DebtManager is Initializable {
     }
   }
 
+  /// @notice Calls `token.permit` on behalf of `permit.account`.
+  /// @param token The `ERC20` to call `permit`.
+  /// @param p Arguments for the permit call.
+  modifier permit(
+    ERC20 token,
+    uint256 assets,
+    Permit calldata p
+  ) {
+    token.permit(p.account, address(this), assets, p.deadline, p.v, p.r, p.s);
+    _;
+  }
+
+  /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position
+  /// after calling `market.permit`.
+  /// @param market The Market to roll the position in.
+  /// @param borrowMaturity The maturity of the fixed pool that the position is being rolled to.
+  /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
+  /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
+  /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
+  function rollFloatingToFixed(
+    Market market,
+    uint256 borrowMaturity,
+    uint256 maxBorrowAssets,
+    uint256 percentage,
+    Permit calldata p
+  ) external permit(market, maxBorrowAssets, p) {
+    rollFloatingToFixed(market, borrowMaturity, maxBorrowAssets, percentage);
+  }
+
+  /// @notice Rolls a percentage of the fixed position of `msg.sender` to a floating position
+  /// after calling `market.permit`.
+  /// @param market The Market to roll the position in.
+  /// @param repayMaturity The maturity of the fixed pool that the position is being rolled from.
+  /// @param maxRepayAssets Max amount of debt that the account is willing to accept to be repaid.
+  /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
+  /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
+  function rollFixedToFloating(
+    Market market,
+    uint256 repayMaturity,
+    uint256 maxRepayAssets,
+    uint256 percentage,
+    Permit calldata p
+  ) external permit(market, maxRepayAssets, p) {
+    rollFixedToFloating(market, repayMaturity, maxRepayAssets, percentage);
+  }
+
+  /// @notice Rolls a percentage of the fixed position of `msg.sender` to another fixed pool
+  /// after calling `market.permit`.
+  /// @param market The Market to roll the position in.
+  /// @param repayMaturity The maturity of the fixed pool that the position is being rolled from.
+  /// @param borrowMaturity The maturity of the fixed pool that the position is being rolled to.
+  /// @param maxRepayAssets Max amount of debt that the account is willing to accept to be repaid.
+  /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
+  /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
+  /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
+  function rollFixed(
+    Market market,
+    uint256 repayMaturity,
+    uint256 borrowMaturity,
+    uint256 maxRepayAssets,
+    uint256 maxBorrowAssets,
+    uint256 percentage,
+    Permit calldata p
+  ) external permit(market, maxBorrowAssets, p) {
+    rollFixed(market, repayMaturity, borrowMaturity, maxRepayAssets, maxBorrowAssets, percentage);
+  }
+
   /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
   function availableLiquidity() external view returns (AvailableAsset[] memory availableAssets) {
     uint256 marketsCount = auditor.allMarkets().length;
@@ -344,6 +411,14 @@ contract DebtManager is Initializable {
 }
 
 error InvalidOperation();
+
+struct Permit {
+  address account;
+  uint256 deadline;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
+}
 
 struct RollVars {
   uint256 positionAssets;

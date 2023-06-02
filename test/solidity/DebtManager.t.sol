@@ -6,6 +6,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
   ERC20,
+  Permit,
   DebtManager,
   Disagreement,
   IBalancerVault,
@@ -40,6 +41,7 @@ contract DebtManagerTest is Test {
         )
       )
     );
+    vm.label(address(debtManager), "DebtManager");
     assertLt(usdc.balanceOf(address(debtManager.balancerVault())), 1_000_000e6);
 
     deal(address(usdc), address(this), 22_000_000e6);
@@ -82,7 +84,7 @@ contract DebtManagerTest is Test {
       debtManager.rollFixedToFloating(marketUSDC, maturity, type(uint256).max, percentage);
 
       checkRevert(percentage, Operation.FixedToFixed);
-      debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, percentage);
+      debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, percentage);
 
       vm.warp(block.timestamp + uint256(times[k]) * 1 hours);
     }
@@ -479,7 +481,7 @@ contract DebtManagerTest is Test {
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
 
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 1e18);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(principal, 0);
     (principal, ) = marketUSDC.fixedBorrowPositions(targetMaturity, address(this));
@@ -490,7 +492,7 @@ contract DebtManagerTest is Test {
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrowAtMaturity(maturity, 50_000e6, type(uint256).max, address(this), address(this));
 
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 0.1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 0.1e18);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(principal, 45_000e6);
     (principal, ) = marketUSDC.fixedBorrowPositions(targetMaturity, address(this));
@@ -504,9 +506,9 @@ contract DebtManagerTest is Test {
     uint256 maxRepayAssets = 50_004_915_917;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, maxRepayAssets, type(uint256).max, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, maxRepayAssets, type(uint256).max, 1e18);
 
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, ++maxRepayAssets, type(uint256).max, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, ++maxRepayAssets, type(uint256).max, 1e18);
   }
 
   function testFixedRollWithAccurateBorrowSlippage() external _checkBalances {
@@ -515,9 +517,9 @@ contract DebtManagerTest is Test {
     uint256 maxBorrowAssets = 50_128_835_188;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, maxBorrowAssets, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, maxBorrowAssets, 1e18);
 
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, ++maxBorrowAssets, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, ++maxBorrowAssets, 1e18);
   }
 
   function testLateFixedRoll() external _checkBalances {
@@ -527,7 +529,7 @@ contract DebtManagerTest is Test {
 
     vm.warp(maturity + 1 days);
     uint256 debt = marketUSDC.previewDebt(address(this));
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 1e18);
     assertGt(marketUSDC.previewDebt(address(this)), debt);
     (uint256 newRepayPrincipal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(newRepayPrincipal, 0);
@@ -542,7 +544,7 @@ contract DebtManagerTest is Test {
 
     vm.warp(maturity + 1 days);
     uint256 debt = marketUSDC.previewDebt(address(this));
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 0.5e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 0.5e18);
     assertGt(marketUSDC.previewDebt(address(this)), debt);
     (uint256 newRepayPrincipal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(newRepayPrincipal, 25_000e6);
@@ -557,9 +559,9 @@ contract DebtManagerTest is Test {
     uint256 fees = 32_472_619_932;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, 2_000_000e6 + fees, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, 2_000_000e6 + fees, 1e18);
 
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, 2_000_000e6 + ++fees, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, 2_000_000e6 + ++fees, 1e18);
     (uint256 principal, uint256 fee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(principal + fee, 0);
     (principal, fee) = marketUSDC.fixedBorrowPositions(targetMaturity, address(this));
@@ -572,7 +574,7 @@ contract DebtManagerTest is Test {
     marketUSDC.borrowAtMaturity(maturity, 2_000_000e6, type(uint256).max, address(this), address(this));
 
     vm.expectRevert(InvalidOperation.selector);
-    debtManager.fixedRoll(marketUSDC, maturity, maturity, type(uint256).max, type(uint256).max, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, maturity, type(uint256).max, type(uint256).max, 1e18);
   }
 
   function testFixedRollWithAccurateRepaySlippageWithThreeLoops() external _checkBalances {
@@ -582,9 +584,9 @@ contract DebtManagerTest is Test {
     uint256 maxRepayAssets = 2_001_052_304_918;
 
     vm.expectRevert(Disagreement.selector);
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, maxRepayAssets, type(uint256).max, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, maxRepayAssets, type(uint256).max, 1e18);
 
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, ++maxRepayAssets, type(uint256).max, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, ++maxRepayAssets, type(uint256).max, 1e18);
   }
 
   function testLateFixedRollWithThreeLoops() external _checkBalances {
@@ -595,7 +597,7 @@ contract DebtManagerTest is Test {
 
     vm.warp(maturity + 1 days);
     uint256 debt = marketUSDC.previewDebt(address(this));
-    debtManager.fixedRoll(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 1e18);
+    debtManager.rollFixed(marketUSDC, maturity, targetMaturity, type(uint256).max, type(uint256).max, 1e18);
     assertGt(marketUSDC.previewDebt(address(this)), debt);
     (uint256 newRepayPrincipal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(newRepayPrincipal, 0);
@@ -616,11 +618,9 @@ contract DebtManagerTest is Test {
     tokens[0] = usdc;
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = 0;
-    bytes memory maliciousCall = abi.encodeWithSignature(
-      "transferFrom(address,address,uint256)",
-      address(this),
-      address(1),
-      usdc.balanceOf(address(this))
+    bytes memory maliciousCall = abi.encodeCall(
+      ERC20.transferFrom,
+      (address(this), address(1), usdc.balanceOf(address(this)))
     );
     bytes[] memory calls = new bytes[](1);
     calls[0] = abi.encodePacked(maliciousCall);
@@ -650,6 +650,40 @@ contract DebtManagerTest is Test {
     deal(address(usdc), address(mockBalancerVault), 50000000001);
     debtManager.rollFloatingToFixed(marketUSDC, maturity, type(uint256).max, 1e18);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    assertEq(principal, 50_000e6 + 1);
+  }
+
+  function testPermitAndRollFloatingToFixed() external {
+    uint256 bobKey = 0xb0b;
+    address bob = vm.addr(bobKey);
+    vm.label(bob, "bob");
+
+    marketUSDC.deposit(100_000e6, bob);
+    vm.prank(bob);
+    marketUSDC.borrow(50_000e6, bob, bob);
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      bobKey,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketUSDC.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              66_666e6,
+              marketUSDC.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+    vm.prank(bob);
+    debtManager.rollFloatingToFixed(marketUSDC, maturity, 66_666e6, 1e18, Permit(bob, block.timestamp, v, r, s));
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, bob);
     assertEq(principal, 50_000e6 + 1);
   }
 
