@@ -1,5 +1,11 @@
 # @exactly/protocol
 
+## 0.2.12
+
+### Patch Changes
+
+- d76c1a3: 🚀 mainnet: deploy debt manager
+
 ## 0.2.11
 
 ### Patch Changes
