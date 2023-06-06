@@ -257,7 +257,7 @@ contract DebtManagerTest is Test {
     uint256[] memory feeAmounts = new uint256[](1);
     ERC20[] memory assets = new ERC20[](1);
 
-    vm.expectRevert();
+    vm.expectRevert(stdError.assertionError);
     debtManager.receiveFlashLoan(assets, amounts, feeAmounts, "");
   }
 
@@ -609,6 +609,25 @@ contract DebtManagerTest is Test {
     assertEq(availableAssets.length, markets.length);
     assertEq(address(availableAssets[1].asset), address(usdc));
     assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(debtManager.balancerVault())));
+  }
+
+  function testBalancerFlashloanCallFromDifferentOrigin() external {
+    ERC20[] memory tokens = new ERC20[](1);
+    tokens[0] = usdc;
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = 0;
+    bytes memory maliciousCall = abi.encodeWithSignature(
+      "transferFrom(address,address,uint256)",
+      address(this),
+      address(1),
+      usdc.balanceOf(address(this))
+    );
+    bytes[] memory calls = new bytes[](1);
+    calls[0] = abi.encodePacked(maliciousCall);
+    IBalancerVault balancerVault = debtManager.balancerVault();
+
+    vm.expectRevert(stdError.assertionError);
+    balancerVault.flashLoan(address(debtManager), tokens, amounts, abi.encode(usdc, calls));
   }
 
   function testMockBalancerVault() external {

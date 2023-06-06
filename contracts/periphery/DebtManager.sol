@@ -62,7 +62,7 @@ contract DebtManager is Initializable {
     calls[0] = abi.encodeCall(ERC4626.deposit, (amounts[0] + (deposit ? principal : 0), msg.sender));
     calls[1] = abi.encodeCall(Market.borrow, (amounts[0], address(balancerVault), msg.sender));
 
-    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
   }
 
   /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash loan from
@@ -88,7 +88,7 @@ contract DebtManager is Initializable {
     }
     calls[1] = abi.encodeCall(Market.withdraw, (amounts[0], address(balancerVault), msg.sender));
 
-    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
   }
 
   /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position.
@@ -137,7 +137,7 @@ contract DebtManager is Initializable {
       }
     }
 
-    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
     (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
     if (maxBorrowAssets < newPrincipal + newFee - r.principal - r.fee) revert Disagreement();
   }
@@ -159,8 +159,10 @@ contract DebtManager is Initializable {
     RollVars memory r;
     tokens[0] = market.asset();
 
-    (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
-    r.principal = market.previewRefund(floatingBorrowShares);
+    {
+      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+      r.principal = market.previewRefund(floatingBorrowShares);
+    }
     (uint256 repayAssets, uint256 positionAssets) = repayAtMaturityAssets(market, repayMaturity, percentage);
     r.loopCount = repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
     positionAssets = positionAssets / r.loopCount;
@@ -180,9 +182,11 @@ contract DebtManager is Initializable {
         ++r.i;
       }
     }
-    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
-    (, , floatingBorrowShares) = market.accounts(msg.sender);
-    if (maxRepayAssets < market.previewRefund(floatingBorrowShares) - r.principal) revert Disagreement();
+    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
+    {
+      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+      if (maxRepayAssets < market.previewRefund(floatingBorrowShares) - r.principal) revert Disagreement();
+    }
   }
 
   /// @notice Rolls a percentage of the fixed position of `msg.sender` to another fixed pool.
@@ -235,7 +239,7 @@ contract DebtManager is Initializable {
       }
     }
 
-    balancerVault.flashLoan(address(this), tokens, amounts, abi.encode(market, calls));
+    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
     (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
     if (
       newPrincipal + newFee >
@@ -284,11 +288,24 @@ contract DebtManager is Initializable {
     }
   }
 
+  /// @notice Hash of the call data that will be used to verify that the flash loan is originated from `this`.
+  bytes32 private callHash;
+
+  /// @notice Hashes the data and stores its value in `callHash`.
+  /// @param data The calldata to be hashed.
+  /// @return Same calldata that was passed as an argument.
+  function call(bytes memory data) internal returns (bytes memory) {
+    callHash = keccak256(data);
+    return data;
+  }
+
   /// @notice Callback function called by the Balancer Vault contract when a flash loan is initiated.
   /// @dev Only the Balancer Vault contract is allowed to call this function.
   /// @param userData Additional data provided by the borrower for the flash loan.
   function receiveFlashLoan(ERC20[] memory, uint256[] memory, uint256[] memory, bytes memory userData) external {
-    assert(msg.sender == address(balancerVault));
+    bytes32 memCallHash = callHash;
+    assert(msg.sender == address(balancerVault) && memCallHash != bytes32(0) && memCallHash == keccak256(userData));
+    callHash = bytes32(0);
 
     (Market market, bytes[] memory calls) = abi.decode(userData, (Market, bytes[]));
     for (uint256 i = 0; i < calls.length; ) {
