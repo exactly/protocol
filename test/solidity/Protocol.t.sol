@@ -70,7 +70,6 @@ contract ProtocolTest is Test {
       market.initialize(3, 2e18, irm, 0.02e18 / uint256(1 days), 1e17, 1e17, 0.0046e18, 0.42e18);
       vm.label(address(market), market.symbol());
       MockPriceFeed priceFeed = new MockPriceFeed(18, 1e18);
-      // market.setTreasury(address(this), 0.1e18);
       auditor.enableMarket(market, priceFeed, 0.9e18);
 
       asset.approve(address(market), type(uint256).max);
@@ -88,7 +87,7 @@ contract ProtocolTest is Test {
     rewardAsset.mint(address(rewardsController), 2_000 ether);
 
     targetContract(address(this));
-    bytes4[] memory selectors = new bytes4[](18);
+    bytes4[] memory selectors = new bytes4[](19);
     selectors[0] = this.enterMarket.selector;
     selectors[1] = this.exitMarket.selector;
     selectors[2] = this.deposit.selector;
@@ -107,6 +106,7 @@ contract ProtocolTest is Test {
     selectors[15] = this.setPrice.selector;
     selectors[16] = this.liquidate.selector;
     selectors[17] = this.enableRewards.selector;
+    selectors[18] = this.treasury.selector;
     targetSelector(FuzzSelector(address(this), selectors));
   }
 
@@ -639,13 +639,13 @@ contract ProtocolTest is Test {
       vm.expectRevert(InsufficientShortfall.selector);
     } else if (rawCollateral(_counterparty) == 0) {
       vm.expectRevert(bytes(""));
+    } else if ((auditor.accountMarkets(_counterparty) & (1 << index)) == 0) {
+      vm.expectRevert(bytes(""));
     } else if (
       (auditor.accountMarkets(_counterparty) & (1 << collateralIndex)) == 0 ||
       seizeAvailable(_counterparty, _collateralMarket) == 0
     ) {
       vm.expectRevert(ZeroRepay.selector);
-    } else if ((auditor.accountMarkets(_counterparty) & (1 << index)) == 0) {
-      vm.expectRevert(bytes(""));
     } else if (_market.previewDebt(_counterparty) == 0) {
       vm.expectRevert(ZeroWithdraw.selector);
     } else {
@@ -720,6 +720,13 @@ contract ProtocolTest is Test {
     });
     rewardsController.config(configs);
     _market.setRewardsController(rewardsController);
+    changePrank(sender);
+  }
+
+  function treasury(uint64 treasuryFeeRate, bytes32 seed) external context(seed) {
+    address sender = msg.sender;
+    changePrank(address(this));
+    _market.setTreasury(address(this), _bound(treasuryFeeRate, 0, 0.5e18));
     changePrank(sender);
   }
 
