@@ -5,7 +5,7 @@ import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { AddressUpgradeable as Address } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
-import { Market, ERC20, ERC4626, FixedLib, Disagreement } from "../Market.sol";
+import { Market, ERC20, FixedLib, Disagreement } from "../Market.sol";
 import { Auditor, MarketNotListed } from "../Auditor.sol";
 
 /// @title DebtManager
@@ -20,13 +20,17 @@ contract DebtManager is Initializable {
   /// @notice Auditor contract that lists the markets that can be leveraged.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
+  /// @notice Permit2 contract to be used to transfer assets from accounts.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IPermit2 public immutable permit2;
   /// @notice Balancer's vault contract that is used to take flash loans.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IBalancerVault public immutable balancerVault;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(Auditor auditor_, IBalancerVault balancerVault_) {
+  constructor(Auditor auditor_, IPermit2 permit2_, IBalancerVault balancerVault_) {
     auditor = auditor_;
+    permit2 = permit2_;
     balancerVault = balancerVault_;
 
     _disableInitializers();
@@ -44,23 +48,32 @@ contract DebtManager is Initializable {
   /// @notice Leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
-  /// @param principal The amount of assets to deposit or deposited.
+  /// @param principal The amount of assets to leverage.
+  /// @param deposit The amount of assets to deposit.
   /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
-  /// @param deposit True if the principal is being deposited, false if the principal is already deposited.
-  function leverage(Market market, uint256 principal, uint256 targetHealthFactor, bool deposit) external {
+  function leverage(Market market, uint256 principal, uint256 deposit, uint256 targetHealthFactor) external {
+    if (deposit != 0) market.asset().safeTransferFrom(msg.sender, address(this), deposit);
+
+    noTransferLeverage(market, principal, deposit, targetHealthFactor);
+  }
+
+  /// @notice Leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// from Balancer's vault.
+  /// @param market The Market to leverage the position in.
+  /// @param principal The amount of assets to leverage.
+  /// @param deposit The amount of assets to deposit.
+  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  function noTransferLeverage(Market market, uint256 principal, uint256 deposit, uint256 targetHealthFactor) internal {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls = new bytes[](2);
-    ERC20 asset = market.asset();
-
-    if (deposit) asset.safeTransferFrom(msg.sender, address(this), principal);
 
     (uint256 adjustFactor, , , , ) = auditor.markets(market);
     uint256 factor = adjustFactor.mulWadDown(adjustFactor).divWadDown(targetHealthFactor);
-    tokens[0] = asset;
+    tokens[0] = market.asset();
     amounts[0] = principal.mulWadDown(factor).divWadDown(1e18 - factor);
-    calls[0] = abi.encodeCall(ERC4626.deposit, (amounts[0] + (deposit ? principal : 0), msg.sender));
-    calls[1] = abi.encodeCall(Market.borrow, (amounts[0], address(balancerVault), msg.sender));
+    calls[0] = abi.encodeCall(market.deposit, (amounts[0] + deposit, msg.sender));
+    calls[1] = abi.encodeCall(market.borrow, (amounts[0], address(balancerVault), msg.sender));
 
     balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
   }
@@ -69,24 +82,32 @@ contract DebtManager is Initializable {
   /// Balancer's vault to repay the borrow.
   /// @param market The Market to deleverage the position out.
   /// @param maturity The maturity of the fixed pool that the position is being deleveraged out of, `0` if floating.
-  /// @param maxAssets Max amount of fixed debt that the sender is willing to accept.
+  /// @param maxRepayAssets Max amount of fixed debt that the sender is willing to accept.
   /// @param percentage The percentage of the borrow that will be repaid, represented with 18 decimals.
-  function deleverage(Market market, uint256 maturity, uint256 maxAssets, uint256 percentage) external {
+  /// @param withdraw The amount of assets that will be withdrawn to `msg.sender`.
+  function deleverage(
+    Market market,
+    uint256 maturity,
+    uint256 maxRepayAssets,
+    uint256 percentage,
+    uint256 withdraw
+  ) public {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
-    bytes[] memory calls = new bytes[](2);
+    bytes[] memory calls = new bytes[](withdraw == 0 ? 2 : 3);
     tokens[0] = market.asset();
 
     if (maturity == 0) {
       (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
       amounts[0] = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
-      calls[0] = abi.encodeCall(Market.repay, (amounts[0], msg.sender));
+      calls[0] = abi.encodeCall(market.repay, (amounts[0], msg.sender));
     } else {
       uint256 positionAssets;
       (amounts[0], positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
-      calls[0] = abi.encodeCall(Market.repayAtMaturity, (maturity, positionAssets, maxAssets, msg.sender));
+      calls[0] = abi.encodeCall(market.repayAtMaturity, (maturity, positionAssets, maxRepayAssets, msg.sender));
     }
-    calls[1] = abi.encodeCall(Market.withdraw, (amounts[0], address(balancerVault), msg.sender));
+    calls[1] = abi.encodeCall(market.withdraw, (amounts[0], address(balancerVault), msg.sender));
+    if (withdraw > 0) calls[2] = abi.encodeCall(market.withdraw, (withdraw, msg.sender, msg.sender));
 
     balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
   }
@@ -119,11 +140,11 @@ contract DebtManager is Initializable {
     calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
       calls[r.callIndex++] = abi.encodeCall(
-        Market.repay,
+        market.repay,
         (r.i == 0 ? amounts[0] : r.repayAssets / r.loopCount, msg.sender)
       );
       calls[r.callIndex++] = abi.encodeCall(
-        Market.borrowAtMaturity,
+        market.borrowAtMaturity,
         (
           borrowMaturity,
           r.i + 1 == r.loopCount ? amounts[0] : r.repayAssets / r.loopCount,
@@ -171,11 +192,11 @@ contract DebtManager is Initializable {
     calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
       calls[r.callIndex++] = abi.encodeCall(
-        Market.repayAtMaturity,
+        market.repayAtMaturity,
         (repayMaturity, positionAssets, type(uint256).max, msg.sender)
       );
       calls[r.callIndex++] = abi.encodeCall(
-        Market.borrow,
+        market.borrow,
         (amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), msg.sender)
       );
       unchecked {
@@ -221,11 +242,11 @@ contract DebtManager is Initializable {
     calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
       calls[r.callIndex++] = abi.encodeCall(
-        Market.repayAtMaturity,
+        market.repayAtMaturity,
         (repayMaturity, r.positionAssets, type(uint256).max, msg.sender)
       );
       calls[r.callIndex++] = abi.encodeCall(
-        Market.borrowAtMaturity,
+        market.borrowAtMaturity,
         (
           borrowMaturity,
           amounts[0],
@@ -326,6 +347,70 @@ contract DebtManager is Initializable {
   ) {
     token.permit(p.account, address(this), assets, p.deadline, p.v, p.r, p.s);
     _;
+  }
+
+  /// @notice Calls `permit2.permitTransferFrom` to transfer `msg.sender` assets.
+  /// @param token The `ERC20` to transfer from `msg.sender` to this contract.
+  /// @param assets The amount of assets to transfer from `msg.sender`.
+  /// @param deadline The deadline for the permit call.
+  /// @param signature The signature for the permit call.
+  modifier permitTransfer(
+    ERC20 token,
+    uint256 assets,
+    uint256 deadline,
+    bytes calldata signature
+  ) {
+    permit2.permitTransferFrom(
+      IPermit2.PermitTransferFrom(
+        IPermit2.TokenPermissions(address(token), assets),
+        uint256(keccak256(abi.encode(msg.sender, token, assets, deadline))),
+        deadline
+      ),
+      IPermit2.SignatureTransferDetails(address(this), assets),
+      msg.sender,
+      signature
+    );
+    _;
+  }
+
+  /// @notice Leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// from Balancer's vault.
+  /// @param market The Market to leverage the position in.
+  /// @param principal The amount of assets to leverage.
+  /// @param deposit The amount of assets to deposit.
+  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  /// @param deadline The deadline for the permit call.
+  /// @param signature The signature for the permit call.
+  function leverage(
+    Market market,
+    uint256 principal,
+    uint256 deposit,
+    uint256 targetHealthFactor,
+    uint256 deadline,
+    bytes calldata signature
+  ) external permitTransfer(market.asset(), deposit, deadline, signature) {
+    noTransferLeverage(market, principal, deposit, targetHealthFactor);
+  }
+
+  /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash loan from
+  /// Balancer's vault to repay the borrow.
+  /// @param market The Market to deleverage the position out.
+  /// @param maturity The maturity of the fixed pool that the position is being deleveraged out of, `0` if floating.
+  /// @param maxRepayAssets Max amount of fixed debt that the sender is willing to accept.
+  /// @param percentage The percentage of the borrow that will be repaid, represented with 18 decimals.
+  /// @param withdraw The amount of assets that will be withdrawn to `msg.sender`.
+  /// @param permitAssets The amount of assets to allow this contract to withdraw on behalf of `msg.sender`.
+  /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
+  function deleverage(
+    Market market,
+    uint256 maturity,
+    uint256 maxRepayAssets,
+    uint256 percentage,
+    uint256 withdraw,
+    uint256 permitAssets,
+    Permit calldata p
+  ) external permit(market, permitAssets, p) {
+    deleverage(market, maturity, maxRepayAssets, percentage, withdraw);
   }
 
   /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position
@@ -437,4 +522,32 @@ interface IBalancerVault {
     uint256[] memory amounts,
     bytes memory userData
   ) external;
+}
+
+interface IPermit2 {
+  struct TokenPermissions {
+    address token;
+    uint256 amount;
+  }
+
+  struct PermitTransferFrom {
+    TokenPermissions permitted;
+    uint256 nonce;
+    uint256 deadline;
+  }
+
+  struct SignatureTransferDetails {
+    address to;
+    uint256 requestedAmount;
+  }
+
+  function permitTransferFrom(
+    PermitTransferFrom memory permit,
+    SignatureTransferDetails calldata transferDetails,
+    address owner,
+    bytes calldata signature
+  ) external;
+
+  // solhint-disable-next-line func-name-mixedcase
+  function DOMAIN_SEPARATOR() external view returns (bytes32);
 }

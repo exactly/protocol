@@ -7,6 +7,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import {
   ERC20,
   Permit,
+  IPermit2,
   DebtManager,
   Disagreement,
   IBalancerVault,
@@ -22,6 +23,8 @@ contract DebtManagerTest is Test {
   using FixedLib for FixedLib.Pool;
   using stdJson for string;
 
+  uint256 internal constant BOB_KEY = 0xb0b;
+  address internal bob;
   DebtManager internal debtManager;
   Market internal marketUSDC;
   ERC20 internal usdc;
@@ -36,7 +39,13 @@ contract DebtManagerTest is Test {
     debtManager = DebtManager(
       address(
         new ERC1967Proxy(
-          address(new DebtManager(Auditor(deployment("Auditor")), IBalancerVault(deployment("BalancerVault")))),
+          address(
+            new DebtManager(
+              Auditor(deployment("Auditor")),
+              IPermit2(deployment("Permit2")),
+              IBalancerVault(deployment("BalancerVault"))
+            )
+          ),
           abi.encodeCall(DebtManager.initialize, ())
         )
       )
@@ -51,6 +60,9 @@ contract DebtManagerTest is Test {
 
     maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
     targetMaturity = maturity + FixedLib.INTERVAL;
+
+    bob = vm.addr(BOB_KEY);
+    vm.label(bob, "bob");
   }
 
   function testFuzzRolls(
@@ -139,7 +151,7 @@ contract DebtManagerTest is Test {
   }
 
   function testLeverage() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 510153541353);
@@ -149,7 +161,7 @@ contract DebtManagerTest is Test {
   function testLeverageWithAlreadyDepositedAmount() external _checkBalances {
     usdc.approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(100_000e6, address(this));
-    debtManager.leverage(marketUSDC, 100_000e6, 1.03e18, false);
+    debtManager.leverage(marketUSDC, 100_000e6, 0, 1.03e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 510153541352);
@@ -158,17 +170,17 @@ contract DebtManagerTest is Test {
 
   function testLeverageShouldFailWhenHealthFactorNearOne() external _checkBalances {
     vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
-    debtManager.leverage(marketUSDC, 100_000e6, 1.000000000001e18, true);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.000000000001e18);
 
-    debtManager.leverage(marketUSDC, 100_000e6, 1.00000000001e18, true);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.00000000001e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 581733565996);
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 481733565998);
   }
 
   function testDeleverage() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
-    debtManager.deleverage(marketUSDC, 0, 0, 1e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
+    debtManager.deleverage(marketUSDC, 0, 0, 1e18, 0);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     // precision loss (2)
@@ -176,15 +188,24 @@ contract DebtManagerTest is Test {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
   }
 
+  function testDeleverageWithWithdraw() external _checkBalances {
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
+    debtManager.deleverage(marketUSDC, 0, 0, 1e18, 100_000e6 - 2);
+
+    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
+    assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
+    assertEq(marketUSDC.maxWithdraw(address(this)), 0);
+  }
+
   function testDeleverageHalfBorrowPosition() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 leveragedDeposit = 510153541353;
     uint256 leveragedBorrow = 410153541355;
     assertEq(marketUSDC.maxWithdraw(address(this)), leveragedDeposit);
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), leveragedBorrow);
 
-    debtManager.deleverage(marketUSDC, 0, 0, 0.5e18);
+    debtManager.deleverage(marketUSDC, 0, 0, 0.5e18, 0);
     (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 deleveragedDeposit = 305076770676;
     uint256 deleveragedBorrow = 205076770678;
@@ -197,7 +218,7 @@ contract DebtManagerTest is Test {
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrowAtMaturity(maturity, 30_000e6, type(uint256).max, address(this), address(this));
 
-    debtManager.deleverage(marketUSDC, maturity, type(uint256).max, 1e18);
+    debtManager.deleverage(marketUSDC, maturity, type(uint256).max, 1e18, 0);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     (uint256 balance, uint256 debt) = marketUSDC.accountSnapshot(address(this));
     assertEq(principal, 0);
@@ -214,7 +235,7 @@ contract DebtManagerTest is Test {
     // we update accumulated earnings, etc...
     marketUSDC.deposit(2, address(this));
     (uint256 balance, uint256 debt) = marketUSDC.accountSnapshot(address(this));
-    debtManager.deleverage(marketUSDC, maturity, type(uint256).max, 1e18);
+    debtManager.deleverage(marketUSDC, maturity, type(uint256).max, 1e18, 0);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     (uint256 newBalance, ) = marketUSDC.accountSnapshot(address(this));
     assertEq(principal, 0);
@@ -225,7 +246,7 @@ contract DebtManagerTest is Test {
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrowAtMaturity(maturity, 30_000e6, type(uint256).max, address(this), address(this));
 
-    debtManager.deleverage(marketUSDC, maturity, type(uint256).max, 0.1e18);
+    debtManager.deleverage(marketUSDC, maturity, type(uint256).max, 0.1e18, 0);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     (uint256 balance, uint256 debt) = marketUSDC.accountSnapshot(address(this));
     assertGt(debt, 0);
@@ -239,7 +260,7 @@ contract DebtManagerTest is Test {
     ProtocolFeesCollector(0xce88686553686DA562CE7Cea497CE749DA109f9F).setFlashLoanFeePercentage(1e15);
 
     vm.expectRevert("BAL#602");
-    debtManager.leverage(marketUSDC, 100_000e6, 1.03e18, true);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
   }
 
   function testApproveMarket() external {
@@ -264,9 +285,9 @@ contract DebtManagerTest is Test {
   }
 
   function testLeverageWithInvalidBalancerVault() external {
-    DebtManager lev = new DebtManager(marketUSDC.auditor(), IBalancerVault(address(this)));
+    DebtManager lev = new DebtManager(marketUSDC.auditor(), IPermit2(address(0)), IBalancerVault(address(this)));
     vm.expectRevert(bytes(""));
-    lev.leverage(marketUSDC, 100_000e6, 1.03e18, true);
+    lev.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
   }
 
   function testFloatingToFixedRoll() external _checkBalances {
@@ -635,7 +656,9 @@ contract DebtManagerTest is Test {
     debtManager = DebtManager(
       address(
         new ERC1967Proxy(
-          address(new DebtManager(debtManager.auditor(), IBalancerVault(address(mockBalancerVault)))),
+          address(
+            new DebtManager(debtManager.auditor(), IPermit2(address(0)), IBalancerVault(address(mockBalancerVault)))
+          ),
           abi.encodeCall(DebtManager.initialize, ())
         )
       )
@@ -654,16 +677,12 @@ contract DebtManagerTest is Test {
   }
 
   function testPermitAndRollFloatingToFixed() external {
-    uint256 bobKey = 0xb0b;
-    address bob = vm.addr(bobKey);
-    vm.label(bob, "bob");
-
     marketUSDC.deposit(100_000e6, bob);
     vm.prank(bob);
     marketUSDC.borrow(50_000e6, bob, bob);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-      bobKey,
+      BOB_KEY,
       keccak256(
         abi.encodePacked(
           "\x19\x01",
@@ -685,6 +704,82 @@ contract DebtManagerTest is Test {
     debtManager.rollFloatingToFixed(marketUSDC, maturity, 66_666e6, 1e18, Permit(bob, block.timestamp, v, r, s));
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, bob);
     assertEq(principal, 50_000e6 + 1);
+  }
+
+  function testPermitAndDeleverage() external {
+    marketUSDC.deposit(100_000e6, bob);
+    vm.prank(bob);
+    marketUSDC.borrow(50_000e6, bob, bob);
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketUSDC.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              60_000e6,
+              marketUSDC.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+    vm.prank(bob);
+    debtManager.deleverage(marketUSDC, 0, 0, 1e18, 10_000e6, 60_000e6, Permit(bob, block.timestamp, v, r, s));
+  }
+
+  function testPermit2AndLeverage() external {
+    IPermit2 permit2 = debtManager.permit2();
+    uint256 amount = 100_000e6;
+
+    deal(address(usdc), bob, amount);
+    vm.startPrank(bob);
+    usdc.approve(address(permit2), type(uint256).max);
+    marketUSDC.approve(address(debtManager), type(uint256).max);
+    vm.stopPrank();
+
+    IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
+      permitted: IPermit2.TokenPermissions({ token: address(usdc), amount: amount }),
+      nonce: uint256(keccak256(abi.encode(bob, usdc, amount, block.timestamp))),
+      deadline: block.timestamp
+    });
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          permit2.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256(
+                // solhint-disable-next-line max-line-length
+                "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
+              ),
+              keccak256(
+                abi.encode(
+                  keccak256("TokenPermissions(address token,uint256 amount)"),
+                  permit.permitted.token,
+                  permit.permitted.amount
+                )
+              ),
+              debtManager,
+              permit.nonce,
+              permit.deadline
+            )
+          )
+        )
+      )
+    );
+    bytes memory sig = abi.encodePacked(r, s, v);
+
+    vm.prank(bob);
+    debtManager.leverage(marketUSDC, amount, amount, 1.03e18, permit.deadline, sig);
   }
 
   modifier _checkBalances() {
