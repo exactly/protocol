@@ -45,6 +45,11 @@
       "address": "0x2C04733Cdf38C1883E9cB7142632ADcD5C5B79Da",
       "txHash": "0xf4d58b47896ee6f68498601d83ed2e84a2b2e9fcc177052ac5cd5cce8350c254",
       "kind": "transparent"
+    },
+    {
+      "address": "0xb27113B72135942065E0Fa09984FE2Bf008d5f3c",
+      "txHash": "0x71ec6fc0d3a95f787876062b182703428b565275d308bfe54f0eb2ca8a1ad921",
+      "kind": "transparent"
     }
   ],
   "impls": {
@@ -7529,6 +7534,53 @@
           "t_bool": {
             "label": "bool",
             "numberOfBytes": "1"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "0xa7bffCf681BE7Ce32e6e6C17C240ED68eE6e16e2": {
+      "address": "0xa7bffCf681BE7Ce32e6e6C17C240ED68eE6e16e2",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "callHash",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_bytes32",
+            "contract": "DebtManager",
+            "src": "contracts/periphery/DebtManager.sol:292"
+          }
+        ],
+        "types": {
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
           },
           "t_uint8": {
             "label": "uint8",
