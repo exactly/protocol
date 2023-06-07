@@ -129,7 +129,42 @@ contract DebtManager is Initializable {
           outAsset: v.outAsset,
           principal: deposit ? principal : 0,
           account: msg.sender,
-          fee: fee
+          fee: fee,
+          leverage: true
+        })
+      )
+    );
+  }
+
+  /// @notice Cross-deleverages the floating position of `msg.sender`
+  /// @param inMarket The Market to withdraw the leveraged position.
+  /// @param outMarket The Market to repay the leveraged position.
+  /// @param fee The fee of the pool that will be used to swap the assets.
+  /// @param percentage The percentage that the position will be deleveraged.
+  function crossDeleverage(Market inMarket, Market outMarket, uint24 fee, uint256 percentage) external {
+    LeverageVars memory v;
+    v.inAsset = address(inMarket.asset());
+    v.outAsset = address(outMarket.asset());
+
+    (, , uint256 floatingBorrowShares) = outMarket.accounts(msg.sender);
+    v.amount = outMarket.previewRefund(floatingBorrowShares.mulWadDown(percentage));
+
+    PoolKey memory poolKey = PoolAddress.getPoolKey(v.inAsset, v.outAsset, fee);
+    IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
+      address(this),
+      v.inAsset == poolKey.token0,
+      -int256(v.amount),
+      v.inAsset == poolKey.token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+      abi.encode(
+        SwapCallbackData({
+          inMarket: inMarket,
+          outMarket: outMarket,
+          inAsset: v.inAsset,
+          outAsset: v.outAsset,
+          principal: v.amount,
+          account: msg.sender,
+          fee: fee,
+          leverage: false
         })
       )
     );
@@ -406,8 +441,20 @@ contract DebtManager is Initializable {
     PoolKey memory poolKey = PoolAddress.getPoolKey(s.inAsset, s.outAsset, s.fee);
     assert(msg.sender == PoolAddress.computeAddress(uniswapV3Factory, poolKey));
 
-    s.inMarket.deposit(s.principal + uint256(-(s.inAsset == poolKey.token0 ? amount0Delta : amount1Delta)), s.account);
-    s.outMarket.borrow(uint256(s.inAsset == poolKey.token1 ? amount0Delta : amount1Delta), msg.sender, s.account);
+    if (s.leverage) {
+      s.inMarket.deposit(
+        s.principal + uint256(-(s.inAsset == poolKey.token0 ? amount0Delta : amount1Delta)),
+        s.account
+      );
+      s.outMarket.borrow(uint256(s.inAsset == poolKey.token1 ? amount0Delta : amount1Delta), msg.sender, s.account);
+    } else {
+      s.outMarket.repay(s.principal, s.account);
+      s.inMarket.withdraw(
+        s.inAsset == poolKey.token1 ? uint256(amount1Delta) : uint256(amount0Delta),
+        msg.sender,
+        s.account
+      );
+    }
   }
 
   /// @notice Calls `token.permit` on behalf of `permit.account`.
@@ -574,6 +621,7 @@ contract DebtManager is Initializable {
     address account;
     uint256 principal;
     uint24 fee;
+    bool leverage;
   }
 }
 

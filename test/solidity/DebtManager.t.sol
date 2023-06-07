@@ -752,6 +752,51 @@ contract DebtManagerTest is Test {
     debtManager.crossLeverage(marketUSDC, marketWETH, 200, 100_000e6, 1.1e18, true);
   }
 
+  function testCrossDeleverageFromwstETHToWETH() external _checkBalances {
+    marketwstETH.asset().approve(address(debtManager), type(uint256).max);
+    debtManager.auditor().enterMarket(marketwstETH);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.02e18, true);
+    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
+    uint256 percentage = 1e18;
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, percentage);
+
+    assertEq(marketwstETH.maxWithdraw(address(this)), 9_980_645_608_672_055_653);
+    (, , uint256 newFloatingBorrowShares) = marketWETH.accounts(address(this));
+    assertEq(newFloatingBorrowShares, floatingBorrowShares - floatingBorrowShares.mulWadDown(percentage));
+  }
+
+  function testCrossDeleverageFromWETHToUSDC() external _checkBalances {
+    marketWETH.asset().approve(address(debtManager), type(uint256).max);
+    debtManager.auditor().enterMarket(marketWETH);
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, 10e18, 1.02e18, true);
+    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
+    uint256 percentage = 1e18;
+    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, percentage);
+
+    uint256 maxWithdraw = marketWETH.maxWithdraw(address(this));
+    assertEq(maxWithdraw, 9_970_057_426_084_898_139);
+    (, , uint256 newFloatingBorrowShares) = marketUSDC.accounts(address(this));
+    assertEq(newFloatingBorrowShares, floatingBorrowShares - floatingBorrowShares.mulWadDown(percentage));
+  }
+
+  function testCrossDeleverageWithInvalidFee() external _checkBalances {
+    marketwstETH.asset().approve(address(debtManager), type(uint256).max);
+    debtManager.auditor().enterMarket(marketwstETH);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 1.02e18, true);
+
+    vm.expectRevert(bytes(""));
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 200, 1e18);
+  }
+
+  function testCrossDeleverageWithInvalidPercentage() external _checkBalances {
+    marketwstETH.asset().approve(address(debtManager), type(uint256).max);
+    debtManager.auditor().enterMarket(marketwstETH);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.02e18, true);
+    uint256 percentage = 2e18;
+    vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, percentage);
+  }
+
   function testPermitAndRollFloatingToFixed() external {
     marketUSDC.deposit(100_000e6, bob);
     vm.prank(bob);
