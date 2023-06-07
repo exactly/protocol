@@ -17,6 +17,11 @@ contract DebtManager is Initializable {
   using FixedLib for FixedLib.Pool;
   using Address for address;
 
+  /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
+  uint160 internal constant MIN_SQRT_RATIO = 4295128739;
+  /// @dev The maximum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MAX_TICK)
+  uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
+
   /// @notice Auditor contract that lists the markets that can be leveraged.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   Auditor public immutable auditor;
@@ -26,12 +31,16 @@ contract DebtManager is Initializable {
   /// @notice Balancer's vault contract that is used to take flash loans.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IBalancerVault public immutable balancerVault;
+  /// @notice Factory contract to be used to compute the address of the Uniswap V3 pool.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  address public immutable uniswapV3Factory;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(Auditor auditor_, IPermit2 permit2_, IBalancerVault balancerVault_) {
+  constructor(Auditor auditor_, IPermit2 permit2_, IBalancerVault balancerVault_, address uniswapV3Factory_) {
     auditor = auditor_;
     permit2 = permit2_;
     balancerVault = balancerVault_;
+    uniswapV3Factory = uniswapV3Factory_;
 
     _disableInitializers();
   }
@@ -76,6 +85,54 @@ contract DebtManager is Initializable {
     calls[1] = abi.encodeCall(market.borrow, (amounts[0], address(balancerVault), msg.sender));
 
     balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
+  }
+
+  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// from Balancer's vault.
+  /// @param inMarket The Market to deposit the leveraged position.
+  /// @param outMarket The Market to borrow the leveraged position.
+  /// @param fee The fee of the pool that will be used to swap the assets.
+  /// @param principal The amount of `inMarket` assets to leverage.
+  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  /// @param deposit Whether the `principal` should be deposited or not.
+  function crossLeverage(
+    Market inMarket,
+    Market outMarket,
+    uint24 fee,
+    uint256 principal,
+    uint256 targetHealthFactor,
+    bool deposit
+  ) external {
+    LeverageVars memory v;
+    v.inAsset = address(inMarket.asset());
+    v.outAsset = address(outMarket.asset());
+    if (deposit) ERC20(v.inAsset).safeTransferFrom(msg.sender, address(this), principal);
+
+    {
+      (uint256 depositAdjustFactor, , , , ) = auditor.markets(inMarket);
+      (uint256 borrowAdjustFactor, , , , ) = auditor.markets(outMarket);
+      uint256 factor = depositAdjustFactor.mulWadDown(borrowAdjustFactor).divWadDown(targetHealthFactor);
+      v.amount = factor.mulWadDown(principal).divWadDown(1e18 - factor);
+    }
+
+    PoolKey memory poolKey = PoolAddress.getPoolKey(v.inAsset, v.outAsset, fee);
+    IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
+      address(this),
+      v.outAsset == poolKey.token0,
+      -int256(v.amount),
+      v.outAsset == poolKey.token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+      abi.encode(
+        SwapCallbackData({
+          inMarket: inMarket,
+          outMarket: outMarket,
+          inAsset: v.inAsset,
+          outAsset: v.outAsset,
+          principal: deposit ? principal : 0,
+          account: msg.sender,
+          fee: fee
+        })
+      )
+    );
   }
 
   /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash loan from
@@ -337,6 +394,22 @@ contract DebtManager is Initializable {
     }
   }
 
+  /// @notice Callback function called by the Uniswap V3 pool contract when a swap is initiated.
+  /// @dev Only the Uniswap V3 pool contract is allowed to call this function.
+  /// @param amount0Delta The amount of token0 that was sent (negative) or must be received (positive) by the pool by
+  /// the end of the swap. If positive, the callback must send that amount of token0 to the pool.
+  /// @param amount1Delta The amount of token1 that was sent (negative) or must be received (positive) by the pool by
+  /// the end of the swap. If positive, the callback must send that amount of token1 to the pool.
+  /// @param data Any data passed through by the caller via the IUniswapV3PoolActions#swap call
+  function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+    SwapCallbackData memory s = abi.decode(data, (SwapCallbackData));
+    PoolKey memory poolKey = PoolAddress.getPoolKey(s.inAsset, s.outAsset, s.fee);
+    assert(msg.sender == PoolAddress.computeAddress(uniswapV3Factory, poolKey));
+
+    s.inMarket.deposit(s.principal + uint256(-(s.inAsset == poolKey.token0 ? amount0Delta : amount1Delta)), s.account);
+    s.outMarket.borrow(uint256(s.inAsset == poolKey.token1 ? amount0Delta : amount1Delta), msg.sender, s.account);
+  }
+
   /// @notice Calls `token.permit` on behalf of `permit.account`.
   /// @param token The `ERC20` to call `permit`.
   /// @param p Arguments for the permit call.
@@ -493,6 +566,15 @@ contract DebtManager is Initializable {
     ERC20 asset;
     uint256 liquidity;
   }
+  struct SwapCallbackData {
+    Market inMarket;
+    Market outMarket;
+    address inAsset;
+    address outAsset;
+    address account;
+    uint256 principal;
+    uint24 fee;
+  }
 }
 
 error InvalidOperation();
@@ -513,6 +595,12 @@ struct RollVars {
   uint256 principal;
   uint256 fee;
   uint256 i;
+}
+
+struct LeverageVars {
+  address inAsset;
+  address outAsset;
+  uint256 amount;
 }
 
 interface IBalancerVault {
@@ -550,4 +638,48 @@ interface IPermit2 {
 
   // solhint-disable-next-line func-name-mixedcase
   function DOMAIN_SEPARATOR() external view returns (bytes32);
+}
+
+interface IUniswapV3Pool {
+  function swap(
+    address recipient,
+    bool zeroForOne,
+    int256 amountSpecified,
+    uint160 sqrtPriceLimitX96,
+    bytes calldata data
+  ) external returns (int256 amount0, int256 amount1);
+}
+
+// https://github.com/Uniswap/v3-periphery/pull/271
+library PoolAddress {
+  bytes32 internal constant POOL_INIT_CODE_HASH = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
+
+  function getPoolKey(address tokenA, address tokenB, uint24 fee) internal pure returns (PoolKey memory) {
+    if (tokenA > tokenB) (tokenA, tokenB) = (tokenB, tokenA);
+    return PoolKey({ token0: tokenA, token1: tokenB, fee: fee });
+  }
+
+  function computeAddress(address uniswapV3Factory, PoolKey memory key) internal pure returns (address pool) {
+    assert(key.token0 < key.token1);
+    pool = address(
+      uint160(
+        uint256(
+          keccak256(
+            abi.encodePacked(
+              hex"ff",
+              uniswapV3Factory,
+              keccak256(abi.encode(key.token0, key.token1, key.fee)),
+              POOL_INIT_CODE_HASH
+            )
+          )
+        )
+      )
+    );
+  }
+}
+
+struct PoolKey {
+  address token0;
+  address token1;
+  uint24 fee;
 }
