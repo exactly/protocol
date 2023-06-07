@@ -1,5 +1,14 @@
 # @exactly/protocol
 
+## 0.2.13
+
+### Patch Changes
+
+- e2a4b01: 🚀 mainnet: deploy new debt manager
+- c4dc9d7: ✨ debt-manager: support `EIP-2612` permit
+- 56bf04f: 🚀 optimism: deploy new debt manager
+- 9803f19: 🐛 debt-manager: verify flashloan call origin
+
 ## 0.2.12
 
 ### Patch Changes
