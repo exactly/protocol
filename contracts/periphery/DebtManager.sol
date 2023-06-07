@@ -92,21 +92,41 @@ contract DebtManager is Initializable {
   /// @param inMarket The Market to deposit the leveraged position.
   /// @param outMarket The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
-  /// @param principal The amount of `inMarket` assets to leverage.
+  /// @param principal The amount of `inMarket` underlying assets to leverage.
+  /// @param deposit The amount of `inMarket` underlying assets to deposit.
   /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
-  /// @param deposit Whether the `principal` should be deposited or not.
   function crossLeverage(
     Market inMarket,
     Market outMarket,
     uint24 fee,
     uint256 principal,
-    uint256 targetHealthFactor,
-    bool deposit
+    uint256 deposit,
+    uint256 targetHealthFactor
   ) external {
+    if (deposit != 0) inMarket.asset().safeTransferFrom(msg.sender, address(this), principal);
+
+    noTransferCrossLeverage(inMarket, outMarket, fee, principal, deposit, targetHealthFactor);
+  }
+
+  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// from Balancer's vault.
+  /// @param inMarket The Market to deposit the leveraged position.
+  /// @param outMarket The Market to borrow the leveraged position.
+  /// @param fee The fee of the pool that will be used to swap the assets.
+  /// @param principal The amount of `inMarket` underlying assets to leverage.
+  /// @param deposit The amount of `inMarket` underlying assets to deposit.
+  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  function noTransferCrossLeverage(
+    Market inMarket,
+    Market outMarket,
+    uint24 fee,
+    uint256 principal,
+    uint256 deposit,
+    uint256 targetHealthFactor
+  ) internal {
     LeverageVars memory v;
     v.inAsset = address(inMarket.asset());
     v.outAsset = address(outMarket.asset());
-    if (deposit) ERC20(v.inAsset).safeTransferFrom(msg.sender, address(this), principal);
 
     {
       (uint256 depositAdjustFactor, , , , ) = auditor.markets(inMarket);
@@ -127,7 +147,7 @@ contract DebtManager is Initializable {
           outMarket: outMarket,
           inAsset: v.inAsset,
           outAsset: v.outAsset,
-          principal: deposit ? principal : 0,
+          principal: deposit,
           account: msg.sender,
           fee: fee,
           leverage: true
@@ -510,6 +530,29 @@ contract DebtManager is Initializable {
     bytes calldata signature
   ) external permitTransfer(market.asset(), deposit, deadline, signature) {
     noTransferLeverage(market, principal, deposit, targetHealthFactor);
+  }
+
+  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// from Balancer's vault.
+  /// @param inMarket The Market to deposit the leveraged position.
+  /// @param outMarket The Market to borrow the leveraged position.
+  /// @param fee The fee of the pool that will be used to swap the assets.
+  /// @param principal The amount of `inMarket` underlying assets to leverage.
+  /// @param deposit The amount of `inMarket` underlying assets to deposit.
+  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  /// @param deadline The deadline for the permit call.
+  /// @param signature The signature for the permit call.
+  function crossLeverage(
+    Market inMarket,
+    Market outMarket,
+    uint24 fee,
+    uint256 principal,
+    uint256 deposit,
+    uint256 targetHealthFactor,
+    uint256 deadline,
+    bytes calldata signature
+  ) external permitTransfer(inMarket.asset(), deposit, deadline, signature) {
+    noTransferCrossLeverage(inMarket, outMarket, fee, principal, deposit, targetHealthFactor);
   }
 
   /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash loan from

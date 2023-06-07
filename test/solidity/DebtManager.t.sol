@@ -702,7 +702,7 @@ contract DebtManagerTest is Test {
   function testCrossLeverageFromwstETHtoWETH() external _checkBalances {
     uint256 wstETHBalanceBefore = wstETH.balanceOf(address(this));
     debtManager.auditor().enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.02e18, true);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.02e18);
 
     (uint256 coll, uint256 debt) = marketwstETH.auditor().accountLiquidity(address(this), Market(address(0)), 0);
     uint256 healthFactor = coll.divWadDown(debt);
@@ -719,7 +719,7 @@ contract DebtManagerTest is Test {
     uint256 usdcBalanceBefore = usdc.balanceOf(address(this));
     debtManager.auditor().enterMarket(marketUSDC);
 
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 1.02e18, true);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 10_000e6, 1.02e18);
 
     (uint256 coll, uint256 debt) = marketUSDC.auditor().accountLiquidity(address(this), Market(address(0)), 0);
     uint256 healthFactor = coll.divWadDown(debt);
@@ -737,7 +737,7 @@ contract DebtManagerTest is Test {
     marketwstETH.deposit(10e18, address(this));
 
     uint256 wstETHBalanceBefore = wstETH.balanceOf(address(this));
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.02e18, false);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 0, 1.02e18);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
 
     assertEq(marketwstETH.maxWithdraw(address(this)), 29310344827586206820);
@@ -749,13 +749,13 @@ contract DebtManagerTest is Test {
     debtManager.auditor().enterMarket(marketUSDC);
 
     vm.expectRevert(bytes(""));
-    debtManager.crossLeverage(marketUSDC, marketWETH, 200, 100_000e6, 1.1e18, true);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 200, 100_000e6, 100_000e6, 1.1e18);
   }
 
   function testCrossDeleverageFromwstETHToWETH() external _checkBalances {
     marketwstETH.asset().approve(address(debtManager), type(uint256).max);
     debtManager.auditor().enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.02e18, true);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.02e18);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     uint256 percentage = 1e18;
     debtManager.crossDeleverage(marketwstETH, marketWETH, 500, percentage);
@@ -768,7 +768,7 @@ contract DebtManagerTest is Test {
   function testCrossDeleverageFromWETHToUSDC() external _checkBalances {
     marketWETH.asset().approve(address(debtManager), type(uint256).max);
     debtManager.auditor().enterMarket(marketWETH);
-    debtManager.crossLeverage(marketWETH, marketUSDC, 500, 10e18, 1.02e18, true);
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, 10e18, 10e18, 1.02e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 percentage = 1e18;
     debtManager.crossDeleverage(marketWETH, marketUSDC, 500, percentage);
@@ -782,7 +782,7 @@ contract DebtManagerTest is Test {
   function testCrossDeleverageWithInvalidFee() external _checkBalances {
     marketwstETH.asset().approve(address(debtManager), type(uint256).max);
     debtManager.auditor().enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 1.02e18, true);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 10_000e6, 1.02e18);
 
     vm.expectRevert(bytes(""));
     debtManager.crossDeleverage(marketwstETH, marketWETH, 200, 1e18);
@@ -791,7 +791,7 @@ contract DebtManagerTest is Test {
   function testCrossDeleverageWithInvalidPercentage() external _checkBalances {
     marketwstETH.asset().approve(address(debtManager), type(uint256).max);
     debtManager.auditor().enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.02e18, true);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.02e18);
     uint256 percentage = 2e18;
     vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
     debtManager.crossDeleverage(marketwstETH, marketWETH, 500, percentage);
@@ -901,6 +901,55 @@ contract DebtManagerTest is Test {
 
     vm.prank(bob);
     debtManager.leverage(marketUSDC, amount, amount, 1.03e18, permit.deadline, sig);
+  }
+
+  function testPermit2AndCrossLeverage() external {
+    IPermit2 permit2 = debtManager.permit2();
+    uint256 amount = 100_000e6;
+
+    deal(address(usdc), bob, amount);
+    vm.startPrank(bob);
+    usdc.approve(address(permit2), type(uint256).max);
+    marketWETH.approve(address(debtManager), type(uint256).max);
+    debtManager.auditor().enterMarket(marketUSDC);
+    vm.stopPrank();
+
+    IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
+      permitted: IPermit2.TokenPermissions({ token: address(usdc), amount: amount }),
+      nonce: uint256(keccak256(abi.encode(bob, usdc, amount, block.timestamp))),
+      deadline: block.timestamp
+    });
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          permit2.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256(
+                // solhint-disable-next-line max-line-length
+                "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
+              ),
+              keccak256(
+                abi.encode(
+                  keccak256("TokenPermissions(address token,uint256 amount)"),
+                  permit.permitted.token,
+                  permit.permitted.amount
+                )
+              ),
+              debtManager,
+              permit.nonce,
+              permit.deadline
+            )
+          )
+        )
+      )
+    );
+    bytes memory sig = abi.encodePacked(r, s, v);
+
+    vm.prank(bob);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 100_000e6, 100_000e6, 1.03e18, permit.deadline, sig);
   }
 
   modifier _checkBalances() {
