@@ -521,6 +521,7 @@ contract DebtManager is Initializable {
   /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
   /// @param deadline The deadline for the permit call.
   /// @param signature The signature for the permit call.
+  /// Permit `value` should be `deposit`.
   function leverage(
     Market market,
     uint256 principal,
@@ -542,6 +543,7 @@ contract DebtManager is Initializable {
   /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
   /// @param deadline The deadline for the permit call.
   /// @param signature The signature for the permit call.
+  /// Permit `value` should be `deposit`.
   function crossLeverage(
     Market inMarket,
     Market outMarket,
@@ -564,6 +566,7 @@ contract DebtManager is Initializable {
   /// @param withdraw The amount of assets that will be withdrawn to `msg.sender`.
   /// @param permitAssets The amount of assets to allow this contract to withdraw on behalf of `msg.sender`.
   /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
+  /// Permit `value` should be `permitAssets`.
   function deleverage(
     Market market,
     uint256 maturity,
@@ -583,6 +586,7 @@ contract DebtManager is Initializable {
   /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
   /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
   /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
+  /// Permit `value` should be `maxBorrowAssets`.
   function rollFloatingToFixed(
     Market market,
     uint256 borrowMaturity,
@@ -600,6 +604,7 @@ contract DebtManager is Initializable {
   /// @param maxRepayAssets Max amount of debt that the account is willing to accept to be repaid.
   /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
   /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
+  /// Permit `value` should be `maxRepayAssets`.
   function rollFixedToFloating(
     Market market,
     uint256 repayMaturity,
@@ -619,6 +624,7 @@ contract DebtManager is Initializable {
   /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
   /// @param percentage The percentage of the position that will be rolled, represented with 18 decimals.
   /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
+  /// Permit `value` should be `maxBorrowAssets`.
   function rollFixed(
     Market market,
     uint256 repayMaturity,
