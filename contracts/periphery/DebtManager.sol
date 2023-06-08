@@ -54,33 +54,31 @@ contract DebtManager is Initializable {
     }
   }
 
-  /// @notice Leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// @notice Leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
-  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
-  function leverage(Market market, uint256 principal, uint256 deposit, uint256 targetHealthFactor) external {
+  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
+  function leverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) external {
     if (deposit != 0) market.asset().safeTransferFrom(msg.sender, address(this), deposit);
 
-    noTransferLeverage(market, principal, deposit, targetHealthFactor);
+    noTransferLeverage(market, principal, deposit, multiplier);
   }
 
-  /// @notice Leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// @notice Leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
-  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
-  function noTransferLeverage(Market market, uint256 principal, uint256 deposit, uint256 targetHealthFactor) internal {
+  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
+  function noTransferLeverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) internal {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
     bytes[] memory calls = new bytes[](2);
 
-    (uint256 adjustFactor, , , , ) = auditor.markets(market);
-    uint256 factor = adjustFactor.mulWadDown(adjustFactor).divWadDown(targetHealthFactor);
     tokens[0] = market.asset();
-    amounts[0] = principal.mulWadDown(factor).divWadDown(1e18 - factor);
+    amounts[0] = principal.mulWadDown(multiplier);
     calls[0] = abi.encodeCall(market.deposit, (amounts[0] + deposit, msg.sender));
     calls[1] = abi.encodeCall(market.borrow, (amounts[0], address(balancerVault), msg.sender));
 
@@ -510,22 +508,22 @@ contract DebtManager is Initializable {
     _;
   }
 
-  /// @notice Leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// @notice Leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
-  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
   function leverage(
     Market market,
     uint256 principal,
     uint256 deposit,
-    uint256 targetHealthFactor,
+    uint256 multiplier,
     uint256 borrowAssets,
     Permit calldata marketPermit,
     Permit2 calldata assetPermit
   ) external permit(market, borrowAssets, marketPermit) permitTransfer(market.asset(), deposit, assetPermit) {
-    noTransferLeverage(market, principal, deposit, targetHealthFactor);
+    noTransferLeverage(market, principal, deposit, multiplier);
   }
 
   /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash swap

@@ -165,7 +165,7 @@ contract DebtManagerTest is Test {
   }
 
   function testLeverage() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 4.10153541354e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 510153541353);
@@ -175,7 +175,7 @@ contract DebtManagerTest is Test {
   function testLeverageWithAlreadyDepositedAmount() external _checkBalances {
     usdc.approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(100_000e6, address(this));
-    debtManager.leverage(marketUSDC, 100_000e6, 0, 1.03e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 0, 4.10153541354e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 510153541353);
@@ -184,9 +184,9 @@ contract DebtManagerTest is Test {
 
   function testLeverageShouldFailWhenHealthFactorNearOne() external _checkBalances {
     vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.000000000001e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 4.82e18);
 
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.00000000001e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 4.81733565997e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 581733565996);
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 481733565998);
@@ -212,7 +212,7 @@ contract DebtManagerTest is Test {
   }
 
   function testDeleverageHalfBorrowPosition() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 4.10153541354e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 leveragedDeposit = 510153541353;
     uint256 leveragedBorrow = 410153541355;
@@ -955,7 +955,7 @@ contract DebtManagerTest is Test {
       marketUSDC,
       10_000e6,
       10_000e6,
-      1.03e18,
+      4.1015354134e18,
       50_000e6,
       Permit(bob, block.timestamp, v, r, s),
       Permit2(block.timestamp, sig)
