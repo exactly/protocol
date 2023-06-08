@@ -85,59 +85,52 @@ contract DebtManager is Initializable {
     balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
   }
 
-  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash swap
+  /// @notice Cross-leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash swap
   /// from Uniswap's pool.
   /// @param inMarket The Market to deposit the leveraged position.
   /// @param outMarket The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param principal The amount of `inMarket` underlying assets to leverage.
   /// @param deposit The amount of `inMarket` underlying assets to deposit.
-  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
   function crossLeverage(
     Market inMarket,
     Market outMarket,
     uint24 fee,
     uint256 principal,
     uint256 deposit,
-    uint256 targetHealthFactor
+    uint256 multiplier
   ) external {
     if (deposit != 0) inMarket.asset().safeTransferFrom(msg.sender, address(this), principal);
 
-    noTransferCrossLeverage(inMarket, outMarket, fee, principal, deposit, targetHealthFactor);
+    noTransferCrossLeverage(inMarket, outMarket, fee, principal, deposit, multiplier);
   }
 
-  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
+  /// @notice Cross-leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param inMarket The Market to deposit the leveraged position.
   /// @param outMarket The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param principal The amount of `inMarket` underlying assets to leverage.
   /// @param deposit The amount of `inMarket` underlying assets to deposit.
-  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
   function noTransferCrossLeverage(
     Market inMarket,
     Market outMarket,
     uint24 fee,
     uint256 principal,
     uint256 deposit,
-    uint256 targetHealthFactor
+    uint256 multiplier
   ) internal {
     LeverageVars memory v;
     v.inAsset = address(inMarket.asset());
     v.outAsset = address(outMarket.asset());
 
-    {
-      (uint256 depositAdjustFactor, , , , ) = auditor.markets(inMarket);
-      (uint256 borrowAdjustFactor, , , , ) = auditor.markets(outMarket);
-      uint256 factor = depositAdjustFactor.mulWadDown(borrowAdjustFactor).divWadDown(targetHealthFactor);
-      v.amount = factor.mulWadDown(principal).divWadDown(1e18 - factor);
-    }
-
     PoolKey memory poolKey = PoolAddress.getPoolKey(v.inAsset, v.outAsset, fee);
     IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
       address(this),
       v.outAsset == poolKey.token0,
-      -int256(v.amount),
+      -int256(principal.mulWadDown(multiplier)),
       v.outAsset == poolKey.token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
       abi.encode(
         SwapCallbackData({
@@ -526,24 +519,24 @@ contract DebtManager is Initializable {
     noTransferLeverage(market, principal, deposit, multiplier);
   }
 
-  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash swap
+  /// @notice Cross-leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash swap
   /// from Uniswap's pool.
   /// @param inMarket The Market to deposit the leveraged position.
   /// @param outMarket The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param principal The amount of `inMarket` underlying assets to leverage.
   /// @param deposit The amount of `inMarket` underlying assets to deposit.
-  /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
+  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
   function crossLeverage(
     Market inMarket,
     Market outMarket,
     uint24 fee,
     uint256 principal,
     uint256 deposit,
-    uint256 targetHealthFactor,
+    uint256 multiplier,
     Permit2 calldata p
   ) external permitTransfer(inMarket.asset(), deposit, p) {
-    noTransferCrossLeverage(inMarket, outMarket, fee, principal, deposit, targetHealthFactor);
+    noTransferCrossLeverage(inMarket, outMarket, fee, principal, deposit, multiplier);
   }
 
   /// @notice Deleverages a `percentage` position of `msg.sender` by taking a flash swap from Uniswap's pool.
