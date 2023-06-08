@@ -87,8 +87,8 @@ contract DebtManager is Initializable {
     balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
   }
 
-  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
-  /// from Balancer's vault.
+  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash swap
+  /// from Uniswap's pool.
   /// @param inMarket The Market to deposit the leveraged position.
   /// @param outMarket The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
@@ -156,7 +156,7 @@ contract DebtManager is Initializable {
     );
   }
 
-  /// @notice Cross-deleverages the floating position of `msg.sender`
+  /// @notice Deleverages a `percentage` position of `msg.sender` by taking a flash swap from Uniswap's pool.
   /// @param inMarket The Market to withdraw the leveraged position.
   /// @param outMarket The Market to repay the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
@@ -492,23 +492,20 @@ contract DebtManager is Initializable {
   /// @notice Calls `permit2.permitTransferFrom` to transfer `msg.sender` assets.
   /// @param token The `ERC20` to transfer from `msg.sender` to this contract.
   /// @param assets The amount of assets to transfer from `msg.sender`.
-  /// @param deadline The deadline for the permit call.
-  /// @param signature The signature for the permit call.
   modifier permitTransfer(
     ERC20 token,
     uint256 assets,
-    uint256 deadline,
-    bytes calldata signature
+    Permit2 calldata p2
   ) {
     permit2.permitTransferFrom(
       IPermit2.PermitTransferFrom(
         IPermit2.TokenPermissions(address(token), assets),
-        uint256(keccak256(abi.encode(msg.sender, token, assets, deadline))),
-        deadline
+        uint256(keccak256(abi.encode(msg.sender, token, assets, p2.deadline))),
+        p2.deadline
       ),
       IPermit2.SignatureTransferDetails(address(this), assets),
       msg.sender,
-      signature
+      p2.signature
     );
     _;
   }
@@ -519,31 +516,26 @@ contract DebtManager is Initializable {
   /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
   /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
-  /// @param deadline The deadline for the permit call.
-  /// @param signature The signature for the permit call.
-  /// Permit `value` should be `deposit`.
   function leverage(
     Market market,
     uint256 principal,
     uint256 deposit,
     uint256 targetHealthFactor,
-    uint256 deadline,
-    bytes calldata signature
-  ) external permitTransfer(market.asset(), deposit, deadline, signature) {
+    uint256 borrowAssets,
+    Permit calldata marketPermit,
+    Permit2 calldata assetPermit
+  ) external permit(market, borrowAssets, marketPermit) permitTransfer(market.asset(), deposit, assetPermit) {
     noTransferLeverage(market, principal, deposit, targetHealthFactor);
   }
 
-  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash loan
-  /// from Balancer's vault.
+  /// @notice Cross-leverages the floating position of `msg.sender` to match `targetHealthFactor` by taking a flash swap
+  /// from Uniswap's pool.
   /// @param inMarket The Market to deposit the leveraged position.
   /// @param outMarket The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param principal The amount of `inMarket` underlying assets to leverage.
   /// @param deposit The amount of `inMarket` underlying assets to deposit.
   /// @param targetHealthFactor The desired target health factor that the account will be leveraged to.
-  /// @param deadline The deadline for the permit call.
-  /// @param signature The signature for the permit call.
-  /// Permit `value` should be `deposit`.
   function crossLeverage(
     Market inMarket,
     Market outMarket,
@@ -551,13 +543,12 @@ contract DebtManager is Initializable {
     uint256 principal,
     uint256 deposit,
     uint256 targetHealthFactor,
-    uint256 deadline,
-    bytes calldata signature
-  ) external permitTransfer(inMarket.asset(), deposit, deadline, signature) {
+    Permit2 calldata p
+  ) external permitTransfer(inMarket.asset(), deposit, p) {
     noTransferCrossLeverage(inMarket, outMarket, fee, principal, deposit, targetHealthFactor);
   }
 
-  /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash swap
+  /// @notice Deleverages a `percentage` position of `msg.sender` by taking a flash swap from Uniswap's pool.
   /// @param inMarket The Market to withdraw the leveraged position.
   /// @param outMarket The Market to repay the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
@@ -701,6 +692,11 @@ struct Permit {
   uint8 v;
   bytes32 r;
   bytes32 s;
+}
+
+struct Permit2 {
+  uint256 deadline;
+  bytes signature;
 }
 
 struct RollVars {

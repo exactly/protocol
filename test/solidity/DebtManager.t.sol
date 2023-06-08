@@ -7,6 +7,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import {
   ERC20,
   Permit,
+  Permit2,
   IPermit2,
   DebtManager,
   Disagreement,
@@ -886,14 +887,13 @@ contract DebtManagerTest is Test {
     assertEq(floatingBorrowShares, 0);
   }
 
-  function testPermit2AndLeverage() external {
+  function testPermitAndLeverage() external {
     IPermit2 permit2 = debtManager.permit2();
-    uint256 amount = 100_000e6;
-
+    uint256 amount = 10_000e6;
     deal(address(usdc), bob, amount);
+
     vm.startPrank(bob);
-    usdc.approve(address(permit2), type(uint256).max);
-    marketUSDC.approve(address(debtManager), type(uint256).max);
+    usdc.approve(address(debtManager.permit2()), type(uint256).max);
     vm.stopPrank();
 
     IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
@@ -930,8 +930,40 @@ contract DebtManagerTest is Test {
     );
     bytes memory sig = abi.encodePacked(r, s, v);
 
+    (v, r, s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketUSDC.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              50_000e6,
+              marketUSDC.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+
     vm.prank(bob);
-    debtManager.leverage(marketUSDC, amount, amount, 1.03e18, permit.deadline, sig);
+    debtManager.leverage(
+      marketUSDC,
+      10_000e6,
+      10_000e6,
+      1.03e18,
+      50_000e6,
+      Permit(bob, block.timestamp, v, r, s),
+      Permit2(block.timestamp, sig)
+    );
+
+    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(bob));
+    assertEq(marketUSDC.maxWithdraw(address(bob)), 51015354133);
+    assertEq(marketUSDC.previewRefund(floatingBorrowShares), 41015354135);
   }
 
   function testPermit2AndCrossLeverage() external {
@@ -980,7 +1012,15 @@ contract DebtManagerTest is Test {
     bytes memory sig = abi.encodePacked(r, s, v);
 
     vm.prank(bob);
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 100_000e6, 100_000e6, 1.03e18, permit.deadline, sig);
+    debtManager.crossLeverage(
+      marketUSDC,
+      marketWETH,
+      500,
+      100_000e6,
+      100_000e6,
+      1.03e18,
+      Permit2(permit.deadline, sig)
+    );
   }
 
   modifier _checkBalances() {
