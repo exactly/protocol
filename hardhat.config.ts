@@ -23,7 +23,12 @@ export default {
     settings: { optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
-    mainnet: { priceDecimals: 18, timelockDelay: 24 * 3_600, url: env.MAINNET_NODE ?? "", finance: { futurePools: 3 } },
+    mainnet: {
+      priceDecimals: 18,
+      timelockDelay: 24 * 3_600,
+      finance: { treasuryFeeRate: 0, futurePools: 3 },
+      url: env.MAINNET_NODE ?? "",
+    },
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
     goerli: { priceDecimals: 8, url: env.GOERLI_NODE ?? "" },
   },
@@ -40,8 +45,13 @@ export default {
       optimism: "0xC0d6Bc5d052d1e74523AD79dD5A954276c9286D3",
       goerli: "0x1801f5EAeAbA3fD02cBF4b7ED1A7b58AD84C0705",
     },
+    treasury: {
+      optimism: "0x23fD464e0b0eE21cEdEb929B19CABF9bD5215019",
+      goerli: "0x1801f5EAeAbA3fD02cBF4b7ED1A7b58AD84C0705",
+    },
   },
   finance: {
+    treasuryFeeRate: 0.15,
     liquidationIncentive: { liquidator: 0.05, lenders: 0.0025 },
     penaltyRatePerDay: 0.0045,
     backupFeeRate: 0.1,
