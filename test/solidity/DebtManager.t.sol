@@ -855,6 +855,37 @@ contract DebtManagerTest is Test {
     debtManager.deleverage(marketUSDC, 0, 0, 1e18, 10_000e6, 60_000e6, Permit(bob, block.timestamp, v, r, s));
   }
 
+  function testPermitCrossDeleverage() external {
+    marketwstETH.deposit(20e18, bob);
+    vm.startPrank(bob);
+    marketwstETH.auditor().enterMarket(marketwstETH);
+    marketWETH.borrow(10e18, bob, bob);
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketwstETH.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              20e18,
+              marketwstETH.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 1e18, 20e18, Permit(bob, block.timestamp, v, r, s));
+    vm.stopPrank();
+    (, , uint256 floatingBorrowShares) = marketWETH.accounts(bob);
+    assertEq(floatingBorrowShares, 0);
+  }
+
   function testPermit2AndLeverage() external {
     IPermit2 permit2 = debtManager.permit2();
     uint256 amount = 100_000e6;

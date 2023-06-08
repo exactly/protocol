@@ -161,7 +161,7 @@ contract DebtManager is Initializable {
   /// @param outMarket The Market to repay the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param percentage The percentage that the position will be deleveraged.
-  function crossDeleverage(Market inMarket, Market outMarket, uint24 fee, uint256 percentage) external {
+  function crossDeleverage(Market inMarket, Market outMarket, uint24 fee, uint256 percentage) public {
     LeverageVars memory v;
     v.inAsset = address(inMarket.asset());
     v.outAsset = address(outMarket.asset());
@@ -555,6 +555,25 @@ contract DebtManager is Initializable {
     bytes calldata signature
   ) external permitTransfer(inMarket.asset(), deposit, deadline, signature) {
     noTransferCrossLeverage(inMarket, outMarket, fee, principal, deposit, targetHealthFactor);
+  }
+
+  /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash swap
+  /// @param inMarket The Market to withdraw the leveraged position.
+  /// @param outMarket The Market to repay the leveraged position.
+  /// @param fee The fee of the pool that will be used to swap the assets.
+  /// @param percentage The percentage that the position will be deleveraged.
+  /// @param permitAssets The amount of assets to allow.
+  /// @param p Arguments for the permit call to `inMarket` on behalf of `msg.sender`.
+  /// Permit `value` should be `permitAssets`.
+  function crossDeleverage(
+    Market inMarket,
+    Market outMarket,
+    uint24 fee,
+    uint256 percentage,
+    uint256 permitAssets,
+    Permit calldata p
+  ) external permit(inMarket, permitAssets, p) {
+    crossDeleverage(inMarket, outMarket, fee, percentage);
   }
 
   /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash loan from
