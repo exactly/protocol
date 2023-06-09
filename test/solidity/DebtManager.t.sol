@@ -30,6 +30,7 @@ contract DebtManagerTest is Test {
   Market internal marketUSDC;
   Market internal marketWETH;
   Market internal marketwstETH;
+  ERC20 internal op;
   ERC20 internal usdc;
   ERC20 internal wstETH;
   uint256 internal maturity;
@@ -38,6 +39,7 @@ contract DebtManagerTest is Test {
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375);
 
+    op = ERC20(deployment("OP"));
     usdc = ERC20(deployment("USDC"));
     wstETH = ERC20(deployment("wstETH"));
     marketUSDC = Market(deployment("MarketUSDC"));
@@ -1021,6 +1023,72 @@ contract DebtManagerTest is Test {
       1.03e18,
       Permit2(permit.deadline, sig)
     );
+  }
+
+  function testPermitAssetAndPermitMarketLeverage() external {
+    uint256 amount = 10_000e18;
+    deal(address(op), bob, amount);
+    Market marketOP = Market(deployment("MarketOP"));
+
+    (uint8 vMarket, bytes32 rMarket, bytes32 sMarket) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketOP.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              20_000e18,
+              marketOP.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+
+    (uint8 vAsset, bytes32 rAsset, bytes32 sAsset) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          op.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              amount,
+              op.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+
+    vm.startPrank(bob);
+    debtManager.auditor().enterMarket(marketOP);
+    debtManager.leverage(
+      marketOP,
+      amount,
+      amount,
+      0.42e18,
+      20_000e18,
+      Permit(bob, block.timestamp, vMarket, rMarket, sMarket),
+      Permit(bob, block.timestamp, vAsset, rAsset, sAsset)
+    );
+    vm.stopPrank();
+
+    (uint256 coll, uint256 debt) = debtManager.auditor().accountLiquidity(address(bob), marketOP, 0);
+    uint256 healthFactor = coll.divWadDown(debt);
+    (, , uint256 floatingBorrowShares) = marketOP.accounts(address(bob));
+    assertEq(healthFactor, 1.137352380952380952e18);
+    assertEq(marketOP.maxWithdraw(address(bob)), 14199.999999999999999999e18);
+    assertEq(marketOP.previewRefund(floatingBorrowShares), 4200.000000000000000001e18);
   }
 
   modifier _checkBalances() {

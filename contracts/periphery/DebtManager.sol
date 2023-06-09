@@ -60,7 +60,7 @@ contract DebtManager is Initializable {
   /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
   /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
-  function leverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) external {
+  function leverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) public {
     if (deposit != 0) market.asset().safeTransferFrom(msg.sender, address(this), deposit);
 
     noTransferLeverage(market, principal, deposit, multiplier);
@@ -480,6 +480,14 @@ contract DebtManager is Initializable {
     _;
   }
 
+  /// @notice Calls `token`'s `transferFrom` to transfer `msg.sender` assets.
+  /// @param token The `ERC20` to transfer from `msg.sender` to this contract.
+  /// @param value The amount of tokens to transfer from `msg.sender`.
+  modifier transfer(ERC20 token, uint256 value) {
+    token.transferFrom(msg.sender, address(this), value);
+    _;
+  }
+
   /// @notice Calls `permit2.permitTransferFrom` to transfer `msg.sender` assets.
   /// @param token The `ERC20` to transfer from `msg.sender` to this contract.
   /// @param assets The amount of assets to transfer from `msg.sender`.
@@ -517,6 +525,18 @@ contract DebtManager is Initializable {
     Permit2 calldata assetPermit
   ) external permit(market, borrowAssets, marketPermit) permitTransfer(market.asset(), deposit, assetPermit) {
     noTransferLeverage(market, principal, deposit, multiplier);
+  }
+
+  function leverage(
+    Market market,
+    uint256 principal,
+    uint256 deposit,
+    uint256 multiplier,
+    uint256 borrowAssets,
+    Permit calldata marketPermit,
+    Permit calldata assetPermit
+  ) external permit(market, borrowAssets, marketPermit) permit(market.asset(), deposit, assetPermit) {
+    leverage(market, principal, deposit, multiplier);
   }
 
   /// @notice Cross-leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash swap
