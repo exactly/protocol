@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { Test, stdJson, stdError } from "forge-std/Test.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
@@ -16,9 +15,10 @@ import {
 } from "../../contracts/periphery/DebtManager.sol";
 import { Auditor, Market, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
 import { FixedLib, UnmatchedPoolState } from "../../contracts/utils/FixedLib.sol";
+import { ForkTest, stdJson, stdError } from "./Fork.t.sol";
 import { MockBalancerVault } from "../../contracts/mocks/MockBalancerVault.sol";
 
-contract DebtManagerTest is Test {
+contract DebtManagerTest is ForkTest {
   using FixedPointMathLib for uint256;
   using FixedLib for FixedLib.Position;
   using FixedLib for FixedLib.Pool;
@@ -1096,11 +1096,6 @@ contract DebtManagerTest is Test {
     _;
     assertLe(usdc.balanceOf(address(debtManager)), 100);
     assertEq(usdc.balanceOf(address(debtManager.balancerVault())), vault);
-  }
-
-  function deployment(string memory name) internal returns (address addr) {
-    addr = vm.readFile(string.concat("deployments/optimism/", name, ".json")).readAddress(".address");
-    vm.label(addr, name);
   }
 
   event Approval(address indexed owner, address indexed spender, uint256 amount);
