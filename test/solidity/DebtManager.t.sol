@@ -328,7 +328,7 @@ contract DebtManagerTest is ForkTest {
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     assertEq(floatingBorrowShares, 0);
-    assertEq(principal, 1_000_000e6 + 1);
+    assertEq(principal, 1_000_000e6 + 2);
   }
 
   function testFloatingToFixedRollHigherThanAvailableLiquidityWithSlippage() external _checkBalances {
@@ -336,7 +336,7 @@ contract DebtManagerTest is ForkTest {
     marketUSDC.borrow(1_000_000e6, address(this), address(this));
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 initialDebt = marketUSDC.previewRefund(floatingBorrowShares);
-    uint256 fee = 1_796_320_611;
+    uint256 fee = 1_796_320_612;
 
     vm.expectRevert(Disagreement.selector);
     debtManager.rollFloatingToFixed(marketUSDC, maturity, 1_000_000e6 + fee, 1e18);
@@ -344,7 +344,7 @@ contract DebtManagerTest is ForkTest {
     debtManager.rollFloatingToFixed(marketUSDC, maturity, 1_000_000e6 + ++fee, 1e18);
     (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
     (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
-    assertEq(principal, initialDebt);
+    assertEq(principal, initialDebt + 1);
     assertEq(floatingBorrowShares, 0);
   }
 

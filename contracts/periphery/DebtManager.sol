@@ -242,15 +242,12 @@ contract DebtManager is Initializable {
     amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
     calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
-      calls[r.callIndex++] = abi.encodeCall(
-        market.repay,
-        (r.i == 0 ? amounts[0] : r.repayAssets / r.loopCount, msg.sender)
-      );
+      calls[r.callIndex++] = abi.encodeCall(market.repay, (amounts[0], msg.sender));
       calls[r.callIndex++] = abi.encodeCall(
         market.borrowAtMaturity,
         (
           borrowMaturity,
-          r.i + 1 == r.loopCount ? amounts[0] : r.repayAssets / r.loopCount,
+          amounts[0],
           type(uint256).max,
           r.i + 1 == r.loopCount ? address(balancerVault) : address(this),
           msg.sender
