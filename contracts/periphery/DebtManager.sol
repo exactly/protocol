@@ -211,22 +211,58 @@ contract DebtManager is Initializable {
   ) public {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
-    bytes[] memory calls = new bytes[](withdraw == 0 ? 2 : 3);
+    bytes[] memory calls;
     tokens[0] = market.asset();
 
     if (maturity == 0) {
-      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
-      amounts[0] = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
-      calls[0] = abi.encodeCall(market.repay, (amounts[0], msg.sender));
-    } else {
-      uint256 positionAssets;
-      (amounts[0], positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
-      calls[0] = abi.encodeCall(market.repayAtMaturity, (maturity, positionAssets, maxRepayAssets, msg.sender));
-    }
-    calls[1] = abi.encodeCall(market.withdraw, (amounts[0], address(balancerVault), msg.sender));
-    if (withdraw > 0) calls[2] = abi.encodeCall(market.withdraw, (withdraw, msg.sender, msg.sender));
+      uint256 loopCount;
+      {
+        (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+        uint256 amount = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
+        loopCount = amount.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+        amounts[0] = amount.mulDivUp(1, loopCount);
+      }
+      calls = new bytes[](2 * loopCount + (withdraw == 0 ? 0 : 1));
+      uint256 callIndex = 0;
+      for (uint256 i = 0; i < loopCount; ) {
+        calls[callIndex++] = abi.encodeCall(market.repay, (amounts[0], msg.sender));
+        calls[callIndex++] = abi.encodeCall(
+          market.withdraw,
+          (amounts[0], i + 1 == loopCount ? address(balancerVault) : address(this), msg.sender)
+        );
+        unchecked {
+          ++i;
+        }
+      }
+      if (withdraw != 0) calls[callIndex] = abi.encodeCall(market.withdraw, (withdraw, msg.sender, msg.sender));
 
-    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
+      balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
+    } else {
+      RollVars memory r;
+      r.principal = market.convertToAssets(market.balanceOf(msg.sender));
+      (r.repayAssets, r.positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
+      r.loopCount = r.repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+      r.positionAssets = r.positionAssets / r.loopCount;
+      amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
+      calls = new bytes[](2 * r.loopCount + (withdraw == 0 ? 0 : 1));
+      for (r.i = 0; r.i < r.loopCount; ) {
+        calls[r.callIndex++] = abi.encodeCall(
+          market.repayAtMaturity,
+          (maturity, r.positionAssets, type(uint256).max, msg.sender)
+        );
+        calls[r.callIndex++] = abi.encodeCall(
+          market.withdraw,
+          (amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), msg.sender)
+        );
+        unchecked {
+          ++r.i;
+        }
+      }
+      if (withdraw != 0) calls[r.callIndex] = abi.encodeCall(market.withdraw, (withdraw, msg.sender, msg.sender));
+
+      balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
+      if (maxRepayAssets < r.principal - market.convertToAssets(market.balanceOf(msg.sender))) revert Disagreement();
+    }
   }
 
   /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position.

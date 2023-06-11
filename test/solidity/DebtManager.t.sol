@@ -238,6 +238,15 @@ contract DebtManagerTest is ForkTest {
     assertEq(leveragedDeposit - deleveragedDeposit - 1, leveragedBorrow - deleveragedBorrow);
   }
 
+  function testDeleverageWithMoreThanBalancerAvailableLiquidity() external _checkBalances {
+    debtManager.leverage(marketUSDC, 1_000_000e6, 1_000_000e6, 2e18);
+    debtManager.deleverage(marketUSDC, 0, 0, 1e18, 0);
+
+    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
+    assertEq(marketUSDC.maxWithdraw(address(this)), 1_000_000e6 - 8);
+    assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
+  }
+
   function testFixedDeleverage() external _checkBalances {
     marketUSDC.deposit(100_000e6, address(this));
     marketUSDC.borrowAtMaturity(maturity, 30_000e6, type(uint256).max, address(this), address(this));
@@ -277,6 +286,36 @@ contract DebtManagerTest is ForkTest {
     assertEq(principal, 27_000e6);
     assertGt(balance, 96_999e6);
     assertLt(balance, 97_000e6);
+  }
+
+  function testFixedDeleverageWithMoreThanBalancerAvailableLiquidity() external _checkBalances {
+    marketUSDC.deposit(2_000_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 1_000_000e6, type(uint256).max, address(this), address(this));
+
+    debtManager.deleverage(marketUSDC, maturity, type(uint256).max, 1e18, 0);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    (uint256 balance, uint256 debt) = marketUSDC.accountSnapshot(address(this));
+    assertEq(principal, 0);
+    assertEq(debt, 0);
+    assertGt(balance, 999_700e6);
+    assertLt(balance, 1_000_000e6);
+  }
+
+  function testFixedDeleverageWithMoreThanBalancerAvailableLiquidityWithSlippage() external _checkBalances {
+    marketUSDC.deposit(2_000_000e6, address(this));
+    marketUSDC.borrowAtMaturity(maturity, 1_000_000e6, type(uint256).max, address(this), address(this));
+    uint256 maxRepayAssets = 1000261243389;
+
+    vm.expectRevert(Disagreement.selector);
+    debtManager.deleverage(marketUSDC, maturity, maxRepayAssets, 1e18, 0);
+
+    debtManager.deleverage(marketUSDC, maturity, ++maxRepayAssets, 1e18, 0);
+    (uint256 principal, ) = marketUSDC.fixedBorrowPositions(maturity, address(this));
+    (uint256 balance, uint256 debt) = marketUSDC.accountSnapshot(address(this));
+    assertEq(principal, 0);
+    assertEq(debt, 0);
+    assertGt(balance, 999_700e6);
+    assertLt(balance, 1_000_000e6);
   }
 
   function testFlashloanFeeGreaterThanZero() external {
