@@ -194,6 +194,14 @@ contract DebtManagerTest is ForkTest {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 481733565998);
   }
 
+  function testLeverageWithMoreThanBalancerAvailableLiquidity() external _checkBalances {
+    debtManager.leverage(marketUSDC, 1_000_000e6, 1_000_000e6, 4.10153541354e18);
+
+    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
+    assertEq(marketUSDC.maxWithdraw(address(this)), 5101535413537);
+    assertEq(marketUSDC.previewRefund(floatingBorrowShares), 4101535413544);
+  }
+
   function testDeleverage() external _checkBalances {
     debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
     debtManager.deleverage(marketUSDC, 0, 0, 1e18, 0);

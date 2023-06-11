@@ -75,12 +75,26 @@ contract DebtManager is Initializable {
   function noTransferLeverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) internal {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
-    bytes[] memory calls = new bytes[](2);
-
     tokens[0] = market.asset();
-    amounts[0] = principal.mulWadDown(multiplier);
-    calls[0] = abi.encodeCall(market.deposit, (amounts[0] + deposit, msg.sender));
-    calls[1] = abi.encodeCall(market.borrow, (amounts[0], address(balancerVault), msg.sender));
+
+    uint256 loopCount;
+    {
+      uint256 amount = principal.mulWadDown(multiplier);
+      loopCount = amount.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+      amounts[0] = amount.mulDivUp(1, loopCount);
+    }
+    bytes[] memory calls = new bytes[](2 * loopCount);
+    uint256 callIndex = 0;
+    for (uint256 i = 0; i < loopCount; ) {
+      calls[callIndex++] = abi.encodeCall(market.deposit, (i == 0 ? amounts[0] + deposit : amounts[0], msg.sender));
+      calls[callIndex++] = abi.encodeCall(
+        market.borrow,
+        (amounts[0], i + 1 == loopCount ? address(balancerVault) : address(this), msg.sender)
+      );
+      unchecked {
+        ++i;
+      }
+    }
 
     balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
   }
