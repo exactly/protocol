@@ -906,6 +906,36 @@ contract DebtManagerTest is ForkTest {
     debtManager.deleverage(marketUSDC, 0, 0, 1e18, 10_000e6, 60_000e6, Permit(bob, block.timestamp, v, r, s));
   }
 
+  function testPermitAndTransferLeverage() external {
+    uint256 amount = 10_000e6;
+    deal(address(usdc), bob, amount);
+
+    vm.prank(bob);
+    usdc.approve(address(debtManager), 10_000e6);
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketUSDC.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              amount * 2,
+              marketUSDC.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+    debtManager.leverage(marketUSDC, amount, 2e18, amount * 2, Permit(bob, block.timestamp, v, r, s));
+    assertEq(marketUSDC.maxWithdraw(bob), amount * 3 - 1);
+  }
+
   function testPermitAndCrossDeleverage() external {
     marketwstETH.deposit(20e18, bob);
     vm.startPrank(bob);

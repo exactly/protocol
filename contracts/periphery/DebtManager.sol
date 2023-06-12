@@ -543,14 +543,6 @@ contract DebtManager is Initializable {
     assert(_msgSender == address(0));
   }
 
-  /// @notice Calls `token`'s `transferFrom` to transfer `_msgSender` assets.
-  /// @param token The `ERC20` to transfer from `_msgSender` to this contract.
-  /// @param value The amount of tokens to transfer from `_msgSender`.
-  modifier transfer(ERC20 token, uint256 value) {
-    token.transferFrom(_msgSender, address(this), value);
-    _;
-  }
-
   /// @notice Calls `permit2.permitTransferFrom` to transfer `_msgSender` assets.
   /// @param token The `ERC20` to transfer from `_msgSender` to this contract.
   /// @param assets The amount of assets to transfer from `_msgSender`.
@@ -600,6 +592,17 @@ contract DebtManager is Initializable {
     Permit calldata assetPermit
   ) external permit(market, borrowAssets, marketPermit) permit(market.asset(), deposit, assetPermit) {
     leverage(market, deposit, multiplier);
+  }
+
+  function leverage(
+    Market market,
+    uint256 deposit,
+    uint256 multiplier,
+    uint256 borrowAssets,
+    Permit calldata marketPermit
+  ) external permit(market, borrowAssets, marketPermit) msgSender {
+    market.asset().transferFrom(msg.sender, address(this), deposit);
+    noTransferLeverage(market, deposit, multiplier);
   }
 
   /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash swap
