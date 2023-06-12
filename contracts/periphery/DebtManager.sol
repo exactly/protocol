@@ -54,19 +54,19 @@ contract DebtManager is Initializable {
     }
   }
 
-  /// @notice Leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash loan
+  /// @notice Leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
   /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
-  function leverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) public {
-    if (deposit != 0) market.asset().safeTransferFrom(msg.sender, address(this), deposit);
+  function leverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) public msgSender {
+    if (deposit != 0) market.asset().safeTransferFrom(_msgSender, address(this), deposit);
 
     noTransferLeverage(market, principal, deposit, multiplier);
   }
 
-  /// @notice Leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash loan
+  /// @notice Leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param principal The amount of assets to leverage.
@@ -76,6 +76,7 @@ contract DebtManager is Initializable {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
     tokens[0] = market.asset();
+    address sender = _msgSender;
 
     uint256 loopCount;
     {
@@ -86,10 +87,10 @@ contract DebtManager is Initializable {
     bytes[] memory calls = new bytes[](2 * loopCount);
     uint256 callIndex = 0;
     for (uint256 i = 0; i < loopCount; ) {
-      calls[callIndex++] = abi.encodeCall(market.deposit, (i == 0 ? amounts[0] + deposit : amounts[0], msg.sender));
+      calls[callIndex++] = abi.encodeCall(market.deposit, (i == 0 ? amounts[0] + deposit : amounts[0], sender));
       calls[callIndex++] = abi.encodeCall(
         market.borrow,
-        (amounts[0], i + 1 == loopCount ? address(balancerVault) : address(this), msg.sender)
+        (amounts[0], i + 1 == loopCount ? address(balancerVault) : address(this), sender)
       );
       unchecked {
         ++i;
@@ -99,7 +100,7 @@ contract DebtManager is Initializable {
     balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
   }
 
-  /// @notice Cross-leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash swap
+  /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash swap
   /// from Uniswap's pool.
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
@@ -114,13 +115,13 @@ contract DebtManager is Initializable {
     uint256 principal,
     uint256 deposit,
     uint256 multiplier
-  ) external {
-    if (deposit != 0) marketIn.asset().safeTransferFrom(msg.sender, address(this), principal);
+  ) external msgSender {
+    if (deposit != 0) marketIn.asset().safeTransferFrom(_msgSender, address(this), principal);
 
     noTransferCrossLeverage(marketIn, marketOut, fee, principal, deposit, multiplier);
   }
 
-  /// @notice Cross-leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash loan
+  /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
@@ -153,7 +154,7 @@ contract DebtManager is Initializable {
           assetIn: v.assetIn,
           assetOut: v.assetOut,
           principal: deposit,
-          account: msg.sender,
+          account: _msgSender,
           fee: fee,
           leverage: true
         })
@@ -161,17 +162,18 @@ contract DebtManager is Initializable {
     );
   }
 
-  /// @notice Deleverages a `percentage` position of `msg.sender` by taking a flash swap from Uniswap's pool.
+  /// @notice Deleverages a `percentage` position of `_msgSender` by taking a flash swap from Uniswap's pool.
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param percentage The percentage that the position will be deleveraged.
-  function crossDeleverage(Market marketIn, Market marketOut, uint24 fee, uint256 percentage) public {
+  function crossDeleverage(Market marketIn, Market marketOut, uint24 fee, uint256 percentage) public msgSender {
     LeverageVars memory v;
     v.assetIn = address(marketIn.asset());
     v.assetOut = address(marketOut.asset());
+    address sender = _msgSender;
 
-    (, , uint256 floatingBorrowShares) = marketOut.accounts(msg.sender);
+    (, , uint256 floatingBorrowShares) = marketOut.accounts(sender);
     v.amount = marketOut.previewRefund(floatingBorrowShares.mulWadDown(percentage));
 
     PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
@@ -187,7 +189,7 @@ contract DebtManager is Initializable {
           assetIn: v.assetIn,
           assetOut: v.assetOut,
           principal: v.amount,
-          account: msg.sender,
+          account: sender,
           fee: fee,
           leverage: false
         })
@@ -195,77 +197,76 @@ contract DebtManager is Initializable {
     );
   }
 
-  /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash loan from
+  /// @notice Deleverages the position of `_msgSender` a certain `percentage` by taking a flash loan from
   /// Balancer's vault to repay the borrow.
   /// @param market The Market to deleverage the position out.
   /// @param maturity The maturity of the fixed pool that the position is being deleveraged out of, `0` if floating.
   /// @param maxRepayAssets Max amount of fixed debt that the sender is willing to accept.
   /// @param percentage The percentage of the borrow that will be repaid, represented with 18 decimals.
-  /// @param withdraw The amount of assets that will be withdrawn to `msg.sender`.
+  /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
   function deleverage(
     Market market,
     uint256 maturity,
     uint256 maxRepayAssets,
     uint256 percentage,
     uint256 withdraw
-  ) public {
-    uint256[] memory amounts = new uint256[](1);
-    ERC20[] memory tokens = new ERC20[](1);
-    bytes[] memory calls;
-    tokens[0] = market.asset();
+  ) public msgSender {
+    RollVars memory r;
+    r.amounts = new uint256[](1);
+    r.tokens = new ERC20[](1);
+    r.tokens[0] = market.asset();
+    address sender = _msgSender;
 
     if (maturity == 0) {
-      uint256 loopCount;
       {
-        (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+        (, , uint256 floatingBorrowShares) = market.accounts(sender);
         uint256 amount = market.previewRefund(floatingBorrowShares.mulWadDown(percentage));
-        loopCount = amount.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
-        amounts[0] = amount.mulDivUp(1, loopCount);
+        r.loopCount = amount.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
+        r.amounts[0] = amount.mulDivUp(1, r.loopCount);
       }
-      calls = new bytes[](2 * loopCount + (withdraw == 0 ? 0 : 1));
+      r.calls = new bytes[](2 * r.loopCount + (withdraw == 0 ? 0 : 1));
       uint256 callIndex = 0;
-      for (uint256 i = 0; i < loopCount; ) {
-        calls[callIndex++] = abi.encodeCall(market.repay, (amounts[0], msg.sender));
-        calls[callIndex++] = abi.encodeCall(
+      for (uint256 i = 0; i < r.loopCount; ) {
+        r.calls[callIndex++] = abi.encodeCall(market.repay, (r.amounts[0], sender));
+        r.calls[callIndex++] = abi.encodeCall(
           market.withdraw,
-          (amounts[0], i + 1 == loopCount ? address(balancerVault) : address(this), msg.sender)
+          (r.amounts[0], i + 1 == r.loopCount ? address(balancerVault) : address(this), sender)
         );
         unchecked {
           ++i;
         }
       }
-      if (withdraw != 0) calls[callIndex] = abi.encodeCall(market.withdraw, (withdraw, msg.sender, msg.sender));
+      if (withdraw != 0) r.calls[callIndex] = abi.encodeCall(market.withdraw, (withdraw, sender, sender));
 
-      balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
+      balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
     } else {
-      RollVars memory r;
-      r.principal = market.convertToAssets(market.balanceOf(msg.sender));
+      r.principal = market.convertToAssets(market.balanceOf(sender));
       (r.repayAssets, r.positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
-      r.loopCount = r.repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+      r.loopCount = r.repayAssets.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
       r.positionAssets = r.positionAssets / r.loopCount;
-      amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
-      calls = new bytes[](2 * r.loopCount + (withdraw == 0 ? 0 : 1));
+      r.amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
+      r.calls = new bytes[](2 * r.loopCount + (withdraw == 0 ? 0 : 1));
       for (r.i = 0; r.i < r.loopCount; ) {
-        calls[r.callIndex++] = abi.encodeCall(
+        r.calls[r.callIndex++] = abi.encodeCall(
           market.repayAtMaturity,
-          (maturity, r.positionAssets, type(uint256).max, msg.sender)
+          (maturity, r.positionAssets, type(uint256).max, sender)
         );
-        calls[r.callIndex++] = abi.encodeCall(
+        r.calls[r.callIndex++] = abi.encodeCall(
           market.withdraw,
-          (amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), msg.sender)
+          (r.amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), sender)
         );
         unchecked {
           ++r.i;
         }
       }
-      if (withdraw != 0) calls[r.callIndex] = abi.encodeCall(market.withdraw, (withdraw, msg.sender, msg.sender));
+      if (withdraw != 0) r.calls[r.callIndex] = abi.encodeCall(market.withdraw, (withdraw, sender, sender));
 
-      balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
-      if (maxRepayAssets < r.principal - market.convertToAssets(market.balanceOf(msg.sender))) revert Disagreement();
+      balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
+      if (maxRepayAssets < r.principal - market.convertToAssets(market.balanceOf(sender))) revert Disagreement();
     }
   }
 
-  /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position.
+  /// @notice Rolls a percentage of the floating position of `_msgSender` to a fixed position.
   /// @param market The Market to roll the position in.
   /// @param borrowMaturity The maturity of the fixed pool that the position is being rolled to.
   /// @param maxBorrowAssets Max amount of debt that the sender is willing to accept to be borrowed.
@@ -275,32 +276,32 @@ contract DebtManager is Initializable {
     uint256 borrowMaturity,
     uint256 maxBorrowAssets,
     uint256 percentage
-  ) public {
-    uint256[] memory amounts = new uint256[](1);
-    ERC20[] memory tokens = new ERC20[](1);
-    bytes[] memory calls;
+  ) public msgSender {
     RollVars memory r;
-    tokens[0] = market.asset();
+    r.amounts = new uint256[](1);
+    r.tokens = new ERC20[](1);
+    r.tokens[0] = market.asset();
+    address sender = _msgSender;
 
-    (r.principal, r.fee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
-    (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+    (r.principal, r.fee) = market.fixedBorrowPositions(borrowMaturity, sender);
+    (, , uint256 floatingBorrowShares) = market.accounts(sender);
     r.repayAssets = market.previewRefund(
       percentage < 1e18 ? floatingBorrowShares.mulWadDown(percentage) : floatingBorrowShares
     );
-    r.loopCount = r.repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+    r.loopCount = r.repayAssets.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
 
-    amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
-    calls = new bytes[](2 * r.loopCount);
+    r.amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
+    r.calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
-      calls[r.callIndex++] = abi.encodeCall(market.repay, (amounts[0], msg.sender));
-      calls[r.callIndex++] = abi.encodeCall(
+      r.calls[r.callIndex++] = abi.encodeCall(market.repay, (r.amounts[0], sender));
+      r.calls[r.callIndex++] = abi.encodeCall(
         market.borrowAtMaturity,
         (
           borrowMaturity,
-          amounts[0],
+          r.amounts[0],
           type(uint256).max,
           r.i + 1 == r.loopCount ? address(balancerVault) : address(this),
-          msg.sender
+          sender
         )
       );
       unchecked {
@@ -308,12 +309,12 @@ contract DebtManager is Initializable {
       }
     }
 
-    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
-    (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
+    balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
+    (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, sender);
     if (maxBorrowAssets < newPrincipal + newFee - r.principal - r.fee) revert Disagreement();
   }
 
-  /// @notice Rolls a percentage of the fixed position of `msg.sender` to a floating position.
+  /// @notice Rolls a percentage of the fixed position of `_msgSender` to a floating position.
   /// @param market The Market to roll the position in.
   /// @param repayMaturity The maturity of the fixed pool that the position is being rolled from.
   /// @param maxRepayAssets Max amount of debt that the account is willing to accept to be repaid.
@@ -323,44 +324,44 @@ contract DebtManager is Initializable {
     uint256 repayMaturity,
     uint256 maxRepayAssets,
     uint256 percentage
-  ) public {
-    uint256[] memory amounts = new uint256[](1);
-    ERC20[] memory tokens = new ERC20[](1);
-    bytes[] memory calls;
+  ) public msgSender {
     RollVars memory r;
-    tokens[0] = market.asset();
+    r.amounts = new uint256[](1);
+    r.tokens = new ERC20[](1);
+    r.tokens[0] = market.asset();
+    address sender = _msgSender;
 
     {
-      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+      (, , uint256 floatingBorrowShares) = market.accounts(sender);
       r.principal = market.previewRefund(floatingBorrowShares);
     }
     (uint256 repayAssets, uint256 positionAssets) = repayAtMaturityAssets(market, repayMaturity, percentage);
-    r.loopCount = repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+    r.loopCount = repayAssets.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
     positionAssets = positionAssets / r.loopCount;
 
-    amounts[0] = repayAssets.mulDivUp(1, r.loopCount);
-    calls = new bytes[](2 * r.loopCount);
+    r.amounts[0] = repayAssets.mulDivUp(1, r.loopCount);
+    r.calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
-      calls[r.callIndex++] = abi.encodeCall(
+      r.calls[r.callIndex++] = abi.encodeCall(
         market.repayAtMaturity,
-        (repayMaturity, positionAssets, type(uint256).max, msg.sender)
+        (repayMaturity, positionAssets, type(uint256).max, sender)
       );
-      calls[r.callIndex++] = abi.encodeCall(
+      r.calls[r.callIndex++] = abi.encodeCall(
         market.borrow,
-        (amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), msg.sender)
+        (r.amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), sender)
       );
       unchecked {
         ++r.i;
       }
     }
-    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
+    balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
     {
-      (, , uint256 floatingBorrowShares) = market.accounts(msg.sender);
+      (, , uint256 floatingBorrowShares) = market.accounts(sender);
       if (maxRepayAssets < market.previewRefund(floatingBorrowShares) - r.principal) revert Disagreement();
     }
   }
 
-  /// @notice Rolls a percentage of the fixed position of `msg.sender` to another fixed pool.
+  /// @notice Rolls a percentage of the fixed position of `_msgSender` to another fixed pool.
   /// @param market The Market to roll the position in.
   /// @param repayMaturity The maturity of the fixed pool that the position is being rolled from.
   /// @param borrowMaturity The maturity of the fixed pool that the position is being rolled to.
@@ -374,35 +375,35 @@ contract DebtManager is Initializable {
     uint256 maxRepayAssets,
     uint256 maxBorrowAssets,
     uint256 percentage
-  ) public {
-    uint256[] memory amounts = new uint256[](1);
-    ERC20[] memory tokens = new ERC20[](1);
-    bytes[] memory calls;
+  ) public msgSender {
     RollVars memory r;
-    tokens[0] = market.asset();
+    r.amounts = new uint256[](1);
+    r.tokens = new ERC20[](1);
+    r.tokens[0] = market.asset();
+    address sender = _msgSender;
 
-    (r.principal, r.fee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
+    (r.principal, r.fee) = market.fixedBorrowPositions(borrowMaturity, sender);
     (r.repayAssets, r.positionAssets) = repayAtMaturityAssets(market, repayMaturity, percentage);
 
-    r.loopCount = r.repayAssets.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+    r.loopCount = r.repayAssets.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
     if (r.loopCount > 1 && repayMaturity == borrowMaturity) revert InvalidOperation();
 
-    amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
+    r.amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
     r.positionAssets = r.positionAssets / r.loopCount;
-    calls = new bytes[](2 * r.loopCount);
+    r.calls = new bytes[](2 * r.loopCount);
     for (r.i = 0; r.i < r.loopCount; ) {
-      calls[r.callIndex++] = abi.encodeCall(
+      r.calls[r.callIndex++] = abi.encodeCall(
         market.repayAtMaturity,
-        (repayMaturity, r.positionAssets, type(uint256).max, msg.sender)
+        (repayMaturity, r.positionAssets, type(uint256).max, sender)
       );
-      calls[r.callIndex++] = abi.encodeCall(
+      r.calls[r.callIndex++] = abi.encodeCall(
         market.borrowAtMaturity,
         (
           borrowMaturity,
-          amounts[0],
+          r.amounts[0],
           type(uint256).max,
           r.i + 1 == r.loopCount ? address(balancerVault) : address(this),
-          msg.sender
+          sender
         )
       );
       unchecked {
@@ -410,8 +411,8 @@ contract DebtManager is Initializable {
       }
     }
 
-    balancerVault.flashLoan(address(this), tokens, amounts, call(abi.encode(market, calls)));
-    (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, msg.sender);
+    balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
+    (uint256 newPrincipal, uint256 newFee) = market.fixedBorrowPositions(borrowMaturity, sender);
     if (
       newPrincipal + newFee >
       (
@@ -438,7 +439,7 @@ contract DebtManager is Initializable {
     uint256 percentage
   ) internal view returns (uint256 actualRepay, uint256 positionAssets) {
     FixedLib.Position memory position;
-    (position.principal, position.fee) = market.fixedBorrowPositions(maturity, msg.sender);
+    (position.principal, position.fee) = market.fixedBorrowPositions(maturity, _msgSender);
     positionAssets = percentage < 1e18
       ? percentage.mulWadDown(position.principal + position.fee)
       : position.principal + position.fee;
@@ -515,6 +516,14 @@ contract DebtManager is Initializable {
     }
   }
 
+  address private _msgSender;
+
+  modifier msgSender() {
+    if (_msgSender == address(0)) _msgSender = msg.sender;
+    _;
+    delete _msgSender;
+  }
+
   /// @notice Calls `token.permit` on behalf of `permit.account`.
   /// @param token The `ERC20` to call `permit`.
   /// @param p Arguments for the permit call.
@@ -524,39 +533,48 @@ contract DebtManager is Initializable {
     Permit calldata p
   ) {
     token.permit(p.account, address(this), assets, p.deadline, p.v, p.r, p.s);
+    {
+      address sender = _msgSender;
+      if (sender == address(0)) _msgSender = p.account;
+      else assert(p.account == sender);
+    }
     _;
+    assert(_msgSender == address(0));
   }
 
-  /// @notice Calls `token`'s `transferFrom` to transfer `msg.sender` assets.
-  /// @param token The `ERC20` to transfer from `msg.sender` to this contract.
-  /// @param value The amount of tokens to transfer from `msg.sender`.
+  /// @notice Calls `token`'s `transferFrom` to transfer `_msgSender` assets.
+  /// @param token The `ERC20` to transfer from `_msgSender` to this contract.
+  /// @param value The amount of tokens to transfer from `_msgSender`.
   modifier transfer(ERC20 token, uint256 value) {
-    token.transferFrom(msg.sender, address(this), value);
+    token.transferFrom(_msgSender, address(this), value);
     _;
   }
 
-  /// @notice Calls `permit2.permitTransferFrom` to transfer `msg.sender` assets.
-  /// @param token The `ERC20` to transfer from `msg.sender` to this contract.
-  /// @param assets The amount of assets to transfer from `msg.sender`.
+  /// @notice Calls `permit2.permitTransferFrom` to transfer `_msgSender` assets.
+  /// @param token The `ERC20` to transfer from `_msgSender` to this contract.
+  /// @param assets The amount of assets to transfer from `_msgSender`.
   modifier permitTransfer(
     ERC20 token,
     uint256 assets,
     Permit2 calldata p2
   ) {
-    permit2.permitTransferFrom(
-      IPermit2.PermitTransferFrom(
-        IPermit2.TokenPermissions(address(token), assets),
-        uint256(keccak256(abi.encode(msg.sender, token, assets, p2.deadline))),
-        p2.deadline
-      ),
-      IPermit2.SignatureTransferDetails(address(this), assets),
-      msg.sender,
-      p2.signature
-    );
+    {
+      address sender = _msgSender;
+      permit2.permitTransferFrom(
+        IPermit2.PermitTransferFrom(
+          IPermit2.TokenPermissions(address(token), assets),
+          uint256(keccak256(abi.encode(sender, token, assets, p2.deadline))),
+          p2.deadline
+        ),
+        IPermit2.SignatureTransferDetails(address(this), assets),
+        sender,
+        p2.signature
+      );
+    }
     _;
   }
 
-  /// @notice Leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash loan
+  /// @notice Leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param principal The amount of assets to leverage.
@@ -570,7 +588,7 @@ contract DebtManager is Initializable {
     uint256 borrowAssets,
     Permit calldata marketPermit,
     Permit2 calldata assetPermit
-  ) external permit(market, borrowAssets, marketPermit) permitTransfer(market.asset(), deposit, assetPermit) {
+  ) external permit(market, borrowAssets, marketPermit) permitTransfer(market.asset(), deposit, assetPermit) msgSender {
     noTransferLeverage(market, principal, deposit, multiplier);
   }
 
@@ -586,7 +604,7 @@ contract DebtManager is Initializable {
     leverage(market, principal, deposit, multiplier);
   }
 
-  /// @notice Cross-leverages the floating position of `msg.sender` a certain `multiplier` by taking a flash swap
+  /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash swap
   /// from Uniswap's pool.
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
@@ -601,18 +619,25 @@ contract DebtManager is Initializable {
     uint256 principal,
     uint256 deposit,
     uint256 multiplier,
-    Permit2 calldata p
-  ) external permitTransfer(marketIn.asset(), deposit, p) {
+    uint256 borrowAssets,
+    Permit calldata marketPermit,
+    Permit2 calldata assetPermit
+  )
+    external
+    permit(marketOut, borrowAssets, marketPermit)
+    permitTransfer(marketIn.asset(), deposit, assetPermit)
+    msgSender
+  {
     noTransferCrossLeverage(marketIn, marketOut, fee, principal, deposit, multiplier);
   }
 
-  /// @notice Deleverages a `percentage` position of `msg.sender` by taking a flash swap from Uniswap's pool.
+  /// @notice Deleverages a `percentage` position of `_msgSender` by taking a flash swap from Uniswap's pool.
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param percentage The percentage that the position will be deleveraged.
   /// @param permitAssets The amount of assets to allow.
-  /// @param p Arguments for the permit call to `marketIn` on behalf of `msg.sender`.
+  /// @param p Arguments for the permit call to `marketIn` on behalf of `_msgSender`.
   /// Permit `value` should be `permitAssets`.
   function crossDeleverage(
     Market marketIn,
@@ -625,14 +650,14 @@ contract DebtManager is Initializable {
     crossDeleverage(marketIn, marketOut, fee, percentage);
   }
 
-  /// @notice Deleverages the position of `msg.sender` a certain `percentage` by taking a flash loan from
+  /// @notice Deleverages the position of `_msgSender` a certain `percentage` by taking a flash loan from
   /// Balancer's vault to repay the borrow.
   /// @param market The Market to deleverage the position out.
   /// @param maturity The maturity of the fixed pool that the position is being deleveraged out of, `0` if floating.
   /// @param maxRepayAssets Max amount of fixed debt that the sender is willing to accept.
   /// @param percentage The percentage of the borrow that will be repaid, represented with 18 decimals.
-  /// @param withdraw The amount of assets that will be withdrawn to `msg.sender`.
-  /// @param permitAssets The amount of assets to allow this contract to withdraw on behalf of `msg.sender`.
+  /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
+  /// @param permitAssets The amount of assets to allow this contract to withdraw on behalf of `_msgSender`.
   /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
   /// Permit `value` should be `permitAssets`.
   function deleverage(
@@ -647,7 +672,7 @@ contract DebtManager is Initializable {
     deleverage(market, maturity, maxRepayAssets, percentage, withdraw);
   }
 
-  /// @notice Rolls a percentage of the floating position of `msg.sender` to a fixed position
+  /// @notice Rolls a percentage of the floating position of `_msgSender` to a fixed position
   /// after calling `market.permit`.
   /// @param market The Market to roll the position in.
   /// @param borrowMaturity The maturity of the fixed pool that the position is being rolled to.
@@ -665,7 +690,7 @@ contract DebtManager is Initializable {
     rollFloatingToFixed(market, borrowMaturity, maxBorrowAssets, percentage);
   }
 
-  /// @notice Rolls a percentage of the fixed position of `msg.sender` to a floating position
+  /// @notice Rolls a percentage of the fixed position of `_msgSender` to a floating position
   /// after calling `market.permit`.
   /// @param market The Market to roll the position in.
   /// @param repayMaturity The maturity of the fixed pool that the position is being rolled from.
@@ -683,7 +708,7 @@ contract DebtManager is Initializable {
     rollFixedToFloating(market, repayMaturity, maxRepayAssets, percentage);
   }
 
-  /// @notice Rolls a percentage of the fixed position of `msg.sender` to another fixed pool
+  /// @notice Rolls a percentage of the fixed position of `_msgSender` to another fixed pool
   /// after calling `market.permit`.
   /// @param market The Market to roll the position in.
   /// @param repayMaturity The maturity of the fixed pool that the position is being rolled from.
@@ -758,6 +783,9 @@ struct Permit2 {
 }
 
 struct RollVars {
+  uint256[] amounts;
+  ERC20[] tokens;
+  bytes[] calls;
   uint256 positionAssets;
   uint256 repayAssets;
   uint256 callIndex;

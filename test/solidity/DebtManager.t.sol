@@ -5,6 +5,8 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
   ERC20,
+  Market,
+  Auditor,
   Permit,
   Permit2,
   IPermit2,
@@ -13,7 +15,7 @@ import {
   IBalancerVault,
   InvalidOperation
 } from "../../contracts/periphery/DebtManager.sol";
-import { Auditor, Market, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
+import { Auditor, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
 import { FixedLib, UnmatchedPoolState } from "../../contracts/utils/FixedLib.sol";
 import { ForkTest, stdJson, stdError } from "./Fork.t.sol";
 import { MockBalancerVault } from "../../contracts/mocks/MockBalancerVault.sol";
@@ -26,11 +28,14 @@ contract DebtManagerTest is ForkTest {
 
   uint256 internal constant BOB_KEY = 0xb0b;
   address internal bob;
+  Auditor internal auditor;
+  IPermit2 internal permit2;
   DebtManager internal debtManager;
   Market internal marketUSDC;
   Market internal marketWETH;
   Market internal marketwstETH;
   ERC20 internal op;
+  ERC20 internal weth;
   ERC20 internal usdc;
   ERC20 internal wstETH;
   uint256 internal maturity;
@@ -40,18 +45,21 @@ contract DebtManagerTest is ForkTest {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375);
 
     op = ERC20(deployment("OP"));
+    weth = ERC20(deployment("WETH"));
     usdc = ERC20(deployment("USDC"));
     wstETH = ERC20(deployment("wstETH"));
     marketUSDC = Market(deployment("MarketUSDC"));
     marketWETH = Market(deployment("MarketWETH"));
     marketwstETH = Market(deployment("MarketwstETH"));
+    auditor = Auditor(deployment("Auditor"));
+    permit2 = IPermit2(deployment("Permit2"));
     debtManager = DebtManager(
       address(
         new ERC1967Proxy(
           address(
             new DebtManager(
-              Auditor(deployment("Auditor")),
-              IPermit2(deployment("Permit2")),
+              auditor,
+              permit2,
               IBalancerVault(deployment("BalancerVault")),
               deployment("UniswapV3Factory")
             )
@@ -64,7 +72,7 @@ contract DebtManagerTest is ForkTest {
     assertLt(usdc.balanceOf(address(debtManager.balancerVault())), 1_000_000e6);
 
     deal(address(usdc), address(this), 22_000_000e6);
-    deal(address(marketWETH.asset()), address(this), 1_000e18);
+    deal(address(weth), address(this), 1_000e18);
     deal(address(wstETH), address(this), 1_000e18);
     marketUSDC.approve(address(debtManager), type(uint256).max);
     marketWETH.approve(address(debtManager), type(uint256).max);
@@ -78,6 +86,9 @@ contract DebtManagerTest is ForkTest {
     targetMaturity = maturity + FixedLib.INTERVAL;
 
     bob = vm.addr(BOB_KEY);
+    vm.prank(bob);
+    usdc.approve(address(permit2), type(uint256).max);
+    deal(address(usdc), bob, 100_000e6);
     vm.label(bob, "bob");
   }
 
@@ -348,12 +359,7 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testLeverageWithInvalidBalancerVault() external {
-    DebtManager lev = new DebtManager(
-      marketUSDC.auditor(),
-      IPermit2(address(0)),
-      IBalancerVault(address(this)),
-      address(0)
-    );
+    DebtManager lev = new DebtManager(auditor, IPermit2(address(0)), IBalancerVault(address(this)), address(0));
     vm.expectRevert(bytes(""));
     lev.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
   }
@@ -696,7 +702,7 @@ contract DebtManagerTest is ForkTest {
 
   function testAvailableLiquidity() external {
     DebtManager.AvailableAsset[] memory availableAssets = debtManager.availableLiquidity();
-    Market[] memory markets = marketUSDC.auditor().allMarkets();
+    Market[] memory markets = auditor.allMarkets();
     assertEq(availableAssets.length, markets.length);
     assertEq(address(availableAssets[1].asset), address(usdc));
     assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(debtManager.balancerVault())));
@@ -725,12 +731,7 @@ contract DebtManagerTest is ForkTest {
       address(
         new ERC1967Proxy(
           address(
-            new DebtManager(
-              debtManager.auditor(),
-              IPermit2(address(0)),
-              IBalancerVault(address(mockBalancerVault)),
-              address(0)
-            )
+            new DebtManager(auditor, IPermit2(address(0)), IBalancerVault(address(mockBalancerVault)), address(0))
           ),
           abi.encodeCall(DebtManager.initialize, ())
         )
@@ -751,10 +752,10 @@ contract DebtManagerTest is ForkTest {
 
   function testCrossLeverageFromwstETHtoWETH() external _checkBalances {
     uint256 wstETHBalanceBefore = wstETH.balanceOf(address(this));
-    debtManager.auditor().enterMarket(marketwstETH);
+    auditor.enterMarket(marketwstETH);
     debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.931034482758620682e18);
 
-    (uint256 coll, uint256 debt) = marketwstETH.auditor().accountLiquidity(address(this), Market(address(0)), 0);
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     uint256 healthFactor = coll.divWadDown(debt);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
 
@@ -767,11 +768,11 @@ contract DebtManagerTest is ForkTest {
 
   function testCrossLeverageFromUSDCToWETH() external _checkBalances {
     uint256 usdcBalanceBefore = usdc.balanceOf(address(this));
-    debtManager.auditor().enterMarket(marketUSDC);
+    auditor.enterMarket(marketUSDC);
 
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 10_000e6, 2.9906103286e18);
 
-    (uint256 coll, uint256 debt) = marketUSDC.auditor().accountLiquidity(address(this), Market(address(0)), 0);
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     uint256 healthFactor = coll.divWadDown(debt);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     assertEq(usdc.balanceOf(address(this)), usdcBalanceBefore - 10_000e6);
@@ -783,7 +784,7 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testCrossLeverageWithDeposit() external _checkBalances {
-    debtManager.auditor().enterMarket(marketwstETH);
+    auditor.enterMarket(marketwstETH);
     marketwstETH.deposit(10e18, address(this));
 
     uint256 wstETHBalanceBefore = wstETH.balanceOf(address(this));
@@ -796,15 +797,15 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testCrossLeverageWithInvalidFee() external _checkBalances {
-    debtManager.auditor().enterMarket(marketUSDC);
+    auditor.enterMarket(marketUSDC);
 
     vm.expectRevert(bytes(""));
     debtManager.crossLeverage(marketUSDC, marketWETH, 200, 100_000e6, 100_000e6, 1.1e18);
   }
 
   function testCrossDeleverageFromwstETHToWETH() external _checkBalances {
-    marketwstETH.asset().approve(address(debtManager), type(uint256).max);
-    debtManager.auditor().enterMarket(marketwstETH);
+    wstETH.approve(address(debtManager), type(uint256).max);
+    auditor.enterMarket(marketwstETH);
     debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.9e18);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     uint256 percentage = 1e18;
@@ -816,8 +817,8 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testCrossDeleverageFromWETHToUSDC() external _checkBalances {
-    marketWETH.asset().approve(address(debtManager), type(uint256).max);
-    debtManager.auditor().enterMarket(marketWETH);
+    weth.approve(address(debtManager), type(uint256).max);
+    auditor.enterMarket(marketWETH);
     debtManager.crossLeverage(marketWETH, marketUSDC, 500, 10e18, 10e18, 2e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 percentage = 1e18;
@@ -830,8 +831,8 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testCrossDeleverageWithInvalidFee() external _checkBalances {
-    marketwstETH.asset().approve(address(debtManager), type(uint256).max);
-    debtManager.auditor().enterMarket(marketwstETH);
+    wstETH.approve(address(debtManager), type(uint256).max);
+    auditor.enterMarket(marketwstETH);
     debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 10_000e6, 1.02e18);
 
     vm.expectRevert(bytes(""));
@@ -839,8 +840,8 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testCrossDeleverageWithInvalidPercentage() external _checkBalances {
-    marketwstETH.asset().approve(address(debtManager), type(uint256).max);
-    debtManager.auditor().enterMarket(marketwstETH);
+    wstETH.approve(address(debtManager), type(uint256).max);
+    auditor.enterMarket(marketwstETH);
     debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.02e18);
     uint256 percentage = 2e18;
     vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
@@ -905,10 +906,10 @@ contract DebtManagerTest is ForkTest {
     debtManager.deleverage(marketUSDC, 0, 0, 1e18, 10_000e6, 60_000e6, Permit(bob, block.timestamp, v, r, s));
   }
 
-  function testPermitCrossDeleverage() external {
+  function testPermitAndCrossDeleverage() external {
     marketwstETH.deposit(20e18, bob);
     vm.startPrank(bob);
-    marketwstETH.auditor().enterMarket(marketwstETH);
+    auditor.enterMarket(marketwstETH);
     marketWETH.borrow(10e18, bob, bob);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
@@ -936,20 +937,7 @@ contract DebtManagerTest is ForkTest {
     assertEq(floatingBorrowShares, 0);
   }
 
-  function testPermitAndLeverage() external {
-    IPermit2 permit2 = debtManager.permit2();
-    uint256 amount = 10_000e6;
-    deal(address(usdc), bob, amount);
-
-    vm.startPrank(bob);
-    usdc.approve(address(debtManager.permit2()), type(uint256).max);
-    vm.stopPrank();
-
-    IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
-      permitted: IPermit2.TokenPermissions({ token: address(usdc), amount: amount }),
-      nonce: uint256(keccak256(abi.encode(bob, usdc, amount, block.timestamp))),
-      deadline: block.timestamp
-    });
+  function testPermit2AndLeverage() external {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
       BOB_KEY,
       keccak256(
@@ -962,23 +950,16 @@ contract DebtManagerTest is ForkTest {
                 // solhint-disable-next-line max-line-length
                 "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
               ),
-              keccak256(
-                abi.encode(
-                  keccak256("TokenPermissions(address token,uint256 amount)"),
-                  permit.permitted.token,
-                  permit.permitted.amount
-                )
-              ),
+              keccak256(abi.encode(keccak256("TokenPermissions(address token,uint256 amount)"), usdc, 10_000e6)),
               debtManager,
-              permit.nonce,
-              permit.deadline
+              uint256(keccak256(abi.encode(bob, usdc, 10_000e6, block.timestamp))),
+              block.timestamp
             )
           )
         )
       )
     );
-    bytes memory sig = abi.encodePacked(r, s, v);
-
+    bytes memory sigAsset = abi.encodePacked(r, s, v);
     (v, r, s) = vm.sign(
       BOB_KEY,
       keccak256(
@@ -1007,7 +988,7 @@ contract DebtManagerTest is ForkTest {
       4.1015354134e18,
       50_000e6,
       Permit(bob, block.timestamp, v, r, s),
-      Permit2(block.timestamp, sig)
+      Permit2(block.timestamp, sigAsset)
     );
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(bob));
@@ -1015,22 +996,10 @@ contract DebtManagerTest is ForkTest {
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 41015354135);
   }
 
-  function testPermit2AndCrossLeverage() external {
-    IPermit2 permit2 = debtManager.permit2();
-    uint256 amount = 100_000e6;
+  function testPermitAndCrossLeverage() external {
+    vm.prank(bob);
+    auditor.enterMarket(marketUSDC);
 
-    deal(address(usdc), bob, amount);
-    vm.startPrank(bob);
-    usdc.approve(address(permit2), type(uint256).max);
-    marketWETH.approve(address(debtManager), type(uint256).max);
-    debtManager.auditor().enterMarket(marketUSDC);
-    vm.stopPrank();
-
-    IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
-      permitted: IPermit2.TokenPermissions({ token: address(usdc), amount: amount }),
-      nonce: uint256(keccak256(abi.encode(bob, usdc, amount, block.timestamp))),
-      deadline: block.timestamp
-    });
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
       BOB_KEY,
       keccak256(
@@ -1043,22 +1012,35 @@ contract DebtManagerTest is ForkTest {
                 // solhint-disable-next-line max-line-length
                 "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
               ),
-              keccak256(
-                abi.encode(
-                  keccak256("TokenPermissions(address token,uint256 amount)"),
-                  permit.permitted.token,
-                  permit.permitted.amount
-                )
-              ),
+              keccak256(abi.encode(keccak256("TokenPermissions(address token,uint256 amount)"), usdc, 100_000e6)),
               debtManager,
-              permit.nonce,
-              permit.deadline
+              uint256(keccak256(abi.encode(bob, usdc, 100_000e6, block.timestamp))),
+              block.timestamp
             )
           )
         )
       )
     );
-    bytes memory sig = abi.encodePacked(r, s, v);
+    bytes memory sigAsset = abi.encodePacked(r, s, v);
+    (v, r, s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketWETH.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              69 ether,
+              marketWETH.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
 
     vm.prank(bob);
     debtManager.crossLeverage(
@@ -1068,11 +1050,13 @@ contract DebtManagerTest is ForkTest {
       100_000e6,
       100_000e6,
       1.03e18,
-      Permit2(permit.deadline, sig)
+      69 ether,
+      Permit(bob, block.timestamp, v, r, s),
+      Permit2(block.timestamp, sigAsset)
     );
   }
 
-  function testPermitAssetAndPermitMarketLeverage() external {
+  function testPermitAndLeverage() external {
     uint256 amount = 10_000e18;
     deal(address(op), bob, amount);
     Market marketOP = Market(deployment("MarketOP"));
@@ -1118,7 +1102,7 @@ contract DebtManagerTest is ForkTest {
     );
 
     vm.startPrank(bob);
-    debtManager.auditor().enterMarket(marketOP);
+    auditor.enterMarket(marketOP);
     debtManager.leverage(
       marketOP,
       amount,
@@ -1130,7 +1114,7 @@ contract DebtManagerTest is ForkTest {
     );
     vm.stopPrank();
 
-    (uint256 coll, uint256 debt) = debtManager.auditor().accountLiquidity(address(bob), marketOP, 0);
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(bob), marketOP, 0);
     uint256 healthFactor = coll.divWadDown(debt);
     (, , uint256 floatingBorrowShares) = marketOP.accounts(address(bob));
     assertEq(healthFactor, 1.137352380952380952e18);
