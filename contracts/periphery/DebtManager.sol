@@ -57,22 +57,20 @@ contract DebtManager is Initializable {
   /// @notice Leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
-  /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
   /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
-  function leverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) public msgSender {
+  function leverage(Market market, uint256 deposit, uint256 multiplier) public msgSender {
     if (deposit != 0) market.asset().safeTransferFrom(_msgSender, address(this), deposit);
 
-    noTransferLeverage(market, principal, deposit, multiplier);
+    noTransferLeverage(market, deposit, multiplier);
   }
 
   /// @notice Leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
-  /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
   /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
-  function noTransferLeverage(Market market, uint256 principal, uint256 deposit, uint256 multiplier) internal {
+  function noTransferLeverage(Market market, uint256 deposit, uint256 multiplier) internal {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
     tokens[0] = market.asset();
@@ -80,7 +78,10 @@ contract DebtManager is Initializable {
 
     uint256 loopCount;
     {
-      uint256 amount = principal.mulWadDown(multiplier);
+      (, , uint256 floatingBorrowShares) = market.accounts(sender);
+      uint256 amount = (market.maxWithdraw(sender) + deposit - market.previewRefund(floatingBorrowShares)).mulWadDown(
+        multiplier
+      );
       loopCount = amount.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
       amounts[0] = amount.mulDivUp(1, loopCount);
     }
@@ -577,31 +578,28 @@ contract DebtManager is Initializable {
   /// @notice Leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
-  /// @param principal The amount of assets to leverage.
   /// @param deposit The amount of assets to deposit.
   /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
   function leverage(
     Market market,
-    uint256 principal,
     uint256 deposit,
     uint256 multiplier,
     uint256 borrowAssets,
     Permit calldata marketPermit,
     Permit2 calldata assetPermit
   ) external permit(market, borrowAssets, marketPermit) permitTransfer(market.asset(), deposit, assetPermit) msgSender {
-    noTransferLeverage(market, principal, deposit, multiplier);
+    noTransferLeverage(market, deposit, multiplier);
   }
 
   function leverage(
     Market market,
-    uint256 principal,
     uint256 deposit,
     uint256 multiplier,
     uint256 borrowAssets,
     Permit calldata marketPermit,
     Permit calldata assetPermit
   ) external permit(market, borrowAssets, marketPermit) permit(market.asset(), deposit, assetPermit) {
-    leverage(market, principal, deposit, multiplier);
+    leverage(market, deposit, multiplier);
   }
 
   /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash swap

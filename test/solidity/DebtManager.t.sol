@@ -178,7 +178,7 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testLeverage() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 4.10153541354e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 4.10153541354e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 510153541353);
@@ -188,25 +188,25 @@ contract DebtManagerTest is ForkTest {
   function testLeverageWithAlreadyDepositedAmount() external _checkBalances {
     usdc.approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(100_000e6, address(this));
-    debtManager.leverage(marketUSDC, 100_000e6, 0, 4.10153541354e18);
+    debtManager.leverage(marketUSDC, 0, 4.10153541354e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
-    assertEq(marketUSDC.maxWithdraw(address(this)), 510153541353);
-    assertEq(marketUSDC.previewRefund(floatingBorrowShares), 410153541355);
+    assertEq(marketUSDC.maxWithdraw(address(this)), 510153541348);
+    assertEq(marketUSDC.previewRefund(floatingBorrowShares), 410153541350);
   }
 
   function testLeverageShouldFailWhenHealthFactorNearOne() external _checkBalances {
     vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 4.82e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 4.82e18);
 
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 4.81733565997e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 4.81733565997e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 581733565996);
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 481733565998);
   }
 
   function testLeverageWithMoreThanBalancerAvailableLiquidity() external _checkBalances {
-    debtManager.leverage(marketUSDC, 1_000_000e6, 1_000_000e6, 4.10153541354e18);
+    debtManager.leverage(marketUSDC, 1_000_000e6, 4.10153541354e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.maxWithdraw(address(this)), 5101535413537);
@@ -214,7 +214,7 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testDeleverage() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 1.03e18);
     debtManager.deleverage(marketUSDC, 0, 0, 1e18, 0);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -224,7 +224,7 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testDeleverageWithWithdraw() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 1.03e18);
     debtManager.deleverage(marketUSDC, 0, 0, 1e18, 100_000e6 - 3);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -233,7 +233,7 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testDeleverageHalfBorrowPosition() external _checkBalances {
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 4.10153541354e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 4.10153541354e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 leveragedDeposit = 510153541353;
     uint256 leveragedBorrow = 410153541355;
@@ -250,7 +250,7 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testDeleverageWithMoreThanBalancerAvailableLiquidity() external _checkBalances {
-    debtManager.leverage(marketUSDC, 1_000_000e6, 1_000_000e6, 2e18);
+    debtManager.leverage(marketUSDC, 1_000_000e6, 2e18);
     debtManager.deleverage(marketUSDC, 0, 0, 1e18, 0);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -334,7 +334,7 @@ contract DebtManagerTest is ForkTest {
     ProtocolFeesCollector(0xce88686553686DA562CE7Cea497CE749DA109f9F).setFlashLoanFeePercentage(1e15);
 
     vm.expectRevert("BAL#602");
-    debtManager.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
+    debtManager.leverage(marketUSDC, 100_000e6, 1.03e18);
   }
 
   function testApproveMarket() external {
@@ -361,7 +361,7 @@ contract DebtManagerTest is ForkTest {
   function testLeverageWithInvalidBalancerVault() external {
     DebtManager lev = new DebtManager(auditor, IPermit2(address(0)), IBalancerVault(address(this)), address(0));
     vm.expectRevert(bytes(""));
-    lev.leverage(marketUSDC, 100_000e6, 100_000e6, 1.03e18);
+    lev.leverage(marketUSDC, 100_000e6, 1.03e18);
   }
 
   function testFloatingToFixedRoll() external _checkBalances {
@@ -984,7 +984,6 @@ contract DebtManagerTest is ForkTest {
     debtManager.leverage(
       marketUSDC,
       10_000e6,
-      10_000e6,
       4.1015354134e18,
       50_000e6,
       Permit(bob, block.timestamp, v, r, s),
@@ -1105,7 +1104,6 @@ contract DebtManagerTest is ForkTest {
     auditor.enterMarket(marketOP);
     debtManager.leverage(
       marketOP,
-      amount,
       amount,
       0.42e18,
       20_000e18,
