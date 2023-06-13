@@ -753,7 +753,7 @@ contract DebtManagerTest is ForkTest {
   function testCrossLeverageFromwstETHtoWETH() external _checkBalances {
     uint256 wstETHBalanceBefore = wstETH.balanceOf(address(this));
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.931034482758620682e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.931034482758620682e18);
 
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     uint256 healthFactor = coll.divWadDown(debt);
@@ -770,7 +770,7 @@ contract DebtManagerTest is ForkTest {
     uint256 usdcBalanceBefore = usdc.balanceOf(address(this));
     auditor.enterMarket(marketUSDC);
 
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 10_000e6, 2.9906103286e18);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.9906103286e18);
 
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     uint256 healthFactor = coll.divWadDown(debt);
@@ -788,7 +788,7 @@ contract DebtManagerTest is ForkTest {
     marketwstETH.deposit(10e18, address(this));
 
     uint256 wstETHBalanceBefore = wstETH.balanceOf(address(this));
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 0, 1.931034482758620682e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 0, 1.931034482758620682e18);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
 
     assertEq(marketwstETH.maxWithdraw(address(this)), 29310344827586206820);
@@ -800,13 +800,13 @@ contract DebtManagerTest is ForkTest {
     auditor.enterMarket(marketUSDC);
 
     vm.expectRevert(bytes(""));
-    debtManager.crossLeverage(marketUSDC, marketWETH, 200, 100_000e6, 100_000e6, 1.1e18);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 200, 100_000e6, 1.1e18);
   }
 
   function testCrossDeleverageFromwstETHToWETH() external _checkBalances {
     wstETH.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.9e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.9e18);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     uint256 percentage = 1e18;
     debtManager.crossDeleverage(marketwstETH, marketWETH, 500, percentage);
@@ -819,7 +819,7 @@ contract DebtManagerTest is ForkTest {
   function testCrossDeleverageFromWETHToUSDC() external _checkBalances {
     weth.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketWETH);
-    debtManager.crossLeverage(marketWETH, marketUSDC, 500, 10e18, 10e18, 2e18);
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, 10e18, 2e18);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 percentage = 1e18;
     debtManager.crossDeleverage(marketWETH, marketUSDC, 500, percentage);
@@ -833,7 +833,7 @@ contract DebtManagerTest is ForkTest {
   function testCrossDeleverageWithInvalidFee() external _checkBalances {
     wstETH.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 10_000e6, 1.02e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 1.02e18);
 
     vm.expectRevert(bytes(""));
     debtManager.crossDeleverage(marketwstETH, marketWETH, 200, 1e18);
@@ -842,7 +842,7 @@ contract DebtManagerTest is ForkTest {
   function testCrossDeleverageWithInvalidPercentage() external _checkBalances {
     wstETH.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 10e18, 1.02e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.02e18);
     uint256 percentage = 2e18;
     vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
     debtManager.crossDeleverage(marketwstETH, marketWETH, 500, percentage);
@@ -1076,7 +1076,6 @@ contract DebtManagerTest is ForkTest {
       marketUSDC,
       marketWETH,
       500,
-      100_000e6,
       100_000e6,
       1.03e18,
       69 ether,

@@ -58,7 +58,7 @@ contract DebtManager is Initializable {
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param deposit The amount of assets to deposit.
-  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
+  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
   function leverage(Market market, uint256 deposit, uint256 multiplier) public msgSender {
     if (deposit != 0) market.asset().safeTransferFrom(_msgSender, address(this), deposit);
 
@@ -69,7 +69,7 @@ contract DebtManager is Initializable {
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param deposit The amount of assets to deposit.
-  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
+  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
   function noTransferLeverage(Market market, uint256 deposit, uint256 multiplier) internal {
     uint256[] memory amounts = new uint256[](1);
     ERC20[] memory tokens = new ERC20[](1);
@@ -106,20 +106,18 @@ contract DebtManager is Initializable {
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
-  /// @param principal The amount of `marketIn` underlying assets to leverage.
   /// @param deposit The amount of `marketIn` underlying assets to deposit.
-  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
+  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
   function crossLeverage(
     Market marketIn,
     Market marketOut,
     uint24 fee,
-    uint256 principal,
     uint256 deposit,
     uint256 multiplier
   ) external msgSender {
-    if (deposit != 0) marketIn.asset().safeTransferFrom(_msgSender, address(this), principal);
+    if (deposit != 0) marketIn.asset().safeTransferFrom(_msgSender, address(this), deposit);
 
-    noTransferCrossLeverage(marketIn, marketOut, fee, principal, deposit, multiplier);
+    noTransferCrossLeverage(marketIn, marketOut, fee, deposit, multiplier);
   }
 
   /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
@@ -127,14 +125,12 @@ contract DebtManager is Initializable {
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
-  /// @param principal The amount of `marketIn` underlying assets to leverage.
   /// @param deposit The amount of `marketIn` underlying assets to deposit.
-  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
+  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
   function noTransferCrossLeverage(
     Market marketIn,
     Market marketOut,
     uint24 fee,
-    uint256 principal,
     uint256 deposit,
     uint256 multiplier
   ) internal {
@@ -146,7 +142,7 @@ contract DebtManager is Initializable {
     IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
       address(this),
       v.assetOut == poolKey.token0,
-      -int256(principal.mulWadDown(multiplier)),
+      -int256((marketIn.maxWithdraw(_msgSender) + deposit).mulWadDown(multiplier)),
       v.assetOut == poolKey.token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
       abi.encode(
         SwapCallbackData({
@@ -571,7 +567,7 @@ contract DebtManager is Initializable {
   /// from Balancer's vault.
   /// @param market The Market to leverage the position in.
   /// @param deposit The amount of assets to deposit.
-  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
+  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
   function leverage(
     Market market,
     uint256 deposit,
@@ -610,14 +606,12 @@ contract DebtManager is Initializable {
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
-  /// @param principal The amount of `marketIn` underlying assets to leverage.
   /// @param deposit The amount of `marketIn` underlying assets to deposit.
-  /// @param multiplier The number of times that the `principal` will be leveraged, represented with 18 decimals.
+  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
   function crossLeverage(
     Market marketIn,
     Market marketOut,
     uint24 fee,
-    uint256 principal,
     uint256 deposit,
     uint256 multiplier,
     uint256 borrowAssets,
@@ -629,7 +623,7 @@ contract DebtManager is Initializable {
     permitTransfer(marketIn.asset(), deposit, assetPermit)
     msgSender
   {
-    noTransferCrossLeverage(marketIn, marketOut, fee, principal, deposit, multiplier);
+    noTransferCrossLeverage(marketIn, marketOut, fee, deposit, multiplier);
   }
 
   /// @notice Deleverages a `percentage` position of `_msgSender` by taking a flash swap from Uniswap's pool.
