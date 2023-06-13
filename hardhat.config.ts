@@ -128,7 +128,34 @@ export default {
         fixedCurve: { a: 3.8126e-1, b: -3.6375e-1, maxUtilization: 1.000010695 },
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
         overrides: {
-          optimism: { adjustFactor: 0.8, priceFeed: undefined },
+          goerli: {
+            rewards: {
+              OP: {
+                total: 7,
+                debt: 1,
+                start: "2023-06-13",
+                period: 4 * 7 * 86_400,
+                compensationFactor: 0,
+                transitionFactor: 0.64,
+                depositAllocationWeightAddend: 0.03,
+              },
+            },
+          },
+          optimism: {
+            adjustFactor: 0.8,
+            priceFeed: undefined,
+            rewards: {
+              OP: {
+                total: 5_000,
+                debt: 1,
+                start: "2023-06-26T14:00Z",
+                period: 4 * 7 * 86_400,
+                compensationFactor: 0,
+                transitionFactor: 0.64,
+                depositAllocationWeightAddend: 0.03,
+              },
+            },
+          },
         },
       },
       OP: {
