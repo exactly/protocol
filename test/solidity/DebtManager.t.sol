@@ -13,6 +13,7 @@ import {
   DebtManager,
   Disagreement,
   IBalancerVault,
+  IUniswapQuoter,
   InvalidOperation
 } from "../../contracts/periphery/DebtManager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
@@ -61,7 +62,8 @@ contract DebtManagerTest is ForkTest {
               auditor,
               permit2,
               IBalancerVault(deployment("BalancerVault")),
-              deployment("UniswapV3Factory")
+              deployment("UniswapV3Factory"),
+              IUniswapQuoter(deployment("UniswapQuoter"))
             )
           ),
           abi.encodeCall(DebtManager.initialize, ())
@@ -359,7 +361,13 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testLeverageWithInvalidBalancerVault() external {
-    DebtManager lev = new DebtManager(auditor, IPermit2(address(0)), IBalancerVault(address(this)), address(0));
+    DebtManager lev = new DebtManager(
+      auditor,
+      IPermit2(address(0)),
+      IBalancerVault(address(this)),
+      address(0),
+      IUniswapQuoter(address(0))
+    );
     vm.expectRevert(bytes(""));
     lev.leverage(marketUSDC, 100_000e6, 1.03e18);
   }
@@ -731,7 +739,13 @@ contract DebtManagerTest is ForkTest {
       address(
         new ERC1967Proxy(
           address(
-            new DebtManager(auditor, IPermit2(address(0)), IBalancerVault(address(mockBalancerVault)), address(0))
+            new DebtManager(
+              auditor,
+              IPermit2(address(0)),
+              IBalancerVault(address(mockBalancerVault)),
+              address(0),
+              IUniswapQuoter(address(0))
+            )
           ),
           abi.encodeCall(DebtManager.initialize, ())
         )
@@ -1147,6 +1161,17 @@ contract DebtManagerTest is ForkTest {
     assertEq(healthFactor, 1.137352380952380952e18);
     assertEq(marketOP.maxWithdraw(address(bob)), 14199.999999999999999999e18);
     assertEq(marketOP.previewRefund(floatingBorrowShares), 4200.000000000000000001e18);
+  }
+
+  function testPreviewSwap() external {
+    assertEq(debtManager.previewSwap(address(marketWETH.asset()), address(usdc), 1e18, 500), 1809407986);
+    assertEq(debtManager.previewSwap(address(marketWETH.asset()), address(usdc), 100e18, 500), 180326534411);
+    assertEq(debtManager.previewSwap(address(usdc), address(marketWETH.asset()), 1_800e6, 500), 993744547172020639);
+    assertEq(debtManager.previewSwap(address(usdc), address(marketWETH.asset()), 100_000e6, 500), 55114623226316151402);
+    assertEq(
+      debtManager.previewSwap(address(marketwstETH.asset()), address(marketWETH.asset()), 1e18, 500),
+      1124234920941937964
+    );
   }
 
   modifier _checkBalances() {

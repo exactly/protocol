@@ -34,13 +34,23 @@ contract DebtManager is Initializable {
   /// @notice Factory contract to be used to compute the address of the Uniswap V3 pool.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   address public immutable uniswapV3Factory;
+  /// @notice Quoter contract to be used to preview the amount of assets to be swapped.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IUniswapQuoter public immutable uniswapV3Quoter;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(Auditor auditor_, IPermit2 permit2_, IBalancerVault balancerVault_, address uniswapV3Factory_) {
+  constructor(
+    Auditor auditor_,
+    IPermit2 permit2_,
+    IBalancerVault balancerVault_,
+    address uniswapV3Factory_,
+    IUniswapQuoter uniswapV3Quoter_
+  ) {
     auditor = auditor_;
     permit2 = permit2_;
     balancerVault = balancerVault_;
     uniswapV3Factory = uniswapV3Factory_;
+    uniswapV3Quoter = uniswapV3Quoter_;
 
     _disableInitializers();
   }
@@ -725,6 +735,23 @@ contract DebtManager is Initializable {
     rollFixed(market, repayMaturity, borrowMaturity, maxRepayAssets, maxBorrowAssets, percentage);
   }
 
+  /// @notice Returns the output received for a given exact amount of a single pool swap.
+  /// @param assetIn The address of the token to be swapped.
+  /// @param assetOut The address of the token to receive.
+  /// @param amountIn The exact amount of `assetIn` to be swapped.
+  /// @param fee The fee of the pool that will be used to swap the assets.
+  /// @return amountOut The amount of `assetOut` received.
+  function previewSwap(address assetIn, address assetOut, uint256 amountIn, uint24 fee) external returns (uint256) {
+    return
+      uniswapV3Quoter.quoteExactInputSingle(
+        assetIn,
+        assetOut,
+        fee,
+        amountIn,
+        assetIn == PoolAddress.getPoolKey(assetIn, assetOut, fee).token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
+      );
+  }
+
   /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
   function availableLiquidity() external view returns (AvailableAsset[] memory availableAssets) {
     uint256 marketsCount = auditor.allMarkets().length;
@@ -841,6 +868,16 @@ interface IUniswapV3Pool {
     uint160 sqrtPriceLimitX96,
     bytes calldata data
   ) external returns (int256 amount0, int256 amount1);
+}
+
+interface IUniswapQuoter {
+  function quoteExactInputSingle(
+    address tokenIn,
+    address tokenOut,
+    uint24 fee,
+    uint256 amountIn,
+    uint160 sqrtPriceLimitX96
+  ) external returns (uint256 amountOut);
 }
 
 // https://github.com/Uniswap/v3-periphery/pull/271
