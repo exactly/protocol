@@ -16,7 +16,7 @@ import {
   IUniswapQuoter,
   InvalidOperation
 } from "../../contracts/periphery/DebtManager.sol";
-import { Auditor, InsufficientAccountLiquidity, MarketNotListed } from "../../contracts/Auditor.sol";
+import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } from "../../contracts/Auditor.sol";
 import { FixedLib, UnmatchedPoolState } from "../../contracts/utils/FixedLib.sol";
 import { ForkTest, stdJson, stdError } from "./Fork.t.sol";
 import { MockBalancerVault } from "../../contracts/mocks/MockBalancerVault.sol";
@@ -783,49 +783,66 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testCrossLeverageFromwstETHtoWETH() external _checkBalances {
-    uint256 wstETHBalanceBefore = wstETH.balanceOf(address(this));
+    uint256 deposit = 10e18;
+    uint256 ratio = 1.2e18;
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.931034482758620682e18);
+    (uint256 coll, uint256 debt) = marketwstETH.accountSnapshot(address(this));
+    uint256 principal = coll - debt;
 
-    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    uint256 healthFactor = coll.divWadDown(debt);
-    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
+    uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
+    uint256 expectedBorrow = debtManager.previewOutputSwap(
+      address(marketWETH.asset()),
+      address(marketwstETH.asset()),
+      (principal + deposit).mulWadDown(ratio - 1e18),
+      500
+    );
 
-    assertEq(wstETH.balanceOf(address(this)), wstETHBalanceBefore - 10e18);
-    assertEq(marketwstETH.maxWithdraw(address(this)), 29310344827586206820);
-    assertEq(marketWETH.previewRefund(floatingBorrowShares), 21798024958067023341);
-    assertGt(healthFactor, 1.0201e18);
-    assertLt(healthFactor, 1.0202e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, deposit, ratio);
+
+    assertApproxEqAbs(marketwstETH.maxWithdraw(address(this)), expectedDeposit, 1);
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1);
   }
 
   function testCrossLeverageFromUSDCToWETH() external _checkBalances {
-    uint256 usdcBalanceBefore = usdc.balanceOf(address(this));
+    uint256 deposit = 10_000e6;
+    uint256 ratio = 2e18;
     auditor.enterMarket(marketUSDC);
+    (uint256 coll, uint256 debt) = marketUSDC.accountSnapshot(address(this));
+    uint256 principal = coll - debt;
 
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.9906103286e18);
+    uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
+    uint256 expectedBorrow = debtManager.previewOutputSwap(
+      address(marketWETH.asset()),
+      address(marketUSDC.asset()),
+      (principal + deposit).mulWadDown(ratio - 1e18),
+      500
+    );
 
-    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
-    uint256 healthFactor = coll.divWadDown(debt);
-    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
-    assertEq(usdc.balanceOf(address(this)), usdcBalanceBefore - 10_000e6);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, deposit, ratio);
 
-    assertEq(marketUSDC.maxWithdraw(address(this)), 39906103285);
-    assertEq(marketWETH.previewRefund(floatingBorrowShares), 16536655325232070233);
-    assertLt(healthFactor, 1.0196e18);
-    assertGt(healthFactor, 1.0195e18);
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), expectedDeposit, 1);
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1);
   }
 
-  function testCrossLeverageWithDeposit() external _checkBalances {
-    auditor.enterMarket(marketwstETH);
-    marketwstETH.deposit(10e18, address(this));
+  function testCrossLeverageWithExistentDeposit() external _checkBalances {
+    marketUSDC.deposit(10_000e6, address(this));
+    auditor.enterMarket(marketUSDC);
 
-    uint256 wstETHBalanceBefore = wstETH.balanceOf(address(this));
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 0, 1.931034482758620682e18);
-    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
+    uint256 ratio = 2e18;
+    (uint256 coll, uint256 debt) = marketUSDC.accountSnapshot(address(this));
+    uint256 principal = coll - debt;
 
-    assertEq(marketwstETH.maxWithdraw(address(this)), 29310344827586206820);
-    assertEq(marketWETH.previewRefund(floatingBorrowShares), 21798024958067023341);
-    assertEq(wstETHBalanceBefore, wstETH.balanceOf(address(this)));
+    uint256 expectedBorrow = debtManager.previewOutputSwap(
+      address(marketWETH.asset()),
+      address(marketUSDC.asset()),
+      (principal).mulWadDown(ratio - 1e18),
+      500
+    );
+
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio);
+
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 1);
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1);
   }
 
   function testCrossLeverageWithInvalidFee() external _checkBalances {
@@ -838,46 +855,163 @@ contract DebtManagerTest is ForkTest {
   function testCrossDeleverageFromwstETHToWETH() external _checkBalances {
     wstETH.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.9e18);
-    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
-    uint256 percentage = 1e18;
-    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, percentage);
+    uint256 principal = 10e18;
+    uint256 ratio = 1.9e18;
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, principal, ratio);
 
-    assertEq(marketwstETH.maxWithdraw(address(this)), 9_980_957_973_577_532_339);
-    (, , uint256 newFloatingBorrowShares) = marketWETH.accounts(address(this));
-    assertEq(newFloatingBorrowShares, floatingBorrowShares - floatingBorrowShares.mulWadDown(percentage));
+    ratio = 1.5e18;
+    principal = crossedPrincipal(marketwstETH, marketWETH, address(this), 0);
+    uint256 expectedDebt = previewAssetsOut(marketwstETH, marketWETH, principal.mulWadDown(ratio - 1e18));
+
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, ratio);
+
+    assertApproxEqAbs(
+      marketwstETH.maxWithdraw(address(this)),
+      crossedPrincipal(marketwstETH, marketWETH, address(this), 0).mulWadDown(ratio),
+      8e15
+    );
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 0);
   }
 
   function testCrossDeleverageFromWETHToUSDC() external _checkBalances {
     weth.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketWETH);
-    debtManager.crossLeverage(marketWETH, marketUSDC, 500, 10e18, 2e18);
-    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
-    uint256 percentage = 1e18;
-    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, percentage);
+    uint256 principal = 10e18;
+    uint256 ratio = 2e18;
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, principal, ratio);
 
-    uint256 maxWithdraw = marketWETH.maxWithdraw(address(this));
-    assertEq(maxWithdraw, 9_979_978_748_489_099_593);
-    (, , uint256 newFloatingBorrowShares) = marketUSDC.accounts(address(this));
-    assertEq(newFloatingBorrowShares, floatingBorrowShares - floatingBorrowShares.mulWadDown(percentage));
+    ratio = 1.5e18;
+    principal = crossedPrincipal(marketWETH, marketUSDC, address(this), 0);
+    uint256 expectedDebt = previewAssetsOut(marketWETH, marketUSDC, principal.mulWadDown(ratio - 1e18));
+
+    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio);
+
+    assertApproxEqAbs(
+      marketWETH.maxWithdraw(address(this)),
+      crossedPrincipal(marketWETH, marketUSDC, address(this), 0).mulWadDown(ratio),
+      2e15
+    );
+    assertApproxEqAbs(marketUSDC.previewDebt(address(this)), expectedDebt, 1);
+
+    ratio = 1e18;
+    principal = crossedPrincipal(marketWETH, marketUSDC, address(this), 0);
+
+    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio);
+
+    assertApproxEqAbs(
+      marketWETH.maxWithdraw(address(this)),
+      crossedPrincipal(marketWETH, marketUSDC, address(this), 0).mulWadDown(ratio),
+      1
+    );
+    assertApproxEqAbs(marketUSDC.previewDebt(address(this)), 0, 0);
+  }
+
+  function testCrossDeleverageFromUSDCToWETH() external _checkBalances {
+    auditor.enterMarket(marketUSDC);
+    uint256 principal = 10_000e6;
+    uint256 ratio = 2e18;
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, principal, ratio);
+
+    ratio = 1.5e18;
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
+
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+
+    assertApproxEqAbs(
+      marketUSDC.maxWithdraw(address(this)),
+      crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
+      3e6
+    );
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 0);
+
+    ratio = 1e18;
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+
+    assertApproxEqAbs(
+      marketUSDC.maxWithdraw(address(this)),
+      crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
+      1e6
+    );
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), 0, 0);
+  }
+
+  function testCrossDeleverageWithWithdraw() external _checkBalances {
+    auditor.enterMarket(marketUSDC);
+    uint256 ratio = 2e18;
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, ratio);
+
+    ratio = 1.5e18;
+    uint256 withdraw = 1_000e6;
+    uint256 usdcBalanceBefore = usdc.balanceOf(address(this));
+    uint256 principal = crossedPrincipal(marketUSDC, marketWETH, address(this), withdraw);
+
+    uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
+
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, withdraw, ratio);
+
+    assertApproxEqAbs(
+      marketUSDC.maxWithdraw(address(this)),
+      crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
+      3e6
+    );
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 1);
+    assertEq(withdraw, usdc.balanceOf(address(this)) - usdcBalanceBefore);
+
+    ratio = 1e18;
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+    assertApproxEqAbs(
+      marketUSDC.maxWithdraw(address(this)),
+      crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
+      1e6
+    );
+    assertEq(marketWETH.previewDebt(address(this)), 0);
+  }
+
+  function testCrossDeleverageRatio() external _checkBalances {
+    uint256 principal = 100_000e6;
+    auditor.enterMarket(marketUSDC);
+    uint256 ratio = 2e18;
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, principal, ratio);
+
+    ratio = 1.5e18;
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
+
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 90e6);
+    assertEq(marketWETH.previewDebt(address(this)), expectedDebt);
+
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    uint256 deposit = marketUSDC.maxWithdraw(address(this));
+
+    assertApproxEqAbs(ratio, deposit.divWadDown(principal), 45e13);
+
+    ratio = 1e18;
+
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 1);
+    assertEq(marketWETH.previewDebt(address(this)), 0);
   }
 
   function testCrossDeleverageWithInvalidFee() external _checkBalances {
     wstETH.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 1.02e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 1.3e18);
 
     vm.expectRevert(bytes(""));
-    debtManager.crossDeleverage(marketwstETH, marketWETH, 200, 1e18);
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 200, 0, 1.2e18);
   }
 
-  function testCrossDeleverageWithInvalidPercentage() external _checkBalances {
+  function testCrossDeleverageWithInvalidRatio() external _checkBalances {
     wstETH.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 1.02e18);
-    uint256 percentage = 2e18;
-    vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
-    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, percentage);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 2e18);
+    vm.expectRevert(stdError.arithmeticError);
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, 2.5e18);
   }
 
   function testPermitAndRollFloatingToFixed() external {
@@ -993,7 +1127,7 @@ contract DebtManagerTest is ForkTest {
         )
       )
     );
-    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 1e18, 20e18, Permit(bob, block.timestamp, v, r, s));
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, 1e18, 20e18, Permit(bob, block.timestamp, v, r, s));
     vm.stopPrank();
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(bob);
     assertEq(floatingBorrowShares, 0);
@@ -1183,15 +1317,51 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(marketOP.previewRefund(floatingBorrowShares), principal.mulWadDown(1.5e18 - 1e18), 1);
   }
 
-  function testPreviewSwap() external {
-    assertEq(debtManager.previewSwap(address(marketWETH.asset()), address(usdc), 1e18, 500), 1809407986);
-    assertEq(debtManager.previewSwap(address(marketWETH.asset()), address(usdc), 100e18, 500), 180326534411);
-    assertEq(debtManager.previewSwap(address(usdc), address(marketWETH.asset()), 1_800e6, 500), 993744547172020639);
-    assertEq(debtManager.previewSwap(address(usdc), address(marketWETH.asset()), 100_000e6, 500), 55114623226316151402);
+  function testPreviewInputSwap() external {
+    assertEq(debtManager.previewInputSwap(address(marketWETH.asset()), address(usdc), 1e18, 500), 1809407986);
+    assertEq(debtManager.previewInputSwap(address(marketWETH.asset()), address(usdc), 100e18, 500), 180326534411);
     assertEq(
-      debtManager.previewSwap(address(marketwstETH.asset()), address(marketWETH.asset()), 1e18, 500),
+      debtManager.previewInputSwap(address(usdc), address(marketWETH.asset()), 1_800e6, 500),
+      993744547172020639
+    );
+    assertEq(
+      debtManager.previewInputSwap(address(usdc), address(marketWETH.asset()), 100_000e6, 500),
+      55114623226316151402
+    );
+    assertEq(
+      debtManager.previewInputSwap(address(marketwstETH.asset()), address(marketWETH.asset()), 1e18, 500),
       1124234920941937964
     );
+  }
+
+  function crossedPrincipal(
+    Market marketIn,
+    Market marketOut,
+    address sender,
+    uint256 withdraw
+  ) internal view returns (uint256) {
+    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
+    (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
+    uint256 assetPriceIn = auditor.assetPrice(priceFeedIn);
+    (, , uint256 floatingBorrowSharesIn) = marketIn.accounts(sender);
+    (, , uint256 floatingBorrowSharesOut) = marketOut.accounts(sender);
+
+    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - marketIn.previewRefund(floatingBorrowSharesIn) - withdraw)
+      .mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
+    uint256 debtUSD = marketOut.previewRefund(floatingBorrowSharesOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
+      10 ** (18 - marketOut.decimals());
+    return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
+  }
+
+  function previewAssetsOut(Market marketIn, Market marketOut, uint256 amountIn) internal view returns (uint256) {
+    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
+    (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
+
+    return
+      amountIn.mulDivDown(auditor.assetPrice(priceFeedIn), 10 ** marketIn.decimals()).mulDivDown(
+        10 ** marketOut.decimals(),
+        auditor.assetPrice(priceFeedOut)
+      );
   }
 
   modifier _checkBalances() {

@@ -6,7 +6,7 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { AddressUpgradeable as Address } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { Market, ERC20, FixedLib, Disagreement } from "../Market.sol";
-import { Auditor, MarketNotListed } from "../Auditor.sol";
+import { Auditor, IPriceFeed, MarketNotListed } from "../Auditor.sol";
 
 /// @title DebtManager
 /// @notice Contract for efficient debt management of accounts interacting with Exactly Protocol.
@@ -207,32 +207,31 @@ contract DebtManager is Initializable {
   /// @param marketOut The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param deposit The amount of `marketIn` underlying assets to deposit.
-  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
+  /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   function crossLeverage(
     Market marketIn,
     Market marketOut,
     uint24 fee,
     uint256 deposit,
-    uint256 multiplier
+    uint256 ratio
   ) external msgSender {
     if (deposit != 0) marketIn.asset().safeTransferFrom(_msgSender, address(this), deposit);
 
-    noTransferCrossLeverage(marketIn, marketOut, fee, deposit, multiplier);
+    noTransferCrossLeverage(marketIn, marketOut, fee, deposit, ratio);
   }
 
-  /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash swap
-  /// from Uniswap's pool.
+  /// @notice Cross-leverages `_msgSender`'s position to a `ratio` via flash swap from Uniswap's pool.
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param deposit The amount of `marketIn` underlying assets to deposit.
-  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
+  /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   function crossLeverage(
     Market marketIn,
     Market marketOut,
     uint24 fee,
     uint256 deposit,
-    uint256 multiplier,
+    uint256 ratio,
     uint256 borrowAssets,
     Permit calldata marketPermit,
     Permit2 calldata assetPermit
@@ -242,32 +241,39 @@ contract DebtManager is Initializable {
     permitTransfer(marketIn.asset(), deposit, assetPermit)
     msgSender
   {
-    noTransferCrossLeverage(marketIn, marketOut, fee, deposit, multiplier);
+    noTransferCrossLeverage(marketIn, marketOut, fee, deposit, ratio);
   }
 
-  /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash loan
-  /// from Balancer's vault.
+  /// @notice Cross-leverages `_msgSender`'s position to a `ratio` via flash swap from Uniswap's pool.
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @param deposit The amount of `marketIn` underlying assets to deposit.
-  /// @param multiplier The number of times that the current principal will be leveraged, represented with 18 decimals.
+  /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   function noTransferCrossLeverage(
     Market marketIn,
     Market marketOut,
     uint24 fee,
     uint256 deposit,
-    uint256 multiplier
+    uint256 ratio
   ) internal {
     LeverageVars memory v;
     v.assetIn = address(marketIn.asset());
     v.assetOut = address(marketOut.asset());
+    address sender = _msgSender;
+
+    {
+      uint256 collateral = marketIn.maxWithdraw(sender);
+      (, , uint256 floatingBorrowShares) = marketIn.accounts(sender);
+      uint256 debt = marketIn.previewRefund(floatingBorrowShares);
+      v.amount = collateral + deposit - debt;
+    }
 
     PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
     IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
       address(this),
       v.assetOut == poolKey.token0,
-      -int256((marketIn.maxWithdraw(_msgSender) + deposit).mulWadDown(multiplier)),
+      -int256(v.amount.mulWadDown(ratio - 1e18)),
       v.assetOut == poolKey.token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
       abi.encode(
         SwapCallbackData({
@@ -276,7 +282,7 @@ contract DebtManager is Initializable {
           assetIn: v.assetIn,
           assetOut: v.assetOut,
           principal: deposit,
-          account: _msgSender,
+          account: sender,
           fee: fee,
           leverage: true
         })
@@ -284,25 +290,45 @@ contract DebtManager is Initializable {
     );
   }
 
-  /// @notice Deleverages a `percentage` position of `_msgSender` by taking a flash swap from Uniswap's pool.
+  /// @notice Cross-deleverages `_msgSender`'s position to a `ratio` via flash swap from Uniswap's pool.
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
-  /// @param percentage The percentage that the position will be deleveraged.
-  function crossDeleverage(Market marketIn, Market marketOut, uint24 fee, uint256 percentage) public msgSender {
+  /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
+  /// @param ratio The number of times that the current principal will end up leveraged, represented with 18 decimals.
+  function crossDeleverage(
+    Market marketIn,
+    Market marketOut,
+    uint24 fee,
+    uint256 withdraw,
+    uint256 ratio
+  ) public msgSender {
     LeverageVars memory v;
     v.assetIn = address(marketIn.asset());
     v.assetOut = address(marketOut.asset());
     address sender = _msgSender;
 
-    (, , uint256 floatingBorrowShares) = marketOut.accounts(sender);
-    v.amount = marketOut.previewRefund(floatingBorrowShares.mulWadDown(percentage));
+    {
+      (, , uint256 floatingBorrowSharesOut) = marketOut.accounts(sender);
+
+      v.amount =
+        marketOut.previewRefund(floatingBorrowSharesOut) -
+        (
+          ratio > 1e18
+            ? previewAssetsOut(
+              marketIn,
+              marketOut,
+              crossedPrincipal(marketIn, marketOut, sender, withdraw).mulWadDown(ratio - 1e18)
+            )
+            : 0
+        );
+    }
 
     PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
     IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
       address(this),
       v.assetIn == poolKey.token0,
-      -int256(v.amount),
+      -int256(v.amount), // exact output (how much we are going to repay)
       v.assetIn == poolKey.token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
       abi.encode(
         SwapCallbackData({
@@ -310,7 +336,7 @@ contract DebtManager is Initializable {
           marketOut: marketOut,
           assetIn: v.assetIn,
           assetOut: v.assetOut,
-          principal: v.amount,
+          principal: withdraw,
           account: sender,
           fee: fee,
           leverage: false
@@ -319,11 +345,12 @@ contract DebtManager is Initializable {
     );
   }
 
-  /// @notice Deleverages a `percentage` position of `_msgSender` by taking a flash swap from Uniswap's pool.
+  /// @notice Cross-deleverages `_msgSender`'s position to a `ratio` via flash swap from Uniswap's pool.
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
-  /// @param percentage The percentage that the position will be deleveraged.
+  /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
+  /// @param ratio The number of times that the current principal will end up leveraged, represented with 18 decimals.
   /// @param permitAssets The amount of assets to allow.
   /// @param p Arguments for the permit call to `marketIn` on behalf of `_msgSender`.
   /// Permit `value` should be `permitAssets`.
@@ -331,11 +358,12 @@ contract DebtManager is Initializable {
     Market marketIn,
     Market marketOut,
     uint24 fee,
-    uint256 percentage,
+    uint256 withdraw,
+    uint256 ratio,
     uint256 permitAssets,
     Permit calldata p
   ) external permit(marketIn, permitAssets, p) {
-    crossDeleverage(marketIn, marketOut, fee, percentage);
+    crossDeleverage(marketIn, marketOut, fee, withdraw, ratio);
   }
 
   /// @notice Rolls a percentage of the fixed position of `_msgSender` to another fixed pool.
@@ -601,6 +629,36 @@ contract DebtManager is Initializable {
     return data;
   }
 
+  function crossedPrincipal(
+    Market marketIn,
+    Market marketOut,
+    address sender,
+    uint256 withdraw
+  ) internal view returns (uint256) {
+    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
+    (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
+    uint256 assetPriceIn = auditor.assetPrice(priceFeedIn);
+    (, , uint256 floatingBorrowSharesIn) = marketIn.accounts(sender);
+    (, , uint256 floatingBorrowSharesOut) = marketOut.accounts(sender);
+
+    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - marketIn.previewRefund(floatingBorrowSharesIn) - withdraw)
+      .mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
+    uint256 debtUSD = marketOut.previewRefund(floatingBorrowSharesOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
+      10 ** (18 - marketOut.decimals());
+    return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
+  }
+
+  function previewAssetsOut(Market marketIn, Market marketOut, uint256 amountIn) internal view returns (uint256) {
+    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
+    (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
+
+    return
+      amountIn.mulDivDown(auditor.assetPrice(priceFeedIn), 10 ** marketIn.decimals()).mulDivDown(
+        10 ** marketOut.decimals(),
+        auditor.assetPrice(priceFeedOut)
+      );
+  }
+
   /// @notice Callback function called by the Balancer Vault contract when a flash loan is initiated.
   /// @dev Only the Balancer Vault contract is allowed to call this function.
   /// @param userData Additional data provided by the borrower for the flash loan.
@@ -637,12 +695,9 @@ contract DebtManager is Initializable {
       );
       s.marketOut.borrow(uint256(s.assetIn == poolKey.token1 ? amount0Delta : amount1Delta), msg.sender, s.account);
     } else {
-      s.marketOut.repay(s.principal, s.account);
-      s.marketIn.withdraw(
-        s.assetIn == poolKey.token1 ? uint256(amount1Delta) : uint256(amount0Delta),
-        msg.sender,
-        s.account
-      );
+      s.marketOut.repay(uint256(-(s.assetIn == poolKey.token1 ? amount0Delta : amount1Delta)), s.account);
+      s.marketIn.withdraw(uint256(s.assetIn == poolKey.token1 ? amount1Delta : amount0Delta), msg.sender, s.account);
+      s.marketIn.withdraw(s.principal, s.account, s.account);
     }
   }
 
@@ -702,7 +757,7 @@ contract DebtManager is Initializable {
   /// @param amountIn The exact amount of `assetIn` to be swapped.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @return amountOut The amount of `assetOut` received.
-  function previewSwap(address assetIn, address assetOut, uint256 amountIn, uint24 fee) external returns (uint256) {
+  function previewInputSwap(address assetIn, address assetOut, uint256 amountIn, uint24 fee) external returns (uint256) {
     return
       uniswapV3Quoter.quoteExactInputSingle(
         assetIn,
