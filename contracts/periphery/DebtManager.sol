@@ -713,6 +713,22 @@ contract DebtManager is Initializable {
       );
   }
 
+  function previewOutputSwap(
+    address assetIn,
+    address assetOut,
+    uint256 amountOut,
+    uint24 fee
+  ) external returns (uint256) {
+    return
+      uniswapV3Quoter.quoteExactOutputSingle(
+        assetIn,
+        assetOut,
+        fee,
+        amountOut,
+        assetIn == PoolAddress.getPoolKey(assetIn, assetOut, fee).token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
+      );
+  }
+
   /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
   function availableLiquidity() external view returns (AvailableAsset[] memory availableAssets) {
     uint256 marketsCount = auditor.allMarkets().length;
@@ -839,6 +855,14 @@ interface IUniswapQuoter {
     uint256 amountIn,
     uint160 sqrtPriceLimitX96
   ) external returns (uint256 amountOut);
+
+  function quoteExactOutputSingle(
+    address tokenIn,
+    address tokenOut,
+    uint24 fee,
+    uint256 amountOut,
+    uint160 sqrtPriceLimitX96
+  ) external returns (uint256 amountIn);
 }
 
 // https://github.com/Uniswap/v3-periphery/pull/271
