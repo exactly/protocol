@@ -202,73 +202,7 @@ contract DebtManager is Initializable {
     balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
   }
 
-  /// @notice Deleverages `_msgSender`'s fixed position a certain `percentage` via flash loan from Balancer's vault.
-  /// @param market The Market to deleverage the position out.
-  /// @param maturity The maturity of the fixed pool that the position is being deleveraged out of.
-  /// @param maxRepayAssets Max amount of fixed debt that the sender is willing to accept.
-  /// @param percentage The percentage of the borrow that will be repaid, represented with 18 decimals.
-  /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
-  function deleverageFixed(
-    Market market,
-    uint256 maturity,
-    uint256 maxRepayAssets,
-    uint256 percentage,
-    uint256 withdraw
-  ) public msgSender {
-    RollVars memory r;
-    r.amounts = new uint256[](1);
-    r.tokens = new ERC20[](1);
-    r.tokens[0] = market.asset();
-    address sender = _msgSender;
-
-    r.principal = market.convertToAssets(market.balanceOf(sender));
-    (r.repayAssets, r.positionAssets) = repayAtMaturityAssets(market, maturity, percentage);
-    r.loopCount = r.repayAssets.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
-    r.positionAssets = r.positionAssets / r.loopCount;
-    r.amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
-    r.calls = new bytes[](2 * r.loopCount + (withdraw == 0 ? 0 : 1));
-    for (r.i = 0; r.i < r.loopCount; ) {
-      r.calls[r.callIndex++] = abi.encodeCall(
-        market.repayAtMaturity,
-        (maturity, r.positionAssets, type(uint256).max, sender)
-      );
-      r.calls[r.callIndex++] = abi.encodeCall(
-        market.withdraw,
-        (r.amounts[0], r.i + 1 == r.loopCount ? address(balancerVault) : address(this), sender)
-      );
-      unchecked {
-        ++r.i;
-      }
-    }
-    if (withdraw != 0) r.calls[r.callIndex] = abi.encodeCall(market.withdraw, (withdraw, sender, sender));
-
-    balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
-    if (maxRepayAssets < r.principal - market.convertToAssets(market.balanceOf(sender))) revert Disagreement();
-  }
-
-  /// @notice Deleverages `_msgSender`'s fixed position a certain `percentage` via flash loan from Balancer's vault.
-  /// @param market The Market to deleverage the position out.
-  /// @param maturity The maturity of the fixed pool that the position is being deleveraged out of, `0` if floating.
-  /// @param maxRepayAssets Max amount of fixed debt that the sender is willing to accept.
-  /// @param percentage The percentage of the borrow that will be repaid, represented with 18 decimals.
-  /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
-  /// @param permitAssets The amount of assets to allow this contract to withdraw on behalf of `_msgSender`.
-  /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
-  /// Permit `value` should be `permitAssets`.
-  function deleverageFixed(
-    Market market,
-    uint256 maturity,
-    uint256 maxRepayAssets,
-    uint256 percentage,
-    uint256 withdraw,
-    uint256 permitAssets,
-    Permit calldata p
-  ) external permit(market, permitAssets, p) {
-    deleverageFixed(market, maturity, maxRepayAssets, percentage, withdraw);
-  }
-
-  /// @notice Cross-leverages the floating position of `_msgSender` a certain `multiplier` by taking a flash swap
-  /// from Uniswap's pool.
+  /// @notice Cross-leverages `_msgSender`'s position to a `ratio` via flash swap from Uniswap's pool.
   /// @param marketIn The Market to deposit the leveraged position.
   /// @param marketOut The Market to borrow the leveraged position.
   /// @param fee The fee of the pool that will be used to swap the assets.
