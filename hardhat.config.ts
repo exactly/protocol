@@ -72,7 +72,7 @@ export default {
       WETH: {
         adjustFactor: 0.84,
         floatingCurve: { a: 1.9362e-2, b: -1.787e-3, maxUtilization: 1.003870947 },
-        fixedCurve: { a: 3.8126e-1, b: -3.6375e-1, maxUtilization: 1.000010695 },
+        fixedCurve: { a: 3.8691e-1, b: -3.5319e-1, maxUtilization: 1.031219287 },
         overrides: {
           goerli: {
             rewards: { OP: { total: 120_000, debt: 16_000, start: "2023-03-09", period: 16 * 7 * 86_400 } },
@@ -97,12 +97,12 @@ export default {
         networks: ["mainnet", "goerli"],
         adjustFactor: 0.9,
         floatingCurve: { a: 1.7852e-2, b: -2.789e-3, maxUtilization: 1.003568501 },
-        fixedCurve: { a: 3.9281e-1, b: -3.7781e-1, maxUtilization: 1.000014451 },
+        fixedCurve: { a: 3.6909e-1, b: -3.3415e-1, maxUtilization: 1.02766986 },
       },
       USDC: {
         adjustFactor: 0.91,
         floatingCurve: { a: 1.4844e-2, b: 1.9964e-4, maxUtilization: 1.002968978 },
-        fixedCurve: { a: 3.9281e-1, b: -3.7781e-1, maxUtilization: 1.000014451 },
+        fixedCurve: { a: 2.5931e-1, b: -2.3207e-1, maxUtilization: 1.008715115 },
         overrides: {
           goerli: {
             rewards: { OP: { total: 280_000, debt: 25_000_000, start: "2023-03-09", period: 16 * 7 * 86_400 } },
@@ -125,7 +125,7 @@ export default {
       wstETH: {
         adjustFactor: 0.82,
         floatingCurve: { a: 1.9362e-2, b: -1.787e-3, maxUtilization: 1.003870947 },
-        fixedCurve: { a: 3.8126e-1, b: -3.6375e-1, maxUtilization: 1.000010695 },
+        fixedCurve: { a: 3.8691e-1, b: -3.5319e-1, maxUtilization: 1.031219287 },
         priceFeed: { wrapper: "stETH", fn: "getPooledEthByShares", baseUnit: 10n ** 18n },
         overrides: {
           goerli: {
@@ -162,7 +162,7 @@ export default {
         networks: ["optimism"],
         adjustFactor: 0.58,
         floatingCurve: { a: 2.8487e-2, b: -5.8259e-3, maxUtilization: 1.005690787 },
-        fixedCurve: { a: 3.5815e-1, b: -3.3564e-1, maxUtilization: 1.000005527 },
+        fixedCurve: { a: 2.8574e-1, b: -2.4204e-1, maxUtilization: 1.013118138 },
       },
     },
   },
