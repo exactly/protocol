@@ -816,8 +816,8 @@ contract DebtManagerTest is ForkTest {
 
     uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
     uint256 expectedBorrow = debtManager.previewOutputSwap(
-      address(marketWETH.asset()),
-      address(marketwstETH.asset()),
+      address(weth),
+      address(wstETH),
       (principal + deposit).mulWadDown(ratio - 1e18),
       500
     );
@@ -837,8 +837,8 @@ contract DebtManagerTest is ForkTest {
 
     uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
     uint256 expectedBorrow = debtManager.previewOutputSwap(
-      address(marketWETH.asset()),
-      address(marketUSDC.asset()),
+      address(weth),
+      address(usdc),
       (principal + deposit).mulWadDown(ratio - 1e18),
       500
     );
@@ -856,7 +856,7 @@ contract DebtManagerTest is ForkTest {
     uint256 price = 1810.5e6;
     uint160 sqrtPriceLimitX96 = uint160((uint256(price).sqrt() * 2 ** 96) / 1e9);
 
-    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketUSDC.asset()), address(marketWETH.asset()), 500);
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(usdc), address(weth), 500);
     (uint256 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(
       PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey)
     ).slot0();
@@ -905,8 +905,8 @@ contract DebtManagerTest is ForkTest {
     uint256 principal = coll - debt;
 
     uint256 expectedBorrow = debtManager.previewOutputSwap(
-      address(marketWETH.asset()),
-      address(marketUSDC.asset()),
+      address(weth),
+      address(usdc),
       (principal).mulWadDown(ratio - 1e18),
       500
     );
@@ -988,7 +988,7 @@ contract DebtManagerTest is ForkTest {
     ratio = 1e18;
     uint256 price = 1822e6;
     uint160 sqrtPriceLimitX96 = uint160((uint256(price).sqrt() * 2 ** 96) / 1e9);
-    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketUSDC.asset()), address(marketWETH.asset()), 500);
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(usdc), address(weth), 500);
     (uint256 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(
       PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey)
     ).slot0();
