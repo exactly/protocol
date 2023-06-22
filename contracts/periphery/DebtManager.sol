@@ -44,9 +44,7 @@ contract DebtManager is Initializable {
   /// @dev can only be called once.
   function initialize() external initializer {
     Market[] memory markets = auditor.allMarkets();
-    for (uint256 i = 0; i < markets.length; i++) {
-      markets[i].asset().safeApprove(address(markets[i]), type(uint256).max);
-    }
+    for (uint256 i = 0; i < markets.length; ++i) approve(markets[i]);
   }
 
   /// @notice Leverages the floating position of `_msgSender` a certain `ratio` by taking a flash loan
@@ -55,8 +53,7 @@ contract DebtManager is Initializable {
   /// @param deposit The amount of assets to deposit.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   function leverage(Market market, uint256 deposit, uint256 ratio) public msgSender {
-    if (deposit != 0) market.asset().safeTransferFrom(_msgSender, address(this), deposit);
-
+    transferIn(market, deposit);
     noTransferLeverage(market, deposit, ratio);
   }
 
@@ -115,7 +112,7 @@ contract DebtManager is Initializable {
     uint256 borrowAssets,
     Permit calldata marketPermit
   ) external permit(market, borrowAssets, marketPermit) msgSender {
-    market.asset().transferFrom(msg.sender, address(this), deposit);
+    market.asset().safeTransferFrom(msg.sender, address(this), deposit);
     noTransferLeverage(market, deposit, ratio);
   }
 
@@ -132,10 +129,8 @@ contract DebtManager is Initializable {
 
     uint256 loopCount;
     {
-      (, , uint256 floatingBorrowShares) = market.accounts(sender);
-      uint256 debt = market.previewRefund(floatingBorrowShares);
       uint256 collateral = market.maxWithdraw(sender);
-      uint256 targetDeposit = (collateral + deposit - debt).mulWadDown(ratio);
+      uint256 targetDeposit = (collateral + deposit - floatingBorrowAssets(market)).mulWadDown(ratio);
       uint256 amount = targetDeposit - (collateral + deposit);
       loopCount = amount.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
       amounts[0] = amount.mulDivUp(1, loopCount);
@@ -185,9 +180,7 @@ contract DebtManager is Initializable {
     address sender = _msgSender;
 
     uint256 collateral = market.maxWithdraw(sender) - withdraw;
-    (, , uint256 floatingBorrowShares) = market.accounts(sender);
-    uint256 debt = market.previewRefund(floatingBorrowShares);
-    uint256 amount = collateral - (collateral - debt).mulWadDown(ratio);
+    uint256 amount = collateral - (collateral - floatingBorrowAssets(market)).mulWadDown(ratio);
 
     r.loopCount = amount.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
     r.amounts[0] = amount.mulDivUp(1, r.loopCount);
@@ -223,8 +216,7 @@ contract DebtManager is Initializable {
     uint256 ratio,
     uint160 sqrtPriceLimitX96
   ) external msgSender {
-    if (deposit != 0) marketIn.asset().safeTransferFrom(_msgSender, address(this), deposit);
-
+    transferIn(marketIn, deposit);
     noTransferCrossLeverage(marketIn, marketOut, fee, deposit, ratio, sqrtPriceLimitX96);
   }
 
@@ -324,21 +316,17 @@ contract DebtManager is Initializable {
     v.assetOut = address(marketOut.asset());
     v.sender = _msgSender;
 
-    {
-      (, , uint256 floatingBorrowSharesOut) = marketOut.accounts(v.sender);
-
-      v.amount =
-        marketOut.previewRefund(floatingBorrowSharesOut) -
-        (
-          ratio > 1e18
-            ? previewAssetsOut(
-              marketIn,
-              marketOut,
-              crossedPrincipal(marketIn, marketOut, v.sender, withdraw).mulWadDown(ratio - 1e18)
-            )
-            : 0
-        );
-    }
+    v.amount =
+      floatingBorrowAssets(marketOut) -
+      (
+        ratio > 1e18
+          ? previewAssetsOut(
+            marketIn,
+            marketOut,
+            crossedPrincipal(marketIn, marketOut, v.sender, withdraw).mulWadDown(ratio - 1e18)
+          )
+          : 0
+      );
 
     PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
     IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
@@ -489,10 +477,7 @@ contract DebtManager is Initializable {
     r.tokens[0] = market.asset();
     address sender = _msgSender;
 
-    {
-      (, , uint256 floatingBorrowShares) = market.accounts(sender);
-      r.principal = market.previewRefund(floatingBorrowShares);
-    }
+    r.principal = floatingBorrowAssets(market);
     (uint256 repayAssets, uint256 positionAssets) = repayAtMaturityAssets(market, repayMaturity, percentage);
     r.loopCount = repayAssets.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
     positionAssets = positionAssets / r.loopCount;
@@ -513,10 +498,7 @@ contract DebtManager is Initializable {
       }
     }
     balancerVault.flashLoan(address(this), r.tokens, r.amounts, call(abi.encode(market, r.calls)));
-    {
-      (, , uint256 floatingBorrowShares) = market.accounts(sender);
-      if (maxRepayAssets < market.previewRefund(floatingBorrowShares) - r.principal) revert Disagreement();
-    }
+    if (maxRepayAssets < floatingBorrowAssets(market) - r.principal) revert Disagreement();
   }
 
   /// @notice Rolls a percentage of the fixed position of `_msgSender` to a floating position
@@ -555,10 +537,8 @@ contract DebtManager is Initializable {
     address sender = _msgSender;
 
     (r.principal, r.fee) = market.fixedBorrowPositions(borrowMaturity, sender);
-    (, , uint256 floatingBorrowShares) = market.accounts(sender);
-    r.repayAssets = market.previewRefund(
-      percentage < 1e18 ? floatingBorrowShares.mulWadDown(percentage) : floatingBorrowShares
-    );
+    r.repayAssets = floatingBorrowAssets(market);
+    if (percentage < 1e18) r.repayAssets = r.repayAssets.mulWadDown(percentage);
     r.loopCount = r.repayAssets.mulDivUp(1, r.tokens[0].balanceOf(address(balancerVault)));
 
     r.amounts[0] = r.repayAssets.mulDivUp(1, r.loopCount);
@@ -661,12 +641,11 @@ contract DebtManager is Initializable {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
     uint256 assetPriceIn = auditor.assetPrice(priceFeedIn);
-    (, , uint256 floatingBorrowSharesIn) = marketIn.accounts(sender);
-    (, , uint256 floatingBorrowSharesOut) = marketOut.accounts(sender);
 
-    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - marketIn.previewRefund(floatingBorrowSharesIn) - withdraw)
-      .mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
-    uint256 debtUSD = marketOut.previewRefund(floatingBorrowSharesOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
+    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - floatingBorrowAssets(marketIn) - withdraw).mulWadDown(
+      assetPriceIn
+    ) * 10 ** (18 - marketIn.decimals());
+    uint256 debtUSD = floatingBorrowAssets(marketOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
       10 ** (18 - marketOut.decimals());
     return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
   }
@@ -783,22 +762,20 @@ contract DebtManager is Initializable {
   /// @notice Approves the Market to spend the contract's balance of the underlying asset.
   /// @dev The Market must be listed by the Auditor in order to be valid for approval.
   /// @param market The Market to spend the contract's balance.
-  function approve(Market market) external {
+  function approve(Market market) public {
     (, , , bool isListed, ) = auditor.markets(market);
     if (!isListed) revert MarketNotListed();
 
     market.asset().safeApprove(address(market), type(uint256).max);
   }
 
-  struct SwapCallbackData {
-    Market marketIn;
-    Market marketOut;
-    address assetIn;
-    address assetOut;
-    address account;
-    uint256 principal;
-    uint24 fee;
-    bool leverage;
+  function transferIn(Market market, uint256 assets) internal {
+    if (assets != 0) market.asset().safeTransferFrom(_msgSender, address(this), assets);
+  }
+
+  function floatingBorrowAssets(Market market) internal view returns (uint256) {
+    (, , uint256 floatingBorrowShares) = market.accounts(_msgSender);
+    return market.previewRefund(floatingBorrowShares);
   }
 }
 
@@ -815,6 +792,17 @@ struct Permit {
 struct Permit2 {
   uint256 deadline;
   bytes signature;
+}
+
+struct SwapCallbackData {
+  Market marketIn;
+  Market marketOut;
+  address assetIn;
+  address assetOut;
+  address account;
+  uint256 principal;
+  uint24 fee;
+  bool leverage;
 }
 
 struct RollVars {

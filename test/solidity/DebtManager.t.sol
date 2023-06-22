@@ -6,14 +6,12 @@ import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
   ERC20,
-  Market,
   Permit,
   PoolKey,
   Permit2,
   IPermit2,
   PoolAddress,
   DebtManager,
-  Disagreement,
   IBalancerVault,
   IUniswapV3Pool,
   InvalidOperation
@@ -22,6 +20,7 @@ import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } fr
 import { DebtPreviewer, IUniswapQuoter } from "../../contracts/periphery/DebtPreviewer.sol";
 import { FixedLib, UnmatchedPoolState } from "../../contracts/utils/FixedLib.sol";
 import { MockBalancerVault } from "../../contracts/mocks/MockBalancerVault.sol";
+import { Market, Disagreement, ZeroRepay } from "../../contracts/Market.sol";
 
 contract DebtManagerTest is ForkTest {
   using FixedPointMathLib for uint256;
@@ -140,9 +139,9 @@ contract DebtManagerTest is ForkTest {
     uint256 repayAssets;
     if (operation == Operation.FloatingToFixed) {
       (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
-      repayAssets = marketUSDC.previewRefund(
-        percentage < 1e18 ? floatingBorrowShares.mulWadDown(percentage) : floatingBorrowShares
-      );
+      repayAssets = marketUSDC.previewRefund(floatingBorrowShares);
+      if (percentage < 1e18) repayAssets = repayAssets.mulWadDown(percentage);
+      if (repayAssets > 0 && marketUSDC.previewRepay(repayAssets) == 0) return vm.expectRevert(ZeroRepay.selector);
     } else {
       if (block.timestamp < maturity) {
         (uint256 principal, uint256 fee) = marketUSDC.fixedBorrowPositions(maturity, address(this));
