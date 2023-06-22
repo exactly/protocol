@@ -6,14 +6,16 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import {
   ERC20,
   Market,
-  Auditor,
   Permit,
+  PoolKey,
   Permit2,
   IPermit2,
+  PoolAddress,
   DebtManager,
   Disagreement,
   IBalancerVault,
   IUniswapQuoter,
+  IUniswapV3Pool,
   InvalidOperation
 } from "../../contracts/periphery/DebtManager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } from "../../contracts/Auditor.sol";
@@ -27,6 +29,8 @@ contract DebtManagerTest is ForkTest {
   using FixedLib for FixedLib.Pool;
   using stdJson for string;
 
+  uint160 internal constant MIN_SQRT_RATIO = 4295128739;
+  uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
   uint256 internal constant BOB_KEY = 0xb0b;
   address internal bob;
   Auditor internal auditor;
@@ -734,6 +738,18 @@ contract DebtManagerTest is ForkTest {
     assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(debtManager.balancerVault())));
   }
 
+  function testUniswapV3PoolInfo() external {
+    (address token0, address token1, uint256 sqrtPriceX96) = debtManager.uniswapV3PoolInfo(
+      address(usdc),
+      address(weth),
+      500
+    );
+
+    assertApproxEqAbs((sqrtPriceX96 * sqrtPriceX96 * 1e18) >> (96 * 2), 1810e6, 1e6);
+    assertEq(token0, address(weth));
+    assertEq(token1, address(usdc));
+  }
+
   function testBalancerFlashloanCallFromDifferentOrigin() external {
     ERC20[] memory tokens = new ERC20[](1);
     tokens[0] = usdc;
@@ -797,7 +813,7 @@ contract DebtManagerTest is ForkTest {
       500
     );
 
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, deposit, ratio);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, deposit, ratio, MAX_SQRT_RATIO - 1);
 
     assertApproxEqAbs(marketwstETH.maxWithdraw(address(this)), expectedDeposit, 1);
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1);
@@ -818,10 +834,31 @@ contract DebtManagerTest is ForkTest {
       500
     );
 
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, deposit, ratio);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, deposit, ratio, MIN_SQRT_RATIO + 1);
 
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), expectedDeposit, 1);
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1);
+  }
+
+  function testCrossLeverageWithAccuratePriceLimit() external {
+    auditor.enterMarket(marketUSDC);
+    uint256 deposit = 10_000e6;
+    uint256 ratio = 2e18;
+    uint256 price = 1810.5e6;
+    uint160 sqrtPriceLimitX96 = uint160((uint256(price).sqrt() * 2 ** 96) / 1e9);
+
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketUSDC.asset()), address(marketWETH.asset()), 500);
+    (uint256 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(
+      PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey)
+    ).slot0();
+    assertApproxEqAbs((sqrtPriceX96 * sqrtPriceX96 * 1e18) >> (96 * 2), 1810e6, 1e6);
+
+    vm.expectRevert(bytes("SPL"));
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, deposit, ratio, sqrtPriceLimitX96);
+
+    price = 1809e6;
+    sqrtPriceLimitX96 = uint160((uint256(price).sqrt() * 2 ** 96) / 1e9);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, deposit, ratio, sqrtPriceLimitX96);
   }
 
   function testCrossLeverageWithExistentDeposit() external _checkBalances {
@@ -839,7 +876,7 @@ contract DebtManagerTest is ForkTest {
       500
     );
 
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 1);
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1);
@@ -849,7 +886,7 @@ contract DebtManagerTest is ForkTest {
     auditor.enterMarket(marketUSDC);
 
     vm.expectRevert(bytes(""));
-    debtManager.crossLeverage(marketUSDC, marketWETH, 200, 100_000e6, 1.1e18);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 200, 100_000e6, 1.1e18, MAX_SQRT_RATIO - 1);
   }
 
   function testCrossDeleverageFromwstETHToWETH() external _checkBalances {
@@ -857,13 +894,13 @@ contract DebtManagerTest is ForkTest {
     auditor.enterMarket(marketwstETH);
     uint256 principal = 10e18;
     uint256 ratio = 1.9e18;
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, principal, ratio);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, principal, ratio, MAX_SQRT_RATIO - 1);
 
     ratio = 1.5e18;
     principal = crossedPrincipal(marketwstETH, marketWETH, address(this), 0);
     uint256 expectedDebt = previewAssetsOut(marketwstETH, marketWETH, principal.mulWadDown(ratio - 1e18));
 
-    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, ratio);
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
     assertApproxEqAbs(
       marketwstETH.maxWithdraw(address(this)),
@@ -878,13 +915,13 @@ contract DebtManagerTest is ForkTest {
     auditor.enterMarket(marketWETH);
     uint256 principal = 10e18;
     uint256 ratio = 2e18;
-    debtManager.crossLeverage(marketWETH, marketUSDC, 500, principal, ratio);
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, principal, ratio, MAX_SQRT_RATIO - 1);
 
     ratio = 1.5e18;
     principal = crossedPrincipal(marketWETH, marketUSDC, address(this), 0);
     uint256 expectedDebt = previewAssetsOut(marketWETH, marketUSDC, principal.mulWadDown(ratio - 1e18));
 
-    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio);
+    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
     assertApproxEqAbs(
       marketWETH.maxWithdraw(address(this)),
@@ -896,7 +933,7 @@ contract DebtManagerTest is ForkTest {
     ratio = 1e18;
     principal = crossedPrincipal(marketWETH, marketUSDC, address(this), 0);
 
-    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio);
+    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
     assertApproxEqAbs(
       marketWETH.maxWithdraw(address(this)),
@@ -906,17 +943,41 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(marketUSDC.previewDebt(address(this)), 0, 0);
   }
 
+  function testCrossDeleverageWithAccuratePriceLimit() external {
+    weth.approve(address(debtManager), type(uint256).max);
+    auditor.enterMarket(marketWETH);
+    uint256 principal = 100e18;
+    uint256 ratio = 2e18;
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, principal, ratio, MAX_SQRT_RATIO - 1);
+
+    ratio = 1e18;
+    uint256 price = 1822e6;
+    uint160 sqrtPriceLimitX96 = uint160((uint256(price).sqrt() * 2 ** 96) / 1e9);
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketUSDC.asset()), address(marketWETH.asset()), 500);
+    (uint256 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(
+      PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey)
+    ).slot0();
+    assertApproxEqAbs((sqrtPriceX96 * sqrtPriceX96 * 1e18) >> (96 * 2), 1821e6, 1e6);
+
+    vm.expectRevert(bytes("SPL"));
+    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio, sqrtPriceLimitX96);
+
+    price = 1818e6;
+    sqrtPriceLimitX96 = uint160((uint256(price).sqrt() * 2 ** 96) / 1e9);
+    debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio, sqrtPriceLimitX96);
+  }
+
   function testCrossDeleverageFromUSDCToWETH() external _checkBalances {
     auditor.enterMarket(marketUSDC);
     uint256 principal = 10_000e6;
     uint256 ratio = 2e18;
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, principal, ratio);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, principal, ratio, MIN_SQRT_RATIO + 1);
 
     ratio = 1.5e18;
     principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
     uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
 
-    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
 
     assertApproxEqAbs(
       marketUSDC.maxWithdraw(address(this)),
@@ -926,7 +987,7 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 0);
 
     ratio = 1e18;
-    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
 
     assertApproxEqAbs(
       marketUSDC.maxWithdraw(address(this)),
@@ -939,7 +1000,7 @@ contract DebtManagerTest is ForkTest {
   function testCrossDeleverageWithWithdraw() external _checkBalances {
     auditor.enterMarket(marketUSDC);
     uint256 ratio = 2e18;
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, ratio);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, ratio, MIN_SQRT_RATIO + 1);
 
     ratio = 1.5e18;
     uint256 withdraw = 1_000e6;
@@ -948,7 +1009,7 @@ contract DebtManagerTest is ForkTest {
 
     uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
 
-    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, withdraw, ratio);
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, withdraw, ratio, MAX_SQRT_RATIO - 1);
 
     assertApproxEqAbs(
       marketUSDC.maxWithdraw(address(this)),
@@ -959,7 +1020,7 @@ contract DebtManagerTest is ForkTest {
     assertEq(withdraw, usdc.balanceOf(address(this)) - usdcBalanceBefore);
 
     ratio = 1e18;
-    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
     assertApproxEqAbs(
       marketUSDC.maxWithdraw(address(this)),
       crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
@@ -972,13 +1033,13 @@ contract DebtManagerTest is ForkTest {
     uint256 principal = 100_000e6;
     auditor.enterMarket(marketUSDC);
     uint256 ratio = 2e18;
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, principal, ratio);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, principal, ratio, MIN_SQRT_RATIO + 1);
 
     ratio = 1.5e18;
     principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
     uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
 
-    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
 
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 90e6);
     assertEq(marketWETH.previewDebt(address(this)), expectedDebt);
@@ -990,7 +1051,7 @@ contract DebtManagerTest is ForkTest {
 
     ratio = 1e18;
 
-    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio);
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
 
     principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 1);
@@ -1000,18 +1061,18 @@ contract DebtManagerTest is ForkTest {
   function testCrossDeleverageWithInvalidFee() external _checkBalances {
     wstETH.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 1.3e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10_000e6, 1.3e18, MAX_SQRT_RATIO - 1);
 
     vm.expectRevert(bytes(""));
-    debtManager.crossDeleverage(marketwstETH, marketWETH, 200, 0, 1.2e18);
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 200, 0, 1.2e18, MIN_SQRT_RATIO + 1);
   }
 
   function testCrossDeleverageWithInvalidRatio() external _checkBalances {
     wstETH.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketwstETH);
-    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 2e18);
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 10e18, 2e18, MAX_SQRT_RATIO - 1);
     vm.expectRevert(stdError.arithmeticError);
-    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, 2.5e18);
+    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, 2.5e18, MIN_SQRT_RATIO + 1);
   }
 
   function testPermitAndRollFloatingToFixed() external {
@@ -1127,7 +1188,16 @@ contract DebtManagerTest is ForkTest {
         )
       )
     );
-    debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, 1e18, 20e18, Permit(bob, block.timestamp, v, r, s));
+    debtManager.crossDeleverage(
+      marketwstETH,
+      marketWETH,
+      500,
+      0,
+      1e18,
+      MIN_SQRT_RATIO + 1,
+      20e18,
+      Permit(bob, block.timestamp, v, r, s)
+    );
     vm.stopPrank();
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(bob);
     assertEq(floatingBorrowShares, 0);
@@ -1247,6 +1317,7 @@ contract DebtManagerTest is ForkTest {
       100_000e6,
       1.03e18,
       69 ether,
+      MIN_SQRT_RATIO + 1,
       Permit(bob, block.timestamp, v, r, s),
       Permit2(block.timestamp, sigAsset)
     );
