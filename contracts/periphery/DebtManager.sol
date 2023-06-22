@@ -80,6 +80,10 @@ contract DebtManager is Initializable {
   /// @param market The Market to leverage the position in.
   /// @param deposit The amount of assets to deposit.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
+  /// @param borrowAssets The amount of assets to allow this contract to borrow on behalf of `_msgSender`.
+  /// @param marketPermit Arguments for the permit call to `market` on behalf of `_msgSender`.
+  /// @param assetPermit Arguments for the permit2 asset call.
+  /// Permit `value` should be `borrowAssets`.
   function leverage(
     Market market,
     uint256 deposit,
@@ -91,6 +95,15 @@ contract DebtManager is Initializable {
     noTransferLeverage(market, deposit, ratio);
   }
 
+  /// @notice Leverages the floating position of `_msgSender` a certain `ratio` by taking a flash loan
+  /// from Balancer's vault.
+  /// @param market The Market to leverage the position in.
+  /// @param deposit The amount of assets to deposit.
+  /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
+  /// @param borrowAssets The amount of assets to allow this contract to borrow on behalf of `_msgSender`.
+  /// @param marketPermit Arguments for the permit call to `market` on behalf of `_msgSender`.
+  /// @param assetPermit Arguments for the permit2 asset call.
+  /// Permit `value` should be `borrowAssets`.
   function leverage(
     Market market,
     uint256 deposit,
@@ -102,6 +115,14 @@ contract DebtManager is Initializable {
     leverage(market, deposit, ratio);
   }
 
+  /// @notice Leverages the floating position of `_msgSender` a certain `ratio` by taking a flash loan
+  /// from Balancer's vault.
+  /// @param market The Market to leverage the position in.
+  /// @param deposit The amount of assets to deposit.
+  /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
+  /// @param borrowAssets The amount of assets to allow this contract to borrow on behalf of `_msgSender`.
+  /// @param marketPermit Arguments for the permit call to `market` on behalf of `_msgSender`.
+  /// Permit `value` should be `borrowAssets`.
   function leverage(
     Market market,
     uint256 deposit,
@@ -229,14 +250,18 @@ contract DebtManager is Initializable {
   /// @param deposit The amount of `marketIn` underlying assets to deposit.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   /// @param sqrtPriceLimitX96 The Q64.96 sqrt price limit. If zero for one, the price cannot be less than this.
+  /// @param borrowAssets The amount of assets to allow this contract to borrow on behalf of `_msgSender`.
+  /// @param marketPermit Arguments for the permit call to `marketOut` on behalf of `_msgSender`.
+  /// @param assetPermit Arguments for the permit2 asset call.
+  /// Permit `value` should be `borrowAssets`.
   function crossLeverage(
     Market marketIn,
     Market marketOut,
     uint24 fee,
     uint256 deposit,
     uint256 ratio,
-    uint256 borrowAssets,
     uint160 sqrtPriceLimitX96,
+    uint256 borrowAssets,
     Permit calldata marketPermit,
     Permit2 calldata assetPermit
   )
@@ -639,6 +664,11 @@ contract DebtManager is Initializable {
     return data;
   }
 
+  /// @notice Calculates the crossed principal amount for a given `sender` in the input and output markets.
+  /// @param marketIn The Market to withdraw the leveraged position.
+  /// @param marketOut The Market to repay the leveraged position.
+  /// @param sender The account that will be deleveraged.
+  /// @param withdraw The amount of assets that will be withdrawn from `marketIn` to `sender`.
   function crossedPrincipal(
     Market marketIn,
     Market marketOut,
@@ -658,6 +688,10 @@ contract DebtManager is Initializable {
     return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
   }
 
+  /// @notice Returns the amount of `marketOut` underlying assets considering `amountIn` and both assets oracle prices.
+  /// @param marketIn The market of the assets accounted as `amountIn`.
+  /// @param marketOut The market of the assets that will be returned.
+  /// @param amountIn The amount of `marketIn` underlying assets.
   function previewAssetsOut(Market marketIn, Market marketOut, uint256 amountIn) internal view returns (uint256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
@@ -721,6 +755,7 @@ contract DebtManager is Initializable {
 
   /// @notice Calls `token.permit` on behalf of `permit.account`.
   /// @param token The `ERC20` to call `permit`.
+  /// @param assets The amount of assets to allow.
   /// @param p Arguments for the permit call.
   modifier permit(
     ERC20 token,
@@ -740,6 +775,7 @@ contract DebtManager is Initializable {
   /// @notice Calls `permit2.permitTransferFrom` to transfer `_msgSender` assets.
   /// @param token The `ERC20` to transfer from `_msgSender` to this contract.
   /// @param assets The amount of assets to transfer from `_msgSender`.
+  /// @param p2 Arguments for the permit2 call.
   modifier permitTransfer(
     ERC20 token,
     uint256 assets,
@@ -783,6 +819,12 @@ contract DebtManager is Initializable {
       );
   }
 
+  /// @notice Returns the input for an exact amount out of a single pool swap.
+  /// @param assetIn The address of the token to be swapped.
+  /// @param assetOut The address of the token to receive.
+  /// @param amountOut The exact amount of `amountOut` to be swapped.
+  /// @param fee The fee of the pool that will be used to swap the assets.
+  /// @return amountIn The amount of `amountIn` received.
   function previewOutputSwap(
     address assetIn,
     address assetOut,
@@ -799,6 +841,13 @@ contract DebtManager is Initializable {
       );
   }
 
+  /// @notice Returns `token0`, `token1` and `sqrtPriceX96` of a given pool.
+  /// @param assetIn The address of the token to be swapped.
+  /// @param assetOut The address of the token to receive.
+  /// @param fee The fee of the pool that will be used.
+  /// @return token0 The address of the token0 of the pool.
+  /// @return token1 The address of the token1 of the pool.
+  /// @return sqrtPriceX96 The sqrt price of the pool.
   function uniswapV3PoolInfo(
     address assetIn,
     address assetOut,

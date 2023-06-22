@@ -1316,8 +1316,8 @@ contract DebtManagerTest is ForkTest {
       500,
       100_000e6,
       1.03e18,
-      69 ether,
       MIN_SQRT_RATIO + 1,
+      69 ether,
       Permit(bob, block.timestamp, v, r, s),
       Permit2(block.timestamp, sigAsset)
     );
