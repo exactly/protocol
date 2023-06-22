@@ -293,18 +293,16 @@ contract DebtManager is Initializable {
     v.assetOut = address(marketOut.asset());
     v.sender = _msgSender;
 
-    {
-      uint256 collateral = marketIn.maxWithdraw(v.sender);
-      (, , uint256 floatingBorrowShares) = marketIn.accounts(v.sender);
-      uint256 debt = marketIn.previewRefund(floatingBorrowShares);
-      v.amount = collateral + deposit - debt;
-    }
+    v.amount =
+      (crossedPrincipal(marketIn, marketOut, v.sender, 0) + deposit).mulWadDown(ratio) -
+      marketIn.maxWithdraw(v.sender) -
+      deposit;
 
     PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
     IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
       address(this),
       v.assetOut == poolKey.token0,
-      -int256(v.amount.mulWadDown(ratio - 1e18)),
+      -int256(v.amount),
       sqrtPriceLimitX96,
       abi.encode(
         SwapCallbackData({

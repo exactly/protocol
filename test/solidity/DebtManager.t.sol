@@ -287,6 +287,15 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), principal.mulWadDown(ratio - 1e18), 0);
   }
 
+  function testDeleverageWithPartialWithdraw() external _checkBalances {
+    debtManager.leverage(marketUSDC, 10_000e6, 3e18);
+    debtManager.deleverage(marketUSDC, 1e18, 5_000e6);
+
+    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
+    assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
+    assertEq(marketUSDC.maxWithdraw(address(this)), 5_000e6 - 3);
+  }
+
   function testDeleverageWithWithdraw() external _checkBalances {
     debtManager.leverage(marketUSDC, 100_000e6, 2e18);
     debtManager.deleverage(marketUSDC, 1e18, 100_000e6 - 3);
@@ -861,6 +870,32 @@ contract DebtManagerTest is ForkTest {
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, deposit, ratio, sqrtPriceLimitX96);
   }
 
+  function testCrossLeverageIncremental() external _checkBalances {
+    uint256 deposit = 10_000e6;
+    uint256 ratio = 2e18;
+    auditor.enterMarket(marketUSDC);
+
+    uint256 principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0) + deposit;
+    uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
+
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, deposit, ratio, MIN_SQRT_RATIO + 1);
+
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 2.3e6);
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 7e14);
+
+    ratio = 3e18;
+
+    expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
+
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 14.5e6);
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 2.7e15);
+  }
+
   function testCrossLeverageWithExistentDeposit() external _checkBalances {
     marketUSDC.deposit(10_000e6, address(this));
     auditor.enterMarket(marketUSDC);
@@ -878,8 +913,8 @@ contract DebtManagerTest is ForkTest {
 
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
-    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 1);
-    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1);
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 2);
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1e10);
   }
 
   function testCrossLeverageWithInvalidFee() external _checkBalances {
