@@ -843,12 +843,12 @@ contract DebtManagerTest is ForkTest {
     uint256 ratio = 2e18;
     auditor.enterMarket(marketUSDC);
 
-    uint256 principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0) + deposit;
+    uint256 principal = crossedPrincipal(marketUSDC, marketWETH, address(this)) + deposit;
     uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
 
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, deposit, ratio, MIN_SQRT_RATIO + 1);
 
-    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this));
 
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 2.3e6);
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 7e14);
@@ -858,7 +858,7 @@ contract DebtManagerTest is ForkTest {
     expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
-    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this));
 
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 14.5e6);
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 2.7e15);
@@ -900,14 +900,14 @@ contract DebtManagerTest is ForkTest {
     debtManager.crossLeverage(marketwstETH, marketWETH, 500, principal, ratio, MAX_SQRT_RATIO - 1);
 
     ratio = 1.5e18;
-    principal = crossedPrincipal(marketwstETH, marketWETH, address(this), 0);
+    principal = crossedPrincipal(marketwstETH, marketWETH, address(this));
     uint256 expectedDebt = previewAssetsOut(marketwstETH, marketWETH, principal.mulWadDown(ratio - 1e18));
 
     debtManager.crossDeleverage(marketwstETH, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
     assertApproxEqAbs(
       marketwstETH.maxWithdraw(address(this)),
-      crossedPrincipal(marketwstETH, marketWETH, address(this), 0).mulWadDown(ratio),
+      crossedPrincipal(marketwstETH, marketWETH, address(this)).mulWadDown(ratio),
       8e15
     );
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 0);
@@ -921,26 +921,26 @@ contract DebtManagerTest is ForkTest {
     debtManager.crossLeverage(marketWETH, marketUSDC, 500, principal, ratio, MAX_SQRT_RATIO - 1);
 
     ratio = 1.5e18;
-    principal = crossedPrincipal(marketWETH, marketUSDC, address(this), 0);
+    principal = crossedPrincipal(marketWETH, marketUSDC, address(this));
     uint256 expectedDebt = previewAssetsOut(marketWETH, marketUSDC, principal.mulWadDown(ratio - 1e18));
 
     debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
     assertApproxEqAbs(
       marketWETH.maxWithdraw(address(this)),
-      crossedPrincipal(marketWETH, marketUSDC, address(this), 0).mulWadDown(ratio),
+      crossedPrincipal(marketWETH, marketUSDC, address(this)).mulWadDown(ratio),
       2e15
     );
     assertApproxEqAbs(marketUSDC.previewDebt(address(this)), expectedDebt, 1);
 
     ratio = 1e18;
-    principal = crossedPrincipal(marketWETH, marketUSDC, address(this), 0);
+    principal = crossedPrincipal(marketWETH, marketUSDC, address(this));
 
     debtManager.crossDeleverage(marketWETH, marketUSDC, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
     assertApproxEqAbs(
       marketWETH.maxWithdraw(address(this)),
-      crossedPrincipal(marketWETH, marketUSDC, address(this), 0).mulWadDown(ratio),
+      crossedPrincipal(marketWETH, marketUSDC, address(this)).mulWadDown(ratio),
       1
     );
     assertApproxEqAbs(marketUSDC.previewDebt(address(this)), 0, 0);
@@ -977,14 +977,14 @@ contract DebtManagerTest is ForkTest {
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, principal, ratio, MIN_SQRT_RATIO + 1);
 
     ratio = 1.5e18;
-    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this));
     uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
 
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
 
     assertApproxEqAbs(
       marketUSDC.maxWithdraw(address(this)),
-      crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
+      crossedPrincipal(marketUSDC, marketWETH, address(this)).mulWadDown(ratio),
       3e6
     );
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 0);
@@ -994,7 +994,7 @@ contract DebtManagerTest is ForkTest {
 
     assertApproxEqAbs(
       marketUSDC.maxWithdraw(address(this)),
-      crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
+      crossedPrincipal(marketUSDC, marketWETH, address(this)).mulWadDown(ratio),
       1e6
     );
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), 0, 0);
@@ -1008,7 +1008,7 @@ contract DebtManagerTest is ForkTest {
     ratio = 1.5e18;
     uint256 withdraw = 1_000e6;
     uint256 usdcBalanceBefore = usdc.balanceOf(address(this));
-    uint256 principal = crossedPrincipal(marketUSDC, marketWETH, address(this), withdraw);
+    uint256 principal = crossedPrincipal(marketUSDC, marketWETH, address(this)) - withdraw;
 
     uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
 
@@ -1016,7 +1016,7 @@ contract DebtManagerTest is ForkTest {
 
     assertApproxEqAbs(
       marketUSDC.maxWithdraw(address(this)),
-      crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
+      crossedPrincipal(marketUSDC, marketWETH, address(this)).mulWadDown(ratio),
       3e6
     );
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 1);
@@ -1026,7 +1026,7 @@ contract DebtManagerTest is ForkTest {
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
     assertApproxEqAbs(
       marketUSDC.maxWithdraw(address(this)),
-      crossedPrincipal(marketUSDC, marketWETH, address(this), 0).mulWadDown(ratio),
+      crossedPrincipal(marketUSDC, marketWETH, address(this)).mulWadDown(ratio),
       1e6
     );
     assertEq(marketWETH.previewDebt(address(this)), 0);
@@ -1039,7 +1039,7 @@ contract DebtManagerTest is ForkTest {
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, principal, ratio, MIN_SQRT_RATIO + 1);
 
     ratio = 1.5e18;
-    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this));
     uint256 expectedDebt = previewAssetsOut(marketUSDC, marketWETH, principal.mulWadDown(ratio - 1e18));
 
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
@@ -1047,7 +1047,7 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 90e6);
     assertEq(marketWETH.previewDebt(address(this)), expectedDebt);
 
-    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this));
     uint256 deposit = marketUSDC.maxWithdraw(address(this));
 
     assertApproxEqAbs(ratio, deposit.divWadDown(principal), 45e13);
@@ -1056,7 +1056,7 @@ contract DebtManagerTest is ForkTest {
 
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 0, ratio, MAX_SQRT_RATIO - 1);
 
-    principal = crossedPrincipal(marketUSDC, marketWETH, address(this), 0);
+    principal = crossedPrincipal(marketUSDC, marketWETH, address(this));
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 1);
     assertEq(marketWETH.previewDebt(address(this)), 0);
   }
@@ -1391,20 +1391,16 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(marketOP.previewRefund(floatingBorrowShares), principal.mulWadDown(1.5e18 - 1e18), 1);
   }
 
-  function crossedPrincipal(
-    Market marketIn,
-    Market marketOut,
-    address sender,
-    uint256 withdraw
-  ) internal view returns (uint256) {
+  function crossedPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (uint256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
     uint256 assetPriceIn = auditor.assetPrice(priceFeedIn);
     (, , uint256 floatingBorrowSharesIn) = marketIn.accounts(sender);
     (, , uint256 floatingBorrowSharesOut) = marketOut.accounts(sender);
 
-    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - marketIn.previewRefund(floatingBorrowSharesIn) - withdraw)
-      .mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
+    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - marketIn.previewRefund(floatingBorrowSharesIn)).mulWadDown(
+      assetPriceIn
+    ) * 10 ** (18 - marketIn.decimals());
     uint256 debtUSD = marketOut.previewRefund(floatingBorrowSharesOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
       10 ** (18 - marketOut.decimals());
     return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());

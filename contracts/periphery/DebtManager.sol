@@ -271,7 +271,7 @@ contract DebtManager is Initializable {
     v.sender = _msgSender;
 
     v.amount =
-      (crossedPrincipal(marketIn, marketOut, v.sender, 0) + deposit).mulWadDown(ratio) -
+      (crossedPrincipal(marketIn, marketOut, v.sender) + deposit).mulWadDown(ratio) -
       marketIn.maxWithdraw(v.sender) -
       deposit;
 
@@ -323,7 +323,7 @@ contract DebtManager is Initializable {
           ? previewAssetsOut(
             marketIn,
             marketOut,
-            crossedPrincipal(marketIn, marketOut, v.sender, withdraw).mulWadDown(ratio - 1e18)
+            (crossedPrincipal(marketIn, marketOut, v.sender) - withdraw).mulWadDown(ratio - 1e18)
           )
           : 0
       );
@@ -631,20 +631,13 @@ contract DebtManager is Initializable {
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
   /// @param sender The account that will be deleveraged.
-  /// @param withdraw The amount of assets that will be withdrawn from `marketIn` to `sender`.
-  function crossedPrincipal(
-    Market marketIn,
-    Market marketOut,
-    address sender,
-    uint256 withdraw
-  ) internal view returns (uint256) {
+  function crossedPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (uint256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
     uint256 assetPriceIn = auditor.assetPrice(priceFeedIn);
 
-    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - floatingBorrowAssets(marketIn) - withdraw).mulWadDown(
-      assetPriceIn
-    ) * 10 ** (18 - marketIn.decimals());
+    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - floatingBorrowAssets(marketIn)).mulWadDown(assetPriceIn) *
+      10 ** (18 - marketIn.decimals());
     uint256 debtUSD = floatingBorrowAssets(marketOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
       10 ** (18 - marketOut.decimals());
     return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
