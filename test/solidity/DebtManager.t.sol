@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
+import { ForkTest, stdJson, stdError } from "./Fork.t.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
@@ -14,13 +15,12 @@ import {
   DebtManager,
   Disagreement,
   IBalancerVault,
-  IUniswapQuoter,
   IUniswapV3Pool,
   InvalidOperation
 } from "../../contracts/periphery/DebtManager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } from "../../contracts/Auditor.sol";
+import { DebtPreviewer, IUniswapQuoter } from "../../contracts/periphery/DebtPreviewer.sol";
 import { FixedLib, UnmatchedPoolState } from "../../contracts/utils/FixedLib.sol";
-import { ForkTest, stdJson, stdError } from "./Fork.t.sol";
 import { MockBalancerVault } from "../../contracts/mocks/MockBalancerVault.sol";
 
 contract DebtManagerTest is ForkTest {
@@ -36,6 +36,7 @@ contract DebtManagerTest is ForkTest {
   Auditor internal auditor;
   IPermit2 internal permit2;
   DebtManager internal debtManager;
+  DebtPreviewer internal debtPreviewer;
   Market internal marketUSDC;
   Market internal marketWETH;
   Market internal marketwstETH;
@@ -66,14 +67,14 @@ contract DebtManagerTest is ForkTest {
               auditor,
               permit2,
               IBalancerVault(deployment("BalancerVault")),
-              deployment("UniswapV3Factory"),
-              IUniswapQuoter(deployment("UniswapQuoter"))
+              deployment("UniswapV3Factory")
             )
           ),
           abi.encodeCall(DebtManager.initialize, ())
         )
       )
     );
+    debtPreviewer = new DebtPreviewer(debtManager, IUniswapQuoter(deployment("UniswapV3Quoter")));
     vm.label(address(debtManager), "DebtManager");
     assertLt(usdc.balanceOf(address(debtManager.balancerVault())), 1_000_000e6);
 
@@ -392,13 +393,7 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testLeverageWithInvalidBalancerVault() external {
-    DebtManager lev = new DebtManager(
-      auditor,
-      IPermit2(address(0)),
-      IBalancerVault(address(this)),
-      address(0),
-      IUniswapQuoter(address(0))
-    );
+    DebtManager lev = new DebtManager(auditor, IPermit2(address(0)), IBalancerVault(address(this)), address(0));
     vm.expectRevert(bytes(""));
     lev.leverage(marketUSDC, 100_000e6, 1.03e18);
   }
@@ -739,26 +734,6 @@ contract DebtManagerTest is ForkTest {
     assertGt(borrowPrincipal, (repayPrincipal + repayFee).mulWadDown(1 days * marketUSDC.penaltyRate()));
   }
 
-  function testAvailableLiquidity() external {
-    DebtManager.AvailableAsset[] memory availableAssets = debtManager.availableLiquidity();
-    Market[] memory markets = auditor.allMarkets();
-    assertEq(availableAssets.length, markets.length);
-    assertEq(address(availableAssets[1].asset), address(usdc));
-    assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(debtManager.balancerVault())));
-  }
-
-  function testUniswapV3PoolInfo() external {
-    (address token0, address token1, uint256 sqrtPriceX96) = debtManager.uniswapV3PoolInfo(
-      address(usdc),
-      address(weth),
-      500
-    );
-
-    assertApproxEqAbs((sqrtPriceX96 * sqrtPriceX96 * 1e18) >> (96 * 2), 1810e6, 1e6);
-    assertEq(token0, address(weth));
-    assertEq(token1, address(usdc));
-  }
-
   function testBalancerFlashloanCallFromDifferentOrigin() external {
     ERC20[] memory tokens = new ERC20[](1);
     tokens[0] = usdc;
@@ -782,13 +757,7 @@ contract DebtManagerTest is ForkTest {
       address(
         new ERC1967Proxy(
           address(
-            new DebtManager(
-              auditor,
-              IPermit2(address(0)),
-              IBalancerVault(address(mockBalancerVault)),
-              address(0),
-              IUniswapQuoter(address(0))
-            )
+            new DebtManager(auditor, IPermit2(address(0)), IBalancerVault(address(mockBalancerVault)), address(0))
           ),
           abi.encodeCall(DebtManager.initialize, ())
         )
@@ -815,7 +784,7 @@ contract DebtManagerTest is ForkTest {
     uint256 principal = coll - debt;
 
     uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
-    uint256 expectedBorrow = debtManager.previewOutputSwap(
+    uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
       address(weth),
       address(wstETH),
       (principal + deposit).mulWadDown(ratio - 1e18),
@@ -836,7 +805,7 @@ contract DebtManagerTest is ForkTest {
     uint256 principal = coll - debt;
 
     uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
-    uint256 expectedBorrow = debtManager.previewOutputSwap(
+    uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
       address(weth),
       address(usdc),
       (principal + deposit).mulWadDown(ratio - 1e18),
@@ -904,7 +873,7 @@ contract DebtManagerTest is ForkTest {
     (uint256 coll, uint256 debt) = marketUSDC.accountSnapshot(address(this));
     uint256 principal = coll - debt;
 
-    uint256 expectedBorrow = debtManager.previewOutputSwap(
+    uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
       address(weth),
       address(usdc),
       (principal).mulWadDown(ratio - 1e18),
@@ -1421,23 +1390,6 @@ contract DebtManagerTest is ForkTest {
     assertEq(healthFactor, 1.009199999999999999e18);
     assertApproxEqAbs(marketOP.maxWithdraw(address(bob)), principal.mulWadDown(1.5e18), 1);
     assertApproxEqAbs(marketOP.previewRefund(floatingBorrowShares), principal.mulWadDown(1.5e18 - 1e18), 1);
-  }
-
-  function testPreviewInputSwap() external {
-    assertEq(debtManager.previewInputSwap(address(marketWETH.asset()), address(usdc), 1e18, 500), 1809407986);
-    assertEq(debtManager.previewInputSwap(address(marketWETH.asset()), address(usdc), 100e18, 500), 180326534411);
-    assertEq(
-      debtManager.previewInputSwap(address(usdc), address(marketWETH.asset()), 1_800e6, 500),
-      993744547172020639
-    );
-    assertEq(
-      debtManager.previewInputSwap(address(usdc), address(marketWETH.asset()), 100_000e6, 500),
-      55114623226316151402
-    );
-    assertEq(
-      debtManager.previewInputSwap(address(marketwstETH.asset()), address(marketWETH.asset()), 1e18, 500),
-      1124234920941937964
-    );
   }
 
   function crossedPrincipal(

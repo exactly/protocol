@@ -10,6 +10,6 @@ const func: DeployFunction = async ({ deployments: { deploy }, getNamedAccounts 
   });
 };
 
-func.tags = ["BalancerVault"];
+func.tags = ["Balancer"];
 
 export default func;

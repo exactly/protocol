@@ -6,7 +6,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
     { address: auditor },
     { address: permit2 },
     { address: balancerVault },
-    { address: uniswapV3Factory },
+    { address: uniswapFactory },
     { address: timelock },
     { deployer },
   ] = await Promise.all([
@@ -20,7 +20,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 
   await validateUpgrade(
     "DebtManager",
-    { args: [auditor, permit2, balancerVault, uniswapV3Factory], envKey: "DEBT_MANAGER" },
+    { args: [auditor, permit2, balancerVault, uniswapFactory], envKey: "DEBT_MANAGER" },
     async (name, opts) =>
       deploy(name, {
         ...opts,
@@ -39,6 +39,6 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 };
 
 func.tags = ["DebtManager"];
-func.dependencies = ["TimelockController", "Auditor", "Markets", "UniswapV3Factory", "BalancerVault", "Permit2"];
+func.dependencies = ["TimelockController", "Auditor", "Markets", "UniswapV3", "Balancer", "Permit2"];
 
 export default func;

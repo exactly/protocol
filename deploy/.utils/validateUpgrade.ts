@@ -67,12 +67,12 @@ async function tryDeploy(deploy: DeployCallback, name: string, opts?: DeployOpti
   }
 }
 
-type DeployCallback = (name: string, opts?: DeployOptions) => Promise<DeployResult>;
+export type DeployCallback = (name: string, opts?: DeployOptions) => Promise<DeployResult>;
 
-interface DeployOptions {
+export type DeployOptions = {
   contract?: string;
   args?: unknown[];
   envKey?: string;
   unsafeAllow?: ValidationError["kind"][];
   skipIfAlreadyDeployed?: boolean;
-}
+};
