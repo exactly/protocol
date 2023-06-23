@@ -2,11 +2,16 @@
 pragma solidity 0.8.17;
 
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { DebtManager, IUniswapV3Pool, ERC20, PoolKey, PoolAddress } from "./DebtManager.sol";
+import { Auditor, IPriceFeed } from "../Auditor.sol";
+import { Market } from "../Market.sol";
 
 /// @title DebtPreviewer
 /// @notice Contract to be consumed by Exactly's front-end dApp as a helper for `DebtManager`.
 contract DebtPreviewer is OwnableUpgradeable {
+  using FixedPointMathLib for uint256;
+
   /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
   uint160 internal constant MIN_SQRT_RATIO = 4295128739;
   /// @dev The maximum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MAX_TICK)
@@ -120,12 +125,112 @@ contract DebtPreviewer is OwnableUpgradeable {
     }
   }
 
+  /// @notice Returns the amount of `marketOut` underlying assets considering `amountIn` and both assets oracle prices.
+  /// @param marketIn The market of the assets accounted as `amountIn`.
+  /// @param marketOut The market of the assets that will be returned.
+  /// @param amountIn The amount of `marketIn` underlying assets.
+  function previewAssetsOut(Market marketIn, Market marketOut, uint256 amountIn) internal view returns (uint256) {
+    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketIn);
+    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketOut);
+    return
+      amountIn.mulDivDown(debtManager.auditor().assetPrice(priceFeedIn), 10 ** marketIn.decimals()).mulDivDown(
+        10 ** marketOut.decimals(),
+        debtManager.auditor().assetPrice(priceFeedOut)
+      );
+  }
+
+  function leverage(Market marketIn, Market debtMarket, address account) external view returns (Leverage memory) {
+    uint256 debt = floatingBorrowAssets(debtMarket, account);
+    uint256 collateral = marketIn.maxWithdraw(account);
+    uint256 principal = crossedPrincipal(marketIn, debtMarket, account);
+    uint256 ratio = principal > 0 ? collateral.divWadDown(principal) : 1e18;
+
+    // TODO: check collateral market is entered. if not, collateral value is 0
+    return
+      Leverage({
+        debt: debt,
+        collateral: collateral,
+        principal: principal,
+        ratio: ratio,
+        maxRatio: maxRatio(marketIn, debtMarket, account, principal)
+      });
+  }
+
   /// @notice Sets a pool fee to the mapping of pool fees.
   /// @param pool The pool to be added.
   /// @param fee The fee of the pool to be added.
   function setPoolFee(Pool memory pool, uint24 fee) external onlyOwner {
     PoolKey memory poolKey = PoolAddress.getPoolKey(pool.tokenA, pool.tokenB, fee);
     poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
+  }
+
+  function maxRatio(
+    Market marketIn,
+    Market marketOut,
+    address account,
+    uint256 principal
+  ) internal view returns (uint256) {
+    RatioVars memory r;
+    Auditor auditor = debtManager.auditor();
+
+    uint256 marketMap = auditor.accountMarkets(account);
+    for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
+      if (marketMap & 1 != 0) {
+        Market market = auditor.marketList(i);
+
+        if (market != marketOut) {
+          Auditor.MarketData memory m;
+          Auditor.AccountLiquidity memory vars;
+          (m.adjustFactor, m.decimals, , , m.priceFeed) = auditor.markets(market);
+          (, vars.borrowBalance) = market.accountSnapshot(account);
+          vars.price = auditor.assetPrice(m.priceFeed);
+          r.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, 10 ** m.decimals).divWadUp(m.adjustFactor);
+        }
+      }
+      unchecked {
+        ++i;
+      }
+    }
+
+    (r.adjustFactorIn, , , , ) = auditor.markets(marketIn);
+    (r.adjustFactorOut, , , , ) = auditor.markets(marketOut);
+    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
+    if (principal == 0) return uint256(1e18).divWadDown(1e18 - r.adjustFactorIn.mulWadDown(r.adjustFactorOut));
+    return
+      (principal -
+        r.adjustedDebt.mulWadDown(r.adjustFactorOut).mulDivDown(
+          10 ** marketIn.decimals(),
+          auditor.assetPrice(priceFeedIn)
+        )).divWadDown(principal - principal.mulWadDown(r.adjustFactorIn).mulWadDown(r.adjustFactorOut));
+  }
+
+  /// @notice Calculates the crossed principal amount for a given `account` in the input and output markets.
+  /// @param marketIn The Market to withdraw the leveraged position.
+  /// @param marketOut The Market to repay the leveraged position.
+  /// @param account The account that will be deleveraged.
+  function crossedPrincipal(Market marketIn, Market marketOut, address account) internal view returns (uint256) {
+    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketIn);
+    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketOut);
+    uint256 assetPriceIn = debtManager.auditor().assetPrice(priceFeedIn);
+
+    uint256 collateralUSD = marketIn.maxWithdraw(account).mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
+    uint256 debtUSD = floatingBorrowAssets(marketOut, account).mulWadDown(
+      debtManager.auditor().assetPrice(priceFeedOut)
+    ) * 10 ** (18 - marketOut.decimals());
+    return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
+  }
+
+  function floatingBorrowAssets(Market market, address account) internal view returns (uint256) {
+    (, , uint256 floatingBorrowShares) = market.accounts(account);
+    return market.previewRefund(floatingBorrowShares);
+  }
+
+  struct Leverage {
+    uint256 debt;
+    uint256 collateral;
+    uint256 principal;
+    uint256 ratio;
+    uint256 maxRatio;
   }
 
   struct AvailableAsset {
@@ -136,6 +241,12 @@ contract DebtPreviewer is OwnableUpgradeable {
   struct Pool {
     address tokenA;
     address tokenB;
+  }
+
+  struct RatioVars {
+    uint256 adjustedDebt;
+    uint256 adjustFactorIn;
+    uint256 adjustFactorOut;
   }
 }
 
