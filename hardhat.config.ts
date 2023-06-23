@@ -70,7 +70,7 @@ export default {
     },
     markets: {
       WETH: {
-        adjustFactor: 0.84,
+        adjustFactor: 0.86,
         floatingCurve: { a: 1.9362e-2, b: -1.787e-3, maxUtilization: 1.003870947 },
         fixedCurve: { a: 3.8691e-1, b: -3.5319e-1, maxUtilization: 1.031219287 },
         overrides: {
@@ -142,7 +142,6 @@ export default {
             },
           },
           optimism: {
-            adjustFactor: 0.8,
             priceFeed: undefined,
             rewards: {
               OP: {
