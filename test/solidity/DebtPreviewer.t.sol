@@ -14,6 +14,7 @@ import {
 } from "../../contracts/periphery/DebtManager.sol";
 
 contract DebtPreviewerTest is ForkTest {
+  address internal constant ALICE = address(0x420);
   uint160 internal constant MIN_SQRT_RATIO = 4295128739;
   uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
   DebtPreviewer internal debtPreviewer;
@@ -45,7 +46,25 @@ contract DebtPreviewerTest is ForkTest {
       )
     );
 
-    debtPreviewer = new DebtPreviewer(debtManager, IUniswapQuoter(deployment("UniswapV3Quoter")));
+    DebtPreviewer.Pool[] memory pools = new DebtPreviewer.Pool[](4);
+    pools[0] = DebtPreviewer.Pool(address(weth), address(usdc));
+    pools[1] = DebtPreviewer.Pool(address(usdc), address(weth));
+    pools[2] = DebtPreviewer.Pool(address(wstETH), address(weth));
+    pools[3] = DebtPreviewer.Pool(address(weth), address(wstETH));
+    uint24[] memory fees = new uint24[](4);
+    fees[0] = 500;
+    fees[1] = 500;
+    fees[2] = 500;
+    fees[3] = 500;
+
+    debtPreviewer = DebtPreviewer(
+      address(
+        new ERC1967Proxy(
+          address(new DebtPreviewer(debtManager, IUniswapQuoter(deployment("UniswapV3Quoter")), pools, fees)),
+          abi.encodeCall(DebtPreviewer.initialize, ())
+        )
+      )
+    );
   }
 
   function testAvailableLiquidity() external {
@@ -74,5 +93,15 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(debtPreviewer.previewInputSwap(address(usdc), address(weth), 1_800e6, 500), 993744547172020639);
     assertEq(debtPreviewer.previewInputSwap(address(usdc), address(weth), 100_000e6, 500), 55114623226316151402);
     assertEq(debtPreviewer.previewInputSwap(address(wstETH), address(weth), 1e18, 500), 1124234920941937964);
+  }
+
+  function testSetPoolFee() external {
+    debtPreviewer.setPoolFee(DebtPreviewer.Pool(address(wstETH), address(usdc)), 500);
+  }
+
+  function testSetPoolFeeFromAnotherAccount() external {
+    vm.prank(ALICE);
+    vm.expectRevert(bytes(""));
+    debtPreviewer.setPoolFee(DebtPreviewer.Pool(address(wstETH), address(usdc)), 500);
   }
 }

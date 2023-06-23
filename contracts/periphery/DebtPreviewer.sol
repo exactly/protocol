@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { DebtManager, IUniswapV3Pool, ERC20, PoolKey, PoolAddress } from "./DebtManager.sol";
 
 /// @title DebtPreviewer
 /// @notice Contract to be consumed by Exactly's front-end dApp as a helper for `DebtManager`.
-contract DebtPreviewer {
+contract DebtPreviewer is OwnableUpgradeable {
   /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
   uint160 internal constant MIN_SQRT_RATIO = 4295128739;
   /// @dev The maximum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MAX_TICK)
@@ -17,11 +18,29 @@ contract DebtPreviewer {
   /// @notice Quoter contract to be used to preview the amount of assets to be swapped.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IUniswapQuoter public immutable uniswapV3Quoter;
+  /// @notice Mapping of Uniswap pools to their respective pool fee.
+  mapping(address => mapping(address => uint24)) public poolFees;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(DebtManager debtManager_, IUniswapQuoter uniswapV3Quoter_) {
+  constructor(DebtManager debtManager_, IUniswapQuoter uniswapV3Quoter_, Pool[] memory pools, uint24[] memory fees) {
     debtManager = debtManager_;
     uniswapV3Quoter = uniswapV3Quoter_;
+
+    assert(pools.length == fees.length);
+    for (uint256 i = 0; i < pools.length; ) {
+      PoolKey memory poolKey = PoolAddress.getPoolKey(pools[i].tokenA, pools[i].tokenB, fees[i]);
+      poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
+
+      unchecked {
+        ++i;
+      }
+    }
+  }
+
+  /// @notice Initializes the contract.
+  /// @dev can only be called once.
+  function initialize() external initializer {
+    __Ownable_init();
   }
 
   /// @notice Returns the output received for a given exact amount of a single pool swap.
@@ -101,9 +120,22 @@ contract DebtPreviewer {
     }
   }
 
+  /// @notice Sets a pool fee to the mapping of pool fees.
+  /// @param pool The pool to be added.
+  /// @param fee The fee of the pool to be added.
+  function setPoolFee(Pool memory pool, uint24 fee) external onlyOwner {
+    PoolKey memory poolKey = PoolAddress.getPoolKey(pool.tokenA, pool.tokenB, fee);
+    poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
+  }
+
   struct AvailableAsset {
     ERC20 asset;
     uint256 liquidity;
+  }
+
+  struct Pool {
+    address tokenA;
+    address tokenB;
   }
 }
 
