@@ -11,6 +11,7 @@ import grantRole from "./.utils/grantRole";
 const func: DeployFunction = async ({
   network: {
     config: { finance },
+    live,
   },
   ethers: {
     constants: { AddressZero },
@@ -141,7 +142,7 @@ const func: DeployFunction = async ({
       (await market.treasury()).toLowerCase() !== treasury.toLowerCase() ||
       !(await market.treasuryFeeRate()).eq(treasuryFeeRate)
     ) {
-      if (treasury === AddressZero && !treasuryFeeRate.isZero()) throw new Error("missing treasury");
+      if (treasury === AddressZero && !treasuryFeeRate.isZero() && live) throw new Error("missing treasury");
       await executeOrPropose(market, "setTreasury", [treasury, treasuryFeeRate]);
     }
 
