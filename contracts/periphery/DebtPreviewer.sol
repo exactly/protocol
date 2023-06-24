@@ -27,9 +27,15 @@ contract DebtPreviewer is OwnableUpgradeable {
   mapping(address => mapping(address => uint24)) public poolFees;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(DebtManager debtManager_, IUniswapQuoter uniswapV3Quoter_, Pool[] memory pools, uint24[] memory fees) {
+  constructor(DebtManager debtManager_, IUniswapQuoter uniswapV3Quoter_) {
     debtManager = debtManager_;
     uniswapV3Quoter = uniswapV3Quoter_;
+  }
+
+  /// @notice Initializes the contract.
+  /// @dev can only be called once.
+  function initialize(Pool[] memory pools, uint24[] memory fees) external initializer {
+    __Ownable_init();
 
     assert(pools.length == fees.length);
     for (uint256 i = 0; i < pools.length; ) {
@@ -40,12 +46,6 @@ contract DebtPreviewer is OwnableUpgradeable {
         ++i;
       }
     }
-  }
-
-  /// @notice Initializes the contract.
-  /// @dev can only be called once.
-  function initialize() external initializer {
-    __Ownable_init();
   }
 
   /// @notice Returns the output received for a given exact amount of a single pool swap.
@@ -92,25 +92,6 @@ contract DebtPreviewer is OwnableUpgradeable {
       );
   }
 
-  /// @notice Returns `token0`, `token1` and `sqrtPriceX96` of a given pool.
-  /// @param assetIn The address of the token to be swapped.
-  /// @param assetOut The address of the token to receive.
-  /// @param fee The fee of the pool that will be used.
-  /// @return token0 The address of the token0 of the pool.
-  /// @return token1 The address of the token1 of the pool.
-  /// @return sqrtPriceX96 The sqrt price of the pool.
-  function uniswapV3PoolInfo(
-    address assetIn,
-    address assetOut,
-    uint24 fee
-  ) external view returns (address token0, address token1, uint160 sqrtPriceX96) {
-    PoolKey memory poolKey = PoolAddress.getPoolKey(assetIn, assetOut, fee);
-    token0 = poolKey.token0;
-    token1 = poolKey.token1;
-    (sqrtPriceX96, , , , , , ) = IUniswapV3Pool(PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey))
-      .slot0();
-  }
-
   /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
   function availableLiquidity() external view returns (AvailableAsset[] memory availableAssets) {
     uint256 marketsCount = debtManager.auditor().allMarkets().length;
@@ -139,11 +120,16 @@ contract DebtPreviewer is OwnableUpgradeable {
       );
   }
 
-  function leverage(Market marketIn, Market debtMarket, address account) external view returns (Leverage memory) {
-    uint256 debt = floatingBorrowAssets(debtMarket, account);
+  function leverage(Market marketIn, Market marketOut, address account) external view returns (Leverage memory) {
+    uint256 debt = floatingBorrowAssets(marketOut, account);
     uint256 collateral = marketIn.maxWithdraw(account);
-    uint256 principal = crossedPrincipal(marketIn, debtMarket, account);
+    uint256 principal = crossedPrincipal(marketIn, marketOut, account);
     uint256 ratio = principal > 0 ? collateral.divWadDown(principal) : 1e18;
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketIn.asset()), address(marketOut.asset()), 0);
+    poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
+    (uint256 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(
+      PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey)
+    ).slot0();
 
     // TODO: check collateral market is entered. if not, collateral value is 0
     return
@@ -152,7 +138,9 @@ contract DebtPreviewer is OwnableUpgradeable {
         collateral: collateral,
         principal: principal,
         ratio: ratio,
-        maxRatio: maxRatio(marketIn, debtMarket, account, principal)
+        maxRatio: maxRatio(marketIn, marketOut, account, principal),
+        pool: poolKey,
+        sqrtPriceX96: sqrtPriceX96
       });
   }
 
@@ -231,6 +219,8 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 principal;
     uint256 ratio;
     uint256 maxRatio;
+    PoolKey pool;
+    uint256 sqrtPriceX96;
   }
 
   struct AvailableAsset {

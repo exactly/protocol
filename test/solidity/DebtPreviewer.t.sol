@@ -57,22 +57,18 @@ contract DebtPreviewerTest is ForkTest {
       )
     );
 
-    DebtPreviewer.Pool[] memory pools = new DebtPreviewer.Pool[](4);
+    DebtPreviewer.Pool[] memory pools = new DebtPreviewer.Pool[](2);
     pools[0] = DebtPreviewer.Pool(address(weth), address(usdc));
-    pools[1] = DebtPreviewer.Pool(address(usdc), address(weth));
-    pools[2] = DebtPreviewer.Pool(address(wstETH), address(weth));
-    pools[3] = DebtPreviewer.Pool(address(weth), address(wstETH));
-    uint24[] memory fees = new uint24[](4);
+    pools[1] = DebtPreviewer.Pool(address(weth), address(wstETH));
+    uint24[] memory fees = new uint24[](2);
     fees[0] = 500;
     fees[1] = 500;
-    fees[2] = 500;
-    fees[3] = 500;
 
     debtPreviewer = DebtPreviewer(
       address(
         new ERC1967Proxy(
-          address(new DebtPreviewer(debtManager, IUniswapQuoter(deployment("UniswapV3Quoter")), pools, fees)),
-          abi.encodeCall(DebtPreviewer.initialize, ())
+          address(new DebtPreviewer(debtManager, IUniswapQuoter(deployment("UniswapV3Quoter")))),
+          abi.encodeCall(DebtPreviewer.initialize, (pools, fees))
         )
       )
     );
@@ -97,18 +93,6 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(availableAssets.length, markets.length);
     assertEq(address(availableAssets[1].asset), address(usdc));
     assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(debtManager.balancerVault())));
-  }
-
-  function testUniswapV3PoolInfo() external {
-    (address token0, address token1, uint256 sqrtPriceX96) = debtPreviewer.uniswapV3PoolInfo(
-      address(usdc),
-      address(weth),
-      500
-    );
-
-    assertApproxEqAbs((sqrtPriceX96 * sqrtPriceX96 * 1e18) >> (96 * 2), 1810e6, 1e6);
-    assertEq(token0, address(weth));
-    assertEq(token1, address(usdc));
   }
 
   function testPreviewInputSwap() external {
@@ -157,6 +141,27 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.debt, 0);
     assertEq(leverage.ratio, 1e18);
     assertEq(leverage.maxRatio, uint256(1e18).divWadDown(1e18 - collateralAdjustFactor.mulWadDown(debtAdjustFactor)));
+  }
+
+  function testPreviewLeveragePoolInfo() external {
+    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
+    assertEq(leverage.pool.token0, address(weth));
+    assertEq(leverage.pool.token1, address(usdc));
+    assertEq(leverage.pool.fee, 500);
+    assertApproxEqAbs((leverage.sqrtPriceX96 * leverage.sqrtPriceX96 * 1e18) >> (96 * 2), 1810e6, 1e6);
+    leverage = debtPreviewer.leverage(marketWETH, marketUSDC, address(this));
+    assertEq(leverage.pool.token0, address(weth));
+    assertEq(leverage.pool.token1, address(usdc));
+    assertEq(leverage.pool.fee, 500);
+    assertApproxEqAbs((leverage.sqrtPriceX96 * leverage.sqrtPriceX96 * 1e18) >> (96 * 2), 1810e6, 1e6);
+    leverage = debtPreviewer.leverage(marketWETH, marketwstETH, address(this));
+    assertEq(leverage.pool.token0, address(wstETH));
+    assertEq(leverage.pool.token1, address(weth));
+    assertEq(leverage.pool.fee, 500);
+    leverage = debtPreviewer.leverage(marketwstETH, marketWETH, address(this));
+    assertEq(leverage.pool.token0, address(wstETH));
+    assertEq(leverage.pool.token1, address(weth));
+    assertEq(leverage.pool.fee, 500);
   }
 
   function testPreviewLeverageMaxRatioSingleCollateralAndDebt() external {
