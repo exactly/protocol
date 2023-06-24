@@ -87,14 +87,6 @@ contract DebtPreviewerTest is ForkTest {
     debtManager.auditor().enterMarket(marketUSDC);
   }
 
-  function testAvailableLiquidity() external {
-    DebtPreviewer.AvailableAsset[] memory availableAssets = debtPreviewer.availableLiquidity();
-    Market[] memory markets = debtManager.auditor().allMarkets();
-    assertEq(availableAssets.length, markets.length);
-    assertEq(address(availableAssets[1].asset), address(usdc));
-    assertEq(availableAssets[1].liquidity, usdc.balanceOf(address(debtManager.balancerVault())));
-  }
-
   function testPreviewInputSwap() external {
     assertEq(debtPreviewer.previewInputSwap(address(weth), address(usdc), 1e18, 500), 1809407986);
     assertEq(debtPreviewer.previewInputSwap(address(weth), address(usdc), 100e18, 500), 180326534411);
@@ -162,6 +154,14 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.pool.token0, address(wstETH));
     assertEq(leverage.pool.token1, address(weth));
     assertEq(leverage.pool.fee, 500);
+  }
+
+  function testPreviewLeverageBalancerAvailableLiquidity() external {
+    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
+    Market[] memory markets = debtManager.auditor().allMarkets();
+    assertEq(leverage.availableAssets.length, markets.length);
+    assertEq(address(leverage.availableAssets[1].asset), address(usdc));
+    assertEq(leverage.availableAssets[1].liquidity, usdc.balanceOf(address(debtManager.balancerVault())));
   }
 
   function testPreviewLeverageMaxRatioSingleCollateralAndDebt() external {

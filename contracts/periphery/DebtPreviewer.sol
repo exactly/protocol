@@ -92,18 +92,37 @@ contract DebtPreviewer is OwnableUpgradeable {
       );
   }
 
-  /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
-  function availableLiquidity() external view returns (AvailableAsset[] memory availableAssets) {
-    uint256 marketsCount = debtManager.auditor().allMarkets().length;
-    availableAssets = new AvailableAsset[](marketsCount);
+  function leverage(Market marketIn, Market marketOut, address account) external view returns (Leverage memory) {
+    (, , uint256 floatingBorrowShares) = marketOut.accounts(account);
+    uint256 debt = marketOut.previewRefund(floatingBorrowShares);
+    uint256 collateral = marketIn.maxWithdraw(account);
+    uint256 principal = crossedPrincipal(marketIn, marketOut, account);
+    uint256 ratio = principal > 0 ? collateral.divWadDown(principal) : 1e18;
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketIn.asset()), address(marketOut.asset()), 0);
+    poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
+    (uint256 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(
+      PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey)
+    ).slot0();
 
-    for (uint256 i = 0; i < marketsCount; i++) {
-      ERC20 asset = debtManager.auditor().marketList(i).asset();
-      availableAssets[i] = AvailableAsset({
-        asset: asset,
-        liquidity: asset.balanceOf(address(debtManager.balancerVault()))
+    return
+      Leverage({
+        debt: debt,
+        collateral: collateral,
+        principal: principal,
+        ratio: ratio,
+        maxRatio: maxRatio(marketIn, marketOut, account, principal),
+        pool: poolKey,
+        sqrtPriceX96: sqrtPriceX96,
+        availableAssets: balancerAvailableLiquidity()
       });
-    }
+  }
+
+  /// @notice Sets a pool fee to the mapping of pool fees.
+  /// @param pool The pool to be added.
+  /// @param fee The fee of the pool to be added.
+  function setPoolFee(Pool memory pool, uint24 fee) external onlyOwner {
+    PoolKey memory poolKey = PoolAddress.getPoolKey(pool.tokenA, pool.tokenB, fee);
+    poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
   }
 
   /// @notice Returns the amount of `marketOut` underlying assets considering `amountIn` and both assets oracle prices.
@@ -118,38 +137,6 @@ contract DebtPreviewer is OwnableUpgradeable {
         10 ** marketOut.decimals(),
         debtManager.auditor().assetPrice(priceFeedOut)
       );
-  }
-
-  function leverage(Market marketIn, Market marketOut, address account) external view returns (Leverage memory) {
-    uint256 debt = floatingBorrowAssets(marketOut, account);
-    uint256 collateral = marketIn.maxWithdraw(account);
-    uint256 principal = crossedPrincipal(marketIn, marketOut, account);
-    uint256 ratio = principal > 0 ? collateral.divWadDown(principal) : 1e18;
-    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketIn.asset()), address(marketOut.asset()), 0);
-    poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
-    (uint256 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(
-      PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey)
-    ).slot0();
-
-    // TODO: check collateral market is entered. if not, collateral value is 0
-    return
-      Leverage({
-        debt: debt,
-        collateral: collateral,
-        principal: principal,
-        ratio: ratio,
-        maxRatio: maxRatio(marketIn, marketOut, account, principal),
-        pool: poolKey,
-        sqrtPriceX96: sqrtPriceX96
-      });
-  }
-
-  /// @notice Sets a pool fee to the mapping of pool fees.
-  /// @param pool The pool to be added.
-  /// @param fee The fee of the pool to be added.
-  function setPoolFee(Pool memory pool, uint24 fee) external onlyOwner {
-    PoolKey memory poolKey = PoolAddress.getPoolKey(pool.tokenA, pool.tokenB, fee);
-    poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
   }
 
   function maxRatio(
@@ -202,15 +189,25 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 assetPriceIn = debtManager.auditor().assetPrice(priceFeedIn);
 
     uint256 collateralUSD = marketIn.maxWithdraw(account).mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
-    uint256 debtUSD = floatingBorrowAssets(marketOut, account).mulWadDown(
+    (, , uint256 floatingBorrowShares) = marketOut.accounts(account);
+    uint256 debtUSD = marketOut.previewRefund(floatingBorrowShares).mulWadDown(
       debtManager.auditor().assetPrice(priceFeedOut)
     ) * 10 ** (18 - marketOut.decimals());
     return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
   }
 
-  function floatingBorrowAssets(Market market, address account) internal view returns (uint256) {
-    (, , uint256 floatingBorrowShares) = market.accounts(account);
-    return market.previewRefund(floatingBorrowShares);
+  /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
+  function balancerAvailableLiquidity() internal view returns (AvailableAsset[] memory availableAssets) {
+    uint256 marketsCount = debtManager.auditor().allMarkets().length;
+    availableAssets = new AvailableAsset[](marketsCount);
+
+    for (uint256 i = 0; i < marketsCount; i++) {
+      ERC20 asset = debtManager.auditor().marketList(i).asset();
+      availableAssets[i] = AvailableAsset({
+        asset: asset,
+        liquidity: asset.balanceOf(address(debtManager.balancerVault()))
+      });
+    }
   }
 
   struct Leverage {
@@ -221,6 +218,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 maxRatio;
     PoolKey pool;
     uint256 sqrtPriceX96;
+    AvailableAsset[] availableAssets;
   }
 
   struct AvailableAsset {
