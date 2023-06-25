@@ -100,9 +100,11 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 ratio = principal > 0 ? collateral.divWadDown(principal) : 1e18;
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketIn.asset()), address(marketOut.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
-    (uint256 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(
-      PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey)
-    ).slot0();
+    uint256 sqrtPriceX96;
+    if (address(marketIn) != address(marketOut)) {
+      (sqrtPriceX96, , , , , , ) = IUniswapV3Pool(PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey))
+        .slot0();
+    }
 
     return
       Leverage({
