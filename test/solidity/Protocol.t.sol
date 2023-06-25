@@ -237,6 +237,13 @@ contract ProtocolTest is Test {
     }
   }
 
+  function invariantFloatingAssetsEqOrHigherThanFloatingDebt() external {
+    for (uint256 i = 0; i < markets.length; ++i) {
+      Market market = markets[i];
+      assertGe(market.floatingAssets(), market.floatingDebt(), "should be greater than or equal to floatingDebt");
+    }
+  }
+
   function invariantRewardsReleaseRate() external {
     for (uint i = 0; i < markets.length; ++i) {
       Market market = markets[i];
