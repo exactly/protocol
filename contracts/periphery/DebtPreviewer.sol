@@ -92,6 +92,11 @@ contract DebtPreviewer is OwnableUpgradeable {
       );
   }
 
+  /// @notice Returns extended data useful to leverage or deleverage an account principal position.
+  /// @param marketIn The deposit Market.
+  /// @param marketOut The borrow Market.
+  /// @param account The account operating with the `DebtManager`.
+  /// @return extended leverage data.
   function leverage(Market marketIn, Market marketOut, address account) external view returns (Leverage memory) {
     (, , uint256 floatingBorrowShares) = marketOut.accounts(account);
     uint256 debt = marketOut.previewRefund(floatingBorrowShares);
@@ -141,6 +146,11 @@ contract DebtPreviewer is OwnableUpgradeable {
       );
   }
 
+  /// @notice Returns the maximum ratio that an account can leverage its principal position.
+  /// @param marketIn The deposit Market.
+  /// @param marketOut The borrow Market.
+  /// @param account The account that will be leveraged.
+  /// @param principal The principal amount that will be leveraged.
   function maxRatio(
     Market marketIn,
     Market marketOut,
