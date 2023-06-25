@@ -203,6 +203,48 @@ contract DebtPreviewerTest is ForkTest {
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
   }
 
+  function testPreviewCrossLeverageWithUSDCDeposit() external {
+    marketUSDC.deposit(10_000e6, address(this));
+    auditor.enterMarket(marketUSDC);
+    marketOP.borrow(1_000e18, address(this), address(this));
+    marketWETH.borrow(0.5e18, address(this), address(this));
+
+    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
+    uint256 newDeposit = 3_000e6;
+    uint256 newRatio = debtPreviewer.maxRatio(marketUSDC, marketWETH, address(this), leverage.principal + newDeposit);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, newDeposit, newRatio - 0.005e18, MIN_SQRT_RATIO + 1);
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
+  }
+
+  function testPreviewCrossLeverageWithWETHDeposit() external {
+    marketWETH.deposit(5e18, address(this));
+    auditor.enterMarket(marketWETH);
+    marketOP.borrow(1_000e18, address(this), address(this));
+    marketUSDC.borrow(2_000e6, address(this), address(this));
+
+    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketWETH, marketUSDC, address(this));
+    uint256 newDeposit = 3e18;
+    uint256 newRatio = debtPreviewer.maxRatio(marketWETH, marketUSDC, address(this), leverage.principal + newDeposit);
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, newDeposit, newRatio - 0.015e18, MAX_SQRT_RATIO - 1);
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
+  }
+
+  function testPreviewLeverageSameUSDCAssetWithDeposit() external {
+    marketUSDC.deposit(10_000e6, address(this));
+    auditor.enterMarket(marketUSDC);
+    marketOP.borrow(1_000e18, address(this), address(this));
+    marketWETH.borrow(2.3e18, address(this), address(this));
+
+    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this));
+    uint256 newDeposit = 5_000e6;
+    uint256 newRatio = debtPreviewer.maxRatio(marketUSDC, marketUSDC, address(this), leverage.principal + newDeposit);
+    debtManager.leverage(marketUSDC, newDeposit, newRatio - 0.003e18);
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
+  }
+
   function testPreviewLeverageUSDCMaxRatioMultipleCollateralAndDebt() external {
     marketUSDC.deposit(10_000e6, address(this));
     auditor.enterMarket(marketUSDC);

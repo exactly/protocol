@@ -156,7 +156,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     Market marketOut,
     address account,
     uint256 principal
-  ) internal view returns (uint256) {
+  ) public view returns (uint256) {
     RatioVars memory r;
     Auditor auditor = debtManager.auditor();
 
