@@ -124,6 +124,20 @@ contract DebtPreviewer is OwnableUpgradeable {
       });
   }
 
+  /// @notice Returns the maximum ratio that an account can leverage its principal plus `assets` amount.
+  /// @param marketIn The deposit Market.
+  /// @param marketOut The borrow Market.
+  /// @param account The account that will be leveraged.
+  /// @param assets The amount of assets that will be added to the principal.
+  function previewDeposit(
+    Market marketIn,
+    Market marketOut,
+    address account,
+    uint256 assets
+  ) external view returns (uint256) {
+    return maxRatio(marketIn, marketOut, account, crossedPrincipal(marketIn, marketOut, account) + assets);
+  }
+
   /// @notice Sets a pool fee to the mapping of pool fees.
   /// @param pool The pool to be added.
   /// @param fee The fee of the pool to be added.
@@ -156,7 +170,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     Market marketOut,
     address account,
     uint256 principal
-  ) public view returns (uint256) {
+  ) internal view returns (uint256) {
     RatioVars memory r;
     Auditor auditor = debtManager.auditor();
 
