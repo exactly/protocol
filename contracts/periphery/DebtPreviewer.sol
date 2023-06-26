@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { DebtManager, IUniswapV3Pool, ERC20, PoolKey, PoolAddress } from "./DebtManager.sol";
@@ -81,7 +82,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     address assetOut,
     uint256 amountOut,
     uint24 fee
-  ) external returns (uint256) {
+  ) public returns (uint256) {
     return
       uniswapV3Quoter.quoteExactOutputSingle(
         assetIn,
@@ -97,7 +98,7 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketOut The borrow Market.
   /// @param account The account operating with the `DebtManager`.
   /// @return extended leverage data.
-  function leverage(Market marketIn, Market marketOut, address account) external view returns (Leverage memory) {
+  function leverage(Market marketIn, Market marketOut, address account) external returns (Leverage memory) {
     (, , uint256 floatingBorrowShares) = marketOut.accounts(account);
     uint256 debt = marketOut.previewRefund(floatingBorrowShares);
     uint256 collateral = marketIn.maxWithdraw(account);
@@ -118,6 +119,7 @@ contract DebtPreviewer is OwnableUpgradeable {
         principal: principal,
         ratio: ratio,
         maxRatio: maxRatio(marketIn, marketOut, account, principal),
+        maxWithdraw: maxWithdraw(marketIn, marketOut, account),
         pool: poolKey,
         sqrtPriceX96: sqrtPriceX96,
         availableAssets: balancerAvailableLiquidity()
@@ -207,6 +209,62 @@ contract DebtPreviewer is OwnableUpgradeable {
         )).divWadDown(principal - principal.mulWadDown(r.adjustFactorIn).mulWadDown(r.adjustFactorOut));
   }
 
+  function floatingBorrowAssets(Market market, address account) internal view returns (uint256) {
+    (, , uint256 floatingBorrowShares) = market.accounts(account);
+    return market.previewRefund(floatingBorrowShares);
+  }
+
+  function maxWithdraw(Market marketIn, Market marketOut, address account) internal returns (uint256) {
+    Auditor auditor = debtManager.auditor();
+
+    MaxWithdrawVars memory mw;
+    mw.marketMap = auditor.accountMarkets(account);
+    for (mw.i = 0; mw.marketMap != 0; mw.marketMap >>= 1) {
+      if (mw.marketMap & 1 != 0) {
+        Auditor.MarketData memory md;
+        Auditor.AccountLiquidity memory vars;
+
+        mw.market = auditor.marketList(mw.i);
+        (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(mw.market);
+        (vars.balance, vars.borrowBalance) = mw.market.accountSnapshot(account);
+        vars.price = auditor.assetPrice(md.priceFeed);
+
+        mw.adjustedCollateral += vars.balance.mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
+        mw.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, 10 ** md.decimals).divWadUp(md.adjustFactor);
+        if (mw.market == marketOut) {
+          mw.adjustedRepay = floatingBorrowAssets(marketOut, account).mulDivUp(vars.price, 10 ** md.decimals).divWadUp(
+            md.adjustFactor
+          );
+        } else if (mw.market == marketIn) {
+          mw.adjustedPrincipalToRepayDebt = floatingBorrowAssets(marketOut, account) > 0
+            ? previewOutputSwap(
+              address(marketIn.asset()),
+              address(marketOut.asset()),
+              floatingBorrowAssets(marketOut, account),
+              500
+            ).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor)
+            : 0;
+          mw.adjustedPrincipal =
+            (mw.market.maxWithdraw(account)).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor) -
+            mw.adjustedPrincipalToRepayDebt;
+        }
+      }
+      unchecked {
+        ++mw.i;
+      }
+    }
+    (mw.adjustFactorIn, , , , mw.priceFeedIn) = auditor.markets(marketIn);
+
+    return
+      Math
+        .min(
+          mw.adjustedCollateral + mw.adjustedRepay - mw.adjustedDebt - mw.adjustedPrincipalToRepayDebt,
+          mw.adjustedPrincipal
+        )
+        .mulDivDown(10 ** marketIn.decimals(), auditor.assetPrice(mw.priceFeedIn))
+        .divWadDown(mw.adjustFactorIn);
+  }
+
   /// @notice Calculates the crossed principal amount for a given `account` in the input and output markets.
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
@@ -244,6 +302,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 principal;
     uint256 ratio;
     uint256 maxRatio;
+    uint256 maxWithdraw;
     PoolKey pool;
     uint256 sqrtPriceX96;
     AvailableAsset[] availableAssets;
@@ -263,6 +322,20 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 adjustedDebt;
     uint256 adjustFactorIn;
     uint256 adjustFactorOut;
+  }
+
+  struct MaxWithdrawVars {
+    uint256 adjustedDebt;
+    uint256 adjustedRepay;
+    uint256 adjustedPrincipal;
+    uint256 adjustedCollateral;
+    uint256 adjustedPrincipalToRepayDebt;
+    IPriceFeed priceFeedIn;
+    uint256 marketMap;
+    uint256 adjustFactorIn;
+    uint256 adjustFactorOut;
+    uint256 i;
+    Market market;
   }
 }
 
