@@ -5,6 +5,7 @@ import { ForkTest } from "./Fork.t.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { DebtPreviewer, IUniswapQuoter } from "../../contracts/periphery/DebtPreviewer.sol";
+import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
   DebtManager,
   Auditor,
@@ -30,6 +31,7 @@ contract DebtPreviewerTest is ForkTest {
   ERC20 internal usdc;
   ERC20 internal wstETH;
   Auditor internal auditor;
+  uint256 internal maturity;
 
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375);
@@ -86,6 +88,7 @@ contract DebtPreviewerTest is ForkTest {
     wstETH.approve(address(debtManager), type(uint256).max);
     weth.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketUSDC);
+    maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
   }
 
   function testPreviewInputSwap() external {
@@ -247,9 +250,24 @@ contract DebtPreviewerTest is ForkTest {
     auditor.enterMarket(marketUSDC);
     marketOP.borrow(1_000e18, address(this), address(this));
     marketWETH.borrow(0.5e18, address(this), address(this));
+    marketUSDC.borrowAtMaturity(maturity, 200e6, 400e6, address(this), address(this));
 
     DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
     uint256 ratio = leverage.maxRatio - 0.005e18;
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
+  }
+
+  function testPreviewLeverageUSDCMaxRatioMultipleCollateralAndFixedDebt() external {
+    marketUSDC.deposit(10_000e6, address(this));
+    auditor.enterMarket(marketUSDC);
+    marketOP.borrow(1_000e18, address(this), address(this));
+    marketWETH.borrow(0.5e18, address(this), address(this));
+    marketWETH.borrowAtMaturity(maturity, 0.5e18, 1e18, address(this), address(this));
+
+    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
+    uint256 ratio = leverage.maxRatio - 0.003e18;
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);

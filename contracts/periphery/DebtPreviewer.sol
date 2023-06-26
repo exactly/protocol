@@ -178,15 +178,17 @@ contract DebtPreviewer is OwnableUpgradeable {
     for (uint256 i = 0; marketMap != 0; marketMap >>= 1) {
       if (marketMap & 1 != 0) {
         Market market = auditor.marketList(i);
+        Auditor.MarketData memory m;
+        Auditor.AccountLiquidity memory vars;
+        (m.adjustFactor, m.decimals, , , m.priceFeed) = auditor.markets(market);
+        vars.price = auditor.assetPrice(m.priceFeed);
+        (, vars.borrowBalance) = market.accountSnapshot(account);
 
-        if (market != marketOut) {
-          Auditor.MarketData memory m;
-          Auditor.AccountLiquidity memory vars;
-          (m.adjustFactor, m.decimals, , , m.priceFeed) = auditor.markets(market);
-          (, vars.borrowBalance) = market.accountSnapshot(account);
-          vars.price = auditor.assetPrice(m.priceFeed);
-          r.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, 10 ** m.decimals).divWadUp(m.adjustFactor);
+        if (market == marketOut) {
+          (, , uint256 floatingBorrowShares) = market.accounts(account);
+          vars.borrowBalance -= market.previewRefund(floatingBorrowShares);
         }
+        r.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, 10 ** m.decimals).divWadUp(m.adjustFactor);
       }
       unchecked {
         ++i;
