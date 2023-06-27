@@ -73,12 +73,15 @@ contract DebtManagerTest is ForkTest {
         )
       )
     );
-    debtPreviewer = new DebtPreviewer(
-      debtManager,
-      IUniswapQuoter(deployment("UniswapV3Quoter")),
-      new DebtPreviewer.Pool[](0),
-      new uint24[](0)
+    debtPreviewer = DebtPreviewer(
+      address(
+        new ERC1967Proxy(
+          address(new DebtPreviewer(debtManager, IUniswapQuoter(deployment("UniswapV3Quoter")))),
+          abi.encodeCall(DebtPreviewer.initialize, (new DebtPreviewer.Pool[](0), new uint24[](0)))
+        )
+      )
     );
+
     vm.label(address(debtManager), "DebtManager");
     assertLt(usdc.balanceOf(address(debtManager.balancerVault())), 1_000_000e6);
 
@@ -820,6 +823,19 @@ contract DebtManagerTest is ForkTest {
 
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), expectedDeposit, 1);
     assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedBorrow, 1);
+  }
+
+  function testLeverageAndMaxRatioCrossLeverageFromUSDCToWETH() external {
+    debtPreviewer.setPoolFee(DebtPreviewer.Pool(address(weth), address(usdc)), 500);
+    debtManager.leverage(marketUSDC, 10_000e6, 5e18);
+
+    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, leverage.maxRatio - 0.001e18, MIN_SQRT_RATIO + 1);
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertApproxEqAbs(leverage.ratio, 1e18, 20000000);
+    assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
+    assertApproxEqAbs(leverage.principal, 50_000e6, 6);
+    assertApproxEqAbs(leverage.maxRatio, 1.11e18, 0.0001e18);
   }
 
   function testCrossLeverageWithAccuratePriceLimit() external {

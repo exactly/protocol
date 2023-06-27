@@ -636,8 +636,7 @@ contract DebtManager is Initializable {
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
     uint256 assetPriceIn = auditor.assetPrice(priceFeedIn);
 
-    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - floatingBorrowAssets(marketIn)).mulWadDown(assetPriceIn) *
-      10 ** (18 - marketIn.decimals());
+    uint256 collateralUSD = marketIn.maxWithdraw(sender).mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
     uint256 debtUSD = floatingBorrowAssets(marketOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
       10 ** (18 - marketOut.decimals());
     return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
