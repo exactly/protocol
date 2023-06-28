@@ -140,6 +140,20 @@ contract DebtPreviewer is OwnableUpgradeable {
     return maxRatio(marketIn, marketOut, account, crossedPrincipal(marketIn, marketOut, account) + assets);
   }
 
+  /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
+  /// @param marketIn The deposit Market.
+  /// @param marketOut The borrow Market.
+  /// @param account The account that will be deleveraged.
+  /// @param assets The amount of assets that will be subtracted from the principal.
+  function previewWithdraw(
+    Market marketIn,
+    Market marketOut,
+    address account,
+    uint256 assets
+  ) external view returns (uint256) {
+    return maxRatio(marketIn, marketOut, account, crossedPrincipal(marketIn, marketOut, account) - assets);
+  }
+
   /// @notice Sets a pool fee to the mapping of pool fees.
   /// @param pool The pool to be added.
   /// @param fee The fee of the pool to be added.
