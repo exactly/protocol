@@ -931,7 +931,7 @@ contract DebtManagerTest is ForkTest {
       crossedPrincipal(marketwstETH, marketWETH, address(this)).mulWadDown(ratio),
       8e15
     );
-    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 0);
+    assertApproxEqAbs(marketWETH.previewDebt(address(this)), expectedDebt, 1);
   }
 
   function testCrossDeleverageFromWETHToUSDC() external _checkBalances {
@@ -1415,16 +1415,14 @@ contract DebtManagerTest is ForkTest {
   function crossedPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (uint256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
-    uint256 assetPriceIn = auditor.assetPrice(priceFeedIn);
-    (, , uint256 floatingBorrowSharesIn) = marketIn.accounts(sender);
-    (, , uint256 floatingBorrowSharesOut) = marketOut.accounts(sender);
+    (, , uint256 floatingBorrowShares) = marketOut.accounts(sender);
 
-    uint256 collateralUSD = (marketIn.maxWithdraw(sender) - marketIn.previewRefund(floatingBorrowSharesIn)).mulWadDown(
-      assetPriceIn
-    ) * 10 ** (18 - marketIn.decimals());
-    uint256 debtUSD = marketOut.previewRefund(floatingBorrowSharesOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
-      10 ** (18 - marketOut.decimals());
-    return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
+    uint256 collateral = marketIn.maxWithdraw(sender);
+    uint256 debt = marketOut
+      .previewRefund(floatingBorrowShares)
+      .mulDivDown(auditor.assetPrice(priceFeedOut), 10 ** marketOut.decimals())
+      .mulDivDown(10 ** marketIn.decimals(), auditor.assetPrice(priceFeedIn));
+    return collateral - debt;
   }
 
   function previewAssetsOut(Market marketIn, Market marketOut, uint256 amountIn) internal view returns (uint256) {

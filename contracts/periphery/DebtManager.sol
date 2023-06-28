@@ -634,12 +634,12 @@ contract DebtManager is Initializable {
   function crossedPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (uint256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
-    uint256 assetPriceIn = auditor.assetPrice(priceFeedIn);
 
-    uint256 collateralUSD = marketIn.maxWithdraw(sender).mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
-    uint256 debtUSD = floatingBorrowAssets(marketOut).mulWadDown(auditor.assetPrice(priceFeedOut)) *
-      10 ** (18 - marketOut.decimals());
-    return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
+    uint256 collateral = marketIn.maxWithdraw(sender);
+    uint256 debt = floatingBorrowAssets(marketOut)
+      .mulDivDown(auditor.assetPrice(priceFeedOut), 10 ** marketOut.decimals())
+      .mulDivDown(10 ** marketIn.decimals(), auditor.assetPrice(priceFeedIn));
+    return collateral - debt;
   }
 
   /// @notice Returns the amount of `marketOut` underlying assets considering `amountIn` and both assets oracle prices.

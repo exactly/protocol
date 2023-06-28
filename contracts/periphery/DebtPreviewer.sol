@@ -290,9 +290,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketOut);
 
     uint256 collateral = marketIn.maxWithdraw(account);
-    (, , uint256 floatingBorrowShares) = marketOut.accounts(account);
-    uint256 debt = marketOut
-      .previewRefund(floatingBorrowShares)
+    uint256 debt = floatingBorrowAssets(marketOut, account)
       .mulDivDown(debtManager.auditor().assetPrice(priceFeedOut), 10 ** marketOut.decimals())
       .mulDivDown(10 ** marketIn.decimals(), debtManager.auditor().assetPrice(priceFeedIn));
     return int256(collateral) - int256(debt);
