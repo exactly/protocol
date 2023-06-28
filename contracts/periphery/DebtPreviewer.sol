@@ -136,8 +136,9 @@ contract DebtPreviewer is OwnableUpgradeable {
     Market marketOut,
     address account,
     uint256 assets
-  ) external view returns (uint256) {
-    return maxRatio(marketIn, marketOut, account, uint256(crossedPrincipal(marketIn, marketOut, account)) + assets);
+  ) external view returns (Limit memory limit) {
+    limit.principal = crossedPrincipal(marketIn, marketOut, account) + int256(assets);
+    limit.maxRatio = maxRatio(marketIn, marketOut, account, limit.principal > 0 ? uint256(limit.principal) : 0);
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
@@ -150,8 +151,9 @@ contract DebtPreviewer is OwnableUpgradeable {
     Market marketOut,
     address account,
     uint256 assets
-  ) external view returns (uint256) {
-    return maxRatio(marketIn, marketOut, account, uint256(crossedPrincipal(marketIn, marketOut, account)) - assets);
+  ) external view returns (Limit memory limit) {
+    limit.principal = crossedPrincipal(marketIn, marketOut, account) - int256(assets);
+    limit.maxRatio = maxRatio(marketIn, marketOut, account, limit.principal > 0 ? uint256(limit.principal) : 0);
   }
 
   /// @notice Sets a pool fee to the mapping of pool fees.
@@ -330,6 +332,11 @@ contract DebtPreviewer is OwnableUpgradeable {
   struct Pool {
     address tokenA;
     address tokenB;
+  }
+
+  struct Limit {
+    int256 principal;
+    uint256 maxRatio;
   }
 
   struct RatioVars {
