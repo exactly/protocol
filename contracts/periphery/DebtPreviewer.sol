@@ -102,8 +102,8 @@ contract DebtPreviewer is OwnableUpgradeable {
     (, , uint256 floatingBorrowShares) = marketOut.accounts(account);
     uint256 debt = marketOut.previewRefund(floatingBorrowShares);
     uint256 collateral = marketIn.maxWithdraw(account);
-    uint256 principal = crossedPrincipal(marketIn, marketOut, account);
-    uint256 ratio = principal > 0 ? collateral.divWadDown(principal) : 1e18;
+    int256 principal = crossedPrincipal(marketIn, marketOut, account);
+    uint256 ratio = principal > 0 ? collateral.divWadDown(uint256(principal)) : 1e18;
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketIn.asset()), address(marketOut.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     uint256 sqrtPriceX96;
@@ -118,7 +118,7 @@ contract DebtPreviewer is OwnableUpgradeable {
         collateral: collateral,
         principal: principal,
         ratio: ratio,
-        maxRatio: maxRatio(marketIn, marketOut, account, principal),
+        maxRatio: maxRatio(marketIn, marketOut, account, principal > 0 ? uint256(principal) : 0),
         maxWithdraw: maxWithdraw(marketIn, marketOut, account),
         pool: poolKey,
         sqrtPriceX96: sqrtPriceX96,
@@ -137,7 +137,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     address account,
     uint256 assets
   ) external view returns (uint256) {
-    return maxRatio(marketIn, marketOut, account, crossedPrincipal(marketIn, marketOut, account) + assets);
+    return maxRatio(marketIn, marketOut, account, uint256(crossedPrincipal(marketIn, marketOut, account)) + assets);
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
@@ -151,7 +151,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     address account,
     uint256 assets
   ) external view returns (uint256) {
-    return maxRatio(marketIn, marketOut, account, crossedPrincipal(marketIn, marketOut, account) - assets);
+    return maxRatio(marketIn, marketOut, account, uint256(crossedPrincipal(marketIn, marketOut, account)) - assets);
   }
 
   /// @notice Sets a pool fee to the mapping of pool fees.
@@ -283,17 +283,17 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
   /// @param account The account that will be deleveraged.
-  function crossedPrincipal(Market marketIn, Market marketOut, address account) internal view returns (uint256) {
+  function crossedPrincipal(Market marketIn, Market marketOut, address account) internal view returns (int256) {
     (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketOut);
-    uint256 assetPriceIn = debtManager.auditor().assetPrice(priceFeedIn);
 
-    uint256 collateralUSD = marketIn.maxWithdraw(account).mulWadDown(assetPriceIn) * 10 ** (18 - marketIn.decimals());
+    uint256 collateral = marketIn.maxWithdraw(account);
     (, , uint256 floatingBorrowShares) = marketOut.accounts(account);
-    uint256 debtUSD = marketOut.previewRefund(floatingBorrowShares).mulWadDown(
-      debtManager.auditor().assetPrice(priceFeedOut)
-    ) * 10 ** (18 - marketOut.decimals());
-    return (collateralUSD - debtUSD).divWadDown(assetPriceIn) / 10 ** (18 - marketIn.decimals());
+    uint256 debt = marketOut
+      .previewRefund(floatingBorrowShares)
+      .mulDivDown(debtManager.auditor().assetPrice(priceFeedOut), 10 ** marketOut.decimals())
+      .mulDivDown(10 ** marketIn.decimals(), debtManager.auditor().assetPrice(priceFeedIn));
+    return int256(collateral) - int256(debt);
   }
 
   /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
@@ -313,7 +313,7 @@ contract DebtPreviewer is OwnableUpgradeable {
   struct Leverage {
     uint256 debt;
     uint256 collateral;
-    uint256 principal;
+    int256 principal;
     uint256 ratio;
     uint256 maxRatio;
     uint256 maxWithdraw;

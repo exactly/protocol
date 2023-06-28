@@ -117,7 +117,7 @@ contract DebtPreviewerTest is ForkTest {
     DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
     (uint256 collateralAdjustFactor, , , , ) = auditor.markets(marketUSDC);
     (uint256 debtAdjustFactor, , , , ) = auditor.markets(marketWETH);
-    assertApproxEqAbs(leverage.principal, principal, 2e18);
+    assertApproxEqAbs(uint256(leverage.principal), principal, 2e18);
     assertApproxEqAbs(leverage.collateral, principal.mulWadDown(ratio), 1);
     assertApproxEqAbs(leverage.ratio, ratio, 0.0003e18);
     assertApproxEqAbs(
@@ -159,11 +159,25 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.maxRatio, uint256(1e18).divWadDown(1e18 - adjustFactor.mulWadDown(adjustFactor)));
 
     leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this));
-    assertApproxEqAbs(leverage.principal, 1_000e6, 3);
+    assertApproxEqAbs(uint256(leverage.principal), 1_000e6, 3);
     assertApproxEqAbs(leverage.collateral, principal.mulWadDown(ratio), 1);
     assertApproxEqAbs(leverage.debt, principal.mulWadDown(ratio - 1e18), 1);
     assertApproxEqAbs(leverage.ratio, ratio, 20267597440);
-    assertApproxEqAbs(leverage.maxRatio, ratio, 99982547993019);
+    assertApproxEqAbs(leverage.maxRatio, ratio, 99988365328679);
+  }
+
+  function testPreviewLeverageNegativePrincipal() external {
+    marketUSDC.deposit(10_000e6, address(this));
+    auditor.enterMarket(marketUSDC);
+    marketWETH.borrow(1e18, address(this), address(this));
+
+    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketwstETH, marketWETH, address(this));
+    assertEq(leverage.ratio, 1e18);
+    assertEq(leverage.collateral, 0);
+    assertEq(leverage.maxWithdraw, 0);
+    assertEq(leverage.debt, 1 ether + 1);
+    assertEq(leverage.maxRatio, 3048780487804878048);
+    assertEq(leverage.principal, -885726732210286685);
   }
 
   function testPreviewLeveragePoolInfo() external {
