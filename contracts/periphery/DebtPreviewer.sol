@@ -309,53 +309,53 @@ contract DebtPreviewer is OwnableUpgradeable {
       });
     }
   }
+}
 
-  struct Leverage {
-    uint256 debt;
-    uint256 collateral;
-    int256 principal;
-    uint256 ratio;
-    uint256 maxRatio;
-    uint256 maxWithdraw;
-    PoolKey pool;
-    uint256 sqrtPriceX96;
-    AvailableAsset[] availableAssets;
-  }
+struct Leverage {
+  uint256 debt;
+  uint256 collateral;
+  int256 principal;
+  uint256 ratio;
+  uint256 maxRatio;
+  uint256 maxWithdraw;
+  PoolKey pool;
+  uint256 sqrtPriceX96;
+  AvailableAsset[] availableAssets;
+}
 
-  struct AvailableAsset {
-    ERC20 asset;
-    uint256 liquidity;
-  }
+struct AvailableAsset {
+  ERC20 asset;
+  uint256 liquidity;
+}
 
-  struct Pool {
-    address tokenA;
-    address tokenB;
-  }
+struct Pool {
+  address tokenA;
+  address tokenB;
+}
 
-  struct Limit {
-    int256 principal;
-    uint256 maxRatio;
-  }
+struct Limit {
+  int256 principal;
+  uint256 maxRatio;
+}
 
-  struct RatioVars {
-    uint256 adjustedDebt;
-    uint256 adjustFactorIn;
-    uint256 adjustFactorOut;
-  }
+struct RatioVars {
+  uint256 adjustedDebt;
+  uint256 adjustFactorIn;
+  uint256 adjustFactorOut;
+}
 
-  struct MaxWithdrawVars {
-    uint256 adjustedDebt;
-    uint256 adjustedRepay;
-    uint256 adjustedPrincipal;
-    uint256 adjustedCollateral;
-    uint256 adjustedPrincipalToRepayDebt;
-    IPriceFeed priceFeedIn;
-    uint256 marketMap;
-    uint256 adjustFactorIn;
-    uint256 adjustFactorOut;
-    uint256 i;
-    Market market;
-  }
+struct MaxWithdrawVars {
+  uint256 adjustedDebt;
+  uint256 adjustedRepay;
+  uint256 adjustedPrincipal;
+  uint256 adjustedCollateral;
+  uint256 adjustedPrincipalToRepayDebt;
+  IPriceFeed priceFeedIn;
+  uint256 marketMap;
+  uint256 adjustFactorIn;
+  uint256 adjustFactorOut;
+  uint256 i;
+  Market market;
 }
 
 interface IUniswapQuoter {

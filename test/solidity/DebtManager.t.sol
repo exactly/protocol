@@ -17,7 +17,7 @@ import {
   InvalidOperation
 } from "../../contracts/periphery/DebtManager.sol";
 import { Auditor, InsufficientAccountLiquidity, MarketNotListed, IPriceFeed } from "../../contracts/Auditor.sol";
-import { DebtPreviewer, IUniswapQuoter } from "../../contracts/periphery/DebtPreviewer.sol";
+import { DebtPreviewer, IUniswapQuoter, Leverage, Pool } from "../../contracts/periphery/DebtPreviewer.sol";
 import { FixedLib, UnmatchedPoolState } from "../../contracts/utils/FixedLib.sol";
 import { MockBalancerVault } from "../../contracts/mocks/MockBalancerVault.sol";
 import { Market, Disagreement, ZeroRepay } from "../../contracts/Market.sol";
@@ -77,7 +77,7 @@ contract DebtManagerTest is ForkTest {
       address(
         new ERC1967Proxy(
           address(new DebtPreviewer(debtManager, IUniswapQuoter(deployment("UniswapV3Quoter")))),
-          abi.encodeCall(DebtPreviewer.initialize, (new DebtPreviewer.Pool[](0), new uint24[](0)))
+          abi.encodeCall(DebtPreviewer.initialize, (new Pool[](0), new uint24[](0)))
         )
       )
     );
@@ -826,10 +826,10 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testLeverageAndMaxRatioCrossLeverageFromUSDCToWETH() external {
-    debtPreviewer.setPoolFee(DebtPreviewer.Pool(address(weth), address(usdc)), 500);
+    debtPreviewer.setPoolFee(Pool(address(weth), address(usdc)), 500);
     debtManager.leverage(marketUSDC, 10_000e6, 5e18);
 
-    DebtPreviewer.Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, leverage.maxRatio - 0.001e18, MIN_SQRT_RATIO + 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(leverage.ratio, 1e18, 20000000);
