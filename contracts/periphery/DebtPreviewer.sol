@@ -94,20 +94,20 @@ contract DebtPreviewer is OwnableUpgradeable {
   }
 
   /// @notice Returns extended data useful to leverage or deleverage an account principal position.
-  /// @param marketIn The deposit Market.
-  /// @param marketOut The borrow Market.
+  /// @param marketDeposit The deposit Market.
+  /// @param marketBorrow The borrow Market.
   /// @param account The account operating with the `DebtManager`.
   /// @return extended leverage data.
-  function leverage(Market marketIn, Market marketOut, address account) external returns (Leverage memory) {
-    (, , uint256 floatingBorrowShares) = marketOut.accounts(account);
-    uint256 debt = marketOut.previewRefund(floatingBorrowShares);
-    uint256 collateral = marketIn.maxWithdraw(account);
-    int256 principal = crossedPrincipal(marketIn, marketOut, account);
-    uint256 ratio = principal > 0 ? collateral.divWadDown(uint256(principal)) : 1e18;
-    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketIn.asset()), address(marketOut.asset()), 0);
+  function leverage(Market marketDeposit, Market marketBorrow, address account) external returns (Leverage memory) {
+    (, , uint256 floatingBorrowShares) = marketBorrow.accounts(account);
+    uint256 debt = marketBorrow.previewRefund(floatingBorrowShares);
+    uint256 deposit = marketDeposit.maxWithdraw(account);
+    int256 principal = crossedPrincipal(marketDeposit, marketBorrow, account);
+    uint256 ratio = principal > 0 ? deposit.divWadDown(uint256(principal)) : 1e18;
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     uint256 sqrtPriceX96;
-    if (address(marketIn) != address(marketOut)) {
+    if (address(marketDeposit) != address(marketBorrow)) {
       (sqrtPriceX96, , , , , , ) = IUniswapV3Pool(PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey))
         .slot0();
     }
@@ -115,11 +115,11 @@ contract DebtPreviewer is OwnableUpgradeable {
     return
       Leverage({
         debt: debt,
-        collateral: collateral,
+        deposit: deposit,
         principal: principal,
         ratio: ratio,
-        maxRatio: maxRatio(marketIn, marketOut, account, principal > 0 ? uint256(principal) : 0),
-        maxWithdraw: maxWithdraw(marketIn, marketOut, account),
+        maxRatio: maxRatio(marketDeposit, marketBorrow, account, principal > 0 ? uint256(principal) : 0),
+        maxWithdraw: maxWithdraw(marketDeposit, marketBorrow, account),
         pool: poolKey,
         sqrtPriceX96: sqrtPriceX96,
         availableAssets: balancerAvailableLiquidity()
@@ -127,33 +127,33 @@ contract DebtPreviewer is OwnableUpgradeable {
   }
 
   /// @notice Returns the maximum ratio that an account can leverage its principal plus `assets` amount.
-  /// @param marketIn The deposit Market.
-  /// @param marketOut The borrow Market.
+  /// @param marketDeposit The deposit Market.
+  /// @param marketBorrow The borrow Market.
   /// @param account The account that will be leveraged.
   /// @param assets The amount of assets that will be added to the principal.
   function previewDeposit(
-    Market marketIn,
-    Market marketOut,
+    Market marketDeposit,
+    Market marketBorrow,
     address account,
     uint256 assets
   ) external view returns (Limit memory limit) {
-    limit.principal = crossedPrincipal(marketIn, marketOut, account) + int256(assets);
-    limit.maxRatio = maxRatio(marketIn, marketOut, account, limit.principal > 0 ? uint256(limit.principal) : 0);
+    limit.principal = crossedPrincipal(marketDeposit, marketBorrow, account) + int256(assets);
+    limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, limit.principal > 0 ? uint256(limit.principal) : 0);
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
-  /// @param marketIn The deposit Market.
-  /// @param marketOut The borrow Market.
+  /// @param marketDeposit The deposit Market.
+  /// @param marketBorrow The borrow Market.
   /// @param account The account that will be deleveraged.
   /// @param assets The amount of assets that will be subtracted from the principal.
   function previewWithdraw(
-    Market marketIn,
-    Market marketOut,
+    Market marketDeposit,
+    Market marketBorrow,
     address account,
     uint256 assets
   ) external view returns (Limit memory limit) {
-    limit.principal = crossedPrincipal(marketIn, marketOut, account) - int256(assets);
-    limit.maxRatio = maxRatio(marketIn, marketOut, account, limit.principal > 0 ? uint256(limit.principal) : 0);
+    limit.principal = crossedPrincipal(marketDeposit, marketBorrow, account) - int256(assets);
+    limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, limit.principal > 0 ? uint256(limit.principal) : 0);
   }
 
   /// @notice Sets a pool fee to the mapping of pool fees.
@@ -164,28 +164,32 @@ contract DebtPreviewer is OwnableUpgradeable {
     poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
   }
 
-  /// @notice Returns the amount of `marketOut` underlying assets considering `amountIn` and both assets oracle prices.
-  /// @param marketIn The market of the assets accounted as `amountIn`.
-  /// @param marketOut The market of the assets that will be returned.
-  /// @param amountIn The amount of `marketIn` underlying assets.
-  function previewAssetsOut(Market marketIn, Market marketOut, uint256 amountIn) internal view returns (uint256) {
-    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketIn);
-    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketOut);
+  /// @notice Returns the amount of `marketBorrow` underlying assets considering `amountIn` and both assets oracle prices.
+  /// @param marketDeposit The market of the assets accounted as `amountIn`.
+  /// @param marketBorrow The market of the assets that will be returned.
+  /// @param amountIn The amount of `marketDeposit` underlying assets.
+  function previewAssetsOut(
+    Market marketDeposit,
+    Market marketBorrow,
+    uint256 amountIn
+  ) internal view returns (uint256) {
+    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
+    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
     return
-      amountIn.mulDivDown(debtManager.auditor().assetPrice(priceFeedIn), 10 ** marketIn.decimals()).mulDivDown(
-        10 ** marketOut.decimals(),
+      amountIn.mulDivDown(debtManager.auditor().assetPrice(priceFeedIn), 10 ** marketDeposit.decimals()).mulDivDown(
+        10 ** marketBorrow.decimals(),
         debtManager.auditor().assetPrice(priceFeedOut)
       );
   }
 
   /// @notice Returns the maximum ratio that an account can leverage its principal position.
-  /// @param marketIn The deposit Market.
-  /// @param marketOut The borrow Market.
+  /// @param marketDeposit The deposit Market.
+  /// @param marketBorrow The borrow Market.
   /// @param account The account that will be leveraged.
   /// @param principal The principal amount that will be leveraged.
   function maxRatio(
-    Market marketIn,
-    Market marketOut,
+    Market marketDeposit,
+    Market marketBorrow,
     address account,
     uint256 principal
   ) internal view returns (uint256) {
@@ -202,7 +206,7 @@ contract DebtPreviewer is OwnableUpgradeable {
         vars.price = auditor.assetPrice(m.priceFeed);
         (, vars.borrowBalance) = market.accountSnapshot(account);
 
-        if (market == marketOut) {
+        if (market == marketBorrow) {
           (, , uint256 floatingBorrowShares) = market.accounts(account);
           vars.borrowBalance -= market.previewRefund(floatingBorrowShares);
         }
@@ -213,14 +217,14 @@ contract DebtPreviewer is OwnableUpgradeable {
       }
     }
 
-    (r.adjustFactorIn, , , , ) = auditor.markets(marketIn);
-    (r.adjustFactorOut, , , , ) = auditor.markets(marketOut);
-    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
+    (r.adjustFactorIn, , , , ) = auditor.markets(marketDeposit);
+    (r.adjustFactorOut, , , , ) = auditor.markets(marketBorrow);
+    (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketDeposit);
     if (principal == 0) return uint256(1e18).divWadDown(1e18 - r.adjustFactorIn.mulWadDown(r.adjustFactorOut));
     return
       (principal -
         r.adjustedDebt.mulWadDown(r.adjustFactorOut).mulDivDown(
-          10 ** marketIn.decimals(),
+          10 ** marketDeposit.decimals(),
           auditor.assetPrice(priceFeedIn)
         )).divWadDown(principal - principal.mulWadDown(r.adjustFactorIn).mulWadDown(r.adjustFactorOut));
   }
@@ -230,7 +234,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     return market.previewRefund(floatingBorrowShares);
   }
 
-  function maxWithdraw(Market marketIn, Market marketOut, address account) internal returns (uint256) {
+  function maxWithdraw(Market marketDeposit, Market marketBorrow, address account) internal returns (uint256) {
     Auditor auditor = debtManager.auditor();
 
     MaxWithdrawVars memory mw;
@@ -247,16 +251,16 @@ contract DebtPreviewer is OwnableUpgradeable {
 
         mw.adjustedCollateral += vars.balance.mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
         mw.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, 10 ** md.decimals).divWadUp(md.adjustFactor);
-        if (mw.market == marketOut) {
-          mw.adjustedRepay = floatingBorrowAssets(marketOut, account).mulDivUp(vars.price, 10 ** md.decimals).divWadUp(
-            md.adjustFactor
-          );
-        } else if (mw.market == marketIn) {
-          mw.adjustedPrincipalToRepayDebt = floatingBorrowAssets(marketOut, account) > 0
+        if (mw.market == marketBorrow) {
+          mw.adjustedRepay = floatingBorrowAssets(marketBorrow, account)
+            .mulDivUp(vars.price, 10 ** md.decimals)
+            .divWadUp(md.adjustFactor);
+        } else if (mw.market == marketDeposit) {
+          mw.adjustedPrincipalToRepayDebt = floatingBorrowAssets(marketBorrow, account) > 0
             ? previewOutputSwap(
-              address(marketIn.asset()),
-              address(marketOut.asset()),
-              floatingBorrowAssets(marketOut, account),
+              address(marketDeposit.asset()),
+              address(marketBorrow.asset()),
+              floatingBorrowAssets(marketBorrow, account),
               500
             ).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor)
             : 0;
@@ -269,7 +273,7 @@ contract DebtPreviewer is OwnableUpgradeable {
         ++mw.i;
       }
     }
-    (mw.adjustFactorIn, , , , mw.priceFeedIn) = auditor.markets(marketIn);
+    (mw.adjustFactorIn, , , , mw.priceFeedIn) = auditor.markets(marketDeposit);
 
     return
       Math
@@ -277,22 +281,22 @@ contract DebtPreviewer is OwnableUpgradeable {
           mw.adjustedCollateral + mw.adjustedRepay - mw.adjustedDebt - mw.adjustedPrincipalToRepayDebt,
           mw.adjustedPrincipal
         )
-        .mulDivDown(10 ** marketIn.decimals(), auditor.assetPrice(mw.priceFeedIn))
+        .mulDivDown(10 ** marketDeposit.decimals(), auditor.assetPrice(mw.priceFeedIn))
         .divWadDown(mw.adjustFactorIn);
   }
 
   /// @notice Calculates the crossed principal amount for a given `account` in the input and output markets.
-  /// @param marketIn The Market to withdraw the leveraged position.
-  /// @param marketOut The Market to repay the leveraged position.
+  /// @param marketDeposit The Market to withdraw the leveraged position.
+  /// @param marketBorrow The Market to repay the leveraged position.
   /// @param account The account that will be deleveraged.
-  function crossedPrincipal(Market marketIn, Market marketOut, address account) internal view returns (int256) {
-    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketIn);
-    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketOut);
+  function crossedPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
+    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
+    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
 
-    uint256 collateral = marketIn.maxWithdraw(account);
-    uint256 debt = floatingBorrowAssets(marketOut, account)
-      .mulDivDown(debtManager.auditor().assetPrice(priceFeedOut), 10 ** marketOut.decimals())
-      .mulDivDown(10 ** marketIn.decimals(), debtManager.auditor().assetPrice(priceFeedIn));
+    uint256 collateral = marketDeposit.maxWithdraw(account);
+    uint256 debt = floatingBorrowAssets(marketBorrow, account)
+      .mulDivDown(debtManager.auditor().assetPrice(priceFeedOut), 10 ** marketBorrow.decimals())
+      .mulDivDown(10 ** marketDeposit.decimals(), debtManager.auditor().assetPrice(priceFeedIn));
     return int256(collateral) - int256(debt);
   }
 
@@ -313,7 +317,7 @@ contract DebtPreviewer is OwnableUpgradeable {
 
 struct Leverage {
   uint256 debt;
-  uint256 collateral;
+  uint256 deposit;
   int256 principal;
   uint256 ratio;
   uint256 maxRatio;

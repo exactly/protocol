@@ -118,7 +118,7 @@ contract DebtPreviewerTest is ForkTest {
     (uint256 collateralAdjustFactor, , , , ) = auditor.markets(marketUSDC);
     (uint256 debtAdjustFactor, , , , ) = auditor.markets(marketWETH);
     assertApproxEqAbs(uint256(leverage.principal), principal, 2e18);
-    assertApproxEqAbs(leverage.collateral, principal.mulWadDown(ratio), 1);
+    assertApproxEqAbs(leverage.deposit, principal.mulWadDown(ratio), 1);
     assertApproxEqAbs(leverage.ratio, ratio, 0.0003e18);
     assertApproxEqAbs(
       leverage.maxRatio,
@@ -133,7 +133,7 @@ contract DebtPreviewerTest is ForkTest {
     (uint256 debtAdjustFactor, , , , ) = auditor.markets(marketWETH);
 
     assertEq(leverage.principal, 0);
-    assertEq(leverage.collateral, 0);
+    assertEq(leverage.deposit, 0);
     assertEq(leverage.debt, 0);
     assertEq(leverage.ratio, 1e18);
     assertEq(leverage.maxRatio, uint256(1e18).divWadDown(1e18 - collateralAdjustFactor.mulWadDown(debtAdjustFactor)));
@@ -149,7 +149,7 @@ contract DebtPreviewerTest is ForkTest {
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
     assertEq(leverage.principal, 0);
-    assertEq(leverage.collateral, 0);
+    assertEq(leverage.deposit, 0);
     assertEq(leverage.debt, 0);
     assertEq(leverage.ratio, 1e18);
     assertEq(leverage.sqrtPriceX96, 0);
@@ -160,7 +160,7 @@ contract DebtPreviewerTest is ForkTest {
 
     leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this));
     assertApproxEqAbs(uint256(leverage.principal), 1_000e6, 3);
-    assertApproxEqAbs(leverage.collateral, principal.mulWadDown(ratio), 1);
+    assertApproxEqAbs(leverage.deposit, principal.mulWadDown(ratio), 1);
     assertApproxEqAbs(leverage.debt, principal.mulWadDown(ratio - 1e18), 1);
     assertApproxEqAbs(leverage.ratio, ratio, 20267597440);
     assertApproxEqAbs(leverage.maxRatio, ratio, 99988365328679);
@@ -174,7 +174,7 @@ contract DebtPreviewerTest is ForkTest {
     Leverage memory leverage = debtPreviewer.leverage(marketwstETH, marketWETH, address(this));
     Limit memory limit = debtPreviewer.previewWithdraw(marketwstETH, marketWETH, address(this), 1e18);
     assertEq(leverage.ratio, 1e18);
-    assertEq(leverage.collateral, 0);
+    assertEq(leverage.deposit, 0);
     assertEq(leverage.maxWithdraw, 0);
     assertEq(leverage.debt, 1 ether + 1);
     assertEq(leverage.maxRatio, 3048780487804878048);
@@ -482,7 +482,7 @@ contract DebtPreviewerTest is ForkTest {
     (uint256 collateralAdjustFactor, , , , ) = auditor.markets(marketWETH);
     (uint256 debtAdjustFactor, , , , ) = auditor.markets(marketUSDC);
     assertEq(leverage.principal, 0);
-    assertEq(leverage.collateral, 0);
+    assertEq(leverage.deposit, 0);
     assertEq(leverage.debt, 0);
     assertEq(leverage.ratio, 1e18);
     assertEq(leverage.maxRatio, uint256(1e18).divWadDown(1e18 - collateralAdjustFactor.mulWadDown(debtAdjustFactor)));
