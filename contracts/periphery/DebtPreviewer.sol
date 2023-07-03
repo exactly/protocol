@@ -131,7 +131,7 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketBorrow The borrow Market.
   /// @param account The account that will be leveraged.
   /// @param assets The amount of assets that will be added to the principal.
-  function previewDeposit(
+  function previewLeverage(
     Market marketDeposit,
     Market marketBorrow,
     address account,
@@ -146,7 +146,7 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketBorrow The borrow Market.
   /// @param account The account that will be deleveraged.
   /// @param assets The amount of assets that will be subtracted from the principal.
-  function previewWithdraw(
+  function previewDeleverage(
     Market marketDeposit,
     Market marketBorrow,
     address account,
