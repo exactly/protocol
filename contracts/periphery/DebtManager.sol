@@ -257,6 +257,32 @@ contract DebtManager is Initializable {
   /// @param deposit The amount of `marketIn` underlying assets to deposit.
   /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   /// @param sqrtPriceLimitX96 The Q64.96 sqrt price limit. If zero for one, the price cannot be less than this.
+  /// @param borrowAssets The amount of assets to allow this contract to borrow on behalf of `_msgSender`.
+  /// @param marketPermit Arguments for the permit call to `marketOut` on behalf of `_msgSender`.
+  /// @param assetPermit Arguments for the permit2 asset call.
+  /// Permit `value` should be `borrowAssets`.
+  function crossLeverage(
+    Market marketIn,
+    Market marketOut,
+    uint24 fee,
+    uint256 deposit,
+    uint256 ratio,
+    uint160 sqrtPriceLimitX96,
+    uint256 borrowAssets,
+    Permit calldata marketPermit,
+    Permit calldata assetPermit
+  ) external permit(marketOut, borrowAssets, marketPermit) permit(marketIn.asset(), deposit, assetPermit) msgSender {
+    transferIn(marketIn, deposit);
+    noTransferCrossLeverage(marketIn, marketOut, fee, deposit, ratio, sqrtPriceLimitX96);
+  }
+
+  /// @notice Cross-leverages `_msgSender`'s position to a `ratio` via flash swap from Uniswap's pool.
+  /// @param marketIn The Market to deposit the leveraged position.
+  /// @param marketOut The Market to borrow the leveraged position.
+  /// @param fee The fee of the pool that will be used to swap the assets.
+  /// @param deposit The amount of `marketIn` underlying assets to deposit.
+  /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
+  /// @param sqrtPriceLimitX96 The Q64.96 sqrt price limit. If zero for one, the price cannot be less than this.
   function noTransferCrossLeverage(
     Market marketIn,
     Market marketOut,

@@ -1347,6 +1347,67 @@ contract DebtManagerTest is ForkTest {
     );
   }
 
+  function testAssetPermitAndCrossLeverage() external {
+    deal(address(op), bob, 10_000 ether);
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          marketWETH.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              69 ether,
+              marketWETH.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+    Permit memory marketPermit = Permit(bob, block.timestamp, v, r, s);
+    (v, r, s) = vm.sign(
+      BOB_KEY,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          op.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+              bob,
+              debtManager,
+              10_000 ether,
+              op.nonces(bob),
+              block.timestamp
+            )
+          )
+        )
+      )
+    );
+    Permit memory assetPermit = Permit(bob, block.timestamp, v, r, s);
+    Market marketOP = Market(deployment("MarketOP"));
+
+    vm.startPrank(bob);
+    auditor.enterMarket(marketOP);
+    debtManager.crossLeverage(
+      marketOP,
+      marketWETH,
+      3000,
+      10_000 ether,
+      1.5e18,
+      MIN_SQRT_RATIO + 1,
+      69 ether,
+      marketPermit,
+      assetPermit
+    );
+    vm.stopPrank();
+  }
+
   function testPermitAndLeverage() external {
     uint256 principal = 10_000e18;
     deal(address(op), bob, principal);
