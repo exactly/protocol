@@ -324,7 +324,7 @@ contract DebtManager is Initializable {
     uint256 assets,
     Permit calldata p
   ) {
-    token.permit(p.account, address(this), assets, p.deadline, p.v, p.r, p.s);
+    token.safePermit(p.account, address(this), assets, p.deadline, p.v, p.r, p.s);
     _;
   }
 
