@@ -5,6 +5,10 @@ import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { AddressUpgradeable as Address } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import {
+  SafeERC20Upgradeable as SafeERC20,
+  IERC20PermitUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Market, ERC20, FixedLib, Disagreement } from "../Market.sol";
 import { Auditor, IPriceFeed, MarketNotListed } from "../Auditor.sol";
 
@@ -13,6 +17,7 @@ import { Auditor, IPriceFeed, MarketNotListed } from "../Auditor.sol";
 contract DebtManager is Initializable {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
+  using SafeERC20 for IERC20PermitUpgradeable;
   using FixedLib for FixedLib.Position;
   using FixedLib for FixedLib.Pool;
   using Address for address;
@@ -742,7 +747,7 @@ contract DebtManager is Initializable {
     uint256 assets,
     Permit calldata p
   ) {
-    token.permit(p.account, address(this), assets, p.deadline, p.v, p.r, p.s);
+    IERC20PermitUpgradeable(address(token)).safePermit(p.account, address(this), assets, p.deadline, p.v, p.r, p.s);
     {
       address sender = _msgSender;
       if (sender == address(0)) _msgSender = p.account;
