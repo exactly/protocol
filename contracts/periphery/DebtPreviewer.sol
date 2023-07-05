@@ -97,8 +97,14 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketDeposit The deposit Market.
   /// @param marketBorrow The borrow Market.
   /// @param account The account operating with the `DebtManager`.
+  /// @param minHealthFactor The minimum health factor that the account must have after the leverage.
   /// @return extended leverage data.
-  function leverage(Market marketDeposit, Market marketBorrow, address account) external returns (Leverage memory) {
+  function leverage(
+    Market marketDeposit,
+    Market marketBorrow,
+    address account,
+    uint256 minHealthFactor
+  ) external returns (Leverage memory) {
     (, , uint256 floatingBorrowShares) = marketBorrow.accounts(account);
     uint256 debt = marketBorrow.previewRefund(floatingBorrowShares);
     uint256 deposit = marketDeposit.maxWithdraw(account);
@@ -118,7 +124,13 @@ contract DebtPreviewer is OwnableUpgradeable {
         deposit: deposit,
         principal: principal,
         ratio: ratio,
-        maxRatio: maxRatio(marketDeposit, marketBorrow, account, principal > 0 ? uint256(principal) : 0),
+        maxRatio: maxRatio(
+          marketDeposit,
+          marketBorrow,
+          account,
+          principal > 0 ? uint256(principal) : 0,
+          minHealthFactor
+        ),
         maxWithdraw: maxWithdraw(marketDeposit, marketBorrow, account),
         pool: poolKey,
         sqrtPriceX96: sqrtPriceX96,
@@ -131,14 +143,22 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketBorrow The borrow Market.
   /// @param account The account that will be leveraged.
   /// @param assets The amount of assets that will be added to the principal.
+  /// @param minHealthFactor The minimum health factor that the account must have after the leverage.
   function previewLeverage(
     Market marketDeposit,
     Market marketBorrow,
     address account,
-    uint256 assets
+    uint256 assets,
+    uint256 minHealthFactor
   ) external view returns (Limit memory limit) {
     limit.principal = crossedPrincipal(marketDeposit, marketBorrow, account) + int256(assets);
-    limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, limit.principal > 0 ? uint256(limit.principal) : 0);
+    limit.maxRatio = maxRatio(
+      marketDeposit,
+      marketBorrow,
+      account,
+      limit.principal > 0 ? uint256(limit.principal) : 0,
+      minHealthFactor
+    );
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
@@ -146,14 +166,22 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketBorrow The borrow Market.
   /// @param account The account that will be deleveraged.
   /// @param assets The amount of assets that will be subtracted from the principal.
+  /// @param minHealthFactor The minimum health factor that the account must have after the leverage.
   function previewDeleverage(
     Market marketDeposit,
     Market marketBorrow,
     address account,
-    uint256 assets
+    uint256 assets,
+    uint256 minHealthFactor
   ) external view returns (Limit memory limit) {
     limit.principal = crossedPrincipal(marketDeposit, marketBorrow, account) - int256(assets);
-    limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, limit.principal > 0 ? uint256(limit.principal) : 0);
+    limit.maxRatio = maxRatio(
+      marketDeposit,
+      marketBorrow,
+      account,
+      limit.principal > 0 ? uint256(limit.principal) : 0,
+      minHealthFactor
+    );
   }
 
   /// @notice Sets a pool fee to the mapping of pool fees.
@@ -187,11 +215,13 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketBorrow The borrow Market.
   /// @param account The account that will be leveraged.
   /// @param principal The principal amount that will be leveraged.
+  /// @param minHealthFactor The minimum health factor that the account must have after the leverage.
   function maxRatio(
     Market marketDeposit,
     Market marketBorrow,
     address account,
-    uint256 principal
+    uint256 principal,
+    uint256 minHealthFactor
   ) internal view returns (uint256) {
     RatioVars memory r;
     Auditor auditor = debtManager.auditor();
@@ -220,13 +250,17 @@ contract DebtPreviewer is OwnableUpgradeable {
     (r.adjustFactorIn, , , , ) = auditor.markets(marketDeposit);
     (r.adjustFactorOut, , , , ) = auditor.markets(marketBorrow);
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketDeposit);
-    if (principal == 0) return uint256(1e18).divWadDown(1e18 - r.adjustFactorIn.mulWadDown(r.adjustFactorOut));
+    if (principal == 0) {
+      return minHealthFactor.divWadDown(minHealthFactor - r.adjustFactorIn.mulWadDown(r.adjustFactorOut));
+    }
     return
       (principal -
         r.adjustedDebt.mulWadDown(r.adjustFactorOut).mulDivDown(
           10 ** marketDeposit.decimals(),
           auditor.assetPrice(priceFeedIn)
-        )).divWadDown(principal - principal.mulWadDown(r.adjustFactorIn).mulWadDown(r.adjustFactorOut));
+        )).divWadDown(
+          principal - principal.mulWadDown(r.adjustFactorIn).mulWadDown(r.adjustFactorOut).divWadDown(minHealthFactor)
+        );
   }
 
   function floatingBorrowAssets(Market market, address account) internal view returns (uint256) {

@@ -829,7 +829,7 @@ contract DebtManagerTest is ForkTest {
     debtPreviewer.setPoolFee(Pool(address(weth), address(usdc)), 500);
     debtManager.leverage(marketUSDC, 10_000e6, 5e18);
 
-    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this));
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, leverage.maxRatio - 0.001e18, MIN_SQRT_RATIO + 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(leverage.ratio, 1e18, 20000000);
