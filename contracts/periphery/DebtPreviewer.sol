@@ -142,23 +142,37 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketDeposit The deposit Market.
   /// @param marketBorrow The borrow Market.
   /// @param account The account that will be leveraged.
-  /// @param assets The amount of assets that will be added to the principal.
+  /// @param deposit The amount of assets that will be added to the principal.
+  /// @param ratio The ratio to be previewed.
   /// @param minHealthFactor The minimum health factor that the account must have after the leverage.
   function previewLeverage(
     Market marketDeposit,
     Market marketBorrow,
     address account,
-    uint256 assets,
+    uint256 deposit,
+    uint256 ratio,
     uint256 minHealthFactor
-  ) external view returns (Limit memory limit) {
-    limit.principal = crossedPrincipal(marketDeposit, marketBorrow, account) + int256(assets);
-    limit.maxRatio = maxRatio(
-      marketDeposit,
-      marketBorrow,
-      account,
-      limit.principal > 0 ? uint256(limit.principal) : 0,
-      minHealthFactor
-    );
+  ) external returns (Limit memory limit) {
+    limit.principal = crossedPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
+    if (limit.principal > 0) {
+      uint256 finalDeposit = uint256(limit.principal).mulWadDown(ratio);
+      uint256 newBorrow = address(marketDeposit) == address(marketBorrow)
+        ? deposit.mulWadDown(ratio - 1e18)
+        : previewOutputSwap(
+          address(marketBorrow.asset()),
+          address(marketDeposit.asset()),
+          finalDeposit - marketDeposit.maxWithdraw(account),
+          500
+        );
+
+      limit.deposit = finalDeposit;
+      limit.borrow = address(marketDeposit) == address(marketBorrow)
+        ? uint256(limit.principal).mulWadDown(ratio - 1e18)
+        : floatingBorrowAssets(marketBorrow, account) + newBorrow;
+      limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, uint256(limit.principal), minHealthFactor);
+    } else {
+      limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, 0, minHealthFactor);
+    }
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
@@ -192,7 +206,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
   }
 
-  /// @notice Returns the amount of `marketBorrow` underlying assets considering `amountIn` and both assets oracle prices.
+  /// @notice Returns the amount of `marketBorrow` underlying assets considering `amountIn` and assets oracle prices.
   /// @param marketDeposit The market of the assets accounted as `amountIn`.
   /// @param marketBorrow The market of the assets that will be returned.
   /// @param amountIn The amount of `marketDeposit` underlying assets.
@@ -372,8 +386,11 @@ struct Pool {
 }
 
 struct Limit {
+  uint256 borrow;
+  uint256 deposit;
   int256 principal;
   uint256 maxRatio;
+  uint256 maxWithdraw;
 }
 
 struct RatioVars {
