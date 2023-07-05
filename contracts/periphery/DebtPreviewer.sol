@@ -153,26 +153,43 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 ratio,
     uint256 minHealthFactor
   ) external returns (Limit memory limit) {
-    limit.principal = crossedPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
-    if (limit.principal > 0) {
-      uint256 finalDeposit = uint256(limit.principal).mulWadDown(ratio);
-      uint256 newBorrow = address(marketDeposit) == address(marketBorrow)
+    int256 principal = crossedPrincipal(marketDeposit, marketBorrow, account);
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
+    poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
+
+    limit.principal = principal + int256(deposit);
+    if (limit.principal <= 0) {
+      limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, 0, minHealthFactor);
+      limit.borrow = floatingBorrowAssets(marketBorrow, account);
+      limit.deposit = marketDeposit.maxWithdraw(account) + deposit;
+      return limit;
+    }
+    uint256 newBorrow;
+    if (principal > 0) {
+      limit.deposit = uint256(limit.principal).mulWadDown(ratio);
+      newBorrow = address(marketDeposit) == address(marketBorrow)
         ? deposit.mulWadDown(ratio - 1e18)
         : previewOutputSwap(
           address(marketBorrow.asset()),
           address(marketDeposit.asset()),
-          finalDeposit - marketDeposit.maxWithdraw(account),
-          500
+          limit.deposit - marketDeposit.maxWithdraw(account),
+          poolKey.fee
         );
-
-      limit.deposit = finalDeposit;
-      limit.borrow = address(marketDeposit) == address(marketBorrow)
-        ? uint256(limit.principal).mulWadDown(ratio - 1e18)
-        : floatingBorrowAssets(marketBorrow, account) + newBorrow;
-      limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, uint256(limit.principal), minHealthFactor);
     } else {
-      limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, 0, minHealthFactor);
+      limit.deposit = marketDeposit.maxWithdraw(account) + uint256(limit.principal).mulWadDown(ratio - 1e18) + deposit;
+      newBorrow = address(marketDeposit) == address(marketBorrow)
+        ? deposit.mulWadDown(ratio - 1e18)
+        : previewOutputSwap(
+          address(marketBorrow.asset()),
+          address(marketDeposit.asset()),
+          uint256(limit.principal).mulWadDown(ratio - 1e18),
+          poolKey.fee
+        );
     }
+    limit.borrow = address(marketDeposit) == address(marketBorrow)
+      ? uint256(limit.principal).mulWadDown(ratio - 1e18)
+      : floatingBorrowAssets(marketBorrow, account) + newBorrow;
+    limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, uint256(limit.principal), minHealthFactor);
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.

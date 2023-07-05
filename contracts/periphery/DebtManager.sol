@@ -301,11 +301,16 @@ contract DebtManager is Initializable {
     v.assetOut = address(marketOut.asset());
     v.sender = _msgSender;
 
-    v.amount =
-      (crossedPrincipal(marketIn, marketOut, v.sender) + deposit).mulWadDown(ratio) -
-      marketIn.maxWithdraw(v.sender) -
-      deposit;
-
+    {
+      int256 principal = crossedPrincipal(marketIn, marketOut, v.sender);
+      if (principal > 0) {
+        v.amount = (uint256(principal) + deposit).mulWadDown(ratio) - marketIn.maxWithdraw(v.sender) - deposit;
+      } else {
+        int256 newPrincipal = principal + int256(deposit);
+        assert(newPrincipal > 0);
+        v.amount = uint256(newPrincipal).mulWadDown(ratio - 1e18);
+      }
+    }
     PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
     IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
       address(this),
@@ -354,7 +359,7 @@ contract DebtManager is Initializable {
           ? previewAssetsOut(
             marketIn,
             marketOut,
-            (crossedPrincipal(marketIn, marketOut, v.sender) - withdraw).mulWadDown(ratio - 1e18)
+            uint256(crossedPrincipal(marketIn, marketOut, v.sender) - int256(withdraw)).mulWadDown(ratio - 1e18)
           )
           : 0
       );
@@ -662,15 +667,17 @@ contract DebtManager is Initializable {
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
   /// @param sender The account that will be deleveraged.
-  function crossedPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (uint256) {
+  function crossedPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (int256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
 
-    uint256 collateral = marketIn.maxWithdraw(sender);
-    uint256 debt = floatingBorrowAssets(marketOut)
-      .mulDivDown(auditor.assetPrice(priceFeedOut), 10 ** marketOut.decimals())
-      .mulDivDown(10 ** marketIn.decimals(), auditor.assetPrice(priceFeedIn));
-    return collateral - debt;
+    return
+      int256(marketIn.maxWithdraw(sender)) -
+      int256(
+        floatingBorrowAssets(marketOut)
+          .mulDivDown(auditor.assetPrice(priceFeedOut), 10 ** marketOut.decimals())
+          .mulDivDown(10 ** marketIn.decimals(), auditor.assetPrice(priceFeedIn))
+      );
   }
 
   /// @notice Returns the amount of `marketOut` underlying assets considering `amountIn` and both assets oracle prices.

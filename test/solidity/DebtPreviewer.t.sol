@@ -86,6 +86,7 @@ contract DebtPreviewerTest is ForkTest {
     usdc.approve(address(marketUSDC), type(uint256).max);
     usdc.approve(address(debtManager), type(uint256).max);
     wstETH.approve(address(debtManager), type(uint256).max);
+    wstETH.approve(address(marketwstETH), type(uint256).max);
     weth.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketUSDC);
     maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
@@ -180,10 +181,38 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.principal, -885726732210286685);
 
     Limit memory limit = debtPreviewer.previewLeverage(marketwstETH, marketWETH, address(this), 1e18, 2e18, 1e18);
-    assertEq(limit.borrow, 1257204212496106789);
-    assertEq(limit.deposit, 228546535579426630);
-    assertEq(limit.principal, 1e18 - 885726732210286685);
-    assertEq(limit.maxRatio, 3048780487804877993);
+
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, 1e18, 2e18, MAX_SQRT_RATIO - 1);
+    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
+    assertApproxEqAbs(limit.borrow, marketWETH.previewRefund(floatingBorrowShares), 1);
+    assertApproxEqAbs(limit.deposit, marketwstETH.maxWithdraw(address(this)), 0);
+
+    leverage = debtPreviewer.leverage(marketwstETH, marketWETH, address(this), 1e18);
+    assertApproxEqAbs(leverage.principal, limit.principal, 8e14);
+  }
+
+  function testPreviewLeverageNegativePrincipalWithCollateral() external {
+    marketUSDC.deposit(10_000e6, address(this));
+    auditor.enterMarket(marketUSDC);
+    marketwstETH.deposit(1e18, address(this));
+    marketWETH.borrow(2e18, address(this), address(this));
+
+    Leverage memory leverage = debtPreviewer.leverage(marketwstETH, marketWETH, address(this), 1e18);
+    assertEq(leverage.ratio, 1e18);
+    assertEq(leverage.deposit, 1e18);
+    assertEq(leverage.maxWithdraw, 0);
+    assertApproxEqAbs(leverage.debt, 2 ether, 1);
+    assertEq(leverage.maxRatio, 3048780487804878048);
+    assertEq(leverage.principal, -771453464420573369);
+
+    uint256 ratio = 2e18;
+    uint256 deposit = 1e18;
+    Limit memory limit = debtPreviewer.previewLeverage(marketwstETH, marketWETH, address(this), deposit, ratio, 1e18);
+
+    debtManager.crossLeverage(marketwstETH, marketWETH, 500, deposit, ratio, MAX_SQRT_RATIO - 1);
+    (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
+    assertEq(limit.borrow, marketWETH.previewRefund(floatingBorrowShares));
+    assertApproxEqAbs(limit.deposit, marketwstETH.maxWithdraw(address(this)), 0);
   }
 
   function testPreviewLeveragePoolInfo() external {
