@@ -108,7 +108,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     (, , uint256 floatingBorrowShares) = marketBorrow.accounts(account);
     uint256 debt = marketBorrow.previewRefund(floatingBorrowShares);
     uint256 deposit = marketDeposit.maxWithdraw(account);
-    int256 principal = crossedPrincipal(marketDeposit, marketBorrow, account);
+    int256 principal = crossPrincipal(marketDeposit, marketBorrow, account);
     uint256 ratio = principal > 0 ? deposit.divWadDown(uint256(principal)) : 1e18;
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
@@ -153,7 +153,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 ratio,
     uint256 minHealthFactor
   ) external returns (Limit memory limit) {
-    int256 principal = crossedPrincipal(marketDeposit, marketBorrow, account);
+    int256 principal = crossPrincipal(marketDeposit, marketBorrow, account);
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
 
@@ -205,7 +205,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 assets,
     uint256 minHealthFactor
   ) external view returns (Limit memory limit) {
-    limit.principal = crossedPrincipal(marketDeposit, marketBorrow, account) - int256(assets);
+    limit.principal = crossPrincipal(marketDeposit, marketBorrow, account) - int256(assets);
     limit.maxRatio = maxRatio(
       marketDeposit,
       marketBorrow,
@@ -354,7 +354,7 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @param marketDeposit The Market to withdraw the leveraged position.
   /// @param marketBorrow The Market to repay the leveraged position.
   /// @param account The account that will be deleveraged.
-  function crossedPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
+  function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
     (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
     (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
 

@@ -302,7 +302,7 @@ contract DebtManager is Initializable {
     v.sender = _msgSender;
 
     {
-      int256 principal = crossedPrincipal(marketIn, marketOut, v.sender);
+      int256 principal = crossPrincipal(marketIn, marketOut, v.sender);
       if (principal > 0) {
         v.amount = (uint256(principal) + deposit).mulWadDown(ratio) - marketIn.maxWithdraw(v.sender) - deposit;
       } else {
@@ -359,7 +359,7 @@ contract DebtManager is Initializable {
           ? previewAssetsOut(
             marketIn,
             marketOut,
-            uint256(crossedPrincipal(marketIn, marketOut, v.sender) - int256(withdraw)).mulWadDown(ratio - 1e18)
+            uint256(crossPrincipal(marketIn, marketOut, v.sender) - int256(withdraw)).mulWadDown(ratio - 1e18)
           )
           : 0
       );
@@ -667,7 +667,7 @@ contract DebtManager is Initializable {
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
   /// @param sender The account that will be deleveraged.
-  function crossedPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (int256) {
+  function crossPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (int256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
 
