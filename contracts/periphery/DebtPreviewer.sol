@@ -316,6 +316,10 @@ contract DebtPreviewer is OwnableUpgradeable {
     return market.previewRefund(floatingBorrowShares);
   }
 
+  /// @notice Returns the maximum amount that an account can withdraw when leveraged, repaying the full borrow.
+  /// @param marketDeposit The deposit Market.
+  /// @param marketBorrow The borrow Market.
+  /// @param account The account to preview.
   function maxWithdraw(Market marketDeposit, Market marketBorrow, address account) internal returns (uint256) {
     Auditor auditor = debtManager.auditor();
 
