@@ -428,7 +428,6 @@ struct Limit {
   uint256 deposit;
   int256 principal;
   uint256 maxRatio;
-  uint256 maxWithdraw;
 }
 
 struct RatioVars {
