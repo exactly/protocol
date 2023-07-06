@@ -215,6 +215,23 @@ contract DebtPreviewer is OwnableUpgradeable {
     );
   }
 
+  /// @notice Returns what would be the ratio with an extra `deposit` amount.
+  /// @param marketDeposit The deposit Market.
+  /// @param marketBorrow The borrow Market.
+  /// @param account The account to preview the ratio.
+  /// @param deposit The amount of assets that will be added to the principal.
+  function previewRatio(
+    Market marketDeposit,
+    Market marketBorrow,
+    address account,
+    uint256 deposit
+  ) external view returns (uint256) {
+    int256 principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
+    if (principal < 0) return type(uint256).max;
+
+    return (marketDeposit.maxWithdraw(account) + deposit).divWadDown(uint256(principal));
+  }
+
   /// @notice Sets a pool fee to the mapping of pool fees.
   /// @param pool The pool to be added.
   /// @param fee The fee of the pool to be added.

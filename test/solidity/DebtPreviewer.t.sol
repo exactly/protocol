@@ -12,6 +12,7 @@ import {
   Market,
   ERC20,
   IPermit2,
+  IPriceFeed,
   IBalancerVault
 } from "../../contracts/periphery/DebtManager.sol";
 
@@ -619,5 +620,44 @@ contract DebtPreviewerTest is ForkTest {
     debtManager.crossLeverage(marketWETH, marketUSDC, 500, 0, ratio, MAX_SQRT_RATIO - 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
+  }
+
+  function testPreviewRatioSameAsset() external {
+    marketWETH.deposit(10 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    uint256 borrow = 10_000e6;
+    marketUSDC.borrow(borrow, address(this), address(this));
+    uint256 deposit = 12_000e6;
+    uint256 ratio = debtPreviewer.previewRatio(marketUSDC, marketUSDC, address(this), deposit);
+    uint256 principal = uint256(crossPrincipal(marketUSDC, marketUSDC, address(this)) + int256(deposit));
+    assertApproxEqAbs(ratio, deposit.divWadDown(principal), 0);
+  }
+
+  function testPreviewRatioCrossAsset() external {
+    marketUSDC.deposit(10_000e6, address(this));
+    auditor.enterMarket(marketUSDC);
+    uint256 borrow = 2 ether;
+    marketWETH.borrow(borrow, address(this), address(this));
+    uint256 deposit = 10 ether;
+    uint256 ratio = debtPreviewer.previewRatio(marketwstETH, marketWETH, address(this), deposit);
+
+    uint256 principal = uint256(crossPrincipal(marketwstETH, marketWETH, address(this)) + int256(deposit));
+    assertApproxEqAbs(ratio, deposit.divWadDown(principal), 0);
+  }
+
+  function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
+    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
+    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
+
+    uint256 collateral = marketDeposit.maxWithdraw(account);
+    uint256 debt = floatingBorrowAssets(marketBorrow, account)
+      .mulDivDown(debtManager.auditor().assetPrice(priceFeedOut), 10 ** marketBorrow.decimals())
+      .mulDivDown(10 ** marketDeposit.decimals(), debtManager.auditor().assetPrice(priceFeedIn));
+    return int256(collateral) - int256(debt);
+  }
+
+  function floatingBorrowAssets(Market market, address account) internal view returns (uint256) {
+    (, , uint256 floatingBorrowShares) = market.accounts(account);
+    return market.previewRefund(floatingBorrowShares);
   }
 }
