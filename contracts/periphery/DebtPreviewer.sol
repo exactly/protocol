@@ -153,6 +153,9 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 ratio,
     uint256 minHealthFactor
   ) external returns (Limit memory limit) {
+    uint256 currentRatio;
+    (currentRatio, limit.principal) = previewCurrentRatio(marketDeposit, marketBorrow, account, deposit);
+    if (ratio < currentRatio) revert InvalidPreview();
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     limit.principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
@@ -198,21 +201,23 @@ contract DebtPreviewer is OwnableUpgradeable {
     );
   }
 
-  /// @notice Returns what would be the ratio with an extra `deposit` amount.
+  /// @notice Returns current ratio with an extra `deposit` amount and principal.
   /// @param marketDeposit The deposit Market.
   /// @param marketBorrow The borrow Market.
   /// @param account The account to preview the ratio.
   /// @param deposit The amount of assets that will be added to the principal.
-  function previewRatio(
+  function previewCurrentRatio(
     Market marketDeposit,
     Market marketBorrow,
     address account,
     uint256 deposit
-  ) external view returns (uint256) {
-    int256 principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
-    if (principal < 0) return type(uint256).max;
-
-    return (marketDeposit.maxWithdraw(account) + deposit).divWadDown(uint256(principal));
+  ) public view returns (uint256 ratio, int256 principal) {
+    principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
+    if (principal > 0) {
+      ratio = (marketDeposit.maxWithdraw(account) + deposit).divWadDown(uint256(principal));
+    } else {
+      ratio = 1e18;
+    }
   }
 
   /// @notice Sets a pool fee to the mapping of pool fees.
@@ -383,6 +388,8 @@ contract DebtPreviewer is OwnableUpgradeable {
     }
   }
 }
+
+error InvalidPreview();
 
 struct Leverage {
   uint256 debt;

@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { ForkTest } from "./Fork.t.sol";
+import { ForkTest, stdError } from "./Fork.t.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { DebtPreviewer, IUniswapQuoter, Leverage, Limit, Pool } from "../../contracts/periphery/DebtPreviewer.sol";
+import {
+  DebtPreviewer,
+  IUniswapQuoter,
+  Leverage,
+  Limit,
+  Pool,
+  InvalidPreview
+} from "../../contracts/periphery/DebtPreviewer.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
   DebtManager,
@@ -306,7 +313,7 @@ contract DebtPreviewerTest is ForkTest {
     marketOP.borrow(1_000e18, address(this), address(this));
     marketWETH.borrow(0.5e18, address(this), address(this));
 
-    Leverage memory leverage = debtPreviewer.leverage(marketWETH, marketUSDC, address(this), 1e18);
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);
     uint256 newDeposit = 3_000e6;
     Limit memory limit = debtPreviewer.previewLeverage(
       marketUSDC,
@@ -340,6 +347,36 @@ contract DebtPreviewerTest is ForkTest {
     debtManager.crossLeverage(marketWETH, marketUSDC, 500, newDeposit, limit.maxRatio - 0.015e18, MAX_SQRT_RATIO - 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
+  }
+
+  function testPreviewCrossAssetInvalidLeverage() external {
+    marketWETH.deposit(5e18, address(this));
+    marketWETH.borrow(1e18, address(this), address(this));
+
+    (uint256 ratio, ) = debtPreviewer.previewCurrentRatio(marketUSDC, marketWETH, address(this), 2_000e6);
+    assertApproxEqAbs(ratio, 10.5e18, 0.01e18);
+
+    vm.expectRevert(InvalidPreview.selector);
+    debtPreviewer.previewLeverage(marketUSDC, marketWETH, address(this), 2_000e6, 10e18, 1e18);
+
+    vm.expectRevert(stdError.arithmeticError);
+    debtPreviewer.previewLeverage(marketUSDC, marketWETH, address(this), 2_000e6, ratio, 1e18);
+
+    debtPreviewer.previewLeverage(marketUSDC, marketWETH, address(this), 2_000e6, ratio + 0.00000001e18, 1e18);
+  }
+
+  function testPreviewSameAssetInvalidLeverage() external {
+    marketWETH.deposit(5e18, address(this));
+    auditor.enterMarket(marketWETH);
+    marketUSDC.borrow(5_000e6, address(this), address(this));
+
+    (uint256 ratio, ) = debtPreviewer.previewCurrentRatio(marketUSDC, marketUSDC, address(this), 6_000e6);
+    assertEq(ratio, 6000000006000000006);
+
+    vm.expectRevert(InvalidPreview.selector);
+    debtPreviewer.previewLeverage(marketUSDC, marketUSDC, address(this), 6_000e6, 5e18, 1e18);
+
+    debtPreviewer.previewLeverage(marketUSDC, marketUSDC, address(this), 6_000e6, ratio, 1e18);
   }
 
   function testPreviewLeverageSameUSDCAssetWithDeposit() external {
@@ -666,27 +703,49 @@ contract DebtPreviewerTest is ForkTest {
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
   }
 
-  function testPreviewRatioSameAsset() external {
+  function testPreviewCurrentRatioSameAsset() external {
     marketWETH.deposit(10 ether, address(this));
     auditor.enterMarket(marketWETH);
     uint256 borrow = 10_000e6;
     marketUSDC.borrow(borrow, address(this), address(this));
     uint256 deposit = 12_000e6;
-    uint256 ratio = debtPreviewer.previewRatio(marketUSDC, marketUSDC, address(this), deposit);
-    uint256 principal = uint256(crossPrincipal(marketUSDC, marketUSDC, address(this)) + int256(deposit));
-    assertApproxEqAbs(ratio, deposit.divWadDown(principal), 0);
+    (uint256 ratio, int256 principal) = debtPreviewer.previewCurrentRatio(
+      marketUSDC,
+      marketUSDC,
+      address(this),
+      deposit
+    );
+    int256 calculatedPrincipal = crossPrincipal(marketUSDC, marketUSDC, address(this)) + int256(deposit);
+    assertEq(ratio, deposit.divWadDown(uint256(calculatedPrincipal)));
+    assertEq(principal, calculatedPrincipal);
   }
 
-  function testPreviewRatioCrossAsset() external {
+  function testPreviewCurrentRatioCrossAsset() external {
     marketUSDC.deposit(10_000e6, address(this));
     auditor.enterMarket(marketUSDC);
     uint256 borrow = 2 ether;
     marketWETH.borrow(borrow, address(this), address(this));
     uint256 deposit = 10 ether;
-    uint256 ratio = debtPreviewer.previewRatio(marketwstETH, marketWETH, address(this), deposit);
+    (uint256 ratio, int256 principal) = debtPreviewer.previewCurrentRatio(
+      marketwstETH,
+      marketWETH,
+      address(this),
+      deposit
+    );
+    int256 calculatedPrincipal = crossPrincipal(marketwstETH, marketWETH, address(this)) + int256(deposit);
+    assertEq(ratio, deposit.divWadDown(uint256(calculatedPrincipal)));
+    assertEq(principal, calculatedPrincipal);
+  }
 
-    uint256 principal = uint256(crossPrincipal(marketwstETH, marketWETH, address(this)) + int256(deposit));
-    assertApproxEqAbs(ratio, deposit.divWadDown(principal), 0);
+  function testPreviewCurrentRatioWithNegativePrincipal() external {
+    marketWETH.deposit(10 ether, address(this));
+    auditor.enterMarket(marketWETH);
+    uint256 borrow = 10_000e6;
+    marketUSDC.borrow(borrow, address(this), address(this));
+    (uint256 ratio, int256 principal) = debtPreviewer.previewCurrentRatio(marketUSDC, marketUSDC, address(this), 0);
+    int256 calculatedPrincipal = crossPrincipal(marketUSDC, marketUSDC, address(this));
+    assertEq(ratio, 1e18);
+    assertEq(principal, calculatedPrincipal);
   }
 
   function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
