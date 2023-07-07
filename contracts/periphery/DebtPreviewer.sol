@@ -153,42 +153,25 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 ratio,
     uint256 minHealthFactor
   ) external returns (Limit memory limit) {
-    int256 principal = crossPrincipal(marketDeposit, marketBorrow, account);
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
-
-    limit.principal = principal + int256(deposit);
+    limit.principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
     if (limit.principal <= 0) {
       limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, 0, minHealthFactor);
       limit.borrow = floatingBorrowAssets(marketBorrow, account);
       limit.deposit = marketDeposit.maxWithdraw(account) + deposit;
       return limit;
     }
-    uint256 newBorrow;
-    if (principal > 0) {
-      limit.deposit = uint256(limit.principal).mulWadDown(ratio);
-      newBorrow = address(marketDeposit) == address(marketBorrow)
-        ? deposit.mulWadDown(ratio - 1e18)
-        : previewOutputSwap(
-          address(marketBorrow.asset()),
-          address(marketDeposit.asset()),
-          limit.deposit - marketDeposit.maxWithdraw(account),
-          poolKey.fee
-        );
-    } else {
-      limit.deposit = uint256(limit.principal).mulWadDown(ratio);
-      newBorrow = address(marketDeposit) == address(marketBorrow)
-        ? deposit.mulWadDown(ratio - 1e18)
-        : previewOutputSwap(
-          address(marketBorrow.asset()),
-          address(marketDeposit.asset()),
-          uint256(limit.principal).mulWadDown(ratio) - marketDeposit.maxWithdraw(account) - deposit,
-          poolKey.fee
-        );
-    }
+    limit.deposit = uint256(limit.principal).mulWadDown(ratio);
     limit.borrow = address(marketDeposit) == address(marketBorrow)
       ? uint256(limit.principal).mulWadDown(ratio - 1e18)
-      : floatingBorrowAssets(marketBorrow, account) + newBorrow;
+      : floatingBorrowAssets(marketBorrow, account) +
+        previewOutputSwap(
+          address(marketBorrow.asset()),
+          address(marketDeposit.asset()),
+          limit.deposit - marketDeposit.maxWithdraw(account) - (limit.principal - int256(deposit) > 0 ? 0 : deposit),
+          poolKey.fee
+        );
     limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, uint256(limit.principal), minHealthFactor);
   }
 
