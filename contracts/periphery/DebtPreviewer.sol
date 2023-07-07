@@ -176,13 +176,13 @@ contract DebtPreviewer is OwnableUpgradeable {
           poolKey.fee
         );
     } else {
-      limit.deposit = marketDeposit.maxWithdraw(account) + uint256(limit.principal).mulWadDown(ratio - 1e18) + deposit;
+      limit.deposit = uint256(limit.principal).mulWadDown(ratio);
       newBorrow = address(marketDeposit) == address(marketBorrow)
         ? deposit.mulWadDown(ratio - 1e18)
         : previewOutputSwap(
           address(marketBorrow.asset()),
           address(marketDeposit.asset()),
-          uint256(limit.principal).mulWadDown(ratio - 1e18),
+          uint256(limit.principal).mulWadDown(ratio) - marketDeposit.maxWithdraw(account) - deposit,
           poolKey.fee
         );
     }

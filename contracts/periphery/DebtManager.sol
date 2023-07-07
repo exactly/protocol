@@ -301,16 +301,10 @@ contract DebtManager is Initializable {
     v.assetOut = address(marketOut.asset());
     v.sender = _msgSender;
 
-    {
-      int256 principal = crossPrincipal(marketIn, marketOut, v.sender);
-      if (principal > 0) {
-        v.amount = (uint256(principal) + deposit).mulWadDown(ratio) - marketIn.maxWithdraw(v.sender) - deposit;
-      } else {
-        int256 newPrincipal = principal + int256(deposit);
-        assert(newPrincipal > 0);
-        v.amount = uint256(newPrincipal).mulWadDown(ratio - 1e18);
-      }
-    }
+    v.amount =
+      crossPrincipal(marketIn, marketOut, deposit, v.sender).mulWadDown(ratio) -
+      marketIn.maxWithdraw(v.sender) -
+      deposit;
     PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
     IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
       address(this),
@@ -359,7 +353,7 @@ contract DebtManager is Initializable {
           ? previewAssetsOut(
             marketIn,
             marketOut,
-            uint256(crossPrincipal(marketIn, marketOut, v.sender) - int256(withdraw)).mulWadDown(ratio - 1e18)
+            (crossPrincipal(marketIn, marketOut, 0, v.sender) - withdraw).mulWadDown(ratio - 1e18)
           )
           : 0
       );
@@ -666,18 +660,23 @@ contract DebtManager is Initializable {
   /// @notice Calculates the crossed principal amount for a given `sender` in the input and output markets.
   /// @param marketIn The Market to withdraw the leveraged position.
   /// @param marketOut The Market to repay the leveraged position.
+  /// @param deposit The amount of `marketIn` underlying assets to deposit.
   /// @param sender The account that will be deleveraged.
-  function crossPrincipal(Market marketIn, Market marketOut, address sender) internal view returns (int256) {
+  function crossPrincipal(
+    Market marketIn,
+    Market marketOut,
+    uint256 deposit,
+    address sender
+  ) internal view returns (uint256) {
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketIn);
     (, , , , IPriceFeed priceFeedOut) = auditor.markets(marketOut);
 
     return
-      int256(marketIn.maxWithdraw(sender)) -
-      int256(
-        floatingBorrowAssets(marketOut)
-          .mulDivDown(auditor.assetPrice(priceFeedOut), 10 ** marketOut.decimals())
-          .mulDivDown(10 ** marketIn.decimals(), auditor.assetPrice(priceFeedIn))
-      );
+      marketIn.maxWithdraw(sender) +
+      deposit -
+      floatingBorrowAssets(marketOut)
+        .mulDivDown(auditor.assetPrice(priceFeedOut), 10 ** marketOut.decimals())
+        .mulDivDown(10 ** marketIn.decimals(), auditor.assetPrice(priceFeedIn));
   }
 
   /// @notice Returns the amount of `marketOut` underlying assets considering `amountIn` and both assets oracle prices.

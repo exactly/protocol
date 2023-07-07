@@ -867,13 +867,13 @@ contract DebtManagerTest is ForkTest {
     auditor.enterMarket(marketwstETH);
     marketWETH.borrow(3 ether, address(this), address(this));
 
-    vm.expectRevert(stdError.assertionError);
+    vm.expectRevert(stdError.arithmeticError);
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, 2e18, MIN_SQRT_RATIO + 1);
 
-    vm.expectRevert(stdError.assertionError);
+    vm.expectRevert(stdError.arithmeticError);
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 5_000e6, 2e18, MIN_SQRT_RATIO + 1);
 
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 6_000e6, 2e18, MIN_SQRT_RATIO + 1);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 6_000e6, 11e18, MIN_SQRT_RATIO + 1);
   }
 
   function testCrossLeverageFromUSDCToWETHWithPartialNegativePrincipal() external _checkBalances {
@@ -882,13 +882,13 @@ contract DebtManagerTest is ForkTest {
     marketUSDC.deposit(1_000e6, address(this));
     marketWETH.borrow(3 ether, address(this), address(this));
 
-    vm.expectRevert(stdError.assertionError);
+    vm.expectRevert(stdError.arithmeticError);
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, 2e18, MIN_SQRT_RATIO + 1);
 
-    vm.expectRevert(stdError.assertionError);
+    vm.expectRevert(stdError.arithmeticError);
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 4_000e6, 2e18, MIN_SQRT_RATIO + 1);
 
-    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 5_000e6, 2e18, MIN_SQRT_RATIO + 1);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 5_000e6, 11e18, MIN_SQRT_RATIO + 1);
   }
 
   function testLeverageAndMaxRatioCrossLeverageFromUSDCToWETH() external {
