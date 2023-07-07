@@ -109,7 +109,7 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 debt = marketBorrow.previewRefund(floatingBorrowShares);
     uint256 deposit = marketDeposit.maxWithdraw(account);
     int256 principal = crossPrincipal(marketDeposit, marketBorrow, account);
-    uint256 ratio = principal > 0 ? deposit.divWadDown(uint256(principal)) : 1e18;
+    uint256 ratio = principal > 0 ? deposit.divWadDown(uint256(principal)) : 0;
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     uint256 sqrtPriceX96;
@@ -131,7 +131,7 @@ contract DebtPreviewer is OwnableUpgradeable {
           principal > 0 ? uint256(principal) : 0,
           minHealthFactor
         ),
-        maxWithdraw: maxWithdraw(marketDeposit, marketBorrow, account),
+        maxWithdraw: principal > 0 ? maxWithdraw(marketDeposit, marketBorrow, account) : 0,
         pool: poolKey,
         sqrtPriceX96: sqrtPriceX96,
         availableAssets: balancerAvailableLiquidity()
@@ -154,13 +154,19 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 minHealthFactor
   ) external returns (Limit memory limit) {
     uint256 currentRatio;
-    (currentRatio, limit.principal) = previewCurrentRatio(marketDeposit, marketBorrow, account, deposit);
+    (limit.principal, currentRatio, limit.maxRatio) = previewRatio(
+      marketDeposit,
+      marketBorrow,
+      account,
+      int256(deposit),
+      minHealthFactor
+    );
+
     if (ratio < currentRatio) revert InvalidPreview();
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     limit.principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
     if (limit.principal <= 0) {
-      limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, 0, minHealthFactor);
       limit.borrow = floatingBorrowAssets(marketBorrow, account);
       limit.deposit = marketDeposit.maxWithdraw(account) + deposit;
       return limit;
@@ -175,48 +181,75 @@ contract DebtPreviewer is OwnableUpgradeable {
           limit.deposit - marketDeposit.maxWithdraw(account) - (limit.principal - int256(deposit) > 0 ? 0 : deposit),
           poolKey.fee
         );
-    limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, uint256(limit.principal), minHealthFactor);
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
   /// @param marketDeposit The deposit Market.
   /// @param marketBorrow The borrow Market.
   /// @param account The account that will be deleveraged.
-  /// @param assets The amount of assets that will be subtracted from the principal.
+  /// @param withdraw The amount of assets that will be withdrawn from the principal.
+  /// @param ratio The ratio to be previewed.
   /// @param minHealthFactor The minimum health factor that the account must have after the leverage.
   function previewDeleverage(
     Market marketDeposit,
     Market marketBorrow,
     address account,
-    uint256 assets,
+    uint256 withdraw,
+    uint256 ratio,
     uint256 minHealthFactor
-  ) external view returns (Limit memory limit) {
-    limit.principal = crossPrincipal(marketDeposit, marketBorrow, account) - int256(assets);
-    limit.maxRatio = maxRatio(
-      marketDeposit,
-      marketBorrow,
-      account,
-      limit.principal > 0 ? uint256(limit.principal) : 0,
-      minHealthFactor
-    );
+  ) external returns (Limit memory limit) {
+    if ((limit.principal = crossPrincipal(marketDeposit, marketBorrow, account)) < 0) revert InvalidPreview();
+    uint256 memMaxWithdraw = maxWithdraw(marketDeposit, marketBorrow, account);
+    if (withdraw <= uint256(limit.principal)) {
+      limit.principal -= int256(withdraw);
+      limit.maxRatio = maxRatio(marketDeposit, marketBorrow, account, uint256(limit.principal), minHealthFactor);
+    } else if (withdraw <= memMaxWithdraw) {
+      limit.principal = int256(memMaxWithdraw - withdraw);
+      limit.maxRatio = limit.principal > 0
+        ? maxRatio(marketDeposit, marketBorrow, account, uint256(limit.principal), minHealthFactor)
+        : 1e18;
+    } else revert InvalidPreview();
+    if (ratio > limit.maxRatio) revert InvalidPreview();
+
+    uint256 borrowRepay = floatingBorrowAssets(marketBorrow, account) -
+      previewAssetsOut(marketDeposit, marketBorrow, uint256(limit.principal).mulWadDown(ratio - 1e18));
+
+    PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
+    limit.borrow = floatingBorrowAssets(marketBorrow, account) - borrowRepay;
+    limit.deposit =
+      marketDeposit.maxWithdraw(account) -
+      withdraw -
+      (
+        marketDeposit == marketBorrow
+          ? borrowRepay
+          : previewOutputSwap(
+            address(marketDeposit.asset()),
+            address(marketBorrow.asset()),
+            borrowRepay,
+            poolFees[poolKey.token0][poolKey.token1]
+          )
+      );
   }
 
-  /// @notice Returns current ratio with an extra `deposit` amount and principal.
+  /// @notice Returns principal, current ratio and max ratio, considering assets to add or substract.
   /// @param marketDeposit The deposit Market.
   /// @param marketBorrow The borrow Market.
   /// @param account The account to preview the ratio.
-  /// @param deposit The amount of assets that will be added to the principal.
-  function previewCurrentRatio(
+  /// @param assets The amount of assets that will be added or subtracted to the principal.
+  /// @param minHealthFactor The minimum health factor that the account should have with the max ratio.
+  function previewRatio(
     Market marketDeposit,
     Market marketBorrow,
     address account,
-    uint256 deposit
-  ) public view returns (uint256 ratio, int256 principal) {
-    principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
+    int256 assets,
+    uint256 minHealthFactor
+  ) public view returns (int256 principal, uint256 current, uint256 max) {
+    principal = crossPrincipal(marketDeposit, marketBorrow, account) + assets;
     if (principal > 0) {
-      ratio = (marketDeposit.maxWithdraw(account) + deposit).divWadDown(uint256(principal));
+      current = uint256(int256(marketDeposit.maxWithdraw(account)) + assets).divWadDown(uint256(principal));
+      max = maxRatio(marketDeposit, marketBorrow, account, uint256(principal), minHealthFactor);
     } else {
-      ratio = 1e18;
+      max = maxRatio(marketDeposit, marketBorrow, account, 0, minHealthFactor);
     }
   }
 
@@ -325,19 +358,18 @@ contract DebtPreviewer is OwnableUpgradeable {
 
         mw.adjustedCollateral += vars.balance.mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
         mw.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, 10 ** md.decimals).divWadUp(md.adjustFactor);
+
+        uint256 borrowAssets = floatingBorrowAssets(marketBorrow, account);
+
         if (mw.market == marketBorrow) {
-          mw.adjustedRepay = floatingBorrowAssets(marketBorrow, account)
-            .mulDivUp(vars.price, 10 ** md.decimals)
-            .divWadUp(md.adjustFactor);
-        } else if (mw.market == marketDeposit) {
-          mw.adjustedPrincipalToRepayDebt = floatingBorrowAssets(marketBorrow, account) > 0
-            ? previewOutputSwap(
-              address(marketDeposit.asset()),
-              address(marketBorrow.asset()),
-              floatingBorrowAssets(marketBorrow, account),
-              500
-            ).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor)
-            : 0;
+          mw.adjustedRepay = borrowAssets.mulDivUp(vars.price, 10 ** md.decimals).divWadUp(md.adjustFactor);
+        }
+        if (mw.market == marketDeposit) {
+          mw.adjustedPrincipalToRepayDebt = (
+            borrowAssets > 0 && marketBorrow != marketDeposit
+              ? previewOutputSwap(address(marketDeposit.asset()), address(marketBorrow.asset()), borrowAssets, 500)
+              : borrowAssets
+          ).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
           mw.adjustedPrincipal =
             (mw.market.maxWithdraw(account)).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor) -
             mw.adjustedPrincipalToRepayDebt;
