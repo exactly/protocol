@@ -232,10 +232,11 @@ contract DebtPreviewer is OwnableUpgradeable {
         ? maxRatio(marketDeposit, marketBorrow, account, uint256(limit.principal), minHealthFactor)
         : 1e18;
     } else revert InvalidPreview();
-    if (ratio > limit.maxRatio) revert InvalidPreview();
+
+    limit.ratio = ratio > limit.maxRatio ? limit.maxRatio : ratio;
 
     uint256 borrowRepay = floatingBorrowAssets(marketBorrow, account) -
-      previewAssetsOut(marketDeposit, marketBorrow, uint256(limit.principal).mulWadDown(ratio - 1e18));
+      previewAssetsOut(marketDeposit, marketBorrow, uint256(limit.principal).mulWadDown(limit.ratio - 1e18));
 
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     limit.borrow = floatingBorrowAssets(marketBorrow, account) - borrowRepay;
@@ -470,6 +471,7 @@ struct Pool {
 }
 
 struct Limit {
+  uint256 ratio;
   uint256 borrow;
   uint256 deposit;
   int256 principal;

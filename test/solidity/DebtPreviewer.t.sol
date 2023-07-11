@@ -810,22 +810,25 @@ contract DebtPreviewerTest is ForkTest {
     debtPreviewer.previewDeleverage(marketWETH, marketWETH, address(this), 1 ether, 1e18, 1e18);
   }
 
-  function testPreviewDeleverageMaxWithdrawWithRatioHigherThan1() external {
+  function testPreviewDeleverageMaxWithdrawWithRatioHigherThanOne() external {
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 100_000e6, 3e18, MIN_SQRT_RATIO + 1);
 
     Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);
-
-    vm.expectRevert(InvalidPreview.selector);
-    debtPreviewer.previewDeleverage(marketUSDC, marketWETH, address(this), leverage.maxWithdraw, 1.01e18, 1e18);
 
     Limit memory limit = debtPreviewer.previewDeleverage(
       marketUSDC,
       marketWETH,
       address(this),
       leverage.maxWithdraw,
-      1e18,
+      1.01e18,
       1e18
     );
+
+    assertEq(limit.ratio, 1e18);
+    assertEq(limit.maxRatio, 1e18);
+    limit = debtPreviewer.previewDeleverage(marketUSDC, marketWETH, address(this), leverage.maxWithdraw, 1e18, 1e18);
+    assertEq(limit.ratio, 1e18);
+    assertEq(limit.maxRatio, 1e18);
 
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, leverage.maxWithdraw, 1e18, MAX_SQRT_RATIO - 1);
 
@@ -835,7 +838,7 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(floatingBorrowAssets(marketWETH, address(this)), 0);
   }
 
-  function testPreviewDeleverageWithInvalidPreview() external {
+  function testPreviewDeleverageWithLowerRatioShouldCapRatio() external {
     marketUSDC.deposit(100_000e6, address(this));
     auditor.enterMarket(marketUSDC);
     marketOP.borrow(5_000 ether, address(this), address(this));
@@ -844,31 +847,17 @@ contract DebtPreviewerTest is ForkTest {
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, leverage.maxRatio - 0.1e18, MIN_SQRT_RATIO + 1);
     leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);
 
-    (, , uint256 maxRatio) = debtPreviewer.previewRatio(
-      marketUSDC,
-      marketWETH,
-      address(this),
-      -int256(leverage.maxWithdraw / 2),
-      1e18
-    );
-    vm.expectRevert(InvalidPreview.selector);
-    debtPreviewer.previewDeleverage(
-      marketUSDC,
-      marketWETH,
-      address(this),
-      leverage.maxWithdraw / 2,
-      maxRatio + 0.01e18,
-      1e18
-    );
-
     Limit memory limit = debtPreviewer.previewDeleverage(
       marketUSDC,
       marketWETH,
       address(this),
       leverage.maxWithdraw / 2,
-      maxRatio,
+      leverage.ratio,
       1e18
     );
+    assertEq(leverage.ratio, 3683445754740604291);
+    assertEq(limit.ratio, 3345551396765711509);
+    assertEq(limit.ratio, limit.maxRatio);
 
     vm.expectRevert(abi.encodeWithSelector(InsufficientAccountLiquidity.selector));
     debtManager.crossDeleverage(
@@ -876,11 +865,11 @@ contract DebtPreviewerTest is ForkTest {
       marketWETH,
       500,
       leverage.maxWithdraw / 2,
-      maxRatio + 0.05e18,
+      limit.ratio + 0.05e18,
       MAX_SQRT_RATIO - 1
     );
 
-    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, leverage.maxWithdraw / 2, maxRatio, MAX_SQRT_RATIO - 1);
+    debtManager.crossDeleverage(marketUSDC, marketWETH, 500, leverage.maxWithdraw / 2, limit.ratio, MAX_SQRT_RATIO - 1);
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), limit.deposit, 1);
     assertApproxEqAbs(floatingBorrowAssets(marketWETH, address(this)), limit.borrow, 1);
   }
