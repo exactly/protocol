@@ -885,6 +885,55 @@ contract DebtPreviewerTest is ForkTest {
     assertApproxEqAbs(floatingBorrowAssets(marketWETH, address(this)), limit.borrow, 1);
   }
 
+  function testPreviewMinDeposit() external {
+    marketWETH.deposit(5e18, address(this));
+    marketWETH.borrow(1e18, address(this), address(this));
+
+    (uint256 adjustFactorIn, , , , IPriceFeed priceFeedIn) = auditor.markets(marketUSDC);
+    (uint256 adjustFactorOut, , , , IPriceFeed priceFeedOut) = auditor.markets(marketWETH);
+
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);
+
+    assertApproxEqAbs(
+      leverage
+        .minDeposit
+        .mulDivDown(auditor.assetPrice(priceFeedIn), 10 ** marketUSDC.decimals())
+        .mulWadDown(adjustFactorIn)
+        .divWadDown(
+          floatingBorrowAssets(marketWETH, address(this)).mulWadDown(auditor.assetPrice(priceFeedOut)).divWadDown(
+            adjustFactorOut
+          )
+        ),
+      1e18,
+      4e8
+    );
+  }
+
+  function testMinDepositMaxRatio() external {
+    marketWETH.deposit(5e18, address(this));
+    marketWETH.borrow(1e18, address(this), address(this));
+
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);
+    marketUSDC.deposit(leverage.minDeposit, address(this));
+
+    (, uint256 ratio, uint256 maxRatio) = debtPreviewer.previewRatio(marketUSDC, marketWETH, address(this), 0, 1e18);
+    assertApproxEqAbs(ratio, maxRatio, 5e10);
+
+    marketWETH.withdraw(5e18 - 2e8, address(this), address(this));
+
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertApproxEqAbs(coll.divWadDown(debt), 1e18, 7e7);
+  }
+
+  function testMinDepositZero() external {
+    marketWETH.deposit(5e18, address(this));
+    marketWETH.borrow(1e18, address(this), address(this));
+
+    Leverage memory leverage = debtPreviewer.leverage(marketWETH, marketWETH, address(this), 1e18);
+
+    assertEq(leverage.minDeposit, 0);
+  }
+
   function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
     (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
     (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);

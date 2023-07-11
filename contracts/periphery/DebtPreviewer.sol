@@ -107,6 +107,7 @@ contract DebtPreviewer is OwnableUpgradeable {
   ) external returns (Leverage memory) {
     (, , uint256 floatingBorrowShares) = marketBorrow.accounts(account);
     uint256 deposit = marketDeposit.maxWithdraw(account);
+    uint256 memMinDeposit = minDeposit(marketDeposit, marketBorrow, account, minHealthFactor);
     int256 principal = crossPrincipal(marketDeposit, marketBorrow, account);
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
@@ -129,11 +130,35 @@ contract DebtPreviewer is OwnableUpgradeable {
           principal > 0 ? uint256(principal) : 0,
           minHealthFactor
         ),
+        minDeposit: deposit >= memMinDeposit ? 0 : memMinDeposit - deposit,
         maxWithdraw: principal > 0 ? maxWithdraw(marketDeposit, marketBorrow, account) : 0,
         pool: poolKey,
         sqrtPriceX96: sqrtPriceX96,
         availableAssets: balancerAvailableLiquidity()
       });
+  }
+
+  /// @notice Returns minimum deposit based on account's current debt and a given health factor.
+  /// @param marketDeposit The deposit Market.
+  /// @param marketBorrow The borrow Market.
+  /// @param account The account operating with the markets.
+  /// @param minHealthFactor The health factor that the account must have with the minimum deposit, isolated.
+  function minDeposit(
+    Market marketDeposit,
+    Market marketBorrow,
+    address account,
+    uint256 minHealthFactor
+  ) internal view returns (uint256) {
+    MinDepositVars memory vars;
+    Auditor auditor = debtManager.auditor();
+    (vars.adjustFactorIn, , , , vars.priceFeedIn) = auditor.markets(marketDeposit);
+    (vars.adjustFactorOut, , , , vars.priceFeedOut) = auditor.markets(marketBorrow);
+
+    return
+      minHealthFactor
+        .mulWadDown(floatingBorrowAssets(marketBorrow, account).mulWadDown(auditor.assetPrice(vars.priceFeedOut)))
+        .divWadDown(vars.adjustFactorOut.mulWadDown(vars.adjustFactorIn))
+        .mulDivUp(10 ** marketDeposit.decimals(), auditor.assetPrice(vars.priceFeedIn));
   }
 
   /// @notice Returns the maximum ratio that an account can leverage its principal plus `assets` amount.
@@ -427,6 +452,7 @@ struct Leverage {
   int256 principal;
   uint256 ratio;
   uint256 maxRatio;
+  uint256 minDeposit;
   uint256 maxWithdraw;
   PoolKey pool;
   uint256 sqrtPriceX96;
@@ -468,6 +494,13 @@ struct MaxWithdrawVars {
   uint256 adjustFactorOut;
   uint256 i;
   Market market;
+}
+
+struct MinDepositVars {
+  uint256 adjustFactorIn;
+  uint256 adjustFactorOut;
+  IPriceFeed priceFeedIn;
+  IPriceFeed priceFeedOut;
 }
 
 interface IUniswapQuoter {
