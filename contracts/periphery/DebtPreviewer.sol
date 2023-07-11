@@ -106,10 +106,8 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint256 minHealthFactor
   ) external returns (Leverage memory) {
     (, , uint256 floatingBorrowShares) = marketBorrow.accounts(account);
-    uint256 debt = marketBorrow.previewRefund(floatingBorrowShares);
     uint256 deposit = marketDeposit.maxWithdraw(account);
     int256 principal = crossPrincipal(marketDeposit, marketBorrow, account);
-    uint256 ratio = principal > 0 ? deposit.divWadDown(uint256(principal)) : 0;
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     uint256 sqrtPriceX96;
@@ -120,10 +118,10 @@ contract DebtPreviewer is OwnableUpgradeable {
 
     return
       Leverage({
-        debt: debt,
+        debt: marketBorrow.previewRefund(floatingBorrowShares),
         deposit: deposit,
         principal: principal,
-        ratio: ratio,
+        ratio: principal > 0 ? deposit.divWadDown(uint256(principal)) : 0,
         maxRatio: maxRatio(
           marketDeposit,
           marketBorrow,
