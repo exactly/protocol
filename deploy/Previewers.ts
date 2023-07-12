@@ -1,7 +1,14 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import validateUpgrade, { type DeployCallback } from "./.utils/validateUpgrade";
+import validateUpgrade from "./.utils/validateUpgrade";
 
 const func: DeployFunction = async ({
+  network: {
+    config: {
+      finance: {
+        periphery: { uniswapFees },
+      },
+    },
+  },
   ethers: {
     constants: { AddressZero },
   },
@@ -21,10 +28,31 @@ const func: DeployFunction = async ({
     getOrNull("PriceFeedETH").then((d) => d ?? { address: AddressZero }),
     getNamedAccounts(),
   ]);
-  const callback: DeployCallback = async (name, opts) =>
-    deploy(name, { ...opts, proxy: { proxyContract: "TransparentUpgradeableProxy" }, from: deployer, log: true });
-  await validateUpgrade("Previewer", { args: [auditor, priceFeedETH], envKey: "PREVIEWER" }, callback);
-  await validateUpgrade("DebtPreviewer", { args: [debtManager, uniswapQuoter], envKey: "DEBT_PREVIEWER" }, callback);
+  await validateUpgrade("Previewer", { args: [auditor, priceFeedETH], envKey: "PREVIEWER" }, async (name, opts) =>
+    deploy(name, { ...opts, proxy: { proxyContract: "TransparentUpgradeableProxy" }, from: deployer, log: true }),
+  );
+  await validateUpgrade(
+    "DebtPreviewer",
+    { args: [debtManager, uniswapQuoter], envKey: "DEBT_PREVIEWER" },
+    async (name, opts) =>
+      deploy(name, {
+        ...opts,
+        proxy: {
+          proxyContract: "TransparentUpgradeableProxy",
+          execute: {
+            init: {
+              methodName: "initialize",
+              args: [
+                await Promise.all(uniswapFees.map(({ assets }) => assets.map(async (a) => (await get(a)).address))),
+                uniswapFees.map(({ fee }) => fee * 1e4),
+              ],
+            },
+          },
+        },
+        from: deployer,
+        log: true,
+      }),
+  );
 };
 
 func.tags = ["Previewers"];

@@ -164,6 +164,15 @@ export default {
         fixedCurve: { a: 2.8574e-1, b: -2.4204e-1, maxUtilization: 1.013118138 },
       },
     },
+    periphery: {
+      goerli: {
+        uniswapFees: [
+          { assets: ["USDC", "WBTC"], fee: 0.05 },
+          { assets: ["DAI", "WBTC"], fee: 0.05 },
+          { assets: ["DAI", "USDC"], fee: 0.05 },
+        ],
+      },
+    },
   },
   dodoc: { exclude: ["mocks/", "k/", "elin/", "rc/"] },
   tenderly: { project: "exactly", username: "exactly", privateVerification: false },
@@ -208,6 +217,7 @@ extendConfig((hardhatConfig, { finance }) => {
             return [name, config];
           }),
       ),
+      periphery: finance.periphery?.[live ? networkName : Object.keys(finance.periphery)[0]],
     };
   }
 });
@@ -224,6 +234,11 @@ declare module "hardhat/types/config" {
     earningsAccumulatorSmoothFactor: number;
     rewards: RewardsParameters;
     markets: { [asset: string]: MarketUserConfig };
+    periphery: PeripheryConfig;
+  }
+
+  export interface FinanceUserConfig extends Omit<FinanceConfig, "periphery"> {
+    periphery: { [network: string]: PeripheryConfig };
   }
 
   export interface RewardsParameters {
@@ -262,8 +277,12 @@ declare module "hardhat/types/config" {
     maxUtilization: number;
   }
 
+  export interface PeripheryConfig {
+    uniswapFees: { assets: [string, string]; fee: number }[];
+  }
+
   export interface HardhatUserConfig {
-    finance: FinanceConfig;
+    finance: FinanceUserConfig;
   }
 
   export interface HttpNetworkUserConfig {
