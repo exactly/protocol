@@ -136,9 +136,13 @@ contract DebtManager is Initializable {
     {
       uint256 collateral = market.maxWithdraw(sender);
       uint256 targetDeposit = (collateral + deposit - floatingBorrowAssets(market)).mulWadDown(ratio);
-      uint256 amount = targetDeposit - (collateral + deposit);
-      loopCount = amount.mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
-      amounts[0] = amount.mulDivUp(1, loopCount);
+      int256 amount = int256(targetDeposit) - int256(collateral + deposit);
+      if (amount <= 0) {
+        market.deposit(deposit, sender);
+        return;
+      }
+      loopCount = uint256(amount).mulDivUp(1, tokens[0].balanceOf(address(balancerVault)));
+      amounts[0] = uint256(amount).mulDivUp(1, loopCount);
     }
     bytes[] memory calls = new bytes[](2 * loopCount);
     uint256 callIndex = 0;
@@ -305,25 +309,29 @@ contract DebtManager is Initializable {
       crossPrincipal(marketIn, marketOut, deposit, v.sender).mulWadDown(ratio) -
       marketIn.maxWithdraw(v.sender) -
       deposit;
-    PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
-    IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
-      address(this),
-      v.assetOut == poolKey.token0,
-      -int256(v.amount),
-      sqrtPriceLimitX96,
-      abi.encode(
-        SwapCallbackData({
-          marketIn: marketIn,
-          marketOut: marketOut,
-          assetIn: v.assetIn,
-          assetOut: v.assetOut,
-          principal: deposit,
-          account: v.sender,
-          fee: fee,
-          leverage: true
-        })
-      )
-    );
+    if (v.amount > 0) {
+      PoolKey memory poolKey = PoolAddress.getPoolKey(v.assetIn, v.assetOut, fee);
+      IUniswapV3Pool(PoolAddress.computeAddress(uniswapV3Factory, poolKey)).swap(
+        address(this),
+        v.assetOut == poolKey.token0,
+        -int256(v.amount),
+        sqrtPriceLimitX96,
+        abi.encode(
+          SwapCallbackData({
+            marketIn: marketIn,
+            marketOut: marketOut,
+            assetIn: v.assetIn,
+            assetOut: v.assetOut,
+            principal: deposit,
+            account: v.sender,
+            fee: fee,
+            leverage: true
+          })
+        )
+      );
+    } else {
+      marketIn.deposit(deposit, v.sender);
+    }
   }
 
   /// @notice Cross-deleverages `_msgSender`'s position to a `ratio` via flash swap from Uniswap's pool.

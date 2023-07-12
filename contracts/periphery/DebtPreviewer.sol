@@ -84,13 +84,15 @@ contract DebtPreviewer is OwnableUpgradeable {
     uint24 fee
   ) public returns (uint256) {
     return
-      uniswapV3Quoter.quoteExactOutputSingle(
-        assetIn,
-        assetOut,
-        fee,
-        amountOut,
-        assetIn == PoolAddress.getPoolKey(assetIn, assetOut, fee).token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
-      );
+      amountOut > 0
+        ? uniswapV3Quoter.quoteExactOutputSingle(
+          assetIn,
+          assetOut,
+          fee,
+          amountOut,
+          assetIn == PoolAddress.getPoolKey(assetIn, assetOut, fee).token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
+        )
+        : 0;
   }
 
   /// @notice Returns extended data useful to leverage or deleverage an account principal position.
@@ -185,7 +187,7 @@ contract DebtPreviewer is OwnableUpgradeable {
       minHealthFactor
     );
 
-    if (ratio < currentRatio) revert InvalidPreview();
+    limit.ratio = (ratio < currentRatio || ratio > limit.maxRatio) ? currentRatio : ratio;
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     limit.principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
@@ -194,9 +196,9 @@ contract DebtPreviewer is OwnableUpgradeable {
       limit.deposit = marketDeposit.maxWithdraw(account) + deposit;
       return limit;
     }
-    limit.deposit = uint256(limit.principal).mulWadDown(ratio);
+    limit.deposit = uint256(limit.principal).mulWadUp(limit.ratio);
     limit.borrow = address(marketDeposit) == address(marketBorrow)
-      ? uint256(limit.principal).mulWadDown(ratio - 1e18)
+      ? uint256(limit.principal).mulWadDown(limit.ratio - 1e18)
       : floatingBorrowAssets(marketBorrow, account) +
         previewOutputSwap(
           address(marketBorrow.asset()),
@@ -267,10 +269,10 @@ contract DebtPreviewer is OwnableUpgradeable {
     address account,
     int256 assets,
     uint256 minHealthFactor
-  ) public view returns (int256 principal, uint256 current, uint256 max) {
+  ) internal view returns (int256 principal, uint256 current, uint256 max) {
     principal = crossPrincipal(marketDeposit, marketBorrow, account) + assets;
     if (principal > 0) {
-      current = uint256(int256(marketDeposit.maxWithdraw(account)) + assets).divWadDown(uint256(principal));
+      current = uint256(int256(marketDeposit.maxWithdraw(account)) + assets).divWadUp(uint256(principal));
       max = maxRatio(marketDeposit, marketBorrow, account, uint256(principal), minHealthFactor);
     } else {
       max = maxRatio(marketDeposit, marketBorrow, account, 0, minHealthFactor);

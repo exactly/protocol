@@ -208,15 +208,8 @@ contract DebtManagerTest is ForkTest {
     marketUSDC.borrow(10_000e6, address(this), address(this));
 
     // current ratio is 6x
-    vm.expectRevert(stdError.arithmeticError);
     debtManager.leverage(marketUSDC, 12_000e6, 6e18);
-
-    debtManager.leverage(marketUSDC, 12_000e6, 6.01e18);
-    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
-    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
-    assertApproxEqAbs(leverage.ratio, 6.01e18, 0.000000003e18);
-    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), 12_020e6, 8);
-    assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), 10_020e6, 6);
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), 12_000e6, 1);
   }
 
   function testLeverageWithPartialNegativePrincipal() external _checkBalances {
@@ -227,15 +220,8 @@ contract DebtManagerTest is ForkTest {
     marketUSDC.borrow(10_000e6, address(this), address(this));
 
     // current ratio is 6x
-    vm.expectRevert(stdError.arithmeticError);
     debtManager.leverage(marketUSDC, 10_000e6, 6e18);
-
-    debtManager.leverage(marketUSDC, 10_000e6, 6.01e18);
-    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
-    (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
-    assertApproxEqAbs(leverage.ratio, 6.01e18, 0.000000003e18);
-    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), 12_020e6, 13);
-    assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), 10_020e6, 11);
+    assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), 12_000e6, 1);
   }
 
   function testLeverageIncremental() external _checkBalances {
