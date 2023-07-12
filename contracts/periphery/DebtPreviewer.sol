@@ -1,16 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { DebtManager, IUniswapV3Pool, ERC20, PoolKey, PoolAddress } from "./DebtManager.sol";
-import { Auditor, IPriceFeed } from "../Auditor.sol";
-import { Market } from "../Market.sol";
+import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import {
+  ERC20,
+  Market,
+  Auditor,
+  IPriceFeed,
+  DebtManager,
+  IUniswapV3Pool,
+  PoolAddress,
+  PoolKey
+} from "./DebtManager.sol";
 
 /// @title DebtPreviewer
 /// @notice Contract to be consumed by Exactly's front-end dApp as a helper for `DebtManager`.
-contract DebtPreviewer is OwnableUpgradeable {
+contract DebtPreviewer is Initializable {
   using FixedPointMathLib for uint256;
 
   /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
@@ -36,8 +43,6 @@ contract DebtPreviewer is OwnableUpgradeable {
   /// @notice Initializes the contract.
   /// @dev can only be called once.
   function initialize(Pool[] memory pools, uint24[] memory fees) external initializer {
-    __Ownable_init();
-
     assert(pools.length == fees.length);
     for (uint256 i = 0; i < pools.length; ) {
       PoolKey memory poolKey = PoolAddress.getPoolKey(pools[i].tokenA, pools[i].tokenB, fees[i]);
@@ -277,14 +282,6 @@ contract DebtPreviewer is OwnableUpgradeable {
     } else {
       max = maxRatio(marketDeposit, marketBorrow, account, 0, minHealthFactor);
     }
-  }
-
-  /// @notice Sets a pool fee to the mapping of pool fees.
-  /// @param pool The pool to be added.
-  /// @param fee The fee of the pool to be added.
-  function setPoolFee(Pool memory pool, uint24 fee) external onlyOwner {
-    PoolKey memory poolKey = PoolAddress.getPoolKey(pool.tokenA, pool.tokenB, fee);
-    poolFees[poolKey.token0][poolKey.token1] = poolKey.fee;
   }
 
   /// @notice Returns the amount of `marketBorrow` underlying assets considering `amountIn` and assets oracle prices.

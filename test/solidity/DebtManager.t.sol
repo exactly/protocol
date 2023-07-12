@@ -73,11 +73,15 @@ contract DebtManagerTest is ForkTest {
         )
       )
     );
+    Pool[] memory pools = new Pool[](1);
+    pools[0] = Pool(address(weth), address(usdc));
+    uint24[] memory fees = new uint24[](1);
+    fees[0] = 500;
     debtPreviewer = DebtPreviewer(
       address(
         new ERC1967Proxy(
           address(new DebtPreviewer(debtManager, IUniswapQuoter(deployment("UniswapV3Quoter")))),
-          abi.encodeCall(DebtPreviewer.initialize, (new Pool[](0), new uint24[](0)))
+          abi.encodeCall(DebtPreviewer.initialize, (pools, fees))
         )
       )
     );
@@ -878,7 +882,6 @@ contract DebtManagerTest is ForkTest {
   }
 
   function testLeverageAndMaxRatioCrossLeverageFromUSDCToWETH() external {
-    debtPreviewer.setPoolFee(Pool(address(weth), address(usdc)), 500);
     debtManager.leverage(marketUSDC, 10_000e6, 5e18);
 
     Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);

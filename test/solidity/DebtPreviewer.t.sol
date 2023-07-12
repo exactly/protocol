@@ -108,16 +108,6 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(debtPreviewer.previewInputSwap(address(wstETH), address(weth), 1e18, 500), 1124234920941937964);
   }
 
-  function testSetPoolFee() external {
-    debtPreviewer.setPoolFee(Pool(address(wstETH), address(usdc)), 500);
-  }
-
-  function testSetPoolFeeFromAnotherAccount() external {
-    vm.prank(ALICE);
-    vm.expectRevert(bytes(""));
-    debtPreviewer.setPoolFee(Pool(address(wstETH), address(usdc)), 500);
-  }
-
   function testPreviewLeverage() external {
     uint256 ratio = 2e18;
     uint256 principal = 10_000e6;
