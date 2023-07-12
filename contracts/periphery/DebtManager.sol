@@ -162,26 +162,26 @@ contract DebtManager is Initializable {
 
   /// @notice Deleverages `_msgSender`'s position to a `ratio` via flash loan from Balancer's vault.
   /// @param market The Market to deleverage the position out.
-  /// @param ratio The ratio of the borrow that will be repaid, represented with 18 decimals.
   /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
+  /// @param ratio The ratio of the borrow that will be repaid, represented with 18 decimals.
   /// @param permitAssets The amount of assets to allow this contract to withdraw on behalf of `_msgSender`.
   /// @param p Arguments for the permit call to `market` on behalf of `permit.account`.
   /// Permit `value` should be `permitAssets`.
   function deleverage(
     Market market,
-    uint256 ratio,
     uint256 withdraw,
+    uint256 ratio,
     uint256 permitAssets,
     Permit calldata p
   ) external permit(market, permitAssets, p) {
-    deleverage(market, ratio, withdraw);
+    deleverage(market, withdraw, ratio);
   }
 
   /// @notice Deleverages `_msgSender`'s position to a `ratio` via flash loan from Balancer's vault.
   /// @param market The Market to deleverage the position out.
-  /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
   /// @param withdraw The amount of assets that will be withdrawn to `_msgSender`.
-  function deleverage(Market market, uint256 ratio, uint256 withdraw) public msgSender {
+  /// @param ratio The number of times that the current principal will be leveraged, represented with 18 decimals.
+  function deleverage(Market market, uint256 withdraw, uint256 ratio) public msgSender {
     RollVars memory r;
     r.amounts = new uint256[](1);
     r.tokens = new ERC20[](1);

@@ -755,7 +755,7 @@ contract DebtPreviewerTest is ForkTest {
 
     Limit memory limit = debtPreviewer.previewDeleverage(marketUSDC, marketUSDC, address(this), 10_000e6, 2e18, 1e18);
 
-    debtManager.deleverage(marketUSDC, 2e18, 10_000e6);
+    debtManager.deleverage(marketUSDC, 10_000e6, 2e18);
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), limit.deposit, 2);
     assertApproxEqAbs(floatingBorrowAssets(marketUSDC, address(this)), limit.borrow, 1);
 

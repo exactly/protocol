@@ -286,7 +286,7 @@ contract DebtManagerTest is ForkTest {
     debtManager.leverage(marketUSDC, principal, ratio);
 
     ratio = 3e18;
-    debtManager.deleverage(marketUSDC, ratio, 0);
+    debtManager.deleverage(marketUSDC, 0, ratio);
 
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 7);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -300,19 +300,19 @@ contract DebtManagerTest is ForkTest {
     debtManager.leverage(marketUSDC, principal, ratio);
 
     ratio = 3e18;
-    debtManager.deleverage(marketUSDC, ratio, 0);
+    debtManager.deleverage(marketUSDC, 0, ratio);
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 7);
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), principal.mulWadDown(ratio - 1e18), 3);
 
     ratio = 2e18;
-    debtManager.deleverage(marketUSDC, ratio, 0);
+    debtManager.deleverage(marketUSDC, 0, ratio);
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 9);
     (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), principal.mulWadDown(ratio - 1e18), 3);
 
     ratio = 1e18;
-    debtManager.deleverage(marketUSDC, ratio, 0);
+    debtManager.deleverage(marketUSDC, 0, ratio);
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), principal.mulWadDown(ratio), 7);
     (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertApproxEqAbs(marketUSDC.previewRefund(floatingBorrowShares), principal.mulWadDown(ratio - 1e18), 0);
@@ -320,7 +320,7 @@ contract DebtManagerTest is ForkTest {
 
   function testDeleverageWithPartialWithdraw() external _checkBalances {
     debtManager.leverage(marketUSDC, 10_000e6, 3e18);
-    debtManager.deleverage(marketUSDC, 1e18, 5_000e6);
+    debtManager.deleverage(marketUSDC, 5_000e6, 1e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
@@ -329,7 +329,7 @@ contract DebtManagerTest is ForkTest {
 
   function testDeleverageWithWithdraw() external _checkBalances {
     debtManager.leverage(marketUSDC, 100_000e6, 2e18);
-    debtManager.deleverage(marketUSDC, 1e18, 100_000e6 - 3);
+    debtManager.deleverage(marketUSDC, 100_000e6 - 3, 1e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertEq(marketUSDC.previewRefund(floatingBorrowShares), 0);
@@ -341,7 +341,7 @@ contract DebtManagerTest is ForkTest {
     uint256 ratio = 3e18;
     debtManager.leverage(marketUSDC, principal, ratio);
 
-    debtManager.deleverage(marketUSDC, ratio, 50_000e6);
+    debtManager.deleverage(marketUSDC, 50_000e6, ratio);
     principal -= 50_000e6;
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -355,7 +355,7 @@ contract DebtManagerTest is ForkTest {
     debtManager.leverage(marketUSDC, principal, ratio);
 
     ratio = 2e18;
-    debtManager.deleverage(marketUSDC, ratio, 20_000e6);
+    debtManager.deleverage(marketUSDC, 20_000e6, ratio);
     principal -= 20_000e6;
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
@@ -374,7 +374,7 @@ contract DebtManagerTest is ForkTest {
     assertApproxEqAbs(leveragedBorrow, principal.mulWadDown(ratio - 1e18), 1);
 
     ratio = 2.1e18;
-    debtManager.deleverage(marketUSDC, ratio, 0);
+    debtManager.deleverage(marketUSDC, 0, ratio);
     (, , floatingBorrowShares) = marketUSDC.accounts(address(this));
     uint256 halfDeleveragedDeposit = marketUSDC.maxWithdraw(address(this));
     uint256 halfDeleveragedBorrow = marketUSDC.previewRefund(floatingBorrowShares);
@@ -386,7 +386,7 @@ contract DebtManagerTest is ForkTest {
 
   function testDeleverageWithMoreThanBalancerAvailableLiquidity() external _checkBalances {
     debtManager.leverage(marketUSDC, 1_000_000e6, 2e18);
-    debtManager.deleverage(marketUSDC, 1e18, 0);
+    debtManager.deleverage(marketUSDC, 0, 1e18);
 
     (, , uint256 floatingBorrowShares) = marketUSDC.accounts(address(this));
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), 1_000_000e6, 4);
@@ -1206,7 +1206,7 @@ contract DebtManagerTest is ForkTest {
       )
     );
     vm.prank(bob);
-    debtManager.deleverage(marketUSDC, 1e18, 10_000e6, 60_000e6, Permit(bob, block.timestamp, v, r, s));
+    debtManager.deleverage(marketUSDC, 10_000e6, 1e18, 60_000e6, Permit(bob, block.timestamp, v, r, s));
   }
 
   function testPermitAndTransferLeverage() external {
