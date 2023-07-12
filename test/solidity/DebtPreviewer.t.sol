@@ -5,20 +5,21 @@ import { ForkTest, stdError } from "./Fork.t.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
-  DebtPreviewer,
-  IUniswapQuoter,
-  Leverage,
-  Limit,
   Pool,
-  InvalidPreview
+  Limit,
+  Rates,
+  Leverage,
+  DebtPreviewer,
+  InvalidPreview,
+  IUniswapQuoter
 } from "../../contracts/periphery/DebtPreviewer.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 import {
-  DebtManager,
   Market,
   ERC20,
   IPermit2,
   IPriceFeed,
+  DebtManager,
   IBalancerVault
 } from "../../contracts/periphery/DebtManager.sol";
 import { Auditor, InsufficientAccountLiquidity } from "../../contracts/Auditor.sol";
@@ -1014,6 +1015,155 @@ contract DebtPreviewerTest is ForkTest {
 
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 2e15);
+  }
+
+  function testLeverageRatesCrossAsset() external {
+    uint256 depositRate = 1.91e16;
+    Rates memory rates = debtPreviewer.leverageRates(
+      marketUSDC,
+      marketWETH,
+      address(this),
+      10_000e6,
+      3e18,
+      depositRate,
+      0
+    );
+
+    assertEq(rates.deposit, depositRate.mulWadDown(3e18));
+    assertEq(rates.borrow, 71562762755180610);
+    assertEq(rates.native, 0);
+    assertEq(rates.rewards.length, 2);
+    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[1].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[1].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[1].assetName, "Optimism");
+    assertEq(rates.rewards[0].deposit, 72979811102062440);
+    assertEq(rates.rewards[0].borrow, 0);
+    assertEq(rates.rewards[1].deposit, 0);
+    assertEq(rates.rewards[1].borrow, 37023661655907600);
+  }
+
+  function testLeverageRatesCrossAssetAlreadyLeveraged() external {
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.5e18, MIN_SQRT_RATIO + 1);
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1.03e18);
+    uint256 depositRate = 1.91e16;
+    Rates memory rates = debtPreviewer.leverageRates(
+      marketUSDC,
+      marketWETH,
+      address(this),
+      0,
+      leverage.ratio,
+      depositRate,
+      0
+    );
+    assertEq(rates.deposit, depositRate.mulWadDown(leverage.ratio));
+    assertEq(rates.borrow, 53668550133510202);
+    assertEq(rates.native, 0);
+    assertEq(rates.rewards.length, 2);
+    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[1].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[1].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[1].assetName, "Optimism");
+    assertEq(rates.rewards[0].deposit, 60782041961884492);
+    assertEq(rates.rewards[0].borrow, 0);
+    assertEq(rates.rewards[1].deposit, 0);
+    assertEq(rates.rewards[1].borrow, 27729728148040302);
+  }
+
+  function testLeverageRatesSameAsset() external {
+    uint256 depositRate = 1.91e16;
+    Rates memory rates = debtPreviewer.leverageRates(
+      marketUSDC,
+      marketUSDC,
+      address(this),
+      10_000e6,
+      2.5e18,
+      depositRate,
+      0
+    );
+
+    assertEq(rates.deposit, depositRate.mulWadDown(2.5e18));
+    assertEq(rates.borrow, 50832100630765815);
+    assertEq(rates.native, 0);
+    assertEq(rates.rewards.length, 1);
+    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[0].borrow, 26229302711998560);
+    assertEq(rates.rewards[0].deposit, 60816509251718700);
+  }
+
+  function testDeleverageRatesCrossAsset() external {
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.5e18, MIN_SQRT_RATIO + 1);
+    uint256 depositRate = 1.91e16;
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketWETH, address(this), 0, 1e18, depositRate, 0);
+
+    assertEq(rates.deposit, depositRate);
+    assertEq(rates.borrow, 0);
+    assertEq(rates.native, 0);
+
+    assertEq(rates.rewards.length, 2);
+    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[1].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[1].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[1].assetName, "Optimism");
+    assertEq(rates.rewards[0].deposit, 24305441203431840);
+    assertEq(rates.rewards[0].borrow, 0);
+    assertEq(rates.rewards[1].deposit, 0);
+    assertEq(rates.rewards[1].borrow, 0);
+  }
+
+  function testDeleverageRatesCrossAssetWithWithdraw() external {
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.5e18, MIN_SQRT_RATIO + 1);
+    uint256 depositRate = 1.91e16;
+    Rates memory rates = debtPreviewer.leverageRates(
+      marketUSDC,
+      marketWETH,
+      address(this),
+      -5_000e6,
+      1e18,
+      depositRate,
+      0
+    );
+
+    assertEq(rates.deposit, depositRate);
+    assertEq(rates.borrow, 0);
+    assertEq(rates.native, 0);
+
+    assertEq(rates.rewards.length, 2);
+    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[1].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[1].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[1].assetName, "Optimism");
+    assertEq(rates.rewards[0].deposit, 24305441203431840);
+    assertEq(rates.rewards[0].borrow, 0);
+    assertEq(rates.rewards[1].deposit, 0);
+    assertEq(rates.rewards[1].borrow, 0);
+  }
+
+  function testDeleverageRatesSameAsset() external {
+    debtManager.leverage(marketUSDC, 10_000e6, 3e18);
+    uint256 depositRate = 1.91e16;
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketUSDC, address(this), 0, 2e18, depositRate, 0);
+
+    assertEq(rates.deposit, depositRate.mulWadDown(2e18));
+    assertEq(rates.borrow, 33873354732055161);
+    assertEq(rates.native, 0);
+
+    assertEq(rates.rewards.length, 1);
+    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[0].borrow, 17475604202887560);
+    assertEq(rates.rewards[0].deposit, 48615737527381200);
   }
 
   function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {

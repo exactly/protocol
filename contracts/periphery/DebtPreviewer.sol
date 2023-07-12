@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { MathUpgradeable as Math } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import { Previewer, FixedLib } from "./Previewer.sol";
 import {
   ERC20,
   Market,
@@ -449,6 +450,153 @@ contract DebtPreviewer is Initializable {
       });
     }
   }
+
+  /// @notice returns rates based on inputs and leverage ratio impact on the borrow market
+  /// @param marketDeposit The deposit Market.
+  /// @param marketBorrow The borrow Market.
+  /// @param account The account to preview.
+  /// @param assets The amount of assets that should be added or substracted to the principal.
+  /// @param targetRatio The target ratio to preview.
+  /// @param depositRate The current deposit rate of the deposit market.
+  /// @param nativeRate The current native rate of the deposit market.
+  function leverageRates(
+    Market marketDeposit,
+    Market marketBorrow,
+    address account,
+    int256 assets,
+    uint256 targetRatio,
+    uint256 depositRate,
+    uint256 nativeRate
+  ) external view returns (Rates memory rates) {
+    int256 principal = crossPrincipal(marketDeposit, marketBorrow, account) + assets;
+    if (principal <= 0) revert InvalidPreview();
+
+    uint256 currentRatio = uint256(int256(marketDeposit.maxWithdraw(account)) + assets).divWadDown(uint256(principal));
+    uint256 utilization;
+    if (targetRatio < currentRatio) {
+      uint256 depositDecrease = uint256(principal).mulWadDown(currentRatio - targetRatio);
+      uint256 borrowRepay = previewAssetsOut(marketDeposit, marketBorrow, depositDecrease);
+      utilization = (marketBorrow.totalFloatingBorrowAssets() - borrowRepay).divWadUp(
+        marketBorrow.totalAssets() - (marketDeposit == marketBorrow ? depositDecrease : 0)
+      );
+    } else {
+      uint256 depositIncrease = uint256(principal).mulWadDown(targetRatio - currentRatio);
+      uint256 newBorrow = previewAssetsOut(marketDeposit, marketBorrow, depositIncrease);
+      utilization = (marketBorrow.totalFloatingBorrowAssets() + newBorrow).divWadUp(
+        marketBorrow.totalAssets() + (marketDeposit == marketBorrow ? depositIncrease : 0)
+      );
+    }
+    rates.borrow = marketBorrow.interestRateModel().floatingRate(utilization).mulWadDown(targetRatio - 1e18);
+    rates.deposit = depositRate.mulWadDown(targetRatio);
+    rates.native = nativeRate.mulWadDown(targetRatio);
+
+    {
+      uint256 i;
+      if (marketDeposit == marketBorrow) {
+        RewardRate[] memory rewards = rewardRates(marketDeposit);
+        rates.rewards = new RewardRate[](rewards.length);
+        for (; i < rewards.length; ) {
+          rates.rewards[i].deposit = rewards[i].deposit.mulWadDown(targetRatio);
+          rates.rewards[i].borrow = rewards[i].borrow.mulWadDown(targetRatio - 1e18);
+          rates.rewards[i].asset = rewards[i].asset;
+          rates.rewards[i].assetName = rewards[i].assetName;
+          rates.rewards[i].assetSymbol = rewards[i].assetSymbol;
+          unchecked {
+            ++i;
+          }
+        }
+      } else {
+        RewardRate[] memory depositRewards = rewardRates(marketDeposit);
+        RewardRate[] memory borrowRewards = rewardRates(marketBorrow);
+        rates.rewards = new RewardRate[](depositRewards.length + borrowRewards.length);
+        for (i = 0; i < depositRewards.length; ) {
+          rates.rewards[i].deposit = depositRewards[i].deposit.mulWadDown(targetRatio);
+          rates.rewards[i].asset = depositRewards[i].asset;
+          rates.rewards[i].assetName = depositRewards[i].assetName;
+          rates.rewards[i].assetSymbol = depositRewards[i].assetSymbol;
+          unchecked {
+            ++i;
+          }
+        }
+        for (i = 0; i < borrowRewards.length; ) {
+          rates.rewards[i + depositRewards.length].borrow = borrowRewards[i].borrow.mulWadDown(targetRatio - 1e18);
+          rates.rewards[i + depositRewards.length].asset = borrowRewards[i].asset;
+          rates.rewards[i + depositRewards.length].assetName = borrowRewards[i].assetName;
+          rates.rewards[i + depositRewards.length].assetSymbol = borrowRewards[i].assetSymbol;
+          unchecked {
+            ++i;
+          }
+        }
+      }
+    }
+  }
+
+  function rewardRates(Market market) internal view returns (RewardRate[] memory rewards) {
+    Previewer.RewardsVars memory r;
+    r.controller = market.rewardsController();
+    if (address(r.controller) != address(0)) {
+      (, r.underlyingDecimals, , , r.underlyingPriceFeed) = market.auditor().markets(market);
+      unchecked {
+        r.underlyingBaseUnit = 10 ** r.underlyingDecimals;
+      }
+      r.deltaTime = 1 hours;
+      r.rewardList = r.controller.allRewards();
+      rewards = new RewardRate[](r.rewardList.length);
+      for (r.i = 0; r.i < r.rewardList.length; ++r.i) {
+        r.config = r.controller.rewardConfig(market, r.rewardList[r.i]);
+        (r.borrowIndex, r.depositIndex, ) = r.controller.rewardIndexes(market, r.rewardList[r.i]);
+        (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(
+          market,
+          r.rewardList[r.i],
+          block.timestamp > r.config.start ? r.deltaTime : 0
+        );
+        (r.start, , ) = r.controller.distributionTime(market, r.rewardList[r.i]);
+        r.firstMaturity = r.start - (r.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
+        r.maxMaturity =
+          block.timestamp -
+          (block.timestamp % FixedLib.INTERVAL) +
+          (FixedLib.INTERVAL * market.maxFuturePools());
+        r.maturities = new uint256[]((r.maxMaturity - r.firstMaturity) / FixedLib.INTERVAL + 1);
+        r.start = 0;
+        for (r.maturity = r.firstMaturity; r.maturity <= r.maxMaturity; ) {
+          (uint256 borrowed, ) = market.fixedPoolBalance(r.maturity);
+          r.fixedDebt += borrowed;
+          r.maturities[r.start] = r.maturity;
+          unchecked {
+            r.maturity += FixedLib.INTERVAL;
+            ++r.start;
+          }
+        }
+        rewards[r.i] = RewardRate({
+          asset: address(r.rewardList[r.i]),
+          assetName: r.rewardList[r.i].name(),
+          assetSymbol: r.rewardList[r.i].symbol(),
+          borrow: (market.totalFloatingBorrowAssets() + r.fixedDebt) > 0
+            ? (r.projectedBorrowIndex - r.borrowIndex)
+              .mulDivDown(market.totalFloatingBorrowShares() + market.previewRepay(r.fixedDebt), r.underlyingBaseUnit)
+              .mulWadDown(market.auditor().assetPrice(r.config.priceFeed))
+              .mulDivDown(
+                r.underlyingBaseUnit,
+                (market.totalFloatingBorrowAssets() + r.fixedDebt).mulWadDown(
+                  market.auditor().assetPrice(r.underlyingPriceFeed)
+                )
+              )
+              .mulDivDown(365 days, r.deltaTime)
+            : 0,
+          deposit: market.totalAssets() > 0
+            ? (r.projectedDepositIndex - r.depositIndex)
+              .mulDivDown(market.totalSupply(), r.underlyingBaseUnit)
+              .mulWadDown(market.auditor().assetPrice(r.config.priceFeed))
+              .mulDivDown(
+                r.underlyingBaseUnit,
+                market.totalAssets().mulWadDown(market.auditor().assetPrice(r.underlyingPriceFeed))
+              )
+              .mulDivDown(365 days, r.deltaTime)
+            : 0
+        });
+      }
+    }
+  }
 }
 
 error InvalidPreview();
@@ -509,6 +657,21 @@ struct MinDepositVars {
   uint256 adjustFactorOut;
   IPriceFeed priceFeedIn;
   IPriceFeed priceFeedOut;
+}
+
+struct Rates {
+  uint256 native;
+  uint256 borrow;
+  uint256 deposit;
+  RewardRate[] rewards;
+}
+
+struct RewardRate {
+  address asset;
+  string assetName;
+  string assetSymbol;
+  uint256 borrow;
+  uint256 deposit;
 }
 
 interface IUniswapQuoter {
