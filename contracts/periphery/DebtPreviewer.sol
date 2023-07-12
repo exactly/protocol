@@ -121,7 +121,7 @@ contract DebtPreviewer is OwnableUpgradeable {
 
     return
       Leverage({
-        debt: marketBorrow.previewRefund(floatingBorrowShares),
+        borrow: marketBorrow.previewRefund(floatingBorrowShares),
         deposit: deposit,
         principal: principal,
         ratio: principal > 0 ? deposit.divWadDown(uint256(principal)) : 0,
@@ -450,10 +450,10 @@ contract DebtPreviewer is OwnableUpgradeable {
 error InvalidPreview();
 
 struct Leverage {
-  uint256 debt;
+  uint256 ratio;
+  uint256 borrow;
   uint256 deposit;
   int256 principal;
-  uint256 ratio;
   uint256 maxRatio;
   uint256 minDeposit;
   uint256 maxWithdraw;

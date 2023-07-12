@@ -143,7 +143,7 @@ contract DebtPreviewerTest is ForkTest {
 
     assertEq(leverage.principal, 0);
     assertEq(leverage.deposit, 0);
-    assertEq(leverage.debt, 0);
+    assertEq(leverage.borrow, 0);
     assertEq(leverage.ratio, 0);
     assertEq(leverage.maxRatio, uint256(1e18).divWadDown(1e18 - collateralAdjustFactor.mulWadDown(debtAdjustFactor)));
   }
@@ -159,7 +159,7 @@ contract DebtPreviewerTest is ForkTest {
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
     assertEq(leverage.principal, 0);
     assertEq(leverage.deposit, 0);
-    assertEq(leverage.debt, 0);
+    assertEq(leverage.borrow, 0);
     assertEq(leverage.ratio, 0);
     assertEq(leverage.sqrtPriceX96, 0);
     assertEq(leverage.pool.token0, address(usdc));
@@ -170,7 +170,7 @@ contract DebtPreviewerTest is ForkTest {
     leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
     assertApproxEqAbs(uint256(leverage.principal), 1_000e6, 3);
     assertApproxEqAbs(leverage.deposit, principal.mulWadDown(ratio), 1);
-    assertApproxEqAbs(leverage.debt, principal.mulWadDown(ratio - 1e18), 1);
+    assertApproxEqAbs(leverage.borrow, principal.mulWadDown(ratio - 1e18), 1);
     assertApproxEqAbs(leverage.ratio, ratio, 20267597440);
     assertApproxEqAbs(leverage.maxRatio, ratio, 99988365328679);
   }
@@ -184,7 +184,7 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.ratio, 0);
     assertEq(leverage.deposit, 0);
     assertEq(leverage.maxWithdraw, 0);
-    assertApproxEqAbs(leverage.debt, 0.1 ether, 1);
+    assertApproxEqAbs(leverage.borrow, 0.1 ether, 1);
     assertEq(leverage.maxRatio, 3048780487804878048);
     assertEq(leverage.principal, -88572673221028669);
 
@@ -207,7 +207,7 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.ratio, 0);
     assertEq(leverage.deposit, 0);
     assertEq(leverage.maxWithdraw, 0);
-    assertApproxEqAbs(leverage.debt, 1 ether, 1);
+    assertApproxEqAbs(leverage.borrow, 1 ether, 1);
     assertEq(leverage.maxRatio, 3396739130434782608);
     assertEq(leverage.principal, -1e18);
 
@@ -282,7 +282,7 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.deposit, 1e18);
     assertEq(leverage.minDeposit, 1636091464911567515);
     assertEq(leverage.maxWithdraw, 0);
-    assertApproxEqAbs(leverage.debt, 2 ether, 1);
+    assertApproxEqAbs(leverage.borrow, 2 ether, 1);
     assertEq(leverage.maxRatio, 3048780487804878048);
     assertEq(leverage.principal, -771453464420573369);
 
@@ -688,7 +688,7 @@ contract DebtPreviewerTest is ForkTest {
     (uint256 debtAdjustFactor, , , , ) = auditor.markets(marketUSDC);
     assertEq(leverage.principal, 0);
     assertEq(leverage.deposit, 0);
-    assertEq(leverage.debt, 0);
+    assertEq(leverage.borrow, 0);
     assertEq(leverage.ratio, 0);
     assertEq(leverage.maxRatio, uint256(1e18).divWadDown(1e18 - collateralAdjustFactor.mulWadDown(debtAdjustFactor)));
   }
