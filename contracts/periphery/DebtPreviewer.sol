@@ -195,7 +195,6 @@ contract DebtPreviewer is Initializable {
     limit.ratio = (ratio < currentRatio || ratio > limit.maxRatio) ? currentRatio : ratio;
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
-    limit.principal = crossPrincipal(marketDeposit, marketBorrow, account) + int256(deposit);
     if (limit.principal <= 0) {
       limit.borrow = floatingBorrowAssets(marketBorrow, account);
       limit.deposit = marketDeposit.maxWithdraw(account) + deposit;
@@ -208,7 +207,7 @@ contract DebtPreviewer is Initializable {
         previewOutputSwap(
           address(marketBorrow.asset()),
           address(marketDeposit.asset()),
-          limit.deposit - marketDeposit.maxWithdraw(account) - (limit.principal - int256(deposit) > 0 ? 0 : deposit),
+          limit.deposit - marketDeposit.maxWithdraw(account) - deposit,
           poolKey.fee
         );
   }
