@@ -342,17 +342,17 @@ contract DebtPreviewer is Initializable {
     (r.adjustFactorIn, , , , ) = auditor.markets(marketDeposit);
     (r.adjustFactorOut, , , , ) = auditor.markets(marketBorrow);
     (, , , , IPriceFeed priceFeedIn) = auditor.markets(marketDeposit);
-    if (principal == 0) {
+    r.adjustedDebt = r.adjustedDebt.mulWadDown(r.adjustFactorOut).mulDivDown(
+      10 ** marketDeposit.decimals(),
+      auditor.assetPrice(priceFeedIn)
+    );
+    if (principal == 0 || r.adjustedDebt > principal) {
       return minHealthFactor.divWadDown(minHealthFactor - r.adjustFactorIn.mulWadDown(r.adjustFactorOut));
     }
     return
-      (principal -
-        r.adjustedDebt.mulWadDown(r.adjustFactorOut).mulDivDown(
-          10 ** marketDeposit.decimals(),
-          auditor.assetPrice(priceFeedIn)
-        )).divWadDown(
-          principal - principal.mulWadDown(r.adjustFactorIn).mulWadDown(r.adjustFactorOut).divWadDown(minHealthFactor)
-        );
+      (principal - r.adjustedDebt).divWadDown(
+        principal - principal.mulWadDown(r.adjustFactorIn).mulWadDown(r.adjustFactorOut).divWadDown(minHealthFactor)
+      );
   }
 
   function floatingBorrowAssets(Market market, address account) internal view returns (uint256) {

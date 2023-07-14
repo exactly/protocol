@@ -963,6 +963,46 @@ contract DebtPreviewerTest is ForkTest {
     assertApproxEqAbs(minHF, coll.divWadDown(debt), 2e15);
   }
 
+  function testPreviewInvertCrossLeverage() external {
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, leverage.maxRatio - 0.01e18, MIN_SQRT_RATIO + 1);
+
+    leverage = debtPreviewer.leverage(marketWETH, marketUSDC, address(this), 1e18);
+    Limit memory limit = debtPreviewer.previewLeverage(
+      marketWETH,
+      marketUSDC,
+      address(this),
+      2e18,
+      leverage.maxRatio,
+      1e18
+    );
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, 2e18, limit.ratio, MAX_SQRT_RATIO - 1);
+
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertApproxEqAbs(coll.divWadDown(debt), 1e18, 2e15);
+  }
+
+  function testPreviewInvertPartialCrossLeverage() external {
+    Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketWETH, address(this), 1e18);
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, leverage.maxRatio - 0.01e18, MIN_SQRT_RATIO + 1);
+
+    marketWETH.deposit(1e18, address(this));
+    marketUSDC.borrow(100e6, address(this), address(this));
+    leverage = debtPreviewer.leverage(marketWETH, marketUSDC, address(this), 1e18);
+    Limit memory limit = debtPreviewer.previewLeverage(
+      marketWETH,
+      marketUSDC,
+      address(this),
+      2e18,
+      leverage.maxRatio,
+      1e18
+    );
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, 2e18, limit.maxRatio, MAX_SQRT_RATIO - 1);
+
+    (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
+    assertApproxEqAbs(coll.divWadDown(debt), 1e18, 2e15);
+  }
+
   function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
     (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
     (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
