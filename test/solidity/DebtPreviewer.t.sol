@@ -926,6 +926,24 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.minDeposit, 0);
   }
 
+  function testMinDepositCrossAsset() external {
+    debtManager.leverage(marketUSDC, 10_000e6, 4e18);
+    Leverage memory leverage = debtPreviewer.leverage(marketWETH, marketUSDC, address(this), 1.05e18);
+
+    Limit memory limit = debtPreviewer.previewLeverage(
+      marketWETH,
+      marketUSDC,
+      address(this),
+      leverage.minDeposit,
+      leverage.maxRatio,
+      1.05e18
+    );
+
+    debtManager.crossLeverage(marketWETH, marketUSDC, 500, leverage.minDeposit, limit.ratio, MAX_SQRT_RATIO - 1);
+    assertApproxEqAbs(limit.deposit, marketWETH.maxWithdraw(address(this)), 2);
+    assertApproxEqAbs(limit.borrow, floatingBorrowAssets(marketUSDC, address(this)), 2);
+  }
+
   function testMaxRatioWithNewDeposit() external {
     marketUSDC.deposit(10_000e6, address(this));
     auditor.enterMarket(marketUSDC);

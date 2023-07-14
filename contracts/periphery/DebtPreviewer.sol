@@ -163,7 +163,8 @@ contract DebtPreviewer is Initializable {
 
     return
       minHealthFactor
-        .mulWadDown(floatingBorrowAssets(marketBorrow, account).mulWadDown(auditor.assetPrice(vars.priceFeedOut)))
+        .mulWadDown(floatingBorrowAssets(marketBorrow, account))
+        .mulDivDown(auditor.assetPrice(vars.priceFeedOut), 10 ** marketBorrow.decimals())
         .divWadDown(vars.adjustFactorOut.mulWadDown(vars.adjustFactorIn))
         .mulDivUp(10 ** marketDeposit.decimals(), auditor.assetPrice(vars.priceFeedIn));
   }
