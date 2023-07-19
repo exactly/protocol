@@ -138,6 +138,19 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.maxRatio, uint256(1e18).divWadDown(1e18 - collateralAdjustFactor.mulWadDown(debtAdjustFactor)));
   }
 
+  function testMaxRatioLowerThanOne() external {
+    auditor.enterMarket(marketwstETH);
+    auditor.enterMarket(marketWETH);
+
+    marketwstETH.deposit(5 ether, address(this));
+    marketWETH.deposit(0.05 ether, address(this));
+    marketUSDC.borrow(100e6, address(this), address(this));
+
+    Leverage memory leverage = debtPreviewer.leverage(marketWETH, marketwstETH, address(this), 1e18);
+    // should not revert
+    debtManager.crossLeverage(marketWETH, marketwstETH, 500, 0, leverage.maxRatio - 0.001e18, MIN_SQRT_RATIO + 1);
+  }
+
   function testPreviewLeverageSameAsset() external {
     Leverage memory leverage = debtPreviewer.leverage(marketUSDC, marketUSDC, address(this), 1e18);
     (uint256 adjustFactor, , , , ) = auditor.markets(marketUSDC);

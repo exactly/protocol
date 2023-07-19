@@ -346,7 +346,14 @@ contract DebtPreviewer is Initializable {
       10 ** marketDeposit.decimals(),
       auditor.assetPrice(priceFeedIn)
     );
-    if (principal == 0 || r.adjustedDebt > principal) {
+    if (
+      principal == 0 ||
+      r.adjustedDebt > principal ||
+      (principal - r.adjustedDebt).divWadDown(
+        principal - principal.mulWadDown(r.adjustFactorIn).mulWadDown(r.adjustFactorOut).divWadDown(minHealthFactor)
+      ) <
+      1e18
+    ) {
       return minHealthFactor.divWadDown(minHealthFactor - r.adjustFactorIn.mulWadDown(r.adjustFactorOut));
     }
     return
