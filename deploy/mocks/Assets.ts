@@ -82,5 +82,6 @@ const func: DeployFunction = async ({ deployments: { deploy, log }, getNamedAcco
 };
 
 func.tags = ["Assets"];
+func.dependencies = ["EXA"];
 
 export default func;
