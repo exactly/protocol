@@ -203,15 +203,19 @@ contract DebtPreviewer is Initializable {
       return limit;
     }
     limit.deposit = uint256(limit.principal).mulWadUp(limit.ratio);
-    limit.borrow = address(marketDeposit) == address(marketBorrow)
-      ? uint256(limit.principal).mulWadDown(limit.ratio - 1e18)
-      : floatingBorrowAssets(marketBorrow, account) +
-        previewOutputSwap(
-          address(marketBorrow.asset()),
-          address(marketDeposit.asset()),
-          limit.deposit - marketDeposit.maxWithdraw(account) - deposit,
-          poolKey.fee
-        );
+    if (marketDeposit == marketBorrow) {
+      limit.borrow = uint256(limit.principal).mulWadDown(limit.ratio - 1e18);
+      limit.swapRatio = 1e18;
+      return limit;
+    }
+    uint256 assetsSwap = limit.deposit - marketDeposit.maxWithdraw(account) - deposit;
+    limit.borrow =
+      floatingBorrowAssets(marketBorrow, account) +
+      previewOutputSwap(address(marketBorrow.asset()), address(marketDeposit.asset()), assetsSwap, poolKey.fee);
+    limit.swapRatio = assetsSwap > 0 && previewAssetsOut(marketDeposit, marketBorrow, assetsSwap) > 0
+      ? previewOutputSwap(address(marketBorrow.asset()), address(marketDeposit.asset()), assetsSwap, poolKey.fee)
+        .divWadDown(previewAssetsOut(marketDeposit, marketBorrow, assetsSwap))
+      : 1e18;
   }
 
   /// @notice Returns the maximum ratio that an account can deleverage its principal minus `assets` amount.
@@ -247,20 +251,22 @@ contract DebtPreviewer is Initializable {
       previewAssetsOut(marketDeposit, marketBorrow, uint256(limit.principal).mulWadDown(limit.ratio - 1e18));
 
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
+    poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     limit.borrow = floatingBorrowAssets(marketBorrow, account) - borrowRepay;
+    if (marketDeposit == marketBorrow) {
+      limit.deposit = marketDeposit.maxWithdraw(account) - withdraw - borrowRepay;
+      limit.swapRatio = 1e18;
+      return limit;
+    }
+
     limit.deposit =
       marketDeposit.maxWithdraw(account) -
       withdraw -
-      (
-        marketDeposit == marketBorrow
-          ? borrowRepay
-          : previewOutputSwap(
-            address(marketDeposit.asset()),
-            address(marketBorrow.asset()),
-            borrowRepay,
-            poolFees[poolKey.token0][poolKey.token1]
-          )
-      );
+      previewOutputSwap(address(marketDeposit.asset()), address(marketBorrow.asset()), borrowRepay, poolKey.fee);
+    limit.swapRatio = previewAssetsOut(marketBorrow, marketDeposit, borrowRepay) > 0
+      ? previewOutputSwap(address(marketDeposit.asset()), address(marketBorrow.asset()), borrowRepay, poolKey.fee)
+        .divWadDown(previewAssetsOut(marketBorrow, marketDeposit, borrowRepay))
+      : 1e18;
   }
 
   /// @notice Returns principal, current ratio and max ratio, considering assets to add or substract.
@@ -630,6 +636,7 @@ struct Limit {
   uint256 deposit;
   int256 principal;
   uint256 maxRatio;
+  uint256 swapRatio;
 }
 
 struct RatioVars {

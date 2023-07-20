@@ -193,6 +193,7 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(leverage.principal, -88572673221028669);
 
     Limit memory limit = debtPreviewer.previewLeverage(marketwstETH, marketWETH, address(this), 1e18, 2e18, 1e18);
+    assertApproxEqAbs(limit.swapRatio, 1e18, 4e15);
     debtManager.crossLeverage(marketwstETH, marketWETH, 500, 1e18, 2e18, MAX_SQRT_RATIO - 1);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     assertApproxEqAbs(limit.borrow, marketWETH.previewRefund(floatingBorrowShares), 1);
@@ -249,6 +250,7 @@ contract DebtPreviewerTest is ForkTest {
       4e18,
       1e18
     );
+    assertEq(limit.swapRatio, 1e18);
     debtManager.leverage(marketWETH, leverage.minDeposit, limit.ratio);
     (, , uint256 floatingBorrowShares) = marketWETH.accounts(address(this));
     assertApproxEqAbs(limit.deposit, marketWETH.maxWithdraw(address(this)), 4);
@@ -359,6 +361,7 @@ contract DebtPreviewerTest is ForkTest {
       leverage.ratio,
       1e18
     );
+    assertApproxEqAbs(limit.swapRatio, 1e18, 1e15);
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, newDeposit, limit.maxRatio - 0.005e18, MIN_SQRT_RATIO + 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
@@ -380,6 +383,7 @@ contract DebtPreviewerTest is ForkTest {
       leverage.ratio,
       1e18
     );
+    assertEq(limit.swapRatio, 1001089765854010554);
     debtManager.crossLeverage(marketWETH, marketUSDC, 500, newDeposit, limit.maxRatio - 0.015e18, MAX_SQRT_RATIO - 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
@@ -398,6 +402,7 @@ contract DebtPreviewerTest is ForkTest {
       2e18,
       1e18
     );
+    assertApproxEqAbs(limit.swapRatio, 1e18, 7e13);
     assertApproxEqAbs(leverage.maxRatio, limit.ratio, 1e11);
     limit = debtPreviewer.previewLeverage(marketUSDC, marketWETH, address(this), leverage.minDeposit, 8e18, 1e18);
     assertApproxEqAbs(leverage.maxRatio, limit.ratio, 1e11);
@@ -422,6 +427,7 @@ contract DebtPreviewerTest is ForkTest {
 
     uint256 newDeposit = 5_000e6;
     Limit memory limit = debtPreviewer.previewLeverage(marketUSDC, marketUSDC, address(this), newDeposit, 1e18, 1e18);
+    assertEq(limit.swapRatio, 1e18);
     debtManager.leverage(marketUSDC, newDeposit, limit.maxRatio - 0.003e18);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(coll.divWadDown(debt), 1e18, 0.0003e18);
@@ -454,6 +460,7 @@ contract DebtPreviewerTest is ForkTest {
       1e18,
       1e18
     );
+    assertApproxEqAbs(limit.swapRatio, 1e18, 1e15);
     debtManager.crossDeleverage(
       marketUSDC,
       marketWETH,
@@ -477,6 +484,7 @@ contract DebtPreviewerTest is ForkTest {
     uint256 withdraw = 3_000e6;
 
     Limit memory limit = debtPreviewer.previewDeleverage(marketUSDC, marketWETH, address(this), withdraw, 1e18, minHF);
+    assertApproxEqAbs(limit.swapRatio, 1e18, 1e15);
 
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, withdraw, limit.maxRatio - 0.005e18, MAX_SQRT_RATIO - 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -510,6 +518,7 @@ contract DebtPreviewerTest is ForkTest {
       0.02e18
     );
     Limit memory limit = debtPreviewer.previewDeleverage(marketUSDC, marketWETH, address(this), 5_000e6, 1e18, 1e18);
+    assertApproxEqAbs(limit.swapRatio, 1e18, 1e15);
     assertApproxEqAbs(limit.maxRatio, 2.22e18, 0.02e18);
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 5_000e6, limit.maxRatio - 0.005e18, MAX_SQRT_RATIO - 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
@@ -738,6 +747,7 @@ contract DebtPreviewerTest is ForkTest {
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 100_000e6, 3e18, MIN_SQRT_RATIO + 1);
 
     Limit memory limit = debtPreviewer.previewDeleverage(marketUSDC, marketWETH, address(this), 10_000e6, 2e18, 1e18);
+    assertApproxEqAbs(limit.swapRatio, 1e18, 5e15);
 
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, 10_000e6, 2e18, MAX_SQRT_RATIO - 1);
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), limit.deposit, 2);
@@ -758,6 +768,7 @@ contract DebtPreviewerTest is ForkTest {
     debtManager.leverage(marketUSDC, 100_000e6, 3e18);
 
     Limit memory limit = debtPreviewer.previewDeleverage(marketUSDC, marketUSDC, address(this), 10_000e6, 2e18, 1e18);
+    assertApproxEqAbs(limit.swapRatio, 1e18, 1e15);
 
     debtManager.deleverage(marketUSDC, 10_000e6, 2e18);
     assertApproxEqAbs(marketUSDC.maxWithdraw(address(this)), limit.deposit, 2);
@@ -806,6 +817,7 @@ contract DebtPreviewerTest is ForkTest {
       1e18,
       1e18
     );
+    assertApproxEqAbs(limit.swapRatio, 1e18, 2e15);
 
     debtManager.crossDeleverage(marketUSDC, marketWETH, 500, leverage.maxWithdraw, 1e18, MAX_SQRT_RATIO - 1);
 
@@ -841,7 +853,7 @@ contract DebtPreviewerTest is ForkTest {
       1.01e18,
       1e18
     );
-
+    assertApproxEqAbs(limit.swapRatio, 1e18, 3e15);
     assertEq(limit.ratio, 1e18);
     assertEq(limit.maxRatio, 1e18);
     limit = debtPreviewer.previewDeleverage(marketUSDC, marketWETH, address(this), leverage.maxWithdraw, 1e18, 1e18);
@@ -873,6 +885,7 @@ contract DebtPreviewerTest is ForkTest {
       leverage.ratio,
       1e18
     );
+    assertApproxEqAbs(limit.swapRatio, 1e18, 7e15);
     assertEq(leverage.ratio, 3683445754740604291);
     assertEq(limit.ratio, 3345551396765711509);
     assertEq(limit.ratio, limit.maxRatio);
@@ -972,6 +985,7 @@ contract DebtPreviewerTest is ForkTest {
       leverage.maxRatio,
       minHF
     );
+    assertApproxEqAbs(limit.swapRatio, 1e18, 2e15);
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, limit.maxRatio, MIN_SQRT_RATIO + 1);
     (uint256 coll, uint256 debt) = auditor.accountLiquidity(address(this), Market(address(0)), 0);
     assertApproxEqAbs(minHF, coll.divWadDown(debt), 2e15);
