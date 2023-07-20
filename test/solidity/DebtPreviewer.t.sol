@@ -1169,7 +1169,7 @@ contract DebtPreviewerTest is ForkTest {
     Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketUSDC, address(this), 0, 2e18, depositRate, 0);
 
     assertEq(rates.deposit, depositRate.mulWadDown(2e18));
-    assertEq(rates.borrow, 33873354732055161);
+    assertEq(rates.borrow, 33873354732054336);
     assertEq(rates.native, 0);
 
     assertEq(rates.rewards.length, 1);

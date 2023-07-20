@@ -78,17 +78,19 @@ contract DebtPreviewer is Initializable {
   }
 
   /// @notice Returns the input for an exact amount out of a single pool swap.
-  /// @param assetIn The address of the token to be swapped.
-  /// @param assetOut The address of the token to receive.
+  /// @param marketIn The Market of the underlying asset to be swapped.
+  /// @param marketOut The Market of the underlying asset to receive.
   /// @param amountOut The exact amount of `amountOut` to be swapped.
   /// @param fee The fee of the pool that will be used to swap the assets.
   /// @return amountIn The amount of `amountIn` received.
   function previewOutputSwap(
-    address assetIn,
-    address assetOut,
+    Market marketIn,
+    Market marketOut,
     uint256 amountOut,
     uint24 fee
   ) public returns (uint256) {
+    address assetIn = address(marketIn.asset());
+    address assetOut = address(marketOut.asset());
     return
       amountOut > 0
         ? uniswapV3Quoter.quoteExactOutputSingle(
@@ -120,7 +122,7 @@ contract DebtPreviewer is Initializable {
     PoolKey memory poolKey = PoolAddress.getPoolKey(address(marketDeposit.asset()), address(marketBorrow.asset()), 0);
     poolKey.fee = poolFees[poolKey.token0][poolKey.token1];
     uint256 sqrtPriceX96;
-    if (address(marketDeposit) != address(marketBorrow)) {
+    if (marketDeposit != marketBorrow) {
       (sqrtPriceX96, , , , , , ) = IUniswapV3Pool(PoolAddress.computeAddress(debtManager.uniswapV3Factory(), poolKey))
         .slot0();
     }
@@ -211,10 +213,11 @@ contract DebtPreviewer is Initializable {
     uint256 assetsSwap = limit.deposit - marketDeposit.maxWithdraw(account) - deposit;
     limit.borrow =
       floatingBorrowAssets(marketBorrow, account) +
-      previewOutputSwap(address(marketBorrow.asset()), address(marketDeposit.asset()), assetsSwap, poolKey.fee);
+      previewOutputSwap(marketBorrow, marketDeposit, assetsSwap, poolKey.fee);
     limit.swapRatio = assetsSwap > 0 && previewAssetsOut(marketDeposit, marketBorrow, assetsSwap) > 0
-      ? previewOutputSwap(address(marketBorrow.asset()), address(marketDeposit.asset()), assetsSwap, poolKey.fee)
-        .divWadDown(previewAssetsOut(marketDeposit, marketBorrow, assetsSwap))
+      ? previewOutputSwap(marketBorrow, marketDeposit, assetsSwap, poolKey.fee).divWadDown(
+        previewAssetsOut(marketDeposit, marketBorrow, assetsSwap)
+      )
       : 1e18;
   }
 
@@ -262,10 +265,11 @@ contract DebtPreviewer is Initializable {
     limit.deposit =
       marketDeposit.maxWithdraw(account) -
       withdraw -
-      previewOutputSwap(address(marketDeposit.asset()), address(marketBorrow.asset()), borrowRepay, poolKey.fee);
+      previewOutputSwap(marketDeposit, marketBorrow, borrowRepay, poolKey.fee);
     limit.swapRatio = previewAssetsOut(marketBorrow, marketDeposit, borrowRepay) > 0
-      ? previewOutputSwap(address(marketDeposit.asset()), address(marketBorrow.asset()), borrowRepay, poolKey.fee)
-        .divWadDown(previewAssetsOut(marketBorrow, marketDeposit, borrowRepay))
+      ? previewOutputSwap(marketDeposit, marketBorrow, borrowRepay, poolKey.fee).divWadDown(
+        previewAssetsOut(marketBorrow, marketDeposit, borrowRepay)
+      )
       : 1e18;
   }
 
@@ -404,7 +408,7 @@ contract DebtPreviewer is Initializable {
         if (mw.market == marketDeposit) {
           mw.adjustedPrincipalToRepayDebt = (
             borrowAssets > 0 && marketBorrow != marketDeposit
-              ? previewOutputSwap(address(marketDeposit.asset()), address(marketBorrow.asset()), borrowAssets, 500)
+              ? previewOutputSwap(marketDeposit, marketBorrow, borrowAssets, 500)
               : borrowAssets
           ).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
           mw.adjustedPrincipal =
@@ -436,11 +440,13 @@ contract DebtPreviewer is Initializable {
     (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
     (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
 
-    uint256 collateral = marketDeposit.maxWithdraw(account);
-    uint256 debt = floatingBorrowAssets(marketBorrow, account)
-      .mulDivDown(debtManager.auditor().assetPrice(priceFeedOut), 10 ** marketBorrow.decimals())
-      .mulDivDown(10 ** marketDeposit.decimals(), debtManager.auditor().assetPrice(priceFeedIn));
-    return int256(collateral) - int256(debt);
+    return
+      int256(marketDeposit.maxWithdraw(account)) -
+      int256(
+        floatingBorrowAssets(marketBorrow, account)
+          .mulDivDown(debtManager.auditor().assetPrice(priceFeedOut), 10 ** marketBorrow.decimals())
+          .mulDivDown(10 ** marketDeposit.decimals(), debtManager.auditor().assetPrice(priceFeedIn))
+      );
   }
 
   /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
@@ -448,12 +454,15 @@ contract DebtPreviewer is Initializable {
     uint256 marketsCount = debtManager.auditor().allMarkets().length;
     availableAssets = new AvailableAsset[](marketsCount);
 
-    for (uint256 i = 0; i < marketsCount; i++) {
+    for (uint256 i = 0; i < marketsCount; ) {
       ERC20 asset = debtManager.auditor().marketList(i).asset();
       availableAssets[i] = AvailableAsset({
         asset: asset,
         liquidity: asset.balanceOf(address(debtManager.balancerVault()))
       });
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -474,64 +483,62 @@ contract DebtPreviewer is Initializable {
     uint256 depositRate,
     uint256 nativeRate
   ) external view returns (Rates memory rates) {
-    int256 principal = crossPrincipal(marketDeposit, marketBorrow, account) + assets;
+    (int256 principal, uint256 currentRatio, ) = previewRatio(marketDeposit, marketBorrow, account, assets, 1e18);
     if (principal <= 0) revert InvalidPreview();
 
-    uint256 currentRatio = uint256(int256(marketDeposit.maxWithdraw(account)) + assets).divWadDown(uint256(principal));
     uint256 utilization;
     if (targetRatio < currentRatio) {
       uint256 depositDecrease = uint256(principal).mulWadDown(currentRatio - targetRatio);
-      uint256 borrowRepay = previewAssetsOut(marketDeposit, marketBorrow, depositDecrease);
-      utilization = (marketBorrow.totalFloatingBorrowAssets() - borrowRepay).divWadUp(
-        marketBorrow.totalAssets() - (marketDeposit == marketBorrow ? depositDecrease : 0)
-      );
+      utilization = (marketBorrow.totalFloatingBorrowAssets() -
+        previewAssetsOut(marketDeposit, marketBorrow, depositDecrease)).divWadUp(
+          marketBorrow.totalAssets() - (marketDeposit == marketBorrow ? depositDecrease : 0)
+        );
     } else {
       uint256 depositIncrease = uint256(principal).mulWadDown(targetRatio - currentRatio);
-      uint256 newBorrow = previewAssetsOut(marketDeposit, marketBorrow, depositIncrease);
-      utilization = (marketBorrow.totalFloatingBorrowAssets() + newBorrow).divWadUp(
-        marketBorrow.totalAssets() + (marketDeposit == marketBorrow ? depositIncrease : 0)
-      );
+      utilization = (marketBorrow.totalFloatingBorrowAssets() +
+        previewAssetsOut(marketDeposit, marketBorrow, depositIncrease)).divWadUp(
+          marketBorrow.totalAssets() + (marketDeposit == marketBorrow ? depositIncrease : 0)
+        );
     }
     rates.borrow = marketBorrow.interestRateModel().floatingRate(utilization).mulWadDown(targetRatio - 1e18);
     rates.deposit = depositRate.mulWadDown(targetRatio);
     rates.native = nativeRate.mulWadDown(targetRatio);
+    rates.rewards = calculateRewards(
+      rewardRates(marketDeposit),
+      marketDeposit == marketBorrow ? new RewardRate[](0) : rewardRates(marketBorrow),
+      marketDeposit == marketBorrow,
+      targetRatio
+    );
+  }
 
-    {
-      uint256 i;
-      if (marketDeposit == marketBorrow) {
-        RewardRate[] memory rewards = rewardRates(marketDeposit);
-        rates.rewards = new RewardRate[](rewards.length);
-        for (; i < rewards.length; ) {
-          rates.rewards[i].deposit = rewards[i].deposit.mulWadDown(targetRatio);
-          rates.rewards[i].borrow = rewards[i].borrow.mulWadDown(targetRatio - 1e18);
-          rates.rewards[i].asset = rewards[i].asset;
-          rates.rewards[i].assetName = rewards[i].assetName;
-          rates.rewards[i].assetSymbol = rewards[i].assetSymbol;
-          unchecked {
-            ++i;
-          }
-        }
-      } else {
-        RewardRate[] memory depositRewards = rewardRates(marketDeposit);
-        RewardRate[] memory borrowRewards = rewardRates(marketBorrow);
-        rates.rewards = new RewardRate[](depositRewards.length + borrowRewards.length);
-        for (i = 0; i < depositRewards.length; ) {
-          rates.rewards[i].deposit = depositRewards[i].deposit.mulWadDown(targetRatio);
-          rates.rewards[i].asset = depositRewards[i].asset;
-          rates.rewards[i].assetName = depositRewards[i].assetName;
-          rates.rewards[i].assetSymbol = depositRewards[i].assetSymbol;
-          unchecked {
-            ++i;
-          }
-        }
-        for (i = 0; i < borrowRewards.length; ) {
-          rates.rewards[i + depositRewards.length].borrow = borrowRewards[i].borrow.mulWadDown(targetRatio - 1e18);
-          rates.rewards[i + depositRewards.length].asset = borrowRewards[i].asset;
-          rates.rewards[i + depositRewards.length].assetName = borrowRewards[i].assetName;
-          rates.rewards[i + depositRewards.length].assetSymbol = borrowRewards[i].assetSymbol;
-          unchecked {
-            ++i;
-          }
+  function calculateRewards(
+    RewardRate[] memory depositRewards,
+    RewardRate[] memory borrowRewards,
+    bool sameMarket,
+    uint256 targetRatio
+  ) internal pure returns (RewardRate[] memory result) {
+    result = new RewardRate[](depositRewards.length + borrowRewards.length);
+    uint256 i;
+    for (; i < depositRewards.length; ) {
+      result[i].deposit = depositRewards[i].deposit.mulWadDown(targetRatio);
+      if (sameMarket) {
+        result[i].borrow = depositRewards[i].borrow.mulWadDown(targetRatio - 1e18);
+      }
+      result[i].asset = depositRewards[i].asset;
+      result[i].assetName = depositRewards[i].assetName;
+      result[i].assetSymbol = depositRewards[i].assetSymbol;
+      unchecked {
+        ++i;
+      }
+    }
+    if (!sameMarket) {
+      for (i = 0; i < borrowRewards.length; ) {
+        result[i + depositRewards.length].borrow = borrowRewards[i].borrow.mulWadDown(targetRatio - 1e18);
+        result[i + depositRewards.length].asset = borrowRewards[i].asset;
+        result[i + depositRewards.length].assetName = borrowRewards[i].assetName;
+        result[i + depositRewards.length].assetSymbol = borrowRewards[i].assetSymbol;
+        unchecked {
+          ++i;
         }
       }
     }
@@ -548,7 +555,7 @@ contract DebtPreviewer is Initializable {
       r.deltaTime = 1 hours;
       r.rewardList = r.controller.allRewards();
       rewards = new RewardRate[](r.rewardList.length);
-      for (r.i = 0; r.i < r.rewardList.length; ++r.i) {
+      for (r.i = 0; r.i < r.rewardList.length; ) {
         r.config = r.controller.rewardConfig(market, r.rewardList[r.i]);
         (r.borrowIndex, r.depositIndex, ) = r.controller.rewardIndexes(market, r.rewardList[r.i]);
         (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(
@@ -600,6 +607,9 @@ contract DebtPreviewer is Initializable {
               .mulDivDown(365 days, r.deltaTime)
             : 0
         });
+        unchecked {
+          ++r.i;
+        }
       }
     }
   }

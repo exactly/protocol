@@ -819,8 +819,8 @@ contract DebtManagerTest is ForkTest {
 
     uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
     uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
-      address(weth),
-      address(wstETH),
+      marketWETH,
+      marketwstETH,
       (principal + deposit).mulWadDown(ratio - 1e18),
       500
     );
@@ -840,8 +840,8 @@ contract DebtManagerTest is ForkTest {
 
     uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
     uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
-      address(weth),
-      address(usdc),
+      marketWETH,
+      marketUSDC,
       (principal + deposit).mulWadDown(ratio - 1e18),
       500
     );
@@ -949,8 +949,8 @@ contract DebtManagerTest is ForkTest {
     uint256 principal = coll - debt;
 
     uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
-      address(weth),
-      address(usdc),
+      marketWETH,
+      marketUSDC,
       (principal).mulWadDown(ratio - 1e18),
       500
     );
