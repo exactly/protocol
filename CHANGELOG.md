@@ -1,5 +1,15 @@
 # @exactly/protocol
 
+## 0.2.14
+
+### Patch Changes
+
+- 4f1b6c2: 🚀 optimism: deploy new interest rate models
+- d29326e: 🚚 package: rename `mainnet` to `ethereum`
+- ba05342: ✨ debt-manager: support cross-leverage
+- 59b6d17: ✨ debt-manager: support cross-deleverage
+- b2cb7eb: 🚀 ethereum: deploy new interest rate models
+
 ## 0.2.13
 
 ### Patch Changes
