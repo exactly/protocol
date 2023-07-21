@@ -9,7 +9,10 @@ src = "test/solidity"
 out = "artifacts/.foundry"
 script = "scripts"
 cache_path = "cache/.foundry"
-fs_permissions = [{ access = "read", path = "./deployments" }]
+fs_permissions = [
+  { access = "read", path = "./deployments" },
+  { access = "read-write", path = "./scripts" },
+]
 verbosity = 3
 
 [profile.production.fuzz]

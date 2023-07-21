@@ -11,6 +11,7 @@
     "no-inline-assembly": "error",
     "not-rely-on-time": "off",
     "max-states-count": "off",
+    "quotes": "off",
     "prettier/prettier": "error"
   }
 }
