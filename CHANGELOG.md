@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- e2a4b01: 🚀 mainnet: deploy new debt manager
+- e2a4b01: 🚀 ethereum: deploy new debt manager
 - c4dc9d7: ✨ debt-manager: support `EIP-2612` permit
 - 56bf04f: 🚀 optimism: deploy new debt manager
 - 9803f19: 🐛 debt-manager: verify flashloan call origin
@@ -13,7 +13,7 @@
 
 ### Patch Changes
 
-- d76c1a3: 🚀 mainnet: deploy debt manager
+- d76c1a3: 🚀 ethereum: deploy debt manager
 
 ## 0.2.11
 

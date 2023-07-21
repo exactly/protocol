@@ -20,7 +20,7 @@
     "coverage:hardhat": "hardhat coverage",
     "coverage:foundry:snapshot": "forge snapshot --no-match-test testFuzz --check",
     "coverage:foundry:fuzzer": "FOUNDRY_PROFILE=production forge test --match-test testFuzz",
-    "deploy:mainnet": "hardhat --network mainnet deploy",
+    "deploy:ethereum": "hardhat --network ethereum deploy",
     "deploy:goerli": "hardhat --network goerli deploy",
     "postinstall": "run-s --continue-on-error postinstall:** || cd .",
     "postinstall:foundry": "forge install",

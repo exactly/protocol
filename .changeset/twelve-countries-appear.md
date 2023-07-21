@@ -2,4 +2,4 @@
 "@exactly/protocol": patch
 ---
 
-🚀 mainnet: deploy new interest rate models
+🚀 ethereum: deploy new interest rate models

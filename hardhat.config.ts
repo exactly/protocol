@@ -23,11 +23,11 @@ export default {
     settings: { optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: "strip" } },
   },
   networks: {
-    mainnet: {
+    ethereum: {
       priceDecimals: 18,
       timelockDelay: 24 * 3_600,
       finance: { treasuryFeeRate: 0, futurePools: 3 },
-      url: env.MAINNET_NODE ?? "",
+      url: env.ETHEREUM_NODE ?? "",
     },
     optimism: { priceDecimals: 8, timelockDelay: 24 * 3_600, url: env.OPTIMISM_NODE ?? "" },
     goerli: { priceDecimals: 8, url: env.GOERLI_NODE ?? "" },
@@ -35,13 +35,13 @@ export default {
   namedAccounts: {
     deployer: {
       default: 0,
-      mainnet: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
+      ethereum: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       optimism: "0xe61Bdef3FFF4C3CF7A07996DCB8802b5C85B665a",
       goerli: "0xDb90CDB64CfF03f254e4015C4F705C3F3C834400",
     },
     multisig: {
       default: 0,
-      mainnet: "0x7A65824d74B0C20730B6eE4929ABcc41Cbe843Aa",
+      ethereum: "0x7A65824d74B0C20730B6eE4929ABcc41Cbe843Aa",
       optimism: "0xC0d6Bc5d052d1e74523AD79dD5A954276c9286D3",
       goerli: "0x1801f5EAeAbA3fD02cBF4b7ED1A7b58AD84C0705",
     },
@@ -94,7 +94,7 @@ export default {
         },
       },
       DAI: {
-        networks: ["mainnet", "goerli"],
+        networks: ["ethereum", "goerli"],
         adjustFactor: 0.9,
         floatingCurve: { a: 1.7852e-2, b: -2.789e-3, maxUtilization: 1.003568501 },
         fixedCurve: { a: 3.6909e-1, b: -3.3415e-1, maxUtilization: 1.02766986 },
@@ -113,12 +113,12 @@ export default {
         },
       },
       WBTC: {
-        networks: ["mainnet", "goerli"],
+        networks: ["ethereum", "goerli"],
         adjustFactor: 0.85,
         floatingCurve: { a: 3.6184e-2, b: -1.5925e-2, maxUtilization: 1.007213882 },
         fixedCurve: { a: 3.697e-1, b: -3.497e-1, maxUtilization: 1.000007768 },
         overrides: {
-          mainnet: { priceFeed: "double" },
+          ethereum: { priceFeed: "double" },
           goerli: { priceFeed: "double" },
         },
       },
@@ -174,7 +174,7 @@ export default {
           { assets: ["USDC", "wstETH"], fee: 0.05 },
         ],
       },
-      mainnet: {
+      ethereum: {
         uniswapFees: [
           { assets: ["WETH", "DAI"], fee: 0.05 },
           { assets: ["USDC", "DAI"], fee: 0.01 },
