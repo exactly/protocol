@@ -12,4 +12,13 @@ contract EXA is ERC20VotesUpgradeable {
     __ERC20Votes_init();
     _mint(msg.sender, 10_000_000e18);
   }
+
+  function clock() public view override returns (uint48) {
+    return uint48(block.timestamp);
+  }
+
+  // solhint-disable-next-line func-name-mixedcase
+  function CLOCK_MODE() public pure override returns (string memory) {
+    return "mode=timestamp";
+  }
 }
