@@ -9,54 +9,63 @@ import { Airdrop, ISablierV2LockupLinear } from "../../contracts/periphery/Airdr
 contract AirdropTest is ForkTest {
   Airdrop internal airdrop;
   MockERC20 internal exa;
+  bytes32[] internal proof;
+  Claimable[4] internal tree;
   ISablierV2LockupLinear internal sablier;
 
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 106_835_444);
     exa = new MockERC20("EXA", "EXA", 18);
     sablier = ISablierV2LockupLinear(deployment("SablierV2LockupLinear"));
-  }
-
-  function testClaimSingleRoot() external {
-    address account = 0x8967782Fb0917bab83F13Bd17db3b41C700b368D;
-    uint128 amount = 420 ether;
-    bytes32 root = keccak256(abi.encode(account, amount));
-    bytes32[] memory proof = new bytes32[](0);
+    tree[0] = Claimable(address(this), 420 ether);
+    tree[1] = Claimable(address(1), 0);
+    tree[2] = Claimable(address(2), 0);
+    tree[3] = Claimable(address(3), 0);
+    proof.push(keccak256(abi.encode(tree[1])));
+    proof.push(keccak256(abi.encode(keccak256(abi.encode(tree[2])), keccak256(abi.encode(tree[3])))));
 
     airdrop = Airdrop(
-      address(new ERC1967Proxy(address(new Airdrop(exa, root, sablier)), abi.encodeCall(Airdrop.initialize, ())))
+      address(
+        new ERC1967Proxy(
+          address(
+            new Airdrop(
+              exa,
+              keccak256(abi.encode(keccak256(abi.encode(keccak256(abi.encode(tree[0])), proof[0])), proof[1])),
+              sablier
+            )
+          ),
+          abi.encodeCall(Airdrop.initialize, ())
+        )
+      )
     );
-    exa.mint(address(airdrop), 1_000_000 ether);
+    exa.mint(address(airdrop), 100_000 ether);
+  }
+
+  function testClaim() external {
+    vm.expectRevert(stdError.assertionError);
+    airdrop.claim(tree[0].amount + 1, proof);
 
     vm.expectRevert(stdError.assertionError);
-    vm.prank(account);
-    airdrop.claim(amount + 1, proof);
+    airdrop.claim(tree[0].amount - 1, proof);
 
-    vm.expectRevert(stdError.assertionError);
-    vm.prank(account);
-    airdrop.claim(amount - 1, proof);
-
-    vm.prank(account);
     vm.expectEmit(true, true, true, true, address(airdrop));
-    emit Claim(account, 4, amount);
-    uint256 streamId = airdrop.claim(amount, proof);
+    emit Claim(address(this), 4, tree[0].amount);
+    uint256 streamId = airdrop.claim(tree[0].amount, proof);
     assertGt(streamId, 0);
-    assertEq(airdrop.streams(account), streamId);
+    assertEq(airdrop.streams(address(this)), streamId);
   }
 
   function testClaimTwiceShouldRevert() external {
-    uint128 amount = 1 ether;
-    bytes32 root = keccak256(abi.encode(address(this), amount));
-    airdrop = Airdrop(
-      address(new ERC1967Proxy(address(new Airdrop(exa, root, sablier)), abi.encodeCall(Airdrop.initialize, ())))
-    );
-    exa.mint(address(airdrop), 1_000_000 ether);
-
-    airdrop.claim(1 ether, new bytes32[](0));
+    airdrop.claim(tree[0].amount, proof);
 
     vm.expectRevert(stdError.assertionError);
-    airdrop.claim(1 ether, new bytes32[](0));
+    airdrop.claim(tree[0].amount, proof);
   }
 
   event Claim(address indexed account, uint256 indexed streamId, uint256 amount);
+}
+
+struct Claimable {
+  address account;
+  uint128 amount;
 }
