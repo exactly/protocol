@@ -75,15 +75,17 @@ export default {
         fixedCurve: { a: 3.8691e-1, b: -3.5319e-1, maxUtilization: 1.031219287 },
         overrides: {
           goerli: {
-            rewards: { OP: { total: 120_000, debt: 16_000, start: "2023-03-09", period: 16 * 7 * 86_400 } },
+            rewards: {
+              OP: { total: 150_000, debt: 16_000, start: "2023-03-09", period: 20 * 7 * 86_400 },
+            },
           },
           optimism: {
             rewards: {
               OP: {
-                total: 120_000,
+                total: 150_000,
                 debt: 1_666,
                 start: "2023-04-03T14:00Z",
-                period: 16 * 7 * 86_400,
+                period: 20 * 7 * 86_400,
                 undistributedFactor: 0.3,
                 compensationFactor: 0.7,
                 transitionFactor: 0.7056,
@@ -105,10 +107,14 @@ export default {
         fixedCurve: { a: 2.5931e-1, b: -2.3207e-1, maxUtilization: 1.008715115 },
         overrides: {
           goerli: {
-            rewards: { OP: { total: 280_000, debt: 25_000_000, start: "2023-03-09", period: 16 * 7 * 86_400 } },
+            rewards: {
+              OP: { total: 350_000, debt: 25_000_000, start: "2023-03-09", period: 20 * 7 * 86_400 },
+            },
           },
           optimism: {
-            rewards: { OP: { total: 280_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 16 * 7 * 86_400 } },
+            rewards: {
+              OP: { total: 350_000, debt: 7_500_000, start: "2023-04-03T14:00Z", period: 20 * 7 * 86_400 },
+            },
           },
         },
       },
@@ -131,10 +137,10 @@ export default {
           goerli: {
             rewards: {
               OP: {
-                total: 7,
+                total: 14,
                 debt: 1,
                 start: "2023-06-13",
-                period: 4 * 7 * 86_400,
+                period: 8 * 7 * 86_400,
                 compensationFactor: 0,
                 transitionFactor: 0.64,
                 depositAllocationWeightAddend: 0.03,
@@ -145,10 +151,10 @@ export default {
             priceFeed: undefined,
             rewards: {
               OP: {
-                total: 5_000,
+                total: 10_000,
                 debt: 1,
                 start: "2023-06-26T14:00Z",
-                period: 4 * 7 * 86_400,
+                period: 8 * 7 * 86_400,
                 compensationFactor: 0,
                 transitionFactor: 0.64,
                 depositAllocationWeightAddend: 0.03,
