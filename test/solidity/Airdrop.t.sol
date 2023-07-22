@@ -20,7 +20,7 @@ contract AirdropTest is ForkTest {
   function testClaimSingleRoot() external {
     address account = 0x8967782Fb0917bab83F13Bd17db3b41C700b368D;
     uint128 amount = 420 ether;
-    bytes32 root = keccak256(abi.encodePacked(account, amount));
+    bytes32 root = keccak256(abi.encode(account, amount));
     bytes32[] memory proof = new bytes32[](0);
 
     airdrop = Airdrop(
@@ -46,7 +46,7 @@ contract AirdropTest is ForkTest {
 
   function testClaimTwiceShouldRevert() external {
     uint128 amount = 1 ether;
-    bytes32 root = keccak256(abi.encodePacked(address(this), amount));
+    bytes32 root = keccak256(abi.encode(address(this), amount));
     airdrop = Airdrop(
       address(new ERC1967Proxy(address(new Airdrop(exa, root, sablier)), abi.encodeCall(Airdrop.initialize, ())))
     );

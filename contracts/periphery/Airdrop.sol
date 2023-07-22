@@ -34,7 +34,7 @@ contract Airdrop is Initializable {
 
   function claim(uint128 amount, bytes32[] calldata proof) external returns (uint256 streamId) {
     assert(!claimed[msg.sender]);
-    assert(proof.verify(root, keccak256(abi.encodePacked(msg.sender, amount))));
+    assert(proof.verify(root, keccak256(abi.encode(msg.sender, amount))));
 
     claimed[msg.sender] = true;
     streams[msg.sender] = streamId = sablier.createWithDurations(
