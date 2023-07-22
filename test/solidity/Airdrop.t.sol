@@ -62,6 +62,14 @@ contract AirdropTest is ForkTest {
     airdrop.claim(tree[0].amount, proof);
   }
 
+  function testClaimWithInvalidProofShouldRevert() external {
+    bytes32[] memory invalidProof = new bytes32[](2);
+    invalidProof[0] = proof[0];
+    invalidProof[1] = keccak256(abi.encode(tree[0]));
+    vm.expectRevert(stdError.assertionError);
+    airdrop.claim(tree[0].amount, invalidProof);
+  }
+
   event Claim(address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
