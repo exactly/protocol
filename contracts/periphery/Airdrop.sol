@@ -1,25 +1,34 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity 0.8.17;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { MerkleProofLib } from "solmate/src/utils/MerkleProofLib.sol";
 import { SafeTransferLib, ERC20 } from "solmate/src/utils/SafeTransferLib.sol";
 
-contract Airdrop {
+contract Airdrop is Initializable {
   using MerkleProofLib for bytes32[];
   using SafeTransferLib for ERC20;
 
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   ERC20 public immutable exa;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   bytes32 public immutable root;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   ISablierV2LockupLinear public immutable sablier;
 
   mapping(address => bool) public claimed;
   mapping(address => uint256) public streams;
 
+  /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(ERC20 exa_, bytes32 root_, ISablierV2LockupLinear sablier_) {
     exa = exa_;
     root = root_;
     sablier = sablier_;
 
+    _disableInitializers();
+  }
+
+  function initialize() external initializer {
     exa.safeApprove(address(sablier), type(uint256).max);
   }
 
