@@ -44,7 +44,7 @@ contract Airdrop is Initializable {
         recipient: msg.sender,
         totalAmount: amount,
         cancelable: false,
-        durations: Durations({ cliff: 0, total: 5 * 4 weeks }),
+        durations: Durations({ cliff: 0, total: 4 * 4 weeks }),
         broker: Broker({ account: address(0), fee: 0 })
       })
     );
