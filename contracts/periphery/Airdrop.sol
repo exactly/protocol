@@ -48,10 +48,10 @@ contract Airdrop is Initializable {
         broker: Broker({ account: address(0), fee: 0 })
       })
     );
-    emit Claim(msg.sender, amount, streamId);
+    emit Claim(msg.sender, streamId, amount);
   }
 
-  event Claim(address indexed account, uint128 amount, uint256 streamId);
+  event Claim(address indexed account, uint256 indexed streamId, uint256 amount);
 }
 
 interface ISablierV2LockupLinear {

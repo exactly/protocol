@@ -36,22 +36,11 @@ contract AirdropTest is Test {
     airdrop.claim(amount - 1, proof);
 
     vm.prank(account);
+    vm.expectEmit(true, true, true, true, address(airdrop));
+    emit Claim(account, 4, amount);
     uint256 streamId = airdrop.claim(amount, proof);
     assertGt(streamId, 0);
     assertEq(airdrop.streams(account), streamId);
-  }
-
-  function testEmitClaim() external {
-    uint128 amount = 1 ether;
-    bytes32 root = keccak256(abi.encodePacked(address(this), amount));
-    airdrop = Airdrop(
-      address(new ERC1967Proxy(address(new Airdrop(exa, root, sablier)), abi.encodeCall(Airdrop.initialize, ())))
-    );
-    exa.mint(address(airdrop), 1_000_000 ether);
-
-    vm.expectEmit(true, true, true, false, address(airdrop));
-    emit Claim(address(this), 1 ether, 4);
-    airdrop.claim(1 ether, new bytes32[](0));
   }
 
   function testClaimTwiceShouldRevert() external {
@@ -68,5 +57,5 @@ contract AirdropTest is Test {
     airdrop.claim(1 ether, new bytes32[](0));
   }
 
-  event Claim(address indexed account, uint128 amount, uint256 streamId);
+  event Claim(address indexed account, uint256 indexed streamId, uint256 amount);
 }
