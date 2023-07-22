@@ -1,20 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { Vm } from "forge-std/Vm.sol";
-import { Test, stdError } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 import { Airdrop, ISablierV2LockupLinear } from "../../contracts/periphery/Airdrop.sol";
-import { console2 as console } from "forge-std/console2.sol";
 
 contract AirdropTest is Test {
-  MockERC20 internal exa;
   Airdrop internal airdrop;
+  MockERC20 internal exa;
   ISablierV2LockupLinear internal constant sablier = ISablierV2LockupLinear(0xB923aBdCA17Aed90EB5EC5E407bd37164f632bFD);
 
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 106_835_444);
-
     exa = new MockERC20("EXA", "EXA", 18);
   }
 
@@ -38,7 +35,7 @@ contract AirdropTest is Test {
     vm.prank(account);
     uint256 streamId = airdrop.claim(amount, proof);
     assertGt(streamId, 0);
-    assertEq(airdrop.streamIds(account), streamId);
+    assertEq(airdrop.streams(account), streamId);
   }
 
   function testEmitClaim() external {

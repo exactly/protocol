@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity 0.8.17;
 
-import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { MerkleProofLib } from "solmate/src/utils/MerkleProofLib.sol";
-import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
+import { SafeTransferLib, ERC20 } from "solmate/src/utils/SafeTransferLib.sol";
 
 contract Airdrop {
-  using SafeTransferLib for ERC20;
   using MerkleProofLib for bytes32[];
+  using SafeTransferLib for ERC20;
 
   ERC20 public immutable exa;
   bytes32 public immutable root;
   ISablierV2LockupLinear public immutable sablier;
 
   mapping(address => bool) public claimed;
-  mapping(address => uint256) public streamIds;
+  mapping(address => uint256) public streams;
 
   constructor(ERC20 exa_, bytes32 root_, ISablierV2LockupLinear sablier_) {
     exa = exa_;
@@ -29,15 +28,15 @@ contract Airdrop {
     assert(proof.verify(root, keccak256(abi.encodePacked(msg.sender, amount))));
 
     claimed[msg.sender] = true;
-    streamIds[msg.sender] = streamId = sablier.createWithDurations(
-      ISablierV2LockupLinear.CreateWithDurations({
+    streams[msg.sender] = streamId = sablier.createWithDurations(
+      CreateWithDurations({
+        asset: exa,
         sender: address(this),
         recipient: msg.sender,
         totalAmount: amount,
-        asset: exa,
         cancelable: false,
-        durations: ISablierV2LockupLinear.Durations({ cliff: 0, total: 5 * 4 weeks }),
-        broker: ISablierV2LockupLinear.Broker({ account: address(0), fee: 0 })
+        durations: Durations({ cliff: 0, total: 5 * 4 weeks }),
+        broker: Broker({ account: address(0), fee: 0 })
       })
     );
     emit Claim(msg.sender, amount, streamId);
@@ -47,25 +46,25 @@ contract Airdrop {
 }
 
 interface ISablierV2LockupLinear {
-  struct Durations {
-    uint40 cliff;
-    uint40 total;
-  }
-
-  struct Broker {
-    address account;
-    uint256 fee;
-  }
-
-  struct CreateWithDurations {
-    address sender;
-    address recipient;
-    uint128 totalAmount;
-    ERC20 asset;
-    bool cancelable;
-    Durations durations;
-    Broker broker;
-  }
-
   function createWithDurations(CreateWithDurations calldata params) external returns (uint256 streamId);
+}
+
+struct Durations {
+  uint40 cliff;
+  uint40 total;
+}
+
+struct Broker {
+  address account;
+  uint256 fee;
+}
+
+struct CreateWithDurations {
+  address sender;
+  address recipient;
+  uint128 totalAmount;
+  ERC20 asset;
+  bool cancelable;
+  Durations durations;
+  Broker broker;
 }
