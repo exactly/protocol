@@ -47,7 +47,9 @@ describe("RewardsController", function () {
     });
     it("THEN the claimable amount is positive", async () => {
       const claimableBalance = await rewardsController.allClaimable(alice.address, op.address);
-      await rewardsController.claimAll(alice.address);
+      await rewardsController.claim([{ market: marketUSDC.address, operations: [false, true] }], alice.address, [
+        op.address,
+      ]);
       const claimedBalance = await op.balanceOf(alice.address);
 
       expect(claimableBalance).to.be.greaterThan(0);
