@@ -1,0 +1,23 @@
+{
+  "address": "0x1D83CDd66BCf0ea8c99E745cC868478d6C3633f0",
+  "abi": [
+    {
+      "inputs": [
+        { "internalType": "contract IERC721Metadata", "name": "nft", "type": "address" },
+        { "internalType": "string", "name": "symbol", "type": "string" }
+      ],
+      "name": "SablierV2NFTDescriptor_UnknownNFT",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        { "internalType": "contract IERC721Metadata", "name": "sablier", "type": "address" },
+        { "internalType": "uint256", "name": "streamId", "type": "uint256" }
+      ],
+      "name": "tokenURI",
+      "outputs": [{ "internalType": "string", "name": "uri", "type": "string" }],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]
+}
