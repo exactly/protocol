@@ -1,5 +1,5 @@
-AirdropTest:testClaimSingleRoot() (gas: 946058)
-AirdropTest:testClaimTwiceShouldRevert() (gas: 933637)
+AirdropTest:testClaimSingleRoot() (gas: 948382)
+AirdropTest:testClaimTwiceShouldRevert() (gas: 935789)
 AuditorTest:testAccountShortfall() (gas: 159721)
 AuditorTest:testAccountShortfallRevert() (gas: 183495)
 AuditorTest:testBorrowMPValidation() (gas: 159377)

@@ -3,17 +3,18 @@ pragma solidity 0.8.17;
 
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { Test, stdError } from "forge-std/Test.sol";
+import { ForkTest, stdError } from "./Fork.t.sol";
 import { Airdrop, ISablierV2LockupLinear } from "../../contracts/periphery/Airdrop.sol";
 
-contract AirdropTest is Test {
+contract AirdropTest is ForkTest {
   Airdrop internal airdrop;
   MockERC20 internal exa;
-  ISablierV2LockupLinear internal constant sablier = ISablierV2LockupLinear(0xB923aBdCA17Aed90EB5EC5E407bd37164f632bFD);
+  ISablierV2LockupLinear internal sablier;
 
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 106_835_444);
     exa = new MockERC20("EXA", "EXA", 18);
+    sablier = ISablierV2LockupLinear(deployment("SablierV2LockupLinear"));
   }
 
   function testClaimSingleRoot() external {
