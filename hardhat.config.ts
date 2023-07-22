@@ -168,6 +168,12 @@ export default {
         adjustFactor: 0.58,
         floatingCurve: { a: 2.8487e-2, b: -5.8259e-3, maxUtilization: 1.005690787 },
         fixedCurve: { a: 2.8574e-1, b: -2.4204e-1, maxUtilization: 1.013118138 },
+        overrides: {
+          optimism: {
+            rewards: {
+            },
+          },
+        },
       },
     },
     periphery: {
