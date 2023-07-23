@@ -27,6 +27,7 @@
     "postinstall:hardhat": "hardhat compile --force"
   },
   "files": [
+    "scripts",
     "contracts",
     "deployments",
     "hardhat.config.ts"

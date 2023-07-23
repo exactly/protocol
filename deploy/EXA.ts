@@ -1,11 +1,12 @@
+import { MerkleTree } from "merkletreejs";
 import type { DeployFunction } from "hardhat-deploy/types";
 import type { EXA } from "../types";
 import validateUpgrade from "./.utils/validateUpgrade";
+import airdrop from "../scripts/airdrop.json";
 
 const func: DeployFunction = async ({
   ethers: {
     utils: { keccak256, defaultAbiCoder },
-    constants: { AddressZero },
     getSigner,
     getContract,
   },
@@ -36,12 +37,11 @@ const func: DeployFunction = async ({
   const deployerBalance = (await exa.balanceOf(deployer)).toBigInt();
   if (deployerBalance !== 0n) await (await exa.transfer(treasury ?? multisig, deployerBalance)).wait();
 
+  const leaves = Object.entries(airdrop).map((t) => keccak256(defaultAbiCoder.encode(["address", "uint128"], t)));
+  const tree = new MerkleTree(leaves, keccak256, { sort: true });
   await validateUpgrade(
     "Airdrop",
-    {
-      args: [exa.address, keccak256(defaultAbiCoder.encode(["address", "uint128"], [AddressZero, 0])), sablier],
-      envKey: "AIRDROP",
-    },
+    { args: [exa.address, tree.getHexRoot(), sablier], envKey: "AIRDROP" },
     async (name, opts) =>
       deploy(name, {
         ...opts,
