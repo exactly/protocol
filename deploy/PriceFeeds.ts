@@ -4,7 +4,7 @@ import { Interface } from "@ethersproject/abi";
 import type { DeployFunction } from "hardhat-deploy/types";
 import tenderlify from "./.utils/tenderlify";
 
-const func: DeployFunction = async ({ network, deployments: { deploy, get }, getNamedAccounts }) => {
+const func: DeployFunction = async ({ network, deployments: { deploy, get, getOrNull }, getNamedAccounts }) => {
   const { deployer } = await getNamedAccounts();
 
   for (const [symbol, { priceFeed }] of Object.entries(network.config.finance.markets)) {
@@ -42,6 +42,25 @@ const func: DeployFunction = async ({ network, deployments: { deploy, get }, get
       );
     }
   }
+
+  const [exaPool, ethFeed, exa, weth] = await Promise.all([
+    getOrNull("EXAPool"),
+    get("PriceFeedWETH"),
+    get("EXA"),
+    get("WETH"),
+  ]);
+  if (!exaPool) return;
+
+  await tenderlify(
+    "PriceFeedPool",
+    await deploy("PriceFeedEXA", {
+      contract: "PriceFeedPool",
+      args: [exaPool.address, ethFeed.address, BigInt(weth.address) > BigInt(exa.address)],
+      skipIfAlreadyDeployed: !JSON.parse(env.DEPLOY_FEED_EXA ?? "false"),
+      from: deployer,
+      log: true,
+    }),
+  );
 };
 
 func.tags = ["PriceFeeds"];
