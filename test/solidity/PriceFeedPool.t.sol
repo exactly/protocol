@@ -17,7 +17,7 @@ contract PriceFeedPoolTest is Test {
   function setUp() external {
     mockPool = new MockPool(new MockERC20("WETH", "WETH", 18), new MockERC20("EXA", "EXA", 18), 100e18, 500e18);
     ethPriceFeed = new MockPriceFeed(18, 2_000e18);
-    priceFeedPool = new PriceFeedPool(mockPool, ethPriceFeed, true);
+    priceFeedPool = new PriceFeedPool(mockPool, ethPriceFeed, false);
   }
 
   function testPriceFeedPoolReturningPrice() external {
@@ -31,7 +31,7 @@ contract PriceFeedPoolTest is Test {
     priceFeedPool = new PriceFeedPool(
       new MockPool(new MockERC20("WETH", "WETH", 18), new MockERC20("EXA", "EXA", 8), 100e18, 500e8),
       ethPriceFeed,
-      true
+      false
     );
     uint256 usdPrice = (((100e18 * 1e8) / 500e8) * 2_000e18) / 1e18;
     assertEq(usdPrice, 400e18);
@@ -40,7 +40,7 @@ contract PriceFeedPoolTest is Test {
 
   function testPriceFeedPoolReturningPriceWithToken0False() external {
     mockPool = new MockPool(new MockERC20("EXA", "EXA", 18), new MockERC20("WETH", "WETH", 18), 500e18, 100e18);
-    priceFeedPool = new PriceFeedPool(IPool(address(mockPool)), IPriceFeed(address(ethPriceFeed)), false);
+    priceFeedPool = new PriceFeedPool(IPool(address(mockPool)), IPriceFeed(address(ethPriceFeed)), true);
     (uint256 reserve0, uint256 reserve1, ) = mockPool.getReserves();
     uint256 usdPrice = uint256(ethPriceFeed.latestAnswer()).mulDivDown(reserve1, reserve0);
     assertEq(usdPrice, 400e18);
@@ -49,7 +49,7 @@ contract PriceFeedPoolTest is Test {
 
   function testPriceFeedPoolWithDifferentDecimalsWithToken0False() external {
     mockPool = new MockPool(new MockERC20("EXA", "EXA", 8), new MockERC20("WETH", "WETH", 18), 500e8, 100e18);
-    priceFeedPool = new PriceFeedPool(IPool(address(mockPool)), IPriceFeed(address(ethPriceFeed)), false);
+    priceFeedPool = new PriceFeedPool(IPool(address(mockPool)), IPriceFeed(address(ethPriceFeed)), true);
     uint256 usdPrice = (((100e18 * 1e8) / 500e8) * 2_000e18) / 1e18;
     assertEq(usdPrice, 400e18);
     assertEq(uint256(priceFeedPool.latestAnswer()), usdPrice);
@@ -59,7 +59,7 @@ contract PriceFeedPoolTest is Test {
     priceFeedPool = new PriceFeedPool(
       IPool(address(new MockPool(new MockERC20("WETH", "WETH", 8), new MockERC20("EXA", "EXA", 10), 100e8, 500e10))),
       IPriceFeed(address(ethPriceFeed)),
-      true
+      false
     );
     uint256 usdPrice = (((100e8 * 1e10) / 500e10) * 2_000e18) / 1e8;
     assertEq(usdPrice, 400e18);
@@ -68,7 +68,7 @@ contract PriceFeedPoolTest is Test {
 
   function testPriceFeedPoolWithAllDifferentDecimalsWithToken0False() external {
     mockPool = new MockPool(new MockERC20("EXA", "EXA", 8), new MockERC20("WETH", "WETH", 10), 500e8, 100e10);
-    priceFeedPool = new PriceFeedPool(IPool(address(mockPool)), IPriceFeed(address(ethPriceFeed)), false);
+    priceFeedPool = new PriceFeedPool(IPool(address(mockPool)), IPriceFeed(address(ethPriceFeed)), true);
     uint256 usdPrice = (((100e10 * 1e8) / 500e8) * 2_000e18) / 1e10;
     assertEq(usdPrice, 400e18);
     assertEq(uint256(priceFeedPool.latestAnswer()), usdPrice);

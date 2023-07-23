@@ -16,14 +16,14 @@ contract PriceFeedPool is IPriceFeed {
   uint256 public immutable baseUnit1;
   /// @notice Number of decimals that the answer of this price feed has.
   uint8 public immutable decimals;
-  /// @notice Whether the pool's token0 is the base price feed's asset.
-  bool public immutable token0;
+  /// @notice Whether the pool's token1 is the base price feed's asset.
+  bool public immutable token1Based;
   /// @notice Pool where the exchange rate is fetched from.
   IPool public immutable pool;
 
-  constructor(IPool pool_, IPriceFeed basePriceFeed_, bool token0_) {
+  constructor(IPool pool_, IPriceFeed basePriceFeed_, bool token1Based_) {
     pool = pool_;
-    token0 = token0_;
+    token1Based = token1Based_;
     basePriceFeed = basePriceFeed_;
     decimals = basePriceFeed_.decimals();
     baseUnit0 = 10 ** pool_.token0().decimals();
@@ -37,9 +37,9 @@ contract PriceFeedPool is IPriceFeed {
     (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
     return
       int256(
-        token0
-          ? uint256(mainPrice).mulDivDown((reserve0 * baseUnit1) / reserve1, baseUnit0)
-          : uint256(mainPrice).mulDivDown((reserve1 * baseUnit0) / reserve0, baseUnit1)
+        token1Based
+          ? uint256(mainPrice).mulDivDown((reserve1 * baseUnit0) / reserve0, baseUnit1)
+          : uint256(mainPrice).mulDivDown((reserve0 * baseUnit1) / reserve1, baseUnit0)
       );
   }
 }
