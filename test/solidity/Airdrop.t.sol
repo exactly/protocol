@@ -42,17 +42,26 @@ contract AirdropTest is ForkTest {
   }
 
   function testClaim() external {
-    vm.expectRevert(stdError.assertionError);
-    airdrop.claim(tree[0].amount + 1, proof);
-
-    vm.expectRevert(stdError.assertionError);
-    airdrop.claim(tree[0].amount - 1, proof);
-
+    uint256 nextStreamId = ISablierV2Lockup(address(sablier)).nextStreamId();
     vm.expectEmit(true, true, true, true, address(airdrop));
-    emit Claim(address(this), 4, tree[0].amount);
+    emit Claim(address(this), nextStreamId, tree[0].amount);
     uint256 streamId = airdrop.claim(tree[0].amount, proof);
     assertGt(streamId, 0);
+    assertEq(streamId, nextStreamId);
     assertEq(airdrop.streams(address(this)), streamId);
+  }
+
+  function testClaimZeroShouldRevert() external {
+    vm.expectRevert(stdError.assertionError);
+    airdrop.claim(0, proof);
+  }
+
+  function testClaimWrongAmountShouldRevert() external {
+    vm.expectRevert(stdError.assertionError);
+    airdrop.claim(tree[0].amount + 1 wei, proof);
+
+    vm.expectRevert(stdError.assertionError);
+    airdrop.claim(tree[0].amount - 1 wei, proof);
   }
 
   function testClaimTwiceShouldRevert() external {
@@ -70,7 +79,14 @@ contract AirdropTest is ForkTest {
     airdrop.claim(tree[0].amount, invalidProof);
   }
 
-  function testSablierStream() external {
+  function testSablierStream_Withdraw() external {
+    uint256 streamId = airdrop.claim(tree[0].amount, proof);
+    skip(2 weeks);
+    ISablierV2Lockup(address(sablier)).withdraw(streamId, address(this), 1 ether);
+    assertEq(exa.balanceOf(address(this)), 1 ether);
+  }
+
+  function testSablierStream_WithdrawMax() external {
     uint256 streamId = airdrop.claim(tree[0].amount, proof);
     skip(4 weeks);
     ISablierV2Lockup(address(sablier)).withdrawMax(streamId, address(this));
@@ -81,6 +97,10 @@ contract AirdropTest is ForkTest {
 }
 
 interface ISablierV2Lockup {
+  function nextStreamId() external view returns (uint256);
+
+  function withdraw(uint256 streamId, address to, uint128 amount) external;
+
   function withdrawMax(uint256 streamId, address to) external;
 }
 
