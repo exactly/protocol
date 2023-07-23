@@ -70,7 +70,18 @@ contract AirdropTest is ForkTest {
     airdrop.claim(tree[0].amount, invalidProof);
   }
 
+  function testSablierStream() external {
+    uint256 streamId = airdrop.claim(tree[0].amount, proof);
+    skip(4 weeks);
+    ISablierV2Lockup(address(sablier)).withdrawMax(streamId, address(this));
+    assertEq(exa.balanceOf(address(this)), tree[0].amount / 4);
+  }
+
   event Claim(address indexed account, uint256 indexed streamId, uint256 amount);
+}
+
+interface ISablierV2Lockup {
+  function withdrawMax(uint256 streamId, address to) external;
 }
 
 struct Claimable {

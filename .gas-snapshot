@@ -1,6 +1,7 @@
 AirdropTest:testClaim() (gas: 273337)
 AirdropTest:testClaimTwiceShouldRevert() (gas: 251504)
 AirdropTest:testClaimWithInvalidProofShouldRevert() (gas: 26225)
+AirdropTest:testSablierStream() (gas: 291678)
 AuditorTest:testAccountShortfall() (gas: 159721)
 AuditorTest:testAccountShortfallRevert() (gas: 183495)
 AuditorTest:testBorrowMPValidation() (gas: 159377)
