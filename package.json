@@ -6,10 +6,10 @@
   "repository": "github:exactly/protocol",
   "scripts": {
     "lint": "run-s --continue-on-error lint:**",
-    "lint:sol": "solhint '{contracts,test}/**/*.sol'",
+    "lint:sol": "solhint '{contracts,scripts,test}/**/*.sol'",
     "lint:ts": "tsc",
     "lint:es": "eslint --ext .ts,.js,.cjs,.mjs .",
-    "fix:sol": "prettier -w '{contracts,test}/**/*.sol'",
+    "fix:sol": "prettier -w '{contracts,scripts,test}/**/*.sol'",
     "compile": "hardhat compile",
     "snapshot": "forge snapshot --no-match-test testFuzz",
     "test": "run-s --continue-on-error test:**",

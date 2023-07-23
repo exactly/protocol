@@ -19,6 +19,7 @@ abstract contract BaseScript is Script {
     vm.label(addr, name);
   }
 
+  // solhint-disable event-name-camelcase
   event log(string);
   event logs(bytes);
   event log_int(int);
