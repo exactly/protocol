@@ -60,7 +60,7 @@ contract Previewer {
   }
 
   struct RewardRate {
-    address asset;
+    ERC20 asset;
     string assetName;
     string assetSymbol;
     uint256 usdPrice;
@@ -417,15 +417,25 @@ contract Previewer {
       r.deltaTime = 1 hours;
       r.rewardList = r.controller.allRewards();
       rewards = new RewardRate[](r.rewardList.length);
-      for (r.i = 0; r.i < r.rewardList.length; ++r.i) {
-        r.config = r.controller.rewardConfig(market, r.rewardList[r.i]);
-        (r.borrowIndex, r.depositIndex, ) = r.controller.rewardIndexes(market, r.rewardList[r.i]);
+      {
+        uint256 index;
+        for (r.i = 0; r.i < r.rewardList.length; ++r.i) {
+          (r.start, , ) = r.controller.distributionTime(market, r.rewardList[r.i]);
+          if (r.start == 0) continue;
+          rewards[index++].asset = r.rewardList[r.i];
+        }
+        RewardRate[] memory rewardList = rewards;
+        rewards = new RewardRate[](index);
+        for (r.i = 0; r.i < rewards.length; ++r.i) rewards[r.i] = rewardList[r.i];
+      }
+      for (r.i = 0; r.i < rewards.length; ++r.i) {
+        r.config = r.controller.rewardConfig(market, rewards[r.i].asset);
+        (r.borrowIndex, r.depositIndex, ) = r.controller.rewardIndexes(market, rewards[r.i].asset);
         (r.projectedBorrowIndex, r.projectedDepositIndex, ) = r.controller.previewAllocation(
           market,
-          r.rewardList[r.i],
+          rewards[r.i].asset,
           block.timestamp > r.config.start ? r.deltaTime : 0
         );
-        (r.start, , ) = r.controller.distributionTime(market, r.rewardList[r.i]);
         r.firstMaturity = r.start - (r.start % FixedLib.INTERVAL) + FixedLib.INTERVAL;
         r.maxMaturity =
           block.timestamp -
@@ -443,9 +453,9 @@ contract Previewer {
           }
         }
         rewards[r.i] = RewardRate({
-          asset: address(r.rewardList[r.i]),
-          assetName: r.rewardList[r.i].name(),
-          assetSymbol: r.rewardList[r.i].symbol(),
+          asset: rewards[r.i].asset,
+          assetName: rewards[r.i].asset.name(),
+          assetSymbol: rewards[r.i].asset.symbol(),
           usdPrice: auditor.assetPrice(r.config.priceFeed).mulWadDown(basePrice),
           borrow: (market.totalFloatingBorrowAssets() + r.fixedDebt) > 0
             ? (r.projectedBorrowIndex - r.borrowIndex)

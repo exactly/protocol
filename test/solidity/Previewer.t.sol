@@ -617,7 +617,7 @@ contract PreviewerTest is Test {
     vm.warp(block.timestamp + 1 weeks);
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[0].rewardRates.length, 1);
-    assertEq(data[0].rewardRates[0].asset, address(rewardAsset));
+    assertEq(address(data[0].rewardRates[0].asset), address(rewardAsset));
     assertEq(data[0].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[0].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
@@ -652,6 +652,87 @@ contract PreviewerTest is Test {
     assertEq(data[0].claimableRewards[0].assetName, rewardAsset.name());
     assertEq(data[0].claimableRewards[0].assetSymbol, rewardAsset.symbol());
     assertEq(data[0].claimableRewards[0].amount, rewardsController.allClaimable(address(this), rewardAsset));
+  }
+
+  function testRewardsRateWithDifferentRewardLengths() external {
+    MockERC20 exa = new MockERC20("EXA", "EXA", 18);
+    MockERC20 weth = new MockERC20("WETH", "WETH", 18);
+    weth.mint(address(this), 1_000 ether);
+    Market marketWETH = Market(address(new ERC1967Proxy(address(new Market(weth, auditor)), "")));
+    marketWETH.initialize(12, 1e18, irm, 0.02e18 / uint256(1 days), 0.1e18, 0, 0.0046e18, 0.42e18);
+    auditor.enableMarket(marketWETH, IPriceFeed(auditor.BASE_FEED()), 0.7e18);
+    weth.approve(address(marketWETH), type(uint256).max);
+
+    RewardsController rewardsController = RewardsController(
+      address(new ERC1967Proxy(address(new RewardsController()), ""))
+    );
+    rewardsController.initialize();
+    rewardAsset.mint(address(rewardsController), 500_000 ether);
+    exa.mint(address(rewardsController), 500_000 ether);
+    RewardsController.Config[] memory configs = new RewardsController.Config[](3);
+    configs[0] = RewardsController.Config({
+      market: market,
+      reward: rewardAsset,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    configs[1] = RewardsController.Config({
+      market: market,
+      reward: exa,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    configs[2] = RewardsController.Config({
+      market: marketWETH,
+      reward: exa,
+      priceFeed: opPriceFeed,
+      targetDebt: 2_000_000 ether,
+      totalDistribution: 50_000 ether,
+      start: uint32(block.timestamp),
+      distributionPeriod: 12 weeks,
+      undistributedFactor: 0.00005e18,
+      flipSpeed: 2e18,
+      compensationFactor: 0.85e18,
+      transitionFactor: 0.64e18,
+      borrowAllocationWeightFactor: 0,
+      depositAllocationWeightAddend: 0.02e18,
+      depositAllocationWeightFactor: 0.01e18
+    });
+    rewardsController.config(configs);
+    market.setRewardsController(rewardsController);
+    marketWETH.setRewardsController(rewardsController);
+
+    market.deposit(1_000 ether, address(this));
+    marketWETH.deposit(1_000 ether, address(this));
+    market.borrow(100 ether, address(this), address(this));
+    marketWETH.borrow(100 ether, address(this), address(this));
+    vm.warp(block.timestamp + 1 weeks);
+    Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
+    assertEq(data[0].rewardRates.length, 2);
+    assertEq(data[1].rewardRates.length, 1);
+    assertEq(address(data[0].rewardRates[0].asset), address(rewardAsset));
+    assertEq(address(data[0].rewardRates[1].asset), address(exa));
+    assertEq(address(data[1].rewardRates[0].asset), address(exa));
   }
 
   function testRewardsRateAfterDistributionEnd() external {
@@ -767,7 +848,7 @@ contract PreviewerTest is Test {
     vm.warp(block.timestamp + 1 weeks);
     Previewer.MarketAccount[] memory data = previewer.exactly(address(this));
     assertEq(data[1].rewardRates.length, 1);
-    assertEq(data[1].rewardRates[0].asset, address(rewardAsset));
+    assertEq(address(data[1].rewardRates[0].asset), address(rewardAsset));
     assertEq(data[1].rewardRates[0].assetName, rewardAsset.name());
     assertEq(data[1].rewardRates[0].assetSymbol, rewardAsset.symbol());
 
