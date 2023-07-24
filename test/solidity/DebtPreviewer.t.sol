@@ -1047,8 +1047,8 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(rates.borrow, 71562762755180610);
     assertEq(rates.native, 0);
     assertEq(rates.rewards.length, 2);
-    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
-    assertEq(rates.rewards[1].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[1].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
     assertEq(rates.rewards[0].assetSymbol, "OP");
     assertEq(rates.rewards[1].assetSymbol, "OP");
     assertEq(rates.rewards[0].assetName, "Optimism");
@@ -1076,8 +1076,8 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(rates.borrow, 53668550133510202);
     assertEq(rates.native, 0);
     assertEq(rates.rewards.length, 2);
-    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
-    assertEq(rates.rewards[1].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[1].asset), 0x4200000000000000000000000000000000000042);
     assertEq(rates.rewards[0].assetSymbol, "OP");
     assertEq(rates.rewards[1].assetSymbol, "OP");
     assertEq(rates.rewards[0].assetName, "Optimism");
@@ -1104,7 +1104,7 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(rates.borrow, 50832100630765815);
     assertEq(rates.native, 0);
     assertEq(rates.rewards.length, 1);
-    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
     assertEq(rates.rewards[0].assetSymbol, "OP");
     assertEq(rates.rewards[0].assetName, "Optimism");
     assertEq(rates.rewards[0].borrow, 26229302711998560);
@@ -1121,8 +1121,8 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(rates.native, 0);
 
     assertEq(rates.rewards.length, 2);
-    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
-    assertEq(rates.rewards[1].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[1].asset), 0x4200000000000000000000000000000000000042);
     assertEq(rates.rewards[0].assetSymbol, "OP");
     assertEq(rates.rewards[1].assetSymbol, "OP");
     assertEq(rates.rewards[0].assetName, "Optimism");
@@ -1151,8 +1151,8 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(rates.native, 0);
 
     assertEq(rates.rewards.length, 2);
-    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
-    assertEq(rates.rewards[1].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[1].asset), 0x4200000000000000000000000000000000000042);
     assertEq(rates.rewards[0].assetSymbol, "OP");
     assertEq(rates.rewards[1].assetSymbol, "OP");
     assertEq(rates.rewards[0].assetName, "Optimism");
@@ -1173,7 +1173,7 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(rates.native, 0);
 
     assertEq(rates.rewards.length, 1);
-    assertEq(rates.rewards[0].asset, 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
     assertEq(rates.rewards[0].assetSymbol, "OP");
     assertEq(rates.rewards[0].assetName, "Optimism");
     assertEq(rates.rewards[0].borrow, 17475604202887560);
