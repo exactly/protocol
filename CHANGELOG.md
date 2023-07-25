@@ -1,5 +1,16 @@
 # @exactly/protocol
 
+## 0.2.15
+
+### Patch Changes
+
+- 34d960c: ✨ price-feeds: add pool-based feed
+- 0fa8b19: ✨ airdrop: stream `EXA` to eligible accounts
+- a1b3de9: 🚀 optimism: deploy airdrop contract
+- 8f55002: 🍱 airdrop: add json with accounts and amounts
+- 0558b53: 🚀 optimism: deploy `EXA` price feed
+- 29f06ef: 🚀 optimism: deploy `EXA`
+
 ## 0.2.14
 
 ### Patch Changes
