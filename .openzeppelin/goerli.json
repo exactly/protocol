@@ -28479,6 +28479,784 @@
           }
         }
       }
+    },
+    "0x568e72eD29aE6aE919bDfae4c3D996BD67a967b8": {
+      "address": "0x568e72eD29aE6aE919bDfae4c3D996BD67a967b8",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC165Upgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol:41"
+          },
+          {
+            "label": "_roles",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_mapping(t_bytes32,t_struct(RoleData)34_storage)",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:62"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:260"
+          },
+          {
+            "label": "distribution",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_mapping(t_contract(Market)16408,t_struct(Distribution)20290_storage)",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:24"
+          },
+          {
+            "label": "rewardEnabled",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_mapping(t_contract(ERC20)31830,t_bool)",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:26"
+          },
+          {
+            "label": "rewardList",
+            "offset": 0,
+            "slot": "153",
+            "type": "t_array(t_contract(ERC20)31830)dyn_storage",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:28"
+          },
+          {
+            "label": "marketList",
+            "offset": 0,
+            "slot": "154",
+            "type": "t_array(t_contract(Market)16408)dyn_storage",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:30"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_contract(ERC20)31830)dyn_storage": {
+            "label": "contract ERC20[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_contract(Market)16408)dyn_storage": {
+            "label": "contract Market[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(ERC20)31830": {
+            "label": "contract ERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IPriceFeed)30865": {
+            "label": "contract IPriceFeed",
+            "numberOfBytes": "20"
+          },
+          "t_contract(Market)16408": {
+            "label": "contract Market",
+            "numberOfBytes": "20"
+          },
+          "t_int128": {
+            "label": "int128",
+            "numberOfBytes": "16"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_bool,t_struct(Account)20195_storage))": {
+            "label": "mapping(address => mapping(bool => struct RewardsController.Account))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bool,t_struct(Account)20195_storage)": {
+            "label": "mapping(bool => struct RewardsController.Account)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)34_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(ERC20)31830,t_bool)": {
+            "label": "mapping(contract ERC20 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(ERC20)31830,t_struct(RewardData)20274_storage)": {
+            "label": "mapping(contract ERC20 => struct RewardsController.RewardData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(Market)16408,t_struct(Distribution)20290_storage)": {
+            "label": "mapping(contract Market => struct RewardsController.Distribution)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint128,t_contract(ERC20)31830)": {
+            "label": "mapping(uint128 => contract ERC20)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Account)20195_storage": {
+            "label": "struct RewardsController.Account",
+            "members": [
+              {
+                "label": "index",
+                "type": "t_uint128",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "accrued",
+                "type": "t_uint128",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Distribution)20290_storage": {
+            "label": "struct RewardsController.Distribution",
+            "members": [
+              {
+                "label": "rewards",
+                "type": "t_mapping(t_contract(ERC20)31830,t_struct(RewardData)20274_storage)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "availableRewards",
+                "type": "t_mapping(t_uint128,t_contract(ERC20)31830)",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "availableRewardsCount",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "baseUnit",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_struct(RewardData)20274_storage": {
+            "label": "struct RewardsController.RewardData",
+            "members": [
+              {
+                "label": "targetDebt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "releaseRate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "totalDistribution",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "undistributedFactor",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "lastUndistributed",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "flipSpeed",
+                "type": "t_int128",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "compensationFactor",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "5"
+              },
+              {
+                "label": "transitionFactor",
+                "type": "t_uint64",
+                "offset": 24,
+                "slot": "5"
+              },
+              {
+                "label": "borrowAllocationWeightFactor",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "depositAllocationWeightAddend",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "6"
+              },
+              {
+                "label": "depositAllocationWeightFactor",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "6"
+              },
+              {
+                "label": "borrowIndex",
+                "type": "t_uint128",
+                "offset": 0,
+                "slot": "7"
+              },
+              {
+                "label": "depositIndex",
+                "type": "t_uint128",
+                "offset": 16,
+                "slot": "7"
+              },
+              {
+                "label": "start",
+                "type": "t_uint32",
+                "offset": 0,
+                "slot": "8"
+              },
+              {
+                "label": "end",
+                "type": "t_uint32",
+                "offset": 4,
+                "slot": "8"
+              },
+              {
+                "label": "lastUpdate",
+                "type": "t_uint32",
+                "offset": 8,
+                "slot": "8"
+              },
+              {
+                "label": "lastConfig",
+                "type": "t_uint32",
+                "offset": 12,
+                "slot": "8"
+              },
+              {
+                "label": "lastConfigReleased",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "9"
+              },
+              {
+                "label": "priceFeed",
+                "type": "t_contract(IPriceFeed)30865",
+                "offset": 0,
+                "slot": "10"
+              },
+              {
+                "label": "accounts",
+                "type": "t_mapping(t_address,t_mapping(t_bool,t_struct(Account)20195_storage))",
+                "offset": 0,
+                "slot": "11"
+              }
+            ],
+            "numberOfBytes": "384"
+          },
+          "t_struct(RoleData)34_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "members",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint128": {
+            "label": "uint128",
+            "numberOfBytes": "16"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "0x2dB2D7b015D97Ca600FC70b28D8Dc8D20Cc31CC0": {
+      "address": "0x2dB2D7b015D97Ca600FC70b28D8Dc8D20Cc31CC0",
+      "layout": {
+        "solcVersion": "0.8.17",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC165Upgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol:41"
+          },
+          {
+            "label": "_roles",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_mapping(t_bytes32,t_struct(RoleData)34_storage)",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:62"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "AccessControlUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:260"
+          },
+          {
+            "label": "distribution",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_mapping(t_contract(Market)16408,t_struct(Distribution)20283_storage)",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:24"
+          },
+          {
+            "label": "rewardEnabled",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_mapping(t_contract(ERC20)31821,t_bool)",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:26"
+          },
+          {
+            "label": "rewardList",
+            "offset": 0,
+            "slot": "153",
+            "type": "t_array(t_contract(ERC20)31821)dyn_storage",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:28"
+          },
+          {
+            "label": "marketList",
+            "offset": 0,
+            "slot": "154",
+            "type": "t_array(t_contract(Market)16408)dyn_storage",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:30"
+          },
+          {
+            "label": "nonces",
+            "offset": 0,
+            "slot": "155",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:715"
+          },
+          {
+            "label": "_claimSender",
+            "offset": 0,
+            "slot": "156",
+            "type": "t_address",
+            "contract": "RewardsController",
+            "src": "contracts/RewardsController.sol:731"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_contract(ERC20)31821)dyn_storage": {
+            "label": "contract ERC20[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_contract(Market)16408)dyn_storage": {
+            "label": "contract Market[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(ERC20)31821": {
+            "label": "contract ERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IPriceFeed)30856": {
+            "label": "contract IPriceFeed",
+            "numberOfBytes": "20"
+          },
+          "t_contract(Market)16408": {
+            "label": "contract Market",
+            "numberOfBytes": "20"
+          },
+          "t_int128": {
+            "label": "int128",
+            "numberOfBytes": "16"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_bool,t_struct(Account)20188_storage))": {
+            "label": "mapping(address => mapping(bool => struct RewardsController.Account))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bool,t_struct(Account)20188_storage)": {
+            "label": "mapping(bool => struct RewardsController.Account)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)34_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(ERC20)31821,t_bool)": {
+            "label": "mapping(contract ERC20 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(ERC20)31821,t_struct(RewardData)20267_storage)": {
+            "label": "mapping(contract ERC20 => struct RewardsController.RewardData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_contract(Market)16408,t_struct(Distribution)20283_storage)": {
+            "label": "mapping(contract Market => struct RewardsController.Distribution)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint128,t_contract(ERC20)31821)": {
+            "label": "mapping(uint128 => contract ERC20)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Account)20188_storage": {
+            "label": "struct RewardsController.Account",
+            "members": [
+              {
+                "label": "index",
+                "type": "t_uint128",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "accrued",
+                "type": "t_uint128",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Distribution)20283_storage": {
+            "label": "struct RewardsController.Distribution",
+            "members": [
+              {
+                "label": "rewards",
+                "type": "t_mapping(t_contract(ERC20)31821,t_struct(RewardData)20267_storage)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "availableRewards",
+                "type": "t_mapping(t_uint128,t_contract(ERC20)31821)",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "availableRewardsCount",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "baseUnit",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_struct(RewardData)20267_storage": {
+            "label": "struct RewardsController.RewardData",
+            "members": [
+              {
+                "label": "targetDebt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "releaseRate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "totalDistribution",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "undistributedFactor",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "lastUndistributed",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "flipSpeed",
+                "type": "t_int128",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "compensationFactor",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "5"
+              },
+              {
+                "label": "transitionFactor",
+                "type": "t_uint64",
+                "offset": 24,
+                "slot": "5"
+              },
+              {
+                "label": "borrowAllocationWeightFactor",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "depositAllocationWeightAddend",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "6"
+              },
+              {
+                "label": "depositAllocationWeightFactor",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "6"
+              },
+              {
+                "label": "borrowIndex",
+                "type": "t_uint128",
+                "offset": 0,
+                "slot": "7"
+              },
+              {
+                "label": "depositIndex",
+                "type": "t_uint128",
+                "offset": 16,
+                "slot": "7"
+              },
+              {
+                "label": "start",
+                "type": "t_uint32",
+                "offset": 0,
+                "slot": "8"
+              },
+              {
+                "label": "end",
+                "type": "t_uint32",
+                "offset": 4,
+                "slot": "8"
+              },
+              {
+                "label": "lastUpdate",
+                "type": "t_uint32",
+                "offset": 8,
+                "slot": "8"
+              },
+              {
+                "label": "lastConfig",
+                "type": "t_uint32",
+                "offset": 12,
+                "slot": "8"
+              },
+              {
+                "label": "lastConfigReleased",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "9"
+              },
+              {
+                "label": "priceFeed",
+                "type": "t_contract(IPriceFeed)30856",
+                "offset": 0,
+                "slot": "10"
+              },
+              {
+                "label": "accounts",
+                "type": "t_mapping(t_address,t_mapping(t_bool,t_struct(Account)20188_storage))",
+                "offset": 0,
+                "slot": "11"
+              }
+            ],
+            "numberOfBytes": "384"
+          },
+          "t_struct(RoleData)34_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "members",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint128": {
+            "label": "uint128",
+            "numberOfBytes": "16"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
     }
   }
 }
