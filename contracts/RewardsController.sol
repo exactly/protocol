@@ -101,22 +101,23 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     MarketOperation[] memory marketOps,
     address to,
     ERC20[] memory rewardsList
-  ) public returns (ERC20[] memory, uint256[] memory claimedAmounts) {
+  ) public claimSender returns (ERC20[] memory, uint256[] memory claimedAmounts) {
     uint256 rewardsCount = rewardsList.length;
     claimedAmounts = new uint256[](rewardsCount);
+    address sender = _claimSender;
     for (uint256 i = 0; i < marketOps.length; ) {
       MarketOperation memory marketOperation = marketOps[i];
       Distribution storage dist = distribution[marketOperation.market];
       uint256 availableRewards = dist.availableRewardsCount;
       for (uint128 r = 0; r < availableRewards; ) {
         update(
-          msg.sender,
+          sender,
           marketOperation.market,
           dist.availableRewards[r],
           accountBalanceOperations(
             marketOperation.market,
             marketOperation.operations,
-            msg.sender,
+            sender,
             dist.rewards[dist.availableRewards[r]].start
           )
         );
@@ -127,10 +128,10 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       for (uint256 r = 0; r < rewardsCount; ) {
         RewardData storage rewardData = dist.rewards[rewardsList[r]];
         for (uint256 o = 0; o < marketOperation.operations.length; ) {
-          uint256 rewardAmount = rewardData.accounts[msg.sender][marketOperation.operations[o]].accrued;
+          uint256 rewardAmount = rewardData.accounts[sender][marketOperation.operations[o]].accrued;
           if (rewardAmount != 0) {
             claimedAmounts[r] += rewardAmount;
-            rewardData.accounts[msg.sender][marketOperation.operations[o]].accrued = 0;
+            rewardData.accounts[sender][marketOperation.operations[o]].accrued = 0;
           }
           unchecked {
             ++o;
@@ -148,13 +149,25 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
       uint256 claimedAmount = claimedAmounts[r];
       if (claimedAmount > 0) {
         rewardsList[r].safeTransfer(to, claimedAmount);
-        emit Claim(msg.sender, rewardsList[r], to, claimedAmount);
+        emit Claim(sender, rewardsList[r], to, claimedAmount);
       }
       unchecked {
         ++r;
       }
     }
     return (rewardsList, claimedAmounts);
+  }
+
+  /// @notice Claims `permit.owner` rewards for the given operations and reward assets to the given account.
+  /// @param marketOps The operations to claim rewards for.
+  /// @param permit Arguments and signature from `permit.owner`.
+  /// @return rewardsList The list of rewards assets.
+  /// @return claimedAmounts The list of claimed amounts.
+  function claim(
+    MarketOperation[] memory marketOps,
+    ClaimPermit calldata permit
+  ) external permitSender(permit) returns (ERC20[] memory, uint256[] memory claimedAmounts) {
+    return claim(marketOps, permit.spender, permit.assets);
   }
 
   /// @notice Gets the configuration of a given distribution.
@@ -699,6 +712,59 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
     }
   }
 
+  address private _claimSender;
+  modifier claimSender() {
+    if (_claimSender == address(0)) _claimSender = msg.sender;
+    _;
+    delete _claimSender;
+  }
+
+  // solhint-disable-next-line func-name-mixedcase
+  function DOMAIN_SEPARATOR() public view returns (bytes32) {
+    return
+      keccak256(
+        abi.encode(
+          keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+          keccak256("RewardsController"),
+          keccak256("1"),
+          block.chainid,
+          address(this)
+        )
+      );
+  }
+
+  modifier permitSender(ClaimPermit calldata permit) {
+    assert(_claimSender == address(0));
+    assert(permit.deadline >= block.timestamp);
+    unchecked {
+      address recoveredAddress = ecrecover(
+        keccak256(
+          abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR(),
+            keccak256(
+              abi.encode(
+                keccak256("ClaimPermit(address owner,address spender,address[] assets,uint256 deadline)"),
+                permit.owner,
+                permit.spender,
+                permit.assets,
+                uint256(keccak256(abi.encode(permit.owner, permit.spender, permit.assets, permit.deadline))),
+                permit.deadline
+              )
+            )
+          )
+        ),
+        permit.v,
+        permit.r,
+        permit.s
+      );
+      assert(recoveredAddress != address(0) && recoveredAddress == permit.owner);
+      _claimSender = permit.owner;
+    }
+    _;
+    assert(_claimSender == address(0));
+  }
+
   struct TotalMarketBalance {
     uint256 debt;
     uint256 supply;
@@ -853,3 +919,13 @@ contract RewardsController is Initializable, AccessControlUpgradeable {
 
 error IndexOverflow();
 error InvalidConfig();
+
+struct ClaimPermit {
+  address owner;
+  address spender;
+  ERC20[] assets;
+  uint256 deadline;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
+}

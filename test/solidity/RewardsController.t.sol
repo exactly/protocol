@@ -11,7 +11,7 @@ import { InterestRateModel } from "../../contracts/InterestRateModel.sol";
 import { Auditor, IPriceFeed } from "../../contracts/Auditor.sol";
 import { Market } from "../../contracts/Market.sol";
 import { MockPriceFeed } from "../../contracts/mocks/MockPriceFeed.sol";
-import { ERC20, RewardsController, InvalidConfig } from "../../contracts/RewardsController.sol";
+import { ERC20, RewardsController, ClaimPermit, InvalidConfig } from "../../contracts/RewardsController.sol";
 import { FixedLib } from "../../contracts/utils/FixedLib.sol";
 
 contract RewardsControllerTest is Test {
@@ -1291,6 +1291,55 @@ contract RewardsControllerTest is Test {
     rewardList[0] = opRewardAsset;
     rewardList[1] = exaRewardAsset;
     rewardsController.claim(marketOps, address(this), rewardList);
+
+    assertEq(opRewardAsset.balanceOf(address(this)), opClaimableRewards);
+    assertEq(rewardsController.allClaimable(address(this), opRewardAsset), 0);
+  }
+
+  function testPermitClaim() external {
+    uint256 accountKey = 0xb0b;
+    address account = vm.addr(accountKey);
+    marketUSDC.deposit(100e6, account);
+    vm.prank(account);
+    marketUSDC.borrow(10e6, account, account);
+
+    vm.warp(4 days + 20 minutes);
+    uint256 opClaimableRewards = rewardsController.allClaimable(account, opRewardAsset);
+    bool[] memory ops = new bool[](2);
+    ops[0] = false;
+    ops[1] = true;
+    RewardsController.MarketOperation[] memory marketOps = new RewardsController.MarketOperation[](1);
+    marketOps[0] = RewardsController.MarketOperation({ market: marketUSDC, operations: ops });
+    ERC20[] memory assets = new ERC20[](2);
+    assets[0] = opRewardAsset;
+    assets[1] = exaRewardAsset;
+
+    ClaimPermit memory permit;
+    permit.owner = account;
+    permit.spender = address(this);
+    permit.assets = assets;
+    permit.deadline = block.timestamp;
+    (permit.v, permit.r, permit.s) = vm.sign(
+      accountKey,
+      keccak256(
+        abi.encodePacked(
+          "\x19\x01",
+          rewardsController.DOMAIN_SEPARATOR(),
+          keccak256(
+            abi.encode(
+              keccak256("ClaimPermit(address owner,address spender,address[] assets,uint256 deadline)"),
+              permit.owner,
+              permit.spender,
+              permit.assets,
+              uint256(keccak256(abi.encode(permit.owner, permit.spender, permit.assets, permit.deadline))),
+              permit.deadline
+            )
+          )
+        )
+      )
+    );
+
+    rewardsController.claim(marketOps, permit);
 
     assertEq(opRewardAsset.balanceOf(address(this)), opClaimableRewards);
     assertEq(rewardsController.allClaimable(address(this), opRewardAsset), 0);
