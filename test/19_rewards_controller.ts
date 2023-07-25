@@ -47,9 +47,11 @@ describe("RewardsController", function () {
     });
     it("THEN the claimable amount is positive", async () => {
       const claimableBalance = await rewardsController.allClaimable(alice.address, op.address);
-      await rewardsController.claim([{ market: marketUSDC.address, operations: [false, true] }], alice.address, [
-        op.address,
-      ]);
+      await rewardsController["claim((address,bool[])[],address,address[])"](
+        [{ market: marketUSDC.address, operations: [false, true] }],
+        alice.address,
+        [op.address],
+      );
       const claimedBalance = await op.balanceOf(alice.address);
 
       expect(claimableBalance).to.be.greaterThan(0);
@@ -58,7 +60,7 @@ describe("RewardsController", function () {
     it("AND trying to claim with invalid market THEN the claimable amount is 0", async () => {
       const marketOps = [{ market: alice.address, operations: [false, true] }];
       const claimableBalance = await rewardsController.claimable(marketOps, alice.address, op.address);
-      await rewardsController.claim(marketOps, alice.address, [op.address]);
+      await rewardsController["claim((address,bool[])[],address,address[])"](marketOps, alice.address, [op.address]);
       const claimedBalance = await op.balanceOf(alice.address);
 
       expect(claimableBalance).to.be.eq(0);
