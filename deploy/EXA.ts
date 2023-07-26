@@ -58,7 +58,7 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["EXA"];
-func.dependencies = ["Sablier"];
+func.dependencies = ["Governance", "Sablier"];
 func.skip = async ({ network }) => !["optimism", "goerli"].includes(network.name) && network.live;
 
 export default func;

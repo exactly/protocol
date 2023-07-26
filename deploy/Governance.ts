@@ -1,5 +1,5 @@
 import type { DeployFunction } from "hardhat-deploy/types";
-import { TimelockController } from "../types";
+import type { ProxyAdmin, TimelockController } from "../types";
 import timelockPropose from "./.utils/timelockPropose";
 import tenderlify from "./.utils/tenderlify";
 
@@ -16,6 +16,7 @@ const func: DeployFunction = async ({
   getNamedAccounts,
 }) => {
   const { deployer, multisig } = await getNamedAccounts();
+
   await tenderlify(
     "TimelockController",
     await deploy("TimelockController", {
@@ -26,12 +27,22 @@ const func: DeployFunction = async ({
     }),
   );
 
+  await tenderlify(
+    "ProxyAdmin",
+    await deploy("ProxyAdmin", { skipIfAlreadyDeployed: true, from: deployer, log: true }),
+  );
+
   const timelock = await getContract<TimelockController>("TimelockController", await getSigner(deployer));
   if (!(await timelock.getMinDelay()).eq(timelockDelay)) {
     await timelockPropose(timelock, "updateDelay", [timelockDelay]);
   }
+
+  const proxyAdmin = await getContract<ProxyAdmin>("ProxyAdmin", await getSigner(deployer));
+  if ((await proxyAdmin.owner()).toLowerCase() !== timelock.address.toLowerCase()) {
+    await (await proxyAdmin.transferOwnership(timelock.address)).wait();
+  }
 };
 
-func.tags = ["TimelockController"];
+func.tags = ["Governance"];
 
 export default func;

@@ -56,6 +56,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Auditor"];
-func.dependencies = ["ProxyAdmin", "TimelockController"];
+func.dependencies = ["Governance"];
 
 export default func;

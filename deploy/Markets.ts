@@ -245,6 +245,6 @@ const func: DeployFunction = async ({
 };
 
 func.tags = ["Markets"];
-func.dependencies = ["Auditor", "ProxyAdmin", "TimelockController", "Assets", "PriceFeeds", "RewardsController"];
+func.dependencies = ["Auditor", "Governance", "Assets", "PriceFeeds", "Rewards"];
 
 export default func;

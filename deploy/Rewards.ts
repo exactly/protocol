@@ -21,8 +21,8 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
   );
 };
 
-func.tags = ["RewardsController"];
-func.dependencies = ["ProxyAdmin", "TimelockController"];
+func.tags = ["Rewards"];
+func.dependencies = ["Governance"];
 func.skip = async ({ network }) =>
   !Object.values(network.config.finance.markets).some(({ rewards }) => Boolean(rewards));
 
