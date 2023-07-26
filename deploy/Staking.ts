@@ -9,6 +9,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
     { address: gauge },
     { address: rewards },
     { address: timelock },
+    { address: poolFactory },
     { deployer },
   ] = await Promise.all([
     get("EXA"),
@@ -17,6 +18,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
     get("EXAGauge"),
     get("RewardsController"),
     get("TimelockController"),
+    get("VelodromePoolFactory"),
     getNamedAccounts(),
   ]);
 
@@ -31,7 +33,7 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
 
   await validateUpgrade(
     "ProtoStaker",
-    { args: [exa, weth, pool, gauge, rewards], envKey: "PROTO_STAKER" },
+    { args: [exa, weth, gauge, poolFactory, rewards], envKey: "PROTO_STAKER" },
     async (name, opts) =>
       deploy(name, {
         ...opts,

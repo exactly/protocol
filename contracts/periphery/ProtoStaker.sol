@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { WETH, ERC20 } from "solmate/src/tokens/WETH.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
+import { WETH, ERC20, SafeTransferLib } from "solmate/src/tokens/WETH.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { IERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { RewardsController, ClaimPermit } from "./../RewardsController.sol";
 import { EXA } from "./EXA.sol";
 
 contract ProtoStaker is Initializable {
   using SafeERC20Upgradeable for EXA;
+  using FixedPointMathLib for uint256;
   using SafeTransferLib for address payable;
   using SafeTransferLib for ERC20;
   using SafeTransferLib for WETH;
@@ -26,17 +29,21 @@ contract ProtoStaker is Initializable {
   /// @notice The gauge used to stake the liquidity pool tokens.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IGauge public immutable gauge;
+  /// @notice The factory where the fee will be fetched from.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IPoolFactory public immutable factory;
   /// @notice The rewards controller.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   RewardsController public immutable rewardsController;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(EXA exa_, WETH weth_, IPool pool_, IGauge gauge_, RewardsController rewardsController_) {
+  constructor(EXA exa_, WETH weth_, IGauge gauge_, IPoolFactory factory_, RewardsController rewardsController_) {
     exa = exa_;
     weth = weth_;
-    pool = pool_;
     gauge = gauge_;
+    factory = factory_;
     rewardsController = rewardsController_;
+    pool = factory_.getPool(exa_, weth_, false);
 
     _disableInitializers();
   }
@@ -45,31 +52,69 @@ contract ProtoStaker is Initializable {
     ERC20(address(pool)).safeApprove(address(gauge), type(uint256).max);
   }
 
-  function stakeBalance(Permit calldata permit) external payable {
-    exa.safePermit(permit.account, address(this), permit.amount, permit.deadline, permit.v, permit.r, permit.s);
-    exa.safeTransferFrom(permit.account, address(pool), permit.amount);
-    stake(permit.amount, permit.account);
-  }
+  function stake(address payable account, uint256 inEXA, uint256 minEXA, uint256 keepETH) internal {
+    if (keepETH > msg.value) return returnAssets(account, inEXA);
 
-  function stakeRewards(ClaimPermit calldata permit) external payable {
-    assert(permit.assets.length == 1 && address(permit.assets[0]) == address(exa));
-    (, uint256[] memory claimedAmounts) = rewardsController.claim(rewardsController.allMarketsOperations(), permit);
-    exa.safeTransfer(address(pool), claimedAmounts[0]);
-    stake(claimedAmounts[0], payable(permit.owner));
-  }
-
-  function stake(uint256 amountEXA, address payable account) internal {
-    uint256 amountETH = previewETH(amountEXA);
-    if (msg.value < amountETH) {
-      account.safeTransferETH(msg.value);
-      pool.skim(account);
-      return;
+    uint256 inETH = msg.value - keepETH;
+    uint256 reserveEXA;
+    uint256 reserveWETH;
+    {
+      (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
+      (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
-    weth.deposit{ value: amountETH }();
-    weth.safeTransfer(address(pool), amountETH);
-    gauge.deposit(pool.mint(address(this)), account);
-    account.safeTransferETH(msg.value - amountETH);
+    uint256 minETH = (inEXA * reserveWETH) / reserveEXA;
+    if (inETH < minETH) return returnAssets(account, inEXA);
+
+    weth.deposit{ value: inETH }();
+
+    uint256 outEXA = 0;
+    uint256 swapETH = 0;
+    if (inETH > minETH) {
+      swapETH = (inETH / 2).mulDivDown(inETH + reserveWETH, reserveWETH);
+      outEXA = swapETH.mulDivDown(inEXA + reserveEXA, inETH + reserveWETH).mulDivDown(
+        10_000 - factory.getFee(pool, false),
+        10_000
+      );
+      if (outEXA + inEXA < minEXA) return returnAssets(account, inEXA);
+
+      weth.safeTransfer(address(pool), swapETH);
+      (uint256 amount0Out, uint256 amount1Out) = address(exa) < address(weth)
+        ? (outEXA, uint256(0))
+        : (uint256(0), outEXA);
+      pool.swap(amount0Out, amount1Out, this, "");
+    }
+
+    exa.safeTransfer(address(pool), inEXA + outEXA);
+    weth.safeTransfer(address(pool), inETH - swapETH);
+    gauge.deposit(pool.mint(this), account);
+
+    if (msg.value > inETH) account.safeTransferETH(msg.value - inETH);
+  }
+
+  function returnAssets(address payable account, uint256 amountEXA) internal {
+    account.safeTransferETH(msg.value);
+    exa.safeTransfer(account, amountEXA);
+  }
+
+  function stakeETH(address payable account, uint256 minEXA, uint256 keepETH) external payable {
+    stake(account, 0, minEXA, keepETH);
+  }
+
+  function stakeBalance(Permit calldata p, uint256 minEXA, uint256 keepETH) external payable {
+    exa.safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
+    exa.safeTransferFrom(p.owner, address(this), p.value);
+    stake(p.owner, p.value, minEXA, keepETH);
+  }
+
+  function stakeRewards(ClaimPermit calldata p, uint256 minEXA, uint256 keepETH) external payable {
+    if (p.assets.length != 1 || address(p.assets[0]) != address(exa)) {
+      return payable(p.owner).safeTransferETH(msg.value);
+    }
+    (, uint256[] memory claimedAmounts) = rewardsController.claim(rewardsController.allMarketsOperations(), p);
+    if (claimedAmounts[0] == 0) return payable(p.owner).safeTransferETH(msg.value);
+    exa.safeTransfer(address(this), claimedAmounts[0]);
+    stake(payable(p.owner), claimedAmounts[0], minEXA, keepETH);
   }
 
   function previewETH(uint256 amountEXA) public view returns (uint256) {
@@ -78,27 +123,29 @@ contract ProtoStaker is Initializable {
   }
 }
 
-interface IPool {
-  function skim(address to) external;
-
-  function mint(address to) external returns (uint256 liquidity);
-
-  function balanceOf(address account) external view returns (uint256);
-
-  function getReserves() external view returns (uint256 reserve0, uint256 reserve1, uint256 blockTimestampLast);
-}
-
-interface IGauge {
-  function deposit(uint256 amount, address recipient) external;
-
-  function balanceOf(address account) external view returns (uint256);
-}
-
 struct Permit {
-  address payable account;
-  uint256 amount;
+  address payable owner;
+  uint256 value;
   uint256 deadline;
   uint8 v;
   bytes32 r;
   bytes32 s;
+}
+
+interface IPool is IERC20, IERC20Permit {
+  function mint(ProtoStaker to) external returns (uint256 liquidity);
+
+  function swap(uint256 amount0Out, uint256 amount1Out, ProtoStaker to, bytes calldata data) external;
+
+  function getReserves() external view returns (uint256 reserve0, uint256 reserve1, uint256 blockTimestampLast);
+}
+
+interface IGauge is IERC20, IERC20Permit {
+  function deposit(uint256 amount, address recipient) external;
+}
+
+interface IPoolFactory {
+  function getFee(IPool pool, bool stable) external view returns (uint256);
+
+  function getPool(EXA exa, ERC20 tokenB, bool stable) external view returns (IPool);
 }
