@@ -78,7 +78,7 @@ contract ProtoStakerTest is ForkTest {
     assertEq(bob.balance, balanceETH - amountETH, "eth balance");
   }
 
-  function testProtoStakeETHWithKeepETH() external {
+  function testProtoStakeETHWithKeepETH() external _checkBalances {
     uint256 amountETH = 1 ether;
     uint256 keepETH = 0.1 ether;
     uint256 balanceETH = bob.balance;
@@ -93,7 +93,7 @@ contract ProtoStakerTest is ForkTest {
     assertEq(bob.balance, balanceETH + keepETH - amountETH, "eth balance");
   }
 
-  function testProtoStakeETHWithKeepETHHigherThanValue() external {
+  function testProtoStakeETHWithKeepETHHigherThanValue() external _checkBalances {
     uint256 amountETH = 1 ether;
     uint256 keepETH = 1 ether + 1;
     uint256 balanceETH = bob.balance;
@@ -108,7 +108,7 @@ contract ProtoStakerTest is ForkTest {
     assertEq(bob.balance, balanceETH, "eth balance");
   }
 
-  function testProtoStakeETHWithKeepETHEqualToValue() external {
+  function testProtoStakeETHWithKeepETHEqualToValue() external _checkBalances {
     uint256 amountETH = 1 ether;
     uint256 keepETH = 1 ether;
     uint256 balanceETH = bob.balance;
@@ -285,7 +285,7 @@ contract ProtoStakerTest is ForkTest {
     assertEq(bob.balance, balanceETH - amountETH, "eth balance");
   }
 
-  function testProtoStakeRewardsWithNoETH() external {
+  function testProtoStakeRewardsWithNoETH() external _checkBalances {
     skip(4 weeks);
     uint256 amountEXA = rewardsController.allClaimable(bob, exa);
     uint256 balanceETH = bob.balance;
@@ -300,7 +300,7 @@ contract ProtoStakerTest is ForkTest {
     assertEq(gauge.balanceOf(bob), 0, "gauge balance");
   }
 
-  function testProtoStakeRewardsWithoutPermitAssets() external {
+  function testProtoStakeRewardsWithoutPermitAssets() external _checkBalances {
     skip(4 weeks);
     uint256 amountETH = 0.5 ether;
     uint256 amountEXA = rewardsController.allClaimable(bob, exa);
@@ -318,6 +318,7 @@ contract ProtoStakerTest is ForkTest {
 
   modifier _checkBalances() {
     _;
+    assertEq(address(protoStaker).balance, 0);
     assertEq(pool.balanceOf(address(protoStaker)), 0);
     assertEq(gauge.balanceOf(address(protoStaker)), 0);
     assertEq(weth.balanceOf(address(protoStaker)), 0);
