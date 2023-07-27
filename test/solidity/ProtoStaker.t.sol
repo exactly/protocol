@@ -78,6 +78,51 @@ contract ProtoStakerTest is ForkTest {
     assertEq(bob.balance, balanceETH - amountETH, "eth balance");
   }
 
+  function testProtoStakeETHWithKeepETH() external {
+    uint256 amountETH = 1 ether;
+    uint256 keepETH = 0.1 ether;
+    uint256 balanceETH = bob.balance;
+    uint256 balanceEXA = exa.balanceOf(bob);
+
+    vm.prank(bob);
+    payable(this).transfer(amountETH);
+    protoStaker.stakeETH{ value: amountETH }(bob, 0, keepETH);
+
+    assertGt(gauge.balanceOf(bob), 0, "gauge balance");
+    assertEq(exa.balanceOf(bob), balanceEXA, "exa balance");
+    assertEq(bob.balance, balanceETH + keepETH - amountETH, "eth balance");
+  }
+
+  function testProtoStakeETHWithKeepETHHigherThanValue() external {
+    uint256 amountETH = 1 ether;
+    uint256 keepETH = 1 ether + 1;
+    uint256 balanceETH = bob.balance;
+    uint256 balanceEXA = exa.balanceOf(bob);
+
+    vm.prank(bob);
+    payable(this).transfer(amountETH);
+    protoStaker.stakeETH{ value: amountETH }(bob, 0, keepETH);
+
+    assertEq(gauge.balanceOf(bob), 0, "gauge balance");
+    assertEq(exa.balanceOf(bob), balanceEXA, "exa balance");
+    assertEq(bob.balance, balanceETH, "eth balance");
+  }
+
+  function testProtoStakeETHWithKeepETHEqualToValue() external {
+    uint256 amountETH = 1 ether;
+    uint256 keepETH = 1 ether;
+    uint256 balanceETH = bob.balance;
+    uint256 balanceEXA = exa.balanceOf(bob);
+
+    vm.prank(bob);
+    payable(this).transfer(amountETH);
+    protoStaker.stakeETH{ value: amountETH }(bob, 0, keepETH);
+
+    assertEq(gauge.balanceOf(bob), 0, "gauge balance");
+    assertEq(exa.balanceOf(bob), balanceEXA, "exa balance");
+    assertEq(bob.balance, balanceETH, "eth balance");
+  }
+
   function testProtoStakeBalanceWithExactETH() external _checkBalances {
     uint256 amountEXA = 100e18;
     uint256 amountETH = protoStaker.previewETH(amountEXA);

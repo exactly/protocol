@@ -53,7 +53,7 @@ contract ProtoStaker is Initializable {
   }
 
   function stake(address payable account, uint256 inEXA, uint256 minEXA, uint256 keepETH) internal {
-    if (keepETH > msg.value) return returnAssets(account, inEXA);
+    if (keepETH >= msg.value) return returnAssets(account, inEXA);
 
     uint256 inETH = msg.value - keepETH;
     uint256 reserveEXA;
@@ -89,7 +89,7 @@ contract ProtoStaker is Initializable {
     weth.safeTransfer(address(pool), inETH - swapETH);
     gauge.deposit(pool.mint(this), account);
 
-    if (msg.value > inETH) account.safeTransferETH(msg.value - inETH);
+    if (keepETH != 0) account.safeTransferETH(keepETH);
   }
 
   function returnAssets(address payable account, uint256 amountEXA) internal {
