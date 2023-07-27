@@ -48,10 +48,17 @@ contract ProtoStaker is Initializable {
     _disableInitializers();
   }
 
+  /// @notice Initializes the contract.
+  /// @dev can only be called once.
   function initialize() external initializer {
     ERC20(address(pool)).safeApprove(address(gauge), type(uint256).max);
   }
 
+  /// @notice Wraps or swaps `msg.value` ETH for EXA, adds liquidity and stakes liquidity on gauge.
+  /// @param account The account to deposit the liquidity for.
+  /// @param inEXA The amount of EXA to add liquidity with.
+  /// @param minEXA The minimum amount of EXA to receive if msg.value is higher than needed.
+  /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function stake(address payable account, uint256 inEXA, uint256 minEXA, uint256 keepETH) internal {
     if (keepETH >= msg.value) return returnAssets(account, inEXA);
 
@@ -93,21 +100,36 @@ contract ProtoStaker is Initializable {
     if (keepETH != 0) account.safeTransferETH(keepETH);
   }
 
+  /// @notice Transfer `msg.value` and `amountEXA` EXA back to `account`.
+  /// @param account The account to transfer the assets to.
+  /// @param amountEXA The amount of EXA to transfer.
   function returnAssets(address payable account, uint256 amountEXA) internal {
     account.safeTransferETH(msg.value);
     exa.safeTransfer(account, amountEXA);
   }
 
+  /// @notice Swaps ~half of `msg.value` ETH for EXA, wraps the rest, adds liquidity and stakes liquidity on gauge.
+  /// @param account The account to deposit the liquidity for.
+  /// @param minEXA The minimum amount of EXA to receive.
+  /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function stakeETH(address payable account, uint256 minEXA, uint256 keepETH) external payable {
     stake(account, 0, minEXA, keepETH);
   }
 
+  /// @notice Wraps `msg.value` ETH, adds liquidity with `p.value` EXA and stakes liquidity on gauge.
+  /// @param p The permit to use for the EXA transfer.
+  /// @param minEXA The minimum amount of EXA to receive if msg.value is higher than needed.
+  /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function stakeBalance(Permit calldata p, uint256 minEXA, uint256 keepETH) external payable {
     exa.safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
     exa.safeTransferFrom(p.owner, address(this), p.value);
     stake(p.owner, p.value, minEXA, keepETH);
   }
 
+  /// @notice Wraps `msg.value` ETH, adds liquidity with claimed EXA rewards and stakes liquidity on gauge.
+  /// @param p The permit to use for the EXA claim.
+  /// @param minEXA The minimum amount of EXA to receive if msg.value is higher than needed.
+  /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function stakeRewards(ClaimPermit calldata p, uint256 minEXA, uint256 keepETH) external payable {
     if (p.assets.length != 1 || address(p.assets[0]) != address(exa)) {
       return payable(p.owner).safeTransferETH(msg.value);
@@ -117,6 +139,8 @@ contract ProtoStaker is Initializable {
     stake(payable(p.owner), claimedAmounts[0], minEXA, keepETH);
   }
 
+  /// @notice Returns the amount of ETH to pair with `amountEXA` to add liquidity.
+  /// @param amountEXA The amount of EXA to add liquidity with.
   function previewETH(uint256 amountEXA) public view returns (uint256) {
     (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
     return address(exa) < address(weth) ? (amountEXA * reserve1) / reserve0 : (amountEXA * reserve0) / reserve1;
