@@ -114,7 +114,6 @@ contract ProtoStaker is Initializable {
     }
     (, uint256[] memory claimedAmounts) = rewardsController.claim(rewardsController.allMarketsOperations(), p);
     if (claimedAmounts[0] == 0) return payable(p.owner).safeTransferETH(msg.value);
-    exa.safeTransfer(address(this), claimedAmounts[0]);
     stake(payable(p.owner), claimedAmounts[0], minEXA, keepETH);
   }
 
