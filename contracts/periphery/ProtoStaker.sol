@@ -66,8 +66,6 @@ contract ProtoStaker is Initializable {
     uint256 minETH = (inEXA * reserveWETH) / reserveEXA;
     if (inETH < minETH) return returnAssets(account, inEXA);
 
-    weth.deposit{ value: inETH }();
-
     uint256 outEXA = 0;
     uint256 swapETH = 0;
     if (inETH > minETH) {
@@ -78,11 +76,14 @@ contract ProtoStaker is Initializable {
       );
       if (outEXA + inEXA < minEXA) return returnAssets(account, inEXA);
 
+      weth.deposit{ value: inETH }();
       weth.safeTransfer(address(pool), swapETH);
       (uint256 amount0Out, uint256 amount1Out) = address(exa) < address(weth)
         ? (outEXA, uint256(0))
         : (uint256(0), outEXA);
       pool.swap(amount0Out, amount1Out, this, "");
+    } else {
+      weth.deposit{ value: inETH }();
     }
 
     exa.safeTransfer(address(pool), inEXA + outEXA);

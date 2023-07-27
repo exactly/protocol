@@ -123,6 +123,34 @@ contract ProtoStakerTest is ForkTest {
     assertEq(bob.balance, balanceETH, "eth balance");
   }
 
+  function testProtoStakeETHWithMinEXA() external _checkBalances {
+    uint256 amountETH = 1 ether;
+    uint256 balanceETH = bob.balance;
+    uint256 balanceEXA = exa.balanceOf(bob);
+
+    vm.prank(bob);
+    payable(this).transfer(amountETH);
+    protoStaker.stakeETH{ value: amountETH }(bob, type(uint256).max, 0);
+
+    assertEq(gauge.balanceOf(bob), 0, "gauge balance");
+    assertEq(exa.balanceOf(bob), balanceEXA, "exa balance");
+    assertEq(bob.balance, balanceETH, "eth balance");
+  }
+
+  function testProtoStakeETHWithMinEXAAndKeepETH() external _checkBalances {
+    uint256 amountETH = 1 ether;
+    uint256 balanceETH = bob.balance;
+    uint256 balanceEXA = exa.balanceOf(bob);
+
+    vm.prank(bob);
+    payable(this).transfer(amountETH);
+    protoStaker.stakeETH{ value: amountETH }(bob, type(uint256).max, 0.1 ether);
+
+    assertEq(gauge.balanceOf(bob), 0, "gauge balance");
+    assertEq(exa.balanceOf(bob), balanceEXA, "exa balance");
+    assertEq(bob.balance, balanceETH, "eth balance");
+  }
+
   function testProtoStakeBalanceWithExactETH() external _checkBalances {
     uint256 amountEXA = 100e18;
     uint256 amountETH = protoStaker.previewETH(amountEXA);
