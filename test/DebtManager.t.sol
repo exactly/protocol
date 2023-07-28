@@ -818,7 +818,7 @@ contract DebtManagerTest is ForkTest {
     uint256 principal = coll - debt;
 
     uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
-    uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
+    uint256 expectedBorrow = previewOutputSwap(
       marketWETH,
       marketwstETH,
       (principal + deposit).mulWadDown(ratio - 1e18),
@@ -839,7 +839,7 @@ contract DebtManagerTest is ForkTest {
     uint256 principal = coll - debt;
 
     uint256 expectedDeposit = (principal + deposit).mulWadDown(ratio);
-    uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
+    uint256 expectedBorrow = previewOutputSwap(
       marketWETH,
       marketUSDC,
       (principal + deposit).mulWadDown(ratio - 1e18),
@@ -948,12 +948,7 @@ contract DebtManagerTest is ForkTest {
     (uint256 coll, uint256 debt) = marketUSDC.accountSnapshot(address(this));
     uint256 principal = coll - debt;
 
-    uint256 expectedBorrow = debtPreviewer.previewOutputSwap(
-      marketWETH,
-      marketUSDC,
-      (principal).mulWadDown(ratio - 1e18),
-      500
-    );
+    uint256 expectedBorrow = previewOutputSwap(marketWETH, marketUSDC, (principal).mulWadDown(ratio - 1e18), 500);
 
     debtManager.crossLeverage(marketUSDC, marketWETH, 500, 0, ratio, MIN_SQRT_RATIO + 1);
 
@@ -1550,6 +1545,26 @@ contract DebtManagerTest is ForkTest {
         10 ** marketOut.decimals(),
         auditor.assetPrice(priceFeedOut)
       );
+  }
+
+  function previewOutputSwap(
+    Market marketIn,
+    Market marketOut,
+    uint256 amountOut,
+    uint24 fee
+  ) internal returns (uint256) {
+    address assetIn = address(marketIn.asset());
+    address assetOut = address(marketOut.asset());
+    return
+      amountOut > 0
+        ? debtPreviewer.uniswapV3Quoter().quoteExactOutputSingle(
+          assetIn,
+          assetOut,
+          fee,
+          amountOut,
+          assetIn == PoolAddress.getPoolKey(assetIn, assetOut, fee).token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
+        )
+        : 0;
   }
 
   modifier _checkBalances() {

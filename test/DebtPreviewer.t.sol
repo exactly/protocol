@@ -9,6 +9,7 @@ import {
   Limit,
   Rates,
   Leverage,
+  PoolAddress,
   DebtPreviewer,
   InvalidPreview,
   IUniswapQuoter
@@ -99,14 +100,6 @@ contract DebtPreviewerTest is ForkTest {
     weth.approve(address(debtManager), type(uint256).max);
     auditor.enterMarket(marketUSDC);
     maturity = block.timestamp - (block.timestamp % FixedLib.INTERVAL) + FixedLib.INTERVAL;
-  }
-
-  function testPreviewInputSwap() external {
-    assertEq(debtPreviewer.previewInputSwap(address(weth), address(usdc), 1e18, 500), 1809407986);
-    assertEq(debtPreviewer.previewInputSwap(address(weth), address(usdc), 100e18, 500), 180326534411);
-    assertEq(debtPreviewer.previewInputSwap(address(usdc), address(weth), 1_800e6, 500), 993744547172020639);
-    assertEq(debtPreviewer.previewInputSwap(address(usdc), address(weth), 100_000e6, 500), 55114623226316151402);
-    assertEq(debtPreviewer.previewInputSwap(address(wstETH), address(weth), 1e18, 500), 1124234920941937964);
   }
 
   function testPreviewLeverage() external {

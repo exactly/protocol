@@ -9,11 +9,11 @@ import {
   ERC20,
   Market,
   Auditor,
+  PoolKey,
   IPriceFeed,
   DebtManager,
-  IUniswapV3Pool,
   PoolAddress,
-  PoolKey
+  IUniswapV3Pool
 } from "./DebtManager.sol";
 
 /// @title DebtPreviewer
@@ -55,28 +55,6 @@ contract DebtPreviewer is Initializable {
     }
   }
 
-  /// @notice Returns the output received for a given exact amount of a single pool swap.
-  /// @param assetIn The address of the token to be swapped.
-  /// @param assetOut The address of the token to receive.
-  /// @param amountIn The exact amount of `assetIn` to be swapped.
-  /// @param fee The fee of the pool that will be used to swap the assets.
-  /// @return amountOut The amount of `assetOut` received.
-  function previewInputSwap(
-    address assetIn,
-    address assetOut,
-    uint256 amountIn,
-    uint24 fee
-  ) external returns (uint256) {
-    return
-      uniswapV3Quoter.quoteExactInputSingle(
-        assetIn,
-        assetOut,
-        fee,
-        amountIn,
-        assetIn == PoolAddress.getPoolKey(assetIn, assetOut, fee).token0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
-      );
-  }
-
   /// @notice Returns the input for an exact amount out of a single pool swap.
   /// @param marketIn The Market of the underlying asset to be swapped.
   /// @param marketOut The Market of the underlying asset to receive.
@@ -88,7 +66,7 @@ contract DebtPreviewer is Initializable {
     Market marketOut,
     uint256 amountOut,
     uint24 fee
-  ) public returns (uint256) {
+  ) internal returns (uint256) {
     address assetIn = address(marketIn.asset());
     address assetOut = address(marketOut.asset());
     return
