@@ -484,10 +484,11 @@ contract DebtPreviewer is Initializable {
     uint256 nativeRate
   ) external view returns (Rates memory rates) {
     (int256 principal, uint256 currentRatio, ) = previewRatio(marketDeposit, marketBorrow, account, assets, 1e18);
-    if (principal <= 0) revert InvalidPreview();
 
     uint256 utilization;
-    if (targetRatio < currentRatio) {
+    if (principal <= 0) {
+      utilization = marketBorrow.totalFloatingBorrowAssets().divWadUp(marketBorrow.totalAssets());
+    } else if (targetRatio < currentRatio) {
       uint256 depositDecrease = uint256(principal).mulWadDown(currentRatio - targetRatio);
       utilization = (marketBorrow.totalFloatingBorrowAssets() -
         previewAssetsOut(marketDeposit, marketBorrow, depositDecrease)).divWadUp(

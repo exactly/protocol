@@ -1180,6 +1180,82 @@ contract DebtPreviewerTest is ForkTest {
     assertEq(rates.rewards[0].deposit, 48615737527381200);
   }
 
+  function testLeverageRatesZeroPrincipalCrossAsset() external {
+    uint256 depositRate = 1.91e16;
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketWETH, address(this), 0, 2e18, depositRate, 0);
+
+    assertEq(rates.deposit, depositRate.mulWadDown(2e18));
+    assertEq(rates.borrow, 35699727952228352);
+    assertEq(rates.native, 0);
+
+    assertEq(rates.rewards.length, 2);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[1].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[1].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[1].assetName, "Optimism");
+    assertEq(rates.rewards[0].deposit, 48653207401374960);
+    assertEq(rates.rewards[0].borrow, 0);
+    assertEq(rates.rewards[1].deposit, 0);
+    assertEq(rates.rewards[1].borrow, 18511830827953800);
+  }
+
+  function testLeverageRatesZeroPrincipalSameAsset() external {
+    uint256 depositRate = 1.91e16;
+    Rates memory rates = debtPreviewer.leverageRates(marketUSDC, marketUSDC, address(this), 0, 2e18, depositRate, 0);
+
+    assertEq(rates.deposit, depositRate.mulWadDown(2e18));
+    assertEq(rates.borrow, 33875696070336447);
+    assertEq(rates.native, 0);
+
+    assertEq(rates.rewards.length, 1);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[0].deposit, 48653207401374960);
+    assertEq(rates.rewards[0].borrow, 17486201807999040);
+  }
+
+  function testLeverageRatesNegativePrincipalCrossAsset() external {
+    uint256 depositRate = 1.91e16;
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.5e18, MIN_SQRT_RATIO + 1);
+    Rates memory rates = debtPreviewer.leverageRates(marketWETH, marketUSDC, address(this), 0, 2e18, depositRate, 0);
+
+    assertEq(rates.deposit, depositRate.mulWadDown(2e18));
+    assertEq(rates.native, 0);
+    assertEq(rates.borrow, 33849258099550640);
+
+    assertEq(rates.rewards.length, 2);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(address(rates.rewards[1].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[1].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[1].assetName, "Optimism");
+    assertEq(rates.rewards[0].deposit, 52419109814457360);
+    assertEq(rates.rewards[0].borrow, 0);
+    assertEq(rates.rewards[1].deposit, 0);
+    assertEq(rates.rewards[1].borrow, 17494530589447920);
+  }
+
+  function testLeverageRatesNegativePrincipalSameAsset() external {
+    uint256 depositRate = 1.91e16;
+    debtManager.crossLeverage(marketUSDC, marketWETH, 500, 10_000e6, 2.5e18, MIN_SQRT_RATIO + 1);
+    Rates memory rates = debtPreviewer.leverageRates(marketWETH, marketWETH, address(this), 0, 2e18, depositRate, 0);
+
+    assertEq(rates.deposit, depositRate.mulWadDown(2e18));
+    assertEq(rates.native, 0);
+    assertEq(rates.borrow, 35760947089928367);
+
+    assertEq(rates.rewards.length, 1);
+    assertEq(address(rates.rewards[0].asset), 0x4200000000000000000000000000000000000042);
+    assertEq(rates.rewards[0].assetSymbol, "OP");
+    assertEq(rates.rewards[0].assetName, "Optimism");
+    assertEq(rates.rewards[0].deposit, 52419109814457360);
+    assertEq(rates.rewards[0].borrow, 18477140497615080);
+  }
+
   function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
     (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
     (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
