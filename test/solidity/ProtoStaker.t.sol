@@ -7,7 +7,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { ITransparentUpgradeableProxy, ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import { RewardsController, ClaimPermit, Market } from "../../contracts/RewardsController.sol";
 import {
-  EXA,
   WETH,
   ERC20,
   Permit,
@@ -45,7 +44,7 @@ contract ProtoStakerTest is ForkTest {
     protoStaker = ProtoStaker(
       address(
         new ERC1967Proxy(
-          address(new ProtoStaker(EXA(address(exa)), weth, gauge, factory, rewardsController)),
+          address(new ProtoStaker(exa, weth, gauge, factory, rewardsController)),
           abi.encodeCall(ProtoStaker.initialize, ())
         )
       )

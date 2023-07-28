@@ -5,13 +5,14 @@ import { WETH, ERC20, SafeTransferLib } from "solmate/src/tokens/WETH.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { IERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+  IERC20PermitUpgradeable as IERC20Permit
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20PermitUpgradeable.sol";
 import { RewardsController, ClaimPermit } from "./../RewardsController.sol";
-import { EXA } from "./EXA.sol";
 
 contract ProtoStaker is Initializable {
-  using SafeERC20Upgradeable for EXA;
+  using SafeERC20Upgradeable for IERC20Permit;
   using FixedPointMathLib for uint256;
   using SafeTransferLib for address payable;
   using SafeTransferLib for ERC20;
@@ -19,7 +20,7 @@ contract ProtoStaker is Initializable {
 
   /// @notice The EXA asset.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-  EXA public immutable exa;
+  ERC20 public immutable exa;
   /// @notice The WETH asset.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   WETH public immutable weth;
@@ -37,7 +38,7 @@ contract ProtoStaker is Initializable {
   RewardsController public immutable rewardsController;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(EXA exa_, WETH weth_, IGauge gauge_, IPoolFactory factory_, RewardsController rewardsController_) {
+  constructor(ERC20 exa_, WETH weth_, IGauge gauge_, IPoolFactory factory_, RewardsController rewardsController_) {
     exa = exa_;
     weth = weth_;
     gauge = gauge_;
@@ -121,7 +122,7 @@ contract ProtoStaker is Initializable {
   /// @param minEXA The minimum amount of EXA to receive if msg.value is higher than needed.
   /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function stakeBalance(Permit calldata p, uint256 minEXA, uint256 keepETH) external payable {
-    exa.safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
+    IERC20Permit(address(exa)).safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
     exa.safeTransferFrom(p.owner, address(this), p.value);
     stake(p.owner, p.value, minEXA, keepETH);
   }
@@ -174,5 +175,5 @@ interface IGauge is IERC20, IERC20Permit {
 interface IPoolFactory {
   function getFee(IPool pool, bool stable) external view returns (uint256);
 
-  function getPool(EXA exa, ERC20 tokenB, bool stable) external view returns (IPool);
+  function getPool(ERC20 tokenA, ERC20 tokenB, bool stable) external view returns (IPool);
 }
