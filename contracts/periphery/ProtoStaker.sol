@@ -70,7 +70,7 @@ contract ProtoStaker is Initializable {
       (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
-    uint256 minETH = (inEXA * reserveWETH) / reserveEXA;
+    uint256 minETH = inEXA.mulDivDown(reserveWETH, reserveEXA);
     if (inETH < minETH) return returnAssets(account, inEXA);
 
     uint256 outEXA = 0;
@@ -143,7 +143,10 @@ contract ProtoStaker is Initializable {
   /// @param amountEXA The amount of EXA to add liquidity with.
   function previewETH(uint256 amountEXA) public view returns (uint256) {
     (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
-    return address(exa) < address(weth) ? (amountEXA * reserve1) / reserve0 : (amountEXA * reserve0) / reserve1;
+    return
+      address(exa) < address(weth)
+        ? amountEXA.mulDivDown(reserve1, reserve0)
+        : amountEXA.mulDivDown(reserve0, reserve1);
   }
 }
 
