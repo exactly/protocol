@@ -12,6 +12,7 @@ import {
   Permit,
   IPool,
   IGauge,
+  IPermit2,
   IPoolFactory,
   ProtoStaker
 } from "../../contracts/periphery/ProtoStaker.sol";
@@ -27,6 +28,7 @@ contract ProtoStakerTest is ForkTest {
   IPool internal pool;
   IGauge internal gauge;
   Market internal marketUSDC;
+  IPermit2 internal permit2;
   ProtoStaker internal protoStaker;
   IPoolFactory internal factory;
   RewardsController internal rewardsController;
@@ -38,13 +40,14 @@ contract ProtoStakerTest is ForkTest {
     weth = WETH(payable(deployment("WETH")));
     pool = IPool(deployment("EXAPool"));
     gauge = IGauge(deployment("EXAGauge"));
+    permit2 = IPermit2(deployment("Permit2"));
     factory = IPoolFactory(deployment("VelodromePoolFactory"));
     marketUSDC = Market(deployment("MarketUSDC"));
     rewardsController = RewardsController(deployment("RewardsController"));
     protoStaker = ProtoStaker(
-      address(
+      payable(
         new ERC1967Proxy(
-          address(new ProtoStaker(exa, weth, gauge, factory, rewardsController)),
+          address(new ProtoStaker(exa, weth, gauge, factory, deployment("SocketGateway"), permit2, rewardsController)),
           abi.encodeCall(ProtoStaker.initialize, ())
         )
       )

@@ -2,17 +2,19 @@
 pragma solidity 0.8.17;
 
 import { WETH, ERC20, SafeTransferLib } from "solmate/src/tokens/WETH.sol";
-import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
+  SafeERC20Upgradeable,
   IERC20PermitUpgradeable as IERC20Permit
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20PermitUpgradeable.sol";
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { RewardsController, ClaimPermit } from "./../RewardsController.sol";
 
 contract ProtoStaker is Initializable {
   using SafeERC20Upgradeable for IERC20Permit;
+  using AddressUpgradeable for address;
   using FixedPointMathLib for uint256;
   using SafeTransferLib for address payable;
   using SafeTransferLib for ERC20;
@@ -30,6 +32,12 @@ contract ProtoStaker is Initializable {
   /// @notice The gauge used to stake the liquidity pool tokens.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IGauge public immutable gauge;
+  /// @notice Socket Gateway address.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  address public immutable socket;
+  /// @notice Permit2 contract to be used to transfer assets from accounts.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IPermit2 public immutable permit2;
   /// @notice The factory where the fee will be fetched from.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IPoolFactory public immutable factory;
@@ -38,10 +46,20 @@ contract ProtoStaker is Initializable {
   RewardsController public immutable rewardsController;
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(ERC20 exa_, WETH weth_, IGauge gauge_, IPoolFactory factory_, RewardsController rewardsController_) {
+  constructor(
+    ERC20 exa_,
+    WETH weth_,
+    IGauge gauge_,
+    IPoolFactory factory_,
+    address socket_,
+    IPermit2 permit2_,
+    RewardsController rewardsController_
+  ) {
     exa = exa_;
     weth = weth_;
     gauge = gauge_;
+    socket = socket_;
+    permit2 = permit2_;
     factory = factory_;
     rewardsController = rewardsController_;
     pool = factory_.getPool(exa_, weth_, false);
@@ -140,6 +158,54 @@ contract ProtoStaker is Initializable {
     stake(payable(p.owner), claimedAmounts[0], minEXA, keepETH);
   }
 
+  function stakeAsset(ERC20 asset, uint256 amount, bytes calldata socketData, uint256 minEXA, uint256 keepETH) public {
+    asset.safeTransferFrom(msg.sender, address(this), amount);
+    asset.safeApprove(socket, amount);
+    uint256 outETH = abi.decode(socket.functionCall(socketData), (uint256));
+    this.stakeETH{ value: outETH }(payable(msg.sender), minEXA, keepETH);
+  }
+
+  function stakeAsset(
+    ERC20 asset,
+    Permit calldata permit,
+    bytes calldata socketData,
+    uint256 minEXA,
+    uint256 keepETH
+  ) external {
+    IERC20Permit(address(asset)).safePermit(
+      msg.sender,
+      address(this),
+      permit.value,
+      permit.deadline,
+      permit.v,
+      permit.r,
+      permit.s
+    );
+    stakeAsset(asset, permit.value, socketData, minEXA, keepETH);
+  }
+
+  function stakeAsset(
+    ERC20 asset,
+    Permit2 calldata permit,
+    bytes calldata socketData,
+    uint256 minEXA,
+    uint256 keepETH
+  ) external {
+    permit2.permitTransferFrom(
+      IPermit2.PermitTransferFrom({
+        permitted: IPermit2.TokenPermissions(asset, permit.amount),
+        nonce: uint256(keccak256(abi.encode(msg.sender, asset, permit.amount, permit.deadline))),
+        deadline: permit.deadline
+      }),
+      IPermit2.SignatureTransferDetails({ to: this, requestedAmount: permit.amount }),
+      msg.sender,
+      permit.signature
+    );
+    asset.safeApprove(socket, permit.amount);
+    uint256 outETH = abi.decode(socket.functionCall(socketData), (uint256));
+    this.stakeETH{ value: outETH }(payable(msg.sender), minEXA, keepETH);
+  }
+
   /// @notice Returns the amount of ETH to pair with `amountEXA` to add liquidity.
   /// @param amountEXA The amount of EXA to add liquidity with.
   function previewETH(uint256 amountEXA) public view returns (uint256) {
@@ -149,6 +215,9 @@ contract ProtoStaker is Initializable {
         ? amountEXA.mulDivDown(reserve1, reserve0)
         : amountEXA.mulDivDown(reserve0, reserve1);
   }
+
+  // solhint-disable-next-line no-empty-blocks
+  receive() external payable {}
 }
 
 struct Permit {
@@ -158,6 +227,40 @@ struct Permit {
   uint8 v;
   bytes32 r;
   bytes32 s;
+}
+
+struct Permit2 {
+  uint256 amount;
+  uint256 deadline;
+  bytes signature;
+}
+
+interface IPermit2 {
+  struct TokenPermissions {
+    ERC20 token;
+    uint256 amount;
+  }
+
+  struct PermitTransferFrom {
+    TokenPermissions permitted;
+    uint256 nonce;
+    uint256 deadline;
+  }
+
+  struct SignatureTransferDetails {
+    ProtoStaker to;
+    uint256 requestedAmount;
+  }
+
+  function permitTransferFrom(
+    PermitTransferFrom memory permit,
+    SignatureTransferDetails calldata transferDetails,
+    address owner,
+    bytes calldata signature
+  ) external;
+
+  // solhint-disable-next-line func-name-mixedcase
+  function DOMAIN_SEPARATOR() external view returns (bytes32);
 }
 
 interface IPool is IERC20, IERC20Permit {
