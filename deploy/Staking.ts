@@ -7,6 +7,8 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
     { address: weth },
     { address: pool },
     { address: gauge },
+    { address: socket },
+    { address: permit2 },
     { address: rewards },
     { address: timelock },
     { address: poolFactory },
@@ -16,24 +18,29 @@ const func: DeployFunction = async ({ deployments: { deploy, get }, getNamedAcco
     get("WETH"),
     get("EXAPool"),
     get("EXAGauge"),
+    get("SocketGateway"),
+    get("Permit2"),
     get("RewardsController"),
     get("TimelockController"),
     get("VelodromePoolFactory"),
     getNamedAccounts(),
   ]);
 
-  await validateUpgrade("Swapper", { args: [exa, weth, pool], envKey: "SWAPPER" }, async (name, opts) =>
-    deploy(name, {
-      ...opts,
-      proxy: { owner: timelock, viaAdminContract: "ProxyAdmin", proxyContract: "TransparentUpgradeableProxy" },
-      from: deployer,
-      log: true,
-    }),
+  await validateUpgrade(
+    "Swapper",
+    { args: [exa, weth, pool, socket, permit2], envKey: "SWAPPER" },
+    async (name, opts) =>
+      deploy(name, {
+        ...opts,
+        proxy: { owner: timelock, viaAdminContract: "ProxyAdmin", proxyContract: "TransparentUpgradeableProxy" },
+        from: deployer,
+        log: true,
+      }),
   );
 
   await validateUpgrade(
     "ProtoStaker",
-    { args: [exa, weth, gauge, poolFactory, rewards], envKey: "PROTO_STAKER" },
+    { args: [exa, weth, gauge, poolFactory, socket, permit2, rewards], envKey: "PROTO_STAKER" },
     async (name, opts) =>
       deploy(name, {
         ...opts,
