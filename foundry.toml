@@ -5,7 +5,7 @@ optimizer_runs = 200
 revert_strings = "strip"
 
 ffi = true
-src = "test/solidity"
+src = "test"
 out = "artifacts/.foundry"
 script = "scripts"
 cache_path = "cache/.foundry"
