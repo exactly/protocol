@@ -136,13 +136,21 @@ contract ProtoStaker is Initializable {
   }
 
   /// @notice Wraps `msg.value` ETH, adds liquidity with `p.value` EXA and stakes liquidity on gauge.
+  /// @param inEXA The amount of EXA to transfer.
+  /// @param minEXA The minimum amount of EXA to receive if msg.value is higher than needed.
+  /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
+  function stakeBalance(address payable account, uint256 inEXA, uint256 minEXA, uint256 keepETH) public payable {
+    exa.safeTransferFrom(account, address(this), inEXA);
+    stake(account, inEXA, minEXA, keepETH);
+  }
+
+  /// @notice Wraps `msg.value` ETH, adds liquidity with `p.value` EXA and stakes liquidity on gauge.
   /// @param p The permit to use for the EXA transfer.
   /// @param minEXA The minimum amount of EXA to receive if msg.value is higher than needed.
   /// @param keepETH The amount of ETH to send to `account` (ex: for gas).
   function stakeBalance(Permit calldata p, uint256 minEXA, uint256 keepETH) external payable {
     IERC20Permit(address(exa)).safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
-    exa.safeTransferFrom(p.owner, address(this), p.value);
-    stake(p.owner, p.value, minEXA, keepETH);
+    stakeBalance(p.owner, p.value, minEXA, keepETH);
   }
 
   /// @notice Wraps `msg.value` ETH, adds liquidity with claimed EXA rewards and stakes liquidity on gauge.
@@ -165,6 +173,20 @@ contract ProtoStaker is Initializable {
     this.stakeETH{ value: outETH }(payable(msg.sender), minEXA, keepETH);
   }
 
+  function stakeAssetAndBalance(
+    ERC20 asset,
+    uint256 amount,
+    bytes calldata socketData,
+    uint256 inEXA,
+    uint256 minEXA,
+    uint256 keepETH
+  ) public {
+    asset.safeTransferFrom(msg.sender, address(this), amount);
+    asset.safeApprove(socket, amount);
+    uint256 outETH = abi.decode(socket.functionCall(socketData), (uint256));
+    this.stakeBalance{ value: outETH }(payable(msg.sender), inEXA, minEXA, keepETH);
+  }
+
   function stakeAsset(
     ERC20 asset,
     Permit calldata permit,
@@ -182,6 +204,26 @@ contract ProtoStaker is Initializable {
       permit.s
     );
     stakeAsset(asset, permit.value, socketData, minEXA, keepETH);
+  }
+
+  function stakeAssetAndBalance(
+    ERC20 asset,
+    Permit calldata permit,
+    bytes calldata socketData,
+    Permit calldata permitEXA,
+    uint256 minEXA,
+    uint256 keepETH
+  ) external payable {
+    IERC20Permit(address(asset)).safePermit(
+      msg.sender,
+      address(this),
+      permit.value,
+      permit.deadline,
+      permit.v,
+      permit.r,
+      permit.s
+    );
+    stakeAssetAndBalance(asset, permit.value, socketData, permitEXA.value, minEXA, keepETH);
   }
 
   function stakeAsset(
@@ -204,6 +246,29 @@ contract ProtoStaker is Initializable {
     asset.safeApprove(socket, permit.amount);
     uint256 outETH = abi.decode(socket.functionCall(socketData), (uint256));
     this.stakeETH{ value: outETH }(payable(msg.sender), minEXA, keepETH);
+  }
+
+  function stakeAssetAndBalance(
+    ERC20 asset,
+    Permit2 calldata permit,
+    bytes calldata socketData,
+    Permit calldata permitEXA,
+    uint256 minEXA,
+    uint256 keepETH
+  ) external payable {
+    permit2.permitTransferFrom(
+      IPermit2.PermitTransferFrom({
+        permitted: IPermit2.TokenPermissions(asset, permit.amount),
+        nonce: uint256(keccak256(abi.encode(msg.sender, asset, permit.amount, permit.deadline))),
+        deadline: permit.deadline
+      }),
+      IPermit2.SignatureTransferDetails({ to: this, requestedAmount: permit.amount }),
+      msg.sender,
+      permit.signature
+    );
+    asset.safeApprove(socket, permit.amount);
+    uint256 outETH = abi.decode(socket.functionCall(socketData), (uint256));
+    this.stakeBalance{ value: outETH }(permitEXA, minEXA, keepETH);
   }
 
   /// @notice Returns the amount of ETH to pair with `amountEXA` to add liquidity.
