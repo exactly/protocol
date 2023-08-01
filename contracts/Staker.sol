@@ -136,27 +136,69 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   }
 
   function harvest() public {
-    uint256 earnedVELO = gauge.earned(this);
-    if (earnedVELO > 0) {
-      gauge.getReward(this);
-      lockVELO(earnedVELO);
-    }
-  }
+    if (gauge.earned(this) != 0) gauge.getReward(this);
 
-  function lockVELO(uint256 amount) internal returns (uint256 id) {
-    id = lockId;
-    if (id == 0) {
-      IPool[] memory pools = new IPool[](1);
-      uint256[] memory weights = new uint256[](1);
-      pools[0] = IPool(asset());
-      weights[0] = 100e18;
-      id = votingEscrow.createLock(amount, 4 * 365 days);
-      votingEscrow.lockPermanent(id);
-      voter.vote(id, pools, weights);
-      lockId = id;
-    } else {
-      votingEscrow.increaseAmount(id, amount);
-      voter.poke(id);
+    uint256 id = lockId;
+    if (id != 0) {
+      ERC20[] memory assets = new ERC20[](2);
+      assets[0] = exa;
+      assets[1] = weth;
+      gauge.feesVotingReward().getReward(id, assets);
+
+      IReward bribes = voter.gaugeToBribe(gauge);
+      {
+        uint256 count = 0;
+        ERC20[] memory a = new ERC20[](bribes.rewardsListLength());
+        for (uint256 i = 0; i < a.length; ++i) {
+          ERC20 reward = bribes.rewards(i);
+          if (bribes.earned(reward, id) != 0) a[count++] = reward;
+        }
+        assets = new ERC20[](count);
+        for (uint256 i = 0; i < assets.length; ++i) assets[i] = a[i];
+      }
+      bribes.getReward(id, assets);
+    }
+
+    uint256 balanceVELO = velo.balanceOf(address(this));
+    if (balanceVELO != 0) {
+      if (id == 0) {
+        IPool[] memory pools = new IPool[](1);
+        uint256[] memory weights = new uint256[](1);
+        pools[0] = IPool(asset());
+        weights[0] = 100e18;
+        id = votingEscrow.createLock(balanceVELO, 4 * 365 days);
+        lockId = id;
+        votingEscrow.lockPermanent(id);
+        voter.vote(id, pools, weights);
+      } else {
+        votingEscrow.increaseAmount(id, balanceVELO);
+        voter.poke(id);
+      }
+    }
+
+    uint256 balanceWETH = weth.balanceOf(address(this));
+    if (balanceWETH != 0) {
+      uint256 reserveEXA;
+      uint256 reserveWETH;
+      IPool pool = IPool(asset());
+      {
+        (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
+        (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
+      }
+
+      uint256 inEXA;
+      uint256 inWETH;
+      {
+        uint256 minEXA = balanceWETH.mulDivDown(reserveEXA, reserveWETH);
+        uint256 maxEXA = exa.balanceOf(address(this));
+        (inEXA, inWETH) = maxEXA < minEXA
+          ? (maxEXA, maxEXA.mulDivDown(reserveWETH, reserveEXA))
+          : (minEXA, balanceWETH);
+      }
+
+      exa.safeTransfer(address(pool), inEXA);
+      weth.safeTransfer(address(pool), inWETH);
+      gauge.deposit(pool.mint(this));
     }
   }
 
@@ -206,16 +248,6 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     stake(payable(p.owner), claimedAmounts[0], minEXA, keepETH);
   }
 
-  function donateVELO(uint256 amount) public {
-    velo.safeTransferFrom(msg.sender, address(this), amount);
-    lockVELO(amount);
-  }
-
-  function donateVELO(Permit calldata p) public {
-    IERC20Permit(address(velo)).safePermit(p.owner, address(this), p.value, p.deadline, p.v, p.r, p.s);
-    velo.safeTransferFrom(p.owner, address(this), p.value);
-    lockVELO(p.value);
-  }
 
   function previewETH(uint256 amountEXA) public view returns (uint256) {
     (uint256 reserve0, uint256 reserve1, ) = IPool(asset()).getReserves();
@@ -269,6 +301,8 @@ interface IGauge is IERC20, IERC20Permit {
   function withdraw(uint256 amount) external;
 
   function getReward(Staker account) external;
+
+  function feesVotingReward() external view returns (IReward);
 }
 
 interface IVoter {
@@ -281,6 +315,8 @@ interface IVoter {
   function weights(IPool pool) external view returns (uint256);
 
   function usedWeights(uint256 tokenId) external view returns (uint256);
+
+  function gaugeToBribe(IGauge gauge) external view returns (IReward);
 }
 
 interface IVotingEscrow {
@@ -299,6 +335,18 @@ interface IPoolFactory {
   function getFee(IPool pool, bool stable) external view returns (uint256);
 
   function getPool(ERC20 tokenA, ERC20 tokenB, bool stable) external view returns (IPool);
+}
+
+interface IReward {
+  function earned(ERC20 token, uint256 tokenId) external view returns (uint256);
+
+  function rewards(uint256 index) external view returns (ERC20);
+
+  function getReward(uint256 tokenId, ERC20[] memory tokens) external;
+
+  function rewardsListLength() external view returns (uint256);
+
+  function tokenRewardsPerEpoch(ERC20 token, uint256 epochStart) external view returns (uint256);
 }
 
 struct LockedBalance {

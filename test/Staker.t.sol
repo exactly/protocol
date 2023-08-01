@@ -52,6 +52,9 @@ contract StakerTest is ForkTest {
     marketUSDC = Market(deployment("MarketUSDC"));
     votingEscrow = IVotingEscrow(deployment("VelodromeVotingEscrow"));
     rewardsController = RewardsController(deployment("RewardsController"));
+    deployment("OP");
+    vm.label(address(gauge.feesVotingReward()), "EXAFees");
+    vm.label(address(voter.gaugeToBribe(gauge)), "EXABribes");
 
     vm.startPrank(deployment("ProxyAdmin"));
     ITransparentUpgradeableProxy(payable(address(rewardsController))).upgradeTo(address(new RewardsController()));
@@ -127,6 +130,10 @@ contract StakerTest is ForkTest {
     assertEq(voter.weights(pool), newVELO + poolWeight, "more new weight");
     poolWeight += newVELO;
 
+    skip(1 weeks);
+    assertEq(block.timestamp - (block.timestamp % 1 weeks), epoch + 1 weeks, "next epoch");
+    staker.harvest();
+
     vm.prank(bob);
     staker.approve(address(this), type(uint256).max);
     staker.unstake(bob, 1e18);
@@ -137,17 +144,9 @@ contract StakerTest is ForkTest {
     uint256 balanceVELO = velo.balanceOf(bob);
 
     vm.startPrank(bob);
-    velo.approve(address(staker), 100e18);
-    staker.donateVELO(100e18);
+    velo.transfer(address(staker), 100e18);
+    staker.harvest();
     vm.stopPrank();
-
-    assertEq(velo.balanceOf(bob), balanceVELO - 100e18, "velo balance");
-  }
-
-  function testPermitDonateVELO() external {
-    uint256 balanceVELO = velo.balanceOf(bob);
-
-    staker.donateVELO(permit(velo, 100e18));
 
     assertEq(velo.balanceOf(bob), balanceVELO - 100e18, "velo balance");
   }
