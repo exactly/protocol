@@ -3,15 +3,18 @@ pragma solidity 0.8.17;
 
 import { WETH, ERC20, SafeTransferLib } from "solmate/src/tokens/WETH.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { IERC6372Upgradeable } from "@openzeppelin/contracts-upgradeable/interfaces/IERC6372Upgradeable.sol";
+import { ERC4626Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import {
+  ERC20Upgradeable,
   ERC20PermitUpgradeable,
   IERC20Upgradeable as IERC20,
   IERC20PermitUpgradeable as IERC20Permit
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import { RewardsController, ClaimPermit } from "./RewardsController.sol";
 
-contract Staker is ERC20PermitUpgradeable {
+contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeable {
   using SafeERC20Upgradeable for IERC20Permit;
   using FixedPointMathLib for uint256;
   using SafeTransferLib for address payable;
@@ -28,9 +31,6 @@ contract Staker is ERC20PermitUpgradeable {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   ERC20 public immutable velo;
   /// @notice The liquidity pool.
-  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-  IPool public immutable pool;
-  /// @notice The gauge used to stake the liquidity pool tokens.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IGauge public immutable gauge;
   /// @notice Velodrome's voter.
@@ -64,18 +64,20 @@ contract Staker is ERC20PermitUpgradeable {
     votingEscrow = votingEscrow_;
     rewardsController = rewardsController_;
     velo = votingEscrow_.token();
-    pool = factory_.getPool(exa_, weth_, false);
-    gauge = voter_.gauges(pool);
+    gauge = voter_.gauges(factory_.getPool(exa_, weth_, false));
 
     _disableInitializers();
   }
 
   function initialize() external initializer {
     __ERC20_init("exactly staker", "stEXA");
+    __ERC4626_init(factory.getPool(exa, weth, false));
     __ERC20Permit_init("exactly staker");
 
+    ERC20 pool = ERC20(asset());
+    pool.safeApprove(address(this), type(uint256).max);
+    pool.safeApprove(address(gauge), type(uint256).max);
     velo.safeApprove(address(votingEscrow), type(uint256).max);
-    ERC20(address(pool)).safeApprove(address(gauge), type(uint256).max);
   }
 
   function stake(address payable account, uint256 inEXA, uint256 minEXA, uint256 keepETH) internal {
@@ -84,6 +86,7 @@ contract Staker is ERC20PermitUpgradeable {
     uint256 inETH = msg.value - keepETH;
     uint256 reserveEXA;
     uint256 reserveWETH;
+    IPool pool = IPool(asset());
     {
       (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
       (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
@@ -114,11 +117,7 @@ contract Staker is ERC20PermitUpgradeable {
 
     exa.safeTransfer(address(pool), inEXA + outEXA);
     weth.safeTransfer(address(pool), inETH - swapETH);
-    uint256 liquidity = pool.mint(this);
-    gauge.deposit(liquidity);
-    _mint(account, liquidity);
-
-    harvestVELO();
+    this.deposit(pool.mint(this), account);
 
     if (keepETH != 0) account.safeTransferETH(keepETH);
   }
@@ -126,14 +125,9 @@ contract Staker is ERC20PermitUpgradeable {
   function unstake(address account, uint256 percentage) external {
     assert(percentage != 0);
 
-    uint256 liquidity = balanceOf(account).mulWadDown(percentage);
-    if (msg.sender != account) _spendAllowance(account, msg.sender, liquidity);
-    _burn(account, liquidity);
-
-    gauge.withdraw(liquidity);
+    IPool pool = IPool(asset());
+    redeem(balanceOf(account).mulWadDown(percentage), address(pool), account);
     (uint256 amount0, uint256 amount1) = pool.burn(this);
-
-    harvestVELO();
 
     (uint256 amountEXA, uint256 amountETH) = address(exa) < address(weth) ? (amount0, amount1) : (amount1, amount0);
     exa.safeTransfer(msg.sender, amountEXA);
@@ -141,7 +135,7 @@ contract Staker is ERC20PermitUpgradeable {
     payable(msg.sender).safeTransferETH(amountETH);
   }
 
-  function harvestVELO() internal {
+  function harvest() public {
     uint256 earnedVELO = gauge.earned(this);
     if (earnedVELO > 0) {
       gauge.getReward(this);
@@ -154,7 +148,7 @@ contract Staker is ERC20PermitUpgradeable {
     if (id == 0) {
       IPool[] memory pools = new IPool[](1);
       uint256[] memory weights = new uint256[](1);
-      pools[0] = pool;
+      pools[0] = IPool(asset());
       weights[0] = 100e18;
       id = votingEscrow.createLock(amount, 4 * 365 days);
       votingEscrow.lockPermanent(id);
@@ -164,6 +158,28 @@ contract Staker is ERC20PermitUpgradeable {
       votingEscrow.increaseAmount(id, amount);
       voter.poke(id);
     }
+  }
+
+  function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
+    super._deposit(caller, receiver, assets, shares);
+    gauge.deposit(assets);
+    harvest();
+  }
+
+  function _withdraw(
+    address caller,
+    address receiver,
+    address owner,
+    uint256 assets,
+    uint256 shares
+  ) internal override {
+    gauge.withdraw(assets);
+    super._withdraw(caller, receiver, owner, assets, shares);
+    harvest();
+  }
+
+  function totalAssets() public view override returns (uint256) {
+    return gauge.balanceOf(address(this));
   }
 
   function returnAssets(address payable account, uint256 amountEXA) internal {
@@ -202,12 +218,28 @@ contract Staker is ERC20PermitUpgradeable {
   }
 
   function previewETH(uint256 amountEXA) public view returns (uint256) {
-    (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
+    (uint256 reserve0, uint256 reserve1, ) = IPool(asset()).getReserves();
     return
       address(exa) < address(weth)
         ? amountEXA.mulDivDown(reserve1, reserve0)
         : amountEXA.mulDivDown(reserve0, reserve1);
   }
+
+  function decimals() public view override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
+    return ERC4626Upgradeable.decimals();
+  }
+
+  function clock() public view override returns (uint48) {
+    return uint48(block.timestamp);
+  }
+
+  // solhint-disable-next-line func-name-mixedcase
+  function CLOCK_MODE() public pure override returns (string memory) {
+    return "mode=timestamp";
+  }
+
+  // solhint-disable-next-line no-empty-blocks
+  receive() external payable {}
 }
 
 struct Permit {

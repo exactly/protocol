@@ -58,7 +58,7 @@ contract StakerTest is ForkTest {
     vm.stopPrank();
 
     staker = Staker(
-      address(
+      payable(
         new ERC1967Proxy(
           address(new Staker(exa, weth, voter, factory, votingEscrow, rewardsController)),
           abi.encodeCall(Staker.initialize, ())
@@ -77,7 +77,7 @@ contract StakerTest is ForkTest {
     bob.transfer(500 ether);
   }
 
-  function testStakeManyTimes() external {
+  function testStakeManyTimesAndUnstake() external {
     uint256 amountEXA = 100e18;
     uint256 amountETH = staker.previewETH(amountEXA);
     uint256 balanceETH = bob.balance;
@@ -126,6 +126,11 @@ contract StakerTest is ForkTest {
     assertEq(voter.usedWeights(staker.lockId()), earnedVELO += newVELO, "more new votes");
     assertEq(voter.weights(pool), newVELO + poolWeight, "more new weight");
     poolWeight += newVELO;
+
+    vm.prank(bob);
+    staker.approve(address(this), type(uint256).max);
+    staker.unstake(bob, 1e18);
+    assertEq(staker.totalSupply(), 0, "no shares");
   }
 
   function testDonateVELO() external {
