@@ -95,11 +95,9 @@ contract ProtoStaker is Initializable {
     uint256 outEXA = 0;
     uint256 swapETH = 0;
     if (inETH > minETH) {
-      swapETH = (inETH / 2).mulDivDown(inETH + reserveWETH, reserveWETH);
-      outEXA = swapETH.mulDivDown(inEXA + reserveEXA, inETH + reserveWETH).mulDivDown(
-        10_000 - factory.getFee(pool, false),
-        10_000
-      );
+      uint256 fee = factory.getFee(pool, false);
+      swapETH = ((inETH - minETH) / 2).mulDivDown(10_000 - fee, 10_000);
+      outEXA = swapETH.mulDivDown(reserveEXA, swapETH + reserveWETH).mulDivDown(10_000 - fee, 10_000);
       if (outEXA + inEXA < minEXA) return returnAssets(account, inEXA);
 
       weth.deposit{ value: inETH }();

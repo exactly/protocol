@@ -325,6 +325,14 @@ contract ProtoStakerTest is ForkTest {
     assertEq(gauge.balanceOf(address(protoStaker)), 0);
     assertEq(weth.balanceOf(address(protoStaker)), 0);
     assertEq(exa.balanceOf(address(protoStaker)), 0);
+    uint256 reserveEXA;
+    uint256 reserveWETH;
+    {
+      (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
+      (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
+    }
+    assertEq(exa.balanceOf(address(pool)), reserveEXA);
+    assertEq(weth.balanceOf(address(pool)), reserveWETH);
   }
 
   function permit(uint256 value) internal view returns (Permit memory p) {
