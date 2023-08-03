@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import { ForkTest } from "./Fork.t.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ITransparentUpgradeableProxy, ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import { RewardsController, ClaimPermit, Market } from "../contracts/RewardsController.sol";
+import { RewardsController, Auditor, Market, ClaimPermit } from "../contracts/RewardsController.sol";
 import {
   WETH,
   ERC20,
@@ -37,6 +37,7 @@ contract StakerTest is ForkTest {
   IVoter internal voter;
   Staker internal staker;
   Market internal marketUSDC;
+  Auditor internal auditor;
   IPoolFactory internal factory;
   IVotingEscrow internal votingEscrow;
   RewardsController internal rewardsController;
@@ -51,6 +52,7 @@ contract StakerTest is ForkTest {
     pool = IPool(deployment("EXAPool"));
     gauge = IGauge(deployment("EXAGauge"));
     voter = IVoter(deployment("VelodromeVoter"));
+    auditor = Auditor(deployment("Auditor"));
     factory = IPoolFactory(deployment("VelodromePoolFactory"));
     marketUSDC = Market(deployment("MarketUSDC"));
     votingEscrow = IVotingEscrow(deployment("VelodromeVotingEscrow"));
@@ -65,7 +67,7 @@ contract StakerTest is ForkTest {
     staker = Staker(
       payable(
         new ERC1967Proxy(
-          address(new Staker(exa, weth, voter, factory, votingEscrow, rewardsController)),
+          address(new Staker(exa, weth, voter, auditor, factory, votingEscrow, rewardsController)),
           abi.encodeCall(Staker.initialize, ())
         )
       )
@@ -88,6 +90,15 @@ contract StakerTest is ForkTest {
     IReward bribes = voter.gaugeToBribe(gauge);
     op.approve(address(bribes), type(uint256).max);
     bribes.notifyRewardAmount(op, 10_000e18);
+
+    vm.label(marketUSDC.treasury(), "treasury");
+    Market[] memory markets = auditor.allMarkets();
+    for (uint256 i = 0; i < markets.length; ++i) {
+      vm.label(address(markets[i].asset()), markets[i].asset().symbol());
+      vm.label(address(markets[i]), string.concat("Market", markets[i].asset().symbol()));
+      vm.prank(markets[i].treasury());
+      markets[i].approve(address(staker), type(uint256).max);
+    }
   }
 
   function testStakeManyTimesAndUnstake() external checks {
@@ -168,23 +179,29 @@ contract StakerTest is ForkTest {
   }
 
   modifier checks() {
+    Market[] memory markets = auditor.allMarkets(); // force market updates
+    for (uint256 i = 0; i < markets.length; ++i) markets[i].borrow(0, address(420), address(69));
     _;
     check();
   }
 
   function check() internal {
-    assertEq(address(staker).balance, 0);
-    assertEq(pool.balanceOf(address(staker)), 0);
-    assertEq(weth.balanceOf(address(staker)), 0);
-    assertEq(velo.balanceOf(address(staker)), 0);
+    assertEq(address(staker).balance, 0, "0 staker eth");
+    assertEq(pool.balanceOf(address(staker)), 0, "0 staker lp");
+    assertEq(weth.balanceOf(address(staker)), 0, "0 staker weth");
+    assertEq(velo.balanceOf(address(staker)), 0, "0 staker velo");
+
+    Market[] memory markets = auditor.allMarkets();
+    for (uint256 i = 0; i < markets.length; ++i) assertEq(markets[i].balanceOf(markets[i].treasury()), 0, "0 treasury");
+
     uint256 reserveEXA;
     uint256 reserveWETH;
     {
       (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
       (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
     }
-    assertEq(exa.balanceOf(address(pool)), reserveEXA);
-    assertEq(weth.balanceOf(address(pool)), reserveWETH);
+    assertEq(exa.balanceOf(address(pool)), reserveEXA, "pool exa");
+    assertEq(weth.balanceOf(address(pool)), reserveWETH, "pool weth");
   }
 
   function permit(ERC20 asset, uint256 value) internal view returns (Permit memory p) {

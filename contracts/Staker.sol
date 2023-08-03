@@ -12,7 +12,7 @@ import {
   IERC20Upgradeable as IERC20,
   IERC20PermitUpgradeable as IERC20Permit
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import { RewardsController, ClaimPermit } from "./RewardsController.sol";
+import { RewardsController, Auditor, Market, ClaimPermit } from "./RewardsController.sol";
 
 contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeable {
   using SafeERC20Upgradeable for IERC20Permit;
@@ -36,6 +36,9 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
   /// @notice Velodrome's voter.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IVoter public immutable voter;
+  /// @notice exactly's auditor.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  Auditor public immutable auditor;
   /// @notice The factory where the fee will be fetched from.
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IPoolFactory public immutable factory;
@@ -53,6 +56,7 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     ERC20 exa_,
     WETH weth_,
     IVoter voter_,
+    Auditor auditor_,
     IPoolFactory factory_,
     IVotingEscrow votingEscrow_,
     RewardsController rewardsController_
@@ -60,6 +64,7 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     exa = exa_;
     weth = weth_;
     voter = voter_;
+    auditor = auditor_;
     factory = factory_;
     votingEscrow = votingEscrow_;
     rewardsController = rewardsController_;
@@ -133,6 +138,18 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
       }
       bribes.getReward(id, assets);
       for (uint256 i = 0; i < assets.length; ++i) handleReward(assets[i]);
+    }
+
+    Market[] memory markets = auditor.allMarkets();
+    for (uint256 i = 0; i < markets.length; ++i) {
+      address treasury = markets[i].treasury();
+      if (treasury == address(0)) continue;
+      uint256 allowed = markets[i].allowance(treasury, address(this));
+      if (allowed == 0) continue;
+      uint256 shares = markets[i].balanceOf(treasury);
+      if (shares == 0) continue;
+      markets[i].redeem(allowed < shares ? allowed : shares, address(this), treasury);
+      handleReward(markets[i].asset());
     }
 
     uint256 balanceVELO = velo.balanceOf(address(this));
