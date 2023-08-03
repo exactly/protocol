@@ -84,40 +84,15 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     if (keepETH >= msg.value) return returnAssets(account, inEXA);
 
     uint256 inETH = msg.value - keepETH;
-    uint256 reserveEXA;
-    uint256 reserveWETH;
-    IPool pool = IPool(asset());
-    {
-      (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
-      (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
+    if (inETH < previewETH(inEXA)) return returnAssets(account, inEXA);
+
+    weth.deposit{ value: inETH }();
+    uint256 liquidity = swapAndDeposit(inEXA, inETH, minEXA);
+    if (liquidity == 0) {
+      weth.withdraw(inETH);
+      return returnAssets(account, inEXA);
     }
-
-    uint256 minETH = inEXA.mulDivDown(reserveWETH, reserveEXA);
-    if (inETH < minETH) return returnAssets(account, inEXA);
-
-    uint256 outEXA = 0;
-    uint256 swapETH = 0;
-    if (inETH > minETH) {
-      swapETH = (inETH / 2).mulDivDown(inETH + reserveWETH, reserveWETH);
-      outEXA = swapETH.mulDivDown(inEXA + reserveEXA, inETH + reserveWETH).mulDivDown(
-        1e4 - factory.getFee(pool, false),
-        1e4
-      );
-      if (outEXA + inEXA < minEXA) return returnAssets(account, inEXA);
-
-      weth.deposit{ value: inETH }();
-      weth.safeTransfer(address(pool), swapETH);
-      (uint256 amount0Out, uint256 amount1Out) = address(exa) < address(weth)
-        ? (outEXA, uint256(0))
-        : (uint256(0), outEXA);
-      pool.swap(amount0Out, amount1Out, this, "");
-    } else {
-      weth.deposit{ value: inETH }();
-    }
-
-    exa.safeTransfer(address(pool), inEXA + outEXA);
-    weth.safeTransfer(address(pool), inETH - swapETH);
-    this.deposit(pool.mint(this), account);
+    this.deposit(liquidity, account);
 
     if (keepETH != 0) account.safeTransferETH(keepETH);
   }
@@ -157,18 +132,7 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
         for (uint256 i = 0; i < assets.length; ++i) assets[i] = a[i];
       }
       bribes.getReward(id, assets);
-      for (uint256 i = 0; i < assets.length; ++i) {
-        if (assets[i] != exa && assets[i] != weth && assets[i] != velo) {
-          IPool pool = factory.getPool(assets[i], weth, false);
-          uint256 balance = assets[i].balanceOf(address(this));
-          uint256 outWETH = pool.getAmountOut(balance, assets[i]);
-          assets[i].safeTransfer(address(pool), balance);
-          (uint256 amount0Out, uint256 amount1Out) = address(assets[i]) < address(weth)
-            ? (uint256(0), outWETH)
-            : (outWETH, uint256(0));
-          pool.swap(amount0Out, amount1Out, this, "");
-        }
-      }
+      for (uint256 i = 0; i < assets.length; ++i) handleReward(assets[i]);
     }
 
     uint256 balanceVELO = velo.balanceOf(address(this));
@@ -189,34 +153,53 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     }
 
     uint256 balanceWETH = weth.balanceOf(address(this));
-    if (balanceWETH != 0) {
-      IPool pool = IPool(asset());
+    if (balanceWETH != 0) gauge.deposit(swapAndDeposit(exa.balanceOf(address(this)), balanceWETH, 0));
+  }
 
-      uint256 reserveEXA;
-      uint256 reserveWETH;
-      {
-        (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
-        (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
-      }
+  function handleReward(ERC20 assetIn) internal {
+    if (assetIn == exa && assetIn == weth && assetIn == velo) return;
 
-      uint256 balanceEXA = exa.balanceOf(address(this));
-      uint256 maxEXA = balanceWETH.mulDivDown(reserveEXA, reserveWETH);
-      if (balanceEXA < maxEXA) {
+    IPool pool = factory.getPool(assetIn, weth, false);
+    if (address(pool) == address(0)) return;
+
+    uint256 amountIn = assetIn.balanceOf(address(this));
+    uint256 outWETH = pool.getAmountOut(amountIn, assetIn);
+    assetIn.safeTransfer(address(pool), amountIn);
+    (uint256 out0, uint256 out1) = address(assetIn) < address(weth) ? (uint256(0), outWETH) : (outWETH, uint256(0));
+    pool.swap(out0, out1, this, "");
+  }
+
+  /// @dev spares extra EXA, inEXA = min(inEXA, maxEXA)
+  function swapAndDeposit(uint256 inEXA, uint256 inWETH, uint256 minEXA) internal returns (uint256 liquidity) {
+    IPool pool = IPool(asset());
+
+    uint256 reserveEXA;
+    uint256 reserveWETH;
+    {
+      (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
+      (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
+    }
+
+    {
+      uint256 maxEXA = inWETH.mulDivDown(reserveEXA, reserveWETH);
+      if (inEXA < maxEXA) {
         uint256 fee = factory.getFee(pool, false);
-        uint256 extraWETH = balanceWETH - balanceEXA.mulDivDown(reserveWETH, reserveEXA);
+        uint256 extraWETH = inWETH - inEXA.mulDivDown(reserveWETH, reserveEXA);
         uint256 swapWETH = (extraWETH / 2).mulDivDown(1e4 - fee, 1e4);
         uint256 outEXA = swapWETH.mulDivDown(reserveEXA, swapWETH + reserveWETH).mulDivDown(1e4 - fee, 1e4);
+        if (outEXA + inEXA < minEXA) return 0;
+
         (uint256 out0, uint256 out1) = address(exa) < address(weth) ? (outEXA, uint256(0)) : (uint256(0), outEXA);
         weth.safeTransfer(address(pool), swapWETH);
         pool.swap(out0, out1, this, "");
-        exa.safeTransfer(address(pool), balanceEXA + outEXA);
-        weth.safeTransfer(address(pool), balanceWETH - swapWETH);
-      } else {
-        exa.safeTransfer(address(pool), maxEXA);
-        weth.safeTransfer(address(pool), balanceWETH);
-      }
-      gauge.deposit(pool.mint(this));
+        inWETH -= swapWETH;
+        inEXA += outEXA;
+      } else inEXA = maxEXA;
     }
+
+    exa.safeTransfer(address(pool), inEXA);
+    weth.safeTransfer(address(pool), inWETH);
+    return pool.mint(this);
   }
 
   function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
