@@ -193,7 +193,7 @@ contract ProtoStaker is Initializable {
     uint256 keepETH
   ) external {
     IERC20Permit(address(asset)).safePermit(
-      msg.sender,
+      permit.owner,
       address(this),
       permit.value,
       permit.deadline,
@@ -213,13 +213,22 @@ contract ProtoStaker is Initializable {
     uint256 keepETH
   ) external payable {
     IERC20Permit(address(asset)).safePermit(
-      msg.sender,
+      permit.owner,
       address(this),
       permit.value,
       permit.deadline,
       permit.v,
       permit.r,
       permit.s
+    );
+    IERC20Permit(address(exa)).safePermit(
+      permit.owner,
+      address(this),
+      permitEXA.value,
+      permitEXA.deadline,
+      permitEXA.v,
+      permitEXA.r,
+      permitEXA.s
     );
     stakeAssetAndBalance(asset, permit.value, socketData, permitEXA.value, minEXA, keepETH);
   }
@@ -234,16 +243,16 @@ contract ProtoStaker is Initializable {
     permit2.permitTransferFrom(
       IPermit2.PermitTransferFrom({
         permitted: IPermit2.TokenPermissions(asset, permit.amount),
-        nonce: uint256(keccak256(abi.encode(msg.sender, asset, permit.amount, permit.deadline))),
+        nonce: uint256(keccak256(abi.encode(permit.owner, asset, permit.amount, permit.deadline))),
         deadline: permit.deadline
       }),
       IPermit2.SignatureTransferDetails({ to: this, requestedAmount: permit.amount }),
-      msg.sender,
+      permit.owner,
       permit.signature
     );
     asset.safeApprove(socket, permit.amount);
     uint256 outETH = abi.decode(socket.functionCall(socketData), (uint256));
-    this.stakeETH{ value: outETH }(payable(msg.sender), minEXA, keepETH);
+    this.stakeETH{ value: outETH }(permit.owner, minEXA, keepETH);
   }
 
   function stakeAssetAndBalance(
@@ -257,11 +266,11 @@ contract ProtoStaker is Initializable {
     permit2.permitTransferFrom(
       IPermit2.PermitTransferFrom({
         permitted: IPermit2.TokenPermissions(asset, permit.amount),
-        nonce: uint256(keccak256(abi.encode(msg.sender, asset, permit.amount, permit.deadline))),
+        nonce: uint256(keccak256(abi.encode(permit.owner, asset, permit.amount, permit.deadline))),
         deadline: permit.deadline
       }),
       IPermit2.SignatureTransferDetails({ to: this, requestedAmount: permit.amount }),
-      msg.sender,
+      permit.owner,
       permit.signature
     );
     asset.safeApprove(socket, permit.amount);
@@ -293,6 +302,7 @@ struct Permit {
 }
 
 struct Permit2 {
+  address payable owner;
   uint256 amount;
   uint256 deadline;
   bytes signature;
