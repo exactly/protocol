@@ -100,8 +100,8 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
     if (inETH > minETH) {
       swapETH = (inETH / 2).mulDivDown(inETH + reserveWETH, reserveWETH);
       outEXA = swapETH.mulDivDown(inEXA + reserveEXA, inETH + reserveWETH).mulDivDown(
-        10_000 - factory.getFee(pool, false),
-        10_000
+        1e4 - factory.getFee(pool, false),
+        1e4
       );
       if (outEXA + inEXA < minEXA) return returnAssets(account, inEXA);
 
@@ -157,6 +157,18 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
         for (uint256 i = 0; i < assets.length; ++i) assets[i] = a[i];
       }
       bribes.getReward(id, assets);
+      for (uint256 i = 0; i < assets.length; ++i) {
+        if (assets[i] != exa && assets[i] != weth && assets[i] != velo) {
+          IPool pool = factory.getPool(assets[i], weth, false);
+          uint256 balance = assets[i].balanceOf(address(this));
+          uint256 outWETH = pool.getAmountOut(balance, assets[i]);
+          assets[i].safeTransfer(address(pool), balance);
+          (uint256 amount0Out, uint256 amount1Out) = address(assets[i]) < address(weth)
+            ? (uint256(0), outWETH)
+            : (outWETH, uint256(0));
+          pool.swap(amount0Out, amount1Out, this, "");
+        }
+      }
     }
 
     uint256 balanceVELO = velo.balanceOf(address(this));
@@ -178,26 +190,31 @@ contract Staker is ERC4626Upgradeable, ERC20PermitUpgradeable, IERC6372Upgradeab
 
     uint256 balanceWETH = weth.balanceOf(address(this));
     if (balanceWETH != 0) {
+      IPool pool = IPool(asset());
+
       uint256 reserveEXA;
       uint256 reserveWETH;
-      IPool pool = IPool(asset());
       {
         (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
         (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
       }
 
-      uint256 inEXA;
-      uint256 inWETH;
-      {
-        uint256 minEXA = balanceWETH.mulDivDown(reserveEXA, reserveWETH);
-        uint256 maxEXA = exa.balanceOf(address(this));
-        (inEXA, inWETH) = maxEXA < minEXA
-          ? (maxEXA, maxEXA.mulDivDown(reserveWETH, reserveEXA))
-          : (minEXA, balanceWETH);
+      uint256 balanceEXA = exa.balanceOf(address(this));
+      uint256 maxEXA = balanceWETH.mulDivDown(reserveEXA, reserveWETH);
+      if (balanceEXA < maxEXA) {
+        uint256 fee = factory.getFee(pool, false);
+        uint256 extraWETH = balanceWETH - balanceEXA.mulDivDown(reserveWETH, reserveEXA);
+        uint256 swapWETH = (extraWETH / 2).mulDivDown(1e4 - fee, 1e4);
+        uint256 outEXA = swapWETH.mulDivDown(reserveEXA, swapWETH + reserveWETH).mulDivDown(1e4 - fee, 1e4);
+        (uint256 out0, uint256 out1) = address(exa) < address(weth) ? (outEXA, uint256(0)) : (uint256(0), outEXA);
+        weth.safeTransfer(address(pool), swapWETH);
+        pool.swap(out0, out1, this, "");
+        exa.safeTransfer(address(pool), balanceEXA + outEXA);
+        weth.safeTransfer(address(pool), balanceWETH - swapWETH);
+      } else {
+        exa.safeTransfer(address(pool), maxEXA);
+        weth.safeTransfer(address(pool), balanceWETH);
       }
-
-      exa.safeTransfer(address(pool), inEXA);
-      weth.safeTransfer(address(pool), inWETH);
       gauge.deposit(pool.mint(this));
     }
   }
@@ -290,7 +307,11 @@ interface IPool is IERC20, IERC20Permit {
 
   function swap(uint256 amount0Out, uint256 amount1Out, Staker to, bytes calldata data) external;
 
+  function poolFees() external view returns (address);
+
   function getReserves() external view returns (uint256 reserve0, uint256 reserve1, uint256 blockTimestampLast);
+
+  function getAmountOut(uint256 amountIn, ERC20 tokenIn) external view returns (uint256);
 }
 
 interface IGauge is IERC20, IERC20Permit {
@@ -345,6 +366,8 @@ interface IReward {
   function getReward(uint256 tokenId, ERC20[] memory tokens) external;
 
   function rewardsListLength() external view returns (uint256);
+
+  function notifyRewardAmount(ERC20 token, uint256 amount) external;
 
   function tokenRewardsPerEpoch(ERC20 token, uint256 epochStart) external view returns (uint256);
 }

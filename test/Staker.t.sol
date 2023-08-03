@@ -13,6 +13,7 @@ import {
   IVoter,
   Staker,
   Permit,
+  IReward,
   IERC20Permit,
   IPoolFactory,
   IVotingEscrow,
@@ -28,6 +29,7 @@ contract StakerTest is ForkTest {
   address payable internal bob;
 
   WETH internal weth;
+  ERC20 internal op;
   ERC20 internal exa;
   ERC20 internal velo;
   IPool internal pool;
@@ -42,6 +44,7 @@ contract StakerTest is ForkTest {
   function setUp() external {
     vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 107_618_399);
 
+    op = ERC20(deployment("OP"));
     exa = ERC20(deployment("EXA"));
     weth = WETH(payable(deployment("WETH")));
     velo = ERC20(deployment("VELO"));
@@ -52,7 +55,6 @@ contract StakerTest is ForkTest {
     marketUSDC = Market(deployment("MarketUSDC"));
     votingEscrow = IVotingEscrow(deployment("VelodromeVotingEscrow"));
     rewardsController = RewardsController(deployment("RewardsController"));
-    deployment("OP");
     vm.label(address(gauge.feesVotingReward()), "EXAFees");
     vm.label(address(voter.gaugeToBribe(gauge)), "EXABribes");
 
@@ -78,9 +80,17 @@ contract StakerTest is ForkTest {
     marketUSDC.asset().approve(address(marketUSDC), type(uint256).max);
     marketUSDC.deposit(100_000e6, bob);
     bob.transfer(500 ether);
+
+    vm.label(address(factory.getPool(op, weth, false)), "OPPool");
+    vm.label(factory.getPool(op, weth, false).poolFees(), "OPPoolFees");
+    vm.label(factory.getPool(exa, weth, false).poolFees(), "EXAPoolFees");
+    deal(address(op), address(this), 100_000e18);
+    IReward bribes = voter.gaugeToBribe(gauge);
+    op.approve(address(bribes), type(uint256).max);
+    bribes.notifyRewardAmount(op, 10_000e18);
   }
 
-  function testStakeManyTimesAndUnstake() external {
+  function testStakeManyTimesAndUnstake() external checks {
     uint256 amountEXA = 100e18;
     uint256 amountETH = staker.previewETH(amountEXA);
     uint256 balanceETH = bob.balance;
@@ -95,11 +105,11 @@ contract StakerTest is ForkTest {
     assertEq(exa.balanceOf(bob), balanceEXA - amountEXA, "user exa");
     assertEq(gauge.balanceOf(bob), 0, "user gauge");
     assertGt(gauge.balanceOf(address(staker)), 0, "staker gauge");
-
     LockedBalance memory locked = votingEscrow.locked(staker.lockId());
     assertEq(locked.amount, 0, "not locked yet");
     assertEq(locked.end, 0, "not locked yet");
     assertEq(locked.isPermanent, false, "not locked yet");
+    check();
 
     skip(1 days);
     uint256 earnedVELO = gauge.earned(staker);
@@ -111,6 +121,7 @@ contract StakerTest is ForkTest {
     assertEq(voter.usedWeights(staker.lockId()), earnedVELO, "staker votes");
     assertEq(voter.weights(pool), earnedVELO + poolWeight, "pool weight");
     poolWeight += earnedVELO;
+    check();
 
     skip(1 hours);
     uint256 epoch = block.timestamp - (block.timestamp % 1 weeks);
@@ -120,6 +131,7 @@ contract StakerTest is ForkTest {
     assertEq(voter.usedWeights(staker.lockId()), earnedVELO += newVELO, "new votes");
     assertEq(voter.weights(pool), newVELO + poolWeight, "new weight");
     poolWeight += newVELO;
+    check();
 
     skip(1 hours);
     newVELO = gauge.earned(staker);
@@ -129,10 +141,14 @@ contract StakerTest is ForkTest {
     assertEq(voter.usedWeights(staker.lockId()), earnedVELO += newVELO, "more new votes");
     assertEq(voter.weights(pool), newVELO + poolWeight, "more new weight");
     poolWeight += newVELO;
+    check();
 
     skip(1 weeks);
     assertEq(block.timestamp - (block.timestamp % 1 weeks), epoch + 1 weeks, "next epoch");
     staker.harvest();
+    assertEq(weth.balanceOf(address(staker)), 0, "no weth");
+    assertEq(velo.balanceOf(address(staker)), 0, "no velo");
+    assertEq(op.balanceOf(address(staker)), 0, "no op");
 
     vm.prank(bob);
     staker.approve(address(this), type(uint256).max);
@@ -140,7 +156,7 @@ contract StakerTest is ForkTest {
     assertEq(staker.totalSupply(), 0, "no shares");
   }
 
-  function testDonateVELO() external {
+  function testDonateVELO() external checks {
     uint256 balanceVELO = velo.balanceOf(bob);
 
     vm.startPrank(bob);
@@ -149,6 +165,26 @@ contract StakerTest is ForkTest {
     vm.stopPrank();
 
     assertEq(velo.balanceOf(bob), balanceVELO - 100e18, "velo balance");
+  }
+
+  modifier checks() {
+    _;
+    check();
+  }
+
+  function check() internal {
+    assertEq(address(staker).balance, 0);
+    assertEq(pool.balanceOf(address(staker)), 0);
+    assertEq(weth.balanceOf(address(staker)), 0);
+    assertEq(velo.balanceOf(address(staker)), 0);
+    uint256 reserveEXA;
+    uint256 reserveWETH;
+    {
+      (uint256 reserve0, uint256 reserve1, ) = pool.getReserves();
+      (reserveEXA, reserveWETH) = address(exa) < address(weth) ? (reserve0, reserve1) : (reserve1, reserve0);
+    }
+    assertEq(exa.balanceOf(address(pool)), reserveEXA);
+    assertEq(weth.balanceOf(address(pool)), reserveWETH);
   }
 
   function permit(ERC20 asset, uint256 value) internal view returns (Permit memory p) {
