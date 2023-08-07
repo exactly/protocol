@@ -7,12 +7,8 @@ import { ProxyAdmin, ITransparentUpgradeableProxy } from "@openzeppelin/contract
 abstract contract ForkTest is Test {
   using stdJson for string;
 
-  address internal proxyAdmin;
-
   function upgrade(address proxy, address newImplementation) internal {
-    if (proxyAdmin == address(0)) init();
-
-    vm.prank(proxyAdmin);
+    vm.prank(deployment("ProxyAdmin"));
     ITransparentUpgradeableProxy(payable(proxy)).upgradeTo(newImplementation);
   }
 
@@ -22,17 +18,10 @@ abstract contract ForkTest is Test {
       .readAddress(".address");
     vm.label(addr, name);
 
-    if (proxyAdmin == address(0)) init();
-    vm.prank(proxyAdmin);
-    (bool success, bytes memory data) = addr.staticcall(abi.encodeCall(IProxy.implementation, ()));
-    if (success) vm.label(abi.decode(data, (address)), string.concat(name, "_Impl"));
-  }
-
-  function init() internal {
-    proxyAdmin = vm
-      .readFile(string.concat("deployments/", getChain(block.chainid).chainAlias, "/ProxyAdmin.json"))
-      .readAddress(".address");
-    vm.label(proxyAdmin, "ProxyAdmin");
+    address impl = address(
+      uint160(uint256(vm.load(addr, bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1))))
+    );
+    if (impl != address(0)) vm.label(impl, string.concat(name, "_Impl"));
   }
 }
 
