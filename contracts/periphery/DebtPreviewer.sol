@@ -134,15 +134,15 @@ contract DebtPreviewer is Initializable {
   ) internal view returns (uint256) {
     MinDepositVars memory vars;
     Auditor auditor = debtManager.auditor();
-    (vars.adjustFactorIn, , , , vars.priceFeedIn) = auditor.markets(marketDeposit);
-    (vars.adjustFactorOut, , , , vars.priceFeedOut) = auditor.markets(marketBorrow);
+    (vars.adjustFactorIn, vars.decimalsIn, , , vars.priceFeedIn) = auditor.markets(marketDeposit);
+    (vars.adjustFactorOut, vars.decimalsOut, , , vars.priceFeedOut) = auditor.markets(marketBorrow);
 
     return
       minHealthFactor
         .mulWadDown(floatingBorrowAssets(marketBorrow, account))
-        .mulDivDown(auditor.assetPrice(vars.priceFeedOut), 10 ** marketBorrow.decimals())
+        .mulDivDown(auditor.assetPrice(vars.priceFeedOut), 10 ** vars.decimalsOut)
         .divWadDown(vars.adjustFactorOut.mulWadDown(vars.adjustFactorIn))
-        .mulDivUp(10 ** marketDeposit.decimals(), auditor.assetPrice(vars.priceFeedIn));
+        .mulDivUp(10 ** vars.decimalsIn, auditor.assetPrice(vars.priceFeedIn));
   }
 
   /// @notice Returns the maximum ratio that an account can leverage its principal plus `assets` amount.
@@ -279,12 +279,13 @@ contract DebtPreviewer is Initializable {
     Market marketBorrow,
     uint256 amountIn
   ) internal view returns (uint256) {
-    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
-    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
+    Auditor auditor = debtManager.auditor();
+    (, uint256 decimalsOut, , , IPriceFeed priceFeedOut) = auditor.markets(marketBorrow);
+    (, uint256 decimalsIn, , , IPriceFeed priceFeedIn) = auditor.markets(marketDeposit);
     return
-      amountIn.mulDivDown(debtManager.auditor().assetPrice(priceFeedIn), 10 ** marketDeposit.decimals()).mulDivDown(
-        10 ** marketBorrow.decimals(),
-        debtManager.auditor().assetPrice(priceFeedOut)
+      amountIn.mulDivDown(auditor.assetPrice(priceFeedIn), 10 ** decimalsIn).mulDivDown(
+        10 ** decimalsOut,
+        auditor.assetPrice(priceFeedOut)
       );
   }
 
@@ -302,9 +303,7 @@ contract DebtPreviewer is Initializable {
     uint256 minHealthFactor
   ) internal view returns (uint256) {
     Auditor auditor = debtManager.auditor();
-
     MaxRatioVars memory mr;
-
     (mr.adjustFactorIn, , , , mr.priceFeedIn) = auditor.markets(marketDeposit);
     (mr.adjustFactorOut, , , , ) = auditor.markets(marketBorrow);
     uint256 isolatedMaxRatio = minHealthFactor.divWadDown(
@@ -312,27 +311,27 @@ contract DebtPreviewer is Initializable {
     );
     if (principal <= 0) return isolatedMaxRatio;
 
-    mr.principalUSD = uint256(principal).mulDivDown(auditor.assetPrice(mr.priceFeedIn), 10 ** marketDeposit.decimals());
     mr.marketMap = auditor.accountMarkets(account);
+    mr.principalUSD = uint256(principal).mulDivDown(auditor.assetPrice(mr.priceFeedIn), 10 ** marketDeposit.decimals());
     for (mr.i = 0; mr.marketMap != 0; mr.marketMap >>= 1) {
       if (mr.marketMap & 1 != 0) {
         Auditor.MarketData memory md;
         Auditor.AccountLiquidity memory vars;
-
         mr.market = auditor.marketList(mr.i);
         (md.adjustFactor, md.decimals, , , md.priceFeed) = auditor.markets(mr.market);
         (vars.balance, vars.borrowBalance) = mr.market.accountSnapshot(account);
         vars.price = auditor.assetPrice(md.priceFeed);
+        mr.baseUnit = 10 ** md.decimals;
 
-        if (mr.market != marketBorrow) {
-          mr.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, 10 ** md.decimals).divWadUp(md.adjustFactor);
-        } else {
+        if (mr.market == marketBorrow) {
           mr.adjustedDebt += (vars.borrowBalance - floatingBorrowAssets(marketBorrow, account))
-            .mulDivDown(vars.price, 10 ** md.decimals)
+            .mulDivDown(vars.price, mr.baseUnit)
             .divWadUp(md.adjustFactor);
+        } else {
+          mr.adjustedDebt += vars.borrowBalance.mulDivUp(vars.price, mr.baseUnit).divWadUp(md.adjustFactor);
         }
         if (mr.market != marketDeposit) {
-          mr.adjustedCollateral += vars.balance.mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
+          mr.adjustedCollateral += vars.balance.mulDivDown(vars.price, mr.baseUnit).mulWadDown(md.adjustFactor);
         }
       }
       unchecked {
@@ -382,27 +381,30 @@ contract DebtPreviewer is Initializable {
       if (mw.marketMap & 1 != 0) {
         mw.market = mw.auditor.marketList(mw.i);
         (md.adjustFactor, md.decimals, , , md.priceFeed) = mw.auditor.markets(mw.market);
+        uint256 baseUnit = 10 ** md.decimals;
         (vars.balance, vars.borrowBalance) = mw.market.accountSnapshot(account);
         vars.price = mw.auditor.assetPrice(md.priceFeed);
         {
-          mw.adjustedCollateral += vars.balance.mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
-          mw.adjustedDebt += vars.borrowBalance.mulDivDown(vars.price, 10 ** md.decimals).divWadDown(md.adjustFactor);
+          mw.memAdjColl = vars.balance.mulDivDown(vars.price, baseUnit).mulWadDown(md.adjustFactor);
+          mw.memAdjDebt = vars.borrowBalance.mulDivDown(vars.price, baseUnit).divWadDown(md.adjustFactor);
+          mw.adjustedCollateral += mw.memAdjColl;
 
-          mw.otherDebt += vars.borrowBalance.mulDivDown(vars.price, 10 ** md.decimals).divWadDown(md.adjustFactor);
+          mw.adjustedDebt += mw.memAdjDebt;
+          mw.otherDebt += mw.memAdjDebt;
           if (mw.market == marketBorrow) {
-            mw.adjustedRepay = mw.borrowAssets.mulDivDown(vars.price, 10 ** md.decimals).divWadDown(md.adjustFactor);
-            mw.otherDebt -= (mw.borrowAssets).mulDivDown(vars.price, 10 ** md.decimals).divWadDown(md.adjustFactor);
+            mw.adjustedRepay = mw.borrowAssets.mulDivDown(vars.price, baseUnit).divWadDown(md.adjustFactor);
+            mw.otherDebt -= mw.adjustedRepay;
           }
           if (marketDeposit != mw.market) {
-            mw.otherCollateral += vars.balance.mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
+            mw.otherCollateral += mw.memAdjColl;
           } else {
             mw.adjPrincipalForRepay = (
               mw.borrowAssets > 0 && marketBorrow != marketDeposit
                 ? previewOutputSwap(marketDeposit, marketBorrow, mw.borrowAssets, 500)
                 : mw.borrowAssets
-            ).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor);
+            ).mulDivDown(vars.price, baseUnit).mulWadDown(md.adjustFactor);
             mw.adjustedPrincipal =
-              (mw.market.maxWithdraw(account)).mulDivDown(vars.price, 10 ** md.decimals).mulWadDown(md.adjustFactor) -
+              (mw.market.maxWithdraw(account)).mulDivDown(vars.price, baseUnit).mulWadDown(md.adjustFactor) -
               mw.adjPrincipalForRepay;
           }
         }
@@ -414,11 +416,11 @@ contract DebtPreviewer is Initializable {
     {
       (mw.adjustFactorIn, , , , mw.priceFeedIn) = mw.auditor.markets(marketDeposit);
       (mw.adjustFactorOut, , , , ) = mw.auditor.markets(marketBorrow);
-      mw.memDebt = mw.otherDebt.mulWadDown(mw.adjustFactorOut).mulWadDown(minHealthFactor);
-      mw.memCollateral = (mw.otherCollateral).mulWadDown(mw.adjustFactorOut);
+      mw.memOtherDebt = mw.otherDebt.mulWadDown(mw.adjustFactorOut).mulWadDown(minHealthFactor);
+      mw.memOtherCollateral = (mw.otherCollateral).mulWadDown(mw.adjustFactorOut);
     }
 
-    if (mw.memDebt <= mw.memCollateral) {
+    if (mw.memOtherDebt <= mw.memOtherCollateral) {
       return
         Math.min(
           Math
@@ -434,7 +436,7 @@ contract DebtPreviewer is Initializable {
 
     return
       uint256(mw.principal) -
-      (mw.memDebt - mw.memCollateral)
+      (mw.memOtherDebt - mw.memOtherCollateral)
         .divWadDown(
           mw.adjustFactorIn.mulWadDown(ratio).mulWadDown(mw.adjustFactorOut) +
             minHealthFactor -
@@ -448,29 +450,33 @@ contract DebtPreviewer is Initializable {
   /// @param marketBorrow The Market to repay the leveraged position.
   /// @param account The account that will be deleveraged.
   function crossPrincipal(Market marketDeposit, Market marketBorrow, address account) internal view returns (int256) {
-    (, , , , IPriceFeed priceFeedIn) = debtManager.auditor().markets(marketDeposit);
-    (, , , , IPriceFeed priceFeedOut) = debtManager.auditor().markets(marketBorrow);
+    uint256 decimalsIn;
+    uint256 decimalsOut;
+    IPriceFeed priceFeedIn;
+    IPriceFeed priceFeedOut;
+    Auditor auditor = debtManager.auditor();
+    (, decimalsIn, , , priceFeedIn) = auditor.markets(marketDeposit);
+    (, decimalsOut, , , priceFeedOut) = auditor.markets(marketBorrow);
 
     return
       int256(marketDeposit.maxWithdraw(account)) -
       int256(
         floatingBorrowAssets(marketBorrow, account)
-          .mulDivDown(debtManager.auditor().assetPrice(priceFeedOut), 10 ** marketBorrow.decimals())
-          .mulDivDown(10 ** marketDeposit.decimals(), debtManager.auditor().assetPrice(priceFeedIn))
+          .mulDivDown(auditor.assetPrice(priceFeedOut), 10 ** decimalsOut)
+          .mulDivDown(10 ** decimalsIn, auditor.assetPrice(priceFeedIn))
       );
   }
 
   /// @notice Returns Balancer Vault's available liquidity of each enabled underlying asset.
   function balancerAvailableLiquidity() internal view returns (AvailableAsset[] memory availableAssets) {
-    uint256 marketsCount = debtManager.auditor().allMarkets().length;
+    Auditor auditor = debtManager.auditor();
+    uint256 marketsCount = auditor.allMarkets().length;
+    address balancerVault = address(debtManager.balancerVault());
     availableAssets = new AvailableAsset[](marketsCount);
 
     for (uint256 i = 0; i < marketsCount; ) {
-      ERC20 asset = debtManager.auditor().marketList(i).asset();
-      availableAssets[i] = AvailableAsset({
-        asset: asset,
-        liquidity: asset.balanceOf(address(debtManager.balancerVault()))
-      });
+      ERC20 asset = auditor.marketList(i).asset();
+      availableAssets[i] = AvailableAsset({ asset: asset, liquidity: asset.balanceOf(balancerVault) });
       unchecked {
         ++i;
       }
@@ -496,21 +502,18 @@ contract DebtPreviewer is Initializable {
   ) external view returns (Rates memory rates) {
     (int256 principal, uint256 currentRatio, ) = previewRatio(marketDeposit, marketBorrow, account, assets, 1e18);
 
+    uint256 diff;
     uint256 utilization;
     if (principal <= 0) {
       utilization = marketBorrow.totalFloatingBorrowAssets().divWadUp(marketBorrow.totalAssets());
     } else if (targetRatio < currentRatio) {
-      uint256 depositDecrease = uint256(principal).mulWadDown(currentRatio - targetRatio);
-      utilization = (marketBorrow.totalFloatingBorrowAssets() -
-        previewAssetsOut(marketDeposit, marketBorrow, depositDecrease)).divWadUp(
-          marketBorrow.totalAssets() - (marketDeposit == marketBorrow ? depositDecrease : 0)
-        );
+      diff = uint256(principal).mulWadDown(currentRatio - targetRatio);
+      utilization = (marketBorrow.totalFloatingBorrowAssets() - previewAssetsOut(marketDeposit, marketBorrow, diff))
+        .divWadUp(marketBorrow.totalAssets() - (marketDeposit == marketBorrow ? diff : 0));
     } else {
-      uint256 depositIncrease = uint256(principal).mulWadDown(targetRatio - currentRatio);
-      utilization = (marketBorrow.totalFloatingBorrowAssets() +
-        previewAssetsOut(marketDeposit, marketBorrow, depositIncrease)).divWadUp(
-          marketBorrow.totalAssets() + (marketDeposit == marketBorrow ? depositIncrease : 0)
-        );
+      diff = uint256(principal).mulWadDown(targetRatio - currentRatio);
+      utilization = (marketBorrow.totalFloatingBorrowAssets() + previewAssetsOut(marketDeposit, marketBorrow, diff))
+        .divWadUp(marketBorrow.totalAssets() + (marketDeposit == marketBorrow ? diff : 0));
     }
     rates.borrow = marketBorrow.interestRateModel().floatingRate(utilization).mulWadDown(targetRatio - 1e18);
     rates.deposit = depositRate.mulWadDown(targetRatio);
@@ -559,8 +562,9 @@ contract DebtPreviewer is Initializable {
   function rewardRates(Market market) internal view returns (RewardRate[] memory rewards) {
     Previewer.RewardsVars memory r;
     r.controller = market.rewardsController();
+    Auditor auditor = debtManager.auditor();
     if (address(r.controller) != address(0)) {
-      (, r.underlyingDecimals, , , r.underlyingPriceFeed) = market.auditor().markets(market);
+      (, r.underlyingDecimals, , , r.underlyingPriceFeed) = auditor.markets(market);
       unchecked {
         r.underlyingBaseUnit = 10 ** r.underlyingDecimals;
       }
@@ -609,22 +613,20 @@ contract DebtPreviewer is Initializable {
           borrow: (market.totalFloatingBorrowAssets() + r.fixedDebt) > 0
             ? (r.projectedBorrowIndex - r.borrowIndex)
               .mulDivDown(market.totalFloatingBorrowShares() + market.previewRepay(r.fixedDebt), r.underlyingBaseUnit)
-              .mulWadDown(market.auditor().assetPrice(r.config.priceFeed))
+              .mulWadDown(auditor.assetPrice(r.config.priceFeed))
               .mulDivDown(
                 r.underlyingBaseUnit,
-                (market.totalFloatingBorrowAssets() + r.fixedDebt).mulWadDown(
-                  market.auditor().assetPrice(r.underlyingPriceFeed)
-                )
+                (market.totalFloatingBorrowAssets() + r.fixedDebt).mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0,
           deposit: market.totalAssets() > 0
             ? (r.projectedDepositIndex - r.depositIndex)
               .mulDivDown(market.totalSupply(), r.underlyingBaseUnit)
-              .mulWadDown(market.auditor().assetPrice(r.config.priceFeed))
+              .mulWadDown(auditor.assetPrice(r.config.priceFeed))
               .mulDivDown(
                 r.underlyingBaseUnit,
-                market.totalAssets().mulWadDown(market.auditor().assetPrice(r.underlyingPriceFeed))
+                market.totalAssets().mulWadDown(auditor.assetPrice(r.underlyingPriceFeed))
               )
               .mulDivDown(365 days, r.deltaTime)
             : 0
@@ -673,42 +675,47 @@ struct Limit {
 }
 
 struct MaxRatioVars {
-  uint256 adjustedCollateral;
+  uint256 i;
+  uint256 baseUnit;
+  uint256 marketMap;
+  uint256 principalUSD;
   uint256 adjustedDebt;
   uint256 adjustFactorIn;
   uint256 adjustFactorOut;
-  uint256 principalUSD;
-  uint256 marketMap;
-  uint256 i;
+  uint256 adjustedCollateral;
   IPriceFeed priceFeedIn;
   Market market;
 }
 
 struct MaxWithdrawVars {
+  uint256 i;
   int256 principal;
+  uint256 marketMap;
   uint256 otherDebt;
+  uint256 memAdjDebt;
+  uint256 memAdjColl;
+  uint256 memOtherDebt;
   uint256 adjustedDebt;
-  uint256 otherCollateral;
-  uint256 adjustedCollateral;
-  uint256 adjPrincipalForRepay;
-  uint256 adjustedPrincipal;
   uint256 borrowAssets;
   uint256 adjustedRepay;
-  uint256 marketMap;
   uint256 adjustFactorIn;
   uint256 adjustFactorOut;
-  uint256 memDebt;
-  uint256 memCollateral;
+  uint256 otherCollateral;
+  uint256 adjustedPrincipal;
+  uint256 memOtherCollateral;
+  uint256 adjustedCollateral;
+  uint256 adjPrincipalForRepay;
   IPriceFeed priceFeedIn;
   Auditor auditor;
   Market market;
-  uint256 i;
 }
 
 struct MinDepositVars {
+  uint256 decimalsIn;
+  uint256 decimalsOut;
   uint256 adjustFactorIn;
-  uint256 adjustFactorOut;
   IPriceFeed priceFeedIn;
+  uint256 adjustFactorOut;
   IPriceFeed priceFeedOut;
 }
 
